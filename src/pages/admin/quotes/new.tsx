@@ -981,7 +981,25 @@ function NewQuotePage() {
         }
         return quoteId;
       } else {
-        const number = newQuoteNumber();
+        // Per-tenant numbering. Pull from consume_next_document_number
+        // so the QUO- counter matches what the operator configured on
+        // /admin/company-profile. Falls back to the legacy date+random
+        // pattern only if the RPC fails outright.
+        let number: string = "";
+        try {
+          const { data: numData, error: numErr } = await (supabase as any).rpc(
+            "consume_next_document_number",
+            { p_company_id: companyId, p_document_type: "quote" },
+          );
+          if (!numErr && numData) {
+            number = numData as string;
+          }
+        } catch {
+          // fall through
+        }
+        if (!number) {
+          number = newQuoteNumber();
+        }
         const insert = {
           ...payload,
           quote_number: number,

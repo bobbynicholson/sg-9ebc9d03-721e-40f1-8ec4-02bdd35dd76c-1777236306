@@ -42,6 +42,31 @@ export const quoteService = {
   },
 
   async createQuote(quote: Quote): Promise<Quote | null> {
+    // Per-tenant numbering. Skip the RPC if the caller already supplied
+    // a quote_number (e.g. legacy QT-YYYYMMDD-XXXXXX from admin/quotes/
+    // new.tsx, or REQ- from the client portal rebook flow). Otherwise
+    // pull from consume_next_document_number so every new quote gets a
+    // sequential, configurable QUO- number that respects the company's
+    // settings.
+    if (!(quote as any).quote_number) {
+      const cid = (quote as any).company_id || (quote as any).user_id;
+      if (cid) {
+        try {
+          const { data: numData, error: numErr } = await (supabase as any).rpc(
+            "consume_next_document_number",
+            { p_company_id: cid, p_document_type: "quote" },
+          );
+          if (!numErr && numData) {
+            (quote as any).quote_number = numData as string;
+          } else if (numErr) {
+            console.warn("[quoteService.createQuote] numbering RPC failed:", numErr);
+          }
+        } catch (e) {
+          console.warn("[quoteService.createQuote] numbering RPC threw:", e);
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from("quotes")
       .insert([quote])
@@ -452,7 +477,10 @@ export const quoteService = {
       internal_notes: q.notes ?? null,
       // Lifecycle
       status: "confirmed",
-      order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
+      // order_number is assigned inside the convert_quote_to_order RPC
+      // via consume_next_document_number(company_id, 'order') so the
+      // sequence is atomic and per-tenant-configurable. Anything we
+      // pass here is ignored by the RPC.
       whatsapp_notifications_sent: [],
       xero_invoice_id: null,
       xero_synced_at: null,

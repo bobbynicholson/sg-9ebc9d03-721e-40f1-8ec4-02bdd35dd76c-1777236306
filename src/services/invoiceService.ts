@@ -315,7 +315,39 @@ export const invoiceService = {
     const vatAmount = subtotal * 0.15;
     const total = subtotal + vatAmount;
 
-    const invoiceNumber = edits?.invoiceNumber || `INV-${order.id.substring(0, 8).toUpperCase()}`;
+    // Prefer an explicit override, then any existing invoice_number on
+    // the order row. Final fallback consumes a fresh per-tenant number
+    // via the RPC instead of slicing the order UUID (collision risk).
+    let invoiceNumber: string | undefined = edits?.invoiceNumber;
+    if (!invoiceNumber) {
+      try {
+        const { data: invRow } = await supabase
+          .from("invoices")
+          .select("invoice_number")
+          .eq("order_id", order.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        invoiceNumber = (invRow as any)?.invoice_number || undefined;
+      } catch {
+        // fall through
+      }
+    }
+    if (!invoiceNumber) {
+      try {
+        const { data: numData } = await (supabase as any).rpc(
+          "consume_next_document_number",
+          { p_company_id: (order as any).company_id, p_document_type: "invoice" },
+        );
+        if (numData) invoiceNumber = numData as string;
+      } catch {
+        // fall through
+      }
+    }
+    if (!invoiceNumber) {
+      invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    }
     const invoiceDate = edits?.invoiceDate || new Date().toISOString().split("T")[0];
     const dueDate = edits?.dueDate || order.event_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       .toISOString()

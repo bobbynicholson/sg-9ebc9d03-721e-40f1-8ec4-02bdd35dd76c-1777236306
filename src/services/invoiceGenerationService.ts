@@ -215,7 +215,11 @@ export async function generateInvoiceData(
       clientAddress,
       
       orderId: orderData.id,
-      orderNumber: orderData.order_number || `ORD-${orderData.id.slice(-8)}`,
+      // Display-only fallback. The order_number column is now always
+      // populated for new orders via consume_next_document_number,
+      // so this branch only fires for legacy rows that pre-date the
+      // numbering migration.
+      orderNumber: orderData.order_number || orderData.id,
       eventDate: orderData.event_date || "",
       eventTime: orderData.event_time || "",
       venue: orderData.venue_name || "",
@@ -244,26 +248,24 @@ export async function generateInvoiceData(
 }
 
 /**
- * Get next invoice number for company
+ * Get next invoice number for company.
+ *
+ * Backed by the per-tenant company_number_settings table + the
+ * consume_next_document_number RPC, which atomically returns and
+ * advances the sequence. Auto-creates the settings row with sane
+ * defaults on first call. Falls back to a timestamp-based number
+ * only if the RPC fails outright -- never blocks invoice creation.
  */
 async function getNextInvoiceNumber(companyId: string): Promise<string> {
-  const { data: lastInvoice } = await supabase
-    .from("invoices")
-    .select("invoice_number")
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (lastInvoice?.invoice_number) {
-    const match = lastInvoice.invoice_number.match(/INV-(\d+)/);
-    if (match) {
-      const nextNum = parseInt(match[1]) + 1;
-      return `INV-${nextNum.toString().padStart(6, "0")}`;
-    }
+  const { data, error } = await (supabase as any).rpc("consume_next_document_number", {
+    p_company_id: companyId,
+    p_document_type: "invoice",
+  });
+  if (error || !data) {
+    console.error("[invoice-numbering] RPC failed, falling back:", error);
+    return `INV-${Date.now().toString().slice(-6)}`;
   }
-
-  return "INV-000001";
+  return data as string;
 }
 
 /**

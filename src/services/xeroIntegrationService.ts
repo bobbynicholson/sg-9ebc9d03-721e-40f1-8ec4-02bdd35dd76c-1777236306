@@ -121,8 +121,42 @@ export const xeroIntegrationService = {
         accountCode: "200"
       }));
 
+      // Pull the live invoice_number off the existing invoices row if
+      // we have one. Otherwise consume a fresh number from the per-
+      // tenant counter so Xero never sees a UUID-derived placeholder.
+      let xeroInvoiceNumber: string | null = null;
+      try {
+        const { data: invRow } = await supabase
+          .from("invoices")
+          .select("invoice_number")
+          .eq("order_id", orderId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if ((invRow as any)?.invoice_number) {
+          xeroInvoiceNumber = (invRow as any).invoice_number as string;
+        }
+      } catch {
+        // fall through to RPC
+      }
+      if (!xeroInvoiceNumber) {
+        try {
+          const { data: numData } = await (supabase as any).rpc(
+            "consume_next_document_number",
+            { p_company_id: (order as any).company_id, p_document_type: "invoice" },
+          );
+          if (numData) xeroInvoiceNumber = numData as string;
+        } catch (e) {
+          console.warn("[xeroIntegrationService] numbering RPC failed:", e);
+        }
+      }
+      if (!xeroInvoiceNumber) {
+        xeroInvoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+      }
+
       const xeroInvoice: XeroInvoice = {
-        invoiceNumber: `INV-${order.id.substring(0, 8).toUpperCase()}`,
+        invoiceNumber: xeroInvoiceNumber,
         date: new Date().toISOString().split("T")[0],
         dueDate: order.event_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         contact: {

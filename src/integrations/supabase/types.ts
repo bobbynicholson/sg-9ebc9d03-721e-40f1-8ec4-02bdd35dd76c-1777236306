@@ -971,6 +971,9 @@ export type Database = {
           created_at: string | null
           currency: string | null
           custom_domain: string | null
+          default_base_callout_fee: number | null
+          default_distance_rate_per_km: number | null
+          default_driver_hourly_rate: number | null
           deleted_at: string | null
           deposit_percent: number
           dispatch_settings: Json
@@ -1035,6 +1038,9 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           custom_domain?: string | null
+          default_base_callout_fee?: number | null
+          default_distance_rate_per_km?: number | null
+          default_driver_hourly_rate?: number | null
           deleted_at?: string | null
           deposit_percent?: number
           dispatch_settings?: Json
@@ -1099,6 +1105,9 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           custom_domain?: string | null
+          default_base_callout_fee?: number | null
+          default_distance_rate_per_km?: number | null
+          default_driver_hourly_rate?: number | null
           deleted_at?: string | null
           deposit_percent?: number
           dispatch_settings?: Json
@@ -1152,6 +1161,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      company_number_settings: {
+        Row: {
+          company_id: string
+          document_type: string
+          effective_from: string
+          include_year: boolean
+          last_reset_year: number | null
+          next_number: number
+          notes: string | null
+          padding: number
+          prefix: string
+          resets_yearly: boolean
+          updated_at: string
+          updated_by_user_id: string | null
+          year_separator: string
+        }
+        Insert: {
+          company_id: string
+          document_type: string
+          effective_from?: string
+          include_year?: boolean
+          last_reset_year?: number | null
+          next_number?: number
+          notes?: string | null
+          padding?: number
+          prefix?: string
+          resets_yearly?: boolean
+          updated_at?: string
+          updated_by_user_id?: string | null
+          year_separator?: string
+        }
+        Update: {
+          company_id?: string
+          document_type?: string
+          effective_from?: string
+          include_year?: boolean
+          last_reset_year?: number | null
+          next_number?: number
+          notes?: string | null
+          padding?: number
+          prefix?: string
+          resets_yearly?: boolean
+          updated_at?: string
+          updated_by_user_id?: string | null
+          year_separator?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_number_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_number_settings_audit: {
+        Row: {
+          after: Json | null
+          before: Json | null
+          changed_at: string
+          changed_by_user_id: string | null
+          company_id: string
+          document_type: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by_user_id?: string | null
+          company_id: string
+          document_type: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by_user_id?: string | null
+          company_id?: string
+          document_type?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
       }
       complaints: {
         Row: {
@@ -1720,13 +1818,18 @@ export type Database = {
           actual_start: string | null
           company_id: string
           created_at: string
+          created_by_user_id: string | null
           deleted_at: string | null
           driver_id: string
+          hours_worked: number | null
           id: string
           notes: string | null
+          order_id: string | null
           planned_end: string | null
           planned_start: string | null
+          rate_multiplier: number | null
           shift_date: string
+          source: string
           status: string
           updated_at: string
         }
@@ -1735,13 +1838,18 @@ export type Database = {
           actual_start?: string | null
           company_id: string
           created_at?: string
+          created_by_user_id?: string | null
           deleted_at?: string | null
           driver_id: string
+          hours_worked?: number | null
           id?: string
           notes?: string | null
+          order_id?: string | null
           planned_end?: string | null
           planned_start?: string | null
+          rate_multiplier?: number | null
           shift_date: string
+          source?: string
           status?: string
           updated_at?: string
         }
@@ -1750,13 +1858,18 @@ export type Database = {
           actual_start?: string | null
           company_id?: string
           created_at?: string
+          created_by_user_id?: string | null
           deleted_at?: string | null
           driver_id?: string
+          hours_worked?: number | null
           id?: string
           notes?: string | null
+          order_id?: string | null
           planned_end?: string | null
           planned_start?: string | null
+          rate_multiplier?: number | null
           shift_date?: string
+          source?: string
           status?: string
           updated_at?: string
         }
@@ -1773,6 +1886,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shifts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -3165,6 +3285,9 @@ export type Database = {
       import_rows: {
         Row: {
           created_at: string
+          dedup_decision: string | null
+          dedup_match_id: string | null
+          dedup_match_table: string | null
           error_message: string | null
           id: string
           job_id: string
@@ -3179,6 +3302,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dedup_decision?: string | null
+          dedup_match_id?: string | null
+          dedup_match_table?: string | null
           error_message?: string | null
           id?: string
           job_id: string
@@ -3193,6 +3319,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dedup_decision?: string | null
+          dedup_match_id?: string | null
+          dedup_match_table?: string | null
           error_message?: string | null
           id?: string
           job_id?: string
@@ -4096,6 +4225,7 @@ export type Database = {
           overtime_rate: number | null
           pay_type: string
           phone: string | null
+          region_id: string | null
           role_title: string | null
           shift_rate: number | null
           standard_hours_per_day: number
@@ -4123,6 +4253,7 @@ export type Database = {
           overtime_rate?: number | null
           pay_type?: string
           phone?: string | null
+          region_id?: string | null
           role_title?: string | null
           shift_rate?: number | null
           standard_hours_per_day?: number
@@ -4150,6 +4281,7 @@ export type Database = {
           overtime_rate?: number | null
           pay_type?: string
           phone?: string | null
+          region_id?: string | null
           role_title?: string | null
           shift_rate?: number | null
           standard_hours_per_day?: number
@@ -4171,6 +4303,13 @@ export type Database = {
             columns: ["linked_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_staff_members_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -5083,6 +5222,7 @@ export type Database = {
           balance_due_date: string | null
           balance_paid: boolean | null
           balance_paid_at: string | null
+          balance_transaction_id: string | null
           cancellation_reason: string | null
           cancellation_reason_category: string | null
           cancelled_at: string | null
@@ -5112,6 +5252,7 @@ export type Database = {
           deposit_paid: boolean | null
           deposit_paid_at: string | null
           deposit_percentage: number | null
+          deposit_transaction_id: string | null
           dietary_requirements: string | null
           discount_amount: number | null
           driver_acknowledged_at: string | null
@@ -5157,7 +5298,7 @@ export type Database = {
           secondary_vehicle_id: string | null
           setup_time: string | null
           special_instructions: string | null
-          status: Database["public"]["Enums"]["order_status"] | null
+          status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax: number | null
           tax_amount: number | null
@@ -5189,6 +5330,7 @@ export type Database = {
           balance_due_date?: string | null
           balance_paid?: boolean | null
           balance_paid_at?: string | null
+          balance_transaction_id?: string | null
           cancellation_reason?: string | null
           cancellation_reason_category?: string | null
           cancelled_at?: string | null
@@ -5218,6 +5360,7 @@ export type Database = {
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
           deposit_percentage?: number | null
+          deposit_transaction_id?: string | null
           dietary_requirements?: string | null
           discount_amount?: number | null
           driver_acknowledged_at?: string | null
@@ -5265,7 +5408,7 @@ export type Database = {
           secondary_vehicle_id?: string | null
           setup_time?: string | null
           special_instructions?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
+          status?: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax?: number | null
           tax_amount?: number | null
@@ -5297,6 +5440,7 @@ export type Database = {
           balance_due_date?: string | null
           balance_paid?: boolean | null
           balance_paid_at?: string | null
+          balance_transaction_id?: string | null
           cancellation_reason?: string | null
           cancellation_reason_category?: string | null
           cancelled_at?: string | null
@@ -5326,6 +5470,7 @@ export type Database = {
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
           deposit_percentage?: number | null
+          deposit_transaction_id?: string | null
           dietary_requirements?: string | null
           discount_amount?: number | null
           driver_acknowledged_at?: string | null
@@ -5373,7 +5518,7 @@ export type Database = {
           secondary_vehicle_id?: string | null
           setup_time?: string | null
           special_instructions?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
+          status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax?: number | null
           tax_amount?: number | null
@@ -5761,69 +5906,6 @@ export type Database = {
         }
         Relationships: []
       }
-      payment_schedules: {
-        Row: {
-          balance_amount: number | null
-          balance_due_date: string | null
-          balance_paid: boolean | null
-          balance_paid_at: string | null
-          balance_transaction_id: string | null
-          created_at: string | null
-          currency: string | null
-          deposit_amount: number | null
-          deposit_paid: boolean | null
-          deposit_paid_at: string | null
-          deposit_percentage: number | null
-          deposit_transaction_id: string | null
-          event_date: string | null
-          final_order_change_date: string | null
-          id: string
-          order_id: string | null
-          total_amount: number | null
-          user_id: string | null
-        }
-        Insert: {
-          balance_amount?: number | null
-          balance_due_date?: string | null
-          balance_paid?: boolean | null
-          balance_paid_at?: string | null
-          balance_transaction_id?: string | null
-          created_at?: string | null
-          currency?: string | null
-          deposit_amount?: number | null
-          deposit_paid?: boolean | null
-          deposit_paid_at?: string | null
-          deposit_percentage?: number | null
-          deposit_transaction_id?: string | null
-          event_date?: string | null
-          final_order_change_date?: string | null
-          id?: string
-          order_id?: string | null
-          total_amount?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          balance_amount?: number | null
-          balance_due_date?: string | null
-          balance_paid?: boolean | null
-          balance_paid_at?: string | null
-          balance_transaction_id?: string | null
-          created_at?: string | null
-          currency?: string | null
-          deposit_amount?: number | null
-          deposit_paid?: boolean | null
-          deposit_paid_at?: string | null
-          deposit_percentage?: number | null
-          deposit_transaction_id?: string | null
-          event_date?: string | null
-          final_order_change_date?: string | null
-          id?: string
-          order_id?: string | null
-          total_amount?: number | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       payments: {
         Row: {
           amount: number | null
@@ -5957,6 +6039,73 @@ export type Database = {
           },
         ]
       }
+      pending_reviews: {
+        Row: {
+          cancelled_at: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_user_id: string | null
+          company_id: string
+          created_at: string
+          delivered_at: string
+          due_at: string
+          id: string
+          order_id: string
+          sent_at: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          client_email?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          client_user_id?: string | null
+          company_id: string
+          created_at?: string
+          delivered_at: string
+          due_at: string
+          id?: string
+          order_id: string
+          sent_at?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          client_email?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          client_user_id?: string | null
+          company_id?: string
+          created_at?: string
+          delivered_at?: string
+          due_at?: string
+          id?: string
+          order_id?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_reviews_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pest_control_logs: {
         Row: {
           company_id: string | null
@@ -6036,6 +6185,7 @@ export type Database = {
         Row: {
           active_role: string | null
           avatar_url: string | null
+          base_callout_fee: number | null
           company_id: string | null
           company_name: string | null
           company_slug: string | null
@@ -6044,6 +6194,7 @@ export type Database = {
           date_hired: string | null
           date_of_birth: string | null
           deleted_at: string | null
+          distance_rate_per_km: number | null
           drive_time_to_kitchen_minutes: number | null
           drivers_license_expiry: string | null
           drivers_license_number: string | null
@@ -6074,6 +6225,7 @@ export type Database = {
         Insert: {
           active_role?: string | null
           avatar_url?: string | null
+          base_callout_fee?: number | null
           company_id?: string | null
           company_name?: string | null
           company_slug?: string | null
@@ -6082,6 +6234,7 @@ export type Database = {
           date_hired?: string | null
           date_of_birth?: string | null
           deleted_at?: string | null
+          distance_rate_per_km?: number | null
           drive_time_to_kitchen_minutes?: number | null
           drivers_license_expiry?: string | null
           drivers_license_number?: string | null
@@ -6112,6 +6265,7 @@ export type Database = {
         Update: {
           active_role?: string | null
           avatar_url?: string | null
+          base_callout_fee?: number | null
           company_id?: string | null
           company_name?: string | null
           company_slug?: string | null
@@ -6120,6 +6274,7 @@ export type Database = {
           date_hired?: string | null
           date_of_birth?: string | null
           deleted_at?: string | null
+          distance_rate_per_km?: number | null
           drive_time_to_kitchen_minutes?: number | null
           drivers_license_expiry?: string | null
           drivers_license_number?: string | null
@@ -6675,7 +6830,7 @@ export type Database = {
           region_id: string | null
           sent_at: string | null
           setup_time: string | null
-          status: Database["public"]["Enums"]["quote_status"] | null
+          status: Database["public"]["Enums"]["quote_status"]
           subtotal: number
           tax: number | null
           tax_amount: number | null
@@ -6726,7 +6881,7 @@ export type Database = {
           region_id?: string | null
           sent_at?: string | null
           setup_time?: string | null
-          status?: Database["public"]["Enums"]["quote_status"] | null
+          status?: Database["public"]["Enums"]["quote_status"]
           subtotal: number
           tax?: number | null
           tax_amount?: number | null
@@ -6777,7 +6932,7 @@ export type Database = {
           region_id?: string | null
           sent_at?: string | null
           setup_time?: string | null
-          status?: Database["public"]["Enums"]["quote_status"] | null
+          status?: Database["public"]["Enums"]["quote_status"]
           subtotal?: number
           tax?: number | null
           tax_amount?: number | null
@@ -8658,6 +8813,10 @@ export type Database = {
         Args: { target_company_id: string }
         Returns: boolean
       }
+      bump_number_settings_on_insert: {
+        Args: { p_company_id: string; p_doc_type: string; p_number: string }
+        Returns: undefined
+      }
       check_trial_expiry_notifications: { Args: never; Returns: undefined }
       client_order_history_count: {
         Args: { p_company_id: string; p_email: string }
@@ -8675,6 +8834,133 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: Json
+      }
+      cms_parse_doc_seq: { Args: { p_number: string }; Returns: number }
+      consume_next_document_number: {
+        Args: { p_company_id: string; p_document_type: string }
+        Returns: string
+      }
+      convert_quote_to_order: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_order_payload: Json
+          p_quote_id: string
+        }
+        Returns: {
+          amount_paid: number | null
+          assigned_at: string | null
+          assigned_chef_id: string | null
+          assigned_driver_id: string | null
+          assigned_vehicle_id: string | null
+          assignment_score: number | null
+          balance_amount: number | null
+          balance_due_date: string | null
+          balance_paid: boolean | null
+          balance_paid_at: string | null
+          balance_transaction_id: string | null
+          cancellation_reason: string | null
+          cancellation_reason_category: string | null
+          cancelled_at: string | null
+          cancelled_by_user_id: string | null
+          client_email: string | null
+          client_id: string
+          client_name: string | null
+          client_phone: string | null
+          collection_time: string | null
+          comms_paused_until: string | null
+          company_id: string
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          currency: string | null
+          deleted_at: string | null
+          delivered_at: string | null
+          delivery_distance_km: number | null
+          delivery_duration_minutes: number | null
+          delivery_fee: number | null
+          delivery_rate_per_km: number | null
+          delivery_route_optimized: boolean | null
+          delivery_status: string | null
+          delivery_time: string | null
+          delivery_total_fee: number | null
+          deposit_amount: number | null
+          deposit_paid: boolean | null
+          deposit_paid_at: string | null
+          deposit_percentage: number | null
+          deposit_transaction_id: string | null
+          dietary_requirements: string | null
+          discount_amount: number | null
+          driver_acknowledged_at: string | null
+          driver_acknowledged_via: string | null
+          driver_id: string | null
+          equipment_return_method: string | null
+          event_date: string
+          event_name: string
+          event_time: string | null
+          final_order_change_date: string | null
+          guest_count: number
+          id: string
+          import_job_id: string | null
+          imported_at: string | null
+          internal_notes: string | null
+          kitchen_instructions: string | null
+          order_number: string
+          paused_at: string | null
+          paused_by_user_id: string | null
+          paused_expected_resume_date: string | null
+          paused_from_status: Database["public"]["Enums"]["order_status"] | null
+          paused_reason: string | null
+          paused_reason_category: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          picked_up_at: string | null
+          pickup_time: string | null
+          pod_captured_at: string | null
+          pod_photo_url: string | null
+          pod_recipient_name: string | null
+          pod_signature_url: string | null
+          postponed_at: string | null
+          postponed_from_date: string | null
+          prep_started_at: string | null
+          quote_id: string | null
+          ready_at: string | null
+          region_id: string | null
+          requires_refrigeration: boolean
+          requires_two_drivers: boolean
+          requires_waiter: boolean | null
+          secondary_driver_id: string | null
+          secondary_vehicle_id: string | null
+          setup_time: string | null
+          special_instructions: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          tax: number | null
+          tax_amount: number | null
+          total_amount: number
+          updated_at: string | null
+          user_id: string | null
+          venue_address: string
+          venue_contact_person: string | null
+          venue_contact_phone: string | null
+          venue_lat: number | null
+          venue_lng: number | null
+          venue_name: string | null
+          waiter_duration_hours: number | null
+          waiter_hourly_rate: number | null
+          waiter_service_required: boolean | null
+          waiter_total_fee: number | null
+          whatsapp_notifications_sent: string[] | null
+          xero_invoice_id: string | null
+          xero_synced_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       current_company_id: { Args: never; Returns: string }
       decrement_equipment_quantity: { Args: never; Returns: undefined }
@@ -9568,6 +9854,16 @@ export type Database = {
         | "trial_expiring"
         | "subscription_renewed"
         | "payment_claimed"
+        | "amendment_requested"
+        | "cancellation_requested"
+        | "postponement_requested"
+        | "amendment_approved"
+        | "amendment_partial_approved"
+        | "amendment_rejected"
+        | "cancellation_approved"
+        | "cancellation_rejected"
+        | "postponement_approved"
+        | "postponement_rejected"
       order_status:
         | "pending"
         | "confirmed"
@@ -9589,12 +9885,7 @@ export type Database = {
         | "disputed"
         | "partial"
         | "paid"
-      quote_status:
-        | "draft"
-        | "sent"
-        | "accepted"
-        | "rejected"
-        | "expired"
+      quote_status: "draft" | "sent" | "accepted" | "rejected" | "expired"
       subscription_status:
         | "trial"
         | "active"
@@ -9809,6 +10100,16 @@ export const Constants = {
         "trial_expiring",
         "subscription_renewed",
         "payment_claimed",
+        "amendment_requested",
+        "cancellation_requested",
+        "postponement_requested",
+        "amendment_approved",
+        "amendment_partial_approved",
+        "amendment_rejected",
+        "cancellation_approved",
+        "cancellation_rejected",
+        "postponement_approved",
+        "postponement_rejected",
       ],
       order_status: [
         "pending",
@@ -9833,13 +10134,7 @@ export const Constants = {
         "partial",
         "paid",
       ],
-      quote_status: [
-        "draft",
-        "sent",
-        "accepted",
-        "rejected",
-        "expired",
-      ],
+      quote_status: ["draft", "sent", "accepted", "rejected", "expired"],
       subscription_status: [
         "trial",
         "active",

@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import {
   Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette,
   Save, Loader2, ShieldCheck, ExternalLink, Sparkles, ArrowRight,
-  Landmark,
+  Landmark, Hash,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -484,6 +484,14 @@ function CompanyProfilePage() {
             </CardContent>
           </Card>
 
+          {/* Document numbering -- per-tenant invoice / quote / order
+              counters. Backed by company_number_settings + the
+              consume_next_document_number RPC. Owners migrating from
+              another tool can dial in their carry-over starting number
+              here so the next document picks up where the old system
+              left off. */}
+          <DocumentNumberingCard companyId={row.id} />
+
           {/* Brand colours -- managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
           <Card className="border-0 shadow-lg mb-6">
@@ -537,6 +545,302 @@ function Field({ id, label, hint, children }: any) {
       <div className="mt-1">{children}</div>
       {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
     </div>
+  );
+}
+
+// ── Document numbering card ─────────────────────────────────────────
+//
+// One collapsible block per doc type (invoice, quote, order). Each
+// block POSTs to /api/admin/numbering-settings with the validated
+// payload. Live preview shows the next 3 numbers as the operator
+// types so they can sanity-check the format before saving.
+
+type DocType = "invoice" | "quote" | "order";
+
+interface NumberingSettingRow {
+  company_id: string;
+  document_type: DocType;
+  prefix: string;
+  padding: number;
+  include_year: boolean;
+  year_separator: "-" | "/";
+  resets_yearly: boolean;
+  next_number: number;
+  effective_from: string;
+  notes: string | null;
+}
+
+interface NumberingStats {
+  highest: number;
+  sample: string | null;
+}
+
+const DOC_TYPE_META: Record<DocType, { label: string; description: string; defaultPrefix: string }> = {
+  invoice: {
+    label: "Invoices",
+    description: "Tax invoices and proforma invoices issued to clients.",
+    defaultPrefix: "INV-",
+  },
+  quote: {
+    label: "Quotes",
+    description: "Quotes sent to clients before they accept.",
+    defaultPrefix: "QUO-",
+  },
+  order: {
+    label: "Orders",
+    description: "Internal order records once a quote is accepted.",
+    defaultPrefix: "ORD-",
+  },
+};
+
+function previewNumber(s: NumberingSettingRow, offset: number): string {
+  const seq = s.next_number + offset;
+  const year = new Date().getFullYear();
+  const pad = Math.max(3, Math.min(10, s.padding || 6));
+  const padded = String(seq).padStart(pad, "0");
+  return `${s.prefix || ""}${s.include_year ? `${year}${s.year_separator}` : ""}${padded}`;
+}
+
+function DocumentNumberingCard({ companyId }: { companyId: string }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<Record<DocType, NumberingSettingRow | null>>({
+    invoice: null, quote: null, order: null,
+  });
+  const [stats, setStats] = useState<Record<DocType, NumberingStats>>({
+    invoice: { highest: 0, sample: null },
+    quote: { highest: 0, sample: null },
+    order: { highest: 0, sample: null },
+  });
+  const [savingType, setSavingType] = useState<DocType | null>(null);
+  const [openType, setOpenType] = useState<DocType | null>("invoice");
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/admin/numbering-settings", { method: "GET" });
+        const j = await r.json();
+        if (cancelled) return;
+        if (!r.ok) throw new Error(j?.error || "Failed to load");
+        const map: Record<DocType, NumberingSettingRow | null> = {
+          invoice: null, quote: null, order: null,
+        };
+        for (const row of (j.settings || []) as NumberingSettingRow[]) {
+          map[row.document_type] = row;
+        }
+        setRows(map);
+        setStats(j.stats || {
+          invoice: { highest: 0, sample: null },
+          quote: { highest: 0, sample: null },
+          order: { highest: 0, sample: null },
+        });
+      } catch (e: any) {
+        toast({ title: "Couldn't load numbering settings", description: e?.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  const updateRow = (t: DocType, patch: Partial<NumberingSettingRow>) => {
+    setRows((prev) => {
+      const cur = prev[t] || {
+        company_id: companyId,
+        document_type: t,
+        prefix: DOC_TYPE_META[t].defaultPrefix,
+        padding: 6,
+        include_year: false,
+        year_separator: "-",
+        resets_yearly: false,
+        next_number: 1,
+        effective_from: new Date().toISOString().slice(0, 10),
+        notes: null,
+      };
+      return { ...prev, [t]: { ...cur, ...patch } };
+    });
+  };
+
+  const save = async (t: DocType) => {
+    const row = rows[t];
+    if (!row) return;
+    setSavingType(t);
+    try {
+      const r = await fetch("/api/admin/numbering-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(row),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        throw new Error(j?.error || `HTTP ${r.status}`);
+      }
+      toast({ title: `${DOC_TYPE_META[t].label} numbering saved`, description: `Next number: ${previewNumber(j.after, 0)}` });
+      setRows((prev) => ({ ...prev, [t]: j.after }));
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setSavingType(null);
+    }
+  };
+
+  return (
+    <Card className="border-0 shadow-lg mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Hash className="w-5 h-5 text-indigo-600" />
+          Document numbering
+          <InfoTooltip content={"Per-tenant counters for the invoice, quote, and order numbers your clients see.\n\nMigrating from another tool? Set the starting number to whatever comes next in the old sequence and the platform will pick up from there.\n\nValidation blocks regressing past numbers you've already issued, so you can't accidentally re-use a live invoice number."} />
+        </CardTitle>
+        <CardDescription>
+          Configure how invoices, quotes, and orders are numbered for {""}
+          {DOC_TYPE_META.invoice.label.toLowerCase()}, quotes, and orders.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading numbering settings...
+          </div>
+        ) : (
+          (Object.keys(DOC_TYPE_META) as DocType[]).map((t) => {
+            const meta = DOC_TYPE_META[t];
+            const row = rows[t];
+            const stat = stats[t];
+            const open = openType === t;
+            return (
+              <div key={t} className="border border-slate-200 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                  onClick={() => setOpenType(open ? null : t)}
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
+                    <p className="text-xs text-slate-500">
+                      {row ? `Next: ${previewNumber(row, 0)}` : meta.description}
+                      {stat.highest > 0 && ` · Highest issued: ${stat.sample || stat.highest}`}
+                    </p>
+                  </div>
+                  <ArrowRight className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+                </button>
+
+                {open && row && (
+                  <div className="p-4 space-y-3 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Field id={`prefix-${t}`} label="Prefix" hint="Up to 16 characters. Letters, digits, hyphens, slashes, dots.">
+                        <Input
+                          id={`prefix-${t}`}
+                          value={row.prefix}
+                          maxLength={16}
+                          onChange={(e) => updateRow(t, { prefix: e.target.value })}
+                        />
+                      </Field>
+                      <Field id={`pad-${t}`} label="Pad to digits" hint="3-10. INV-001 (3) vs INV-000001 (6).">
+                        <Input
+                          id={`pad-${t}`}
+                          type="number"
+                          min={3}
+                          max={10}
+                          value={row.padding}
+                          onChange={(e) => updateRow(t, { padding: Math.max(3, Math.min(10, parseInt(e.target.value, 10) || 6)) })}
+                        />
+                      </Field>
+                      <div className="md:col-span-2">
+                        <label className="flex items-start gap-3 px-3 py-2 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={row.include_year}
+                            onChange={(e) => updateRow(t, { include_year: e.target.checked, resets_yearly: e.target.checked ? row.resets_yearly : false })}
+                            className="mt-0.5 w-4 h-4"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900">Include year</p>
+                            <p className="text-xs text-slate-500">Adds the calendar year between the prefix and the sequence, e.g. INV-2026-000123.</p>
+                          </div>
+                        </label>
+                      </div>
+                      {row.include_year && (
+                        <>
+                          <Field id={`sep-${t}`} label="Year separator">
+                            <select
+                              id={`sep-${t}`}
+                              className="w-full h-9 rounded-md border border-slate-200 px-2 bg-white text-sm"
+                              value={row.year_separator}
+                              onChange={(e) => updateRow(t, { year_separator: (e.target.value === "/" ? "/" : "-") })}
+                            >
+                              <option value="-">- (hyphen, e.g. INV-2026-000001)</option>
+                              <option value="/">/ (slash, e.g. INV-2026/000001)</option>
+                            </select>
+                          </Field>
+                          <div>
+                            <label className="flex items-start gap-3 px-3 py-2 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={row.resets_yearly}
+                                onChange={(e) => updateRow(t, { resets_yearly: e.target.checked })}
+                                className="mt-0.5 w-4 h-4"
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900">Reset annually</p>
+                                <p className="text-xs text-slate-500">Sequence kicks back to 1 on 1 January.</p>
+                              </div>
+                            </label>
+                          </div>
+                        </>
+                      )}
+                      <Field id={`next-${t}`} label="Next number" hint={stat.highest > 0 ? `You've already issued up to ${stat.sample || stat.highest}. Must be at least ${stat.highest + 1}.` : "The number that will be issued next."}>
+                        <Input
+                          id={`next-${t}`}
+                          type="number"
+                          min={1}
+                          value={row.next_number}
+                          onChange={(e) => updateRow(t, { next_number: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                        />
+                      </Field>
+                      <Field id={`eff-${t}`} label="Effective from">
+                        <Input
+                          id={`eff-${t}`}
+                          type="date"
+                          value={row.effective_from}
+                          onChange={(e) => updateRow(t, { effective_from: e.target.value })}
+                        />
+                      </Field>
+                      <Field id={`notes-${t}`} label="Notes (internal)">
+                        <Input
+                          id={`notes-${t}`}
+                          value={row.notes || ""}
+                          onChange={(e) => updateRow(t, { notes: e.target.value })}
+                          placeholder="e.g. Carried over from QuickBooks on 2026-05-06"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="rounded-md border border-indigo-100 bg-indigo-50 p-3">
+                      <p className="text-xs font-semibold text-indigo-900 mb-1">Live preview</p>
+                      <div className="flex flex-wrap gap-2 text-xs font-mono text-indigo-900">
+                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 0)}</span>
+                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 1)}</span>
+                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 2)}</span>
+                      </div>
+                    </div>
+
+                    <Button onClick={() => save(t)} disabled={savingType === t} className="gap-2">
+                      {savingType === t ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Save {meta.label.toLowerCase()} numbering
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
