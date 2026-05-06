@@ -111,6 +111,49 @@ export async function getResendDomain(
   });
 }
 
+/**
+ * List every domain registered under our Resend account.
+ *
+ * Used when createResendDomain returns "already registered" -- we look
+ * up the existing record by name and reuse its DNS records rather than
+ * making the operator re-register a domain that's already there. This
+ * happens when an earlier test left a domain in Resend but the local
+ * email_provider_settings row got cleaned up.
+ */
+export async function listResendDomains(): Promise<
+  ResendDomain[] | ResendDomainError
+> {
+  const result = await resendFetch(`/domains`, { method: "GET" });
+  if (isResendError(result)) return result;
+  // Resend returns either { data: [...] } or a bare array depending on
+  // version. Normalise.
+  const list = Array.isArray(result) ? result : (result as any)?.data;
+  if (!Array.isArray(list)) {
+    return {
+      error: "Unexpected response from Resend listing domains.",
+      status: 0,
+    } satisfies ResendDomainError;
+  }
+  return list as ResendDomain[];
+}
+
+/**
+ * Detect Resend's "already registered" error. Resend's exact wording
+ * has shifted over time so we match the common phrases rather than
+ * the error code, which has changed too.
+ */
+export function isAlreadyRegisteredError(
+  err: ResendDomainError | null | undefined,
+): boolean {
+  if (!err || !err.error) return false;
+  const msg = err.error.toLowerCase();
+  return (
+    msg.includes("already registered") ||
+    msg.includes("already exists") ||
+    msg.includes("domain has been registered")
+  );
+}
+
 export async function deleteResendDomain(
   domainId: string,
 ): Promise<{ deleted: boolean } | ResendDomainError> {

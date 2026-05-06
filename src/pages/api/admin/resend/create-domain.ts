@@ -17,7 +17,10 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   createResendDomain,
   deleteResendDomain,
+  getResendDomain,
+  isAlreadyRegisteredError,
   isResendError,
+  listResendDomains,
   normaliseDomain,
 } from "@/lib/resendDomains";
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -110,8 +113,34 @@ export default async function handler(
       }
     }
 
-    const created = await createResendDomain(domain);
-    if (isResendError(created)) {
+    let created: any = await createResendDomain(domain);
+
+    // Recovery path: Resend says the domain already exists in our
+    // account but our DB has no row pointing to it (probably wiped
+    // during an earlier test). Find it by name and adopt the
+    // existing record set so the operator gets the DNS table back.
+    if (isResendError(created) && isAlreadyRegisteredError(created)) {
+      const list = await listResendDomains();
+      if (isResendError(list)) {
+        return res.status(502).json({ error: list.error });
+      }
+      const match = (list as any[]).find(
+        (d: any) => String(d?.name || "").toLowerCase() === domain,
+      );
+      if (!match?.id) {
+        return res.status(502).json({
+          error:
+            "Resend reports the domain is registered but we couldn't find it under this account. Contact support.",
+        });
+      }
+      // Fetch the full domain record (the list endpoint sometimes
+      // omits records, the get endpoint always returns them).
+      const fetched = await getResendDomain(match.id);
+      if (isResendError(fetched)) {
+        return res.status(502).json({ error: fetched.error });
+      }
+      created = fetched;
+    } else if (isResendError(created)) {
       return res
         .status(created.status && created.status >= 400 ? created.status : 502)
         .json({ error: created.error });
