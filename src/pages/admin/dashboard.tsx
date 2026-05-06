@@ -221,12 +221,13 @@ function AdminDashboardPage() {
         .sort((a, b) => b[1] - a[1])[0]?.[0]
         ?.replace(/_/g, " ") || "-";
 
+      // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
       const { data: refundRows } = await supabase
         .from("payments")
-        .select("amount, status")
+        .select("amount, payment_status")
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
-        .neq("status", "completed");
+        .neq("payment_status", "completed");
       const refundsOutstandingCount = (refundRows || []).length;
       const refundsOutstandingValue = (refundRows || []).reduce(
         (sum: number, r: any) => sum + (Number(r.amount) || 0),

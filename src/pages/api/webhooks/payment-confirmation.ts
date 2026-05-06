@@ -91,8 +91,7 @@ export default async function handler(
         const invoiceData = invoice as any;
         const companyData = invoiceData.companies;
 
-        // Two columns until Phase 2 consolidation: write `payment_status`
-        // (canonical enum) and mirror `status` as the same string.
+        // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
         await supabase.from("payments").insert([{
           company_id: companyId,
           client_id: invoiceData.client_id,
@@ -106,7 +105,6 @@ export default async function handler(
           gateway_transaction_id: pf_payment_id,
           transaction_id: pf_payment_id,
           payment_status: "completed",
-          status: "completed",
           completed_at: new Date().toISOString()
         }]);
 

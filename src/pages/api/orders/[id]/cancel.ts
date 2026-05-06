@@ -158,6 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Refund record. Only inserted when there's something to refund.
+    // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
     let refundPaymentId: string | null = null;
     if (refund_final > 0) {
       const { data: payRow, error: payErr } = await ssr
@@ -167,7 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           order_id: orderId,
           payment_type: "refund",
           amount: refund_final,
-          status: "pending",
+          payment_status: "pending",
           reason: `Cancellation refund (${snap.tier_label || "tier"}, ${snap.refund_pct ?? 0}% of paid)`,
           created_by_user_id: user.id,
           cancellation_request_id: (requestRow as any)?.id || null,

@@ -184,7 +184,7 @@ export async function processRefund(
   const { data: refundRow, error: refundErr } = await admin
     .from("payments")
     .select(
-      "id, company_id, order_id, amount, payment_type, status, payment_status, gateway, gateway_provider, cancellation_request_id, reason",
+      "id, company_id, order_id, amount, payment_type, payment_status, gateway, gateway_provider, cancellation_request_id, reason",
     )
     .eq("id", refundPaymentId)
     .maybeSingle();
@@ -203,9 +203,9 @@ export async function processRefund(
     };
   }
 
-  // Idempotency guard. payment_status is the canonical enum column;
-  // the text `status` mirror is kept as a write fallback only.
-  const currentStatus = String(refundRow.payment_status || refundRow.status || "");
+  // Idempotency guard. payment_status is the canonical enum column.
+  // Phase 4B dropped the legacy text `status` mirror.
+  const currentStatus = String(refundRow.payment_status || "");
   if (currentStatus === "completed") {
     return {
       status: "already_completed",
@@ -226,7 +226,7 @@ export async function processRefund(
   const { data: parents, error: parErr } = await admin
     .from("payments")
     .select(
-      "id, amount, gateway, gateway_provider, gateway_transaction_id, transaction_id, payment_reference, payment_method, payment_type, status, payment_status, processed_at, created_at",
+      "id, amount, gateway, gateway_provider, gateway_transaction_id, transaction_id, payment_reference, payment_method, payment_type, payment_status, processed_at, created_at",
     )
     .eq("order_id", refundRow.order_id)
     .neq("payment_type", "refund")
@@ -243,7 +243,7 @@ export async function processRefund(
   // capture was via PayFast and we can extract a pf_payment_id. Anything
   // else (EFT/cash/manual or no parent) falls back to pending-manual.
   const settledParents = (parents || []).filter((p: any) => {
-    const s = String(p.payment_status || p.status || "").toLowerCase();
+    const s = String(p.payment_status || "").toLowerCase();
     return s === "completed" || s === "succeeded" || s === "paid";
   });
   const payFastParent = settledParents.find(
@@ -335,11 +335,11 @@ export async function processRefund(
   }
 
   // 5) Success -- mark the refund row completed and stamp the gateway.
+  // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
   const nowIso = new Date().toISOString();
   const { error: updErr } = await admin
     .from("payments")
     .update({
-      status: "completed",
       payment_status: "completed",
       processed_at: nowIso,
       gateway: "payfast",

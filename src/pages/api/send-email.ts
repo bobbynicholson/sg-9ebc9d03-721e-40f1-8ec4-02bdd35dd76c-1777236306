@@ -25,6 +25,14 @@ export default async function handler(
       // quote-recipient clients expect the document inline so they
       // can save / forward without clicking through.
       attachQuotePdf,
+      // Optional, server-rendered Invoice PDF attachment. Symmetric
+      // to attachQuotePdf -- caller passes attachInvoicePdf=true and
+      // an invoiceId. Route hydrates the InvoicePdfData from the
+      // invoices + orders + clients + companies tables (SSR client +
+      // RLS) and renders a Buffer that gets handed to emailService.
+      // Render failure is non-blocking; email still goes out.
+      attachInvoicePdf,
+      invoiceId,
       // Optional, pre-rendered attachments. content is base64 over
       // the wire; emailService converts back to Buffer for nodemailer.
       attachments: attachmentsRaw,
@@ -186,11 +194,12 @@ export default async function handler(
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, status,
               delivery_fee, delivery_distance_km,
-              valid_until, accepted_at,
+              valid_until, accepted_at, updated_at,
               company:company_id (
                 company_name, logo_url, email, phone,
                 address_line1, address_line2, city,
-                primary_color, vat_registered, vat_number, vat_rate
+                primary_color, vat_registered, vat_number, vat_rate,
+                updated_at
               )
             `)
             .eq("id", quoteId)
@@ -199,30 +208,39 @@ export default async function handler(
 
           if (q) {
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
-            const pdfBuffer = await renderQuotePdf({
-              quote_number: (q as any).quote_number,
-              quote_name: (q as any).quote_name,
-              client_name: (q as any).client_name,
-              event_date: (q as any).event_date,
-              event_time: (q as any).event_time,
-              setup_time: (q as any).setup_time,
-              guest_count: (q as any).guest_count,
-              venue_address: (q as any).venue_address,
-              menu_items: (q as any).menu_items,
-              equipment_items: (q as any).equipment_items,
-              subtotal: (q as any).subtotal,
-              delivery_fee: (q as any).delivery_fee,
-              delivery_distance_km: (q as any).delivery_distance_km,
-              discount_amount: (q as any).discount_amount,
-              tax_amount: (q as any).tax_amount,
-              total: Number((q as any).total ?? (q as any).total_amount ?? 0),
-              valid_until: (q as any).valid_until,
-              terms_and_conditions: (q as any).terms_and_conditions,
-              notes: (q as any).notes,
-              status: (q as any).status,
-              accepted_at: (q as any).accepted_at,
-              company: (q as any).company || {},
-            });
+            const pdfBuffer = await renderQuotePdf(
+              {
+                quote_number: (q as any).quote_number,
+                quote_name: (q as any).quote_name,
+                client_name: (q as any).client_name,
+                event_date: (q as any).event_date,
+                event_time: (q as any).event_time,
+                setup_time: (q as any).setup_time,
+                guest_count: (q as any).guest_count,
+                venue_address: (q as any).venue_address,
+                menu_items: (q as any).menu_items,
+                equipment_items: (q as any).equipment_items,
+                subtotal: (q as any).subtotal,
+                delivery_fee: (q as any).delivery_fee,
+                delivery_distance_km: (q as any).delivery_distance_km,
+                discount_amount: (q as any).discount_amount,
+                tax_amount: (q as any).tax_amount,
+                total: Number((q as any).total ?? (q as any).total_amount ?? 0),
+                valid_until: (q as any).valid_until,
+                terms_and_conditions: (q as any).terms_and_conditions,
+                notes: (q as any).notes,
+                status: (q as any).status,
+                accepted_at: (q as any).accepted_at,
+                company: (q as any).company || {},
+              },
+              {
+                cacheKey: {
+                  quoteId,
+                  quoteUpdatedAt: (q as any).updated_at ?? null,
+                  companyUpdatedAt: (q as any).company?.updated_at ?? null,
+                },
+              },
+            );
             const filename = `Quote-${sanitiseFilename((q as any).quote_number || quoteId)}.pdf`;
             attachments.push({
               filename,
@@ -238,6 +256,137 @@ export default async function handler(
           // ops sees the warning and can investigate the
           // @react-pdf/renderer install / data shape.
           console.warn("[send-email] quote PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
+        }
+      }
+
+      // Server-side Invoice PDF render. Mirrors attachQuotePdf above:
+      // caller flips attachInvoicePdf=true + provides invoiceId, route
+      // hydrates the InvoicePdfData via SSR client (RLS-scoped) and
+      // attaches Invoice-{invoice_number}.pdf. Render failure stays
+      // non-blocking so the recipient still gets the email body +
+      // payment link even if the PDF pipeline trips.
+      if (attachInvoicePdf && invoiceId) {
+        try {
+          const ssr = createPagesServerClient({ req, res });
+          const { data: inv } = await ssr
+            .from("invoices")
+            .select(`
+              id, invoice_number, invoice_date, due_date, status,
+              subtotal, tax_amount, total_amount, amount_paid, balance_due,
+              notes, invoice_data, updated_at,
+              client:client_id (
+                client_name, email, phone,
+                billing_address_line1, billing_address_line2,
+                billing_city, billing_postal_code
+              ),
+              order:order_id (
+                id, order_number, event_name, event_date, updated_at
+              ),
+              company:company_id (
+                company_name, legal_name, logo_url, email, phone,
+                address_line1, address_line2, city, state_province,
+                postal_code, country, primary_color,
+                vat_registered, vat_number, vat_rate,
+                registration_number, tax_number,
+                payment_terms,
+                updated_at
+              )
+            `)
+            .eq("id", invoiceId)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (inv) {
+            const invAny = inv as any;
+            const client = invAny.client || {};
+            const order = invAny.order || {};
+            const company = invAny.company || {};
+            const stashed = invAny.invoice_data || {};
+
+            // InvoiceDocument expects a single client.address string.
+            // Flatten the billing_* columns here so the document layer
+            // stays decoupled from the client schema.
+            const clientAddress = [
+              client.billing_address_line1,
+              client.billing_address_line2,
+              client.billing_city,
+              client.billing_postal_code,
+            ]
+              .filter(Boolean)
+              .join(", ") || null;
+
+            const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
+            const pdfBuffer = await renderInvoicePdf(
+              {
+                invoice_number: invAny.invoice_number,
+                invoice_date: invAny.invoice_date,
+                due_date: invAny.due_date,
+                status: invAny.status,
+                client: {
+                  name: client.client_name || stashed.clientName || "",
+                  email: client.email || null,
+                  phone: client.phone || null,
+                  address: clientAddress,
+                },
+                order_number: order.order_number || stashed.orderNumber || null,
+                event_name: order.event_name || null,
+                event_date: order.event_date || null,
+                line_items: Array.isArray(stashed.items)
+                  ? stashed.items.map((it: any) => ({
+                      name: it?.description || "Item",
+                      description: null,
+                      quantity: it?.quantity ?? null,
+                      unit_price: it?.unitPrice ?? null,
+                      total: it?.total ?? null,
+                    }))
+                  : [],
+                subtotal: invAny.subtotal,
+                tax_amount: invAny.tax_amount,
+                total_amount: Number(invAny.total_amount ?? 0),
+                amount_paid: invAny.amount_paid,
+                balance_due: invAny.balance_due,
+                notes: invAny.notes || stashed.notes || null,
+                payment_terms: stashed.paymentTerms || company.payment_terms || null,
+                company: {
+                  company_name: company.company_name,
+                  legal_name: company.legal_name,
+                  logo_url: company.logo_url,
+                  email: company.email,
+                  phone: company.phone,
+                  address_line1: company.address_line1,
+                  address_line2: company.address_line2,
+                  city: company.city,
+                  state_province: company.state_province,
+                  postal_code: company.postal_code,
+                  country: company.country,
+                  primary_color: company.primary_color,
+                  vat_registered: company.vat_registered,
+                  vat_number: company.vat_number,
+                  vat_rate: company.vat_rate,
+                  registration_number: company.registration_number,
+                  tax_number: company.tax_number,
+                },
+              },
+              {
+                cacheKey: {
+                  invoiceId,
+                  invoiceUpdatedAt: invAny.updated_at ?? null,
+                  orderUpdatedAt: order.updated_at ?? null,
+                  companyUpdatedAt: company.updated_at ?? null,
+                },
+              },
+            );
+            const filename = `Invoice-${sanitiseFilename(invAny.invoice_number || invoiceId)}.pdf`;
+            attachments.push({
+              filename,
+              content: pdfBuffer,
+              contentType: "application/pdf",
+            });
+          } else {
+            console.warn(`[send-email] attachInvoicePdf=true but invoice ${invoiceId} not readable`);
+          }
+        } catch (pdfErr: any) {
+          console.warn("[send-email] invoice PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
         }
       }
 

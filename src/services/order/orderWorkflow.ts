@@ -4,6 +4,7 @@ import { emailService } from "@/services/emailService";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { resolveEmailTemplate } from "@/services/email/templateResolver";
 
 /**
  * Order Workflow Management
@@ -861,13 +862,25 @@ async function sendStatusNotifications(order: any) {
   }
 
   // 2. Customer-facing email. Skip if quarantined or no email on file.
+  // Each status routes through the centralised resolver -- tenant
+  // override beats global default beats the inline fallback. The
+  // hardcoded fallback strings here are also the source for the seed
+  // migration so what an operator first sees in the editor matches
+  // what their clients have been receiving.
   if (!isCommsPaused && order.client_email && order.user_id) {
-    const customerEmailFor: Record<string, { subject: string; body: string } | null> = {
+    type StatusFallback = {
+      templateType: string;
+      subject: string;
+      body: string;
+    } | null;
+    const etaSentence = buildEtaSentence(order);
+    const customerEmailFor: Record<string, StatusFallback> = {
       confirmed: {
+        templateType: "order_confirmed",
         subject: `Order confirmed -- ${orderNumber}`,
         body:
-          `Hi ${clientFirstName},\n\n` +
-          `Your order ${orderNumber}${eventDateLabel ? ` for ${eventDateLabel}` : ""} is confirmed. ` +
+          `Hi {{first_name}},\n\n` +
+          `Your order {{order_number}}{{event_date_phrase}} is confirmed. ` +
           `We'll be in touch closer to the day with the final headcount and any last tweaks.\n\n` +
           `Thanks for booking with us.`,
       },
@@ -875,34 +888,37 @@ async function sendStatusNotifications(order: any) {
       // client. Short, reassuring copy so the inbox doesn't get noisy
       // but the client knows the kitchen is moving.
       preparing: {
-        subject: `We're prepping your ${eventName} order`,
+        templateType: "order_preparing",
+        subject: `We're prepping your {{event_name}} order`,
         body:
-          `Hi ${clientFirstName},\n\n` +
-          `${tenantName} has started prep${eventDateLabel ? ` for your ${eventDateLabel} event` : ""}. ` +
+          `Hi {{first_name}},\n\n` +
+          `{{tenant_name}} has started prep{{event_date_phrase}}. ` +
           `We'll let you know when it's on the way.\n\n` +
-          `Thanks,\n${tenantName}`,
+          `Thanks,\n{{tenant_name}}`,
       },
       ready: {
-        subject: `Your ${eventName} order is ready`,
+        templateType: "order_ready",
+        subject: `Your {{event_name}} order is ready`,
         body:
-          `Hi ${clientFirstName},\n\n` +
-          `${tenantName} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.\n\n` +
-          `Thanks,\n${tenantName}`,
+          `Hi {{first_name}},\n\n` +
+          `{{tenant_name}} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.\n\n` +
+          `Thanks,\n{{tenant_name}}`,
       },
       in_transit: {
-        subject: `On the way -- ${orderNumber}`,
+        templateType: "order_in_transit",
+        subject: `On the way -- {{order_number}}`,
         body:
-          `Hi ${clientFirstName},\n\n` +
-          `Good news -- your order ${orderNumber} has just left the kitchen and is on its way` +
-          `${venueShort ? ` to ${venueShort}` : ""}. ` +
-          buildEtaSentence(order) +
+          `Hi {{first_name}},\n\n` +
+          `Good news -- your order {{order_number}} has just left the kitchen and is on its way{{venue_phrase}}. ` +
+          `{{eta_sentence}}` +
           `\n\nReply to this email if anything changes on your side.`,
       },
       delivered: {
-        subject: `Delivered -- ${orderNumber}`,
+        templateType: "order_delivered",
+        subject: `Delivered -- {{order_number}}`,
         body:
-          `Hi ${clientFirstName},\n\n` +
-          `Your order ${orderNumber} has been delivered. We hope it lands the way you hoped!\n\n` +
+          `Hi {{first_name}},\n\n` +
+          `Your order {{order_number}} has been delivered. We hope it lands the way you hoped!\n\n` +
           `If anything wasn't quite right, please reply -- we read every email and we'd rather hear it.`,
       },
       completed: null,
@@ -914,11 +930,29 @@ async function sendStatusNotifications(order: any) {
     const tpl = customerEmailFor[status];
     if (tpl) {
       try {
+        const variables: Record<string, string> = {
+          first_name: clientFirstName,
+          client_first_name: clientFirstName,
+          order_number: orderNumber,
+          event_name: eventName,
+          tenant_name: tenantName,
+          event_date_label: eventDateLabel,
+          event_date_phrase: eventDateLabel ? ` for ${eventDateLabel}` : "",
+          venue_phrase: venueShort ? ` to ${venueShort}` : "",
+          venue_short: venueShort,
+          eta_sentence: etaSentence,
+        };
+        const resolved = await resolveEmailTemplate({
+          companyId: order.company_id || order.user_id,
+          templateType: tpl.templateType,
+          variables,
+          fallback: { subject: tpl.subject, bodyHtml: tpl.body },
+        });
         await emailService.sendEmail({
           companyId: order.user_id,
           to: order.client_email,
-          subject: tpl.subject,
-          body: tpl.body,
+          subject: resolved.subject,
+          body: resolved.bodyHtml,
         });
       } catch (e) {
         console.warn("[sendStatusNotifications] customer email failed:", e);

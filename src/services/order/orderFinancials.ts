@@ -53,11 +53,7 @@ export async function recordPayment(
   try {
     const nowIso = new Date().toISOString();
 
-    // Two columns until Phase 2 consolidation: `payment_status` is the
-    // canonical enum (matches verify-claim, EFT and refund flows);
-    // `status` is a legacy text mirror still read by older webhooks and
-    // the order-finance summaries. Mirror status = payment_status::text
-    // so both sides agree until the column is dropped.
+    // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
     const insertRow: Record<string, any> = {
       order_id: orderId,
       amount,
@@ -65,7 +61,6 @@ export async function recordPayment(
       gateway_transaction_id: transactionId,
       transaction_id: transactionId,
       payment_status: "completed",
-      status: "completed",
       processed_at: nowIso,
       completed_at: nowIso,
       created_at: nowIso,
@@ -109,7 +104,7 @@ export async function updateOrderPaymentStatus(orderId: string) {
       .eq("id", orderId)
       .single();
 
-    // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
+    // Reads payment_status (canonical enum). Phase 4B dropped the legacy text column.
     const { data: payments } = await supabase
       .from("payments")
       .select("amount")

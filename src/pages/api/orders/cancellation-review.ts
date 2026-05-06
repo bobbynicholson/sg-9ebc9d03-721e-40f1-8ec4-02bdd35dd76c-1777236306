@@ -226,12 +226,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let refundPaymentId: string | null = null;
     let refundStatus: "auto_processed" | "pending_manual" | "auto_failed" | null = null;
     if (refund_final > 0) {
+      // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
       const { data: payRow } = await ssr.from("payments").insert({
         company_id: (request as any).company_id,
         order_id: (request as any).order_id,
         payment_type: "refund",
         amount: refund_final,
-        status: "pending",
+        payment_status: "pending",
         reason: `Cancellation refund (client-requested, ${snap.refund_pct ?? 0}% of paid)`,
         created_by_user_id: user.id,
         cancellation_request_id: request_id,

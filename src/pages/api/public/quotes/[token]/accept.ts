@@ -160,30 +160,50 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
   }
 
   // 2. Confirmation email. Mirrors the on-page timeline copy so the
-  // story stays consistent across channels.
+  // story stays consistent across channels. Subject + body resolve
+  // through the centralised resolver -- tenant override beats global
+  // default beats the inline fallback. Service-role client passed so
+  // the resolver can read the global-default row even though there is
+  // no authenticated user on this public endpoint.
   try {
     if (quote.client_email) {
       const { emailService } = await import("@/services/emailService");
+      const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
+
+      const fallbackBody =
+        `Hi {{first_name}},\n\n` +
+        `Thanks for accepting your {{event_name}} quote -- you're booked in.\n\n` +
+        `Here's what happens from here:\n\n` +
+        `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
+        `2. Deposit invoice: {{tenant_name}} will send the deposit invoice shortly to lock in your event date.\n` +
+        `3. Event day{{event_day_suffix}}: we'll be in touch the week before with final headcount and any last tweaks.\n\n` +
+        `If anything has changed on your side, just reply to this email and we'll sort it.\n\n` +
+        `Looking forward to it,\n{{tenant_name}}`;
+
+      const resolved = await resolveEmailTemplate({
+        companyId: quote.company_id,
+        templateType: "quote_accepted_client",
+        variables: {
+          client_name: quote.client_name,
+          first_name: firstName,
+          tenant_name: tenantName,
+          event_name: eventName,
+          event_date: eventLabel,
+          event_day_suffix: quote.event_date ? ` (${eventLabel})` : "",
+        },
+        fallback: {
+          subject: `Quote accepted -- thanks ${firstName}`,
+          bodyHtml: fallbackBody,
+        },
+        client: supabase,
+      });
+
       await (emailService as any).sendEmail({
         companyId: quote.company_id,
         to: quote.client_email,
-        subject: `Quote accepted -- thanks ${firstName}`,
-        body:
-          `Hi ${firstName},\n\n` +
-          `Thanks for accepting your ${eventName} quote -- you're booked in.\n\n` +
-          `Here's what happens from here:\n\n` +
-          `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
-          `2. Deposit invoice: ${tenantName} will send the deposit invoice shortly to lock in your event date.\n` +
-          `3. Event day${quote.event_date ? ` (${eventLabel})` : ""}: we'll be in touch the week before with final headcount and any last tweaks.\n\n` +
-          `If anything has changed on your side, just reply to this email and we'll sort it.\n\n` +
-          `Looking forward to it,\n${tenantName}`,
-        variables: {
-          clientName: quote.client_name,
-          firstName,
-          tenantName,
-          eventName,
-          eventDate: eventLabel,
-        },
+        subject: resolved.subject,
+        body: resolved.bodyHtml,
+        _client: supabase,
       });
     }
   } catch (err) {

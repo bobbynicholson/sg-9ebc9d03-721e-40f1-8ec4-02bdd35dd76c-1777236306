@@ -23,8 +23,37 @@
 import React from "react";
 import { QuoteDocument, type QuotePdfData } from "./QuoteDocument";
 import { InvoiceDocument, type InvoicePdfData } from "./InvoiceDocument";
+import {
+  buildQuoteCacheKey,
+  buildInvoiceCacheKey,
+  pdfCacheGet,
+  pdfCacheSet,
+} from "./pdfCache";
 
 export type { QuotePdfData, InvoicePdfData };
+
+/**
+ * Optional cache hint. When the caller passes one we look up a
+ * cached buffer keyed on (entity id + entity updated_at + company
+ * updated_at). Mismatched updated_at values produce a fresh key so
+ * stale buffers can't survive an edit.
+ */
+export interface QuotePdfRenderOptions {
+  cacheKey?: {
+    quoteId: string;
+    quoteUpdatedAt?: string | null;
+    companyUpdatedAt?: string | null;
+  };
+}
+
+export interface InvoicePdfRenderOptions {
+  cacheKey?: {
+    invoiceId: string;
+    invoiceUpdatedAt?: string | null;
+    orderUpdatedAt?: string | null;
+    companyUpdatedAt?: string | null;
+  };
+}
 
 /**
  * Hide the require behind eval so the bundler doesn't see it. Same
@@ -67,23 +96,93 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
  * Render a quote PDF. Caller hydrates QuotePdfData from the quote +
  * company rows; we don't touch the DB here on purpose so the
  * renderer stays a pure function of its input.
+ *
+ * Pass options.cacheKey to skip re-rendering on repeat sends. The
+ * cache is process-local + TTL'd; see pdfCache.ts.
  */
-export async function renderQuotePdf(data: QuotePdfData): Promise<Buffer> {
+export async function renderQuotePdf(
+  data: QuotePdfData,
+  options?: QuotePdfRenderOptions,
+): Promise<Buffer> {
+  const cacheKey = options?.cacheKey
+    ? buildQuoteCacheKey(
+        options.cacheKey.quoteId,
+        options.cacheKey.quoteUpdatedAt,
+        options.cacheKey.companyUpdatedAt,
+      )
+    : null;
+
+  if (cacheKey) {
+    const lookup = pdfCacheGet(cacheKey);
+    if (lookup.hit && lookup.buffer) {
+      console.info("[pdf cache] hit", {
+        kind: "quote",
+        id: options!.cacheKey!.quoteId,
+        age_ms: lookup.ageMs ?? 0,
+      });
+      return lookup.buffer;
+    }
+    console.info("[pdf cache] miss", {
+      kind: "quote",
+      id: options!.cacheKey!.quoteId,
+    });
+  }
+
   const reactPdf = loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(QuoteDocument, { data }));
   const result = await instance.toBuffer();
-  return await streamToBuffer(result);
+  const buffer = await streamToBuffer(result);
+
+  if (cacheKey) {
+    pdfCacheSet(cacheKey, buffer);
+  }
+  return buffer;
 }
 
 /**
  * Render an invoice PDF. Caller hydrates InvoicePdfData from the
  * invoices + clients + orders + companies rows.
+ *
+ * Pass options.cacheKey to skip re-rendering on repeat sends.
  */
-export async function renderInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
+export async function renderInvoicePdf(
+  data: InvoicePdfData,
+  options?: InvoicePdfRenderOptions,
+): Promise<Buffer> {
+  const cacheKey = options?.cacheKey
+    ? buildInvoiceCacheKey(
+        options.cacheKey.invoiceId,
+        options.cacheKey.invoiceUpdatedAt,
+        options.cacheKey.orderUpdatedAt,
+        options.cacheKey.companyUpdatedAt,
+      )
+    : null;
+
+  if (cacheKey) {
+    const lookup = pdfCacheGet(cacheKey);
+    if (lookup.hit && lookup.buffer) {
+      console.info("[pdf cache] hit", {
+        kind: "invoice",
+        id: options!.cacheKey!.invoiceId,
+        age_ms: lookup.ageMs ?? 0,
+      });
+      return lookup.buffer;
+    }
+    console.info("[pdf cache] miss", {
+      kind: "invoice",
+      id: options!.cacheKey!.invoiceId,
+    });
+  }
+
   const reactPdf = loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(InvoiceDocument, { data }));
   const result = await instance.toBuffer();
-  return await streamToBuffer(result);
+  const buffer = await streamToBuffer(result);
+
+  if (cacheKey) {
+    pdfCacheSet(cacheKey, buffer);
+  }
+  return buffer;
 }
 
 /**

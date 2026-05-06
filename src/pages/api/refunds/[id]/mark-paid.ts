@@ -40,14 +40,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: payment } = await ssr
       .from("payments")
-      .select("id, company_id, order_id, payment_type, amount, status")
+      .select("id, company_id, order_id, payment_type, amount, payment_status")
       .eq("id", refundId)
       .maybeSingle();
     if (!payment) return res.status(404).json({ error: "Refund not found" });
     if ((payment as any).payment_type !== "refund") {
       return res.status(400).json({ error: "Not a refund record" });
     }
-    if ((payment as any).status === "completed") {
+    // Phase 4B dropped the legacy text `status` mirror; payment_status enum is canonical.
+    if ((payment as any).payment_status === "completed") {
       return res.status(409).json({ error: "Refund already marked paid" });
     }
     if (
@@ -57,10 +58,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Wrong company" });
     }
 
+    // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
     const { error: payErr } = await ssr
       .from("payments")
       .update({
-        status: "completed",
+        payment_status: "completed",
         processed_at: paidAt,
         reason: notes
           ? `Refund paid: ${notes}`

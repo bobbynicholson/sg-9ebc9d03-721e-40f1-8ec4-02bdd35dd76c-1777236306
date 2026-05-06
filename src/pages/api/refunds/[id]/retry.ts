@@ -40,14 +40,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // but the explicit check gives a clean 403 instead of "not found").
     const { data: payment } = await ssr
       .from("payments")
-      .select("id, company_id, payment_type, payment_status, status")
+      .select("id, company_id, payment_type, payment_status")
       .eq("id", refundId)
       .maybeSingle();
     if (!payment) return res.status(404).json({ error: "Refund not found" });
     if ((payment as any).payment_type !== "refund") {
       return res.status(400).json({ error: "Not a refund record" });
     }
-    const ps = String((payment as any).payment_status || (payment as any).status || "");
+    // Phase 4B dropped the legacy text `status` mirror; payment_status enum is canonical.
+    const ps = String((payment as any).payment_status || "");
     if (ps === "completed") {
       return res.status(409).json({ error: "Refund already completed" });
     }

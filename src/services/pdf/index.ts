@@ -4,6 +4,7 @@
  */
 
 export { renderQuotePdf, renderInvoicePdf, sanitiseFilename } from "./renderPdf";
+export type { QuotePdfRenderOptions, InvoicePdfRenderOptions } from "./renderPdf";
 export { QuoteDocument } from "./QuoteDocument";
 export { InvoiceDocument } from "./InvoiceDocument";
 export type { QuotePdfData, QuotePdfMenuItem, QuotePdfEquipmentItem } from "./QuoteDocument";

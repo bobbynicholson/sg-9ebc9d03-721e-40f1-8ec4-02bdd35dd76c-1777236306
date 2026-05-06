@@ -4,6 +4,7 @@ import { PayFastService } from "@/lib/payfastService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
+import { resolveEmailTemplate } from "@/services/email/templateResolver";
 
 /**
  * Invoice Generation Service
@@ -483,26 +484,65 @@ async function notifyClientOfInvoiceIssued(
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
         const origin = baseUrl.startsWith("http") ? baseUrl : (baseUrl ? `https://${baseUrl}` : "");
         const fullLink = origin ? `${origin}${portalLink}` : portalLink;
+
+        // Server-render the invoice PDF and attach it. Mirrors the
+        // attachQuotePdf pattern Phase 3D set up for quotes -- older
+        // clients expect a saveable document inline. Render is wrapped
+        // in its own try / catch so a failure here doesn't block the
+        // email; the recipient still gets the link to the billing page.
+        const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
+        try {
+          const pdfAttachment = await renderInvoicePdfAttachment(invoiceId, companyId, invoiceData);
+          if (pdfAttachment) {
+            attachments.push(pdfAttachment);
+          }
+        } catch (pdfErr: any) {
+          console.warn("[notifyClientOfInvoiceIssued] invoice PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
+        }
+
+        // Pick deposit_invoice_issued vs balance_invoice_issued based
+        // on whether a deposit has already been paid on this order.
+        // First invoice (depositPaid = 0) is the deposit invoice; an
+        // invoice raised after a deposit landed is the balance.
+        // Subject + body resolve through the centralised resolver --
+        // tenant override beats global default beats the inline
+        // fallback.
+        const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
+        const isBalance = Number(invoiceData.depositPaid || 0) > 0;
+        const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
+
+        const fallbackBody =
+          `Hi {{first_name}},\n\n` +
+          `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
+          `Open the invoice: {{invoice_link}}\n\n` +
+          `Thanks,\n{{tenant_name}}`;
+
+        const resolved = await resolveEmailTemplate({
+          companyId,
+          templateType,
+          variables: {
+            first_name: firstName,
+            client_name: invoiceData.clientName,
+            tenant_name: tenantName,
+            event_name: eventName,
+            invoice_number: invoiceData.invoiceNumber,
+            amount: amountLabel,
+            deposit_amount: isBalance ? "" : amountLabel,
+            balance_amount: isBalance ? amountLabel : "",
+            invoice_link: fullLink,
+          },
+          fallback: {
+            subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventName}`,
+            bodyHtml: fallbackBody,
+          },
+        });
+
         await emailService.sendEmail({
           companyId,
           to: recipient,
-          subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventName}`,
-          // Template slug intentionally omitted -- email_templates is
-          // empty for this tenant + body falls back to the inline copy
-          // below. Agent C will personalise via the registry once seeded.
-          body:
-            `Hi ${String(invoiceData.clientName || "there").split(" ")[0] || "there"},\n\n` +
-            `${summary}\n\n` +
-            `Open the invoice: ${fullLink}\n\n` +
-            `Thanks,\n${tenantName}`,
-          variables: {
-            clientName: invoiceData.clientName,
-            tenantName,
-            eventName,
-            invoiceNumber: invoiceData.invoiceNumber,
-            amount: amountLabel,
-            invoiceLink: fullLink,
-          },
+          subject: resolved.subject,
+          body: resolved.bodyHtml,
+          ...(attachments.length > 0 ? { attachments } : {}),
         });
       }
     } catch (e) {
@@ -511,6 +551,145 @@ async function notifyClientOfInvoiceIssued(
   } catch (e) {
     console.warn("[notifyClientOfInvoiceIssued] crashed (non-blocking):", e);
   }
+}
+
+/**
+ * Hydrate InvoicePdfData from invoices + clients + orders + companies
+ * and render to a Buffer suitable for an email attachment. Returns
+ * null if the invoice row isn't readable (caller treats that as a
+ * non-blocking skip, not an error).
+ *
+ * Address note: InvoiceDocument expects a single client.address
+ * string, so we flatten the billing_* columns here -- the document
+ * layer stays decoupled from the clients schema.
+ *
+ * Cache: keyed on (invoice.updated_at, order.updated_at,
+ * company.updated_at) so a second send within 30 minutes reuses the
+ * rendered buffer. See pdfCache.ts for the eviction policy.
+ */
+async function renderInvoicePdfAttachment(
+  invoiceId: string,
+  companyId: string,
+  fallbackData: InvoiceData,
+): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
+  const { data: invRow } = await supabase
+    .from("invoices")
+    .select(`
+      id, invoice_number, invoice_date, due_date, status,
+      subtotal, tax_amount, total_amount, amount_paid, balance_due,
+      notes, invoice_data, updated_at,
+      client:client_id (
+        client_name, email, phone,
+        billing_address_line1, billing_address_line2,
+        billing_city, billing_postal_code
+      ),
+      order:order_id (
+        id, order_number, event_name, event_date, updated_at
+      ),
+      company:company_id (
+        company_name, legal_name, logo_url, email, phone,
+        address_line1, address_line2, city, state_province,
+        postal_code, country, primary_color,
+        vat_registered, vat_number, vat_rate,
+        registration_number, tax_number,
+        payment_terms,
+        updated_at
+      )
+    `)
+    .eq("id", invoiceId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!invRow) {
+    console.warn(`[renderInvoicePdfAttachment] invoice ${invoiceId} not found`);
+    return null;
+  }
+
+  const invAny = invRow as any;
+  const client = invAny.client || {};
+  const order = invAny.order || {};
+  const company = invAny.company || {};
+
+  const clientAddress =
+    [
+      client.billing_address_line1,
+      client.billing_address_line2,
+      client.billing_city,
+      client.billing_postal_code,
+    ]
+      .filter(Boolean)
+      .join(", ") || fallbackData.clientAddress || null;
+
+  const lineItems = Array.isArray(fallbackData.items)
+    ? fallbackData.items.map((it) => ({
+        name: it.description || "Item",
+        description: null,
+        quantity: it.quantity ?? null,
+        unit_price: it.unitPrice ?? null,
+        total: it.total ?? null,
+      }))
+    : [];
+
+  const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
+  const pdfBuffer = await renderInvoicePdf(
+    {
+      invoice_number: invAny.invoice_number,
+      invoice_date: invAny.invoice_date,
+      due_date: invAny.due_date,
+      status: invAny.status,
+      client: {
+        name: client.client_name || fallbackData.clientName || "",
+        email: client.email || fallbackData.clientEmail || null,
+        phone: client.phone || fallbackData.clientPhone || null,
+        address: clientAddress,
+      },
+      order_number: order.order_number || fallbackData.orderNumber || null,
+      event_name: order.event_name || null,
+      event_date: order.event_date || fallbackData.eventDate || null,
+      line_items: lineItems,
+      subtotal: invAny.subtotal ?? fallbackData.subtotal,
+      tax_amount: invAny.tax_amount ?? fallbackData.taxAmount,
+      total_amount: Number(invAny.total_amount ?? fallbackData.total ?? 0),
+      amount_paid: invAny.amount_paid ?? fallbackData.depositPaid,
+      balance_due: invAny.balance_due ?? fallbackData.balanceDue,
+      notes: invAny.notes || fallbackData.notes || null,
+      payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
+      company: {
+        company_name: company.company_name,
+        legal_name: company.legal_name,
+        logo_url: company.logo_url,
+        email: company.email,
+        phone: company.phone,
+        address_line1: company.address_line1,
+        address_line2: company.address_line2,
+        city: company.city,
+        state_province: company.state_province,
+        postal_code: company.postal_code,
+        country: company.country,
+        primary_color: company.primary_color,
+        vat_registered: company.vat_registered,
+        vat_number: company.vat_number,
+        vat_rate: company.vat_rate,
+        registration_number: company.registration_number,
+        tax_number: company.tax_number,
+      },
+    },
+    {
+      cacheKey: {
+        invoiceId,
+        invoiceUpdatedAt: invAny.updated_at ?? null,
+        orderUpdatedAt: order.updated_at ?? null,
+        companyUpdatedAt: company.updated_at ?? null,
+      },
+    },
+  );
+
+  return {
+    filename: `Invoice-${sanitiseFilename(invAny.invoice_number || invoiceId)}.pdf`,
+    content: pdfBuffer,
+    contentType: "application/pdf",
+  };
 }
 
 /**
