@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface EmailSettings {
   id: string;
-  user_id: string;
+  company_id: string;
   enabled: boolean;
   provider: string | null;
   from_name: string | null;
@@ -13,6 +13,8 @@ export interface EmailSettings {
   smtp_port: number | null;
   smtp_user: string | null;
   smtp_password: string | null;
+  smtp_secure: boolean | null;
+  is_verified?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -71,7 +73,18 @@ export interface EmailLog {
 
 export const emailService = {
   /**
-   * Fetch the email_settings row for a company.
+   * Fetch the active provider config for a company.
+   *
+   * Reads from email_provider_settings (the canonical table the
+   * /admin/email-settings UI writes to). The legacy email_settings
+   * table this method used to read from never had host/user/password
+   * columns, so SMTP sends silently failed even when the operator had
+   * "saved" their config -- two tables, never reconciled.
+   *
+   * A company can have multiple rows (one per provider, plus mailchimp
+   * which is marketing-only). We exclude mailchimp and take the most
+   * recently updated row, preferring is_verified=true so a freshly-
+   * tested config wins over an older one that hasn't been re-verified.
    *
    * Optional `client` argument lets server-side callers pass a
    * service-role supabase instance. Without it, this method uses the
@@ -82,10 +95,14 @@ export const emailService = {
   async getEmailConfig(companyId: string, client?: any): Promise<EmailSettings | null> {
     const sb = client || supabase;
     const { data, error } = await sb
-      .from("email_settings")
-      .select("*")
-      .eq("user_id", companyId)
-      .single();
+      .from("email_provider_settings")
+      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, created_at, updated_at")
+      .eq("company_id", companyId)
+      .neq("provider", "mailchimp")
+      .order("is_verified", { ascending: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
       console.error("Error fetching email config:", error);
@@ -96,10 +113,28 @@ export const emailService = {
       return null;
     }
 
-    const port = data.smtp_port ? parseInt(String(data.smtp_port), 10) : null;
+    const port = (data as any).smtp_port ? parseInt(String((data as any).smtp_port), 10) : null;
     return {
-      ...data,
+      id: (data as any).id,
+      company_id: (data as any).company_id,
+      // Treat presence of a provider row as "enabled". The column
+      // doesn't exist on email_provider_settings -- enabling/disabling
+      // is implicit (no row = no provider).
+      enabled: !!(data as any).provider && (data as any).provider !== "none",
+      provider: (data as any).provider,
+      from_name: (data as any).from_name,
+      from_email: (data as any).from_email,
+      smtp_host: (data as any).smtp_host,
       smtp_port: port && !isNaN(port) ? port : null,
+      smtp_user: (data as any).smtp_user,
+      // Column is NAMED "encrypted" but the UI stores raw text -- legacy
+      // misnomer. Read as-is. If we ever wire pgcrypto, the decrypt
+      // happens at the SQL layer and this stays a plain text string.
+      smtp_password: (data as any).smtp_pass_encrypted || null,
+      smtp_secure: (data as any).smtp_secure,
+      is_verified: (data as any).is_verified,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
     };
   },
 
@@ -446,10 +481,17 @@ export const emailService = {
       const getRequire = () => eval("require");
       const nodemailer = getRequire()('nodemailer');
 
+      // Prefer the explicit smtp_secure flag from email_provider_settings.
+      // Fall back to "port 465 means SSL" so legacy configs still work.
+      const useTLS =
+        typeof config.smtp_secure === "boolean"
+          ? config.smtp_secure
+          : config.smtp_port === 465;
+
       const transporter = nodemailer.createTransport({
         host: config.smtp_host,
         port: config.smtp_port,
-        secure: config.smtp_port === 465,
+        secure: useTLS,
         auth: {
           user: config.smtp_user,
           pass: config.smtp_password,

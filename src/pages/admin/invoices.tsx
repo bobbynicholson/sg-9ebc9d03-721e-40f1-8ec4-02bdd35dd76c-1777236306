@@ -384,16 +384,32 @@ export default function InvoicesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { color: string; label: string }> = {
-      draft: { color: "bg-slate-100 text-slate-700", label: "Draft" },
-      outstanding: { color: "bg-yellow-100 text-yellow-700", label: "Outstanding" },
-      paid: { color: "bg-green-100 text-green-700", label: "Paid" },
-      overdue: { color: "bg-red-100 text-red-700", label: "Overdue" },
+    const variants: Record<string, { color: string; label: string; help: string }> = {
+      draft: {
+        color: "bg-slate-100 text-slate-700",
+        label: "Draft",
+        help: "Created but not yet sent to the client. Click the paper-plane icon to email it.",
+      },
+      outstanding: {
+        color: "bg-yellow-100 text-yellow-700",
+        label: "Outstanding",
+        help: "Sent to the client and waiting for payment.",
+      },
+      paid: {
+        color: "bg-green-100 text-green-700",
+        label: "Paid",
+        help: "Payment has been received in full.",
+      },
+      overdue: {
+        color: "bg-red-100 text-red-700",
+        label: "Overdue",
+        help: "The due date has passed without payment.",
+      },
     };
 
     const variant = variants[status] || variants.draft;
     return (
-      <Badge className={variant.color}>
+      <Badge className={variant.color} title={variant.help}>
         {variant.label}
       </Badge>
     );
@@ -640,6 +656,8 @@ export default function InvoicesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handlePreviewInvoice(invoice.id)}
+                        title="Preview the invoice exactly as your client will see it"
+                        aria-label="Preview invoice"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -647,6 +665,8 @@ export default function InvoicesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSendInvoice(invoice.id)}
+                        title="Email this invoice to the client (PDF attached)"
+                        aria-label="Send invoice to client"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
@@ -654,7 +674,8 @@ export default function InvoicesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSyncToAccounting(invoice.id)}
-                        title="Sync to accounting system"
+                        title="Push this invoice to your linked accounting tool (Xero / QuickBooks)"
+                        aria-label="Sync invoice to accounting"
                       >
                         <RefreshCw className="h-4 w-4" />
                       </Button>
