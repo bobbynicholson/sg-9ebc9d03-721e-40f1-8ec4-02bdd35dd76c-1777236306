@@ -91,6 +91,26 @@ interface LeadLinks {
   /** Order id if any quote off this lead converted into an order. */
   orderId: string | null;
   clientId: string | null;
+  /**
+   * Resolved event details, sourced (in priority order) from the linked
+   * order, the latest quote, or the lead row itself. Drives the
+   * accordion read-out so the operator sees the booked numbers, not the
+   * stale enquiry guesses. `source` tells the UI which one we landed on
+   * so we can show a small provenance caption.
+   */
+  resolved: {
+    source: "order" | "quote" | "lead";
+    /** Short human label for the source (order_number / quote_number / null). */
+    sourceLabel: string | null;
+    eventDate: string | null;
+    guestCount: number | null;
+    /** Best-effort event description: order.event_name -> quote.quote_name -> lead.event_type */
+    eventType: string | null;
+    /** Money figure: order/quote total_amount when available, else null. */
+    estimatedValue: number | null;
+    /** Optional venue name from the order, if it has one. */
+    venueName: string | null;
+  };
 }
 
 /**
@@ -454,6 +474,19 @@ export default function AdminLeads() {
           latestQuoteStatus: null,
           orderId: null,
           clientId: l.converted_to_client_id ?? null,
+          // Default the resolved view to the lead row -- keeps things
+          // working for brand-new leads with no quote/order yet. We
+          // overwrite this below once we know about a linked order or
+          // a latest quote.
+          resolved: {
+            source: "lead",
+            sourceLabel: null,
+            eventDate: l.event_date ?? null,
+            guestCount: l.guest_count ?? null,
+            eventType: l.event_type ?? null,
+            estimatedValue: typeof l.estimated_value === "number" ? l.estimated_value : null,
+            venueName: null,
+          },
         });
       });
       if (leadIds.length > 0) {
@@ -549,6 +582,81 @@ export default function AdminLeads() {
             cur.latestQuoteId = cur.quotes[0].id;
             cur.latestQuoteStatus = cur.quotes[0].status;
           }
+        }
+
+        // Hydrate the "resolved" view of each lead's event details.
+        // Priority order: linked order > latest quote > lead row. We
+        // batch these into two queries so the page never N+1s, even
+        // when every lead has been booked.
+        //
+        // 1. Pull the orders we know are linked (from converted_to_order_id
+        //    on quotes).
+        // 2. Pull the latest-quote details for leads that have a quote
+        //    but no order -- the quote summaries above only carry totals
+        //    and numbers, not event_date / guest_count, so we need a
+        //    second select. We fetch all matching quote rows (cheap)
+        //    and pick the right one per lead from the latestQuoteId.
+        const orderIds: string[] = [];
+        const latestQuoteIds: string[] = [];
+        for (const cur of map.values()) {
+          if (cur.orderId) orderIds.push(cur.orderId);
+          else if (cur.latestQuoteId) latestQuoteIds.push(cur.latestQuoteId);
+        }
+
+        const [{ data: orderRows }, { data: quoteDetailRows }] = await Promise.all([
+          orderIds.length > 0
+            ? supabase
+                .from("orders")
+                .select("id, order_number, event_name, event_date, guest_count, venue_name, total_amount")
+                .in("id", orderIds)
+            : Promise.resolve({ data: [] as any[] }),
+          latestQuoteIds.length > 0
+            ? supabase
+                .from("quotes")
+                .select("id, quote_number, quote_name, event_date, guest_count, total_amount")
+                .in("id", latestQuoteIds)
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+
+        const ordersById = new Map<string, any>();
+        for (const o of orderRows || []) ordersById.set(o.id, o);
+        const quotesById = new Map<string, any>();
+        for (const q of quoteDetailRows || []) quotesById.set(q.id, q);
+
+        for (const [leadId, cur] of map.entries()) {
+          const lead = data.find((l: any) => l.id === leadId);
+          if (cur.orderId && ordersById.has(cur.orderId)) {
+            const o = ordersById.get(cur.orderId);
+            cur.resolved = {
+              source: "order",
+              sourceLabel: o.order_number || cur.orderId.slice(0, 8),
+              eventDate: o.event_date ?? lead?.event_date ?? null,
+              guestCount: o.guest_count ?? lead?.guest_count ?? null,
+              // Orders don't have an event_type column, but event_name
+              // is the operator-facing description ("Smith corporate
+              // lunch"). Fall back to the lead's event_type if event_name
+              // somehow isn't set.
+              eventType: o.event_name || lead?.event_type || null,
+              estimatedValue: typeof o.total_amount === "number" ? o.total_amount : null,
+              venueName: o.venue_name || null,
+            };
+          } else if (cur.latestQuoteId && quotesById.has(cur.latestQuoteId)) {
+            const q = quotesById.get(cur.latestQuoteId);
+            cur.resolved = {
+              source: "quote",
+              sourceLabel: q.quote_number || cur.latestQuoteId.slice(0, 8),
+              eventDate: q.event_date ?? lead?.event_date ?? null,
+              guestCount: q.guest_count ?? lead?.guest_count ?? null,
+              // Quotes don't store event_type either -- quote_name is
+              // the closest equivalent ("Wedding cocktail buffet"). Fall
+              // back to the lead's event_type when the quote name is
+              // generic.
+              eventType: q.quote_name || lead?.event_type || null,
+              estimatedValue: typeof q.total_amount === "number" ? q.total_amount : null,
+              venueName: null,
+            };
+          }
+          // Else leave the default lead-sourced resolved view in place.
         }
       }
       setLinksByLeadId(map);
@@ -841,6 +949,15 @@ export default function AdminLeads() {
                       latestQuoteStatus: null,
                       orderId: null,
                       clientId: lead.converted_to_client_id ?? null,
+                      resolved: {
+                        source: "lead",
+                        sourceLabel: null,
+                        eventDate: lead.event_date ?? null,
+                        guestCount: lead.guest_count ?? null,
+                        eventType: lead.event_type ?? null,
+                        estimatedValue: typeof lead.estimated_value === "number" ? lead.estimated_value : null,
+                        venueName: null,
+                      },
                     };
                     const suggestion = deriveLeadSuggestion(lead, links);
                     const ageDays = lead.created_at
@@ -1100,29 +1217,54 @@ export default function AdminLeads() {
                         </div>
                       </div>
                       {expandedLeadId === lead.id && (
-                        <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="mt-4 pt-4 border-t border-slate-200 text-sm">
+                          {/* Provenance caption -- tells the operator
+                              which underlying record we're reading
+                              from. Keeps drift bugs visible: if a
+                              booked lead reads the lead row, the team
+                              knows immediately. */}
+                          <p className="text-xs text-slate-500 mb-3">
+                            {links.resolved.source === "order"
+                              ? `Pulled from booked order ${links.resolved.sourceLabel || ""}`.trim()
+                              : links.resolved.source === "quote"
+                                ? `Pulled from quote ${links.resolved.sourceLabel || ""}`.trim()
+                                : "From the original enquiry"}
+                            {links.resolved.source !== "lead" && links.resolved.venueName && (
+                              <> · {links.resolved.venueName}</>
+                            )}
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <p className="text-slate-500 text-xs mb-1">Event Date</p>
                             <p className="text-slate-900 font-medium">
-                              {lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "TBD"}
+                              {links.resolved.eventDate
+                                ? new Date(links.resolved.eventDate).toLocaleDateString()
+                                : "TBD"}
                             </p>
                           </div>
                           <div>
                             <p className="text-slate-500 text-xs mb-1">Guests</p>
-                            <p className="text-slate-900 font-medium">{lead.guest_count || "TBD"}</p>
+                            <p className="text-slate-900 font-medium">
+                              {links.resolved.guestCount || "TBD"}
+                            </p>
                           </div>
                           <div>
                             <p className="text-slate-500 text-xs mb-1">Event Type</p>
-                            <p className="text-slate-900 font-medium">{lead.event_type || "Not specified"}</p>
+                            <p className="text-slate-900 font-medium">
+                              {links.resolved.eventType || "Not specified"}
+                            </p>
                           </div>
                           <div>
                             <p className="text-slate-500 text-xs mb-1">Estimated Value</p>
                             <p className="text-slate-900 font-medium">
-                              {lead.estimated_value ? `R${Number(lead.estimated_value).toLocaleString()}` : "TBD"}
+                              {typeof links.resolved.estimatedValue === "number" && links.resolved.estimatedValue > 0
+                                ? `R${Math.round(links.resolved.estimatedValue).toLocaleString()}`
+                                : "TBD"}
                             </p>
                           </div>
+                          </div>
                           {lead.notes && (
-                            <div className="col-span-2 md:col-span-4">
+                            <div className="mt-4">
                               <p className="text-slate-500 text-xs mb-1">Notes</p>
                               <p className="text-slate-700">{lead.notes}</p>
                             </div>
@@ -1134,7 +1276,7 @@ export default function AdminLeads() {
                             spine of the formal quote.
                           */}
                           {Array.isArray(lead.requested_items) && lead.requested_items.length > 0 && (
-                            <div className="col-span-2 md:col-span-4">
+                            <div className="mt-4">
                               <p className="text-slate-500 text-xs mb-1.5 flex items-center gap-1.5">
                                 Items requested by client
                                 <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
@@ -1180,7 +1322,7 @@ export default function AdminLeads() {
                             ordered last time.
                           */}
                           {lead.source_order_id && (
-                            <div className="col-span-2 md:col-span-4">
+                            <div className="mt-4">
                               <p className="text-[11px] text-slate-500">
                                 Rebooked from past order
                                 <Link
