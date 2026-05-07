@@ -363,6 +363,82 @@ export const dispatchService = {
   },
 
   /**
+   * Same-day time-overlap check: would this driver land on two events
+   * with overlapping service windows on the same date? Default window
+   * is +/- bufferHours either side of `event_time` (3h covers prep,
+   * load, drive, serve, return for the typical event).
+   *
+   * Returns the first conflicting order if any; the caller can refuse
+   * (when enforceGates=true) or warn-and-allow.
+   *
+   * P1-08 + P1-18 from the 2026-05 audit: avoid silently double-booking
+   * a driver across two simultaneous events.
+   */
+  async checkDoubleBooking(payload: {
+    driverId: string;
+    eventDate: string;
+    eventTime: string | null;
+    ignoreOrderId?: string;
+    bufferHours?: number;
+  }): Promise<{
+    ok: boolean;
+    conflictOrderId?: string;
+    conflictOrderNumber?: string;
+    conflictTime?: string;
+    reason?: string;
+  }> {
+    const { driverId, eventDate, eventTime, ignoreOrderId } = payload;
+    const buffer = payload.bufferHours ?? 3;
+
+    if (!eventTime) {
+      // No time on the order -- can't compute a window. Return ok with
+      // an explanatory reason so the dispatcher knows the gate didn't
+      // apply rather than that it found nothing.
+      return { ok: true, reason: "No event_time on order; time-conflict check skipped." };
+    }
+
+    let q = supabase
+      .from("orders")
+      .select("id, order_number, event_time")
+      .eq("assigned_driver_id", driverId)
+      .eq("event_date", eventDate)
+      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+    if (ignoreOrderId) q = q.neq("id", ignoreOrderId);
+    const { data, error } = await q;
+    if (error) {
+      console.warn("Error checking double-booking:", error);
+      return { ok: true };
+    }
+
+    const minutesOf = (hhmm: string | null) => {
+      if (!hhmm) return null;
+      const [h, m] = hhmm.split(":").map((s) => parseInt(s, 10));
+      if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+      return h * 60 + m;
+    };
+
+    const newMin = minutesOf(eventTime);
+    if (newMin === null) return { ok: true };
+    const bufMin = buffer * 60;
+
+    for (const row of (data || []) as Array<{ id: string; order_number: string | null; event_time: string | null }>) {
+      const otherMin = minutesOf(row.event_time);
+      if (otherMin === null) continue;
+      if (Math.abs(newMin - otherMin) < bufMin) {
+        return {
+          ok: false,
+          conflictOrderId: row.id,
+          conflictOrderNumber: row.order_number ?? row.id.slice(0, 8),
+          conflictTime: row.event_time ?? undefined,
+          reason: `Driver already on order ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time} (within ${buffer}h window).`,
+        };
+      }
+    }
+
+    return { ok: true };
+  },
+
+  /**
    * Time-window feasibility: can this driver still arrive
    * arrival_buffer_minutes before event_time? Best-effort -- if we don't have
    * GPS or a venue lat/lng, returns ok=true with a "no GPS" reason so the
@@ -518,6 +594,16 @@ export const dispatchService = {
       const maxJobs = (driverRow as any)?.max_jobs_per_shift ?? null;
       const cap = await this.checkCapacity(payload.driverId, existing.event_date, maxJobs);
       if (!cap.ok) return { ok: false, reason: cap.reason };
+
+      // Refuse if this assignment would put the driver on two
+      // overlapping events (within +/-3h on the same day).
+      const conflict = await this.checkDoubleBooking({
+        driverId: payload.driverId,
+        eventDate: existing.event_date,
+        eventTime: (existing as any).event_time ?? null,
+        ignoreOrderId: payload.orderId,
+      });
+      if (!conflict.ok) return { ok: false, reason: conflict.reason };
     }
 
     const { error: updErr } = await supabase
