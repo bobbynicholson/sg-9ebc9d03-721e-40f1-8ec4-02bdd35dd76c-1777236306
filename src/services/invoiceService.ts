@@ -144,7 +144,12 @@ export const invoiceService = {
     doc.text(`${data.currency} ${data.subtotal.toFixed(2)}`, summaryX + 30, summaryY, { align: "right" });
     summaryY += 6;
 
-    doc.text("VAT (15%):", summaryX, summaryY);
+    // Compute the rate from subtotal/vatAmount so the label reflects
+    // the tenant's actual rate (ZA 15%, UK 20%, zero-rated, etc.)
+    // rather than the historical hardcoded "VAT (15%)" [P1-15].
+    const ratePct = data.subtotal > 0 ? (data.vatAmount / data.subtotal) * 100 : 0;
+    const vatLabel = ratePct > 0 ? `VAT (${ratePct.toFixed(ratePct < 10 ? 1 : 0)}%):` : "VAT:";
+    doc.text(vatLabel, summaryX, summaryY);
     doc.text(`${data.currency} ${data.vatAmount.toFixed(2)}`, summaryX + 30, summaryY, { align: "right" });
     summaryY += 6;
 
