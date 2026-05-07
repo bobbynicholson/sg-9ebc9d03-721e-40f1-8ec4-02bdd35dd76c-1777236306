@@ -68,10 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
-    // 🔧 DEV MODE: Auto-activate on localhost without login
-    const isDevEnvironment = 
-      typeof window !== "undefined" && 
-      (window.location.hostname === "localhost" || 
+    // Dev shortcut. Only honoured outside production builds. The
+    // ?dev=true query escape hatch on production used to grant client-side
+    // super_admin to anyone with the URL [P0-03].
+    const isDevEnvironment =
+      process.env.NODE_ENV !== "production" &&
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
        window.location.hostname === "127.0.0.1" ||
        window.location.search.includes("dev=true"));
 
