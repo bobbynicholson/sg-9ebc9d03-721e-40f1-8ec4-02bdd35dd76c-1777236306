@@ -60,10 +60,25 @@ export interface ClientWhatsAppContext {
   daysUntilEvent?: number | null;
   fromName?: string | null;
   companyName?: string | null;
+  /** Tenant slug -- when present we append a short portal-login URL
+   *  to client messages (cateringms.com/p/<slug>). The /p/[slug]
+   *  redirect route exists specifically for WhatsApp so the URL is
+   *  short enough not to dominate the message. */
+  companySlug?: string | null;
   /** When set, the per-company customisation is consulted first.
    *  Cache must be prewarmed via the useTemplateOverrides hook. */
   companyId?: string | null;
 }
+
+/** Build the public origin for portal links. Configurable via env so
+ *  staging / preview deployments don't hand clients a prod URL. */
+const PUBLIC_ORIGIN =
+  process.env.NEXT_PUBLIC_APP_ORIGIN || "https://cateringms.com";
+
+const portalLinkLine = (slug: string | null | undefined): string => {
+  if (!slug) return "";
+  return `\n\nQuick login: ${PUBLIC_ORIGIN}/p/${slug}`;
+};
 
 /** Map a client-facing kind to the matching registry override key. */
 const CLIENT_KIND_TO_REGISTRY: Record<ClientWhatsAppKind, string> = {
@@ -90,6 +105,8 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
     guest_count:  ctx.guestCount ?? "",
     quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
     total:        ctx.total ? `R${Number(ctx.total).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}` : "",
+    portal_link:  ctx.companySlug ? `${PUBLIC_ORIGIN}/p/${ctx.companySlug}` : "",
+    portal_line:  portalLinkLine(ctx.companySlug).trimStart(),
   };
 }
 
@@ -133,6 +150,10 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
   const first = firstName(ctx.contactName);
   const sig = ctx.fromName || ctx.companyName || "";
   const sigLine = sig ? `\n\n${sig}` : "";
+  // Portal login URL line. Sits AFTER the signature so the quick-
+  // login link is the last thing the client sees and is a single tap
+  // to land in their portal. No-op if companySlug isn't passed.
+  const portalLine = portalLinkLine(ctx.companySlug);
   const eventLine = ctx.eventName
     ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
     : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your event`;
@@ -141,36 +162,36 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
 
   switch (kind) {
     case "lead_followup":
-      return `Hi ${first}, thanks for the enquiry about ${eventLine}. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.${sigLine}`;
+      return `Hi ${first}, thanks for the enquiry about ${eventLine}. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.${sigLine}${portalLine}`;
 
     case "quote_sent":
-      return `Hi ${first}, just sent the quote across for ${eventLine}${ref}.${totalLine} Have a look when you can and let me know if anything needs tweaking.${sigLine}`;
+      return `Hi ${first}, just sent the quote across for ${eventLine}${ref}.${totalLine} Have a look when you can and let me know if anything needs tweaking.${sigLine}${portalLine}`;
 
     case "quote_chase":
-      return `Hi ${first}, circling back on the quote for ${eventLine}${ref}.${totalLine} Any thoughts? Happy to adjust the menu or the headcount if it helps.${sigLine}`;
+      return `Hi ${first}, circling back on the quote for ${eventLine}${ref}.${totalLine} Any thoughts? Happy to adjust the menu or the headcount if it helps.${sigLine}${portalLine}`;
 
     case "quote_accepted":
-      return `Hi ${first}, thanks for confirming! Deposit invoice is on its way through. Final guest numbers + dietary info 7 days before the event keeps everything tight.${sigLine}`;
+      return `Hi ${first}, thanks for confirming! Deposit invoice is on its way through. Final guest numbers + dietary info 7 days before the event keeps everything tight.${sigLine}${portalLine}`;
 
     case "event_week": {
       const d = ctx.daysUntilEvent;
       const when = d == null ? "this week" : d <= 1 ? "tomorrow" : `in ${d} days`;
-      return `Hi ${first}, your event is ${when}. Confirming guest numbers and any dietary requirements now so we can lock the kitchen prep in.${sigLine}`;
+      return `Hi ${first}, your event is ${when}. Confirming guest numbers and any dietary requirements now so we can lock the kitchen prep in.${sigLine}${portalLine}`;
     }
 
     case "event_day_morning": {
       const t = ctx.arrivalTime ? `Driver should be on site around ${ctx.arrivalTime}.` : "Driver is on the way.";
-      return `Hi ${first}, all set for today. ${t} Reply to this message if anything changes on your side.${sigLine}`;
+      return `Hi ${first}, all set for today. ${t} Reply to this message if anything changes on your side.${sigLine}${portalLine}`;
     }
 
     case "event_arrived": {
       const drv = ctx.driverName ? ` Your driver is ${ctx.driverName}.` : "";
-      return `Hi ${first}, we are on site now.${drv} Anything you need, this thread is the fastest way to reach me.${sigLine}`;
+      return `Hi ${first}, we are on site now.${drv} Anything you need, this thread is the fastest way to reach me.${sigLine}${portalLine}`;
     }
 
     case "delay_alert": {
       const mins = ctx.delayMinutes != null ? `${ctx.delayMinutes} min` : "a few minutes";
-      return `Hi ${first}, quick heads up. Running about ${mins} behind. Driver is on the way and I will message again as soon as we are pulling in.${sigLine}`;
+      return `Hi ${first}, quick heads up. Running about ${mins} behind. Driver is on the way and I will message again as soon as we are pulling in.${sigLine}${portalLine}`;
     }
   }
 }

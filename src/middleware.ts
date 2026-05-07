@@ -101,6 +101,7 @@ const isPublicRoute = (pathname: string) => {
     pathname.startsWith("/api/client-tokens/") ||
     pathname.startsWith("/c/") ||
     pathname.startsWith("/q/") ||
+    pathname.startsWith("/p/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/auth/")
   ) {

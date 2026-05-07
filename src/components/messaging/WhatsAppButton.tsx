@@ -28,6 +28,7 @@
  *   /admin/users             (staff -- where mobile is captured)
  */
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageCircle, Send } from "lucide-react";
@@ -158,6 +159,15 @@ export function WhatsAppButton(props: Props) {
   // popover after a fresh login picks up the latest customisation.
   const { profile } = useAuth() as any;
   const companyId: string | null = profile?.company_id ?? null;
+  // Tenant slug for the portal-login link the client templates
+  // append. Pulled from the URL first (every admin page lives at
+  // /[slug]/admin/...) and falls back to the auth profile join.
+  const router = useRouter();
+  const companySlug: string | null =
+    (typeof router.query.company_slug === "string" && router.query.company_slug)
+    || profile?.company_slug
+    || profile?.companies?.slug
+    || null;
   const { version: overridesVersion } = useTemplateOverrides(companyId);
 
   const templateKeys = useMemo<string[]>(() => {
@@ -182,11 +192,11 @@ export function WhatsAppButton(props: Props) {
   // in another tab takes effect on the next render.
   const renderedTemplate = useMemo(() => {
     if (props.kind === "client") {
-      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, { ...props.ctx, companyId });
+      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, { ...props.ctx, companyId, companySlug });
     }
     return renderStaffWhatsApp(pickedKey as StaffWhatsAppKind, { ...props.ctx, companyId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.kind, props.ctx, pickedKey, companyId, overridesVersion]);
+  }, [props.kind, props.ctx, pickedKey, companyId, companySlug, overridesVersion]);
 
   // Sync template -> textarea while the operator has not edited it.
   // Effect runs whenever the picked template, the rendered string or
