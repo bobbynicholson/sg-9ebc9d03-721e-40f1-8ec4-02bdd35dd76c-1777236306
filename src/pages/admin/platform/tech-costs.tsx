@@ -10,6 +10,7 @@
  *   - Supabase            (Postgres + auth + storage + egress)
  *   - Anthropic API       (Sonnet 4-5 receipt scans, Haiku CSV mapping)
  *   - Resend              (transactional email)
+ *   - Cloudflare DNS      (anycast nameservers for tenant sending domains)
  *   - Google Maps         (Places autocomplete + Distance Matrix)
  *   - Fixed (domain etc.) (small flat baseline)
  *
@@ -39,7 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Calculator, Cloud, Database, Sparkles, Mail, MapPin, Package,
-  TrendingUp, AlertTriangle, ArrowRight, Info,
+  TrendingUp, AlertTriangle, ArrowRight, Info, Globe,
 } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -102,6 +103,23 @@ const RESEND = {
   paid_tier_usd_per_mo: 20,
   paid_tier_emails: 50_000,
   overage_usd_per_email: 0.001,
+};
+
+// Cloudflare DNS hosts every tenant's sending domain (free plan,
+// anycast nameservers globally). We adopted it after Resend's verifier
+// repeatedly stalled on tenants whose DNS sat at small SA-only hosts
+// like za-dns -- queries from us-east-1 to those nameservers were
+// patchy, leaving Resend stuck on 'pending' for hours. Cloudflare's
+// anycast NS resolves from a PoP in the same region as Resend's
+// resolver, so verification flips inside 30 seconds.
+//
+// Free plan covers everything we need: unlimited DNS records, anycast,
+// DNSSEC, no rate limits at our usage scale. Listed here at zero cost
+// because we have a real chance of staying free for the life of the
+// platform; the constant exists so the calculator can flag it if we
+// ever migrate to Pro for advanced features.
+const CLOUDFLARE = {
+  free_plan_usd_per_mo: 0,
 };
 
 const GOOGLE_MAPS = {
@@ -338,6 +356,24 @@ function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: 
     icon: Mail,
     lines: emailLines,
     subtotal_usd: resendCost,
+  });
+
+  // Cloudflare DNS -- anycast nameservers for every tenant's sending
+  // domain. Free plan covers our usage so this is informational; if
+  // we ever upgrade for analytics or advanced rules, change the
+  // constant and the line updates here.
+  const cloudflareLines: LineCost[] = [
+    {
+      label: "Anycast DNS for tenant sending domains",
+      formula: `Free plan, unlimited records, no rate limits at our scale. Adopted to keep Resend domain verification reliable globally.`,
+      usd_per_mo: CLOUDFLARE.free_plan_usd_per_mo,
+    },
+  ];
+  categories.push({
+    category: "Cloudflare (DNS)",
+    icon: Globe,
+    lines: cloudflareLines,
+    subtotal_usd: cloudflareLines.reduce((s, l) => s + l.usd_per_mo, 0),
   });
 
   // Google Maps
