@@ -89,17 +89,8 @@ export default function PlatformDashboard() {
   const [topCustomers, setTopCustomers] = useState<any[]>([]);
 
   useEffect(() => {
-    // If we have a user (real or dev mode), stop loading
     if (user) {
-      const isDevMode = user.email === "dev@cateringms.local";
-      
-      if (isDevMode) {
-        console.log("🔧 DEV MODE: Skipping data fetch");
-        setLoading(false);
-      } else {
-        console.log("✅ Real user detected - loading dashboard data");
-        loadDashboardData();
-      }
+      loadDashboardData();
     }
   }, [user]);
 
