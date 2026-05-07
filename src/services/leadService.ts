@@ -287,35 +287,83 @@ Guests: ${lead.guest_count}`;
 
   async convertLeadToQuote(leadId: string) {
     const lead = await this.getLeadById(leadId);
-    
-    // Update lead status to converted
+
+    // Create the draft quote up front. Previously this function only
+    // flipped lead.status to 'converted' and the operator was left to
+    // build the quote manually from the lead detail accordion --
+    // running-todo Phase 2E-1 flagged this as "Convert button calls
+    // nothing useful". Now the conversion produces a real quotes row
+    // pre-populated from the lead so the operator lands on a draft
+    // they can edit [P1-17].
+    const { quoteService } = await import("./quoteService");
+    const draftPayload: any = {
+      company_id: (lead as any).company_id,
+      user_id: (lead as any).user_id,
+      lead_id: leadId,
+      client_name: (lead as any).client_name,
+      client_email: (lead as any).client_email,
+      client_phone: (lead as any).client_phone,
+      event_date: (lead as any).event_date,
+      event_time: (lead as any).event_time,
+      guest_count: (lead as any).guest_count,
+      venue_address: (lead as any).venue_address,
+      venue_lat: (lead as any).venue_lat,
+      venue_lng: (lead as any).venue_lng,
+      region_id: (lead as any).region_id,
+      status: "draft",
+      currency: (lead as any).currency || "ZAR",
+      // Money fields start at zero -- the operator builds these out
+      // in /admin/quotes/[id]. We're just kickstarting the row.
+      subtotal: 0,
+      tax_amount: 0,
+      total: 0,
+      total_amount: 0,
+      notes: (lead as any).notes
+        ? `Converted from lead. Original notes:\n${(lead as any).notes}`
+        : "Converted from lead.",
+    };
+
+    let createdQuoteId: string | null = null;
+    try {
+      const newQuote: any = await (quoteService as any).createQuote(draftPayload);
+      createdQuoteId = newQuote?.id || null;
+    } catch (e: any) {
+      console.warn("[leadService.convertLeadToQuote] draft quote create failed:", e?.message);
+      // Don't roll back lead status flip on quote-create failure --
+      // operator can still build the quote manually. Surface via
+      // returned shape so callers know.
+    }
+
+    // Flip the lead status only after we have (or fail to have) a
+    // quote. quoteService.createQuote also advances lead.status to
+    // 'quoted' atomically (P1-02), so this is partially redundant but
+    // belt-and-braces for the failure case.
     await this.updateLead(leadId, { status: "converted" });
 
-    // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
-      // Lead-to-quote conversion. Deep-links to the lead so the
-      // operator can find the new quote on the lead row -- there is
-      // no quote id yet at the point of conversion.
       await notificationService.createNotification({
         company_id: lead.company_id,
         user_id: lead.user_id,
         recipient_id: lead.user_id,
         notification_type: "lead_converted",
-        title: "Lead Converted to Quote",
-        message: `${lead.client_name || lead.client_email} has been converted to a quote`,
+        title: "Lead converted to quote",
+        message: createdQuoteId
+          ? `${lead.client_name || lead.client_email} has a draft quote ready to send.`
+          : `${lead.client_name || lead.client_email} converted, but the draft quote failed to create. Open the lead to retry.`,
         priority: "medium",
-        link: `/admin/leads?leadId=${leadId}`,
-        related_entity_type: "lead",
-        related_entity_id: leadId,
+        link: createdQuoteId
+          ? `/admin/quotes/${createdQuoteId}`
+          : `/admin/leads?leadId=${leadId}`,
+        related_entity_type: createdQuoteId ? "quote" : "lead",
+        related_entity_id: createdQuoteId || leadId,
       });
-
-      console.log("✅ Lead conversion notification sent");
     } catch (notificationError) {
-      console.error("⚠️ Failed to send conversion notification (non-blocking):", notificationError);
+      console.error("[leadService.convertLeadToQuote] notification failed (non-blocking):", notificationError);
     }
 
-    // Return raw database type for quote creation
-    return lead;
+    // Return the lead alongside the new quote id so the calling page
+    // can navigate the operator straight to the draft.
+    return { lead, quoteId: createdQuoteId };
   },
 
   async getLeadStats(companyId: string) {
