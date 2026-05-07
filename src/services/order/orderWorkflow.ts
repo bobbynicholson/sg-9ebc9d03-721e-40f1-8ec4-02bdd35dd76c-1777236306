@@ -179,7 +179,7 @@ export async function updateOrderStatus(
           console.warn("[orderWorkflow] resolveClientUserId failed (non-blocking):", e);
         }
 
-        await (supabase as any)
+        const { error: prErr } = await (supabase as any)
           .from("pending_reviews")
           .upsert(
             {
@@ -194,8 +194,35 @@ export async function updateOrderStatus(
             },
             { onConflict: "order_id", ignoreDuplicates: true },
           );
-      } catch (e) {
+        if (prErr) {
+          // Surface to audit_logs so the operator can see review prompts
+          // that never queued [P1-35]. Previously this was warn-only and
+          // a silently-skipped row meant the 24h follow-up email never
+          // sent for that order, undetectably.
+          console.warn("[orderWorkflow] pending_reviews upsert error:", prErr.message);
+          try {
+            await (supabase as any).from("audit_logs").insert({
+              company_id: order.company_id,
+              user_id: updatedBy || null,
+              action: "pending_review_queue_failed",
+              entity_type: "order",
+              entity_id: order.id,
+              details: { error: prErr.message, order_number: order.order_number },
+            });
+          } catch { /* never throw from a fail-log */ }
+        }
+      } catch (e: any) {
         console.warn("[orderWorkflow] pending_reviews insert crashed (non-blocking):", e);
+        try {
+          await (supabase as any).from("audit_logs").insert({
+            company_id: order.company_id,
+            user_id: updatedBy || null,
+            action: "pending_review_queue_crashed",
+            entity_type: "order",
+            entity_id: order.id,
+            details: { error: e?.message || String(e), order_number: order.order_number },
+          });
+        } catch { /* never throw from a fail-log */ }
       }
     }
 
