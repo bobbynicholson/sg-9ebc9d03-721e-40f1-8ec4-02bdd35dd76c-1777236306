@@ -307,11 +307,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //    ok:true so the user sees "check your inbox" rather than
     //    leaking whether the company has email configured.
     try {
+      // bypassQuarantine: true so the magic-link still delivers when
+      // the recipient was imported via the bulk-import wizard and the
+      // batch is sitting in 'auto-emails paused' state. The magic-link
+      // is a system-critical sign-in mail, not an automated nudge --
+      // quarantining it would lock the client out of their portal.
       await emailService.sendEmail({
         companyId: company.id,
         to: cleanEmail,
         subject,
         body: html,
+        bypassQuarantine: true,
         _client: admin,
       } as any);
     } catch (e: any) {
