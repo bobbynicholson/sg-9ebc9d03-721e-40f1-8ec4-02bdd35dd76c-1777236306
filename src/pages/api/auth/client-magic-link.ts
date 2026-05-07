@@ -267,9 +267,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // configured, no magic-link emails actually deliver. Bobby still
     // needs to test the client portal end-to-end. This bypass lets him
     // log in as any client while we wire SMTP per tenant.
+    // Hard guard: even if DEV_RETURN_MAGIC_LINK gets accidentally set
+    // on the production Vercel env (which it was, per the audit), the
+    // NODE_ENV gate kills the response branch. Production never returns
+    // a magic link in the body regardless of env-var state. [P0-18]
     const devReturnLink =
-      process.env.DEV_RETURN_MAGIC_LINK === "true" ||
-      process.env.DEV_RETURN_MAGIC_LINK === "1";
+      process.env.NODE_ENV !== "production" &&
+      (process.env.DEV_RETURN_MAGIC_LINK === "true" ||
+        process.env.DEV_RETURN_MAGIC_LINK === "1");
     if (devReturnLink) {
       console.warn(
         "[client-magic-link] DEV_RETURN_MAGIC_LINK is on, returning the magic link in the API response. UNSAFE for production.",
