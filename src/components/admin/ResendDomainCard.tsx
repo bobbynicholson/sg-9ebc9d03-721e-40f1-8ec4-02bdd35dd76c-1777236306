@@ -191,11 +191,15 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         });
         if (body.newly_verified && onVerified) onVerified(body.domain);
       } else if (manual && body.status === "pending") {
-        // Calmer manual-retry toast -- no destructive variant.
+        // Two pending sub-states deserve different copy. If the live
+        // diagnostic already says everything matches, DNS is fine and
+        // we're just waiting on Resend's internal check to flip.
+        const dnsAllMatch = !!diagnostic?.summary?.all_match;
         toast({
-          title: "Still propagating",
-          description:
-            "DNS hasn't fully published yet. We'll keep checking automatically.",
+          title: dnsAllMatch ? "Waiting on Resend" : "Still propagating",
+          description: dnsAllMatch
+            ? "DNS records are live and correct. Resend is running its own check now. This usually flips to verified within a minute or two, we'll keep polling."
+            : "DNS hasn't fully published yet. We'll keep checking automatically.",
         });
       } else if (manual && body.status === "failed") {
         toast({
@@ -372,9 +376,14 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       );
     }
     if (isPending(s)) {
+      // Differentiate the two pending sub-states:
+      //  - records not yet visible in DNS  -> truly propagating
+      //  - records live + match but Resend hasn't flipped yet -> waiting on Resend
+      const allMatch = !!diagnostic?.summary?.all_match;
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-          <Loader2 className="w-3 h-3 animate-spin" /> Propagating
+          <Loader2 className="w-3 h-3 animate-spin" />
+          {allMatch ? "Verifying with Resend" : "Propagating"}
         </span>
       );
     }
@@ -386,7 +395,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       );
     }
     return null;
-  }, [state.status]);
+  }, [state.status, diagnostic]);
 
   if (loading) {
     return (
