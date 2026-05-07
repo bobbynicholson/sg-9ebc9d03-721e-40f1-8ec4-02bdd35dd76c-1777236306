@@ -286,6 +286,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
+    // Source filename for the per-contact provenance chip
+    // (Feature C). May be null for very old jobs; we'll just skip the
+    // chip in that case rather than error.
+    const importedFilename: string | null = (job as any)?.source_filename ?? null;
     // Allow re-entry while a commit is in flight (subsequent batches
     // arrive with status='committing'). 'previewed' / 'mapped' are
     // the first-batch entry points.
@@ -386,6 +390,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           notes: mapped.notes || null,
           is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
+          imported_filename: importedFilename,
           // Imported-history rollup (Feature B). Sparse -- only the
           // columns the operator actually filled in get persisted;
           // rest stay null. Surfaced on the contact card so the
@@ -561,6 +566,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           client_phone: mapped.client_phone || mapped.phone || mapped.mobile_number || mapped.landline_number || null,
           mobile_number: mapped.mobile_number || null,
           landline_number: mapped.landline_number || null,
+          imported_filename: importedFilename,
           company_name: mapped.company_name || null,
           event_type: mapped.event_type || null,
           event_date: mapped.event_date || null,

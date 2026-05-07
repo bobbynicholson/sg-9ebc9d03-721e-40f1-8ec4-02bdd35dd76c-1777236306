@@ -81,6 +81,10 @@ interface Contact {
   historicalTotalEvents: number | null;
   historicalLifetimeSpend: number | null;
   historicalLastEventDate: string | null;
+  // Source attribution (Feature C). When set, the contact card
+  // shows "Imported via X.xlsx" so operators can trace lineage and
+  // know which batch a record came in on.
+  importedFilename: string | null;
   // Aggregated metrics
   orderCount: number;
   totalSpent: number;
@@ -208,7 +212,7 @@ function ClientsCRM() {
         const to = from + PAGE - 1;
         const { data, error } = await supabase
           .from("clients")
-          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date")
+          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .range(from, to);
@@ -226,7 +230,7 @@ function ClientsCRM() {
       fetchAllClients(),
       supabase
         .from("leads")
-        .select("id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at")
+        .select("id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename")
         .eq("company_id", companyId)
         .is("deleted_at", null),
       supabase
@@ -307,6 +311,7 @@ function ClientsCRM() {
           historicalTotalEvents: c.historical_total_events ?? null,
           historicalLifetimeSpend: c.historical_lifetime_spend != null ? Number(c.historical_lifetime_spend) : null,
           historicalLastEventDate: c.historical_last_event_date ?? null,
+          importedFilename: c.imported_filename ?? null,
           orderCount: 0, totalSpent: 0,
           lastEventDate: null, nextEventDate: null,
           outstandingBalance: Number(c.outstanding_balance || 0),
@@ -345,6 +350,7 @@ function ClientsCRM() {
             historicalTotalEvents: null,
             historicalLifetimeSpend: null,
             historicalLastEventDate: null,
+            importedFilename: l.imported_filename ?? null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -381,6 +387,7 @@ function ClientsCRM() {
             historicalTotalEvents: null,
             historicalLifetimeSpend: null,
             historicalLastEventDate: null,
+            importedFilename: null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -839,6 +846,14 @@ function ClientsCRM() {
                                       📅
                                       {c.historicalTotalEvents != null ? `${c.historicalTotalEvents} past events` : "Past history"}
                                       {c.historicalLifetimeSpend != null ? ` · R${Math.round(c.historicalLifetimeSpend).toLocaleString("en-ZA")} LTV` : ""}
+                                    </span>
+                                  )}
+                                  {c.importedFilename && (
+                                    <span
+                                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
+                                      title={`Imported via ${c.importedFilename}`}
+                                    >
+                                      Imported
                                     </span>
                                   )}
                                 </div>
