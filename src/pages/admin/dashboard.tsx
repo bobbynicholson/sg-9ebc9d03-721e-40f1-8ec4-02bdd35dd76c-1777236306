@@ -505,7 +505,7 @@ function AdminDashboardPage() {
           </div>
 
           {/* Quick Actions */}
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>
