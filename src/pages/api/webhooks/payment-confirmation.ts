@@ -171,24 +171,8 @@ export default async function handler(
         return res.status(200).json({ message: "Already processed", invoiceId });
       }
 
-      // Update invoice status. amount_gross is a string off the URL-
-      // encoded body; coerce to number for the numeric column.
-      const { error: invoiceError } = await supabase
-        .from("invoices")
-        .update({
-          status: "paid",
-          amount_paid: parseFloat(amount_gross),
-          balance_due: 0,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", invoiceId);
-
-      if (invoiceError) {
-        console.error("Error updating invoice:", invoiceError);
-        return res.status(500).json({ error: "Failed to update invoice" });
-      }
-
-      // Get invoice details for notification
+      // Read the invoice's client + companies info for the
+      // notification + email follow-ups (the RPC returns just IDs).
       const { data: invoice } = await supabase
         .from("invoices")
         .select("*, companies(*)")
@@ -199,35 +183,36 @@ export default async function handler(
         const invoiceData = invoice as any;
         const companyData = invoiceData.companies;
 
-        // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
-        await supabase.from("payments").insert([{
-          company_id: companyId,
-          client_id: invoiceData.client_id,
-          invoice_id: invoiceId,
-          amount: parseFloat(amount_gross),
-          currency: "ZAR",
-          payment_method: "payfast",
-          payment_reference: pf_payment_id,
-          gateway_provider: "payfast",
-          gateway: "payfast",
-          gateway_transaction_id: pf_payment_id,
-          transaction_id: pf_payment_id,
-          payment_status: "completed",
-          completed_at: new Date().toISOString()
-        }]);
+        // Atomic invoice + payments + order update via SECURITY DEFINER
+        // RPC. Three sequential writes used to leave the system in
+        // inconsistent state on a network blip between any two of
+        // them. The RPC does all three in one transaction with belt-
+        // and-braces idempotency on gateway_transaction_id [P2F-1].
+        const { data: rpcResult, error: rpcErr } = await (supabase as any).rpc(
+          "record_invoice_payment",
+          {
+            p_invoice_id: invoiceId,
+            p_amount: parseFloat(amount_gross),
+            p_payment_method: "payfast",
+            p_transaction_id: pf_payment_id,
+            p_company_id: companyId,
+            p_client_id: invoiceData.client_id,
+            p_currency: "ZAR",
+            p_gateway_provider: "payfast",
+          }
+        );
 
-        // Mark the underlying order as completed once the final invoice is paid.
-        // Closes out the post-event journey so the order drops out of the
-        // open list and the financial dashboard counts it under collected.
-        if (invoiceData.order_id) {
-          await supabase
-            .from("orders")
-            .update({
-              status: "completed",
-              payment_status: "paid",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", invoiceData.order_id);
+        if (rpcErr) {
+          console.error("Error in record_invoice_payment RPC:", rpcErr);
+          return res.status(500).json({ error: "Failed to record invoice payment" });
+        }
+
+        if ((rpcResult as any)?.idempotent === true) {
+          return res.status(200).json({
+            message: "Already processed",
+            invoiceId,
+            payment_id: (rpcResult as any).payment_id,
+          });
         }
 
         // Send notification
