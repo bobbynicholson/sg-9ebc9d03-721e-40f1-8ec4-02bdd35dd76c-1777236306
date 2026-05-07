@@ -10,12 +10,14 @@ import {
   Users,
   ArrowRight,
 } from "lucide-react";
-import { useBranding } from "@/contexts/BrandingContext";
+import { useBrandingRow } from "@/lib/branding/useBranding";
+import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
-  const { branding, isWhiteLabeled } = useBranding();
+  const branding = useBrandingRow();
+  const isWhiteLabeled = isWhiteLabelRow(branding);
   // Auth state drives whether we show the "Sign in" CTA card. The
   // block doesn't help anyone who's already inside their portal --
   // it just adds noise to authenticated dashboards. Hidden when
@@ -66,7 +68,7 @@ export function Footer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
-  const displayName = branding?.organizationName || "CateringMS";
+  const displayName = branding?.companyName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
   const quickLinks = [

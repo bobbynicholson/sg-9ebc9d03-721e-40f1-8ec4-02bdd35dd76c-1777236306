@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,6 @@ import {
   Sparkles,
   Image as ImageIcon,
 } from "lucide-react";
-import { useBranding } from "@/contexts/BrandingContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Footer } from "@/components/Footer";
@@ -26,6 +26,13 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DEFAULT_PALETTE,
+  DEFAULT_ORG_NAME,
+  isWhiteLabelRow,
+  type BrandingRow,
+} from "@/lib/branding/applyBranding";
+import { clearBrandingCache } from "@/lib/branding/store";
 
 const LOGO_BUCKET = "branding-logos";
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -58,38 +65,108 @@ export default function ProtectedWhiteLabelPage() {
 }
 
 function WhiteLabelPage() {
-  const { branding, loading, saving, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
   const { user } = useAuth() as any;
   const companyId: string | undefined = user?.company_id;
   const { toast } = useToast();
 
+  const [branding, setBranding] = useState<BrandingRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [organizationName, setOrganizationName] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#2563eb");
-  const [secondaryColor, setSecondaryColor] = useState("#7c3aed");
-  const [accentColor, setAccentColor] = useState("#f59e0b");
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PALETTE.primary);
+  const [secondaryColor, setSecondaryColor] = useState(DEFAULT_PALETTE.secondary);
+  const [accentColor, setAccentColor] = useState(DEFAULT_PALETTE.accent);
   const [logoUrl, setLogoUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  const isWhiteLabeled = isWhiteLabelRow(branding);
+
+  // Load tenant row directly from companies. Single canonical source of
+  // truth -- no parallel context state.
   useEffect(() => {
-    if (branding) {
-      setOrganizationName(branding.organizationName || "");
-      setPrimaryColor(branding.colors.primary || "#2563eb");
-      setSecondaryColor(branding.colors.secondary || "#7c3aed");
-      setAccentColor(branding.colors.accent || "#f59e0b");
-      setLogoUrl(branding.logoUrl || "");
+    let cancelled = false;
+    if (!companyId) {
+      setLoading(false);
+      return;
     }
-  }, [branding]);
+    setLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
+      const r = data as Record<string, string | null | undefined>;
+      const row: BrandingRow = {
+        id: r.id ?? companyId,
+        companyName: r.company_name ?? null,
+        logoUrl: r.logo_url ?? null,
+        primaryColor: r.primary_color ?? null,
+        secondaryColor: r.secondary_color ?? null,
+        accentColor: r.accent_color ?? null,
+      };
+      setBranding(row);
+      setOrganizationName(row.companyName || "");
+      setPrimaryColor(row.primaryColor || DEFAULT_PALETTE.primary);
+      setSecondaryColor(row.secondaryColor || DEFAULT_PALETTE.secondary);
+      setAccentColor(row.accentColor || DEFAULT_PALETTE.accent);
+      setLogoUrl(row.logoUrl || "");
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  const dispatchBrandingUpdated = useCallback((row: BrandingRow | null) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("branding:updated", { detail: row }));
+  }, []);
+
+  const persistPatch = useCallback(
+    async (patch: Partial<Record<string, string | null>>): Promise<BrandingRow | null> => {
+      if (!companyId) return null;
+      const { error } = await supabase
+        .from("companies")
+        .update(patch as any)
+        .eq("id", companyId);
+      if (error) throw error;
+      const merged: BrandingRow = {
+        id: companyId,
+        companyName: branding?.companyName ?? null,
+        logoUrl: branding?.logoUrl ?? null,
+        primaryColor: branding?.primaryColor ?? null,
+        secondaryColor: branding?.secondaryColor ?? null,
+        accentColor: branding?.accentColor ?? null,
+      };
+      if ("company_name" in patch) merged.companyName = patch.company_name ?? null;
+      if ("logo_url" in patch) merged.logoUrl = patch.logo_url ?? null;
+      if ("primary_color" in patch) merged.primaryColor = patch.primary_color ?? null;
+      if ("secondary_color" in patch) merged.secondaryColor = patch.secondary_color ?? null;
+      if ("accent_color" in patch) merged.accentColor = patch.accent_color ?? null;
+      setBranding(merged);
+      dispatchBrandingUpdated(merged);
+      return merged;
+    },
+    [branding, companyId, dispatchBrandingUpdated],
+  );
 
   const handleSave = async () => {
+    if (!companyId) return;
+    setSaving(true);
     try {
-      await updateBranding({
-        organizationName,
-        colors: {
-          primary: primaryColor,
-          secondary: secondaryColor,
-          accent: accentColor,
-        },
-        logoUrl,
+      await persistPatch({
+        company_name: organizationName || null,
+        logo_url: logoUrl || null,
+        primary_color: primaryColor || null,
+        secondary_color: secondaryColor || null,
+        accent_color: accentColor || null,
       });
       toast({
         title: "Branding saved",
@@ -101,18 +178,30 @@ function WhiteLabelPage() {
         description: e?.message || "Could not write branding to your account. Try again.",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleReset = async () => {
+    if (!companyId) return;
     if (!confirm("Reset to default CateringMS branding? This clears your saved logo + colours.")) return;
+    setSaving(true);
     try {
-      await resetBranding();
-      setOrganizationName("CateringMS");
-      setPrimaryColor("#2563eb");
-      setSecondaryColor("#7c3aed");
-      setAccentColor("#f59e0b");
+      await persistPatch({
+        logo_url: null,
+        primary_color: null,
+        secondary_color: null,
+        accent_color: null,
+      });
+      clearBrandingCache(companyId);
+      setOrganizationName(DEFAULT_ORG_NAME);
+      setPrimaryColor(DEFAULT_PALETTE.primary);
+      setSecondaryColor(DEFAULT_PALETTE.secondary);
+      setAccentColor(DEFAULT_PALETTE.accent);
       setLogoUrl("");
+      // Dispatch null so the applier reverts the DOM to defaults.
+      dispatchBrandingUpdated(null);
       toast({
         title: "Branding reset",
         description: "Defaults are back.",
@@ -123,6 +212,8 @@ function WhiteLabelPage() {
         description: e?.message || "Could not clear branding. Try again.",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -172,7 +263,7 @@ function WhiteLabelPage() {
 
       const previousPath = objectPathFromPublicUrl(logoUrl);
       setLogoUrl(publicUrl);
-      await updateBranding({ logoUrl: publicUrl });
+      await persistPatch({ logo_url: publicUrl });
 
       if (previousPath && previousPath !== path) {
         supabase.storage.from(LOGO_BUCKET).remove([previousPath]).catch(() => {});
@@ -197,7 +288,7 @@ function WhiteLabelPage() {
     const previousPath = objectPathFromPublicUrl(logoUrl);
     setLogoUrl("");
     try {
-      await updateBranding({ logoUrl: "" });
+      await persistPatch({ logo_url: null });
     } catch (err: any) {
       toast({
         title: "Could not clear logo",
