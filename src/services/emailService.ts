@@ -472,36 +472,22 @@ export const emailService = {
 
     try {
       // Pre-flight gates for Resend that don't require burning an API
-      // call: domain not verified yet, or from_email apex doesn't match
-      // the verified sending domain. Both produce a friendly diagnosis.
-      // We only run these when the tenant's own from_email is set --
-      // empty from_email is fine because the resolver falls back to the
-      // shared CateringMS sender.
+      // call. We only run these when the tenant's own from_email is
+      // set -- empty from_email is fine because the resolver falls back
+      // to the shared CateringMS sender.
+      //
+      // When the tenant's domain is registered but not yet verified, we
+      // do NOT block. resolveFromAddress already falls back to the
+      // shared sender (noreply@send.cateringms.com) with reply-to set
+      // to the operator's address, so the email still delivers and
+      // replies still land in their inbox. Blocking would break
+      // system-critical sends like client magic-links during the
+      // verify-DNS window. The mismatch check below stays a hard error
+      // because that's a real config bug the operator should see.
       if (config.provider === "resend" && (config.from_email || "").trim()) {
         const fromEmail = (config.from_email || "").trim().toLowerCase();
         const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
         const verified = !!config.resend_domain_verified_at;
-        if (sendingDomain && !verified) {
-          await this.logEmailSent(
-            payload.companyId,
-            payload.template || "custom",
-            payload.to,
-            payload.variables?.clientName || "N/A",
-            finalSubject,
-            payload.orderId,
-            payload.quoteId,
-            (payload as any)._client,
-            "failed",
-            `Resend domain ${sendingDomain} not yet verified`,
-          );
-          return {
-            success: false,
-            error: `Your sending domain ${sendingDomain} isn't verified yet. Add the DNS records and click Verify.`,
-            error_code: "domain_unverified",
-            fix_link: "/admin/email-settings#resend",
-            context: { domain: sendingDomain },
-          };
-        }
         if (verified && sendingDomain && fromEmail && !fromEmail.endsWith(`@${sendingDomain}`)) {
           await this.logEmailSent(
             payload.companyId,
