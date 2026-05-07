@@ -269,6 +269,21 @@ export default function InvoicePaymentPage() {
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
   const today = format(new Date(), "d MMMM yyyy");
+  // Days until / since the due date. Surfaces as a top-bar chip so the
+  // payer sees the deadline before they scroll. Hidden once paid.
+  const daysToDue = Math.ceil(
+    (new Date(invoice.due_date).getTime() - Date.now()) / 86_400_000,
+  );
+  const dueChipLabel = isPaid
+    ? null
+    : daysToDue < 0
+    ? `Overdue by ${Math.abs(daysToDue)} day${Math.abs(daysToDue) === 1 ? "" : "s"}`
+    : daysToDue === 0
+    ? "Due today"
+    : daysToDue === 1
+    ? "Due tomorrow"
+    : `Due in ${daysToDue} days`;
+  const dueChipTone = isOverdue ? "overdue" : daysToDue <= 3 ? "soon" : "ok";
 
   return (
     <>
@@ -292,7 +307,21 @@ export default function InvoicePaymentPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
           {/* Floating action bar -- screen only */}
-          <div className="no-print flex items-center justify-end gap-2 mb-4">
+          <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
+            {dueChipLabel ? (
+              <Badge
+                className={
+                  dueChipTone === "overdue"
+                    ? "bg-rose-100 text-rose-800 border border-rose-200 gap-1.5"
+                    : dueChipTone === "soon"
+                    ? "bg-amber-100 text-amber-800 border border-amber-200 gap-1.5"
+                    : "bg-stone-100 text-stone-700 border border-stone-200 gap-1.5"
+                }
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {dueChipLabel}
+              </Badge>
+            ) : <span />}
             <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
               <Printer className="w-4 h-4" />
               Save as PDF

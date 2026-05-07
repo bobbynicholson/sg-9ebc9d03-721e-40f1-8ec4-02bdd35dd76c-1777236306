@@ -258,6 +258,30 @@ export default function PublicQuotePage() {
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  // Days remaining until quote validity expires. Surfaces a chip at
+  // the top of the page so the client sees the deadline before they
+  // scroll. Negative when already expired.
+  const daysToExpiry = quote.valid_until
+    ? Math.ceil((new Date(quote.valid_until).getTime() - Date.now()) / 86_400_000)
+    : null;
+  const expiryChipTone =
+    daysToExpiry === null
+      ? null
+      : daysToExpiry < 0
+      ? "expired"
+      : daysToExpiry <= 3
+      ? "soon"
+      : "ok";
+  const expiryChipLabel =
+    daysToExpiry === null
+      ? null
+      : daysToExpiry < 0
+      ? `Expired ${validUntil}`
+      : daysToExpiry === 0
+      ? "Expires today"
+      : daysToExpiry === 1
+      ? "Expires tomorrow"
+      : `Expires in ${daysToExpiry} days`;
   const total = Number(quote.total ?? quote.total_amount ?? 0);
   const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
 
@@ -296,7 +320,21 @@ export default function PublicQuotePage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
           {/* Floating action bar -- screen only */}
-          <div className="no-print flex items-center justify-end gap-2 mb-4">
+          <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
+            {expiryChipLabel && !accepted ? (
+              <Badge
+                className={
+                  expiryChipTone === "expired"
+                    ? "bg-red-100 text-red-800 border border-red-200 gap-1.5"
+                    : expiryChipTone === "soon"
+                    ? "bg-amber-100 text-amber-800 border border-amber-200 gap-1.5"
+                    : "bg-stone-100 text-stone-700 border border-stone-200 gap-1.5"
+                }
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {expiryChipLabel}
+              </Badge>
+            ) : <span />}
             <Button
               variant="outline"
               size="sm"
