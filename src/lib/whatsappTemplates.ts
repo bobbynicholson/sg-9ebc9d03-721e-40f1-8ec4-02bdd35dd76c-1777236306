@@ -38,6 +38,7 @@ const firstName = (name: string | null | undefined): string =>
 // ── CLIENT-FACING ──────────────────────────────────────────────────
 
 export type ClientWhatsAppKind =
+  | "touch_base"
   | "lead_followup"
   | "quote_sent"
   | "quote_chase"
@@ -82,6 +83,7 @@ const portalLinkLine = (slug: string | null | undefined): string => {
 
 /** Map a client-facing kind to the matching registry override key. */
 const CLIENT_KIND_TO_REGISTRY: Record<ClientWhatsAppKind, string> = {
+  touch_base:        "whatsapp_touch_base",
   lead_followup:     "whatsapp_lead_followup",
   quote_sent:        "whatsapp_quote_sent",
   quote_chase:       "whatsapp_quote_chase",
@@ -111,6 +113,7 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
 }
 
 export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
+  touch_base:        "Touch base",
   lead_followup:     "Lead follow-up",
   quote_sent:        "Quote just sent",
   quote_chase:       "Quote chase",
@@ -161,6 +164,9 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
   const totalLine = ctx.total ? ` Sitting at ${fmtRand(ctx.total)} including VAT.` : "";
 
   switch (kind) {
+    case "touch_base":
+      return `Hi ${first}, hope you're well! Just touching base from ${ctx.companyName || "the team"}. Whenever you've got an event coming up, give me a shout and I'll put a quote together. No rush, just wanted to make sure you've got my number.${sigLine}${portalLine}`;
+
     case "lead_followup":
       return `Hi ${first}, thanks for the enquiry about ${eventLine}. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.${sigLine}${portalLine}`;
 

@@ -902,9 +902,10 @@ function ClientsCRM() {
                                   size="sm"
                                   label=""
                                   className="h-8 w-8 p-0"
-                                  templates={["lead_followup", "quote_chase", "quote_sent"] as ClientWhatsAppKind[]}
+                                  templates={["touch_base", "lead_followup", "quote_chase", "quote_sent"] as ClientWhatsAppKind[]}
                                   defaultTemplate={
                                     c.status === "quoted" ? "quote_chase"
+                                    : c.orderCount === 0 && !c.nextEventDate ? "touch_base"
                                     : "lead_followup"
                                   }
                                   ctx={{
@@ -1298,6 +1299,7 @@ function ComposeDrawer({
   const defaultWA: ClientWhatsAppKind =
     contact.status === "quoted" ? "quote_chase"
     : contact.status === "won" || contact.status === "active" || contact.status === "vip" ? "quote_accepted"
+    : contact.orderCount === 0 && !contact.nextEventDate ? "touch_base"
     : "lead_followup";
 
   return (
@@ -1341,7 +1343,7 @@ function ComposeDrawer({
           guestCount: null,
           fromName,
         },
-        templates: ["lead_followup", "quote_chase", "quote_sent", "quote_accepted"],
+        templates: ["touch_base", "lead_followup", "quote_chase", "quote_sent", "quote_accepted"],
         defaultTemplate: defaultWA,
       }}
       onClose={onClose}

@@ -378,6 +378,17 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
 
   // --- CLIENT WHATSAPP ---
   {
+    key: "whatsapp_touch_base",
+    channel: "whatsapp",
+    category: "client",
+    group: "Outreach",
+    label: "Touch base",
+    description: "Soft intro / no-pressure ping for a freshly imported contact you've never spoken to before.",
+    defaultBody:
+      `Hi {{first_name}}, hope you're well! Just touching base from {{company_name}}. Whenever you've got an event coming up, give me a shout and I'll put a quote together. No rush, just wanted to make sure you've got my number.\n\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
     key: "whatsapp_lead_followup",
     channel: "whatsapp",
     category: "client",
