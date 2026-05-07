@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -162,11 +163,21 @@ function SuppliersList() {
                   Loading suppliers...
                 </div>
               ) : visible.length === 0 ? (
-                <div className="py-16 text-center text-slate-500">
-                  <Building2 className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                  <p className="font-semibold">No suppliers match this view.</p>
-                  <p className="text-sm">Try clearing the search or filter.</p>
-                </div>
+                <EmptyState
+                  inCard
+                  icon={Building2}
+                  title={suppliers.length === 0 ? "No suppliers yet" : "No suppliers match this view"}
+                  description={
+                    suppliers.length === 0
+                      ? "Add your first supplier to start tracking purchases and spend."
+                      : "Try clearing the search or filter."
+                  }
+                  cta={
+                    suppliers.length === 0
+                      ? { label: "Add supplier", onClick: () => setAdding(true) }
+                      : undefined
+                  }
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
