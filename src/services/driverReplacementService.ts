@@ -480,15 +480,17 @@ ${companyName}`;
 
     if (!request || !newDriver) return;
 
-    // Driver-facing: their replacement was accepted. Deep-link to
-    // their deliveries so they can confirm the swap landed and they
-    // no longer need to cover the run.
+    // Driver-facing: their replacement was accepted. Copy is
+    // explicit about the assignment swap so the driver knows they
+    // are no longer responsible for the run [P2-08]. Previous
+    // wording ("has accepted your replacement request") was
+    // ambiguous about who owns the delivery now.
     await notificationService.createNotification({
       recipient_id: request.original_driver_id,
       user_id: request.original_driver_id,
       notification_type: 'driver_replacement_accepted',
-      title: '✅ Replacement Found',
-      message: `${newDriver.full_name} has accepted your replacement request for Order #${request.orders?.order_number}`,
+      title: 'Replacement confirmed -- you are off this run',
+      message: `${newDriver.full_name} has taken over Order #${request.orders?.order_number}. You're no longer assigned to this delivery; their portal now shows the run.`,
       priority: 'normal',
       link: `/team-portal/driver/deliveries?orderId=${request.order_id}`,
       related_entity_type: 'order',
