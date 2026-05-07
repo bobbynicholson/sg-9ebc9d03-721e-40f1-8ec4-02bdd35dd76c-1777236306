@@ -162,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     type Computed = {
       id: string;
       mapped: Record<string, any>;
-      target: "clients" | "orders" | "leads" | "quotes";
+      target: "clients" | "orders" | "leads" | "quotes" | "invoices" | "payments";
       status: "pending" | "skipped" | "error";
       errorMessage: string | null;
       warnings: string[];
@@ -178,10 +178,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Per-row target. Starts from the sheet-level declaration but
       // is reclassified row-by-row below based on event_date for the
       // clients/leads sheets (Feature D: lead-vs-client auto-class).
-      let targetTable: "clients" | "orders" | "leads" | "quotes" =
+      let targetTable: "clients" | "orders" | "leads" | "quotes" | "invoices" | "payments" =
         declared === "orders" ? "orders"
         : declared === "leads" ? "leads"
         : declared === "quotes" ? "quotes"
+        : declared === "invoices" ? "invoices"
+        : declared === "payments" ? "payments"
         : "clients";
 
       const mapped: Record<string, any> = {};
@@ -239,8 +241,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // (past or no event date) and others are leads (event still
       // ahead). Picking the right type per row saves the operator
       // from running two imports. Skip when the sheet was forced to
-      // orders or quotes -- those pipelines are unrelated.
-      if (targetTable !== "orders" && targetTable !== "quotes") {
+      // orders / quotes / invoices / payments -- those pipelines
+      // are unrelated.
+      if (
+        targetTable !== "orders"
+        && targetTable !== "quotes"
+        && targetTable !== "invoices"
+        && targetTable !== "payments"
+      ) {
         const eventDate = mapped.event_date as string | undefined;
         if (eventDate) {
           // event_date already normalised to ISO yyyy-mm-dd by
@@ -306,6 +314,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else if (mapped.total_amount == null) {
           status = "error";
           errorMessage = "Quote is missing a total amount";
+        }
+      } else if (targetTable === "invoices") {
+        const hasClientHandle =
+          (mapped.client_name as string)?.trim() || mapped.client_email;
+        if (!mapped.invoice_number) {
+          status = "error";
+          errorMessage = "Invoice is missing an invoice number";
+        } else if (!hasClientHandle) {
+          status = "error";
+          errorMessage = "Invoice is missing a client name or email";
+        } else if (mapped.subtotal == null && mapped.total_amount == null) {
+          status = "error";
+          errorMessage = "Invoice is missing a subtotal or total";
+        }
+      } else if (targetTable === "payments") {
+        if (mapped.amount == null) {
+          status = "error";
+          errorMessage = "Payment is missing an amount";
+        } else if (!mapped.payment_date) {
+          status = "error";
+          errorMessage = "Payment is missing a date";
+        } else if (!mapped.invoice_number && !mapped.order_number) {
+          // Allowed but warned -- the linker won't tie this to anything.
+          warnings.push("No invoice or order reference -- payment will land unlinked");
         }
       } else if (targetTable === "leads") {
         if (!(mapped.contact_name as string)?.trim()) {

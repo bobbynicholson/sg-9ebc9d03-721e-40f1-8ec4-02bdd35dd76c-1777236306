@@ -15,7 +15,7 @@
  * column lists into the API routes; everyone reads from this file.
  */
 
-export type TemplateType = "clients" | "leads" | "orders" | "quotes";
+export type TemplateType = "clients" | "leads" | "orders" | "quotes" | "invoices" | "payments";
 
 export interface TemplateColumn {
   /** DB column name on the target table -- used by importNormalise + commit. */
@@ -35,7 +35,7 @@ export interface TemplateColumn {
 export interface TemplateDefinition {
   type: TemplateType;
   /** target_table the import engine writes to. */
-  targetTable: "clients" | "leads" | "orders" | "quotes";
+  targetTable: "clients" | "leads" | "orders" | "quotes" | "invoices" | "payments";
   /** Sheet name in the generated workbook + label shown in the UI. */
   sheetName: string;
   columns: TemplateColumn[];
@@ -175,6 +175,10 @@ const ORDERS_TEMPLATE: TemplateDefinition = {
   targetTable: "orders",
   sheetName: "Orders",
   columns: [
+    { key: "order_number", header: "Order number", required: false,
+      example: "ORD-2026-001",
+      hint: "Your existing order numbering. Optional but recommended -- it's how invoices in your invoices sheet will link back to this order.",
+      aliases: ["order ref", "order no", "ref", "function ref"] },
     { key: "client_name", header: "Client name *", required: true,
       example: "Jane Smith",
       hint: "Used to link this order to a client. Either name OR email is enough.",
@@ -287,11 +291,126 @@ const QUOTES_TEMPLATE: TemplateDefinition = {
   ],
 };
 
+/**
+ * Invoices template -- bills sent to clients. Goes to `invoices`.
+ *
+ * Required: invoice_number, client linkage (name OR email), subtotal,
+ * total_amount, due_date.
+ *
+ * Cross-sheet linker resolves:
+ *   - client_id via clients sheet / DB by name+email
+ *   - order_id via orders sheet by order_number column (optional)
+ */
+const INVOICES_TEMPLATE: TemplateDefinition = {
+  type: "invoices",
+  targetTable: "invoices",
+  sheetName: "Invoices",
+  columns: [
+    { key: "invoice_number", header: "Invoice number *", required: true,
+      example: "INV-2026-001",
+      hint: "Use whatever numbering scheme you already had. We preserve it verbatim.",
+      aliases: ["invoice no", "invoice ref", "ref", "number"] },
+    { key: "client_name", header: "Client name *", required: true,
+      example: "Jane Smith",
+      hint: "Used to link this invoice to a client.",
+      aliases: ["customer", "customer name", "billed to"] },
+    { key: "client_email", header: "Client email", required: false,
+      example: "jane@example.co.za",
+      aliases: ["email"] },
+    { key: "order_number", header: "Order number", required: false,
+      example: "ORD-2026-001",
+      hint: "If this invoice ties to a specific order, the importer links them. Optional -- standalone invoices land fine without one.",
+      aliases: ["order ref", "linked order", "event ref"] },
+    { key: "invoice_date", header: "Invoice date *", required: true,
+      example: "2026-03-15",
+      hint: "Date the invoice was issued. Defaults to today if blank.",
+      aliases: ["date", "issue date", "issued"] },
+    { key: "due_date", header: "Due date *", required: true,
+      example: "2026-04-14",
+      hint: "When payment is due. If blank, defaults to invoice_date + 30 days.",
+      aliases: ["payment due"] },
+    { key: "subtotal", header: "Subtotal (R) *", required: true,
+      example: "10870",
+      hint: "Pre-VAT total.",
+      aliases: ["sub total", "net"] },
+    { key: "tax_amount", header: "VAT (R)", required: false,
+      example: "1630",
+      aliases: ["vat", "tax"] },
+    { key: "total_amount", header: "Total (R) *", required: true,
+      example: "12500",
+      hint: "Including VAT.",
+      aliases: ["total", "gross"] },
+    { key: "amount_paid", header: "Amount paid (R)", required: false,
+      example: "5000",
+      hint: "How much has been paid against this invoice. Importer auto-flips status to 'paid' when amount_paid >= total.",
+      aliases: ["paid", "received"] },
+    { key: "status", header: "Status", required: false,
+      example: "sent",
+      hint: "draft, sent, paid, overdue. Importer auto-derives from amount_paid + due_date if blank.",
+      aliases: ["invoice status"] },
+    { key: "notes", header: "Notes", required: false,
+      example: "Payment terms: 30 days from issue",
+      aliases: ["comments", "memo"] },
+  ],
+};
+
+/**
+ * Payments template -- money received against invoices. Goes to
+ * `payments`.
+ *
+ * Required: amount AND (invoice_number OR order_number) so the
+ * linker can resolve invoice_id / order_id / client_id.
+ *
+ * Cross-sheet linker resolves the client_id transitively through
+ * the invoice / order it links to, so the operator doesn't have to
+ * include client info on each payment row.
+ */
+const PAYMENTS_TEMPLATE: TemplateDefinition = {
+  type: "payments",
+  targetTable: "payments",
+  sheetName: "Payments",
+  columns: [
+    { key: "invoice_number", header: "Invoice number", required: false,
+      example: "INV-2026-001",
+      hint: "Strongest link. If you have it, the importer ties this payment to the invoice and rolls up amount_paid automatically.",
+      aliases: ["invoice ref", "invoice"] },
+    { key: "order_number", header: "Order number", required: false,
+      example: "ORD-2026-001",
+      hint: "Fallback link when no invoice number is on the row.",
+      aliases: ["order ref", "linked order"] },
+    { key: "amount", header: "Amount (R) *", required: true,
+      example: "5000",
+      hint: "How much was received.",
+      aliases: ["paid", "value", "total"] },
+    { key: "payment_date", header: "Payment date *", required: true,
+      example: "2026-03-20",
+      hint: "When the money was received -- the date on the bank statement.",
+      aliases: ["date", "received", "paid on"] },
+    { key: "payment_method", header: "Payment method", required: false,
+      example: "eft",
+      hint: "eft, card, cash, paypal, payfast, stripe, manual. Defaults to manual.",
+      aliases: ["method", "via"] },
+    { key: "payment_reference", header: "Reference", required: false,
+      example: "INV0001-Smith",
+      hint: "Bank reference / transaction id. Helps when reconciling against the bank statement later.",
+      aliases: ["bank reference", "txn ref", "transaction id"] },
+    { key: "payment_status", header: "Status", required: false,
+      example: "completed",
+      hint: "pending, completed, failed, refunded. Defaults to completed for imports (assumes the money is already in the bank).",
+      aliases: ["status"] },
+    { key: "notes", header: "Notes", required: false,
+      example: "Deposit -- balance due before event",
+      aliases: ["comments", "memo"] },
+  ],
+};
+
 const TEMPLATES: Record<TemplateType, TemplateDefinition> = {
   clients: CLIENTS_TEMPLATE,
   leads: LEADS_TEMPLATE,
   orders: ORDERS_TEMPLATE,
   quotes: QUOTES_TEMPLATE,
+  invoices: INVOICES_TEMPLATE,
+  payments: PAYMENTS_TEMPLATE,
 };
 
 export function getTemplateDefinition(type: TemplateType): TemplateDefinition {

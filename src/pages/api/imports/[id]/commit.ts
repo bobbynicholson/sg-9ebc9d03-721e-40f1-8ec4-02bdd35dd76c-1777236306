@@ -54,11 +54,13 @@ interface CountTriad {
 }
 
 interface CommitSummary {
-  clients: CountTriad;
-  orders:  CountTriad;
-  leads:   CountTriad;
-  quotes:  CountTriad;
-  dry_run: boolean;
+  clients:  CountTriad;
+  orders:   CountTriad;
+  leads:    CountTriad;
+  quotes:   CountTriad;
+  invoices: CountTriad;
+  payments: CountTriad;
+  dry_run:  boolean;
 }
 
 const addCounts = (a: CountTriad | undefined, b: CountTriad): CountTriad => ({
@@ -354,10 +356,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : await listImportRows(jobId, { status: "pending", limit: batchSize });
 
     const summary: CommitSummary = {
-      clients: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
-      orders:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
-      leads:   { inserted: 0, updated: 0, skipped: 0, errored: 0 },
-      quotes:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      clients:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      orders:   { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      leads:    { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      quotes:   { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      invoices: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      payments: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
       dry_run: dryRun,
     };
 
@@ -365,10 +369,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // quotes can resolve client_id; leads runs independently (no FK
     // to clients/orders). Within a single commit batch the passes
     // run sequentially below.
-    const clientRows = rows.filter((r) => r.target_table === "clients" && r.status !== "error");
-    const orderRows  = rows.filter((r) => r.target_table === "orders"  && r.status !== "error");
-    const quoteRows  = rows.filter((r) => r.target_table === "quotes"  && r.status !== "error");
-    const leadRows   = rows.filter((r) => r.target_table === "leads"   && r.status !== "error");
+    const clientRows  = rows.filter((r) => r.target_table === "clients"  && r.status !== "error");
+    const orderRows   = rows.filter((r) => r.target_table === "orders"   && r.status !== "error");
+    const quoteRows   = rows.filter((r) => r.target_table === "quotes"   && r.status !== "error");
+    const invoiceRows = rows.filter((r) => r.target_table === "invoices" && r.status !== "error");
+    const paymentRows = rows.filter((r) => r.target_table === "payments" && r.status !== "error");
+    const leadRows    = rows.filter((r) => r.target_table === "leads"    && r.status !== "error");
 
     // ── Bulk dedup pre-fetch ───────────────────────────────────────
     // Single biggest commit speedup. Without this, every row did 2-4
@@ -381,6 +387,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // row in the same batch can resolve them without a fresh query.
     const newClientByEmail = new Map<string, string>();
     const newClientByName  = new Map<string, string>();
+    // Day 5 cross-sheet linker maps. Populated as orders + invoices
+    // commit so subsequent passes (invoices link to orders by
+    // order_number; payments link to invoices by invoice_number)
+    // can resolve foreign keys against rows that just landed in
+    // this same batch -- no second DB round trip needed.
+    const newOrderByNumber = new Map<string, { id: string; client_id: string | null }>();
+    const newInvoiceByNumber = new Map<string, { id: string; client_id: string; order_id: string | null }>();
 
     // ── Concurrency budget ────────────────────────────────────────
     // 8 parallel requests is the sweet spot for Supabase: high enough
@@ -571,6 +584,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           client_name: mapped.client_name || null,
           client_email: mapped.client_email || null,
           client_phone: mapped.client_phone || null,
+          // Preserve operator's existing order number when supplied.
+          // Invoices in the same workbook link back via this column.
+          order_number: mapped.order_number || null,
           event_name: mapped.event_name || null,
           event_date: mapped.event_date,
           event_time: mapped.event_time || null,
@@ -602,9 +618,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (error) throw new Error(error.message);
 
         summary.orders.inserted += 1;
+        const newOrderId = (inserted as any).id;
+        // Day 5 cross-sheet linker: stash new order id by order_number
+        // so an invoice in the same batch with that order_number can
+        // resolve order_id without a DB round trip.
+        if (mapped.order_number) {
+          newOrderByNumber.set(String(mapped.order_number).trim(), {
+            id: newOrderId,
+            client_id: clientId,
+          });
+        }
         await supabase.from("import_rows").update({
           status: "inserted",
-          target_id: (inserted as any).id,
+          target_id: newOrderId,
         } as any).eq("id", r.id);
       } catch (e: any) {
         summary.orders.errored += 1;
@@ -612,6 +638,310 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await supabase.from("import_rows").update({
             status: "error",
             error_message: e?.message || "insert failed",
+          } as any).eq("id", r.id);
+        }
+      }
+    });
+
+    // ── Invoices pass ────────────────────────────────────────────
+    // Day 3 + Day 5. Runs after clients + orders so:
+    //   - client_id can resolve against in-batch + DB clients
+    //   - order_id can resolve against in-batch + DB orders by
+    //     the operator's `order_number` column
+    // Dedupe by invoice_number per company. Auto-derives status from
+    // amount_paid + due_date when the operator's spreadsheet doesn't
+    // ship one.
+    await runChunked(invoiceRows, ROW_CONCURRENCY, async (r) => {
+      try {
+        const mapped = r.mapped_data || {};
+
+        // Resolve client_id (same priority as orders).
+        let clientId: string | null = null;
+        if (mapped.client_email) {
+          const k = String(mapped.client_email).toLowerCase().trim();
+          clientId = newClientByEmail.get(k) ?? dedup.clientByEmail.get(k) ?? null;
+        }
+        if (!clientId && mapped.client_name) {
+          const k = String(mapped.client_name).toLowerCase().trim();
+          clientId = newClientByName.get(k) ?? dedup.clientByName.get(k) ?? null;
+        }
+
+        // Resolve order_id from order_number cross-sheet linker.
+        let orderId: string | null = null;
+        if (mapped.order_number) {
+          const k = String(mapped.order_number).trim();
+          const inBatch = newOrderByNumber.get(k);
+          if (inBatch) {
+            orderId = inBatch.id;
+            // Inherit client_id from the linked order if invoice's
+            // own client lookup didn't resolve.
+            if (!clientId) clientId = inBatch.client_id;
+          } else {
+            // Fall back to a DB lookup -- the operator may be
+            // importing only invoices against orders that already
+            // exist in the platform from a previous import.
+            const { data: existingOrder } = await supabase
+              .from("orders")
+              .select("id, client_id")
+              .eq("company_id", companyId)
+              .eq("order_number", k)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (existingOrder) {
+              orderId = (existingOrder as any).id;
+              if (!clientId) clientId = (existingOrder as any).client_id;
+            }
+          }
+        }
+
+        // invoices.client_id is NOT NULL. If we still can't resolve,
+        // auto-create a stub client like we do on orders.
+        if (!clientId && !dryRun) {
+          const stubName = (mapped.client_name as string)?.trim()
+            || (mapped.client_email as string) || "Imported invoice client";
+          const stubEmail = (mapped.client_email as string) || null;
+          const { data: stub, error: stubErr } = await supabase
+            .from("clients")
+            .insert({
+              company_id: companyId,
+              region_id: targetRegionId,
+              client_name: stubName,
+              email: stubEmail,
+              is_active: true,
+              import_job_id: jobId,
+              imported_filename: importedFilename,
+              notes: "Auto-created from invoice import -- no matching client row in the sheet.",
+            })
+            .select("id")
+            .single();
+          if (stubErr) throw new Error(`Stub client creation failed: ${stubErr.message}`);
+          clientId = (stub as any).id;
+          if (stubEmail) newClientByEmail.set(stubEmail.toLowerCase().trim(), clientId!);
+          newClientByName.set(stubName.toLowerCase().trim(), clientId!);
+          summary.clients.inserted += 1;
+        }
+
+        // Skip when this invoice number is already on file -- before
+        // commit so the operator sees a friendly message rather than
+        // a unique-constraint violation.
+        if (mapped.invoice_number) {
+          const { data: existing } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("invoice_number", mapped.invoice_number)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (existing) {
+            summary.invoices.skipped += 1;
+            if (!dryRun) {
+              await supabase.from("import_rows").update({
+                status: "skipped",
+                target_id: (existing as any).id,
+                error_message: "Invoice with this number is already on file",
+              } as any).eq("id", r.id);
+            }
+            return;
+          }
+        }
+
+        const subtotal = Number(mapped.subtotal ?? mapped.total_amount ?? 0);
+        const taxAmount = mapped.tax_amount != null ? Number(mapped.tax_amount) : 0;
+        const total = Number(mapped.total_amount ?? subtotal + taxAmount);
+        const amountPaid = Number(mapped.amount_paid ?? 0);
+        const balanceDue = Math.max(0, total - amountPaid);
+
+        // invoice_date defaults to today; due_date defaults to
+        // invoice_date + 30 if blank (DB requires NOT NULL).
+        const invoiceDate = (mapped.invoice_date as string) || new Date().toISOString().slice(0, 10);
+        let dueDate = mapped.due_date as string | null;
+        if (!dueDate) {
+          const inv = new Date(invoiceDate);
+          inv.setDate(inv.getDate() + 30);
+          dueDate = inv.toISOString().slice(0, 10);
+        }
+
+        // Auto-derive status from amount_paid + due_date when blank.
+        const today = new Date().toISOString().slice(0, 10);
+        const autoStatus = amountPaid >= total ? "paid"
+          : amountPaid > 0 ? "partially_paid"
+          : (dueDate < today ? "overdue" : "sent");
+
+        const invoicePayload: any = {
+          company_id: companyId,
+          region_id: targetRegionId,
+          client_id: clientId,
+          order_id: orderId,
+          invoice_number: mapped.invoice_number,
+          invoice_date: invoiceDate,
+          due_date: dueDate,
+          subtotal,
+          tax_amount: taxAmount,
+          total_amount: total,
+          amount_paid: amountPaid,
+          balance_due: balanceDue,
+          status: mapped.status || autoStatus,
+          notes: mapped.notes || null,
+          // sent_at + paid_at if status implies them
+          sent_at: (mapped.status === "sent" || mapped.status === "paid" || amountPaid > 0)
+            ? invoiceDate
+            : null,
+          paid_at: (mapped.status === "paid" || amountPaid >= total)
+            ? invoiceDate
+            : null,
+        };
+
+        if (dryRun) {
+          summary.invoices.inserted += 1;
+          return;
+        }
+
+        const { data: inserted, error } = await supabase
+          .from("invoices")
+          .insert(invoicePayload)
+          .select("id, invoice_number, client_id, order_id")
+          .single();
+        if (error) throw new Error(error.message);
+
+        summary.invoices.inserted += 1;
+        const newInvId = (inserted as any).id;
+        // Stash for the payments pass linker.
+        if (mapped.invoice_number) {
+          newInvoiceByNumber.set(String(mapped.invoice_number).trim(), {
+            id: newInvId,
+            client_id: clientId!,
+            order_id: orderId,
+          });
+        }
+        await supabase.from("import_rows").update({
+          status: "inserted",
+          target_id: newInvId,
+        } as any).eq("id", r.id);
+      } catch (e: any) {
+        summary.invoices.errored += 1;
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "Invoice insert failed",
+          } as any).eq("id", r.id);
+        }
+      }
+    });
+
+    // ── Payments pass ────────────────────────────────────────────
+    // Day 4 + Day 5. Resolves invoice_id from the in-batch invoice
+    // map first, then falls back to a DB lookup by invoice_number.
+    // Inherits client_id + order_id from whichever invoice it links
+    // to so the operator's payments sheet can be just amount + date
+    // + invoice_number.
+    await runChunked(paymentRows, ROW_CONCURRENCY, async (r) => {
+      try {
+        const mapped = r.mapped_data || {};
+
+        let invoiceId: string | null = null;
+        let clientId: string | null = null;
+        let orderId: string | null = null;
+
+        // Strongest link: invoice_number -> invoice row -> client_id
+        // and order_id come for free.
+        if (mapped.invoice_number) {
+          const k = String(mapped.invoice_number).trim();
+          const inBatch = newInvoiceByNumber.get(k);
+          if (inBatch) {
+            invoiceId = inBatch.id;
+            clientId = inBatch.client_id;
+            orderId = inBatch.order_id;
+          } else {
+            const { data: existingInv } = await supabase
+              .from("invoices")
+              .select("id, client_id, order_id")
+              .eq("company_id", companyId)
+              .eq("invoice_number", k)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (existingInv) {
+              invoiceId = (existingInv as any).id;
+              clientId = (existingInv as any).client_id;
+              orderId = (existingInv as any).order_id;
+            }
+          }
+        }
+
+        // Fallback: order_number -> order row.
+        if (!orderId && mapped.order_number) {
+          const k = String(mapped.order_number).trim();
+          const inBatch = newOrderByNumber.get(k);
+          if (inBatch) {
+            orderId = inBatch.id;
+            if (!clientId) clientId = inBatch.client_id;
+          } else {
+            const { data: existingOrd } = await supabase
+              .from("orders")
+              .select("id, client_id")
+              .eq("company_id", companyId)
+              .eq("order_number", k)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (existingOrd) {
+              orderId = (existingOrd as any).id;
+              if (!clientId) clientId = (existingOrd as any).client_id;
+            }
+          }
+        }
+
+        const paymentDate = mapped.payment_date as string;
+        const paymentPayload: any = {
+          company_id: companyId,
+          invoice_id: invoiceId,
+          order_id: orderId,
+          client_id: clientId,
+          amount: Number(mapped.amount ?? 0),
+          payment_date: paymentDate,
+          payment_method: mapped.payment_method || "manual",
+          payment_reference: mapped.payment_reference || null,
+          payment_status: mapped.payment_status || "completed",
+          payment_type: "payment",
+          currency: "ZAR",
+          notes: mapped.notes || null,
+          processed_at: paymentDate,
+        };
+
+        if (dryRun) {
+          summary.payments.inserted += 1;
+          return;
+        }
+
+        const { data: inserted, error } = await supabase
+          .from("payments")
+          .insert(paymentPayload)
+          .select("id")
+          .single();
+        if (error) throw new Error(error.message);
+
+        // If we linked an invoice, bump its amount_paid + balance_due
+        // so the dashboard reflects the import without needing a
+        // separate reconciliation run. Fire-and-forget; the trigger
+        // on payments would do this server-side normally but the
+        // import path bypasses some triggers depending on RLS.
+        if (invoiceId) {
+          try {
+            await (supabase as any).rpc("recalc_invoice_totals", { p_invoice_id: invoiceId });
+          } catch {
+            // Trigger handles it on most paths; non-fatal.
+          }
+        }
+
+        summary.payments.inserted += 1;
+        await supabase.from("import_rows").update({
+          status: "inserted",
+          target_id: (inserted as any).id,
+        } as any).eq("id", r.id);
+      } catch (e: any) {
+        summary.payments.errored += 1;
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "Payment insert failed",
           } as any).eq("id", r.id);
         }
       }
@@ -843,10 +1173,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const priorCommit = (job.summary as any)?.commit;
       const merged = priorCommit
         ? {
-            clients: addCounts(priorCommit.clients, summary.clients),
-            orders:  addCounts(priorCommit.orders,  summary.orders),
-            leads:   addCounts(priorCommit.leads,   summary.leads),
-            quotes:  addCounts(priorCommit.quotes,  summary.quotes),
+            clients:  addCounts(priorCommit.clients,  summary.clients),
+            orders:   addCounts(priorCommit.orders,   summary.orders),
+            leads:    addCounts(priorCommit.leads,    summary.leads),
+            quotes:   addCounts(priorCommit.quotes,   summary.quotes),
+            invoices: addCounts(priorCommit.invoices, summary.invoices),
+            payments: addCounts(priorCommit.payments, summary.payments),
             dry_run: false,
           }
         : summary;
@@ -863,10 +1195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const priorCommit = (job.summary as any)?.commit;
       const running = priorCommit
         ? {
-            clients: addCounts(priorCommit.clients, summary.clients),
-            orders:  addCounts(priorCommit.orders,  summary.orders),
-            leads:   addCounts(priorCommit.leads,   summary.leads),
-            quotes:  addCounts(priorCommit.quotes,  summary.quotes),
+            clients:  addCounts(priorCommit.clients,  summary.clients),
+            orders:   addCounts(priorCommit.orders,   summary.orders),
+            leads:    addCounts(priorCommit.leads,    summary.leads),
+            quotes:   addCounts(priorCommit.quotes,   summary.quotes),
+            invoices: addCounts(priorCommit.invoices, summary.invoices),
+            payments: addCounts(priorCommit.payments, summary.payments),
             dry_run: false,
           }
         : summary;

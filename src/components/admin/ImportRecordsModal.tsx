@@ -80,6 +80,20 @@ const EDIT_FIELDS: Record<TemplateType, Array<{ key: string; label: string; type
     { key: "total_amount",     label: "Total (R)" },
     { key: "event_date",       label: "Event date" },
   ],
+  invoices: [
+    { key: "invoice_number",   label: "Invoice number" },
+    { key: "client_name",      label: "Client name" },
+    { key: "client_email",     label: "Client email", type: "email" },
+    { key: "total_amount",     label: "Total (R)" },
+    { key: "due_date",         label: "Due date" },
+  ],
+  payments: [
+    { key: "invoice_number",   label: "Invoice number" },
+    { key: "amount",           label: "Amount (R)" },
+    { key: "payment_date",     label: "Payment date" },
+    { key: "payment_method",   label: "Method" },
+    { key: "payment_reference",label: "Reference" },
+  ],
 };
 
 type Step = "pick" | "previewing" | "preview" | "committing" | "done";

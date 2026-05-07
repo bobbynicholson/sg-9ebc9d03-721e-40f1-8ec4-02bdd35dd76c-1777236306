@@ -389,7 +389,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           (overrideTemplate === "clients"
             || overrideTemplate === "leads"
             || overrideTemplate === "orders"
-            || overrideTemplate === "quotes")
+            || overrideTemplate === "quotes"
+            || overrideTemplate === "invoices"
+            || overrideTemplate === "payments")
         ) {
           // Caller forced the target. Use it as long as at least the
           // required columns are present -- prevents an empty file
