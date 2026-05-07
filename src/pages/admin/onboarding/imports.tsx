@@ -259,16 +259,22 @@ function ImportsHistoryPage() {
             />
           </div>
 
-          {/* Quick lanes. Each tile has its own info tooltip so a brand
-              new tenant can hover and see exactly what each tool does
-              before clicking. */}
+          {/* Guidance + quick lanes. Two importers (basic vs AI) plus
+              the receipt scanner. Each card surfaces 'use when' and
+              'you get' so the operator picks the right path at a glance. */}
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-slate-900">Pick the right import for what you've got</h2>
+            <p className="text-sm text-slate-600 mt-0.5">
+              Three paths, same safety net (dedupe and 24-hour rollback). Match the tool to the shape of your data.
+            </p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <Link
               href={`${slugPrefix}/admin/onboarding/clients`}
-              className="group rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 hover:shadow-md transition-shadow"
+              className="group rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
                   <Upload className="w-4 h-4" />
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -276,33 +282,43 @@ function ImportsHistoryPage() {
                   <InfoTooltip content={"The fastest way in. Drop a CSV / XLSX (or paste from Sheets) with four columns: Name, Surname, Email, Phone.\n\nWe auto-detect the headers, dedupe by email and skip rows already on file. Best for the contact list you have in Excel or Gmail today."} />
                 </span>
               </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 mb-1">Use when</p>
+              <p className="text-xs text-slate-700 mb-2">
+                All you have is a contact list. Four columns: Name, Surname, Email, Phone. Drop a CSV/XLSX or paste from Sheets.
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 mb-1">You get</p>
               <p className="text-xs text-slate-600">
-                Just Name, Surname, Email and Phone. Drop a CSV or paste from Sheets.
+                Client records ready to quote and invoice. No order history.
               </p>
             </Link>
             <Link
               href={`${slugPrefix}/admin/onboarding/import`}
-              className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 hover:shadow-md transition-shadow"
+              className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
                   <Wand2 className="w-4 h-4" />
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                   AI importer
-                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients + outstanding orders even if the column headings are weird. Claude maps the columns to our schema, you preview every row, then commit when it looks right.\n\nSupports up to 5,000 rows per upload and gives you a 24-hour rollback if anything looks off after the fact."} />
+                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients, leads, orders, quotes, invoices or payments even if the column headings are weird. Claude maps the columns to our schema, you preview every row, then commit when it looks right.\n\nSix templates available on the next screen, or download the combined onboarding workbook with all six tabs in one .xlsx. Supports up to 5,000 rows per upload."} />
                 </span>
               </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">Use when</p>
+              <p className="text-xs text-slate-700 mb-2">
+                You've got a richer file or want to use our templates. Mixed columns, weird headers, or a workbook with multiple tabs (clients, leads, orders, quotes, invoices, payments). Claude maps the columns and you preview every row.
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">You get</p>
               <p className="text-xs text-slate-600">
-                Bigger spreadsheets with mixed columns. Claude maps headers to our schema.
+                Full history linked together. Past orders attached to clients, payments against invoices, the lot. Six templates downloadable on the next screen.
               </p>
             </Link>
             <Link
               href={`${slugPrefix}/admin/onboarding/receipts`}
-              className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 hover:shadow-md transition-shadow"
+              className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
                   <FileSpreadsheet className="w-4 h-4" />
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -310,8 +326,13 @@ function ImportsHistoryPage() {
                   <InfoTooltip content={"Photograph supplier slips with your phone (up to 20 in one go). Claude vision reads each receipt and pulls the supplier, date, line items and totals so we can pre-populate your inventory cost prices.\n\nUseful on day one to seed real costs from your last few weeks of supplier purchases without typing them out."} />
                 </span>
               </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 mb-1">Use when</p>
+              <p className="text-xs text-slate-700 mb-2">
+                You want real cost prices in inventory from day one. Photograph supplier slips (up to 20 at a time) instead of typing them out.
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 mb-1">You get</p>
               <p className="text-xs text-slate-600">
-                Photograph supplier slips. AI pulls suppliers, line items and totals.
+                Inventory pre-populated with the prices you actually paid, suppliers, dates, line items and totals all extracted automatically.
               </p>
             </Link>
           </div>
