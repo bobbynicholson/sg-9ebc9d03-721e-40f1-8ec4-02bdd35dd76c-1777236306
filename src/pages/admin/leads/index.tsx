@@ -14,8 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Upload } from "lucide-react";
-import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
+import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -373,7 +372,8 @@ export default function AdminLeads() {
   const [deleting, setDeleting] = useState(false);
   // Bulk-import modal state. Same engine as Contacts and the
   // onboarding wizard, scoped to the leads target.
-  const [importOpen, setImportOpen] = useState(false);
+  // Import + add surface moved to /admin/contacts -- see comment on
+  // the hidden buttons above. Modal mount + state removed below.
 
   // Compose drawer state -- mirrors the Quotes page so both surfaces
   // give the team the same rich follow-up flow (subject, body, four
@@ -775,22 +775,15 @@ export default function AdminLeads() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setImportOpen(true)}
-                title="Bulk upload leads from an Excel or CSV file"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import leads
-              </Button>
-              <Link href="/admin/leads/new">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Lead
-                </Button>
-              </Link>
-            </div>
+            {/*
+              Single import + add surface lives on /admin/contacts.
+              The contacts importer auto-classifies each row: future
+              event_date -> lead, past or absent -> client. So a
+              separate "Import leads" button here just creates two
+              ways to do the same thing. Hidden, not deleted -- if
+              the operator-flow ever splits again we can put them
+              back without rebuilding the wiring.
+            */}
           </div>
 
           {/* Email-settings warning banner. Renders only when we've
@@ -1436,16 +1429,7 @@ export default function AdminLeads() {
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
 
-      {/* Bulk-import modal -- shared with the Contacts page, scoped
-          to leads via the template prop. After commit we reload. */}
-      <ImportRecordsModal
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        template="leads"
-        recordLabel="lead"
-        recordLabelPlural="leads"
-        onComplete={() => loadLeads()}
-      />
+      {/* Bulk-import modal removed -- imports live on /admin/contacts now. */}
 
       {/* Lead -> order conversion dialog. Pre-flight checks the
           lead's quote state and routes to the right next step
