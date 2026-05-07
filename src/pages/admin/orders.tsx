@@ -516,8 +516,23 @@ function OrderProcessDashboard() {
 
   const getFilteredOrders = () => fuzzyOrders;
 
+  // Pre-group filtered orders by status once per filter-state change.
+  // The kanban view calls getOrdersByStatus once per column (10+
+  // columns); without this every render did a fresh O(n) filter per
+  // column = O(n*columns) per render. Memoised lookup turns it into
+  // O(n) once + O(1) per column [P2-12].
+  const ordersByStatus = useMemo(() => {
+    const groups: Record<string, AppOrder[]> = {};
+    for (const order of fuzzyOrders) {
+      const key = (order as AppOrder).status as string;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(order as AppOrder);
+    }
+    return groups;
+  }, [fuzzyOrders]);
+
   const getOrdersByStatus = (status: string) => {
-    return getFilteredOrders().filter((order) => order.status === status);
+    return ordersByStatus[status] || [];
   };
 
   const OrderCard = ({ order }: { order: AppOrder }) => {
