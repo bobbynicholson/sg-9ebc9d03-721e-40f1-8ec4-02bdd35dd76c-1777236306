@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
@@ -226,19 +224,16 @@ export const roleService = {
 
   getRoleDisplayName(role: UserRole): string {
     const roleNames: Record<UserRole, string> = {
-      super_admin: "Platform Admin",
-      company_admin: "Company Administrator",
-      admin: "Administrator",
-      owner: "Owner",
-      kitchen: "Kitchen Manager",
-      kitchen_staff: "Kitchen Staff",
-      shopping: "Shopping Manager",
-      shopping_staff: "Shopping Staff",
-      cleaning: "Cleaning Manager",
-      cleaning_staff: "Cleaning Staff",
-      driver: "Driver",
-      client: "Client",
-      staff: "General Staff",
+      [UserRole.SUPER_ADMIN]: "Platform Admin",
+      [UserRole.COMPANY_ADMIN]: "Company Administrator",
+      [UserRole.REGION_ADMIN]: "Region Admin",
+      [UserRole.SALES_ADMIN]: "Sales Admin",
+      [UserRole.ADMIN]: "Administrator",
+      [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
+      [UserRole.SHOPPING_STAFF]: "Shopping Staff",
+      [UserRole.CLEANING_STAFF]: "Cleaning Staff",
+      [UserRole.DRIVER]: "Driver",
+      [UserRole.CLIENT]: "Client",
     };
 
     return roleNames[role] || role;
