@@ -47,6 +47,19 @@ export async function updateOrderStatus(
       .eq("id", orderId)
       .maybeSingle();
     const currentStatus = (current as any)?.status as string | null | undefined;
+
+    // Idempotency guard: if the order is already in the target state,
+    // bail early. Without this, a duplicate markDelivered (network
+    // retry, double-tap on the driver portal) would re-write the
+    // same status, re-fire side-effects (pending_reviews upsert,
+    // notifications, after-sales scheduler), and double-stamp
+    // confirmed_at. The DB upserts are idempotent on their own keys
+    // but the notification fan-out and emailService side-effects
+    // are not [P1-13].
+    if (currentStatus && currentStatus === newStatus) {
+      return { success: true, data: { id: orderId, status: currentStatus, _idempotent: true } };
+    }
+
     if (currentStatus && currentStatus !== newStatus) {
       const allowed = ALLOWED_ORDER_TRANSITIONS[currentStatus];
       if (allowed && !allowed.includes(newStatus)) {
