@@ -21,6 +21,25 @@ import { normaliseFieldValue } from "@/lib/importNormalise";
 // the same reason as commit.ts.
 export const maxDuration = 300;
 
+/**
+ * Does this normalised phone string look like a mobile? After
+ * normalisePhoneZA, SA mobiles look like `+27[678]xxxxxxxx` and SA
+ * landlines look like `+27[1-5]xxxxxxxx`. Anything not matching is
+ * treated as "could be either" (returns false so it doesn't displace
+ * a known mobile but isn't displaced by one either).
+ */
+function isMobileShape(value: string): boolean {
+  if (!value) return false;
+  // After normalisePhoneZA, SA numbers always start with +27.
+  // Mobile prefixes after the country code: 6, 7, 8.
+  const m = /^\+?27([0-9])/.exec(value);
+  if (m) return m[1] === "6" || m[1] === "7" || m[1] === "8";
+  // Local format that didn't get country-coded for some reason.
+  const l = /^0?([0-9])/.exec(value);
+  if (l) return l[1] === "6" || l[1] === "7" || l[1] === "8";
+  return false;
+}
+
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 interface PreviewSummary {
@@ -163,14 +182,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const mapped: Record<string, any> = {};
       const warnings: string[] = [];
+      // Track which header sourced each phone-shaped field so a
+      // second column targeting the same field (e.g. spreadsheet has
+      // "Mobile" + "Office Phone" both auto-mapped to phone) can be
+      // resolved deterministically: prefer the mobile-shaped value
+      // over a landline. Without this, last-write-wins meant a
+      // client's landline could overwrite their mobile and Callum's
+      // WhatsApp button would never appear for them.
+      const phoneSources: Record<string, string> = {};
       for (const [header, raw] of Object.entries(r.source_data || {})) {
         const decision = sheetMapping[header];
         if (!decision || !decision.target || decision.target === "skip" || decision.target === "__schema__") continue;
         const norm = normaliseFieldValue(decision.target, raw);
         if (norm.warnings.length > 0) warnings.push(...norm.warnings);
-        if (norm.value !== null && norm.value !== undefined && norm.value !== "") {
-          mapped[decision.target] = norm.value;
+        if (norm.value === null || norm.value === undefined || norm.value === "") continue;
+
+        // Phone-shaped fields: when two columns both target a phone
+        // field, keep whichever value is the most-mobile-looking. SA
+        // mobiles start with +27[678]; landlines start with +27[1-5].
+        if (decision.target === "phone" || decision.target === "client_phone") {
+          const existing = mapped[decision.target] as string | undefined;
+          if (!existing) {
+            mapped[decision.target] = norm.value;
+            phoneSources[decision.target] = String(header);
+            continue;
+          }
+          const existingIsMobile = isMobileShape(existing);
+          const candidateIsMobile = isMobileShape(String(norm.value));
+          // Prefer mobile over landline. If they're the same shape,
+          // keep the existing one (mirrors the source-column order
+          // for stable behaviour).
+          if (candidateIsMobile && !existingIsMobile) {
+            mapped[decision.target] = norm.value;
+            phoneSources[decision.target] = String(header);
+          }
+          continue;
         }
+
+        mapped[decision.target] = norm.value;
       }
 
       // leads has dual columns -- both `email` + `client_email` are
