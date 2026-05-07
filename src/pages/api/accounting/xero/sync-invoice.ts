@@ -102,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Token refresh if needed.
-    const accessToken = await ensureFreshAccessToken(supabase, xs);
+    let accessToken = await ensureFreshAccessToken(supabase, xs);
     if (!accessToken) {
       return res.status(502).json({ error: "Could not obtain a Xero access token" });
     }
@@ -154,16 +154,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ],
     };
 
-    const resp = await fetch(`${XERO_API}/Invoices`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Xero-Tenant-Id": xs.xero_tenant_id,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ Invoices: [xeroPayload] }),
-    });
+    const postInvoice = (token: string) =>
+      fetch(`${XERO_API}/Invoices`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Xero-Tenant-Id": xs.xero_tenant_id!,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ Invoices: [xeroPayload] }),
+      });
+
+    let resp = await postInvoice(accessToken);
+
+    // 401 retry: Xero can invalidate a token early (clock skew, manual
+    // disconnect / reconnect, scope change). Force a refresh + retry
+    // once. P1-20 from the 2026-05 audit.
+    if (resp.status === 401) {
+      const refreshed = await ensureFreshAccessToken(supabase, xs, { force: true });
+      if (refreshed) {
+        accessToken = refreshed;
+        resp = await postInvoice(accessToken);
+      }
+    }
     const xeroBody: any = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
@@ -238,6 +252,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function ensureFreshAccessToken(
   supabase: any,
   settings: XeroSettings,
+  opts: { force?: boolean } = {},
 ): Promise<string | null> {
   if (!settings.access_token_encrypted) return null;
 
@@ -249,7 +264,7 @@ async function ensureFreshAccessToken(
   // helper wired here -- treat them as opaque strings. If/when an
   // encryption layer lands, swap decrypt() in here. For now the
   // RLS scoping on xero_integration_settings is the protection.
-  if (fresh) return settings.access_token_encrypted;
+  if (fresh && !opts.force) return settings.access_token_encrypted;
 
   if (!settings.refresh_token_encrypted) return null;
 
