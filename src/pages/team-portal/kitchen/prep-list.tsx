@@ -193,6 +193,22 @@ export default function KitchenPrepListPage() {
   }, [rows]);
 
   const grouped = useMemo(() => {
+    // Priority sort within each bucket: event_date asc (already from
+    // the query), then event_time asc within a date so a 16:00
+    // collection ranks above a 19:00 plated event for the same day.
+    // Events without a stamped time fall to the bottom of their date
+    // group [P1-36]. The kitchen sees the highest-pressure prep
+    // tasks at the top of each bucket without having to mentally
+    // sort by clock.
+    const priority = (a: { event_date: string; event_time: string | null }, b: typeof a) => {
+      if (a.event_date !== b.event_date) return a.event_date < b.event_date ? -1 : 1;
+      const at = a.event_time;
+      const bt = b.event_time;
+      if (!at && !bt) return 0;
+      if (!at) return 1; // null / no time -> end of day group
+      if (!bt) return -1;
+      return at < bt ? -1 : at > bt ? 1 : 0;
+    };
     const buckets: Record<string, typeof orders> = {};
     orders.forEach((o) => {
       buckets[o.bucket] = buckets[o.bucket] || [];
@@ -200,7 +216,10 @@ export default function KitchenPrepListPage() {
     });
     return ["Today", "Tomorrow", "This week", "Next week", "Later"]
       .filter((b) => buckets[b]?.length)
-      .map((b) => ({ name: b, items: buckets[b] }));
+      .map((b) => ({
+        name: b,
+        items: [...buckets[b]].sort(priority),
+      }));
   }, [orders]);
 
   const shortfallCount = aggregated.filter(d => d.shortfall > 0).length;
