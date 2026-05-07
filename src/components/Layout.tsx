@@ -42,13 +42,16 @@ export function Layout({
     "4xl": "max-w-4xl",
   };
 
-  // The portal-shell offset clears the fixed sidebar (lg:w-64 / xl:w-72)
-  // and the mobile-header gap (pt-16 < lg). Same pattern every other
-  // authenticated page uses -- without it the sidebar overlays content
-  // and a centred max-w container ends up off-centre.
-  const portalShell = showNav && user
-    ? "lg:pl-64 xl:pl-72 pt-16 lg:pt-0"
-    : "";
+  // Portal pages have a fixed left sidebar (lg:w-64 / xl:w-72). We
+  // clear it with a left padding on the shell. Public/marketing pages
+  // (showNav=false) keep mx-auto centring -- that's the right shape
+  // for a hero-and-content layout with no sidebar.
+  const isPortal = showNav && user;
+  const portalShell = isPortal ? "lg:pl-64 xl:pl-72 pt-16 lg:pt-0" : "";
+  // On portal pages, content sits flush against the left padding the
+  // shell already provides -- no mx-auto, otherwise the content
+  // centres in the post-sidebar gap and leaves a big empty rail.
+  const innerAlignment = isPortal ? "" : "mx-auto";
 
   return (
     <div className={`min-h-screen flex flex-col bg-background ${portalShell}`}>
@@ -63,7 +66,7 @@ export function Layout({
 
       {/* Main Content */}
       <main className="flex-1">
-        <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 ${maxWidthClasses[maxWidth]}`}>
+        <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${maxWidthClasses[maxWidth]}`}>
           {children}
         </div>
       </main>
