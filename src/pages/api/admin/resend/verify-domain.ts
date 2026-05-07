@@ -19,7 +19,7 @@
  */
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { getResendDomain, isResendError } from "@/lib/resendDomains";
+import { getResendDomain, isResendError, verifyResendDomain } from "@/lib/resendDomains";
 import { emailService } from "@/services/emailService";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -87,6 +87,18 @@ export default async function handler(
         error:
           "No Resend domain registered for this company yet. Add one first.",
       });
+    }
+
+    // Trigger Resend to re-check now. Without this the domain status
+    // can sit on 'not_started' indefinitely even when DNS is live.
+    // Best-effort: if the trigger fails (e.g. already verified, or rate
+    // limited), fall through and read the current state anyway.
+    const triggered = await verifyResendDomain((row as any).resend_domain_id);
+    if (isResendError(triggered)) {
+      console.warn(
+        `[verify-domain] trigger failed for ${(row as any).resend_domain_id}:`,
+        triggered.error,
+      );
     }
 
     const fresh = await getResendDomain((row as any).resend_domain_id);

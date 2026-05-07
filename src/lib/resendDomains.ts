@@ -112,6 +112,23 @@ export async function getResendDomain(
 }
 
 /**
+ * Trigger Resend to re-check a domain's DNS now. Without this, Resend
+ * only re-checks on its own internal schedule and a domain can sit in
+ * 'not_started' indefinitely after the records are live. The endpoint
+ * returns the domain object with the freshest status; callers should
+ * still GET /domains/{id} after to fetch the updated record list.
+ *
+ * https://resend.com/docs/api-reference/domains/verify-domain
+ */
+export async function verifyResendDomain(
+  domainId: string,
+): Promise<ResendDomain | ResendDomainError> {
+  return resendFetch(`/domains/${encodeURIComponent(domainId)}/verify`, {
+    method: "POST",
+  });
+}
+
+/**
  * List every domain registered under our Resend account.
  *
  * Used when createResendDomain returns "already registered" -- we look

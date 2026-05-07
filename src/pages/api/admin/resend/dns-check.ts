@@ -139,9 +139,23 @@ async function lookupCname(
   }
 }
 
+function toFqdn(name: string, sendingDomain: string): string {
+  // Resend's API returns names as short labels (e.g. "resend._domainkey",
+  // "send") rather than full FQDNs. Append the sending domain so the
+  // resolver actually has a valid hostname to look up. If the name is
+  // already absolute, use it as-is.
+  const trimmed = name.trim().replace(/\.$/, "");
+  const apex = sendingDomain.trim().replace(/\.$/, "").toLowerCase();
+  if (!trimmed) return apex;
+  if (trimmed.toLowerCase() === apex) return trimmed;
+  if (trimmed.toLowerCase().endsWith(`.${apex}`)) return trimmed;
+  return `${trimmed}.${apex}`;
+}
+
 async function checkRecord(
   resolver: Resolver,
   expected: ExpectedRecord,
+  sendingDomain: string,
 ): Promise<RecordResult> {
   const rawType = (expected.type || expected.record || "").toString().toUpperCase();
   const type = rawType.includes("MX")
@@ -149,7 +163,8 @@ async function checkRecord(
     : rawType.includes("CNAME")
       ? "CNAME"
       : "TXT";
-  const name = (expected.name || "").trim();
+  const shortName = (expected.name || "").trim();
+  const name = toFqdn(shortName, sendingDomain);
   const expectedValue = (expected.value || "").trim();
   const expectedPriority =
     expected.priority !== undefined && expected.priority !== null
@@ -354,15 +369,16 @@ export default async function handler(
       });
     }
 
+    const sendingDomain = (row as any).resend_sending_domain as string;
     const resolver = buildResolver();
     const results: RecordResult[] = [];
     for (const rec of expected) {
       try {
-        results.push(await checkRecord(resolver, rec));
+        results.push(await checkRecord(resolver, rec, sendingDomain));
       } catch (e: any) {
         console.error("[dns-check] record check crashed:", e);
         results.push({
-          name: (rec.name || "").trim(),
+          name: toFqdn((rec.name || "").trim(), sendingDomain),
           type: ((rec.type || rec.record || "TXT") as string).toUpperCase(),
           expected_value: (rec.value || "").trim(),
           found_values: [],
