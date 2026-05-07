@@ -84,6 +84,92 @@ interface ParsedSheet {
   rows: Array<{ rowIndex: number; data: Record<string, any> }>;
 }
 
+interface QuickValidationSummary {
+  ok: number;
+  warnings: number;
+  errors: number;
+  /** Top reasons for issues, biggest bucket first. Capped at 5. */
+  topIssues: Array<{ reason: string; count: number }>;
+}
+
+/**
+ * Cheap shape checks across every parsed row, run inline during the
+ * upload response so the modal can show "Of 4775 rows: 4730 OK, 32
+ * warning, 13 error" without waiting for the full preview pass.
+ * Mirrors the per-row rules in preview.ts but avoids any DB calls --
+ * it's pure regex / present-or-absent on the source columns.
+ *
+ * Heuristic header match: lower-case + dash/underscore strip, then
+ * checks for substring keywords. Keeps the check robust to common
+ * column naming variations ("Email Address", "EMAIL", "e-mail").
+ */
+function quickValidateAllSheets(
+  sheets: ParsedSheet[],
+  forcedTarget: "clients" | "leads" | null,
+): QuickValidationSummary {
+  const tally = { ok: 0, warnings: 0, errors: 0 };
+  const issueCounts = new Map<string, number>();
+  const bump = (reason: string) => issueCounts.set(reason, (issueCounts.get(reason) ?? 0) + 1);
+
+  const tidy = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "");
+  const findValue = (row: Record<string, any>, keywords: string[]): string => {
+    for (const [header, raw] of Object.entries(row)) {
+      const t = tidy(header);
+      if (keywords.some((k) => t.includes(k))) {
+        const v = raw == null ? "" : String(raw).trim();
+        if (v) return v;
+      }
+    }
+    return "";
+  };
+
+  for (const sheet of sheets) {
+    for (const r of sheet.rows) {
+      const email = findValue(r.data, ["email", "mail"]);
+      const name = findValue(r.data, ["name", "contact", "client"]);
+      const phone = findValue(r.data, ["phone", "mobile", "cell", "tel"]);
+
+      // Same hard rules preview applies. Treat clients-default and
+      // leads explicitly differently so the operator's reported
+      // counts match what they'll see post-preview.
+      let rowError = false;
+      let rowWarning = false;
+      const isLeads = forcedTarget === "leads";
+
+      if (isLeads) {
+        if (!name) { bump("Missing contact name"); rowError = true; }
+        if (!email) { bump("Missing email"); rowError = true; }
+      } else {
+        // Clients-default: needs at least name OR email OR phone.
+        if (!name && !email && !phone) {
+          bump("No name / email / phone");
+          rowError = true;
+        }
+      }
+
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+        bump("Invalid email format");
+        rowWarning = true;
+      }
+      if (phone && phone.replace(/\D/g, "").length < 9) {
+        bump("Phone too short");
+        rowWarning = true;
+      }
+
+      if (rowError) tally.errors += 1;
+      else if (rowWarning) tally.warnings += 1;
+      else tally.ok += 1;
+    }
+  }
+
+  const topIssues = Array.from(issueCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return { ...tally, topIssues };
+}
+
 function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
   // Cast XLSX usage to any -- SheetJS' BufferLike type widens between
   // releases, and we don't want our build to chase that.
@@ -329,6 +415,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       autoMappedTo = null;
     }
 
+    // ── Feature E: early validation summary ───────────────────────
+    // Walk every parsed row right now and tally the same shape
+    // checks the preview pass runs. Lets the modal show a "of 4775
+    // rows: 4730 OK, 32 warning, 13 error" line BEFORE preview
+    // completes -- so on a huge file the operator knows the shape
+    // of the problem in seconds rather than minutes. Cheap because
+    // it's pure regex / required-field checks, no DB.
+    const earlyValidation = quickValidateAllSheets(sheets, autoMappedTo as any);
+
     return res.status(200).json({
       ok: true,
       jobId,
@@ -338,6 +433,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sheets: sheets.map((s) => ({ name: s.name, rows: s.rows.length })),
         totalRows,
         bytes: fileEntry.size,
+        earlyValidation,
       },
     });
   } catch (outer: any) {

@@ -130,6 +130,15 @@ export function ImportRecordsModal({
   // batch's `processed` + `remaining` so the user sees a live count
   // while a 4 000-row import works through 16 batches.
   const [commitProgress, setCommitProgress] = useState<{ done: number; total: number } | null>(null);
+  // Feature E: quick-validation tally returned from /upload before
+  // preview runs. Surfaces "X OK, Y warnings, Z errors" so operators
+  // get a shape-of-the-data answer in seconds on big files.
+  const [earlyValidation, setEarlyValidation] = useState<{
+    ok: number;
+    warnings: number;
+    errors: number;
+    topIssues: Array<{ reason: string; count: number }>;
+  } | null>(null);
   // Inline-edit state: which row is currently expanded for editing,
   // and the form values in flight. Keyed by row id so switching
   // between rows starts fresh each time.
@@ -175,6 +184,12 @@ export function ImportRecordsModal({
       if (!r.ok) throw new Error(j?.error || `Upload failed (${r.status})`);
       setJobId(j.jobId);
       if (typeof j.rowCap === "number") setRowCap(j.rowCap);
+      // Feature E: surface the upload's quick-validation tally before
+      // preview kicks in. Operators on huge files see "of 4775 rows:
+      // 4730 OK, 32 warning, 13 error" within seconds rather than
+      // waiting for the full preview pass to finish.
+      const ev = j?.summary?.earlyValidation;
+      if (ev) setEarlyValidation(ev);
       // Auto-mapping should have fired (?template= override). Now run
       // preview so the operator sees per-row outcome.
       setStep("previewing");
@@ -492,6 +507,35 @@ export function ImportRecordsModal({
           <div className="py-10 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
             <p className="text-sm text-slate-600 mt-2">Parsing + validating rows...</p>
+            {earlyValidation && (
+              <div className="mt-4 max-w-md mx-auto text-left">
+                <p className="text-xs text-slate-600 text-center mb-2">
+                  Quick scan: <strong className="text-emerald-700">{earlyValidation.ok.toLocaleString("en-ZA")} OK</strong>
+                  {earlyValidation.warnings > 0 && (
+                    <> · <strong className="text-amber-700">{earlyValidation.warnings.toLocaleString("en-ZA")} warning</strong></>
+                  )}
+                  {earlyValidation.errors > 0 && (
+                    <> · <strong className="text-rose-700">{earlyValidation.errors.toLocaleString("en-ZA")} error</strong></>
+                  )}
+                </p>
+                {earlyValidation.topIssues.length > 0 && (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+                    <p className="font-medium mb-1">Top issues:</p>
+                    <ul className="space-y-0.5">
+                      {earlyValidation.topIssues.map((i) => (
+                        <li key={i.reason} className="flex justify-between">
+                          <span>{i.reason}</span>
+                          <span className="font-mono text-slate-500">{i.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500 mt-2 text-center">
+                  Running the full preview now -- you'll be able to fix any flagged rows inline.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
