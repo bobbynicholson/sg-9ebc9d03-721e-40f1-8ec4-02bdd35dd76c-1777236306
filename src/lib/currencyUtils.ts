@@ -36,27 +36,43 @@ export const CURRENCY_CONFIG = {
  */
 export async function refreshExchangeRates(
   serviceClient: { from: (t: string) => any }
-): Promise<number | null> {
+): Promise<{ USD: number | null; EUR: number | null; GBP: number | null; AUD: number | null }> {
+  const result = { USD: null as number | null, EUR: null as number | null, GBP: null as number | null, AUD: null as number | null };
   try {
     const { data, error } = await serviceClient
       .from("exchange_rates")
-      .select("usd_to_zar_rate, date")
+      .select("usd_to_zar_rate, eur_to_zar_rate, gbp_to_zar_rate, aud_to_zar_rate, date")
       .order("date", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) {
       console.warn("[refreshExchangeRates] read failed:", error.message);
-      return null;
+      return result;
     }
-    const usdToZar = Number((data as any)?.usd_to_zar_rate);
-    if (!Number.isFinite(usdToZar) || usdToZar <= 0) return null;
-    // CURRENCY_CONFIG.USD.rate expresses "USD per 1 ZAR", so the
-    // inverse of usd_to_zar_rate which expresses "ZAR per 1 USD".
-    CURRENCY_CONFIG.USD.rate = 1 / usdToZar;
-    return CURRENCY_CONFIG.USD.rate;
+
+    // Each *_to_zar_rate column expresses "ZAR per 1 unit of foreign
+    // currency". CURRENCY_CONFIG.{currency}.rate expresses the inverse
+    // ("foreign per 1 ZAR") to match the existing convertCurrency
+    // arithmetic. Mutate in place; sync API stays unchanged.
+    const apply = (
+      key: "USD" | "EUR" | "GBP" | "AUD",
+      value: any,
+    ): void => {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const inverted = 1 / n;
+      CURRENCY_CONFIG[key].rate = inverted;
+      result[key] = inverted;
+    };
+
+    apply("USD", (data as any)?.usd_to_zar_rate);
+    apply("EUR", (data as any)?.eur_to_zar_rate);
+    apply("GBP", (data as any)?.gbp_to_zar_rate);
+    apply("AUD", (data as any)?.aud_to_zar_rate);
+    return result;
   } catch (e: any) {
     console.warn("[refreshExchangeRates] crashed:", e?.message);
-    return null;
+    return result;
   }
 }
 
