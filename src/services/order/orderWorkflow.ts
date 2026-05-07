@@ -418,6 +418,29 @@ export async function cancelOrder(
     const nowIso = new Date().toISOString();
     const sb = opts.client || supabase;
 
+    // State-machine guard, mirrored from updateOrderStatus [P1-12].
+    // cancelOrder writes status='cancelled' directly without going
+    // through updateOrderStatus's transition map, so the validation
+    // is duplicated here. Reject if the current status is already
+    // terminal (cancelled / completed) -- those should be handled
+    // via reactivate / refund flows, not a fresh cancellation. Also
+    // bail early if already cancelled (idempotency).
+    const { data: current } = await sb
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle();
+    const currentStatus = (current as any)?.status as string | null | undefined;
+    if (currentStatus === "cancelled") {
+      return { success: true, data: { id: orderId, _idempotent: true } };
+    }
+    if (currentStatus === "completed") {
+      return {
+        success: false,
+        error: "Cannot cancel a completed order. Issue a refund or credit note instead.",
+      };
+    }
+
     const { data, error } = await sb
       .from("orders")
       .update({
