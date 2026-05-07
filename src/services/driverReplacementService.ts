@@ -73,11 +73,48 @@ export const driverReplacementService = {
 
     if (error) throw error;
 
+    // Capture the previous driver before overwriting so the audit
+    // trail records the swap [P1-19]. orders.assigned_driver_id is a
+    // single column; without this, the previous assignee disappears
+    // silently and there's no record of who actually drove the
+    // event before the replacement.
+    const { data: prevOrder } = await supabase
+      .from('orders')
+      .select('assigned_driver_id, company_id, order_number')
+      .eq('id', data.order_id)
+      .maybeSingle();
+    const previousDriverId = (prevOrder as any)?.assigned_driver_id || null;
+
     // Update order with new driver
     await supabase
       .from('orders')
       .update({ assigned_driver_id: driverId })
       .eq('id', data.order_id);
+
+    // Audit-log the assignment swap. Best-effort -- if audit_logs is
+    // unavailable for any reason, the replacement still succeeds; the
+    // operator just loses the trail row. RLS allows authenticated
+    // inserts under the same company.
+    try {
+      await (supabase as any)
+        .from('audit_logs')
+        .insert({
+          company_id: (prevOrder as any)?.company_id,
+          user_id: driverId,
+          action: 'driver_replacement_accepted',
+          entity_type: 'order',
+          entity_id: data.order_id,
+          details: {
+            request_id: requestId,
+            previous_driver_id: previousDriverId,
+            new_driver_id: driverId,
+            order_number: (prevOrder as any)?.order_number,
+            accepted_at: new Date().toISOString(),
+          },
+        });
+    } catch (auditErr: any) {
+      console.warn('[driverReplacementService] audit_logs insert failed (non-blocking):', auditErr?.message);
+    }
 
     // Notify admin
     await this.notifyAdminOfAcceptance(requestId, driverId);
