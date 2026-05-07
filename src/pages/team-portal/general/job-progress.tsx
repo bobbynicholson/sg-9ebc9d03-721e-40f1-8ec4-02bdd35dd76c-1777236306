@@ -3,17 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import {
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  Users,
-  ChefHat,
-  Truck,
-  Package,
-  TrendingUp,
-} from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, Calendar, Users, ChefHat, Truck, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";

@@ -17,32 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DollarSign,
-  Plus,
-  Calendar,
-  Mail,
-  Users,
-  FileText,
-  Edit,
-  Send,
-  Copy,
-  ExternalLink,
-  Search,
-  Flame,
-  Sparkles,
-  Crown,
-  Snowflake,
-  AlertTriangle,
-  Clock,
-  Inbox,
-  ArrowRight,
-  Trash2,
-  GripVertical,
-  CalendarDays,
-  Gift,
-  CheckCircle,
-} from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";

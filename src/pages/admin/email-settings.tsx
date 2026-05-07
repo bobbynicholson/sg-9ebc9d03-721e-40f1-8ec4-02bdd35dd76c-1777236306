@@ -26,10 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import {
-  Mail, Shield, Key, Server, CheckCircle2, AlertTriangle, Send, Loader2,
-  ExternalLink, Inbox, BarChart3, ArrowRight, Sparkles, Globe, ShieldCheck,
-} from "lucide-react";
+import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";

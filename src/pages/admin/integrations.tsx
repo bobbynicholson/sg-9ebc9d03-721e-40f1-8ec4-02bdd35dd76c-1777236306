@@ -33,11 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight,
-  Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash,
-  MessageSquare, ChefHat, Mail, Link2, Send, Receipt, BookOpen,
-} from "lucide-react";
+import { Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight, Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash, MessageSquare, ChefHat, Mail, Link2, Send, Receipt } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";

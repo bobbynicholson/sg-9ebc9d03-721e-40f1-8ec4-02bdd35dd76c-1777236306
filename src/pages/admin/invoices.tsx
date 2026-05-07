@@ -27,20 +27,7 @@ import {
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
-import {
-  FileText,
-  Send,
-  Download,
-  Search,
-  Filter,
-  Plus,
-  RefreshCw,
-  CheckCircle,
-  AlertCircle,
-  Clock,
-  Eye,
-  X,
-} from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { 

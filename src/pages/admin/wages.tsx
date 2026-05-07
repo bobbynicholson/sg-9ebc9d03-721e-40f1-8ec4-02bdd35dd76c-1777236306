@@ -26,10 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import {
-  DollarSign, Clock, Calendar as CalendarIcon, Download, Loader2,
-  Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2,
-} from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";

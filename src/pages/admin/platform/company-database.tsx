@@ -32,22 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Building2,
-  Plus,
-  Search,
-  Users,
-  Calendar,
-  CreditCard,
-  MapPin,
-  Edit,
-  Trash2,
-  UserPlus,
-  Eye,
-  AlertCircle,
-  CheckCircle,
-  X,
-} from "lucide-react";
+import { Building2, Plus, Search, Users, Calendar, MapPin, Edit, Trash2, UserPlus, Eye, AlertCircle, CheckCircle, X } from "lucide-react";
 import { companyService } from "@/services/companyService";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";

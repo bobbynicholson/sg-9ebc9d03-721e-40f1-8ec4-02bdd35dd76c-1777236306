@@ -4,7 +4,7 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Receipt, Search, Loader2, FileText, Download, ExternalLink } from "lucide-react";
+import { Receipt, Search, Loader2, FileText, ExternalLink } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";

@@ -24,18 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  CreditCard, 
-  Search,
-  RefreshCw,
-  Eye,
-  Ban,
-  CheckCircle,
-  AlertTriangle,
-  TrendingUp,
-  DollarSign,
-  Users
-} from "lucide-react";
+import { Search, RefreshCw, Eye, Ban, CheckCircle, AlertTriangle, TrendingUp, DollarSign, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";

@@ -3,35 +3,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  FileText, 
-  Calendar,
-  DollarSign,
-  ChefHat,
-  Package,
-  Truck,
-  TrendingUp,
-  Mail,
-  Zap,
-  ArrowRight,
-  BarChart3,
-  Globe,
-  MapPin,
-  Bell,
-  Star,
-  Shield,
-  CheckCircle,
-  Sparkles,
-  ShoppingCart,
-  Clock,
-  AlertCircle,
-  RefreshCw,
-  Target,
-  Repeat,
-  CreditCard,
-  Settings
-} from "lucide-react";
+import { Users, FileText, Calendar, DollarSign, ChefHat, Package, TrendingUp, Mail, Zap, ArrowRight, BarChart3, Globe, MapPin, Bell, Star, Shield, CheckCircle, Sparkles, ShoppingCart, Clock, RefreshCw, Target, Repeat, CreditCard, Settings } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import Head from "next/head";

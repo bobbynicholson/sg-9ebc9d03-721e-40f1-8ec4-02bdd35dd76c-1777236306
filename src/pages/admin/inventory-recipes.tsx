@@ -6,14 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RECIPE_MAPPINGS, Recipe, RecipeIngredient } from "@/services/inventoryDeductionService";
-import {
-  ChefHat,
-  Search,
-  Package,
-  AlertCircle,
-  CheckCircle,
-  Calculator,
-} from "lucide-react";
+import { ChefHat, Search, Package, AlertCircle, Calculator } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function InventoryRecipes() {

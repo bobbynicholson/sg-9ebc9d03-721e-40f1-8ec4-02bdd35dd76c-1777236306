@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertTriangle,
-  TrendingUp,
-  Package,
-  DollarSign,
-  Calendar as CalendarIcon,
-  Filter,
-} from "lucide-react";
+import { AlertTriangle, Package, DollarSign, Calendar as CalendarIcon } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";

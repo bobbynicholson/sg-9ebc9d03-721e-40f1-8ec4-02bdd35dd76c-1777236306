@@ -12,18 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  ChefHat,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  Users,
-  Package,
-  TrendingUp,
-  AlertTriangle,
-  Truck,
-} from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";

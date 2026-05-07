@@ -2,14 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Camera, 
-  Upload, 
-  CheckCircle, 
-  AlertCircle,
-  Loader2,
-  TrendingDown
-} from "lucide-react";
+import { Camera, Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
 import type { ScannedReceipt, ReceiptItem } from "@/types/app";
 

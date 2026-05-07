@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Home, Search, ArrowLeft, UtensilsCrossed, ChefHat } from "lucide-react";
+import { Home, ArrowLeft, UtensilsCrossed, ChefHat } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function Custom404() {

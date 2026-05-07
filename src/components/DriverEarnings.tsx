@@ -2,16 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign,
-  Clock,
-  Navigation,
-  TrendingUp,
-  Play,
-  Square,
-  CheckCircle,
-  AlertCircle
-} from "lucide-react";
+import { DollarSign, Clock, Navigation, Play, Square, CheckCircle, AlertCircle } from "lucide-react";
 import type { DriverEarnings as DriverEarningsType } from "@/types/app";
 
 interface DriverEarningsProps {

@@ -9,36 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ShoppingCart,
-  Calendar,
-  TrendingUp,
-  Users,
-  DollarSign,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  Edit,
-  ChevronRight,
-  Clock,
-  CheckCircle2,
-  Package,
-  Truck,
-  MapPin,
-  AlertCircle,
-  LayoutGrid,
-  List,
-  ArrowRight,
-  Plus,
-  Trash2,
-  Save,
-  X,
-  FileText,
-  Receipt,
-  Pause,
-  Play,
-} from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";

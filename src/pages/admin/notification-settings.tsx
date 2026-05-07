@@ -5,15 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Bell,
-  Mail,
-  MessageSquare,
-  CheckCircle,
-  AlertCircle,
-  Save,
-  ArrowLeft,
-} from "lucide-react";
+import { Bell, Mail, MessageSquare, AlertCircle, Save } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";

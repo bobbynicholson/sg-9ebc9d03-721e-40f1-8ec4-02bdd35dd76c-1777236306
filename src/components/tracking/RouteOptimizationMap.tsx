@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, Clock } from "lucide-react";
+import { MapPin, Clock } from "lucide-react";
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;

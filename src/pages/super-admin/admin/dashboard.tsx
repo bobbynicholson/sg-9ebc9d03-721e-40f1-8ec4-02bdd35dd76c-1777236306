@@ -1,11 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Building2, Users, CreditCard, TrendingUp, 
-  AlertCircle, CheckCircle, Clock, DollarSign,
-  ArrowUpRight, ArrowDownRight, Activity
-} from "lucide-react";
+import { Building2, Users, CreditCard, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, ArrowUpRight, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";

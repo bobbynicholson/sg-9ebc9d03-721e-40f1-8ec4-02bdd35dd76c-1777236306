@@ -3,10 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock,
-  AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, Plus, FileText,
-} from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock, AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, FileText } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";

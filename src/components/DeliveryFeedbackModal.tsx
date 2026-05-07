@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Star, ThumbsUp, Send, Camera, X } from "lucide-react";
+import { Star, ThumbsUp, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DeliveryFeedbackModalProps {

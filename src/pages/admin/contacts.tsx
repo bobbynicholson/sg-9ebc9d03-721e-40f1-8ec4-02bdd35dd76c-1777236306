@@ -34,13 +34,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle,
-  Snowflake, Crown, ArrowRight, Send, Copy, ExternalLink, Inbox,
-  Calendar as CalendarIcon, MapPin, ShoppingCart, MessageSquare,
-  CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText,
-  Upload,
-} from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
