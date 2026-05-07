@@ -14,8 +14,97 @@ import crypto from "crypto";
  * rows, double `amount_paid`, and flip status to paid prematurely.
  * We dedupe on `pf_payment_id` (PayFast's canonical id) by checking
  * the payments table BEFORE any DB write -- if the row already exists
- * we return 200 immediately so PayFast stops retrying.
+ * we return 200 immediately so PayFast stops retrying. The dedup also
+ * covers replay attacks: a re-sent valid signed IPN with the same
+ * pf_payment_id is a no-op.
+ *
+ * Hardening (P0-11):
+ *  - bodyParser disabled; signature validates over the raw form-body
+ *    string before any reshape, so URL-encoding edge cases (spaces,
+ *    accented characters, ampersands in values) don't break sig check.
+ *  - IP allowlist via PAYFAST_ALLOWED_IPS env var (comma-separated).
+ *    Empty / unset disables the check (dev convenience). Production
+ *    should set: 197.97.145.144/29, 41.74.179.192/27, 102.216.36.16,
+ *    102.216.36.17 -- whatever PayFast publishes as their IPN egress
+ *    range. CIDR not parsed here; the env var should list the exact
+ *    IPs after subnet expansion.
  */
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function readRawBody(req: NextApiRequest): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer | string) => {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+// Parse application/x-www-form-urlencoded preserving original order
+// (PayFast signs in the order the fields appear in the body, NOT
+// alphabetical). Returns both the ordered key/value list and a map.
+function parsePayFastBody(raw: string): { ordered: Array<[string, string]>; map: Record<string, string> } {
+  const ordered: Array<[string, string]> = [];
+  const map: Record<string, string> = {};
+  if (!raw) return { ordered, map };
+  for (const pair of raw.split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    const k = eq === -1 ? pair : pair.slice(0, eq);
+    const v = eq === -1 ? "" : pair.slice(eq + 1);
+    const key = decodeURIComponent(k.replace(/\+/g, " "));
+    const val = decodeURIComponent(v.replace(/\+/g, " "));
+    ordered.push([key, val]);
+    map[key] = val;
+  }
+  return { ordered, map };
+}
+
+// Reconstruct the canonical PayFast signed string from the ordered
+// fields. PayFast docs: "Take all the form fields excluding signature,
+// in the order they appear in the form, urlencode them and concatenate
+// with &, then append &passphrase=<passphrase> if set."
+function buildPayFastSignedString(
+  ordered: Array<[string, string]>,
+  passphrase: string,
+): string {
+  const parts: string[] = [];
+  for (const [k, v] of ordered) {
+    if (k === "signature") continue;
+    if (v === "") continue;
+    parts.push(`${k}=${encodeURIComponent(v).replace(/%20/g, "+")}`);
+  }
+  let s = parts.join("&");
+  if (passphrase) {
+    s += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}`;
+  }
+  return s;
+}
+
+function clientIpFromRequest(req: NextApiRequest): string | null {
+  const forwarded = (req.headers["x-forwarded-for"] || "") as string;
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const real = (req.headers["x-real-ip"] || "") as string;
+  if (real) return real.trim();
+  return req.socket?.remoteAddress || null;
+}
+
+function isAllowedPayFastIp(ip: string | null): boolean {
+  const raw = (process.env.PAYFAST_ALLOWED_IPS || "").trim();
+  if (!raw) return true; // not configured -> allow (dev / fresh-install)
+  if (!ip) return false;
+  const list = raw.split(",").map(s => s.trim()).filter(Boolean);
+  return list.includes(ip);
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -25,13 +114,31 @@ export default async function handler(
   }
 
   try {
-    const paymentData = req.body;
+    // 1. IP allowlist (env-gated, see header docstring).
+    const callerIp = clientIpFromRequest(req);
+    if (!isAllowedPayFastIp(callerIp)) {
+      console.warn("[payfast-webhook] rejected non-allowlisted IP:", callerIp);
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
-    // Validate PayFast signature
-    const { signature, ...dataToValidate } = paymentData;
-    const isValid = validatePayFastSignature(dataToValidate, signature);
+    // 2. Read raw body and validate signature against it directly,
+    //    preserving the original field order. The previous Object.keys
+    //    + .sort() approach was wrong for PayFast (they sign in form
+    //    order, not alphabetical) and the JSON-parsed shape lost
+    //    multi-value forms.
+    const rawBody = await readRawBody(req);
+    const { ordered, map: paymentData } = parsePayFastBody(rawBody);
 
-    if (!isValid) {
+    const passphrase = process.env.PAYFAST_PASSPHRASE || "";
+    const signedString = buildPayFastSignedString(ordered, passphrase);
+    const expectedSignature = crypto
+      .createHash("md5")
+      .update(signedString)
+      .digest("hex");
+    const providedSignature = (paymentData.signature || "").toLowerCase();
+
+    if (expectedSignature.toLowerCase() !== providedSignature) {
+      console.warn("[payfast-webhook] signature mismatch");
       return res.status(400).json({ error: "Invalid signature" });
     }
 
@@ -64,12 +171,13 @@ export default async function handler(
         return res.status(200).json({ message: "Already processed", invoiceId });
       }
 
-      // Update invoice status
+      // Update invoice status. amount_gross is a string off the URL-
+      // encoded body; coerce to number for the numeric column.
       const { error: invoiceError } = await supabase
         .from("invoices")
         .update({
           status: "paid",
-          amount_paid: amount_gross,
+          amount_paid: parseFloat(amount_gross),
           balance_due: 0,
           updated_at: new Date().toISOString()
         })
@@ -471,24 +579,8 @@ async function sendClientPaymentConfirmation(
   }
 }
 
-/**
- * Verify PayFast webhook signature
- */
-function validatePayFastSignature(data: any, signature: string): boolean {
-  const passphrase = process.env.PAYFAST_PASSPHRASE || "";
-
-  // Create parameter string
-  const pfParamString = Object.keys(data)
-    .filter(key => key !== "signature")
-    .sort()
-    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, "+")}`)
-    .join("&");
-
-  // Generate signature
-  const generatedSignature = crypto
-    .createHash("md5")
-    .update(pfParamString + passphrase)
-    .digest("hex");
-
-  return generatedSignature === signature;
-}
+// validatePayFastSignature was removed in favour of the inline raw-body
+// + ordered-fields validator at the top of handler [P0-11]. Old version
+// signed over alphabetical-sorted JSON-parsed fields, which doesn't
+// match PayFast's documented "fields in form order" contract and
+// produced false negatives on any IPN with non-ASCII characters.
