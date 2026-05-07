@@ -498,12 +498,12 @@ export const dispatchService = {
     const driverIds = drivers.map(d => d.id);
     const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);
 
-    // Latest GPS for each driver (best-effort batch).
-    const { data: gpsRows } = await supabase
-      .from("gps_tracking")
-      .select("driver_id, latitude, longitude, timestamp")
-      .in("driver_id", driverIds)
-      .order("timestamp", { ascending: false });
+    // Current location for each driver -- single-row-per-driver lookup
+    // off driver_locations (P1-23 split).
+    const { data: gpsRows } = await (supabase as any)
+      .from("driver_locations")
+      .select("driver_id, latitude, longitude, updated_at")
+      .in("driver_id", driverIds);
     const latestGps: Record<string, { lat: number; lng: number }> = {};
     for (const row of gpsRows || []) {
       const did = (row as any).driver_id;
@@ -834,14 +834,15 @@ export const dispatchService = {
         .eq("role", "driver");
       const driverIds = (drivers || []).map((d: any) => d.id);
       if (driverIds.length > 0) {
-        const { data: pings } = await supabase
-          .from("gps_tracking")
+        // Drivers whose current location row was updated in the last
+        // hour count as on-shift (their GPS is reporting). Single-row-
+        // per-driver lookup off driver_locations (P1-23 split).
+        const { data: pings } = await (supabase as any)
+          .from("driver_locations")
           .select("driver_id")
           .in("driver_id", driverIds)
-          .gte("timestamp", sixtyMinAgo);
-        const seen = new Set<string>();
-        for (const p of pings || []) seen.add((p as any).driver_id);
-        onShift = seen.size;
+          .gte("updated_at", sixtyMinAgo);
+        onShift = (pings || []).length;
       }
     }
 

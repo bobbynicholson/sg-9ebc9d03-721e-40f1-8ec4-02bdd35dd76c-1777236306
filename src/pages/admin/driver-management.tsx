@@ -233,16 +233,17 @@ function DriverManagementPage() {
       }
       setLoadByDriver(loadMap);
 
-      // Last GPS ping per driver
-      const { data: pings } = await supabase
-        .from("gps_tracking")
-        .select("driver_id, timestamp")
-        .in("driver_id", driverIds)
-        .order("timestamp", { ascending: false });
+      // Last GPS ping per driver -- single-row-per-driver lookup off
+      // driver_locations (P1-23 split). The "last seen" timestamp lives
+      // on driver_locations.updated_at.
+      const { data: pings } = await (supabase as any)
+        .from("driver_locations")
+        .select("driver_id, updated_at")
+        .in("driver_id", driverIds);
       const pingMap: Record<string, string> = {};
       for (const p of pings || []) {
         const did = (p as any).driver_id;
-        if (did && !pingMap[did]) pingMap[did] = (p as any).timestamp;
+        if (did) pingMap[did] = (p as any).updated_at;
       }
       setLastPingByDriver(pingMap);
 

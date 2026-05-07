@@ -161,14 +161,13 @@ export default function ClientTracking() {
     if (!order.driver_id) return;
     
     try {
-      // Use maybeSingle so the 'no rows yet' case isn't treated as an
-      // error (the driver may not have started GPS yet).
-      const { data: driver } = await supabase
-        .from("gps_tracking")
-        .select("*")
+      // Single-row-per-driver lookup off driver_locations (P1-23 split).
+      // maybeSingle so the 'no row yet' case isn't an error (the driver
+      // may not have started GPS yet).
+      const { data: driver } = await (supabase as any)
+        .from("driver_locations")
+        .select("latitude, longitude")
         .eq("driver_id", order.driver_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
         .maybeSingle();
 
       if (driver && driver.latitude && driver.longitude) {

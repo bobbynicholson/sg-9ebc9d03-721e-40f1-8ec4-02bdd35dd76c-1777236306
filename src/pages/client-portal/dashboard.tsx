@@ -476,15 +476,13 @@ export default function ClientPortalDashboard() {
     let cancelled = false;
     const poll = async () => {
       try {
-        // gps_tracking schema: latitude, longitude, timestamp (not
-        // lat/lng/last_updated). One row per ping; we want the freshest
-        // for this driver.
-        const { data: pin } = await supabase
-          .from("gps_tracking")
-          .select("latitude, longitude, timestamp")
+        // Current-location lookup off driver_locations (P1-23 split):
+        // single PK row per driver instead of scanning gps_tracking
+        // history.
+        const { data: pin } = await (supabase as any)
+          .from("driver_locations")
+          .select("latitude, longitude, updated_at")
           .eq("driver_id", headline.driver_id)
-          .order("timestamp", { ascending: false })
-          .limit(1)
           .maybeSingle();
 
         // Driver name + phone live on the profiles row -- there's no
