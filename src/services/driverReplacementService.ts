@@ -129,6 +129,104 @@ export const driverReplacementService = {
   },
 
   /**
+   * Admin force-reassigns a pending replacement to a specific driver,
+   * bypassing the auction. Same downstream effect as
+   * acceptReplacementRequest -- order.assigned_driver_id flips, audit
+   * row goes in, original + new driver get notified -- but the
+   * decision was made by an admin, not a volunteer driver.
+   *
+   * Use case: nobody's biting on the auction and the event is in a
+   * few hours, so the admin picks someone capable and tells them
+   * they're driving it.
+   *
+   * P1-07 from the 2026-05 audit.
+   */
+  async forceReassignReplacement(payload: {
+    requestId: string;
+    newDriverId: string;
+    performedBy: string;
+    reason?: string;
+  }) {
+    const { requestId, newDriverId, performedBy } = payload;
+
+    // Pull the pending request + the order's current driver before
+    // we mutate anything.
+    const { data: request, error: fetchErr } = await supabase
+      .from("driver_replacement_requests")
+      .select("id, order_id, original_driver_id, status")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!request) throw new Error("Replacement request not found");
+    if ((request as any).status !== "pending") {
+      throw new Error(`Replacement is already ${(request as any).status}; cannot force-reassign.`);
+    }
+
+    const orderId = (request as any).order_id as string;
+    const { data: prevOrder } = await supabase
+      .from("orders")
+      .select("assigned_driver_id, company_id, order_number")
+      .eq("id", orderId)
+      .maybeSingle();
+    const previousDriverId = (prevOrder as any)?.assigned_driver_id || null;
+
+    // Mark the request as accepted, attributed to the chosen driver
+    // (so the request row reflects who ends up driving), and stamp
+    // accepted_at = now. We do NOT pretend the new driver volunteered
+    // -- the audit row makes the admin override explicit.
+    const { error: updReqErr } = await supabase
+      .from("driver_replacement_requests")
+      .update({
+        status: "accepted",
+        accepted_by_driver_id: newDriverId,
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", requestId)
+      .eq("status", "pending");
+    if (updReqErr) throw updReqErr;
+
+    // Flip the order driver.
+    const { error: updOrderErr } = await supabase
+      .from("orders")
+      .update({ assigned_driver_id: newDriverId })
+      .eq("id", orderId);
+    if (updOrderErr) throw updOrderErr;
+
+    // Audit row -- distinct action so reports can separate auction
+    // wins from admin force-reassigns.
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: (prevOrder as any)?.company_id,
+        user_id: performedBy,
+        action: "driver_replacement_force_reassigned",
+        entity_type: "order",
+        entity_id: orderId,
+        details: {
+          request_id: requestId,
+          previous_driver_id: previousDriverId,
+          new_driver_id: newDriverId,
+          order_number: (prevOrder as any)?.order_number,
+          performed_by: performedBy,
+          reason: payload.reason ?? null,
+          forced_at: new Date().toISOString(),
+        },
+      });
+    } catch (auditErr: any) {
+      console.warn("[driverReplacementService] audit_logs insert failed (non-blocking):", auditErr?.message);
+    }
+
+    // Reuse the same notifier shapes the auction path uses so the
+    // original driver gets the "you're off this run" message and the
+    // new driver gets "you're on it now".
+    await this.notifyAdminOfAcceptance(requestId, newDriverId);
+    await this.notifyOriginalDriver(requestId);
+    await this.sendReplacementAcceptedWhatsApp(orderId, newDriverId);
+
+    return { ok: true, orderId, previousDriverId, newDriverId } as const;
+  },
+
+  /**
    * Cancel a replacement request
    */
   async cancelReplacementRequest(requestId: string) {
