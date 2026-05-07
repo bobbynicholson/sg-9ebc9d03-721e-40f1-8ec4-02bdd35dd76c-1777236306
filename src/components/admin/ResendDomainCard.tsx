@@ -501,27 +501,52 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </div>
       )}
 
-      {/* PENDING / PROPAGATING -- calm amber waiting card. */}
-      {pending && !verified && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
-          <div className="flex items-start gap-3">
-            <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-            <div className="space-y-2">
-              <p className="font-semibold text-amber-900">DNS propagation in progress</p>
-              <p className="text-sm text-amber-900/90">
-                Your DNS host has the records. They're now propagating across the internet's name servers,
-                which typically takes 5-30 minutes but can take up to an hour.
-                <strong> This is on your DNS host's side, not ours -- we'll keep checking automatically every minute.</strong>
-              </p>
-              <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
-                <li>Most common timing: 5-15 minutes.</li>
-                <li>Worst case: 60 minutes.</li>
-                <li>If it's been over 2 hours, see "Still stuck?" below.</li>
-              </ul>
+      {/* PENDING -- two distinct sub-states. We separate them because
+          the same status word covers two very different situations and
+          the user needs different reassurance for each. */}
+      {pending && !verified && (() => {
+        const dnsAllMatch = !!diagnostic?.summary?.all_match;
+        if (dnsAllMatch) {
+          return (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="font-semibold text-amber-900">Waiting on Resend's verifier</p>
+                  <p className="text-sm text-amber-900/90">
+                    Your DNS records are live and match exactly what Resend asked for (we just confirmed all three from public DNS, see the green ticks below). Now Resend's own verifier needs to run its DNS check and flip the status.
+                    <strong> This is on Resend's side, not yours and not ours.</strong> It usually flips within a minute or two of clicking Verify now.
+                  </p>
+                  <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
+                    <li>Hit <strong>Verify now</strong> at the bottom of this card to trigger another check.</li>
+                    <li>If still pending after 5 minutes of trying, see "Still stuck?" below.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="font-semibold text-amber-900">DNS propagation in progress</p>
+                <p className="text-sm text-amber-900/90">
+                  Your DNS host has the records. They're now propagating across the internet's name servers,
+                  which typically takes 5-30 minutes but can take up to an hour.
+                  <strong> This is on your DNS host's side, not ours, we'll keep checking automatically every minute.</strong>
+                </p>
+                <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
+                  <li>Most common timing: 5-15 minutes.</li>
+                  <li>Worst case: 60 minutes.</li>
+                  <li>If it's been over 2 hours, see "Still stuck?" below.</li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* FAILED -- distinct from pending, this is operator-actionable. */}
       {failed && (
