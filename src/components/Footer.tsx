@@ -32,6 +32,7 @@ export function Footer() {
   // edge sits at >=100vh from the page top. Long pages get spacer = 0
   // and look identical to before.
   const footerRef = useRef<HTMLElement | null>(null);
+  const spacerRef = useRef(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
 
   useEffect(() => {
@@ -42,30 +43,25 @@ export function Footer() {
       if (!f) return;
       const rect = f.getBoundingClientRect();
       const winH = window.innerHeight;
-      // Where is the footer's top edge in document coords today?
       const currentTop = rect.top + window.scrollY;
-      // Desired position: at least 100vh from the document top so a
-      // first-paint user has to scroll to see it.
       const targetTop = winH;
-      // We can only push DOWN, never up -- if the footer is already
-      // below the fold (long page), spacer = 0.
-      const naturalTop = currentTop - spacerHeight;
+      // Read the live spacer via ref so retries after async content
+      // settles use fresh state, not the stale closure value.
+      const naturalTop = currentTop - spacerRef.current;
       const needed = Math.max(0, Math.round(targetTop - naturalTop));
-      setSpacerHeight((prev) => (Math.abs(prev - needed) < 2 ? prev : needed));
+      if (Math.abs(spacerRef.current - needed) >= 2) {
+        spacerRef.current = needed;
+        setSpacerHeight(needed);
+      }
     };
 
     recompute();
-    // Re-measure after async content settles. Keep the timeouts short
-    // so the spacer doesn't visibly snap.
     const timers = [setTimeout(recompute, 80), setTimeout(recompute, 300), setTimeout(recompute, 1000)];
     window.addEventListener("resize", recompute);
     return () => {
       timers.forEach(clearTimeout);
       window.removeEventListener("resize", recompute);
     };
-  // We deliberately exclude spacerHeight from deps -- recompute reads
-  // the latest via state setter; including it would loop.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
   const displayName = branding?.companyName || "CateringMS";
