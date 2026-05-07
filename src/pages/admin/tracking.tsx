@@ -388,10 +388,10 @@ export default function AdminTracking() {
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Live Operations
+              Live operations
             </h1>
             <p className="text-slate-600">
-              Today's jobs in flight, with driver pins ticking through. Sorted by urgency.
+              Today's deliveries in flight. Live driver pins on the map, prep status per order, and at-risk flags surfaced first so you can intervene before the client phones.
             </p>
           </div>
 

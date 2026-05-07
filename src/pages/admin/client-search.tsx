@@ -184,7 +184,7 @@ function ClientSearchPage() {
                   Client Search
                   <InfoTooltip content={"Searchable directory of your registered clients. Look them up by name, email, phone, company or region."} />
                 </h1>
-                <p className="text-slate-600 mt-1">Find and manage your clients</p>
+                <p className="text-slate-600 mt-1">Searchable directory of every registered client. Filter by name, email, phone, company, or region. For the merged inbox view including leads and prospects, use Contacts instead.</p>
               </div>
             </div>
 

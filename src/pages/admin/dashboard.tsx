@@ -423,7 +423,7 @@ function AdminDashboardPage() {
               label="Quotes in circulation"
               value={fmt.format(stats.quotesInCirculationValue)}
               hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
-              tooltip={"Total rand value of quotes that have been sent to clients but haven't yet been accepted or declined. Includes 'sent', 'viewed' and 'revised' statuses; excludes drafts and closed quotes.\n\nThis is your live pipeline -- the bigger this is, the more revenue is sitting one client decision away."}
+              tooltip={"Total rand value of quotes that have been sent to clients but haven't yet been accepted or declined. Includes 'sent', 'viewed' and 'revised' statuses; excludes drafts and closed quotes.\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
               icon={FileText}
               iconColor="text-amber-600"
               badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
@@ -497,7 +497,7 @@ function AdminDashboardPage() {
               label="Top Cancel Reason"
               value={stats.topCancelReason || "-"}
               hint={stats.cancelledOrdersInRange === 0 ? "Nothing cancelled in range" : "Most common category"}
-              tooltip={"The most common cancellation reason category for the date range. Useful for spotting patterns -- e.g. lots of 'no_payment' tells you to tighten the deposit reminder cadence."}
+              tooltip={"The most common cancellation reason category for the date range. Useful for spotting patterns: e.g. lots of 'no_payment' tells you to tighten the deposit reminder cadence."}
               icon={AlertCircle}
               iconColor="text-orange-600"
               loading={loading}

@@ -330,9 +330,9 @@ function WhiteLabelPage() {
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
                     White Label Branding
-                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant -- every admin and client logged into your account sees the same branding."} />
+                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} />
                   </h1>
-                  <p className="text-slate-600 mt-1">Customize your platform with your own branding</p>
+                  <p className="text-slate-600 mt-1">Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails.</p>
                 </div>
               </div>
               {isWhiteLabeled && (
@@ -480,7 +480,7 @@ function WhiteLabelPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      A bolder pop colour for things that need to grab attention -- &quot;New&quot; badges, alert highlights, the active stage on a progress bar. Keep this distinct from your primary so it actually stands out.
+                      A bolder pop colour for things that need to grab attention: &quot;New&quot; badges, alert highlights, the active stage on a progress bar. Keep this distinct from your primary so it actually stands out.
                     </p>
                   </div>
 
@@ -571,7 +571,7 @@ function WhiteLabelPage() {
                     <div className="p-4 bg-slate-50 rounded-lg text-xs text-slate-600">
                       <p className="font-medium mb-2">What this changes today:</p>
                       <ul className="space-y-1 list-disc list-inside">
-                        <li>Saved to your tenant in the database -- every admin and client on your account sees the same branding</li>
+                        <li>Saved to your tenant in the database. Every admin and client on your account sees the same branding</li>
                         <li>Logo + organisation name flow into surfaces that read these company fields</li>
                         <li>Colours expose CSS variables (<code>--brand-primary/secondary/accent</code>) on the page root</li>
                         <li>CateringMS attribution remains in the footer</li>

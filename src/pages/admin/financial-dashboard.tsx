@@ -228,7 +228,7 @@ export default function FinancialDashboardPage() {
                   Financial Dashboard
                 </h1>
                 <p className="text-slate-600">
-                  AI-powered insights and predictions for your business
+                  Revenue, profitability, and cashflow at a glance. Daily, weekly, and monthly views with profit margin and outstanding balances per period.
                 </p>
               </div>
               <div className="mt-4 md:mt-0">
@@ -470,12 +470,12 @@ export default function FinancialDashboardPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       Quick Actions
-                      <InfoTooltip content={"Shortcuts to the pages you'll need next when the cash-flow numbers above flag a problem.\n\nEach button drops you on the relevant working surface -- nothing fires until you take action there."} />
+                      <InfoTooltip content={"Shortcuts to the pages you'll need next when the cash-flow numbers above flag a problem.\n\nEach button drops you on the relevant working surface. Nothing fires until you take action there."} />
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <Link href="/admin/invoices?status=unpaid" className="block">
-                      <Button className="w-full justify-start" variant="outline" title="Open the invoices page filtered to unpaid -- where you can resend reminders to clients with overdue balances.">
+                      <Button className="w-full justify-start" variant="outline" title="Open the invoices page filtered to unpaid, where you can resend reminders to clients with overdue balances.">
                         <CreditCard className="w-4 h-4 mr-2" />
                         Send Payment Reminders
                       </Button>
@@ -493,7 +493,7 @@ export default function FinancialDashboardPage() {
                       </Button>
                     </Link>
                     <Link href="/admin/calendar" className="block">
-                      <Button className="w-full justify-start" variant="outline" title="Open the calendar to see upcoming events alongside their deposit / balance due dates -- the next 30 days of cash inflow.">
+                      <Button className="w-full justify-start" variant="outline" title="Open the calendar to see upcoming events alongside their deposit / balance due dates: the next 30 days of cash inflow.">
                         <Calendar className="w-4 h-4 mr-2" />
                         View Payment Schedule
                       </Button>

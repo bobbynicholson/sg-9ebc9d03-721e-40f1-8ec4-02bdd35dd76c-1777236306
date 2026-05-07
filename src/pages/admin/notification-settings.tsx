@@ -92,8 +92,8 @@ export default function NotificationSettings() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Notification Settings</h1>
-            <p className="text-slate-600">Manage how you receive updates and alerts</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Notification settings</h1>
+            <p className="text-slate-600">Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, or push. Owners get everything by default. Tune the noise from here.</p>
           </div>
 
           <div className="space-y-6">

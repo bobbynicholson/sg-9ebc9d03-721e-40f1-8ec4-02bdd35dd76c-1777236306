@@ -943,7 +943,7 @@ function KitchenByPersonTable({
                       {(r.overtime_min / 60).toFixed(1)}h
                     </td>
                     <td className="px-2 py-2.5 text-right tabular-nums text-slate-700">
-                      {effectiveRate > 0 ? fmtZARDetailed(effectiveRate) : <span className="text-amber-600 text-xs">--</span>}
+                      {effectiveRate > 0 ? fmtZARDetailed(effectiveRate) : <span className="text-amber-600 text-xs">not set</span>}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-bold text-slate-900">
                       {fmtZAR(r.total_wage)}

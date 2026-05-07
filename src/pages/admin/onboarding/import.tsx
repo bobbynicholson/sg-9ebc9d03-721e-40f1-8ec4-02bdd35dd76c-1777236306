@@ -252,7 +252,7 @@ function ImportPage() {
       if (json.autoMappedTo) {
         toast({
           title: "Template recognised",
-          description: `Headers matched the ${json.autoMappedTo} template -- skipping the mapping step.`,
+          description: `Headers matched the ${json.autoMappedTo} template. Skipping the mapping step.`,
         });
         try {
           const pr = await fetch(`/api/imports/${json.jobId}/preview`, { method: "POST" });
@@ -746,7 +746,7 @@ function ImportPage() {
                                 ))}
                               </ul>
                               <p className="text-[10px] text-amber-700/70 mt-1.5">
-                                Warnings don't block import -- the row still commits, just flagged for review afterwards. Click "Warnings" below to see which rows.
+                                Warnings don't block import. The row still commits, just flagged for review afterwards. Click "Warnings" below to see which rows.
                               </p>
                             </div>
                           </div>
@@ -937,7 +937,7 @@ function ImportPage() {
                             {branchOptions.map((k) => (
                               <option key={k.id} value={k.id}>
                                 {k.name}
-                                {k.address ? ` -- ${k.address}` : ""}
+                                {k.address ? ` · ${k.address}` : ""}
                               </option>
                             ))}
                           </select>

@@ -264,7 +264,7 @@ function ClientsCRM() {
       console.error("[contacts] fetch errors:", fetchErrors);
       toast({
         title: "Couldn't load all contacts",
-        description: fetchErrors.join(" -- "),
+        description: fetchErrors.join(" · "),
         variant: "destructive",
       });
     }
@@ -651,7 +651,7 @@ function ClientsCRM() {
                   Contacts
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Everyone you've touched -- leads, prospects, clients -- sorted by suggested next action. The CRM inbox.
+                  Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action.
                 </p>
               </div>
             </div>
@@ -1328,7 +1328,7 @@ function ComposeDrawer({
       }}
       template={{ subject: tpl.subject, body: tpl.body }}
       fromName={fromName}
-      footerHint="Edit freely -- the wording is just a starting point based on this contact's status. Drag the left edge of this drawer for more room."
+      footerHint="Edit freely. The wording is just a starting point based on this contact's status. Drag the left edge of this drawer for more room."
       onSent={onSent}
       whatsapp={{
         kind: "client",

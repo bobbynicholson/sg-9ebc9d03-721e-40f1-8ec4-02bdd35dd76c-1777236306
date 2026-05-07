@@ -342,10 +342,10 @@ export default function RoutePlanning() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 mb-2">
                   <Route className="inline-block mr-3 text-blue-600" />
-                  Route Planning &amp; Optimisation
+                  Route Planning
                 </h1>
                 <p className="text-slate-600">
-                  Pre-flight dispatch: assign drivers to confirmed orders, run the optimiser, lock in routes.
+                  Auto-assign drivers and optimise routes for tomorrow before dispatch goes live. Capacity, time-conflict, and vehicle gates run before any assignment lands.
                 </p>
               </div>
               <div className="flex gap-2">

@@ -233,7 +233,7 @@ function DriverSettlementPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Driver Settlement -- Admin</title></Head>
+      <Head><title>Driver Settlement | Admin</title></Head>
       <AdminNav />
 
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -246,7 +246,7 @@ function DriverSettlementPage() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Driver Settlement</h1>
                 <p className="text-slate-600 mt-1">
-                  Pay breakdown per driver -- hourly + distance + callout. Pick a period and review before payout.
+                  Per-driver pay summary. Hourly, distance per km, callout fees, and the total owed for the period. Review here before triggering payout.
                 </p>
               </div>
             </div>

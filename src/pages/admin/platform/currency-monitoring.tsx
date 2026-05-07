@@ -148,7 +148,7 @@ export default function PlatformCurrencyMonitoringPage() {
               Currency Monitoring
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Track USD/ZAR rates. Alerts here are a manual review trigger -- pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them.
+              Track USD/ZAR rates. Alerts here are a manual review trigger. Pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them.
             </p>
           </div>
           <Button
@@ -202,7 +202,7 @@ export default function PlatformCurrencyMonitoringPage() {
                   </div>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     per USD
-                    {currentRateDate ? ` -- as of ${new Date(currentRateDate).toLocaleDateString()}` : " -- no rate stored yet"}
+                    {currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString()}` : " · no rate stored yet"}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">

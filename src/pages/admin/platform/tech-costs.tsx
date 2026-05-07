@@ -293,12 +293,12 @@ function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: 
 
   const aiLines: LineCost[] = [
     {
-      label: "Receipt scans -- Haiku 4-5 primary",
+      label: "Receipt scans · Haiku 4-5 primary",
       formula: `${haikuScans.toLocaleString()} scans @ Haiku rate. Per-scan: US$${(haikuInputCostPerCallUsd + haikuOutputCostPerCallUsd).toFixed(4)} (with ${(cachedFraction * 100).toFixed(0)}% prompt caching)`,
       usd_per_mo: haikuReceiptCost,
     },
     {
-      label: "Receipt scans -- Sonnet fallback",
+      label: "Receipt scans · Sonnet fallback",
       formula: `~${(fallbackRate * 100).toFixed(0)}% of slips retry on Sonnet (Haiku returned 0 lines). ${sonnetScans.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} scans @ Sonnet rate.`,
       usd_per_mo: sonnetReceiptCost,
     },
@@ -467,10 +467,10 @@ function TechCostsDashboard() {
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Tech-stack costs
-                  <InfoTooltip content={"Predict CateringMS's monthly COGS as a function of tenant count and per-tenant usage. Sliders update the projection live -- shows where each rand goes, your margin per tenant, and where you cross the next vendor tier."} />
+                  <InfoTooltip content={"Predict CateringMS's monthly COGS as a function of tenant count and per-tenant usage. Sliders update the projection live, showing where each rand goes, your margin per tenant, and where you cross the next vendor tier."} />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Unit economics calculator -- how much does the platform cost to run, and where does the money go?
+                  Unit economics calculator. How much does the platform cost to run, and where does the money go?
                 </p>
               </div>
             </div>
@@ -610,7 +610,7 @@ function TechCostsDashboard() {
                       <strong>Above the quota cap.</strong> The server hard-caps each tenant at
                        {" "}{RECEIPT_SCAN_QUOTA_CAP} receipt scans / month
                        {" "}(src/lib/receiptScanQuota.ts). A tenant typing more than that gets a
-                       {" "}<em>quota exceeded</em> response -- the AI call never happens. Real-
+                       {" "}<em>quota exceeded</em> response. The AI call never happens. Real-
                       world spend is bounded by the cap × tenants, regardless of what's in
                       this field. Drop to {RECEIPT_SCAN_QUOTA_CAP} for a defensible projection.
                     </div>
@@ -657,7 +657,7 @@ function TechCostsDashboard() {
                     onChange={(v) => setAssumptions({ ...assumptions, egress_gb_per_tenant: v })}
                     min={0}
                     step={0.5}
-                    tooltip="Outbound bandwidth from Supabase per tenant per month -- driven by client portal page loads + image fetches."
+                    tooltip="Outbound bandwidth from Supabase per tenant per month, driven by client portal page loads + image fetches."
                   />
                   <NumField
                     label="MAU per tenant"
@@ -672,7 +672,7 @@ function TechCostsDashboard() {
                     onChange={(v) => setAssumptions({ ...assumptions, function_invocations_per_tenant_m: v })}
                     min={0}
                     step={0.01}
-                    tooltip="Vercel serverless invocations per tenant per month. 0.05M = 50,000 -- a busy tenant with realtime + a few automations."
+                    tooltip="Vercel serverless invocations per tenant per month. 0.05M = 50,000, a busy tenant with realtime + a few automations."
                   />
                 </Section>
 
@@ -765,7 +765,7 @@ function TechCostsDashboard() {
                     <div className="text-xs text-amber-900">
                       <strong>{biggestCategory.category}</strong> is{" "}
                       {((biggestCategory.subtotal_usd / total_usd) * 100).toFixed(0)}%
-                      {" "}of your monthly spend. That&apos;s where the lever is -- caps on free-trial
+                      {" "}of your monthly spend. That&apos;s where the lever is. Caps on free-trial
                       AI scans, image-size limits before storage, or per-tenant rate-limits will
                       move the dial more than anywhere else.
                     </div>
@@ -830,7 +830,7 @@ function TechCostsDashboard() {
               <code className="bg-slate-100 px-1 rounded">src/pages/admin/platform/tech-costs.tsx</code>.
               Update those when a vendor changes their card and the projection here, the recommendations,
               and the per-tenant margin all recompute on the next page load. This is a calculator, not an
-              integration -- it doesn&apos;t pull live billing from any vendor.
+              integration. It doesn&apos;t pull live billing from any vendor.
             </p>
           </div>
         </div>

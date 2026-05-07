@@ -418,7 +418,7 @@ function SmartShoppingPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-slate-900">Just back from the shops?</p>
-                  <p className="text-xs text-slate-500">Scan the till slip -- one upload tags it for tax and feeds your inventory.</p>
+                  <p className="text-xs text-slate-500">Scan the till slip. One upload tags it for tax and feeds your inventory.</p>
                 </div>
               </div>
               {scannerOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}

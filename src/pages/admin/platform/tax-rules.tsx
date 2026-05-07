@@ -143,7 +143,7 @@ function TaxRulesAdmin() {
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
                   Reference rules the slip scanner uses to classify line items as deductible or not.
-                  Global to all tenants -- edit with care.
+                  Global to all tenants. Edit with care.
                 </p>
               </div>
             </div>
@@ -505,7 +505,7 @@ function RuleFormDialog({
 
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-              Capital threshold (R) -- optional
+              Capital threshold (R), optional
             </label>
             <Input
               type="number"

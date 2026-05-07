@@ -292,7 +292,7 @@ function PaymentGatewaysPage() {
               Payment Gateways
               <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
             </h1>
-            <p className="text-muted-foreground">Configure a payment processor to take card and EFT payments from your clients.</p>
+            <p className="text-muted-foreground">Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT.</p>
           </div>
 
           {/* Super_admin tenant picker. Tenant admins never see this --
@@ -530,7 +530,7 @@ function PaymentGatewaysPage() {
               <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
                 <div>
                   <Label className="text-sm">Test mode</Label>
-                  <p className="text-xs text-muted-foreground">Use sandbox credentials -- no real money moves.</p>
+                  <p className="text-xs text-muted-foreground">Use sandbox credentials. No real money moves.</p>
                 </div>
                 <Switch checked={editIsTest} onCheckedChange={setEditIsTest} />
               </div>

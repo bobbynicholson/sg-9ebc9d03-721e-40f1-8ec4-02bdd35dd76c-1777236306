@@ -112,7 +112,7 @@ function ImportsHistoryPage() {
       (counts?.leads?.inserted || 0) +
       (counts?.quotes?.inserted || 0);
     const msg = inserted > 0
-      ? `Enable automated comms for the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"? After this, welcome emails / after-sales sequences / lead auto-replies can fire against them. There is no undo button -- comms run from the moment you click.`
+      ? `Enable automated comms for the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"? After this, welcome emails / after-sales sequences / lead auto-replies can fire against them. There is no undo button. Comms run from the moment you click.`
       : `Enable automated comms for this batch? After this, welcome emails / after-sales sequences / lead auto-replies can fire against the imported records.`;
     if (!confirm(msg)) return;
     setBusyId(job.id);

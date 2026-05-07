@@ -290,7 +290,7 @@ function TeamsIndexPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Teams -- CateringMS</title></Head>
+      <Head><title>Teams | CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
@@ -305,12 +305,15 @@ function TeamsIndexPage() {
                 <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Teams
                 </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-sm sm:text-base text-slate-600 mt-1">
+                  Cross-team glance. Where everyone is on today's prep, dispatch, cleaning, and shopping. Click any tile to open that team.
+                </p>
+                <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" /> {todayLabel}
                   </span>
                   {regionLabel && (
-                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1">
                       <MapPin className="w-3 h-3" /> {regionLabel}
                     </span>
                   )}

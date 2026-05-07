@@ -411,10 +411,10 @@ function RegionsPage() {
               </div>
               <div>
                 <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Regional Operations
+                  Branches
                 </h1>
                 <p className="text-slate-600 mt-1">
-                  Run independent kitchens, drivers, and inventory in every region you serve.
+                  One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
                 </p>
               </div>
             </div>
@@ -774,7 +774,7 @@ function RegionsPage() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900">
                 <AlertCircle className="w-4 h-4" /> Branch manager notifications
-                <InfoTooltip content={"Whether the branch manager (assigned above) gets pinged when activity hits this branch.\n\nThe company owner always receives notifications regardless of these toggles -- this controls only the branch manager's secondary copy."} />
+                <InfoTooltip content={"Whether the branch manager (assigned above) gets pinged when activity hits this branch.\n\nThe company owner always receives notifications regardless of these toggles. This controls only the branch manager's secondary copy."} />
               </div>
               <p className="text-xs text-emerald-800/80">
                 The owner always gets the notification. These toggles control whether the

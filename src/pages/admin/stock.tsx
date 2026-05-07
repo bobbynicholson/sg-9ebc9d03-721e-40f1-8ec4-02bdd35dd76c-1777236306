@@ -192,7 +192,7 @@ function StockPage() {
         feed.push({
           key: `h:${h.id}`,
           kind: "hire-in",
-          title: h.supplier_name ? `${itemLabel} -- ${h.supplier_name}` : itemLabel,
+          title: h.supplier_name ? `${itemLabel} · ${h.supplier_name}` : itemLabel,
           subtitle: pickup
             ? `Pickup expected ${dateFmt(pickup)} (${h.status})`
             : `Status: ${h.status}`,
@@ -236,7 +236,7 @@ function StockPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Stock -- CateringMS</title></Head>
+      <Head><title>Stock | CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
@@ -252,7 +252,7 @@ function StockPage() {
                   Stock
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Where the pressure is right now.
+                  Pressure feed. Ingredients running low, equipment committed across upcoming events, and hire-in due.
                   {regionLabel && (
                     <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
                       <MapPin className="w-3 h-3" /> {regionLabel}
@@ -285,7 +285,7 @@ function StockPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "--" : lowStock.count}</span>
+                  <span className="text-4xl font-bold text-slate-900">{loading ? "…" : lowStock.count}</span>
                   <span className="text-xs text-slate-600">item{lowStock.count === 1 ? "" : "s"} below minimum</span>
                 </div>
                 {lowStock.top5.length > 0 && (
@@ -322,7 +322,7 @@ function StockPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "--" : equipPressure.count}</span>
+                  <span className="text-4xl font-bold text-slate-900">{loading ? "…" : equipPressure.count}</span>
                   <span className="text-xs text-slate-600">commitment{equipPressure.count === 1 ? "" : "s"}</span>
                 </div>
                 <p className="text-xs text-slate-600">
@@ -347,7 +347,7 @@ function StockPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "--" : hireIn.count}</span>
+                  <span className="text-4xl font-bold text-slate-900">{loading ? "…" : hireIn.count}</span>
                   <span className="text-xs text-slate-600">awaiting receipt</span>
                 </div>
                 <p className="text-xs text-slate-600">

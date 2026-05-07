@@ -262,8 +262,8 @@ function SettingsPage() {
                 <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">System Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></h1>
-                <p className="text-sm md:text-base text-slate-600">Configure platform preferences</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></h1>
+                <p className="text-sm md:text-base text-slate-600">Operational defaults that drive the rest of the system. Quote minimums, kitchen prep lead times, delivery radius, VAT, refund SLA, follow-up cadences. Saved against your company and applied everywhere immediately.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -672,7 +672,7 @@ function SettingsPage() {
                     <InfoTooltip content={"How long the system waits before nudging clients with follow-ups, reminders and review requests after a quote is sent or an event ends.\n\nValues you set here are saved against your company. The email engine reads them when scheduling each automated send."} />
                   </CardTitle>
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
-                    Heads up: these timings are stored against your company but the live cron-driven sender is still on the engineering backlog. Set them now -- the moment the sender ships, your timings are already live.
+                    Heads up: these timings are stored against your company but the live cron-driven sender is still on the engineering backlog. Set them now. The moment the sender ships, your timings are already live.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -854,7 +854,7 @@ function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-sm md:text-base flex items-center gap-1">
                         Minimum Order Value (R)
-                        <InfoTooltip content={"Quotes whose subtotal falls below this number get a warning at save time so you can decline or upsell.\n\nDoes not auto-block the save -- the quote builder is allowed to go below for special cases."} />
+                        <InfoTooltip content={"Quotes whose subtotal falls below this number get a warning at save time so you can decline or upsell.\n\nDoes not auto-block the save. The quote builder is allowed to go below for special cases."} />
                       </Label>
                       <Input
                         type="number"
@@ -896,7 +896,7 @@ function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-sm md:text-base flex items-center gap-1">
                         Kitchen Prep Lead Time (hours)
-                        <InfoTooltip content={"How many hours before the event starts the kitchen needs to begin prep.\n\nDrives the prep-task scheduler -- a 6 hour lead means a 17:00 event has a 11:00 prep start."} />
+                        <InfoTooltip content={"How many hours before the event starts the kitchen needs to begin prep.\n\nDrives the prep-task scheduler. A 6 hour lead means a 17:00 event has a 11:00 prep start."} />
                       </Label>
                       <Input
                         type="number"
@@ -941,7 +941,7 @@ function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-sm md:text-base flex items-center gap-1">
                         Driver Service Radius (km)
-                        <InfoTooltip content={"How far from the kitchen / HQ you're willing to deliver.\n\nQuotes outside this radius surface a warning at save time. Doesn't block manual override -- you can still take a one-off long-distance booking."} />
+                        <InfoTooltip content={"How far from the kitchen / HQ you're willing to deliver.\n\nQuotes outside this radius surface a warning at save time. Doesn't block manual override. You can still take a one-off long-distance booking."} />
                       </Label>
                       <Input
                         type="number"
@@ -954,7 +954,7 @@ function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-sm md:text-base flex items-center gap-1">
                         Delivery Cost Per Kilometer (R)
-                        <InfoTooltip content={"Rand per kilometre used by the quote builder to auto-calculate the delivery fee from kitchen to venue.\n\nThe operator can manually override the fee on the quote -- this is just the default rate."} />
+                        <InfoTooltip content={"Rand per kilometre used by the quote builder to auto-calculate the delivery fee from kitchen to venue.\n\nThe operator can manually override the fee on the quote. This is just the default rate."} />
                       </Label>
                       <Input
                         type="number"
@@ -1017,7 +1017,7 @@ function SettingsPage() {
                     <div>
                       <Label className="text-sm md:text-base flex items-center gap-1">
                         VAT/Tax Rate (%)
-                        <InfoTooltip content={"VAT or sales tax percentage added to the subtotal on every quote and invoice.\n\nFor SA VAT-registered operators this is 15. Set to 0 if you're not VAT-registered -- the public quote will not show a VAT line."} />
+                        <InfoTooltip content={"VAT or sales tax percentage added to the subtotal on every quote and invoice.\n\nFor SA VAT-registered operators this is 15. Set to 0 if you're not VAT-registered. The public quote will not show a VAT line."} />
                       </Label>
                       <Input
                         type="number"
@@ -1076,7 +1076,7 @@ function SettingsPage() {
                       <div>
                         <Label className="text-sm md:text-base flex items-center gap-1">
                           Final Order Changes (days before event)
-                          <InfoTooltip content={"The last day on which clients can amend guest count, menu items or venue address from their portal.\n\nAfter this point, edits are admin-only -- protects you from same-week swaps that bust kitchen prep."} />
+                          <InfoTooltip content={"The last day on which clients can amend guest count, menu items or venue address from their portal.\n\nAfter this point, edits are admin-only. Protects you from same-week swaps that bust kitchen prep."} />
                         </Label>
                         <Input
                           type="number"
@@ -1120,7 +1120,7 @@ function SettingsPage() {
                   <div className="space-y-2 border-t pt-4">
                     <Label className="text-sm md:text-base flex items-center gap-1">
                       Refund Processing Time (days)
-                      <InfoTooltip content={"Estimated turnaround time you communicate to clients on a refund.\n\nDoesn't gate the refund itself -- it just sets expectations on the client-facing email and the refunds dashboard. 7 = 'allow up to 7 working days for the refund to reflect'."} />
+                      <InfoTooltip content={"Estimated turnaround time you communicate to clients on a refund.\n\nDoesn't gate the refund itself. It just sets expectations on the client-facing email and the refunds dashboard. 7 = 'allow up to 7 working days for the refund to reflect'."} />
                     </Label>
                     <Input
                       type="number"

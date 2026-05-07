@@ -139,7 +139,7 @@ function TaxPurchasesPage() {
                     Tax overview
                   </h1>
                   <p className="text-slate-600 max-w-2xl text-sm">
-                    Read-only view of your deductible spend. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard now -- this page is the accountant's lens onto the same data.
+                    Read-only view of your deductible spend. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard now. This page is the accountant's lens onto the same data.
                   </p>
                 </div>
                 <div className="flex gap-2">

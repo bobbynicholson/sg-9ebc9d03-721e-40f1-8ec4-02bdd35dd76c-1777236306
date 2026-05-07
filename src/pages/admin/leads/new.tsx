@@ -172,7 +172,7 @@ export default function NewLead() {
             <CardHeader>
               <CardTitle>Lead information</CardTitle>
               <p className="text-sm text-slate-500 mt-1">
-                Only contact name and email are required. Fill in what you know -- the rest can be added later when you build the quote.
+                Only contact name and email are required. Fill in what you know. The rest can be added later when you build the quote.
               </p>
             </CardHeader>
             <CardContent>
@@ -201,7 +201,7 @@ export default function NewLead() {
                         id="company"
                         value={formData.company}
                         onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                        placeholder="Optional -- leave blank for individuals"
+                        placeholder="Optional. Leave blank for individuals"
                       />
                     </div>
                   </div>
@@ -335,7 +335,7 @@ export default function NewLead() {
                 <section className="space-y-4 pt-2 border-t border-slate-100">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">Extra context</h3>
-                    <p className="text-xs text-slate-500">Anything that'll help shape the quote -- dietary needs, what they asked for verbatim, the vibe.</p>
+                    <p className="text-xs text-slate-500">Anything that'll help shape the quote: dietary needs, what they asked for verbatim, the vibe.</p>
                   </div>
                   <div>
                     <Label htmlFor="specialRequests">Special requests / dietary</Label>
@@ -354,7 +354,7 @@ export default function NewLead() {
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       rows={4}
-                      placeholder="Anything else you want to remember -- how they sounded on the phone, who referred them, follow-up timing..."
+                      placeholder="Anything else you want to remember: how they sounded on the phone, who referred them, follow-up timing..."
                     />
                   </div>
                 </section>
@@ -376,7 +376,7 @@ export default function NewLead() {
                       {kitchens.map((k) => (
                         <option key={k.id} value={k.id}>
                           {k.name}
-                          {k.address ? ` -- ${k.address}` : ""}
+                          {k.address ? ` · ${k.address}` : ""}
                         </option>
                       ))}
                     </select>

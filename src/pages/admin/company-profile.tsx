@@ -325,7 +325,7 @@ function CompanyProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-blue-600" />
                 Banking details
-                <InfoTooltip content={"Shown to your clients when they pick EFT on their portal or on a public invoice link. The reference they use is always the invoice number -- that's what your bank reconciliation will match against.\n\nLeave the whole section blank if you don't want EFT as an option."} />
+                <InfoTooltip content={"Shown to your clients when they pick EFT on their portal or on a public invoice link. The reference they use is always the invoice number, which is what your bank reconciliation will match against.\n\nLeave the whole section blank if you don't want EFT as an option."} />
               </CardTitle>
               <CardDescription>
                 Clients see these on their billing page when they choose EFT. Leave blank to hide the EFT option entirely.

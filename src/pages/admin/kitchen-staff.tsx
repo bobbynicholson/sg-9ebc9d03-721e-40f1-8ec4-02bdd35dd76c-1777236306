@@ -285,7 +285,7 @@ function KitchenStaffPage() {
   const handleSendInvite = async () => {
     if (!editTarget) return;
     if (!editTarget.email && !draft.email.trim()) {
-      setError("Add an email first -- the invite is sent there.");
+      setError("Add an email first. The invite is sent there.");
       return;
     }
     setInviting(true);
@@ -377,7 +377,7 @@ function KitchenStaffPage() {
                   <InfoTooltip content="Add the people working in your kitchen, set their rates and standard daily hours.\n\nThe kitchen tablet board shows their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The kitchen surface never sees them." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
-                  Add staff, set hourly + overtime rates, choose the standard daily hours.
+                  Kitchen, cleaning, and shopping team roster. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager.
                 </p>
               </div>
             </div>
@@ -667,7 +667,7 @@ function KitchenStaffPage() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="flex items-center gap-1">
                 Pay type
-                <InfoTooltip content={"Hourly: paid per clocked hour, with a 1.5x overtime split after the daily threshold.\n\nMonthly: flat salary regardless of hours -- clocked time still tracked for attendance.\n\nShift: flat fee per shift completed (e.g. R200 per shift no matter how long)."} />
+                <InfoTooltip content={"Hourly: paid per clocked hour, with a 1.5x overtime split after the daily threshold.\n\nMonthly: flat salary regardless of hours. Clocked time still tracked for attendance.\n\nShift: flat fee per shift completed (e.g. R200 per shift no matter how long)."} />
               </Label>
               <div className="grid grid-cols-3 gap-2">
                 {(["hourly", "monthly", "shift"] as const).map((p) => (
@@ -811,7 +811,7 @@ function KitchenStaffPage() {
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-900">Portal access</p>
                   <p className="text-xs text-slate-600">
-                    Most kitchen / cleaning staff don&apos;t need a login -- the manager clocks them in. Invite this person only if they need to log in themselves (e.g. sous chef, head cleaner).
+                    Most kitchen / cleaning staff don&apos;t need a login. The manager clocks them in. Invite this person only if they need to log in themselves (e.g. sous chef, head cleaner).
                   </p>
                 </div>
               </div>

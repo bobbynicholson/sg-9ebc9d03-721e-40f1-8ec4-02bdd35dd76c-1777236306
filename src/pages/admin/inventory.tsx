@@ -843,8 +843,11 @@ export default function AdminInventory() {
                 <Package className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
-                <p className="text-sm text-slate-500">
+                <h1 className="text-2xl font-semibold text-slate-900">Food &amp; Ingredients</h1>
+                <p className="text-sm text-slate-600">
+                  Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull.
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
                   {inventory.length} item{inventory.length === 1 ? "" : "s"}
                   {lastActivity && <> · last movement {relativeTime(lastActivity.created_at)}</>}
                 </p>

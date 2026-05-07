@@ -116,8 +116,8 @@ function AdminHRSolutions() {
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">HR Solutions <InfoTooltip content={"One landing page for every staff-related tool.\n\nActive cards take you straight to the feature; coming-soon cards mark what is next on the roadmap."} /></h1>
-              <p className="text-slate-600">Comprehensive staff management tools</p>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">HR <InfoTooltip content={"One landing page for every staff-related tool.\n\nActive cards take you straight to the feature; coming-soon cards mark what is next on the roadmap."} /></h1>
+              <p className="text-slate-600">Hub for all staff-related tools. Hours, wages, leave, performance, and onboarding all reachable from the cards below.</p>
             </div>
           </div>
 

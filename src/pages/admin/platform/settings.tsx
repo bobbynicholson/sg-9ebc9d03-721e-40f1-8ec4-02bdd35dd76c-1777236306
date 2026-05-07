@@ -36,7 +36,7 @@ const KNOWN_KEYS: KnownKey[] = [
     key: "import_row_cap",
     label: "Import row cap",
     description:
-      "Maximum number of rows accepted per Excel / CSV import (clients, leads, onboarding wizard). Stops a tenant uploading thousands of new customers in one shot. Onboarding a real legacy database -- bump it temporarily, then revert.",
+      "Maximum number of rows accepted per Excel / CSV import (clients, leads, onboarding wizard). Stops a tenant uploading thousands of new customers in one shot. Onboarding a real legacy database, bump it temporarily, then revert.",
     type: "number",
     unit: "rows",
     example: "200",
@@ -217,7 +217,7 @@ export default function PlatformSettingsPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Other config keys</CardTitle>
                   <CardDescription className="text-xs">
-                    Rows in app_config that aren't yet documented in this UI. Edit with care -- some are read at boot.
+                    Rows in app_config that aren't yet documented in this UI. Edit with care. Some are read at boot.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">

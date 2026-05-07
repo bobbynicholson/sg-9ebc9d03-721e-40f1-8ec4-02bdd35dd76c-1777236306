@@ -203,7 +203,7 @@ function OfferingPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Offering -- CateringMS</title></Head>
+      <Head><title>Offering | CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
@@ -218,7 +218,7 @@ function OfferingPage() {
                 <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Offering
                 </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">What you are actually selling, at a glance.</p>
+                <p className="text-sm sm:text-base text-slate-600 mt-1">Snapshot of what you sell. Menu items, equipment for hire, and packages combined into one view so you can spot gaps in pricing or photos before they hit a quote.</p>
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
@@ -338,7 +338,7 @@ function OfferingPage() {
                     {(equipTile.missingPrice > 0 || equipTile.missingPhoto > 0) && (
                       <p className="text-xs text-amber-700 mt-3 flex items-start gap-1">
                         <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                        Items without a price or photo will look thin on quotes -- worth tidying up.
+                        Items without a price or photo will look thin on quotes. Worth tidying up.
                       </p>
                     )}
                   </>

@@ -1491,7 +1491,7 @@ function OrderProcessDashboard() {
                   </div>
                   {editedOrder.status === "paused" && (
                     <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5 mt-1">
-                      Paused{(editedOrder as any).paused_reason_category ? ` -- ${String((editedOrder as any).paused_reason_category).replace(/_/g, " ")}` : ""}
+                      Paused{(editedOrder as any).paused_reason_category ? ` · ${String((editedOrder as any).paused_reason_category).replace(/_/g, " ")}` : ""}
                       {(editedOrder as any).paused_reason ? `: ${(editedOrder as any).paused_reason}` : ""}
                       {(editedOrder as any).paused_expected_resume_date ? ` (expected resume: ${(editedOrder as any).paused_expected_resume_date})` : ""}
                     </p>
@@ -1685,7 +1685,7 @@ function OrderProcessDashboard() {
                     {miPick && (
                       <p className="text-xs text-slate-600">
                         Selected: <strong>{miPick.name}</strong> ({miPick.category})
-                        {miPick.pricePerPerson ? ` -- R${Number(miPick.pricePerPerson).toLocaleString("en-ZA")} / person` : ""}
+                        {miPick.pricePerPerson ? ` · R${Number(miPick.pricePerPerson).toLocaleString("en-ZA")} / person` : ""}
                       </p>
                     )}
                   </div>
@@ -1802,8 +1802,8 @@ function OrderProcessDashboard() {
                     {eqPick && (
                       <p className="text-xs text-slate-600">
                         Selected: <strong>{eqPick.name}</strong>
-                        {eqPick.availableQuantity !== null ? ` -- ${eqPick.availableQuantity} available` : ""}
-                        {eqPick.rentalPrice ? ` -- R${Number(eqPick.rentalPrice).toLocaleString("en-ZA")} / day` : ""}
+                        {eqPick.availableQuantity !== null ? ` · ${eqPick.availableQuantity} available` : ""}
+                        {eqPick.rentalPrice ? ` · R${Number(eqPick.rentalPrice).toLocaleString("en-ZA")} / day` : ""}
                       </p>
                     )}
                     <p className="text-xs text-slate-500">
@@ -1930,7 +1930,7 @@ function OrderProcessDashboard() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AlertCircle className={`w-5 h-5 ${isBigGuestChange ? "text-rose-600" : "text-amber-600"}`} />
-                {isBigGuestChange ? "Big change -- update the quote" : "Confirm guest count change"}
+                {isBigGuestChange ? "Big change. Update the quote" : "Confirm guest count change"}
               </DialogTitle>
               <DialogDescription>
                 Guest count: <strong>{oldGuestCount}</strong> → <strong>{newGuestCount}</strong>
@@ -2079,9 +2079,9 @@ function OrderProcessDashboard() {
                 </div>
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Order Process Dashboard
+                    Orders
                   </h1>
-                  <p className="text-slate-600 mt-1">Track all orders through your workflow</p>
+                  <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
                 </div>
               </div>
               <div className="flex gap-2">

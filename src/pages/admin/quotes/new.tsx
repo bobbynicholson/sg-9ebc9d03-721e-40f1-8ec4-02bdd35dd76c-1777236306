@@ -1078,7 +1078,7 @@ function NewQuotePage() {
     if (!email || !email.trim()) {
       toast({
         title: "Client email required",
-        description: "Every quote needs a client email -- the follow-up + invoice flows depend on it. No deal without one.",
+        description: "Every quote needs a client email. The follow-up + invoice flows depend on it. No deal without one.",
         variant: "destructive",
       });
       return;
@@ -1091,7 +1091,7 @@ function NewQuotePage() {
     if (!email || !email.trim()) {
       toast({
         title: "Client email required",
-        description: "No deal without an email -- the follow-up + invoice + reminder flows depend on it.",
+        description: "No deal without an email. The follow-up + invoice + reminder flows depend on it.",
         variant: "destructive",
       });
       return;
@@ -1184,14 +1184,14 @@ function NewQuotePage() {
                   <Eye className="w-4 h-4 mr-2" />
                   {previewOpen ? "Hide preview" : "Preview"}
                 </Button>
-                <InfoTooltip content={"Toggle the live preview of what the client will see -- the public quote page, with your branding, totals and setup time.\n\nDoesn't save or send anything. Use this to sanity-check before hitting Save & Send."} />
+                <InfoTooltip content={"Toggle the live preview of what the client will see: the public quote page, with your branding, totals and setup time.\n\nDoesn't save or send anything. Use this to sanity-check before hitting Save & Send."} />
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
                   <Save className="w-4 h-4 mr-2" />
                   Save draft
                 </Button>
-                <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal -- it's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
+                <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -1202,7 +1202,7 @@ function NewQuotePage() {
                   {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   Save & Send
                 </Button>
-                <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email -- the client gets a 'we've updated your quote' message."} />
+                <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
               </div>
             </div>
           </div>
@@ -1252,7 +1252,7 @@ function NewQuotePage() {
                     <div>
                       <Label className="text-xs flex items-center gap-1">
                         Start time (optional)
-                        <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. Setup time below is when the team arrives to set up -- different from start time so morning setup of an evening event is supported."} />
+                        <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. Setup time below is when the team arrives to set up. Different from start time so morning setup of an evening event is supported."} />
                       </Label>
                       <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
                     </div>
@@ -1278,7 +1278,7 @@ function NewQuotePage() {
                       )}
                       {setupTime && eventTime && setupTime !== suggestedSetupTime && (
                         <p className="text-[11px] text-slate-500 mt-1">
-                          Custom setup time -- {setupTime} arrival for {eventTime} start
+                          Custom setup time · {setupTime} arrival for {eventTime} start
                         </p>
                       )}
                     </div>
@@ -1347,7 +1347,7 @@ function NewQuotePage() {
                           >
                             {kitchens.map((k) => (
                               <option key={k.id} value={k.id}>
-                                {k.name}{k.address ? ` -- ${k.address}` : ""}
+                                {k.name}{k.address ? ` · ${k.address}` : ""}
                               </option>
                             ))}
                           </select>

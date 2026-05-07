@@ -693,9 +693,9 @@ function DriverManagementPage() {
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                   <Truck className="w-6 h-6 text-white" />
                 </div>
-                Driver Management
+                Drivers
               </h1>
-              <p className="text-slate-600">Manage your delivery drivers and their accounts</p>
+              <p className="text-slate-600">Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set.</p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -979,7 +979,7 @@ function DriverManagementPage() {
                                     .map(v => (
                                       <option key={v.id} value={v.id}>
                                         {v.plate}
-                                        {v.nickname ? ` -- ${v.nickname}` : ""}
+                                        {v.nickname ? ` · ${v.nickname}` : ""}
                                         {v.make || v.model ? ` (${[v.make, v.model].filter(Boolean).join(" ")})` : ""}
                                         {v.primary_driver_id ? "  • already has a primary driver" : ""}
                                       </option>
@@ -1645,7 +1645,7 @@ function DriverManagementPage() {
                 </p>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-xs">
                   <strong>Pay history is preserved.</strong> All shifts, deliveries and the costs
-                  you paid this driver remain on file -- they'll show in Driver Settlement under
+                  you paid this driver remain on file. They'll show in Driver Settlement under
                   a "Removed" badge so you can still pay out anything outstanding.
                 </div>
                 <p className="text-xs">

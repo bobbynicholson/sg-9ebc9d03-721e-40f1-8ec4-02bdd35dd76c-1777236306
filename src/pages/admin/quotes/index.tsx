@@ -645,7 +645,7 @@ export default function AdminQuotes() {
       if (!receipt.order) {
         toast({
           title: "Accept failed",
-          description: receipt.error || "Conversion failed -- check the quote has a valid client + event date.",
+          description: receipt.error || "Conversion failed. Check the quote has a valid client + event date.",
           variant: "destructive",
         });
         return;
@@ -663,19 +663,19 @@ export default function AdminQuotes() {
           ? (receipt.deposit.recorded ? `Deposit invoice ${receipt.invoice.number} stamped paid.` : `Deposit invoice ${receipt.invoice.number} queued.`)
           : `Deposit invoice queued.`);
       } else {
-        lines.push(`Invoice did NOT generate -- ${receipt.invoice.error || "unknown error"}. Generate it manually on the order.`);
+        lines.push(`Invoice did NOT generate. ${receipt.invoice.error || "unknown error"}. Generate it manually on the order.`);
       }
       if (receipt.email.sent) {
         lines.push(`Confirmation email sent to ${quote.client_email}.`);
       } else if (receipt.email.skipped && receipt.email.reason === "no_client_email") {
-        lines.push(`No email on file -- client wasn't notified by email. Phone / WhatsApp them.`);
+        lines.push(`No email on file. Client wasn't notified by email. Phone / WhatsApp them.`);
       } else if (!receipt.email.sent) {
-        lines.push(`Email did NOT send -- ${receipt.email.reason || "unknown"}. Send the confirmation manually.`);
+        lines.push(`Email did NOT send. ${receipt.email.reason || "unknown"}. Send the confirmation manually.`);
       }
       if (receipt.kitchen.ok && receipt.kitchen.tasksCreated > 0) {
         lines.push(`${receipt.kitchen.tasksCreated} kitchen prep tasks planned.`);
       } else if (!receipt.kitchen.ok) {
-        lines.push(`Kitchen prep tasks NOT generated -- ${receipt.kitchen.reason || "unknown"}.`);
+        lines.push(`Kitchen prep tasks NOT generated. ${receipt.kitchen.reason || "unknown"}.`);
       }
 
       const allOk = receipt.invoice.ok && (receipt.email.sent || receipt.email.reason === "no_client_email") && receipt.kitchen.ok;
@@ -726,9 +726,9 @@ export default function AdminQuotes() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    Quote Management
+                    Quotes
                   </h1>
-                  <p className="text-slate-600 mt-1">Create and manage client quotes</p>
+                  <p className="text-slate-600 mt-1">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
                 </div>
               </div>
               <Link href="/admin/quotes/new">
@@ -1125,7 +1125,7 @@ export default function AdminQuotes() {
                             <div className="mb-4 text-[11px] text-emerald-700">
                               Pulled from booked order
                               {resolved.orderNumber ? ` ${resolved.orderNumber}` : ""}
-                              {resolved.venueName ? ` -- ${resolved.venueName}` : ""}
+                              {resolved.venueName ? ` · ${resolved.venueName}` : ""}
                             </div>
                           )}
 
@@ -1208,7 +1208,7 @@ export default function AdminQuotes() {
                               tone={intel.tone}
                               icon={<Send className="w-4 h-4" />}
                               label={sendingId === quote.id ? "Sending..." : "Send"}
-                              tooltip="Send this draft -- emails the client and stamps the quote 'sent'."
+                              tooltip="Send this draft. Emails the client and stamps the quote 'sent'."
                               disabled={sendingId === quote.id}
                               onClick={() => handleSend(quote.id)}
                             />
@@ -1608,7 +1608,7 @@ export default function AdminQuotes() {
                     <span>
                       {acceptPreflight?.client_email
                         ? <>Confirmation email to <span className="font-mono">{acceptPreflight.client_email}</span></>
-                        : <span className="text-amber-700">No client email on file -- the client won't get an automated email. Phone or WhatsApp them after.</span>}
+                        : <span className="text-amber-700">No client email on file. The client won't get an automated email; phone or WhatsApp them after.</span>}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
@@ -1685,7 +1685,7 @@ export default function AdminQuotes() {
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-600">
-                      Leave unticked if you're accepting before the deposit lands. Invoice will be generated as outstanding -- the client can pay via the public link, and you can record the payment manually on the invoice once it clears.
+                      Leave unticked if you're accepting before the deposit lands. Invoice will be generated as outstanding. The client can pay via the public link, and you can record the payment manually on the invoice once it clears.
                     </p>
                   )}
                 </div>

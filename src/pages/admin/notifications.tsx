@@ -153,7 +153,7 @@ function NotificationsPage() {
                 <InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
-                Manage your system alerts and updates
+                System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page.
               </p>
             </div>
             {unreadCount > 0 && (
@@ -463,7 +463,7 @@ function NotificationsPage() {
                                           <div className="flex justify-between sm:block">
                                             <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold inline-flex items-center gap-1">
                                               Priority
-                                              <InfoTooltip content={"How urgent the trigger flagged this when it fired.\n\n• Urgent: drop what you're doing, act now (e.g. driver replacement needed).\n• High: act soon -- a client is waiting for a response.\n• Medium / Normal: informational, no immediate action required.\n• Low: background context.\n\nSet automatically by the rule that created the row -- not manually editable here."} />
+                                              <InfoTooltip content={"How urgent the trigger flagged this when it fired.\n\n• Urgent: drop what you're doing, act now (e.g. driver replacement needed).\n• High: act soon. A client is waiting for a response.\n• Medium / Normal: informational, no immediate action required.\n• Low: background context.\n\nSet automatically by the rule that created the row, not manually editable here."} />
                                             </dt>
                                             <dd className="font-medium capitalize sm:mt-0.5">
                                               {notification.priority || "normal"}

@@ -291,9 +291,9 @@ function AdminUsersPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    User Management
+                    Full team
                   </h1>
-                  <p className="text-sm md:text-base text-slate-600 mt-1">Assign departments and manage user access</p>
+                  <p className="text-sm md:text-base text-slate-600 mt-1">Everyone with a login: owners, admins, kitchen, drivers, shopping, cleaning, and clients. Assign roles and revoke access here.</p>
                 </div>
               </div>
               

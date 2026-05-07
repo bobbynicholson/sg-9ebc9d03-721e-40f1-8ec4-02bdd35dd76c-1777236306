@@ -301,10 +301,10 @@ function AdminCalendar() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Event Calendar
+                  Calendar
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Click a day to see its events. Use arrow keys to fly through the calendar.
+                  Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar.
                 </p>
               </div>
             </div>
@@ -545,7 +545,7 @@ function AdminCalendar() {
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-amber-600" />
                     Gap finder
-                    <InfoTooltip content={"Days in the next 30 with floating quotes (sent / viewed / pending) but nothing booked yet. Each one is a sales opportunity -- chase the quote to lock the diary."} />
+                    <InfoTooltip content={"Days in the next 30 with floating quotes (sent / viewed / pending) but nothing booked yet. Each one is a sales opportunity. Chase the quote to lock the diary."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">

@@ -228,7 +228,7 @@ function SubscriptionPage() {
                 <h1 className="text-3xl font-bold text-slate-900">Subscription</h1>
                 <p className="text-slate-600">
                   {trialStatus?.isInTrial
-                    ? `You're on the free trial -- ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
+                    ? `You're on the free trial. ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
                     : "Pick a plan to keep using CateringMS once your trial ends."}
                 </p>
               </div>
@@ -241,7 +241,7 @@ function SubscriptionPage() {
                 </CardTitle>
                 <CardDescription>
                   {trialStatus?.isInTrial
-                    ? "You're inside the free trial. Pick a plan now and the switchover is automatic when the trial ends -- no break in service."
+                    ? "You're inside the free trial. Pick a plan now and the switchover is automatic when the trial ends, no break in service."
                     : "You currently do not have an active subscription. Pick a plan to restore access."}
                 </CardDescription>
               </CardHeader>

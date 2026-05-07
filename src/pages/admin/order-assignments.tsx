@@ -321,11 +321,11 @@ function DispatchQueuePage() {
         const lower = reason.toLowerCase();
         let hint = reason || "Capacity, vehicle or feasibility check rejected this driver.";
         if (lower.includes("shift")) {
-          hint = `${reason} -- check the driver's shift on the Drivers page or pick someone still on shift.`;
+          hint = `${reason}. Check the driver's shift on the Drivers page or pick someone still on shift.`;
         } else if (lower.includes("capacity") || lower.includes("load")) {
-          hint = `${reason} -- the driver is at their max for this slot. Try another suggestion.`;
+          hint = `${reason}. The driver is at their max for this slot. Try another suggestion.`;
         } else if (lower.includes("vehicle")) {
-          hint = `${reason} -- assign or override the vehicle, then retry.`;
+          hint = `${reason}. Assign or override the vehicle, then retry.`;
         }
         toast({ title: "Could not assign driver", description: hint, variant: "destructive" });
         return;
@@ -377,7 +377,7 @@ function DispatchQueuePage() {
       });
       const driverName = bulkDrivers.find(d => d.id === bulkDriverId)?.full_name ?? "Driver";
       const errSuffix = r.errors.length > 0
-        ? ` · ${r.errors.length} skipped (capacity, vehicle or feasibility) -- expand a row to see why`
+        ? ` · ${r.errors.length} skipped (capacity, vehicle or feasibility). Expand a row to see why`
         : "";
       toast({
         title: `${driverName} assigned on ${r.assigned} of ${ids.length} order${ids.length === 1 ? "" : "s"}`,
@@ -449,9 +449,9 @@ function DispatchQueuePage() {
                 <Truck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Dispatch Queue</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Dispatch queue</h1>
                 <p className="text-sm text-slate-500">
-                  Get every confirmed order to a driver, fast.
+                  Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in.
                 </p>
               </div>
             </div>

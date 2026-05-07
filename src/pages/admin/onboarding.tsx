@@ -124,7 +124,7 @@ export default function AdminOnboarding() {
                       <h3 className="text-lg font-semibold text-slate-900 mb-1">Setup progress</h3>
                       <p className="text-sm text-slate-600">
                         {state.completedSteps} of {state.totalSteps} steps complete
-                        {" -- "}
+                        {" · "}
                         {state.completedRequiredSteps} of {state.requiredSteps} required
                       </p>
                     </div>

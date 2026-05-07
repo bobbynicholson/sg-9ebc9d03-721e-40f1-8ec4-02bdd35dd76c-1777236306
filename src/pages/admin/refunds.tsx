@@ -223,7 +223,7 @@ function RefundsPage() {
           description:
             json.error ||
             (res.status === 409
-              ? "Refund is already settled or rejected -- refresh the list to see the current state."
+              ? "Refund is already settled or rejected. Refresh the list to see the current state."
               : `Server returned ${res.status}. Check the audit log or try again.`),
           variant: "destructive",
         });
@@ -238,7 +238,7 @@ function RefundsPage() {
     } catch (e: any) {
       toast({
         title: "Could not mark refund paid",
-        description: e?.message || "Network error -- check your connection and try again.",
+        description: e?.message || "Network error. Check your connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -260,7 +260,7 @@ function RefundsPage() {
           title: "Retry failed",
           description:
             json.error ||
-            "PayFast did not accept the retry. The original payment may not have synced through yet -- give it a minute, or fall back to manual EFT.",
+            "PayFast did not accept the retry. The original payment may not have synced through yet. Give it a minute, or fall back to manual EFT.",
           variant: "destructive",
         });
       } else if (json.status === "auto_processed") {
@@ -288,7 +288,7 @@ function RefundsPage() {
     } catch (e: any) {
       toast({
         title: "Retry failed",
-        description: e?.message || "Network error -- check your connection and try again.",
+        description: e?.message || "Network error. Check your connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -464,7 +464,7 @@ function RefundsPage() {
                 Refunds
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                PayFast refunds are pushed automatically. EFT and cash refunds need a manual mark-paid once you've sent the money.
+                Cancellation refunds. PayFast pushes automatically; EFT and cash need a manual mark as paid once the money has actually moved.
               </p>
             </div>
             <Button variant="outline" onClick={load} disabled={loading} className="gap-2">

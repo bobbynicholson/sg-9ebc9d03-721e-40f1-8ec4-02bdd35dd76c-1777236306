@@ -324,7 +324,7 @@ function EmailSettingsPage() {
                 <InfoTooltip content={"How CateringMS sends mail on your behalf, Gmail, Microsoft 365, or your own SMTP server, plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
-                Send personal mail through your own inbox. Plug in Mailchimp for bulk.
+                How CateringMS sends mail for you. Verify your domain so quotes, invoices and confirmations go out as you@yourdomain.com with proper SPF and DKIM. Gmail, Microsoft 365, and SMTP fallbacks live below.
               </p>
             </div>
           </div>
@@ -365,7 +365,7 @@ function EmailSettingsPage() {
                 <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">Recommended</span>
               </CardTitle>
               <CardDescription>
-                Verify your domain once -- after that, every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes.
+                Verify your domain once. After that, every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -401,7 +401,7 @@ function EmailSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-purple-600" />
-                Advanced -- alternative providers
+                Advanced: alternative providers
               </CardTitle>
               <CardDescription>
                 Most caterers should use the verified-domain option above. These options exist for operators who already have a Gmail / Microsoft / SMTP setup they'd rather route through.

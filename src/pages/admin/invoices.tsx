@@ -305,7 +305,7 @@ export default function InvoicesPage() {
     if (!user?.company_id) {
       toast({
         title: "Error",
-        description: "Missing company context -- please sign in again.",
+        description: "Missing company context. Please sign in again.",
         variant: "destructive",
       });
       return;
@@ -496,7 +496,7 @@ export default function InvoicesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Invoices</h1>
           <p className="text-slate-600">
-            Generate, manage, and send invoices to clients
+            Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
           </p>
         </div>
 

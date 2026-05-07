@@ -36,10 +36,10 @@ export default function InventoryRecipes() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
               <ChefHat className="h-8 w-8 text-purple-600" />
-              Recipe & Ingredient Mappings
+              Recipes
             </h1>
             <p className="text-slate-600 mt-1">
-              Menu items linked to inventory ingredients for automatic deductions
+              Menu items linked to the ingredients they use. When an event books, the kitchen knows what to pull and inventory deducts automatically. No more guessing what to thaw.
             </p>
           </div>
         </div>

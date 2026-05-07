@@ -261,7 +261,7 @@ function OnboardingWizard() {
                   Setup wizard
                 </p>
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  Step {stepIndex + 1} of {totalSteps} -- {STEPS[stepIndex].label}
+                  Step {stepIndex + 1} of {totalSteps}: {STEPS[stepIndex].label}
                 </h1>
               </div>
               <p className="text-sm text-slate-500">{progressPct}%</p>
@@ -465,7 +465,7 @@ function WelcomeStep({
           Welcome{companyName ? `, ${companyName}` : ""}
         </h2>
         <p className="text-slate-600 mt-2 max-w-lg mx-auto">
-          Let&apos;s get your business set up. This takes about 5 minutes -- we&apos;ll cover the
+          Let&apos;s get your business set up. This takes about 5 minutes. We&apos;ll cover the
           basics you need before you can quote, invoice and run your first event.
         </p>
       </div>
@@ -476,12 +476,12 @@ function WelcomeStep({
         </p>
         <ul className="space-y-2 text-sm text-slate-700">
           {[
-            "Business basics -- name, contact details, registration",
-            "Where you cook from -- drives delivery distance + driver routing",
-            "Branding -- logo + brand colours for your client portal",
-            "Banking (optional) -- enables EFT as a payment option",
-            "VAT registration -- changes your invoice document title",
-            "Import existing clients (optional) -- bulk upload your contact list",
+            "Business basics: name, contact details, registration",
+            "Where you cook from: drives delivery distance + driver routing",
+            "Branding: logo + brand colours for your client portal",
+            "Banking (optional): enables EFT as a payment option",
+            "VAT registration: changes your invoice document title",
+            "Import existing clients (optional): bulk upload your contact list",
           ].map((line) => (
             <li key={line} className="flex items-start gap-2">
               <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
@@ -512,7 +512,7 @@ function WelcomeStep({
         disabled={saving}
         className="block mx-auto text-xs text-slate-500 hover:text-slate-700 underline-offset-2 hover:underline"
       >
-        Skip the wizard -- take me straight to the dashboard
+        Skip the wizard, take me straight to the dashboard
       </button>
     </div>
   );
@@ -946,7 +946,7 @@ function EmailStep({
             </p>
           </div>
           <div className="text-xs text-slate-500">
-            Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-purple-600">verify your own domain instead</button> -- 5 minutes, much more branded.
+            Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-purple-600">verify your own domain instead</button>. 5 minutes, much more branded.
           </div>
           <Button onClick={useSharedSender} disabled={pickingShared} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700">
             {pickingShared ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
@@ -979,7 +979,7 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
     <StepShell
       icon={Users}
       title="Bring your existing clients across"
-      description="Upload your customer list now so quotes, invoices and the client portal see them from day one. This is optional -- skip if you're starting fresh."
+      description="Upload your customer list now so quotes, invoices and the client portal see them from day one. This is optional. Skip if you're starting fresh."
     >
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
         <p className="text-sm text-slate-700 leading-relaxed">

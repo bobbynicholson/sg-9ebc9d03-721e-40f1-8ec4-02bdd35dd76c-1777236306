@@ -316,7 +316,7 @@ function IntegrationsPage() {
                   <InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Connect CateringMS to Google Sheets, Slack, WhatsApp, Mailchimp, anywhere Zapier reaches.
+                  API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work.
                 </p>
               </div>
             </div>

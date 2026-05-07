@@ -77,7 +77,7 @@ function LifecycleEmailsPage() {
                 Lifecycle Emails
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
-                Templates, sent log, automation -- all your post-sale email touchpoints.
+                Templates, sent log, and automation. All your post-sale email touchpoints in one place.
               </p>
             </div>
           </div>

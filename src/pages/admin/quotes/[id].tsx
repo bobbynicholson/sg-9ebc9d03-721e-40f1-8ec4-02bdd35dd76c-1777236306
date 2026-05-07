@@ -264,7 +264,7 @@ export default function AdminQuoteDetail() {
     const subject = `Re: your changes on quote ${(quote as any).quote_number || ""}`.trim();
     const body =
       `Hi ${req.submitter_name || (quote as any).client_name || "there"},\n\n` +
-      `Thanks for sending through the changes -- we've got:\n\n"${req.message}"\n\n` +
+      `Thanks for sending through the changes. We've got:\n\n"${req.message}"\n\n` +
       `Just a quick note to confirm we're looking at it. ` +
       `We'll send through an updated quote shortly.\n\n` +
       `Best,`;
@@ -528,7 +528,7 @@ export default function AdminQuoteDetail() {
                   {isDraft
                     && changeRequests.some((r) => r.status === "pending") && (
                     <p className="mt-2 text-xs text-blue-700 flex items-center gap-1.5">
-                      Editing in response to client request -- see panel
+                      Editing in response to client request. See panel
                       <ArrowRight className="w-3.5 h-3.5" />
                     </p>
                   )}
@@ -823,7 +823,7 @@ export default function AdminQuoteDetail() {
                         toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
                       }
                     }}
-                    title="Anchor follow-up timing -- mark as sent without firing an email"
+                    title="Anchor follow-up timing. Mark as sent without firing an email"
                     className="gap-1.5"
                   >
                     {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}

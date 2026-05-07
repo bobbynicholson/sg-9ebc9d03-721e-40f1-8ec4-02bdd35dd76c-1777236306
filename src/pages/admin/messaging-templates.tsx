@@ -120,7 +120,7 @@ function MessagingTemplatesPage() {
                     Messaging templates
                   </h1>
                   <p className="text-slate-600 max-w-2xl">
-                    Edit every email and WhatsApp template the system sends to clients and staff. Change the wording, the tone, the sign-off -- it stays customised for your team and falls back to the system default if you reset it.
+                    Edit every email and WhatsApp template the system sends to clients and staff. Change the wording, the tone, the sign-off. It stays customised for your team and falls back to the system default if you reset it.
                   </p>
                 </div>
                 <div className="text-right">
@@ -383,7 +383,7 @@ function EditorDrawer({
                   key={v.name}
                   type="button"
                   onClick={() => insertVar(v.name)}
-                  title={`${v.description} -- example: ${v.example}`}
+                  title={`${v.description} · example: ${v.example}`}
                   className="text-[11px] font-mono bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-1 rounded border border-slate-200 transition-colors"
                 >
                   {`{{${v.name}}}`}

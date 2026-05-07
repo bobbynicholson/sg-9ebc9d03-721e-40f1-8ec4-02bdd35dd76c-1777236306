@@ -192,13 +192,13 @@ function suggestionCtaTooltip(kind: LeadActionKind): string {
     case "reply_email":      return "Open the email composer with a quick first-reply template, prefilled from the lead.";
     case "touch_base":       return "Open the email composer with a 'just checking in' template (lead is 2-6 days old).";
     case "follow_up":        return "Open the email composer with a 'haven't heard back, here's a nudge' template (lead has gone quiet 7+ days).";
-    case "chase_quote":      return "Open the email composer with a 'just chasing on the quote' template -- you've already sent one, time to nudge.";
+    case "chase_quote":      return "Open the email composer with a 'just chasing on the quote' template. You've already sent one, time to nudge.";
     case "send_quote":       return "Jump straight into the rich quote builder, prefilled from this lead.";
     case "open_quote_draft": return "Open the existing draft quote in the editable builder so you can finish + send it.";
-    case "convert_to_order": return "The client accepted the quote -- open it so you can convert it to an order.";
+    case "convert_to_order": return "The client accepted the quote. Open it so you can convert it to an order.";
     case "winback":          return "Quote was rejected. Open the email composer with a soft win-back template.";
     case "reopen":           return "Re-open this lost lead with a low-pressure check-in email.";
-    case "view_order":       return "This lead is already booked -- jump to the order.";
+    case "view_order":       return "This lead is already booked. Jump to the order.";
   }
 }
 
@@ -767,11 +767,11 @@ export default function AdminLeads() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Leads</h1>
                 <p className="text-slate-600">
-                  Active enquiry pipeline. Once a quote is paid the lead becomes a{" "}
+                  Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details (type, guest count, budget, venue, source) before quoting. Leads also appear in your{" "}
                   <Link href="/admin/contacts" className="text-indigo-600 hover:underline font-medium">
-                    contact
+                    Contacts inbox
                   </Link>
-                  .
+                  {" "}automatically.
                 </p>
               </div>
             </div>

@@ -368,7 +368,7 @@ function MenuPage() {
         // 2. Undeclared allergens (ingredient has gluten but the item
         //    isn't tagged "gluten" in allergen_codes)
         if (!declaredAllergens.has(a)) {
-          issues.push(`"${ing.ingredient_name}" contains ${a} -- add ${a} to the allergen codes so the kitchen warns customers`);
+          issues.push(`"${ing.ingredient_name}" contains ${a}. Add ${a} to the allergen codes so the kitchen warns customers`);
         }
       }
     }

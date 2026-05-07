@@ -144,7 +144,7 @@ function EquipmentPage() {
                 Equipment
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
-                Catalog, availability, shortages and hire-in procurement -- one hub.
+                Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event.
               </p>
             </div>
           </div>
