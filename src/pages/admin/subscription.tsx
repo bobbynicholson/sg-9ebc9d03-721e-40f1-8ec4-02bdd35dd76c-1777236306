@@ -204,24 +204,57 @@ function SubscriptionPage() {
   }
 
   if (!subscription) {
+    // No subscription = trial / unpaid tenant. Render the same shell
+    // as the active-subscription view so the operator keeps the
+    // sidebar + chrome -- without the AdminNav wrapper this page
+    // landed bare (no nav, no offset, content stuck at the top
+    // left). The trial banner's "View Subscription Plans" button
+    // points here so the empty state has to feel like a finished
+    // page, not a broken one.
     return (
-      <div className="p-6 max-w-4xl">
+      <>
         <NoIndexMeta />
         <Head>
-          <title>Subscription - CateringMS</title>
+          <title>Subscription | CateringMS Admin</title>
         </Head>
-        <Card>
-          <CardHeader>
-            <CardTitle>No Active Subscription</CardTitle>
-            <CardDescription>You currently do not have an active subscription.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push("/pricing")}>
-              View Pricing Plans
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+        <AdminNav />
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+          <div className="px-4 py-8 max-w-screen-xl">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <CreditCard className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Subscription</h1>
+                <p className="text-slate-600">
+                  {trialStatus?.isInTrial
+                    ? `You're on the free trial -- ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
+                    : "Pick a plan to keep using CateringMS once your trial ends."}
+                </p>
+              </div>
+            </div>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>
+                  {trialStatus?.isInTrial ? "No subscription yet" : "No active subscription"}
+                </CardTitle>
+                <CardDescription>
+                  {trialStatus?.isInTrial
+                    ? "You're inside the free trial. Pick a plan now and the switchover is automatic when the trial ends -- no break in service."
+                    : "You currently do not have an active subscription. Pick a plan to restore access."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => router.push("/pricing")} className="gap-2">
+                  <ArrowUpCircle className="w-4 h-4" />
+                  View pricing plans
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </>
     );
   }
 
