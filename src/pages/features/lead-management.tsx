@@ -2,16 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  ArrowRight, 
-  CheckCircle, 
-  TrendingUp,
-  FileText,
-  Clock,
-  Target,
-  Zap
-} from "lucide-react";
+import { Users, ArrowRight, CheckCircle, TrendingUp, Clock, Target } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";

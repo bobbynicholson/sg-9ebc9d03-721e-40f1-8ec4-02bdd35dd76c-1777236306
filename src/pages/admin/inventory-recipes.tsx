@@ -6,14 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RECIPE_MAPPINGS, Recipe, RecipeIngredient } from "@/services/inventoryDeductionService";
-import {
-  ChefHat,
-  Search,
-  Package,
-  AlertCircle,
-  CheckCircle,
-  Calculator,
-} from "lucide-react";
+import { ChefHat, Search, Package, AlertCircle, Calculator } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function InventoryRecipes() {
@@ -35,7 +28,7 @@ export default function InventoryRecipes() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <AdminNav />
       <div className="px-4 py-8">
         {/* Header */}

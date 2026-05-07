@@ -186,6 +186,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ? "refunded"
             : "partially_refunded",
         } as any).eq("id", orderId);
+
+        // Fire-and-forget credit-note push to Xero (P1-24). Endpoint
+        // handles "no Xero connected" / "invoice never synced" cases
+        // gracefully with 409s; we don't block the cancel on the
+        // accounting integration. CRON_SECRET shared header is the
+        // same pattern as the auto-invoice push.
+        const cronSecret = process.env.CRON_SECRET;
+        if (cronSecret && refundPaymentId) {
+          const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+          const host = req.headers.host;
+          const baseUrl = host ? `${proto}://${host}` : "";
+          if (baseUrl) {
+            void fetch(`${baseUrl}/api/accounting/xero/sync-credit-note`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-cms-internal": cronSecret },
+              body: JSON.stringify({ refund_payment_id: refundPaymentId }),
+            }).catch((e) => console.warn("[orders/cancel] xero credit-note fire failed:", e));
+          }
+        }
       }
     }
 

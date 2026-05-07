@@ -443,7 +443,7 @@ export default function InventoryTracking() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <AdminNav />
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
           <div className="text-center">
@@ -456,7 +456,7 @@ export default function InventoryTracking() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <AdminNav />
       <div className="px-4 py-8">
         {/* Header */}

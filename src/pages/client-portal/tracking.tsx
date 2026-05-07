@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star, TrendingUp } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -161,14 +161,13 @@ export default function ClientTracking() {
     if (!order.driver_id) return;
     
     try {
-      // Use maybeSingle so the 'no rows yet' case isn't treated as an
-      // error (the driver may not have started GPS yet).
-      const { data: driver } = await supabase
-        .from("gps_tracking")
-        .select("*")
+      // Single-row-per-driver lookup off driver_locations (P1-23 split).
+      // maybeSingle so the 'no row yet' case isn't an error (the driver
+      // may not have started GPS yet).
+      const { data: driver } = await (supabase as any)
+        .from("driver_locations")
+        .select("latitude, longitude")
         .eq("driver_id", order.driver_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
         .maybeSingle();
 
       if (driver && driver.latitude && driver.longitude) {
@@ -248,19 +247,49 @@ export default function ClientTracking() {
     }
   };
 
+  // Haversine distance in kilometres between two lat/lng pairs.
+  // Good enough for the in-city drive-time estimate; the client just
+  // needs "10 mins" vs "an hour" granularity, not turn-by-turn.
+  const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const R = 6371;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+
+  // Live ETA from the driver's current GPS position to the venue at
+  // a 35 km/h urban average. Falls back to the persisted
+  // `estimated_arrival` if we don't have a live driver location yet.
+  // P1-37 from the 2026-05 audit.
   const calculateETA = (order: OrderDetails) => {
-    if (!order.estimated_arrival) return "Calculating...";
-    
-    const eta = new Date(order.estimated_arrival);
-    const now = new Date();
-    const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000);
-    
-    if (diffMinutes < 0) return "Arriving soon";
-    if (diffMinutes < 60) return `${diffMinutes} minutes`;
-    
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-    return `${hours}h ${minutes}m`;
+    if (order.status === "delivered") return "Delivered";
+
+    if (driverLocation && order.venue_lat && order.venue_lng) {
+      const km = haversineKm(driverLocation, { lat: order.venue_lat, lng: order.venue_lng });
+      const minutes = Math.max(1, Math.round((km / 35) * 60));
+      if (minutes <= 1) return "Arriving now";
+      if (minutes < 60) return `~${minutes} minutes`;
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `~${hours}h ${mins}m`;
+    }
+
+    if (order.estimated_arrival) {
+      const eta = new Date(order.estimated_arrival);
+      const now = new Date();
+      const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000);
+      if (diffMinutes < 0) return "Arriving soon";
+      if (diffMinutes < 60) return `${diffMinutes} minutes`;
+      const hours = Math.floor(diffMinutes / 60);
+      const minutes = diffMinutes % 60;
+      return `${hours}h ${minutes}m`;
+    }
+
+    return "Calculating...";
   };
 
   // Layout shell shared by all three render branches below. Keeps the

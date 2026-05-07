@@ -68,10 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
-    // 🔧 DEV MODE: Auto-activate on localhost without login
-    const isDevEnvironment = 
-      typeof window !== "undefined" && 
-      (window.location.hostname === "localhost" || 
+    // Dev shortcut. Only honoured outside production builds. The
+    // ?dev=true query escape hatch on production used to grant client-side
+    // super_admin to anyone with the URL [P0-03].
+    const isDevEnvironment =
+      process.env.NODE_ENV !== "production" &&
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
        window.location.hostname === "127.0.0.1" ||
        window.location.search.includes("dev=true"));
 
@@ -114,6 +117,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveRole(UserRole.SUPER_ADMIN);
       setLoading(false);
       return;
+    }
+
+    // Skip the auth round-trip on public marketing + tokenised routes
+    // [P2-14]. AuthProvider always wraps the tree (so shared chrome
+    // that calls useAuth() doesn't bomb on prerender) but on routes
+    // where there's no authenticated user to surface, we don't pay
+    // the supabase.auth.getSession() + profile hydration cost.
+    // setLoading(false) so consumers don't sit on a stuck loader.
+    const PUBLIC_ROUTES = [
+      /^\/$/,
+      /^\/pricing$/,
+      /^\/features(\/.*)?$/,
+      /^\/blog(\/.*)?$/,
+      /^\/page\//,
+      /^\/(contact|support|security|terms|privacy|demo|404)$/,
+      /^\/(uk|us|eu)(\/.*)?$/,
+      /^\/q\//,
+      /^\/pay\/i\//,
+      /^\/c\/order\//,
+    ];
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+    const isPublicRoute = PUBLIC_ROUTES.some((re) => re.test(pathname));
+    if (isPublicRoute) {
+      setLoading(false);
+      // Still subscribe to auth state so a sign-in elsewhere in the
+      // tab (rare) hydrates the context, but we don't fetch eagerly.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) handleSessionChange(session);
+      });
+      return () => subscription.unsubscribe();
     }
 
     // Normal auth flow for production

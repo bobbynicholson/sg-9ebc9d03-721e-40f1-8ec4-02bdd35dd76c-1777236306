@@ -2,41 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  FileText, 
-  Calendar,
-  DollarSign,
-  ChefHat,
-  Package,
-  Truck,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  ShoppingCart,
-  Sparkles,
-  Mail,
-  Zap,
-  ArrowRight,
-  BarChart3,
-  Globe,
-  Smartphone,
-  Lock,
-  RefreshCw,
-  MapPin,
-  Bell,
-  MousePointer,
-  Star,
-  Quote,
-  Shield,
-  Heart,
-  Target,
-  Lightbulb,
-  Percent,
-  Activity,
-  Award
-} from "lucide-react";
+import { Users, FileText, Calendar, DollarSign, ChefHat, Package, Truck, TrendingUp, Clock, CheckCircle, AlertCircle, ShoppingCart, Sparkles, Mail, Zap, ArrowRight, BarChart3, Globe, Smartphone, Lock, RefreshCw, MapPin, Bell, MousePointer, Star, Quote, Shield, Heart, Target, Lightbulb, Activity, Award } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import Head from "next/head";

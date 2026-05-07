@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, CalendarX, Calendar, Receipt } from "lucide-react";
+import { CheckCircle2, XCircle, CalendarX, Calendar, Receipt } from "lucide-react";
 
 interface CancellationRequest {
   id: string;

@@ -11,12 +11,65 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
  * Handles order status transitions, assignments, and workflow logic
  */
 
+// Allowed transitions for the order lifecycle. Source-of-truth for
+// which next-status the workflow accepts given a current status.
+// Cancelled / completed are terminal in this map (re-opening goes
+// through a different code path, not this function). Pre-event
+// keeps the existing flexibility (pending can go back to draft for
+// quote rebuild). [P0-12]
+const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
+  draft: ["pending", "confirmed", "cancelled"],
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled", "in_transit", "ready", "out_for_delivery"],
+  preparing: ["ready", "cancelled", "out_for_delivery", "in_transit"],
+  ready: ["out_for_delivery", "in_transit", "cancelled"],
+  out_for_delivery: ["delivered", "in_transit", "cancelled"],
+  in_transit: ["delivered", "out_for_delivery", "cancelled"],
+  delivered: ["completed", "cancelled"],
+  completed: [], // terminal
+  cancelled: [], // terminal
+};
+
 export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
   updatedBy?: string
 ) {
   try {
+    // State-machine guard. Read current status before update; reject
+    // transitions not in ALLOWED_ORDER_TRANSITIONS. Previously the
+    // function happily flipped pending -> delivered, skipping
+    // confirmed-time invoice creation, kitchen prep, and inventory
+    // deduction. [P0-12]
+    const { data: current } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle();
+    const currentStatus = (current as any)?.status as string | null | undefined;
+
+    // Idempotency guard: if the order is already in the target state,
+    // bail early. Without this, a duplicate markDelivered (network
+    // retry, double-tap on the driver portal) would re-write the
+    // same status, re-fire side-effects (pending_reviews upsert,
+    // notifications, after-sales scheduler), and double-stamp
+    // confirmed_at. The DB upserts are idempotent on their own keys
+    // but the notification fan-out and emailService side-effects
+    // are not [P1-13].
+    if (currentStatus && currentStatus === newStatus) {
+      return { success: true, data: { id: orderId, status: currentStatus, _idempotent: true } };
+    }
+
+    if (currentStatus && currentStatus !== newStatus) {
+      const allowed = ALLOWED_ORDER_TRANSITIONS[currentStatus];
+      if (allowed && !allowed.includes(newStatus)) {
+        return {
+          success: false,
+          error: `Invalid order transition ${currentStatus} -> ${newStatus}. Allowed next steps: ${allowed.length ? allowed.join(", ") : "(terminal state)"}.`,
+        };
+      }
+    }
+
     // Stamp confirmed_at the first time an order moves to (or past)
     // 'confirmed'. The dashboard's Booked Revenue gate keys on this
     // column, so it has to be written even when the operator skips
@@ -126,7 +179,7 @@ export async function updateOrderStatus(
           console.warn("[orderWorkflow] resolveClientUserId failed (non-blocking):", e);
         }
 
-        await (supabase as any)
+        const { error: prErr } = await (supabase as any)
           .from("pending_reviews")
           .upsert(
             {
@@ -141,8 +194,35 @@ export async function updateOrderStatus(
             },
             { onConflict: "order_id", ignoreDuplicates: true },
           );
-      } catch (e) {
+        if (prErr) {
+          // Surface to audit_logs so the operator can see review prompts
+          // that never queued [P1-35]. Previously this was warn-only and
+          // a silently-skipped row meant the 24h follow-up email never
+          // sent for that order, undetectably.
+          console.warn("[orderWorkflow] pending_reviews upsert error:", prErr.message);
+          try {
+            await (supabase as any).from("audit_logs").insert({
+              company_id: order.company_id,
+              user_id: updatedBy || null,
+              action: "pending_review_queue_failed",
+              entity_type: "order",
+              entity_id: order.id,
+              details: { error: prErr.message, order_number: order.order_number },
+            });
+          } catch { /* never throw from a fail-log */ }
+        }
+      } catch (e: any) {
         console.warn("[orderWorkflow] pending_reviews insert crashed (non-blocking):", e);
+        try {
+          await (supabase as any).from("audit_logs").insert({
+            company_id: order.company_id,
+            user_id: updatedBy || null,
+            action: "pending_review_queue_crashed",
+            entity_type: "order",
+            entity_id: order.id,
+            details: { error: e?.message || String(e), order_number: order.order_number },
+          });
+        } catch { /* never throw from a fail-log */ }
       }
     }
 
@@ -337,6 +417,29 @@ export async function cancelOrder(
   try {
     const nowIso = new Date().toISOString();
     const sb = opts.client || supabase;
+
+    // State-machine guard, mirrored from updateOrderStatus [P1-12].
+    // cancelOrder writes status='cancelled' directly without going
+    // through updateOrderStatus's transition map, so the validation
+    // is duplicated here. Reject if the current status is already
+    // terminal (cancelled / completed) -- those should be handled
+    // via reactivate / refund flows, not a fresh cancellation. Also
+    // bail early if already cancelled (idempotency).
+    const { data: current } = await sb
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle();
+    const currentStatus = (current as any)?.status as string | null | undefined;
+    if (currentStatus === "cancelled") {
+      return { success: true, data: { id: orderId, _idempotent: true } };
+    }
+    if (currentStatus === "completed") {
+      return {
+        success: false,
+        error: "Cannot cancel a completed order. Issue a refund or credit note instead.",
+      };
+    }
 
     const { data, error } = await sb
       .from("orders")

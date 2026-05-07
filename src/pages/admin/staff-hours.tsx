@@ -9,19 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Clock,
-  Users,
-  Calendar,
-  TrendingUp,
-  Download,
-  Filter,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  ArrowLeft,
-  DollarSign
-} from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, DollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { timeClockService } from "@/services/timeClockService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";

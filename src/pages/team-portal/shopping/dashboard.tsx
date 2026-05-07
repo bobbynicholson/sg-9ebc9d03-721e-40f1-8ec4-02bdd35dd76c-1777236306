@@ -16,6 +16,7 @@ import { UserRole } from "@/types/app";
 import { LowStockAlerts } from "@/components/shopping/LowStockAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { MetricCard } from "@/components/dashboard/MetricCard";
 
 interface ShoppingItem {
   id: string;
@@ -228,73 +229,34 @@ export default function ShoppingDashboard() {
           </Card>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Total Items
-                      <InfoTooltip content="Every ingredient needed to cover orders in the next 14 days." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
-                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Pending
-                      <InfoTooltip content="Items still to buy.\n\nTick each one off as you grab it, progress is saved on this device." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Purchased
-                      <InfoTooltip content="Items you've already ticked off as bought.\n\nThe count resets as the upcoming events window moves forward." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Urgent
-                      <InfoTooltip content="Fresh items needed within the next 7 days.\n\nBuy these last so they stay in date." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-red-100 flex items-center justify-center self-end md:self-auto">
-                    <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-red-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              icon={ShoppingCart}
+              iconColor="text-blue-600"
+              label="Total Items"
+              value={items.length}
+              tooltip="Every ingredient needed to cover orders in the next 14 days."
+            />
+            <MetricCard
+              icon={Clock}
+              iconColor="text-orange-600"
+              label="Pending"
+              value={pendingCount}
+              tooltip="Items still to buy.\n\nTick each one off as you grab it, progress is saved on this device."
+            />
+            <MetricCard
+              icon={CheckCircle}
+              iconColor="text-green-600"
+              label="Purchased"
+              value={purchasedCount}
+              tooltip="Items you've already ticked off as bought.\n\nThe count resets as the upcoming events window moves forward."
+            />
+            <MetricCard
+              icon={AlertTriangle}
+              iconColor="text-red-600"
+              label="Urgent"
+              value={urgentCount}
+              tooltip="Fresh items needed within the next 7 days.\n\nBuy these last so they stay in date."
+            />
           </div>
 
           <Card className="border-0 shadow-lg">

@@ -64,44 +64,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // Pull the next batch of due-and-pending rows for opted-in tenants.
-  const { data: due, error: readErr } = await supabase
-    .from("outgoing_email_queue")
-    .select("id, company_id, to_email, to_name, subject, body, template_type, variables, attempts, trigger_event, trigger_ref_id")
-    .eq("status", "pending")
-    .in("company_id", allowList)
-    .lt("attempts", MAX_ATTEMPTS)
-    .or(`scheduled_for.is.null,scheduled_for.lte.${nowIso}`)
-    .order("scheduled_for", { ascending: true, nullsFirst: true })
-    .limit(BATCH_SIZE);
+  // Pessimistic claim via SECURITY DEFINER RPC. SELECT + UPDATE happen
+  // in one transaction with FOR UPDATE SKIP LOCKED so two concurrent
+  // workers walk away with non-overlapping batches and never race on
+  // the same row [P1-09]. The previous pattern was an optimistic
+  // SELECT-then-UPDATE loop which functionally worked but at scale
+  // wasted traffic as every concurrent worker re-fetched the same
+  // pending rows.
+  const { data: due, error: readErr } = await (supabase as any).rpc(
+    "claim_email_batch",
+    {
+      p_allow_list: allowList,
+      p_batch_size: BATCH_SIZE,
+      p_max_attempts: MAX_ATTEMPTS,
+    }
+  );
+  // nowIso retained for legacy callers but the RPC uses now() server-side.
+  void nowIso;
 
   if (readErr) {
-    console.error("[cron/process-email-queue] read failed:", readErr);
+    console.error("[cron/process-email-queue] claim failed:", readErr);
     return res.status(500).json({ error: readErr.message });
   }
 
   let sent = 0;
   let failed = 0;
-  let skipped = 0;
+  const skipped = 0;
 
-  for (const row of due || []) {
-    // Mark as in_progress to stop another concurrent cron run from
-    // picking the same row. Cheap optimistic lock -- if the update
-    // affects 0 rows somebody else has it, skip.
-    const { data: claimed } = await supabase
-      .from("outgoing_email_queue")
-      .update({
-        status: "in_progress",
-        attempts: row.attempts + 1,
-      })
-      .eq("id", row.id)
-      .eq("status", "pending")
-      .select("id")
-      .maybeSingle();
-    if (!claimed) {
-      skipped += 1;
-      continue;
-    }
+  for (const row of (due as any[]) || []) {
+    // Already claimed by the RPC; row is owned by this worker.
 
     let dispatchOk = false;
     let errorMessage: string | null = null;

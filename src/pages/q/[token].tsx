@@ -258,6 +258,30 @@ export default function PublicQuotePage() {
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  // Days remaining until quote validity expires. Surfaces a chip at
+  // the top of the page so the client sees the deadline before they
+  // scroll. Negative when already expired.
+  const daysToExpiry = quote.valid_until
+    ? Math.ceil((new Date(quote.valid_until).getTime() - Date.now()) / 86_400_000)
+    : null;
+  const expiryChipTone =
+    daysToExpiry === null
+      ? null
+      : daysToExpiry < 0
+      ? "expired"
+      : daysToExpiry <= 3
+      ? "soon"
+      : "ok";
+  const expiryChipLabel =
+    daysToExpiry === null
+      ? null
+      : daysToExpiry < 0
+      ? `Expired ${validUntil}`
+      : daysToExpiry === 0
+      ? "Expires today"
+      : daysToExpiry === 1
+      ? "Expires tomorrow"
+      : `Expires in ${daysToExpiry} days`;
   const total = Number(quote.total ?? quote.total_amount ?? 0);
   const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
 
@@ -279,14 +303,24 @@ export default function PublicQuotePage() {
         <style>{`
           /* Force browsers to honour the brand colour on the printed
              quote -- without this Chrome/Edge default to "background
-             graphics off" and the tenant header prints as plain white. */
+             graphics off" and the tenant header prints as plain white.
+             html selector is for Safari (which sometimes ignores the
+             body-level rule on print). */
           @media print {
-            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            html, body, .brand-print {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
             body { background: white !important; }
             .no-print { display: none !important; }
             .print-shadow-none { box-shadow: none !important; }
             .print-border-none { border: none !important; }
             .print-bg-white { background: white !important; }
+            /* Avoid splitting the branded header across pages on Safari
+               which doesn't honour break-inside on flex children unless
+               page-break-inside is set explicitly. */
+            .brand-print { page-break-inside: avoid; break-inside: avoid; }
             @page { margin: 16mm; }
           }
         `}</style>
@@ -296,7 +330,21 @@ export default function PublicQuotePage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
           {/* Floating action bar -- screen only */}
-          <div className="no-print flex items-center justify-end gap-2 mb-4">
+          <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
+            {expiryChipLabel && !accepted ? (
+              <Badge
+                className={
+                  expiryChipTone === "expired"
+                    ? "bg-red-100 text-red-800 border border-red-200 gap-1.5"
+                    : expiryChipTone === "soon"
+                    ? "bg-amber-100 text-amber-800 border border-amber-200 gap-1.5"
+                    : "bg-stone-100 text-stone-700 border border-stone-200 gap-1.5"
+                }
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {expiryChipLabel}
+              </Badge>
+            ) : <span />}
             <Button
               variant="outline"
               size="sm"
@@ -639,7 +687,12 @@ export default function PublicQuotePage() {
                         autoFocus
                       />
                       {acceptError && (
-                        <p className="text-xs text-rose-600">{acceptError}</p>
+                        <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
+                          <p className="text-xs text-rose-700 font-medium">{acceptError}</p>
+                          <p className="text-[11px] text-rose-600 mt-1">
+                            Tap accept again to retry. If it keeps failing, refresh the page or contact {companyName} directly.
+                          </p>
+                        </div>
                       )}
                       <div className="flex gap-2 justify-end">
                         <Button variant="outline" onClick={() => { setAcceptOpen(false); setAcceptError(null); }} disabled={accepting}>
@@ -651,12 +704,17 @@ export default function PublicQuotePage() {
                           className="bg-brand-primary hover:opacity-90 gap-1.5"
                         >
                           {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          {accepting ? "Accepting..." : "Accept quote"}
+                          {accepting ? "Accepting..." : acceptError ? "Try again" : "Accept quote"}
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="text-center space-y-3">
+                      {validUntil && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5 inline-block">
+                          This quote is valid until <strong>{validUntil}</strong>.
+                        </p>
+                      )}
                       <p className="text-sm text-stone-700">
                         Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
                       </p>

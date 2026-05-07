@@ -2,15 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Settings,
-  Users,
-  ClipboardList,
-  Palette,
-  Sparkles,
-  CheckCircle,
-  ArrowLeft,
-} from "lucide-react";
+import { Settings, Users, ClipboardList, Palette, Sparkles, ArrowLeft } from "lucide-react";
 import { OnboardingChecklistItem, aiOnboardingService } from "@/services/aiOnboardingService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, TrendingUp } from "lucide-react";
+import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";

@@ -454,7 +454,7 @@ function RefundsPage() {
         <title>Refunds | CateringMS</title>
         <NoIndexMeta />
       </Head>
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <AdminNav />
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
           <div className="flex items-center justify-between">

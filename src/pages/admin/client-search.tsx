@@ -7,21 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  Users, 
-  FileText, 
-  Receipt,
-  Eye,
-  Mail,
-  Phone,
-  MapPin,
-  Building,
-  ArrowLeft,
-  Filter,
-  X,
-  UserCircle
-} from "lucide-react";
+import { Search, Users, FileText, Receipt, Eye, Mail, Phone, MapPin, Building, ArrowLeft, X } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { supabase } from "@/integrations/supabase/client";

@@ -44,6 +44,7 @@ import {
   Globe,
   Calculator,
   Settings,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -122,6 +123,12 @@ const NAV: NavSection[] = [
         href: "/admin/platform/trial-management",
         icon: Calendar,
         sub: "Extend trials, convert to paid",
+      },
+      {
+        title: "Tenant Health",
+        href: "/admin/platform/tenant-health",
+        icon: Activity,
+        sub: "Stuck onboarding, dormant, payment unset",
       },
     ],
   },

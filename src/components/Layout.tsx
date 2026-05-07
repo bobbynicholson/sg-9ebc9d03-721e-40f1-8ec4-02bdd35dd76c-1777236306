@@ -42,8 +42,16 @@ export function Layout({
     "4xl": "max-w-4xl",
   };
 
+  // The portal-shell offset clears the fixed sidebar (lg:w-64 / xl:w-72)
+  // and the mobile-header gap (pt-16 < lg). Same pattern every other
+  // authenticated page uses -- without it the sidebar overlays content
+  // and a centred max-w container ends up off-centre.
+  const portalShell = showNav && user
+    ? "lg:pl-64 xl:pl-72 pt-16 lg:pt-0"
+    : "";
+
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className={`min-h-screen flex flex-col bg-background ${portalShell}`}>
       {/* Trial Expiry Banner - Shows for authenticated users with trial status */}
       {user && <TrialExpiryBanner />}
 

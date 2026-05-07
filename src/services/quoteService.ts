@@ -85,24 +85,30 @@ export const quoteService = {
     // so API-driven quote creation doesn't leave leads stuck at "new"
     // until they convert to "won".
     if (data && (quote as any).lead_id) {
-      try {
-        const { data: lead } = await supabase
-          .from("leads")
-          .select("status")
-          .eq("id", (quote as any).lead_id)
-          .maybeSingle();
-        const currentStatus = (lead as any)?.status as string | null;
-        // Only advance from earlier funnel stages -- don't regress a
-        // lead that's already further along (won, lost, converted).
-        const advancable = ["new", "contacted", "qualified"];
-        if (currentStatus && advancable.includes(currentStatus)) {
-          await supabase
-            .from("leads")
-            .update({ status: "quoted" })
-            .eq("id", (quote as any).lead_id);
-        }
-      } catch (e) {
-        console.warn("[quoteService.createQuote] lead status advance failed (non-blocking):", e);
+      // Atomic advance: a single UPDATE...WHERE status IN (...) avoids the
+      // read-then-write race the previous two-query pattern allowed and
+      // fails LOUD rather than silently if the policy or constraint
+      // rejects the write [P1-02]. We still don't throw -- a failed lead
+      // status advance shouldn't roll back the quote -- but we do surface
+      // the row count and any error so a caller / dashboard can spot
+      // funnel drift instead of discovering it months later.
+      const advancable = ["new", "contacted", "qualified"];
+      const { data: updated, error: leadErr, count } = await supabase
+        .from("leads")
+        .update({ status: "quoted" })
+        .eq("id", (quote as any).lead_id)
+        .in("status", advancable)
+        .select("id, status", { count: "exact" });
+      if (leadErr) {
+        // Real DB-level failure (RLS, constraint). Worth flagging.
+        console.warn(
+          "[quoteService.createQuote] lead status advance DB error:",
+          { lead_id: (quote as any).lead_id, error: leadErr.message },
+        );
+        (data as any)._lead_status_advance_error = leadErr.message;
+      } else if ((count || 0) === 0 && Array.isArray(updated) && updated.length === 0) {
+        // No-op: lead was already past 'quoted'. Expected for re-quotes
+        // and conversion-then-rebook flows. Not an error.
       }
     }
 
@@ -126,7 +132,8 @@ export const quoteService = {
             companyId: quote.user_id,
             to: quote.client_email,
             subject: 'Quote Request Confirmation',
-            template: 'quote-request-confirmation',
+            // Template type aligns with the seed [P0-14].
+            template: 'quote_request_received',
             variables: {
                 clientName: quote.client_name,
                 companyName: companyName,

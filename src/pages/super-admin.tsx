@@ -1,13 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  LayoutDashboard, Users, Truck, ChefHat, 
-  ShoppingCart, Sparkles, BarChart3,
-  Crown, Shield, Database, Settings,
-  Building2, CreditCard, TrendingUp,
-  Clock, DollarSign, Globe, FileText, Layout
-} from "lucide-react";
+import { BarChart3, Crown, Shield, Database, Settings, Building2, CreditCard, Clock, DollarSign, Globe, FileText, Layout } from "lucide-react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";

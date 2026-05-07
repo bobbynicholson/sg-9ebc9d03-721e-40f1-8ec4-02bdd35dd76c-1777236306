@@ -22,9 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Link2, Copy, Check, Plus, Trash2, ShieldCheck, ExternalLink, Loader2, AlertTriangle,
-} from "lucide-react";
+import { Link2, Copy, Check, Plus, Trash2, ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

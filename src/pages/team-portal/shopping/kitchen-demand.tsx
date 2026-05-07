@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ChefHat, ShoppingCart, Search, AlertTriangle, Calendar, Loader2,
-  ChevronRight, Package, ExternalLink,
-} from "lucide-react";
+import { ChefHat, ShoppingCart, Search, AlertTriangle, Calendar, Loader2, Package, ExternalLink } from "lucide-react";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";

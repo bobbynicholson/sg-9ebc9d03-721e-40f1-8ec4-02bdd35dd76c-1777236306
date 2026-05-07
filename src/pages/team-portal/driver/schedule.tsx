@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock, Users, Truck, Loader2, AlertCircle, Navigation } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, Loader2, AlertCircle, Navigation } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";

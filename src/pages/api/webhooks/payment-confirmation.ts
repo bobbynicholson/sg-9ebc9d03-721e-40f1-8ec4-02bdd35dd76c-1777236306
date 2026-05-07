@@ -14,8 +14,97 @@ import crypto from "crypto";
  * rows, double `amount_paid`, and flip status to paid prematurely.
  * We dedupe on `pf_payment_id` (PayFast's canonical id) by checking
  * the payments table BEFORE any DB write -- if the row already exists
- * we return 200 immediately so PayFast stops retrying.
+ * we return 200 immediately so PayFast stops retrying. The dedup also
+ * covers replay attacks: a re-sent valid signed IPN with the same
+ * pf_payment_id is a no-op.
+ *
+ * Hardening (P0-11):
+ *  - bodyParser disabled; signature validates over the raw form-body
+ *    string before any reshape, so URL-encoding edge cases (spaces,
+ *    accented characters, ampersands in values) don't break sig check.
+ *  - IP allowlist via PAYFAST_ALLOWED_IPS env var (comma-separated).
+ *    Empty / unset disables the check (dev convenience). Production
+ *    should set: 197.97.145.144/29, 41.74.179.192/27, 102.216.36.16,
+ *    102.216.36.17 -- whatever PayFast publishes as their IPN egress
+ *    range. CIDR not parsed here; the env var should list the exact
+ *    IPs after subnet expansion.
  */
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function readRawBody(req: NextApiRequest): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer | string) => {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+// Parse application/x-www-form-urlencoded preserving original order
+// (PayFast signs in the order the fields appear in the body, NOT
+// alphabetical). Returns both the ordered key/value list and a map.
+function parsePayFastBody(raw: string): { ordered: Array<[string, string]>; map: Record<string, string> } {
+  const ordered: Array<[string, string]> = [];
+  const map: Record<string, string> = {};
+  if (!raw) return { ordered, map };
+  for (const pair of raw.split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    const k = eq === -1 ? pair : pair.slice(0, eq);
+    const v = eq === -1 ? "" : pair.slice(eq + 1);
+    const key = decodeURIComponent(k.replace(/\+/g, " "));
+    const val = decodeURIComponent(v.replace(/\+/g, " "));
+    ordered.push([key, val]);
+    map[key] = val;
+  }
+  return { ordered, map };
+}
+
+// Reconstruct the canonical PayFast signed string from the ordered
+// fields. PayFast docs: "Take all the form fields excluding signature,
+// in the order they appear in the form, urlencode them and concatenate
+// with &, then append &passphrase=<passphrase> if set."
+function buildPayFastSignedString(
+  ordered: Array<[string, string]>,
+  passphrase: string,
+): string {
+  const parts: string[] = [];
+  for (const [k, v] of ordered) {
+    if (k === "signature") continue;
+    if (v === "") continue;
+    parts.push(`${k}=${encodeURIComponent(v).replace(/%20/g, "+")}`);
+  }
+  let s = parts.join("&");
+  if (passphrase) {
+    s += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}`;
+  }
+  return s;
+}
+
+function clientIpFromRequest(req: NextApiRequest): string | null {
+  const forwarded = (req.headers["x-forwarded-for"] || "") as string;
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const real = (req.headers["x-real-ip"] || "") as string;
+  if (real) return real.trim();
+  return req.socket?.remoteAddress || null;
+}
+
+function isAllowedPayFastIp(ip: string | null): boolean {
+  const raw = (process.env.PAYFAST_ALLOWED_IPS || "").trim();
+  if (!raw) return true; // not configured -> allow (dev / fresh-install)
+  if (!ip) return false;
+  const list = raw.split(",").map(s => s.trim()).filter(Boolean);
+  return list.includes(ip);
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -25,13 +114,31 @@ export default async function handler(
   }
 
   try {
-    const paymentData = req.body;
+    // 1. IP allowlist (env-gated, see header docstring).
+    const callerIp = clientIpFromRequest(req);
+    if (!isAllowedPayFastIp(callerIp)) {
+      console.warn("[payfast-webhook] rejected non-allowlisted IP:", callerIp);
+      return res.status(403).json({ error: "Forbidden" });
+    }
 
-    // Validate PayFast signature
-    const { signature, ...dataToValidate } = paymentData;
-    const isValid = validatePayFastSignature(dataToValidate, signature);
+    // 2. Read raw body and validate signature against it directly,
+    //    preserving the original field order. The previous Object.keys
+    //    + .sort() approach was wrong for PayFast (they sign in form
+    //    order, not alphabetical) and the JSON-parsed shape lost
+    //    multi-value forms.
+    const rawBody = await readRawBody(req);
+    const { ordered, map: paymentData } = parsePayFastBody(rawBody);
 
-    if (!isValid) {
+    const passphrase = process.env.PAYFAST_PASSPHRASE || "";
+    const signedString = buildPayFastSignedString(ordered, passphrase);
+    const expectedSignature = crypto
+      .createHash("md5")
+      .update(signedString)
+      .digest("hex");
+    const providedSignature = (paymentData.signature || "").toLowerCase();
+
+    if (expectedSignature.toLowerCase() !== providedSignature) {
+      console.warn("[payfast-webhook] signature mismatch");
       return res.status(400).json({ error: "Invalid signature" });
     }
 
@@ -64,23 +171,8 @@ export default async function handler(
         return res.status(200).json({ message: "Already processed", invoiceId });
       }
 
-      // Update invoice status
-      const { error: invoiceError } = await supabase
-        .from("invoices")
-        .update({
-          status: "paid",
-          amount_paid: amount_gross,
-          balance_due: 0,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", invoiceId);
-
-      if (invoiceError) {
-        console.error("Error updating invoice:", invoiceError);
-        return res.status(500).json({ error: "Failed to update invoice" });
-      }
-
-      // Get invoice details for notification
+      // Read the invoice's client + companies info for the
+      // notification + email follow-ups (the RPC returns just IDs).
       const { data: invoice } = await supabase
         .from("invoices")
         .select("*, companies(*)")
@@ -91,35 +183,36 @@ export default async function handler(
         const invoiceData = invoice as any;
         const companyData = invoiceData.companies;
 
-        // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
-        await supabase.from("payments").insert([{
-          company_id: companyId,
-          client_id: invoiceData.client_id,
-          invoice_id: invoiceId,
-          amount: parseFloat(amount_gross),
-          currency: "ZAR",
-          payment_method: "payfast",
-          payment_reference: pf_payment_id,
-          gateway_provider: "payfast",
-          gateway: "payfast",
-          gateway_transaction_id: pf_payment_id,
-          transaction_id: pf_payment_id,
-          payment_status: "completed",
-          completed_at: new Date().toISOString()
-        }]);
+        // Atomic invoice + payments + order update via SECURITY DEFINER
+        // RPC. Three sequential writes used to leave the system in
+        // inconsistent state on a network blip between any two of
+        // them. The RPC does all three in one transaction with belt-
+        // and-braces idempotency on gateway_transaction_id [P2F-1].
+        const { data: rpcResult, error: rpcErr } = await (supabase as any).rpc(
+          "record_invoice_payment",
+          {
+            p_invoice_id: invoiceId,
+            p_amount: parseFloat(amount_gross),
+            p_payment_method: "payfast",
+            p_transaction_id: pf_payment_id,
+            p_company_id: companyId,
+            p_client_id: invoiceData.client_id,
+            p_currency: "ZAR",
+            p_gateway_provider: "payfast",
+          }
+        );
 
-        // Mark the underlying order as completed once the final invoice is paid.
-        // Closes out the post-event journey so the order drops out of the
-        // open list and the financial dashboard counts it under collected.
-        if (invoiceData.order_id) {
-          await supabase
-            .from("orders")
-            .update({
-              status: "completed",
-              payment_status: "paid",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", invoiceData.order_id);
+        if (rpcErr) {
+          console.error("Error in record_invoice_payment RPC:", rpcErr);
+          return res.status(500).json({ error: "Failed to record invoice payment" });
+        }
+
+        if ((rpcResult as any)?.idempotent === true) {
+          return res.status(200).json({
+            message: "Already processed",
+            invoiceId,
+            payment_id: (rpcResult as any).payment_id,
+          });
         }
 
         // Send notification
@@ -166,14 +259,19 @@ export default async function handler(
           }
 
           if (recipientEmail) {
+            // Template type aligns with the seed in
+            // supabase/migrations/20260506130000_seed_email_templates.sql.
+            // Previously we passed "invoice-payment-received" which has
+            // no row in email_templates and quietly fell through [P0-07].
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
               subject: `Payment received -- invoice ${invoiceData.invoice_number}`,
-              template: "invoice-payment-received",
+              template: "balance_payment_received",
               variables: {
                 clientName: recipientName || "there",
                 invoiceNumber: invoiceData.invoice_number,
+                orderNumber: invoiceData.invoice_number,
                 amount: `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
                 companyName: companyData?.company_name || "Your caterer",
               },
@@ -444,7 +542,12 @@ async function sendClientPaymentConfirmation(
       subject: isDeposit
         ? `Deposit received -- order ${order.order_number}`
         : `Final payment received -- order ${order.order_number}`,
-      template: isDeposit ? "deposit_confirmation" : "balance_confirmation",
+      // Template type aligns with the seed in
+      // supabase/migrations/20260506130000_seed_email_templates.sql
+      // (deposit_payment_received / balance_payment_received). The
+      // previous "deposit_confirmation" / "balance_confirmation" names
+      // had no row in email_templates [P0-07].
+      template: isDeposit ? "deposit_payment_received" : "balance_payment_received",
       variables: {
         clientName: recipientName || "there",
         orderNumber: order.order_number,
@@ -461,24 +564,8 @@ async function sendClientPaymentConfirmation(
   }
 }
 
-/**
- * Verify PayFast webhook signature
- */
-function validatePayFastSignature(data: any, signature: string): boolean {
-  const passphrase = process.env.PAYFAST_PASSPHRASE || "";
-
-  // Create parameter string
-  const pfParamString = Object.keys(data)
-    .filter(key => key !== "signature")
-    .sort()
-    .map(key => `${key}=${encodeURIComponent(data[key]).replace(/%20/g, "+")}`)
-    .join("&");
-
-  // Generate signature
-  const generatedSignature = crypto
-    .createHash("md5")
-    .update(pfParamString + passphrase)
-    .digest("hex");
-
-  return generatedSignature === signature;
-}
+// validatePayFastSignature was removed in favour of the inline raw-body
+// + ordered-fields validator at the top of handler [P0-11]. Old version
+// signed over alphabetical-sorted JSON-parsed fields, which doesn't
+// match PayFast's documented "fields in form order" contract and
+// produced false negatives on any IPN with non-ASCII characters.

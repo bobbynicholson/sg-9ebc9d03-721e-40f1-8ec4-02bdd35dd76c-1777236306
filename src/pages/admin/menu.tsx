@@ -5,6 +5,7 @@ import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -731,19 +732,18 @@ function MenuPage() {
             </div>
           ) : grouped.length === 0 ? (
             <Card className="border-0 shadow-sm">
-              <CardContent className="p-12 text-center">
-                <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-700 font-medium">{items.length === 0 ? "No menu items yet" : "No matches"}</p>
-                <p className="text-sm text-slate-500 mt-1">
-                  {items.length === 0
-                    ? "Add your first menu item to start building your kitchen's catalogue."
-                    : "Try a different search or category filter."}
-                </p>
-                {items.length === 0 && (
-                  <Button onClick={openAdd} className="mt-4">
-                    <Plus className="w-4 h-4 mr-2" />Add your first menu item
-                  </Button>
-                )}
+              <CardContent className="p-0">
+                <EmptyState
+                  inCard
+                  icon={BookOpen}
+                  title={items.length === 0 ? "No menu items yet" : "No matches"}
+                  description={
+                    items.length === 0
+                      ? "Add your first menu item to start building your kitchen's catalogue."
+                      : "Try a different search or category filter."
+                  }
+                  cta={items.length === 0 ? { label: "Add your first menu item", onClick: openAdd } : undefined}
+                />
               </CardContent>
             </Card>
           ) : (

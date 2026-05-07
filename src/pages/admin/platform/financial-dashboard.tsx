@@ -19,9 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
-import {
-  TrendingUp, DollarSign, Users, AlertTriangle, RefreshCw, Crown, Activity,
-} from "lucide-react";
+import { TrendingUp, Users, AlertTriangle, RefreshCw, Crown, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";

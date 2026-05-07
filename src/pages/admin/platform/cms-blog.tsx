@@ -9,11 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Sparkles, FileText, Eye, Save, Trash2, 
-  Loader2, CheckCircle2, AlertCircle, Wand2,
-  Search, TrendingUp, MessageSquare, Code, Link
-} from "lucide-react";
+import { Sparkles, FileText, Eye, Save, Trash2, Loader2, CheckCircle2, Wand2, Search, TrendingUp, MessageSquare, Code, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cmsService } from "@/services/cmsService";
 import { useAuth } from "@/contexts/AuthContext";

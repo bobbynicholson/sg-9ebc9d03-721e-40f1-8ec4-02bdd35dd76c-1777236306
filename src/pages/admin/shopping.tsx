@@ -31,11 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ShoppingCart, Package, AlertTriangle, Calendar, Clock, Truck, Mail,
-  CheckCircle2, Loader2, Sparkles, TrendingDown, ChevronDown, ChevronUp,
-  Building2, Snowflake, Flame, Receipt, ChevronRight, ListChecks, Camera,
-} from "lucide-react";
+import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";

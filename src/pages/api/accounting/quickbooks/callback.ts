@@ -19,12 +19,27 @@ export default async function handler(
       return res.status(400).json({ error: "Missing authorization code" });
     }
 
-    // TODO: Validate state for CSRF protection
+    // CSRF protection: state must match the HttpOnly cookie issued at
+    // flow start, alongside the target company_id [P0-06].
+    const stateCookie = req.cookies.oauth_state;
     const companyId = req.cookies.oauth_company_id;
-    
+
+    if (!stateCookie || !state || typeof state !== "string" || stateCookie !== state) {
+      return res.status(400).json({
+        error: "OAuth state mismatch. Restart the integration flow from /admin/integrations.",
+      });
+    }
+
     if (!companyId) {
       return res.status(400).json({ error: "Missing company context" });
     }
+
+    // Single-use: clear the state cookie immediately so a replay can't
+    // re-bind the same code to a different tenant.
+    res.setHeader("Set-Cookie", [
+      "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      "oauth_company_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+    ]);
 
     // Exchange code for tokens
     const tokenResult = await exchangeCodeForTokens("quickbooks", code);

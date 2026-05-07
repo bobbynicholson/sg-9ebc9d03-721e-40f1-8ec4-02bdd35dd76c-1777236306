@@ -35,11 +35,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette,
-  Landmark, Receipt, Sparkles, FileSpreadsheet, RotateCcw, ShieldCheck,
-  Users, Upload,
-} from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";

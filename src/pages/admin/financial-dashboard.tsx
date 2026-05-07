@@ -3,21 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  AlertTriangle,
-  CheckCircle,
-  Calendar,
-  Users,
-  Package,
-  CreditCard,
-  ArrowUpRight,
-  ArrowDownRight,
-  Sparkles,
-  Trophy
-} from "lucide-react";
+import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";

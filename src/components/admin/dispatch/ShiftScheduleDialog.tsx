@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Plus, Trash2, AlertCircle, Clock } from "lucide-react";
+import { Calendar, Trash2, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { shiftService, type DriverShift } from "@/services/shiftService";
 

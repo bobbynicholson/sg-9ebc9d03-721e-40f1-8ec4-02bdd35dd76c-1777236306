@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Download, Printer, Mail, Calendar, MapPin, DollarSign, FileText } from "lucide-react";
+import { Download, Printer, Mail, Calendar, MapPin, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";

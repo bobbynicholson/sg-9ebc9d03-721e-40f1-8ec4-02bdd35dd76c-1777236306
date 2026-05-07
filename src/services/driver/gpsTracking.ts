@@ -14,28 +14,65 @@ export interface GPSLocation {
 }
 
 /**
- * Update driver's current location
+ * Update driver's current location.
+ *
+ * Writes to two tables:
+ *   - driver_locations: current state, driver_id PK, UPSERTed.
+ *   - gps_tracking: append-only history log, INSERTed.
+ *
+ * P1-23 (2026-05 audit): the previous implementation upserted on
+ * gps_tracking with onConflict("driver_id"), but driver_id wasn't
+ * unique on that table -- the schema split makes the "current
+ * location" lookup a single-row PK read and stops the upsert from
+ * fighting a non-existent constraint.
  */
 export async function updateDriverLocation(
   driverId: string,
-  location: GPSLocation
+  location: GPSLocation,
+  orderId?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
-      .from("gps_tracking")
-      .upsert({
-        driver_id: driverId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        accuracy: location.accuracy,
-        heading: location.heading,
-        speed: location.speed,
-        timestamp: new Date().toISOString(),
-      }, {
-        onConflict: "driver_id",
-      });
+    // Resolve the driver's company_id once so the denormalised column
+    // on driver_locations is correct (RLS keys off it).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", driverId)
+      .maybeSingle();
+    const companyId = (profile as { company_id?: string } | null)?.company_id ?? null;
 
-    if (error) throw error;
+    // Current-state UPSERT. driver_id is the PK so this is structurally
+    // sound on retries.
+    const { error: curErr } = await (supabase as any)
+      .from("driver_locations")
+      .upsert(
+        {
+          driver_id: driverId,
+          company_id: companyId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+          heading: location.heading,
+          speed: location.speed,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "driver_id" },
+      );
+    if (curErr) throw curErr;
+
+    // Append-only history. Failure here is non-fatal -- "where is the
+    // driver right now" still works without the trail row.
+    const { error: histErr } = await supabase.from("gps_tracking").insert({
+      driver_id: driverId,
+      order_id: orderId ?? null,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy,
+      heading: location.heading,
+      speed: location.speed,
+      timestamp: new Date().toISOString(),
+    });
+    if (histErr) console.warn("[gpsTracking] history insert failed (non-fatal):", histErr);
 
     return { success: true };
   } catch (error: any) {
@@ -45,20 +82,17 @@ export async function updateDriverLocation(
 }
 
 /**
- * Get driver's current location
+ * Get driver's current location. Reads driver_locations (single-row
+ * PK lookup) instead of scanning gps_tracking history.
  */
 export async function getDriverLocation(
-  driverId: string
+  driverId: string,
 ): Promise<{ success: boolean; location?: GPSLocation; error?: string }> {
   try {
-    // maybeSingle keeps the 'driver hasn't reported a location yet' case
-    // from raising an error.
-    const { data, error } = await supabase
-      .from("gps_tracking")
-      .select("*")
+    const { data, error } = await (supabase as any)
+      .from("driver_locations")
+      .select("latitude, longitude, accuracy, heading, speed")
       .eq("driver_id", driverId)
-      .order("timestamp", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     if (error) throw error;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { Bell, Check, X, Clock, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -194,7 +194,8 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="relative rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (

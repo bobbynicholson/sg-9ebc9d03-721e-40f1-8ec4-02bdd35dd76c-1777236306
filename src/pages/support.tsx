@@ -13,16 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Plus, 
-  Search, 
-  MessageSquare, 
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Send,
-  ArrowLeft
-} from "lucide-react";
+import { Plus, Search, MessageSquare, Clock, Send, ArrowLeft } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { supportTicketService } from "@/services/supportTicketService";

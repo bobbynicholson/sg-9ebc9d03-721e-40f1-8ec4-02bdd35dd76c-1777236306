@@ -13,16 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Eye,
-  ChevronDown,
-  Truck,
-  ChefHat,
-  ShoppingCart,
-  Sparkles,
-  User,
-  LayoutDashboard,
-} from "lucide-react";
+import { Eye, Truck, ChefHat, ShoppingCart, Sparkles, User, LayoutDashboard } from "lucide-react";
 
 interface StaffMember {
   id: string;

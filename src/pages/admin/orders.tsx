@@ -9,36 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ShoppingCart,
-  Calendar,
-  TrendingUp,
-  Users,
-  DollarSign,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  Edit,
-  ChevronRight,
-  Clock,
-  CheckCircle2,
-  Package,
-  Truck,
-  MapPin,
-  AlertCircle,
-  LayoutGrid,
-  List,
-  ArrowRight,
-  Plus,
-  Trash2,
-  Save,
-  X,
-  FileText,
-  Receipt,
-  Pause,
-  Play,
-} from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -516,8 +487,23 @@ function OrderProcessDashboard() {
 
   const getFilteredOrders = () => fuzzyOrders;
 
+  // Pre-group filtered orders by status once per filter-state change.
+  // The kanban view calls getOrdersByStatus once per column (10+
+  // columns); without this every render did a fresh O(n) filter per
+  // column = O(n*columns) per render. Memoised lookup turns it into
+  // O(n) once + O(1) per column [P2-12].
+  const ordersByStatus = useMemo(() => {
+    const groups: Record<string, AppOrder[]> = {};
+    for (const order of fuzzyOrders) {
+      const key = (order as AppOrder).status as string;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(order as AppOrder);
+    }
+    return groups;
+  }, [fuzzyOrders]);
+
   const getOrdersByStatus = (status: string) => {
-    return getFilteredOrders().filter((order) => order.status === status);
+    return ordersByStatus[status] || [];
   };
 
   const OrderCard = ({ order }: { order: AppOrder }) => {

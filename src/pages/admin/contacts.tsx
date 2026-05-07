@@ -21,6 +21,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,13 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle,
-  Snowflake, Crown, ArrowRight, Send, Copy, ExternalLink, Inbox,
-  Calendar as CalendarIcon, MapPin, ShoppingCart, MessageSquare,
-  CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText,
-  Upload,
-} from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -705,11 +700,21 @@ function ClientsCRM() {
               {loading ? (
                 <div className="py-16 text-center text-slate-500">Loading contacts...</div>
               ) : visible.length === 0 ? (
-                <div className="py-16 text-center">
-                  <Users className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="text-slate-700 font-semibold">No contacts in this view</p>
-                  <p className="text-sm text-slate-500">Try a different filter or clear the search.</p>
-                </div>
+                <EmptyState
+                  inCard
+                  icon={Users}
+                  title={contacts.length === 0 ? "No contacts yet" : "No contacts in this view"}
+                  description={
+                    contacts.length === 0
+                      ? "Add your first contact, or import an existing client list to get going."
+                      : "Try a different filter or clear the search."
+                  }
+                  cta={
+                    contacts.length === 0
+                      ? { label: "Add contact", onClick: () => { setEditing(null); setFormOpen(true); } }
+                      : undefined
+                  }
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

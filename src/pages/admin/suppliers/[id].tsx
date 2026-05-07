@@ -24,11 +24,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  ArrowLeft, Building2, Mail, Phone, Globe, Send, Copy, ExternalLink,
-  Calendar, TrendingUp, Package, Receipt, Plus, Trash2, Star,
-  Loader2, FileText, Search,
-} from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, Globe, Send, Copy, ExternalLink, Calendar, TrendingUp, Package, Receipt, Plus, Trash2, Star, Loader2, Search } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";

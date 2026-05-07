@@ -19,24 +19,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
-import {
-  Bell,
-  Check,
-  X,
-  Clock,
-  AlertCircle,
-  Filter,
-  Search,
-  Trash2,
-  CheckCircle,
-  AlertTriangle,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Eye,
-  Edit3,
-  ExternalLink,
-} from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedNotificationsPage() {

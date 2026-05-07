@@ -7,19 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowRight, 
-  TrendingUp, 
-  Users, 
-  Clock, 
-  DollarSign,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Calendar,
-  Rocket,
-  Bell
-} from "lucide-react";
+import { TrendingUp, Users, Clock, DollarSign, CheckCircle2, X, Sparkles, Calendar, Rocket, Bell } from "lucide-react";
 
 export default function USHomePage() {
   const router = useRouter();

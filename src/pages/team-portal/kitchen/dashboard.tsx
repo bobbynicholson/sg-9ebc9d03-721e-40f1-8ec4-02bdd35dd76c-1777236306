@@ -12,21 +12,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  ChefHat,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  Users,
-  Package,
-  TrendingUp,
-  AlertTriangle,
-  Truck,
-} from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { ChatBot } from "@/components/ChatBot";
@@ -382,79 +372,34 @@ export default function KitchenDashboard() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      Today's Orders
-                      <InfoTooltip content="Orders happening today that the kitchen is actively working on.\n\nIncludes anything confirmed, in prep, or ready to go." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{todayOrders.length}</p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center self-end md:self-auto">
-                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      Total Guests
-                      <InfoTooltip content="How many people you're cooking for today across all events.\n\nUse this to size your portions and prep list." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
-                      {todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center self-end md:self-auto">
-                    <Users className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      In Prep
-                      <InfoTooltip content="Orders the kitchen is busy prepping right now.\n\nUpdates the moment someone ticks a task off." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {orders.filter(o => o.status === "preparing").length}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center self-end md:self-auto">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                      Ready
-                      <InfoTooltip content="Orders packed and waiting for the driver to collect.\n\nDrivers see these the moment you mark them ready." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
-                      {orders.filter(o => o.status === "ready").length}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center self-end md:self-auto">
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              icon={Calendar}
+              iconColor="text-orange-600"
+              label="Today's Orders"
+              value={todayOrders.length}
+              tooltip="Orders happening today that the kitchen is actively working on.\n\nIncludes anything confirmed, in prep, or ready to go."
+            />
+            <MetricCard
+              icon={Users}
+              iconColor="text-blue-600"
+              label="Total Guests"
+              value={todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
+              tooltip="How many people you're cooking for today across all events.\n\nUse this to size your portions and prep list."
+            />
+            <MetricCard
+              icon={Clock}
+              iconColor="text-orange-600"
+              label="In Prep"
+              value={orders.filter(o => o.status === "preparing").length}
+              tooltip="Orders the kitchen is busy prepping right now.\n\nUpdates the moment someone ticks a task off."
+            />
+            <MetricCard
+              icon={CheckCircle}
+              iconColor="text-green-600"
+              label="Ready"
+              value={orders.filter(o => o.status === "ready").length}
+              tooltip="Orders packed and waiting for the driver to collect.\n\nDrivers see these the moment you mark them ready."
+            />
           </div>
 
           {/* Low Stock Alerts */}

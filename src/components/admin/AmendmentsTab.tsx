@@ -21,6 +21,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock, AlertTriangle, FileText } from "lucide-react";
 
+interface CascadeStep {
+  ok: boolean;
+  reason?: string;
+  skipped?: boolean;
+}
+interface CascadeReceipt {
+  kitchen_prep?: CascadeStep;
+  invoice?: CascadeStep;
+  inventory?: CascadeStep;
+  retried_at?: string;
+  retried_by?: string;
+}
+
 interface AmendmentRequest {
   id: string;
   order_id: string;
@@ -31,6 +44,11 @@ interface AmendmentRequest {
   status: "pending" | "approved" | "rejected" | "auto_rejected_late" | "cancelled_by_client";
   reviewed_at: string | null;
   review_notes: string | null;
+  applied_snapshot?: {
+    before?: Record<string, any>;
+    applied_keys?: string[];
+    cascade?: CascadeReceipt;
+  } | null;
 }
 
 interface Props {
@@ -62,6 +80,35 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
   useEffect(() => {
     if (orderId) load();
   }, [orderId]);
+
+  const retryCascade = async (request_id: string, force = false) => {
+    setBusyId(request_id);
+    try {
+      const resp = await fetch("/api/orders/amendment-cascade-retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id, force }),
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(j?.error || "Retry failed");
+      toast({
+        title: j?.all_steps_succeeded ? "Cascade complete" : "Cascade partially recovered",
+        description: j?.all_steps_succeeded
+          ? "Kitchen prep, invoice, and inventory are all up to date."
+          : "Some steps still need attention -- check the receipt.",
+      });
+      onActioned?.();
+      await load();
+    } catch (err: any) {
+      toast({
+        title: "Could not retry cascade",
+        description: err?.message || "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const review = async (request_id: string, action: "approve" | "reject", note?: string) => {
     setBusyId(request_id);
@@ -156,6 +203,9 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
                 request={r}
                 currentOrder={currentOrder}
                 readOnly
+                isBusy={busyId === r.id}
+                onRetryCascade={() => retryCascade(r.id, false)}
+                onForceRetryCascade={() => retryCascade(r.id, true)}
               />
             ))}
           </div>
@@ -176,6 +226,8 @@ function RequestCard({
   onStartReject,
   onCancelReject,
   onConfirmReject,
+  onRetryCascade,
+  onForceRetryCascade,
   readOnly,
 }: {
   request: AmendmentRequest;
@@ -188,6 +240,8 @@ function RequestCard({
   onStartReject?: () => void;
   onCancelReject?: () => void;
   onConfirmReject?: () => void;
+  onRetryCascade?: () => void;
+  onForceRetryCascade?: () => void;
   readOnly?: boolean;
 }) {
   const requestedAt = request.requested_at
@@ -286,6 +340,103 @@ function RequestCard({
         <p className="mt-3 text-xs text-slate-500">
           <span className="font-medium text-slate-700">Note:</span> {request.review_notes}
         </p>
+      )}
+
+      {readOnly && request.status === "approved" && request.applied_snapshot?.cascade && (
+        <CascadePanel
+          cascade={request.applied_snapshot.cascade}
+          isBusy={isBusy}
+          onRetry={onRetryCascade}
+          onForceRetry={onForceRetryCascade}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Cascade receipt panel for approved amendments. Surfaces the
+ * per-step outcome that amendment-review.ts persists to
+ * applied_snapshot.cascade [P1-01]. When any step failed, offers a
+ * "Retry failed steps" button that calls
+ * /api/orders/amendment-cascade-retry.
+ */
+function CascadePanel({
+  cascade,
+  isBusy,
+  onRetry,
+  onForceRetry,
+}: {
+  cascade: CascadeReceipt;
+  isBusy?: boolean;
+  onRetry?: () => void;
+  onForceRetry?: () => void;
+}) {
+  const steps: Array<{ key: keyof CascadeReceipt; label: string }> = [
+    { key: "kitchen_prep", label: "Kitchen prep regenerated" },
+    { key: "invoice", label: "Invoice refreshed" },
+    { key: "inventory", label: "Inventory recalculated" },
+  ];
+  const anyFailed = steps.some((s) => {
+    const v = cascade[s.key] as CascadeStep | undefined;
+    return v && v.skipped !== true && v.ok !== true;
+  });
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium text-slate-700 mb-2">Cascade outcome</p>
+      <ul className="space-y-1.5">
+        {steps.map(({ key, label }) => {
+          const v = cascade[key] as CascadeStep | undefined;
+          if (!v) {
+            return (
+              <li key={key} className="flex items-start gap-2 text-xs text-slate-500">
+                <Clock className="w-3.5 h-3.5 mt-0.5" />
+                <span>{label}: not run</span>
+              </li>
+            );
+          }
+          if (v.skipped) {
+            return (
+              <li key={key} className="flex items-start gap-2 text-xs text-slate-500">
+                <span className="w-3.5 h-3.5 mt-0.5 inline-block rounded-full border border-slate-300" />
+                <span>{label}: skipped (not relevant to this amendment)</span>
+              </li>
+            );
+          }
+          if (v.ok) {
+            return (
+              <li key={key} className="flex items-start gap-2 text-xs text-emerald-700">
+                <CheckCircle2 className="w-3.5 h-3.5 mt-0.5" />
+                <span>{label}: done</span>
+              </li>
+            );
+          }
+          return (
+            <li key={key} className="flex items-start gap-2 text-xs text-rose-700">
+              <XCircle className="w-3.5 h-3.5 mt-0.5" />
+              <span>
+                <span className="font-medium">{label}: failed</span>
+                {v.reason && <span className="block text-rose-600 font-normal">{v.reason}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {cascade.retried_at && (
+        <p className="text-[11px] text-slate-500 mt-2">
+          Last retried {new Date(cascade.retried_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+        </p>
+      )}
+      {anyFailed && (
+        <div className="mt-3 flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={onForceRetry} disabled={isBusy}>
+            Retry all (force)
+          </Button>
+          <Button size="sm" onClick={onRetry} disabled={isBusy}>
+            {isBusy ? "Retrying..." : "Retry failed steps"}
+          </Button>
+        </div>
       )}
     </div>
   );

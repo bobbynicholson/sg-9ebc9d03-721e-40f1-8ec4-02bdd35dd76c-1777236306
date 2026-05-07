@@ -618,3 +618,39 @@ export function getOrderModificationStatus(
     message
   };
 }
+
+/**
+ * Fetch successful PayFast transactions for a merchant in the
+ * trailing N days. Used by the reconcile-payfast cron (P1-40) to
+ * recover any payments where the IPN was lost.
+ *
+ * STUB: PayFast's Query / Transaction History API surface is
+ * documented but per-merchant-tier and changes between sandbox /
+ * live. Wiring needs the real-tier credentials + a PayFast spec
+ * sample. Until that lands, this returns an empty array; the cron
+ * still runs through its full pipeline (auth, gateway lookup,
+ * dedup, replay-via-RPC, audit log) so the moment the upstream
+ * fetch returns real data, recovery starts working with no other
+ * code change.
+ */
+export async function fetchRecentPayFastTransactions(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+  credentials: any,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  lookbackDays: number,
+): Promise<Array<{
+  pf_payment_id: string;
+  m_payment_id: string;
+  amount_gross: string | number;
+  payment_status: string;
+  custom_str1?: string;
+  custom_str2?: string;
+  custom_str3?: string;
+  custom_str4?: string;
+}>> {
+  console.warn(
+    "[payfastService] fetchRecentPayFastTransactions is a stub; " +
+    "PayFast Query API integration pending. Returning empty list.",
+  );
+  return [];
+}

@@ -134,7 +134,9 @@ export async function postOrderCreationCascade(
           companyId,
           to: (order as any).client_email,
           subject: `Order Confirmed - #${(order as any).order_number || orderId}`,
-          template: "order-confirmation",
+          // Template type aligns with the seed [P0-14]. Was
+          // "order-confirmation" which has no row in email_templates.
+          template: "order_confirmed",
           orderId,
           variables: {
             clientName: (order as any).client_name,

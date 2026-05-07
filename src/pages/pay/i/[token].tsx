@@ -150,7 +150,32 @@ export default function InvoicePaymentPage() {
       const testMode = process.env.NODE_ENV !== "production";
 
       if (!merchantId || !merchantKey) {
-        setError("Payment gateway not configured. Please contact the company to arrange payment.");
+        // Surface a fix-path the client can act on. Previously the
+        // operator's invoice link landed on a dead-end "contact the
+        // company" message [P1-39]. Now the link is actionable: a
+        // mailto: with the operator's email + the invoice number
+        // pre-filled. The operator's email comes off the invoice's
+        // company row.
+        const company = (invoice as any)?.companies || {};
+        const tenantEmail = company.email || company.contact_email || null;
+        const invNumber = (invoice as any)?.invoice_number || "your invoice";
+        const subject = encodeURIComponent(`Payment help -- ${invNumber}`);
+        const body = encodeURIComponent(
+          `Hi ${company.company_name || "there"},\n\n` +
+          `I tried to pay ${invNumber} but the online payment gateway isn't set up.\n` +
+          `Please send me alternative payment instructions (EFT, etc.).\n\nThanks.`
+        );
+        const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
+        setError(
+          link
+            ? `Online payment isn't available right now. Tap to email ${company.company_name || "the company"}: ${tenantEmail}`
+            : "Online payment isn't available right now. Please contact the company to arrange payment."
+        );
+        if (link) {
+          // Persist the mailto on the page state so the existing
+          // error renderer can promote it to a clickable link.
+          (window as any).__payFixLink = link;
+        }
         return;
       }
 
@@ -244,6 +269,21 @@ export default function InvoicePaymentPage() {
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
   const today = format(new Date(), "d MMMM yyyy");
+  // Days until / since the due date. Surfaces as a top-bar chip so the
+  // payer sees the deadline before they scroll. Hidden once paid.
+  const daysToDue = Math.ceil(
+    (new Date(invoice.due_date).getTime() - Date.now()) / 86_400_000,
+  );
+  const dueChipLabel = isPaid
+    ? null
+    : daysToDue < 0
+    ? `Overdue by ${Math.abs(daysToDue)} day${Math.abs(daysToDue) === 1 ? "" : "s"}`
+    : daysToDue === 0
+    ? "Due today"
+    : daysToDue === 1
+    ? "Due tomorrow"
+    : `Due in ${daysToDue} days`;
+  const dueChipTone = isOverdue ? "overdue" : daysToDue <= 3 ? "soon" : "ok";
 
   return (
     <>
@@ -251,13 +291,20 @@ export default function InvoicePaymentPage() {
         <title>{`${docTitle} ${invoice.invoice_number} from ${companyName}`}</title>
         <meta name="robots" content="noindex, nofollow" />
         <style>{`
+          /* Mirror /q/[token] -- html selector + color-adjust fallback
+             keep Safari honouring the brand colour on print. */
           @media print {
-            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            html, body, .brand-print {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
             body { background: white !important; }
             .no-print { display: none !important; }
             .print-shadow-none { box-shadow: none !important; }
             .print-border-none { border: none !important; }
             .print-bg-white { background: white !important; }
+            .brand-print { page-break-inside: avoid; break-inside: avoid; }
             @page { margin: 16mm; }
           }
         `}</style>
@@ -267,7 +314,21 @@ export default function InvoicePaymentPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
           {/* Floating action bar -- screen only */}
-          <div className="no-print flex items-center justify-end gap-2 mb-4">
+          <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
+            {dueChipLabel ? (
+              <Badge
+                className={
+                  dueChipTone === "overdue"
+                    ? "bg-rose-100 text-rose-800 border border-rose-200 gap-1.5"
+                    : dueChipTone === "soon"
+                    ? "bg-amber-100 text-amber-800 border border-amber-200 gap-1.5"
+                    : "bg-stone-100 text-stone-700 border border-stone-200 gap-1.5"
+                }
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {dueChipLabel}
+              </Badge>
+            ) : <span />}
             <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
               <Printer className="w-4 h-4" />
               Save as PDF
@@ -384,7 +445,19 @@ export default function InvoicePaymentPage() {
                   {error && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
+                      <AlertDescription>
+                        {error}
+                        {typeof window !== "undefined" && (window as any).__payFixLink && (
+                          <div className="mt-2">
+                            <a
+                              href={(window as any).__payFixLink}
+                              className="underline font-medium"
+                            >
+                              Email the company about this invoice
+                            </a>
+                          </div>
+                        )}
+                      </AlertDescription>
                     </Alert>
                   )}
 
