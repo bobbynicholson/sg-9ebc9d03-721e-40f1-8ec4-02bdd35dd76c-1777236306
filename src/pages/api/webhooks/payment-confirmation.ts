@@ -166,14 +166,19 @@ export default async function handler(
           }
 
           if (recipientEmail) {
+            // Template type aligns with the seed in
+            // supabase/migrations/20260506130000_seed_email_templates.sql.
+            // Previously we passed "invoice-payment-received" which has
+            // no row in email_templates and quietly fell through [P0-07].
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
               subject: `Payment received -- invoice ${invoiceData.invoice_number}`,
-              template: "invoice-payment-received",
+              template: "balance_payment_received",
               variables: {
                 clientName: recipientName || "there",
                 invoiceNumber: invoiceData.invoice_number,
+                orderNumber: invoiceData.invoice_number,
                 amount: `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
                 companyName: companyData?.company_name || "Your caterer",
               },
@@ -444,7 +449,12 @@ async function sendClientPaymentConfirmation(
       subject: isDeposit
         ? `Deposit received -- order ${order.order_number}`
         : `Final payment received -- order ${order.order_number}`,
-      template: isDeposit ? "deposit_confirmation" : "balance_confirmation",
+      // Template type aligns with the seed in
+      // supabase/migrations/20260506130000_seed_email_templates.sql
+      // (deposit_payment_received / balance_payment_received). The
+      // previous "deposit_confirmation" / "balance_confirmation" names
+      // had no row in email_templates [P0-07].
+      template: isDeposit ? "deposit_payment_received" : "balance_payment_received",
       variables: {
         clientName: recipientName || "there",
         orderNumber: order.order_number,
