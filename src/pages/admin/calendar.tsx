@@ -54,6 +54,24 @@ const STATUS_TONES: Record<string, string> = {
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
+/**
+ * Format a Date as YYYY-MM-DD using its LOCAL timezone, not UTC.
+ *
+ * `Date.toISOString().slice(0,10)` returns the UTC date, which in SA
+ * (UTC+2) shifts every midnight-local Date back to the previous day's
+ * UTC date. Cells built with `new Date(year, month, day)` are local
+ * midnight, so the UTC slice produced "2026-05-13" for the cell
+ * labelled "14", binning May 14 events onto the May 15 cell. Use this
+ * helper anywhere we need to key a cell, compare against an
+ * event_date column, or stamp "today" against a calendar position.
+ */
+const toLocalISO = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 // Quote statuses that count as "still open" for the diary gap-finder.
 // Anything past these (accepted -> already an order, rejected -> dead,
 // expired -> dead unless re-quoted) is excluded so the calendar only
@@ -178,7 +196,7 @@ function AdminCalendar() {
     } catch { return 5; }
   }, []);
 
-  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayISO = useMemo(() => toLocalISO(new Date()), []);
   const monthNames = [
     "January","February","March","April","May","June",
     "July","August","September","October","November","December",
@@ -231,7 +249,7 @@ function AdminCalendar() {
         if (next.getMonth() !== month || next.getFullYear() !== year) {
           setCurrentDate(new Date(next.getFullYear(), next.getMonth(), 1));
         }
-        setFocusedISO(next.toISOString().slice(0, 10));
+        setFocusedISO(toLocalISO(next));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -267,7 +285,7 @@ function AdminCalendar() {
     for (let i = 0; i < horizon; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = toLocalISO(d);
       const ev = ordersByDay[iso] || [];
       const qu = quotesByDay[iso] || [];
       if (ev.length > 0) booked += 1;
@@ -280,10 +298,10 @@ function AdminCalendar() {
   }, [ordersByDay, quotesByDay, todayISO]);
 
   const dayEvents = selectedDate
-    ? ordersByDay[selectedDate.toISOString().slice(0, 10)] || []
+    ? ordersByDay[toLocalISO(selectedDate)] || []
     : [];
   const dayQuotes = selectedDate
-    ? quotesByDay[selectedDate.toISOString().slice(0, 10)] || []
+    ? quotesByDay[toLocalISO(selectedDate)] || []
     : [];
 
   return (
@@ -357,12 +375,12 @@ function AdminCalendar() {
                     {calendarDays.map((day, idx) => {
                       if (day === null) return <div key={`e-${idx}`} className="aspect-square min-h-[80px]" />;
                       const date = new Date(year, month, day);
-                      const iso = date.toISOString().slice(0, 10);
+                      const iso = toLocalISO(date);
                       const events = ordersByDay[iso] || [];
                       const quotes = quotesByDay[iso] || [];
                       const isToday = iso === todayISO;
                       const isPast = iso < todayISO;
-                      const isSelected = selectedDate && selectedDate.toISOString().slice(0, 10) === iso;
+                      const isSelected = selectedDate && toLocalISO(selectedDate) === iso;
                       const isFocused = focusedISO === iso;
                       const eventTotal = events.reduce(
                         (s: number, e: any) => s + Number(e.total_amount || 0),
