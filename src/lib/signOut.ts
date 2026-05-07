@@ -72,10 +72,29 @@ export async function signOutAndRedirect(profile?: any | null) {
   } catch (err) {
     console.error("Sign out error", err);
   }
+  // Clear cookies across every scope they might have been set on.
+  // Previous version only nuked Path=/ which left Domain=.cateringms.com
+  // cookies (the supabase apex-domain auth cookies + any future
+  // subdomain shares) behind. After sign-out a user could open a
+  // tenant subdomain and the apex-scope sb-* cookies would still be
+  // sent. [P0-16]
   try {
+    const host = typeof window !== "undefined" ? window.location.hostname : "";
+    const apex = host.split(".").slice(-2).join("."); // "cateringms.com" or "localhost"
+    const domains: string[] = ["", apex];
+    if (apex && apex !== host) domains.push(host);
+    if (apex) domains.push(`.${apex}`);
+    const paths = ["/", "/c", "/q", "/pay", "/client-portal", "/admin"];
+
     document.cookie.split(";").forEach((c) => {
       const n = c.split("=")[0].trim();
-      document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      if (!n) return;
+      for (const d of domains) {
+        for (const p of paths) {
+          const dPart = d ? `; domain=${d}` : "";
+          document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${p}${dPart}`;
+        }
+      }
     });
     localStorage.clear();
     sessionStorage.clear();
