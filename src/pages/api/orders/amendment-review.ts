@@ -169,56 +169,78 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       applied_at: nowIso,
     } as any).eq("id", request_id);
 
-    // Cascade: kitchen prep regen + invoice diff. Both fire-and-forget
-    // so a failed cascade doesn't undo the amendment itself.
-    void (async () => {
-      try {
-        const { kitchenPrepService } = await import("@/services/kitchenPrepService");
-        await (kitchenPrepService as any).ensurePrepTasksForOrder(
-          (request as any).company_id,
-          (request as any).order_id,
-        );
-      } catch (e) {
-        console.warn("[amendment-review] kitchen prep regen failed:", e);
-      }
-    })();
+    // Cascade: kitchen prep regen + invoice diff + inventory recalc.
+    // Previously these were fire-and-forget so a serverless cold-stop
+    // between approval and cascade completion left the order amended
+    // with stale prep tasks / invoice / inventory and nobody knew
+    // [P0-08]. Now the cascade is awaited and each step's result is
+    // returned in the response, so the operator can re-trigger any
+    // step that failed (or the receipt object plugs into the future
+    // retry endpoint without reshaping).
+    const cascade: {
+      kitchen_prep: { ok: boolean; reason?: string };
+      invoice: { ok: boolean; reason?: string };
+      inventory: { ok: boolean; reason?: string; skipped?: boolean };
+    } = {
+      kitchen_prep: { ok: false },
+      invoice: { ok: false },
+      inventory: { ok: false, skipped: true },
+    };
 
-    void (async () => {
-      try {
-        // Drop any existing invoice for this order, the auto-invoice
-        // helper will regen on next confirm-equivalent action. For now
-        // we just nudge it -- a future iteration adds a proper diff
-        // / amendment-invoice flow.
-        const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
-        await ensureInvoiceForOrder((request as any).order_id, (request as any).company_id);
-      } catch (e) {
-        console.warn("[amendment-review] invoice refresh failed:", e);
-      }
-    })();
+    try {
+      const { kitchenPrepService } = await import("@/services/kitchenPrepService");
+      await (kitchenPrepService as any).ensurePrepTasksForOrder(
+        (request as any).company_id,
+        (request as any).order_id,
+      );
+      cascade.kitchen_prep.ok = true;
+    } catch (e: any) {
+      cascade.kitchen_prep.reason = e?.message || "kitchen prep regen failed";
+      console.warn("[amendment-review] kitchen prep regen failed:", e);
+    }
+
+    try {
+      const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+      await ensureInvoiceForOrder((request as any).order_id, (request as any).company_id);
+      cascade.invoice.ok = true;
+    } catch (e: any) {
+      cascade.invoice.reason = e?.message || "invoice refresh failed";
+      console.warn("[amendment-review] invoice refresh failed:", e);
+    }
 
     // Inventory cascade. Only fire when the amendment touched
-    // guest_count, menu_items, or equipment_items -- those are the
-    // keys that change what's needed from the kitchen / store. A pure
-    // venue / time amendment doesn't need a recalc.
+    // guest_count, menu_items, or equipment_items.
     const inventoryRelevant = ["guest_count", "menu_items", "equipment_items"];
     const touchedInventory = Object.keys(toApply).some((k) => inventoryRelevant.includes(k));
     if (touchedInventory) {
-      void (async () => {
-        try {
-          const { recalculateInventoryForOrder } = await import("@/services/inventoryDeductionService");
-          const result = await recalculateInventoryForOrder(
-            (request as any).order_id,
-            (request as any).company_id,
-            user.id,
-          );
-          if (!result.success) {
-            console.warn("[amendment-review] inventory recalc had errors:", result.errors);
-          }
-        } catch (e) {
-          console.warn("[amendment-review] inventory recalc crashed:", e);
+      cascade.inventory = { ok: false, skipped: false };
+      try {
+        const { recalculateInventoryForOrder } = await import("@/services/inventoryDeductionService");
+        const result = await recalculateInventoryForOrder(
+          (request as any).order_id,
+          (request as any).company_id,
+          user.id,
+        );
+        cascade.inventory.ok = !!result.success;
+        if (!result.success) {
+          cascade.inventory.reason = (result.errors || []).join("; ") || "inventory recalc errors";
         }
-      })();
+      } catch (e: any) {
+        cascade.inventory.reason = e?.message || "inventory recalc crashed";
+        console.warn("[amendment-review] inventory recalc crashed:", e);
+      }
     }
+
+    // Persist cascade outcome on the request row so the operator can
+    // see at a glance which steps need a retry, and so a future retry
+    // endpoint can pick up where this one left off.
+    await ssr.from("order_amendment_requests").update({
+      applied_snapshot: {
+        before: snapshot,
+        applied_keys: Object.keys(toApply),
+        cascade,
+      },
+    } as any).eq("id", request_id);
 
     // Notify the client that their change went through. Best-effort
     // -- a notification failure must not roll back the amendment.
@@ -261,6 +283,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       applied: Object.keys(toApply).length,
       applied_keys: Object.keys(toApply),
       inventory_recalc_queued: touchedInventory,
+      cascade,
     });
   } catch (err: any) {
     console.error("[amendment-review] crashed:", err);
