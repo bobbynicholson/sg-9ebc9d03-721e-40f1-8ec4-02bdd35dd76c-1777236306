@@ -51,44 +51,46 @@ export async function recordPayment(
   extra: RecordPaymentExtra = {}
 ) {
   try {
-    const nowIso = new Date().toISOString();
-
-    // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
-    const insertRow: Record<string, any> = {
-      order_id: orderId,
-      amount,
-      payment_method: paymentMethod,
-      gateway_transaction_id: transactionId,
-      transaction_id: transactionId,
-      payment_status: "completed",
-      processed_at: nowIso,
-      completed_at: nowIso,
-      created_at: nowIso,
-    };
-
-    if (extra.userId) insertRow.user_id = extra.userId;
-    if (extra.companyId) insertRow.company_id = extra.companyId;
-    if (extra.clientId) insertRow.client_id = extra.clientId;
-    if (extra.currency) insertRow.currency = extra.currency;
-    if (extra.paymentType) insertRow.payment_type = extra.paymentType;
-    if (extra.gatewayProvider) {
-      insertRow.gateway = extra.gatewayProvider;
-      insertRow.gateway_provider = extra.gatewayProvider;
-      insertRow.payment_reference = transactionId;
-    }
-
-    const { data, error } = await supabase
-      .from("payments")
-      .insert(insertRow as any)
-      .select()
-      .single();
+    // Atomic RPC: payment INSERT + orders.payment_status recompute happen
+    // in one transaction. Previously this was two sequential round-trips
+    // (insert into payments, then updateOrderPaymentStatus) and a failure
+    // between them left the order showing the wrong payment status while
+    // the payments row was real. The RPC also short-circuits if a row
+    // with the same gateway_transaction_id already exists [P0-10].
+    // Cast to any: record_order_payment was added in
+    // 20260507130000_atomic_record_order_payment.sql; database.types.ts
+    // hasn't been regenerated yet, so the strongly-typed rpc() overload
+    // doesn't know the function name. Type generation will catch up in
+    // the next supabase gen run.
+    const { data: paymentId, error } = await (supabase as any).rpc(
+      "record_order_payment",
+      {
+        p_order_id: orderId,
+        p_amount: amount,
+        p_payment_method: paymentMethod,
+        p_transaction_id: transactionId ?? null,
+        p_user_id: extra.userId ?? null,
+        p_company_id: extra.companyId ?? null,
+        p_client_id: extra.clientId ?? null,
+        p_currency: extra.currency ?? null,
+        p_payment_type: extra.paymentType ?? null,
+        p_gateway_provider: extra.gatewayProvider ?? null,
+      }
+    );
 
     if (error) throw error;
 
-    // Update order payment status
-    await updateOrderPaymentStatus(orderId);
+    // Hydrate the inserted row for callers that expect the payment shape.
+    if (paymentId) {
+      const { data: row } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("id", paymentId as unknown as string)
+        .maybeSingle();
+      return { success: true, data: row };
+    }
 
-    return { success: true, data };
+    return { success: true, data: null };
   } catch (error: any) {
     console.error("Error recording payment:", error);
     return { success: false, error: error.message };
