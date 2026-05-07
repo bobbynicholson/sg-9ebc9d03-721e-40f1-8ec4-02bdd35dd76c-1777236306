@@ -166,6 +166,20 @@ export function ImportRecordsModal({
     warnings: number;
     errors: number;
     topIssues: Array<{ reason: string; count: number }>;
+    fyAnalysis?: {
+      fyStart: string;
+      preFy: number;
+      postFy: number;
+      undated: number;
+    };
+  } | null>(null);
+  // Day 7: post-commit reconciliation report shown on the done
+  // screen. Lets the operator see "R2.4M revenue across 412 orders
+  // matches your spreadsheet's R2.4M total" + flagged anomalies.
+  const [reconcile, setReconcile] = useState<{
+    counts: Record<string, number>;
+    totals: Record<string, number>;
+    anomalies: Array<{ kind: string; detail: string; count: number }>;
   } | null>(null);
   // Inline-edit state: which row is currently expanded for editing,
   // and the form values in flight. Keyed by row id so switching
@@ -439,6 +453,23 @@ export function ImportRecordsModal({
         setCommitSummary(aggregate);
         setStep("done");
         setCommitProgress(null);
+        // Day 7: pull the post-commit reconciliation snapshot so the
+        // done screen can show totals + anomalies without making the
+        // operator click through to discover them.
+        try {
+          const recRes = await fetch(`/api/imports/${jobId}/reconcile`);
+          if (recRes.ok) {
+            const rec = await recRes.json();
+            if (rec?.ok) setReconcile({
+              counts: rec.counts || {},
+              totals: rec.totals || {},
+              anomalies: rec.anomalies || [],
+            });
+          }
+        } catch {
+          // Non-fatal -- the import is committed, the report is a
+          // nice-to-have. We just won't render it.
+        }
         if (onComplete) onComplete();
       }
     } catch (e: any) {
@@ -557,6 +588,16 @@ export function ImportRecordsModal({
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+                {earlyValidation.fyAnalysis && earlyValidation.fyAnalysis.preFy > 0 && (
+                  <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900 mt-2">
+                    <p className="font-medium mb-1">📅 Backdating</p>
+                    <p className="leading-snug">
+                      <strong>{earlyValidation.fyAnalysis.preFy.toLocaleString("en-ZA")}</strong> rows
+                      are dated before your financial year start ({new Date(earlyValidation.fyAnalysis.fyStart).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}).
+                      They'll land as historical records -- still searchable, but won't show in current-year revenue totals on the dashboard.
+                    </p>
                   </div>
                 )}
                 <p className="text-[11px] text-slate-500 mt-2 text-center">
@@ -797,7 +838,7 @@ export function ImportRecordsModal({
         )}
 
         {step === "done" && commitSummary && (
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2">
             <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
               <Check className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -818,6 +859,65 @@ export function ImportRecordsModal({
                 </p>
               </div>
             </div>
+            {/* Day 7 reconciliation report */}
+            {reconcile && (
+              <>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Reconciliation</p>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    {reconcile.totals.orders_total > 0 && (
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-600">Orders revenue</span>
+                        <span className="font-mono text-slate-900">R{Math.round(reconcile.totals.orders_total).toLocaleString("en-ZA")}</span>
+                      </div>
+                    )}
+                    {reconcile.totals.invoices_total > 0 && (
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-600">Invoices issued</span>
+                        <span className="font-mono text-slate-900">R{Math.round(reconcile.totals.invoices_total).toLocaleString("en-ZA")}</span>
+                      </div>
+                    )}
+                    {reconcile.totals.payments_received > 0 && (
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-600">Payments received</span>
+                        <span className="font-mono text-emerald-700">R{Math.round(reconcile.totals.payments_received).toLocaleString("en-ZA")}</span>
+                      </div>
+                    )}
+                    {reconcile.totals.outstanding_balance > 0 && (
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-600">Outstanding</span>
+                        <span className="font-mono text-amber-700">R{Math.round(reconcile.totals.outstanding_balance).toLocaleString("en-ZA")}</span>
+                      </div>
+                    )}
+                    {reconcile.totals.quotes_total > 0 && (
+                      <div className="flex justify-between border-b border-slate-100 pb-1">
+                        <span className="text-slate-600">Quotes pipeline</span>
+                        <span className="font-mono text-slate-900">R{Math.round(reconcile.totals.quotes_total).toLocaleString("en-ZA")}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    {reconcile.counts.clients ? `${reconcile.counts.clients} clients` : ""}
+                    {reconcile.counts.orders ? ` · ${reconcile.counts.orders} orders` : ""}
+                    {reconcile.counts.invoices ? ` · ${reconcile.counts.invoices} invoices` : ""}
+                    {reconcile.counts.payments ? ` · ${reconcile.counts.payments} payments` : ""}
+                    {reconcile.counts.quotes ? ` · ${reconcile.counts.quotes} quotes` : ""}
+                  </p>
+                </div>
+                {reconcile.anomalies.length > 0 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold text-amber-900 mb-2">⚠ Worth a look</p>
+                    <ul className="space-y-1.5 text-[11px] text-amber-900">
+                      {reconcile.anomalies.map((a) => (
+                        <li key={a.kind} className="leading-snug">
+                          <strong>{a.count.toLocaleString("en-ZA")}</strong> · {a.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

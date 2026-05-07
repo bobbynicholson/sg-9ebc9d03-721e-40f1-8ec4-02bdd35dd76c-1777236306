@@ -90,6 +90,27 @@ interface QuickValidationSummary {
   errors: number;
   /** Top reasons for issues, biggest bucket first. Capped at 5. */
   topIssues: Array<{ reason: string; count: number }>;
+  /** Day 6 backdating analysis: count of date-bearing rows before
+   *  the SA financial year start (1 March of the current/prior
+   *  cycle). The wizard shows a banner so the operator understands
+   *  which rows land as historical. */
+  fyAnalysis?: {
+    fyStart: string;
+    preFy: number;
+    postFy: number;
+    undated: number;
+  };
+}
+
+/**
+ * SA financial year starts 1 March. Returns the most recent 1-March
+ * date that's <= today. So on 2026-04-15 -> 2026-03-01; on
+ * 2026-02-10 -> 2025-03-01.
+ */
+function currentFyStart(): string {
+  const now = new Date();
+  const year = now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
+  return `${year}-03-01`;
 }
 
 /**
@@ -123,11 +144,44 @@ function quickValidateAllSheets(
     return "";
   };
 
+  // Day 6 backdating tally. Walk every row that has a date-shaped
+  // column and bucket pre/post FY start.
+  const fyStart = currentFyStart();
+  const fy = { preFy: 0, postFy: 0, undated: 0 };
+  const dateLooksISO = (s: string): string | null => {
+    if (!s) return null;
+    // Common shapes: 2026-03-15, 15/03/2026, 03/15/2026, "15 Mar 2026".
+    // Use Date.parse as a permissive fallback; the real normaliser
+    // runs at preview time.
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const t = Date.parse(s);
+    if (Number.isFinite(t)) return new Date(t).toISOString().slice(0, 10);
+    return null;
+  };
+
   for (const sheet of sheets) {
     for (const r of sheet.rows) {
       const email = findValue(r.data, ["email", "mail"]);
       const name = findValue(r.data, ["name", "contact", "client"]);
       const phone = findValue(r.data, ["phone", "mobile", "cell", "tel"]);
+      // Bucket by date keywords likely to be present on
+      // orders / invoices / payments rows.
+      const dateText = findValue(r.data, [
+        "eventdate", "event date", "date", "invoicedate", "invoice date",
+        "paymentdate", "payment date", "duedate", "due",
+      ]);
+      const iso = dateLooksISO(dateText);
+      if (iso) {
+        if (iso < fyStart) fy.preFy += 1;
+        else fy.postFy += 1;
+      } else if (dateText) {
+        // Has a date column but couldn't parse -- count as undated for
+        // the FY tally (the per-row normaliser may still parse it).
+        fy.undated += 1;
+      } else {
+        // No date column on this row at all -- e.g. clients-only rows.
+        fy.undated += 1;
+      }
 
       // Same hard rules preview applies. Treat clients-default and
       // leads explicitly differently so the operator's reported
@@ -167,7 +221,11 @@ function quickValidateAllSheets(
     .slice(0, 5)
     .map(([reason, count]) => ({ reason, count }));
 
-  return { ...tally, topIssues };
+  return {
+    ...tally,
+    topIssues,
+    fyAnalysis: { fyStart, ...fy },
+  };
 }
 
 function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
