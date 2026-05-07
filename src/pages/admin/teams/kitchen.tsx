@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
 } from "lucide-react";
@@ -42,7 +43,7 @@ function KitchenTeamPage() {
       if (!companyId) return;
       setLoading(true);
       try {
-        const todayISO = new Date().toISOString().slice(0, 10);
+        const todayISO = toLocalISO(new Date());
         const weekStartISO = startOfWeek().toISOString();
 
         // Hours-this-week reads kitchen_staff_shifts (the canonical wage

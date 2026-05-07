@@ -1,3 +1,4 @@
+import { toLocalISO } from "@/lib/localDate";
 /**
  * Tier 2 chart 2 -- Capacity load calendar (next 90 days).
  *
@@ -69,7 +70,7 @@ export function aggregateCapacityLoad(
   const buckets = new Map<string, CapacityDayBucket>();
   for (let i = 0; i < daysAhead; i++) {
     const d = new Date(start.getTime() + i * DAY_MS);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = toLocalISO(d);
     buckets.set(iso, {
       isoDate: iso,
       label: fmtLabel(d),

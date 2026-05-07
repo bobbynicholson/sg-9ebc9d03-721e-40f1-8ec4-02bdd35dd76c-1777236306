@@ -51,6 +51,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -365,7 +366,7 @@ function ClientsCRM() {
       });
 
       // Aggregate orders into whichever contact they match
-      const todayISO = today.toISOString().slice(0, 10);
+      const todayISO = toLocalISO(today);
       (ordersRes.data || []).forEach((o: any) => {
         if (!o.client_email && !o.client_name) return;
         const k = keyOf(o.client_email, o.client_name);

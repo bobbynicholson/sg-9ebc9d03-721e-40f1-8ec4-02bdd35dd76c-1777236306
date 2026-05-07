@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { toLocalISO } from "@/lib/localDate";
 import {
   listForCompany,
   summarise,
@@ -43,15 +44,15 @@ function dateRangeFor(window: WindowKind): { from?: string; to?: string } {
   if (window === "all") return {};
   if (window === "this_month") {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { from: from.toISOString().slice(0, 10) };
+    return { from: toLocalISO(from) };
   }
   if (window === "this_quarter") {
     const q = Math.floor(now.getMonth() / 3);
     const from = new Date(now.getFullYear(), q * 3, 1);
-    return { from: from.toISOString().slice(0, 10) };
+    return { from: toLocalISO(from) };
   }
   const from = new Date(now.getFullYear(), 0, 1);
-  return { from: from.toISOString().slice(0, 10) };
+  return { from: toLocalISO(from) };
 }
 
 function TaxPurchasesPage() {
@@ -111,7 +112,7 @@ function TaxPurchasesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tax-purchases-${windowKind}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `tax-purchases-${windowKind}-${toLocalISO(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

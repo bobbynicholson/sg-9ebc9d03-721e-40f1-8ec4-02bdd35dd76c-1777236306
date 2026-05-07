@@ -54,6 +54,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { equipmentManagementService } from "@/services/equipmentManagementService";
 import { ShortagesPanel } from "@/components/admin/equipment/ShortagesPanel";
 import { HireInPanel } from "@/components/admin/equipment/HireInPanel";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -778,7 +779,7 @@ interface AvailabilityRow {
 
 function AvailabilityTab({ companyId }: { companyId: string | null }) {
   const { toast } = useToast();
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<string>(() => toLocalISO(new Date()));
   const [items, setItems] = useState<EquipmentRow[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [search, setSearch] = useState("");

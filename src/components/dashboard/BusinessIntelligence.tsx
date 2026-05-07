@@ -70,6 +70,7 @@ import { ReceivablesAgingChart } from "./charts/ReceivablesAgingChart";
 import { TopProductsBarChart } from "./charts/TopProductsBarChart";
 import { BranchSpiderChart } from "./charts/BranchSpiderChart";
 import { BranchCapacityHeatmap } from "./charts/BranchCapacityHeatmap";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Props {
   companyId: string | null | undefined;
@@ -128,14 +129,14 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     const now = new Date();
     const startISO = (() => {
       const d = new Date(now.getFullYear(), now.getMonth() - 23, 1);
-      return d.toISOString().slice(0, 10);
+      return toLocalISO(d);
     })();
     // Capacity-load chart needs the next 90 days. Stretch the orders
     // and quotes windows out so a single fetch covers history + future.
     const futureCapISO = (() => {
       const d = new Date(now);
       d.setDate(d.getDate() + 95); // small buffer
-      return d.toISOString().slice(0, 10);
+      return toLocalISO(d);
     })();
 
     (async () => {

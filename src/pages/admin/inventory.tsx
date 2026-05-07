@@ -64,6 +64,7 @@ import { BulkReassignDialog } from "@/components/admin/inventory/BulkReassignDia
 import { KeyboardShortcutsDialog } from "@/components/admin/inventory/KeyboardShortcutsDialog";
 import { useInventoryViews, type SavedView } from "@/hooks/useInventoryViews";
 import { Bookmark, BookmarkPlus, Keyboard } from "lucide-react";
+import { toLocalISO } from "@/lib/localDate";
 
 interface InventoryItem {
   id: string;
@@ -767,7 +768,7 @@ export default function AdminInventory() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `inventory-${toLocalISO(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

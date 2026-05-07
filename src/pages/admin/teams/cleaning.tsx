@@ -14,6 +14,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import {
   Sparkles, ArrowLeft, Users, ClipboardList, Loader2, Calendar,
 } from "lucide-react";
@@ -32,7 +33,7 @@ function CleaningTeamPage() {
       if (!companyId) return;
       setLoading(true);
       try {
-        const todayISO = new Date().toISOString().slice(0, 10);
+        const todayISO = toLocalISO(new Date());
         const [staffRes, jobsRes] = await Promise.all([
           supabase.from("profiles").select("id", { count: "exact", head: true })
             .eq("company_id", companyId).eq("role", "cleaning_staff"),

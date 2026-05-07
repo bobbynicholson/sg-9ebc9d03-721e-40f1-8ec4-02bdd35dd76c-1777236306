@@ -1,3 +1,4 @@
+import { toLocalISO } from "@/lib/localDate";
 /**
  * Tier 2 chart 1 -- Seasonality heatmap.
  *
@@ -84,7 +85,7 @@ export function aggregateSeasonalityHeatmap(
     for (let i = 0; i < 7; i++) {
       const day = new Date(cursor);
       day.setDate(day.getDate() + i);
-      const iso = day.toISOString().slice(0, 10);
+      const iso = toLocalISO(day);
       const dow = dowMonFirst(day);
       const cellKey = `${wk}|${dow}`;
       // Mark outOfWindow when the day is past windowEnd.

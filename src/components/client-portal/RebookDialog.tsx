@@ -59,6 +59,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ const ZA_DATE_OPTS: Intl.DateTimeFormatOptions = {
 function defaultEventDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 28);
-  return d.toISOString().slice(0, 10);
+  return toLocalISO(d);
 }
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -307,7 +308,7 @@ export function RebookDialog({
       // Quote number format mirrors the existing convention
       // (QT-YYYYMMDD-NNN) but uses REQ- so the catering team can spot
       // client-driven requests at a glance in the quotes list.
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const today = toLocalISO(new Date()).replace(/-/g, "");
       const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
       const quoteNumber = `REQ-${today}-${rand}`;
 
@@ -415,7 +416,7 @@ export function RebookDialog({
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={toLocalISO(new Date())}
                 />
               </div>
               <div className="space-y-1">

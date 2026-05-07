@@ -18,6 +18,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import {
   UtensilsCrossed, Package, AlertTriangle, ImageOff, Tag,
   TrendingUp, Loader2, ArrowRight, Sparkles,
@@ -67,8 +68,8 @@ function OfferingPage() {
     setLoading(true);
     try {
       const today = new Date();
-      const since30 = new Date(today.getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-      const since90 = new Date(today.getTime() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const since30 = toLocalISO(new Date(today.getTime() - 30 * 24 * 3600 * 1000));
+      const since90 = toLocalISO(new Date(today.getTime() - 90 * 24 * 3600 * 1000));
 
       // Menu count + last-edited
       const [menuCountRes, menuLatestRes, equipRes] = await Promise.all([

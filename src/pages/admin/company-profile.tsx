@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { toLocalISO } from "@/lib/localDate";
 
 interface CompanyRow {
   id: string;
@@ -654,7 +655,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
         year_separator: "-",
         resets_yearly: false,
         next_number: 1,
-        effective_from: new Date().toISOString().slice(0, 10),
+        effective_from: toLocalISO(new Date()),
         notes: null,
       };
       return { ...prev, [t]: { ...cur, ...patch } };

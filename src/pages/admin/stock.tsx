@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
+import { toLocalISO } from "@/lib/localDate";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
   Boxes, ClipboardList, ArrowRight, Filter, MapPin,
@@ -81,8 +82,8 @@ function StockPage() {
     setLoading(true);
     try {
       const today = new Date();
-      const todayISO = today.toISOString().slice(0, 10);
-      const in14ISO = new Date(today.getTime() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const todayISO = toLocalISO(today);
+      const in14ISO = toLocalISO(new Date(today.getTime() + 14 * 24 * 3600 * 1000));
 
       // ---- Low stock -----------------------------------------------------
       const lowItems = await inventoryService.getLowStockItems(companyId);

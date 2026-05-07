@@ -33,6 +33,7 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/composeEmail";
+import { toLocalISO } from "@/lib/localDate";
 import {
   supplierService, type Supplier, type SupplierProduct,
   type SupplierPurchaseSummary, type SupplierReceiptRow,
@@ -69,8 +70,8 @@ function SupplierDetail() {
   const [confirmUnlink, setConfirmUnlink] = useState<SupplierProduct | null>(null);
 
   const [range, setRange] = useState<RangeKey>("90d");
-  const [customFrom, setCustomFrom] = useState<string>(new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10));
-  const [customTo, setCustomTo] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [customFrom, setCustomFrom] = useState<string>(toLocalISO(new Date(Date.now() - 90 * 86400000)));
+  const [customTo, setCustomTo] = useState<string>(toLocalISO(new Date()));
 
   const { fromIso, toIso } = useMemo(() => {
     if (range === "custom") {

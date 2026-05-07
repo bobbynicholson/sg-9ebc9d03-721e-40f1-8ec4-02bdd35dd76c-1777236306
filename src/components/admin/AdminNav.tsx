@@ -61,6 +61,7 @@ import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
+import { toLocalISO } from "@/lib/localDate";
 
 interface NavItem {
   title: string;
@@ -124,7 +125,7 @@ export function AdminNav({ className }: AdminNavProps) {
     if (!cid) return;
     let cancelled = false;
     const load = async () => {
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const { count } = await (await import("@/integrations/supabase/client")).supabase
         .from("orders")
         .select("id", { count: "exact", head: true })

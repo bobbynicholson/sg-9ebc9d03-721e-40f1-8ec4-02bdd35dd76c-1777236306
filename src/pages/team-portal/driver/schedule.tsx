@@ -11,6 +11,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface ScheduleOrder {
   id: string;
@@ -49,7 +50,7 @@ export default function DriverSchedulePage() {
         .from("orders")
         .select("id, event_date, event_time, venue_address, guest_count, status, total_amount, client_name")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
-        .gte("event_date", today.toISOString().slice(0, 10))
+        .gte("event_date", toLocalISO(today))
         .neq("status", "cancelled")
         .order("event_date", { ascending: true });
       if (!cancelled) {

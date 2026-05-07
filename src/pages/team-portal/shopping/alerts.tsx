@@ -15,6 +15,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -73,7 +74,7 @@ export default function ShoppingAlertsPage() {
           .from("order_ingredient_demand")
           .select("inventory_item_id, order_id, order_number, event_name, event_date, menu_item_name, quantity_required, unit, order_status")
           .eq("company_id", companyId)
-          .gte("event_date", new Date().toISOString().slice(0, 10))
+          .gte("event_date", toLocalISO(new Date()))
           .in("order_status", ["confirmed", "preparing", "ready"]),
       ]);
       if (cancelled) return;

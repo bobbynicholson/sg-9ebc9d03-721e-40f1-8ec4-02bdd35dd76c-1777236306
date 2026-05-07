@@ -29,6 +29,7 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Region {
   id: string;
@@ -177,7 +178,7 @@ function RegionsPage() {
     // this calendar month from the operator's perspective".
     const now = new Date();
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const mtdStartIso = mtdStart.toISOString().slice(0, 10);
+    const mtdStartIso = toLocalISO(mtdStart);
 
     // Enrich with staff/order counts (best-effort; failures shouldn't block UI)
     const enriched = await Promise.all(

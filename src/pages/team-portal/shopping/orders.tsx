@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toLocalISO } from "@/lib/localDate";
 
 interface ShoppingList {
   id: string;
@@ -70,7 +71,7 @@ export default function ShoppingOrdersPage() {
   const [tab, setTab] = useState<"lists" | "upcoming">("lists");
 
   const [creating, setCreating] = useState(false);
-  const [listDate, setListDate] = useState(new Date().toISOString().slice(0, 10));
+  const [listDate, setListDate] = useState(toLocalISO(new Date()));
   const [listNotes, setListNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -95,7 +96,7 @@ export default function ShoppingOrdersPage() {
           .from("orders")
           .select("id, order_number, event_name, event_date, event_time, guest_count, status, venue_address, client_name")
           .eq("company_id", user.company_id)
-          .gte("event_date", new Date().toISOString().slice(0, 10))
+          .gte("event_date", toLocalISO(new Date()))
           .in("status", ["pending", "confirmed", "preparing"])
           .order("event_date", { ascending: true })
           .limit(50)
@@ -119,7 +120,7 @@ export default function ShoppingOrdersPage() {
 
   const openCreate = () => {
     setCreating(true);
-    setListDate(new Date().toISOString().slice(0, 10));
+    setListDate(toLocalISO(new Date()));
     setListNotes("");
   };
   const closeCreate = () => setCreating(false);

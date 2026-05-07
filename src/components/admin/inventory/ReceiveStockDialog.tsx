@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
+import { toLocalISO } from "@/lib/localDate";
 
 export interface ReceiveLine {
   id: string;
@@ -48,7 +49,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
   const [suppliers, setSuppliers] = useState<Array<{ id: string; supplier_name: string }>>([]);
   const [supplierId, setSupplierId] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [receivedDate, setReceivedDate] = useState(() => toLocalISO(new Date()));
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<ReceiveLine[]>([newLine()]);
   const [saving, setSaving] = useState(false);
@@ -61,7 +62,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
     // Reset form on open
     setSupplierId("");
     setInvoiceNumber("");
-    setReceivedDate(new Date().toISOString().slice(0, 10));
+    setReceivedDate(toLocalISO(new Date()));
     setNotes("");
     setLines([newLine()]);
     setError("");

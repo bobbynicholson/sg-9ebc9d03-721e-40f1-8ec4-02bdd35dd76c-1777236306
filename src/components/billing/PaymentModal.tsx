@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Invoice {
   id: string;
@@ -88,7 +89,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
   // edit if they paid earlier and only got around to confirming now.
   const [eftPaidAt, setEftPaidAt] = useState<string>(() => {
     const d = new Date();
-    return d.toISOString().slice(0, 10);
+    return toLocalISO(d);
   });
   const [eftNotes, setEftNotes] = useState("");
   const [confirmingClaim, setConfirmingClaim] = useState(false);
@@ -508,7 +509,7 @@ function EftPanel({
             <input
               type="date"
               value={eftPaidAt}
-              max={new Date().toISOString().slice(0, 10)}
+              max={toLocalISO(new Date())}
               onChange={(e) => setEftPaidAt(e.target.value)}
               className="mt-1 w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
             />

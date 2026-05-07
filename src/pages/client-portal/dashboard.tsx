@@ -44,6 +44,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -137,7 +138,7 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
     ["in_transit", "out_for_delivery", "ready", "preparing"].includes(o.status),
   );
   if (live) return live;
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = toLocalISO(new Date());
   const upcoming = orders
     .filter((o) => o.event_date >= todayISO && !["cancelled", "completed"].includes(o.status))
     .sort((a, b) => a.event_date.localeCompare(b.event_date));
@@ -149,7 +150,7 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
   // surfacing it as the headline.
   const threeDaysAgo = new Date();
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-  const cutoffISO = threeDaysAgo.toISOString().slice(0, 10);
+  const cutoffISO = toLocalISO(threeDaysAgo);
   const recent = orders
     .filter(
       (o) =>

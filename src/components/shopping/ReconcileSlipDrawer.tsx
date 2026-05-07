@@ -24,6 +24,7 @@ import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService } from "@/services/inventoryService";
+import { toLocalISO } from "@/lib/localDate";
 
 interface ExtractionLine {
   description: string;
@@ -145,7 +146,7 @@ export function ReconcileSlipDrawer({
       // Manual mode (or no extraction available): blank slate, one
       // empty line ready for input.
       setVendor("");
-      setReceiptDate(new Date().toISOString().slice(0, 10));
+      setReceiptDate(toLocalISO(new Date()));
       setReceiptNumber("");
       setTotal("");
       setNotes("");
@@ -153,7 +154,7 @@ export function ReconcileSlipDrawer({
       return;
     }
     setVendor(mappedData.supplier_name || "");
-    setReceiptDate(mappedData.receipt_date || new Date().toISOString().slice(0, 10));
+    setReceiptDate(mappedData.receipt_date || toLocalISO(new Date()));
     setReceiptNumber(mappedData.receipt_number || "");
     setTotal(mappedData.total != null ? String(mappedData.total) : "");
     setNotes("");
@@ -534,7 +535,7 @@ export function ReconcileSlipDrawer({
           companyId,
           supplierId,
           invoiceNumber: receiptNumber || `slip-${receiptId.slice(0, 8)}`,
-          receivedDate: receiptDate || new Date().toISOString().slice(0, 10),
+          receivedDate: receiptDate || toLocalISO(new Date()),
           performedBy: userId,
           notes: vendor ? `From ${vendor}` : null,
           lines: stockReceives.map((s) => ({

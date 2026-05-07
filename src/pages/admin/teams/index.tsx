@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import {
   ChefHat, Truck, ShoppingBag, Sparkles, Users, AlertTriangle,
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar,
@@ -69,7 +70,7 @@ function TeamsIndexPage() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const weekStartISO = startOfWeek().toISOString();
 
       // Active staff per role (profiles)

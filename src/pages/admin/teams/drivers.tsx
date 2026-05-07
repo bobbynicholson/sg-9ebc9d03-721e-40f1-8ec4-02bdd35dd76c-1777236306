@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import {
   Truck, ArrowLeft, Users, Clock, ClipboardList, Loader2,
   Receipt, Map, Car,
@@ -40,7 +41,7 @@ function DriversTeamPage() {
       if (!companyId) return;
       setLoading(true);
       try {
-        const todayISO = new Date().toISOString().slice(0, 10);
+        const todayISO = toLocalISO(new Date());
         const weekStartISO = startOfWeek().toISOString();
 
         const [staffRes, weekRes, todayRes] = await Promise.all([

@@ -72,6 +72,7 @@ import {
 } from "@/lib/quoteDiarySignal";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { toLocalISO } from "@/lib/localDate";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -1818,7 +1819,7 @@ function QuoteComposeDrawer({
   const [validUntil, setValidUntil] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
+    return toLocalISO(d);
   });
 
   const validUntilLabel = validUntil

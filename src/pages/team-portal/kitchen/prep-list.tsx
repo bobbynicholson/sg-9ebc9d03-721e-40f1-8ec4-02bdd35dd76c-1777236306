@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPrepService";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { toLocalISO } from "@/lib/localDate";
 
 interface DemandRow {
   order_id: string;
@@ -90,8 +91,8 @@ export default function KitchenPrepListPage() {
       setLoading(true);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().slice(0, 10);
-      const horizon = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+      const todayStr = toLocalISO(today);
+      const horizon = toLocalISO(new Date(today.getTime() + 30 * 86400000));
 
       const [demandRes, outlookRes] = await Promise.all([
         supabase
@@ -245,8 +246,8 @@ export default function KitchenPrepListPage() {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const fromStr = today.toISOString().slice(0, 10);
-      const toStr = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+      const fromStr = toLocalISO(today);
+      const toStr = toLocalISO(new Date(today.getTime() + 30 * 86400000));
       const result = await kitchenPrepService.createShoppingListFromShortfall(
         companyId,
         userId,

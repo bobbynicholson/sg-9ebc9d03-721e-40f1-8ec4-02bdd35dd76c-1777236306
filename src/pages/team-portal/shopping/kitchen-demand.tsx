@@ -15,6 +15,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
+import { toLocalISO } from "@/lib/localDate";
 import {
   kitchenPrepService,
   type IngredientDemand,
@@ -25,7 +26,7 @@ import {
 function isoOffset(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toLocalISO(d);
 }
 
 const HORIZONS = [
@@ -47,7 +48,7 @@ export default function ShoppingKitchenDemandPage() {
   const [shortfallOnly, setShortfallOnly] = useState(true);
   const [creating, setCreating] = useState(false);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = useMemo(() => toLocalISO(new Date()), []);
   const horizonStr = useMemo(() => isoOffset(horizon), [horizon]);
 
   const load = async () => {

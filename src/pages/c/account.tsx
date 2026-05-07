@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
+import { toLocalISO } from "@/lib/localDate";
 
 type AccountView = {
   ok: true;
@@ -115,7 +116,7 @@ export default function ClientAccountPage() {
 
   const { orders, company } = view;
   const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
-  const upcoming = orders.filter((o: any) => o.event_date >= new Date().toISOString().slice(0, 10) && o.status !== "cancelled");
+  const upcoming = orders.filter((o: any) => o.event_date >= toLocalISO(new Date()) && o.status !== "cancelled");
   const past     = orders.filter((o: any) => !upcoming.includes(o));
 
   return (

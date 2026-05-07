@@ -19,6 +19,7 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Schedule {
   id: string;
@@ -50,7 +51,7 @@ export default function CleaningSchedulesPage() {
   const [areaName, setAreaName] = useState("");
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState("daily");
-  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 10));
+  const [scheduledDate, setScheduledDate] = useState(toLocalISO(new Date()));
   const [scheduledTime, setScheduledTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
 
@@ -95,7 +96,7 @@ export default function CleaningSchedulesPage() {
     setAreaName("");
     setDescription("");
     setFrequency("daily");
-    setScheduledDate(new Date().toISOString().slice(0, 10));
+    setScheduledDate(toLocalISO(new Date()));
     setScheduledTime("09:00");
   };
   const closeCreate = () => setCreating(false);

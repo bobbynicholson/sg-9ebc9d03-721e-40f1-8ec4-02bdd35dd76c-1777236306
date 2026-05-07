@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -125,7 +126,7 @@ function SmartShoppingPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const [outlookRes, invRes, demandRes, supRes] = await Promise.all([
         supabase
           .from("inventory_demand_outlook")
@@ -175,7 +176,7 @@ function SmartShoppingPage() {
   }, [demand]);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayISO = today.toISOString().slice(0, 10);
+  const todayISO = toLocalISO(today);
 
   // Decorate every outlook row with derived fields
   const enriched = useMemo(() => {

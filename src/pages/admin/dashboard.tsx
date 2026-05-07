@@ -18,6 +18,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
   bookedRevenue: number;
@@ -79,9 +80,9 @@ function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const fromISO = range.from.toISOString().slice(0, 10);
-      const toISO   = range.to.toISOString().slice(0, 10);
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const fromISO = toLocalISO(range.from);
+      const toISO   = toLocalISO(range.to);
+      const todayISO = toLocalISO(new Date());
 
       // Pull every order whose event falls in the range, plus the always-on
       // counters (low stock, pending quotes, team size) which don't bind to range.

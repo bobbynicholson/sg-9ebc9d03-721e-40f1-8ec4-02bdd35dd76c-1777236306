@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ClipboardCheck, AlertCircle, CheckCircle2, ArrowDown, ArrowUp } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
+import { toLocalISO } from "@/lib/localDate";
 
 export interface CountItem {
   id: string;
@@ -95,7 +96,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
       const result = await inventoryService.cycleCount({
         companyId,
         performedBy,
-        countedAt: new Date().toISOString().slice(0, 10),
+        countedAt: toLocalISO(new Date()),
         notes: notes.trim() || undefined,
         entries: enteredEntries.map(e => ({ itemId: e.item.id, counted: e.counted })),
       });

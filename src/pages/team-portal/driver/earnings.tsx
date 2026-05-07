@@ -26,6 +26,7 @@ import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { toLocalISO } from "@/lib/localDate";
 import {
   driverPayService,
   type DriverPaySummary,
@@ -36,15 +37,15 @@ const formatR = (n: number) =>
 
 type Preset = "last_7" | "last_30" | "month_to_date" | "last_month" | "custom";
 
-function todayIso() { return new Date().toISOString().slice(0, 10); }
+function todayIso() { return toLocalISO(new Date()); }
 function daysAgoIso(d: number) {
   const dt = new Date();
   dt.setDate(dt.getDate() - d);
-  return dt.toISOString().slice(0, 10);
+  return toLocalISO(dt);
 }
 function startOfMonthIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return toLocalISO(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 function lastMonthRange(): { from: string; to: string } {
   const d = new Date();
@@ -52,8 +53,8 @@ function lastMonthRange(): { from: string; to: string } {
   const lastOfPrev = new Date(firstOfThisMonth.getTime() - 86400000);
   const firstOfPrev = new Date(lastOfPrev.getFullYear(), lastOfPrev.getMonth(), 1);
   return {
-    from: firstOfPrev.toISOString().slice(0, 10),
-    to: lastOfPrev.toISOString().slice(0, 10),
+    from: toLocalISO(firstOfPrev),
+    to: toLocalISO(lastOfPrev),
   };
 }
 

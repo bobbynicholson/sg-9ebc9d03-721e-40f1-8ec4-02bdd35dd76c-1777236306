@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Trash2, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { shiftService, type DriverShift } from "@/services/shiftService";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Props {
   open: boolean;
@@ -18,7 +19,7 @@ interface Props {
 }
 
 function dateToISO(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return toLocalISO(d);
 }
 
 /**

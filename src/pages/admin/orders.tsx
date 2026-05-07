@@ -41,6 +41,7 @@ import { CancellationRequestsTab } from "@/components/admin/CancellationRequests
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OrderStats {
   total: number;
@@ -980,8 +981,8 @@ function OrderProcessDashboard() {
         const d = new Date(eventDate);
         const from = new Date(d); from.setDate(from.getDate() - 1);
         const until = new Date(d); until.setDate(until.getDate() + 1);
-        bookedFrom = from.toISOString().slice(0, 10);
-        bookedUntil = until.toISOString().slice(0, 10);
+        bookedFrom = toLocalISO(from);
+        bookedUntil = toLocalISO(until);
       }
       setEqAdding(true);
       try {

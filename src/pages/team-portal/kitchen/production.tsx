@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type KitchenStation } from "@/services/kitchenPrepService";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Order {
   id: string;
@@ -67,7 +68,7 @@ const DAY_TOTAL_MIN = (DAY_END_HOUR - DAY_START_HOUR) * 60; // 1020
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+function isoDate(d: Date) { return toLocalISO(d); }
 function fmtDay(d: Date) {
   return d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
 }

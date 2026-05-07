@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
+import { toLocalISO } from "@/lib/localDate";
 
 type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
 
@@ -117,7 +118,7 @@ function EmailSettingsPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const [{ data }, { count }, { count: queued }] = await Promise.all([
         supabase
           .from("email_provider_settings")

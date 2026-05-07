@@ -95,6 +95,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -169,11 +170,11 @@ const safeNum = (n: any) => {
   return Number.isFinite(v) ? v : 0;
 };
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => toLocalISO(new Date());
 const futureISO = (days: number) => {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return toLocalISO(d);
 };
 
 // Quote-number generator: QT-YYYYMMDD-XXXXXX (six hex chars). The

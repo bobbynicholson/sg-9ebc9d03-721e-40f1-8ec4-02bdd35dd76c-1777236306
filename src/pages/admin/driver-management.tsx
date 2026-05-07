@@ -34,6 +34,7 @@ import { ShiftScheduleDialog } from "@/components/admin/dispatch/ShiftScheduleDi
 import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { dispatchService } from "@/services/dispatchService";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Driver {
   id: string;
@@ -216,7 +217,7 @@ function DriverManagementPage() {
       if (driverIds.length === 0) return;
 
       // Active jobs today
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toLocalISO(new Date());
       const { data: activeOrders } = await supabase
         .from("orders")
         .select("assigned_driver_id")

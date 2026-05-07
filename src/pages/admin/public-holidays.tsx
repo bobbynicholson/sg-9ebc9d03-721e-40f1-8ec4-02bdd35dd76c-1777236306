@@ -36,6 +36,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Holiday {
   id: string;
@@ -261,14 +262,14 @@ function AddHolidayDialog({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<string>(toLocalISO(new Date()));
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(toLocalISO(new Date()));
       setName("");
       setNotes("");
     }

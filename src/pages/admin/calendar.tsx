@@ -27,6 +27,7 @@ import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
 
 export default function ProtectedCalendarPage() {
   return (
@@ -53,24 +54,6 @@ const STATUS_TONES: Record<string, string> = {
 };
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
-
-/**
- * Format a Date as YYYY-MM-DD using its LOCAL timezone, not UTC.
- *
- * `Date.toISOString().slice(0,10)` returns the UTC date, which in SA
- * (UTC+2) shifts every midnight-local Date back to the previous day's
- * UTC date. Cells built with `new Date(year, month, day)` are local
- * midnight, so the UTC slice produced "2026-05-13" for the cell
- * labelled "14", binning May 14 events onto the May 15 cell. Use this
- * helper anywhere we need to key a cell, compare against an
- * event_date column, or stamp "today" against a calendar position.
- */
-const toLocalISO = (d: Date): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
 
 // Quote statuses that count as "still open" for the diary gap-finder.
 // Anything past these (accepted -> already an order, rejected -> dead,

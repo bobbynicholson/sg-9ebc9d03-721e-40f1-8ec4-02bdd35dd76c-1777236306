@@ -14,6 +14,7 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface Schedule {
   id: string;
@@ -68,7 +69,7 @@ export default function CleaningTasksPage() {
         .order("scheduled_time", { ascending: true })
         .limit(100);
 
-      if (filter === "today") q = q.eq("scheduled_date", new Date().toISOString().slice(0, 10));
+      if (filter === "today") q = q.eq("scheduled_date", toLocalISO(new Date()));
       if (filter === "mine" && user.id) q = q.eq("assigned_to", user.id);
 
       const { data, error } = await q.returns<Schedule[]>();

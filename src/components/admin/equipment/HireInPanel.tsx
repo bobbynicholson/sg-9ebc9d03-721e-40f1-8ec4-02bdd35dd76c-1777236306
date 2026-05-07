@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface HireOrder {
   id: string;
@@ -158,8 +159,8 @@ export function HireInPanel() {
   const transitionStatus = async (r: HireOrder, next: HireOrder["status"]) => {
     try {
       const patch: any = { status: next };
-      if (next === "picked_up" && !r.actual_pickup_date) patch.actual_pickup_date = new Date().toISOString().slice(0, 10);
-      if (next === "returned" && !r.actual_return_date) patch.actual_return_date = new Date().toISOString().slice(0, 10);
+      if (next === "picked_up" && !r.actual_pickup_date) patch.actual_pickup_date = toLocalISO(new Date());
+      if (next === "returned" && !r.actual_return_date) patch.actual_return_date = toLocalISO(new Date());
       const { error } = await (supabase as any).from("equipment_hire_orders").update(patch).eq("id", r.id);
       if (error) throw error;
       toast({ title: `Marked ${STATUS_META[next].label.toLowerCase()}` });

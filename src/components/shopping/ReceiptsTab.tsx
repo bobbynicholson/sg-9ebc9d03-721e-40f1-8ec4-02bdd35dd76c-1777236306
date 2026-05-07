@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
+import { toLocalISO } from "@/lib/localDate";
 import {
   uploadReceiptImage,
   createReceipt,
@@ -51,15 +52,15 @@ export function dateRangeFor(window: WindowKind): { from?: string; to?: string }
   if (window === "all") return {};
   if (window === "this_month") {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { from: from.toISOString().slice(0, 10) };
+    return { from: toLocalISO(from) };
   }
   if (window === "this_quarter") {
     const q = Math.floor(now.getMonth() / 3);
     const from = new Date(now.getFullYear(), q * 3, 1);
-    return { from: from.toISOString().slice(0, 10) };
+    return { from: toLocalISO(from) };
   }
   const from = new Date(now.getFullYear(), 0, 1);
-  return { from: from.toISOString().slice(0, 10) };
+  return { from: toLocalISO(from) };
 }
 
 interface Props {
@@ -114,7 +115,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newVendor, setNewVendor] = useState("");
-  const [newDate, setNewDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [newDate, setNewDate] = useState<string>(toLocalISO(new Date()));
   const [newTotal, setNewTotal] = useState<string>("");
   const [newNotes, setNewNotes] = useState("");
   const [newFile, setNewFile] = useState<File | null>(null);
@@ -171,7 +172,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       });
       setAddOpen(false);
       setNewVendor("");
-      setNewDate(new Date().toISOString().slice(0, 10));
+      setNewDate(toLocalISO(new Date()));
       setNewTotal("");
       setNewNotes("");
       setNewFile(null);
@@ -194,7 +195,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tax-purchases-${windowKind}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `tax-purchases-${windowKind}-${toLocalISO(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

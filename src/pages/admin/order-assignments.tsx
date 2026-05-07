@@ -35,6 +35,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OrderRow {
   id: string;
@@ -129,7 +130,7 @@ function DispatchQueuePage() {
       setSettings(s);
       setKpis(k);
 
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const { data: rows, error } = await supabase
         .from("orders")
         .select(`

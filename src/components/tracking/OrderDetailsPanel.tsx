@@ -50,6 +50,7 @@ import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
+import { toLocalISO } from "@/lib/localDate";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -627,7 +628,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         order={{
           id: order.id,
           client_name: order.client_name,
-          event_date: order.event_date || new Date().toISOString().slice(0, 10),
+          event_date: order.event_date || toLocalISO(new Date()),
           event_time: order.event_time,
           venue_lat: order.venue_lat,
           venue_lng: order.venue_lng,
