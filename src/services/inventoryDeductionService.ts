@@ -352,13 +352,27 @@ export async function deductInventoryForOrder(
       .select("*")
       .eq("id", orderId)
       .single();
-    
+
     if (orderError || !orderData) {
       errors.push("Order not found");
       return { success: false, deducted, warnings, errors };
     }
-    
+
     const order = orderData as any;
+
+    // Idempotency guard. inventory_deducted_at is set once on a
+    // successful run; on subsequent calls we no-op so a duplicate
+    // status transition / retry / two racing workers don't double-
+    // deduct from inventory_items [P1-14]. recalculateInventoryFor
+    // Order clears the column before re-running.
+    if (order.inventory_deducted_at) {
+      warnings.push({
+        item: "Order",
+        message: `Inventory already deducted at ${order.inventory_deducted_at}. No-op.`,
+      });
+      return { success: true, deducted, warnings, errors };
+    }
+
     const guestCount = order.final_guest_count || order.guest_count || order.number_of_guests || 0;
     
     if (!order.menu_items || !Array.isArray(order.menu_items)) {
@@ -468,6 +482,24 @@ export async function deductInventoryForOrder(
       }
     }
     
+    // Stamp inventory_deducted_at on success so a subsequent call
+    // no-ops via the guard at the top of the function [P1-14].
+    // Cast: column added in 20260507160000 migration, types haven't
+    // been regenerated yet.
+    if (errors.length === 0 && deducted.length > 0) {
+      const { error: stampErr } = await (supabase as any)
+        .from("orders")
+        .update({ inventory_deducted_at: new Date().toISOString() })
+        .eq("id", orderId);
+      if (stampErr) {
+        console.warn("[deductInventoryForOrder] inventory_deducted_at stamp failed:", stampErr.message);
+        warnings.push({
+          item: "Order",
+          message: "Deduction succeeded but the idempotency stamp failed; a retry could double-deduct.",
+        });
+      }
+    }
+
     return {
       success: errors.length === 0,
       deducted,
@@ -554,7 +586,15 @@ export async function recalculateInventoryForOrder(
       reversed += 1;
     }
 
-    // 3. Re-run the deduction. The order row now reflects the amended
+    // 3. Clear the idempotency stamp before re-running, otherwise the
+    // guard added in [P1-14] would short-circuit the re-deduction
+    // and the amended order would never reflect the new shape.
+    await (supabase as any)
+      .from("orders")
+      .update({ inventory_deducted_at: null })
+      .eq("id", orderId);
+
+    // 4. Re-run the deduction. The order row now reflects the amended
     // guest_count / menu_items, so this picks up the new shape.
     const replayed = await deductInventoryForOrder(orderId, companyId, performedBy);
 
