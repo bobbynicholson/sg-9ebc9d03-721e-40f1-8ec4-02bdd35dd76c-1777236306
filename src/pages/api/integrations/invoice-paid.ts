@@ -18,7 +18,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
-import { consumeApiKeyRateLimit } from "@/lib/apiKeyRateLimit";
+import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
+import { getServiceSupabase } from "@/lib/supabase/service";
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -38,8 +39,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!m) return res.status(401).json({ error: "Missing Authorization: Bearer <api key>" });
   const tokenHash = sha256Hex(m[1]);
 
-  // Per-key rate limit [P0-17].
-  const rl = consumeApiKeyRateLimit(tokenHash, { maxPerMinute: 60 });
+  // Per-key rate limit, DB-backed [P2F-2] with in-memory fallback.
+  let rateLimitClient: any = null;
+  try { rateLimitClient = getServiceSupabase(); } catch { /* falls back */ }
+  const rl = rateLimitClient
+    ? await consumeApiKeyRateLimitDb(rateLimitClient, tokenHash, { maxPerMinute: 60 })
+    : { allowed: true, remaining: 60, resetInMs: 60_000 };
   if (!rl.allowed) {
     res.setHeader("Retry-After", Math.ceil(rl.resetInMs / 1000).toString());
     return res.status(429).json({ error: "Rate limit exceeded for this API key. Try again shortly." });
