@@ -2,17 +2,30 @@
 /**
  * POST /api/imports/[id]/commit
  *
- * Take every import_row in status='pending' (passed the preview
- * check) and insert it into clients / orders. Each inserted row is
- * stamped with import_job_id so a single rollback DELETE reverses
- * the whole job.
+ * Take import_rows in status='pending' (passed the preview check) and
+ * insert into clients / orders / leads. Each inserted row is stamped
+ * with import_job_id so a single rollback DELETE reverses the whole
+ * job.
+ *
+ * **Batched / resumable.** A single request processes at most
+ * `batch_size` pending rows (default 250, max 500). Returns
+ * `{ ok, summary, processed, more }` -- the client loops calling
+ * commit until `more === false`. The natural resume key is
+ * `import_rows.status='pending'`: rows already inserted /
+ * skipped / errored never come back. This is what stops a 4 000-row
+ * import from blowing past Vercel's 300s function cap and returning
+ * an HTML error page that JSON.parse chokes on.
+ *
+ * Job status is flipped to 'committing' on the first batch and to
+ * 'completed' on the last (no more pending rows). On any non-last
+ * batch we leave it at 'committing' so re-entry is legal.
  *
  * Idempotency:
  *   clients -- de-dupe by (company_id, lower(email)). Existing email
- *              -> skipped (status='skipped', error_message='already
- *              on file').
+ *              -> skipped (status='skipped').
  *   orders  -- looked up by client name + event_date. Existing match
  *              -> skipped.
+ *   leads   -- de-dupe by email.
  *
  * Tenant scoping: every insert sets company_id from the authenticated
  * session.
@@ -33,12 +46,26 @@ export const maxDuration = 300;
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
+interface CountTriad {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errored: number;
+}
+
 interface CommitSummary {
-  clients: { inserted: number; updated: number; skipped: number; errored: number };
-  orders:  { inserted: number; updated: number; skipped: number; errored: number };
-  leads:   { inserted: number; updated: number; skipped: number; errored: number };
+  clients: CountTriad;
+  orders:  CountTriad;
+  leads:   CountTriad;
   dry_run: boolean;
 }
+
+const addCounts = (a: CountTriad | undefined, b: CountTriad): CountTriad => ({
+  inserted: (a?.inserted ?? 0) + b.inserted,
+  updated:  (a?.updated  ?? 0) + b.updated,
+  skipped:  (a?.skipped  ?? 0) + b.skipped,
+  errored:  (a?.errored  ?? 0) + b.errored,
+});
 
 async function findExistingLead(
   supabase: ReturnType<typeof getServiceSupabase>,
@@ -160,13 +187,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
-    if (job.status !== "previewed" && job.status !== "mapped") {
+    // Allow re-entry while a commit is in flight (subsequent batches
+    // arrive with status='committing'). 'previewed' / 'mapped' are
+    // the first-batch entry points.
+    if (
+      job.status !== "previewed" &&
+      job.status !== "mapped" &&
+      job.status !== "committing"
+    ) {
       return res.status(409).json({
         error: `Job is in status '${job.status}'. Run the preview step first.`,
       });
     }
 
-    if (!dryRun) {
+    // Per-call cap. Sized so even the worst-case row (orders pass:
+    // client lookup + existing-order check + insert + status update)
+    // finishes well under the 300s function cap. Configurable in case
+    // a tenant has unusually slow DB latencies.
+    const batchSize = Math.min(
+      Math.max(Number(req.query.batch_size) || 250, 50),
+      500,
+    );
+
+    if (!dryRun && job.status !== "committing") {
       await setJobStatus(jobId, "committing");
     }
 
@@ -174,7 +217,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // yet -- without it TS chases the union forever ("Type
     // instantiation is excessively deep").
     const supabase = getServiceSupabase() as any;
-    const rows = await listImportRows(jobId, { limit: 11000 });
+    // Status-filtered fetch is the resume key. On the first call this
+    // returns the batch-sized prefix of pending rows; on each
+    // subsequent call it returns the next batch (the prior batch's
+    // rows now have status='inserted'/'skipped'/'updated'/'error').
+    // For dry runs we don't want to slice the dataset (the operator
+    // is sanity-checking) but we also don't want to chew an entire
+    // 11 000-row workbook in one request -- cap at 1 000 for dry-run
+    // sample.
+    const rows = dryRun
+      ? await listImportRows(jobId, { status: "pending", limit: 1000 })
+      : await listImportRows(jobId, { status: "pending", limit: batchSize });
 
     const summary: CommitSummary = {
       clients: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
@@ -489,19 +542,68 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // After processing this batch, count how many rows remain pending.
+    // If zero, we're done -- flip the job to 'completed' and stamp the
+    // final summary. If non-zero, the client will call us again.
+    let remainingPending = 0;
     if (!dryRun) {
+      const { count } = await supabase
+        .from("import_rows")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", jobId)
+        .eq("status", "pending");
+      remainingPending = Number(count ?? 0);
+    }
+    const isLastBatch = dryRun || remainingPending === 0;
+
+    if (!dryRun && isLastBatch) {
+      // Merge this batch's summary into any prior commit summary so
+      // the per-batch totals add up.
+      const priorCommit = (job.summary as any)?.commit;
+      const merged = priorCommit
+        ? {
+            clients: addCounts(priorCommit.clients, summary.clients),
+            orders:  addCounts(priorCommit.orders,  summary.orders),
+            leads:   addCounts(priorCommit.leads,   summary.leads),
+            dry_run: false,
+          }
+        : summary;
       await setJobStatus(jobId, "completed", {
         summary: {
           ...(job.summary || {}),
-          commit: summary,
+          commit: merged,
         },
       });
-      await logEvent(jobId, "committed", summary);
+      await logEvent(jobId, "committed", merged);
+    } else if (!dryRun) {
+      // Mid-stream: stash the running totals on the job so an aborted
+      // import (browser closed) can still be inspected.
+      const priorCommit = (job.summary as any)?.commit;
+      const running = priorCommit
+        ? {
+            clients: addCounts(priorCommit.clients, summary.clients),
+            orders:  addCounts(priorCommit.orders,  summary.orders),
+            leads:   addCounts(priorCommit.leads,   summary.leads),
+            dry_run: false,
+          }
+        : summary;
+      await setJobStatus(jobId, "committing", {
+        summary: {
+          ...(job.summary || {}),
+          commit: running,
+        },
+      });
     } else {
       await logEvent(jobId, "dry_run", summary);
     }
 
-    return res.status(200).json({ ok: true, summary });
+    return res.status(200).json({
+      ok: true,
+      summary,
+      processed: rows.length,
+      remaining: remainingPending,
+      more: !isLastBatch,
+    });
   } catch (outer: any) {
     console.error("imports/[id]/commit handler crashed:", outer);
     return res.status(500).json({ error: outer?.message || "Commit failed" });

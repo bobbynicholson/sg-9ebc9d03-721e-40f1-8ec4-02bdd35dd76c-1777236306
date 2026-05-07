@@ -100,6 +100,10 @@ export function ImportRecordsModal({
   } | null>(null);
   const [commitSummary, setCommitSummary] = useState<CommitSummary | null>(null);
   const [dryRunSummary, setDryRunSummary] = useState<CommitSummary | null>(null);
+  // Progress for the batched commit loop. populated from each
+  // batch's `processed` + `remaining` so the user sees a live count
+  // while a 4 000-row import works through 16 batches.
+  const [commitProgress, setCommitProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const reset = () => {
@@ -187,30 +191,109 @@ export function ImportRecordsModal({
     }
   };
 
+  // Robust response parser. The commit endpoint can return non-JSON in
+  // pathological failure modes (Vercel function timeout returns an HTML
+  // error page; an upstream proxy can send plain text). Reading via
+  // r.json() throws a generic "Unexpected token ..." which is what
+  // Callum saw on his 4 000-row import. This wrapper falls through to
+  // r.text() so the operator sees something useful.
+  const readResponse = async (r: Response): Promise<{ json: any; rawText?: string }> => {
+    const text = await r.text();
+    try {
+      return { json: text ? JSON.parse(text) : {} };
+    } catch {
+      return { json: null, rawText: text };
+    }
+  };
+
+  // Aggregate two CommitSummary instances. Used to roll up batch
+  // summaries returned from each /commit call into a single tally
+  // we show on the "Import complete" screen.
+  const mergeSummaries = (a: CommitSummary | null, b: CommitSummary): CommitSummary => {
+    const ZERO: RowCounts = { inserted: 0, updated: 0, skipped: 0, errored: 0 };
+    const sum = (x: RowCounts | undefined, y: RowCounts | undefined): RowCounts => {
+      const xx = x ?? ZERO;
+      const yy = y ?? ZERO;
+      return {
+        inserted: xx.inserted + yy.inserted,
+        updated:  xx.updated  + yy.updated,
+        skipped:  xx.skipped  + yy.skipped,
+        errored:  xx.errored  + yy.errored,
+      };
+    };
+    return {
+      clients: sum(a?.clients, b.clients),
+      orders:  sum(a?.orders,  b.orders),
+      leads:   sum(a?.leads,   b.leads),
+      dry_run: b.dry_run,
+    };
+  };
+
   const runCommit = async (dryRun: boolean) => {
     if (!jobId) return;
     setBusy(true);
     setError(null);
-    if (!dryRun) setStep("committing");
+    if (!dryRun) {
+      setStep("committing");
+      setCommitProgress({ done: 0, total: willImportCount || 0 });
+    }
     try {
-      const r = await fetch(`/api/imports/${jobId}/commit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dry_run: dryRun }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.error || `Commit failed (${r.status})`);
-      const summary = (j.summary || null) as CommitSummary;
+      // Loop until the server reports `more: false`. Each call
+      // commits a batch of <= 250 rows and reports progress so the
+      // user sees the count tick up. A previous version of this
+      // handler ran the entire commit synchronously; on a 4 000-row
+      // import that pushed past Vercel's 300s function cap and the
+      // gateway returned an HTML error page, which JSON.parse choked
+      // on with "Unexpected token 'A', 'An error o'... is not valid
+      // JSON" -- the row of pics Callum sent.
+      let aggregate: CommitSummary | null = null;
+      let processedSoFar = 0;
+      // Hard stop on the loop in case the server forgets to set
+      // `more: false`. 200 batches = 50 000 rows max.
+      const MAX_LOOPS = 200;
+      for (let i = 0; i < MAX_LOOPS; i += 1) {
+        const r = await fetch(`/api/imports/${jobId}/commit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dry_run: dryRun }),
+        });
+        const { json: j, rawText } = await readResponse(r);
+        if (!r.ok) {
+          const msg = j?.error
+            || (rawText && rawText.length < 300 ? rawText : `Commit failed (${r.status})`);
+          throw new Error(msg);
+        }
+        if (!j) {
+          throw new Error("Server returned a non-JSON response (probably a function timeout). Try again -- the import auto-resumes from where it stopped.");
+        }
+        const summary = (j.summary || null) as CommitSummary;
+        aggregate = aggregate ? mergeSummaries(aggregate, summary) : summary;
+        processedSoFar += Number(j.processed ?? 0);
+        if (!dryRun) {
+          const total = processedSoFar + Number(j.remaining ?? 0);
+          setCommitProgress({ done: processedSoFar, total });
+        }
+        if (dryRun || !j.more) break;
+      }
+
       if (dryRun) {
-        setDryRunSummary(summary);
+        setDryRunSummary(aggregate);
       } else {
-        setCommitSummary(summary);
+        setCommitSummary(aggregate);
         setStep("done");
+        setCommitProgress(null);
         if (onComplete) onComplete();
       }
     } catch (e: any) {
       setError(e?.message || "Commit failed");
-      if (!dryRun) setStep("preview");
+      if (!dryRun) {
+        // The server keeps row state in import_rows, so even a hard
+        // failure here is recoverable -- the operator clicks "Import
+        // clients" again and the next batch picks up the remaining
+        // pending rows.
+        setStep("preview");
+        setCommitProgress(null);
+      }
     } finally {
       setBusy(false);
     }
@@ -416,6 +499,24 @@ export function ImportRecordsModal({
           <div className="py-10 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
             <p className="text-sm text-slate-600 mt-2">Saving {recordLabelPlural}...</p>
+            {commitProgress && commitProgress.total > 0 && (
+              <>
+                <p className="text-xs text-slate-500 mt-3">
+                  {commitProgress.done.toLocaleString()} of {commitProgress.total.toLocaleString()} rows processed
+                </p>
+                <div className="mt-2 mx-auto w-64 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, Math.round((commitProgress.done / Math.max(1, commitProgress.total)) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Large imports run in batches. Don&apos;t close this window.
+                </p>
+              </>
+            )}
           </div>
         )}
 
