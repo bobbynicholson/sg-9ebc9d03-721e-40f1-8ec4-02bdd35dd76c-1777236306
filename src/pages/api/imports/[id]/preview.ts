@@ -175,7 +175,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const sheetMapping = (job.mapping as any)[r.sheet] || {};
       const schemaMeta = sheetMapping.__schema__;
       const declared = schemaMeta?.target as string | undefined;
-      const targetTable: "clients" | "orders" | "leads" =
+      // Per-row target. Starts from the sheet-level declaration but
+      // is reclassified row-by-row below based on event_date for the
+      // clients/leads sheets (Feature D: lead-vs-client auto-class).
+      let targetTable: "clients" | "orders" | "leads" =
         declared === "orders" ? "orders"
         : declared === "leads" ? "leads"
         : "clients";
@@ -228,6 +231,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         mapped[decision.target] = norm.value;
+      }
+
+      // ── Feature D: lead-vs-client auto-classification ─────────
+      // The same template ships rows where some are real clients
+      // (past or no event date) and others are leads (event still
+      // ahead). Picking the right type per row saves the operator
+      // from running two imports. Skip when the sheet was forced to
+      // orders -- that pipeline is unrelated.
+      if (targetTable !== "orders") {
+        const eventDate = mapped.event_date as string | undefined;
+        if (eventDate) {
+          // event_date already normalised to ISO yyyy-mm-dd by
+          // normaliseFieldValue. Compare lexicographically against
+          // today (also yyyy-mm-dd) -- avoids timezone surprises.
+          const today = new Date().toISOString().slice(0, 10);
+          targetTable = eventDate > today ? "leads" : "clients";
+        }
+        // No event_date -> stay with whatever the sheet declared.
+        // Default sheet target is "clients" so an address-book CSV
+        // with no events still lands the right way.
       }
 
       // leads has dual columns -- both `email` + `client_email` are
