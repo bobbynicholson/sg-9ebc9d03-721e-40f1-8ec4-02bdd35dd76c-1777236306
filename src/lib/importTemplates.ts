@@ -89,6 +89,30 @@ const CLIENTS_TEMPLATE: TemplateDefinition = {
       aliases: ["comments", "memo"] },
     { key: "tags", header: "Tags (comma-separated)", required: false,
       example: "VIP, corporate", aliases: ["labels", "categories"] },
+    // Imported-history rollup. Optional. Lets a tenant migrating from
+    // another system carry forward each client's lifetime metrics
+    // even when they don't have per-event data to recreate. The
+    // dashboard surfaces these alongside real orders.
+    { key: "historical_total_events", header: "Total events (history)", required: false,
+      example: "42",
+      hint: "Lifetime number of events from your old system. Surfaces on the contact card so the client doesn't look brand new.",
+      aliases: ["total events", "event count", "events booked", "lifetime events", "past events"] },
+    { key: "historical_lifetime_spend", header: "Lifetime spend (R)", required: false,
+      example: "125000",
+      hint: "Total spend across all past events. Sums into the dashboard's LTV display.",
+      aliases: ["lifetime spend", "total spent", "lifetime value", "ltv", "total revenue"] },
+    { key: "historical_last_event_date", header: "Last event date (history)", required: false,
+      example: "2024-12-15",
+      hint: "Most recent event from your old system. Drives the 'last touch' display on the contact card.",
+      aliases: ["last event", "most recent event", "last booking", "last function"] },
+    { key: "historical_last_event_type", header: "Last event type (history)", required: false,
+      example: "Wedding",
+      hint: "What the last event was -- wedding, corporate, birthday, etc.",
+      aliases: ["last event type", "last booking type"] },
+    { key: "historical_notes", header: "History notes", required: false,
+      example: "Repeat client, prefers Italian buffet, dietary: 2 vegan",
+      hint: "Free-form notes about past relationship. Shown on the contact detail.",
+      aliases: ["history notes", "client history", "previous notes"] },
   ],
 };
 

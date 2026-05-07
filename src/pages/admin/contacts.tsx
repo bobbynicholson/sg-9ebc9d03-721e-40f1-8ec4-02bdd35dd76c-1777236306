@@ -76,6 +76,11 @@ interface Contact {
   phone: string | null;
   mobile_number: string | null;
   landline_number: string | null;
+  // Imported-history rollup (Feature B). Sums into LTV display when
+  // present so a freshly-imported client doesn't look brand new.
+  historicalTotalEvents: number | null;
+  historicalLifetimeSpend: number | null;
+  historicalLastEventDate: string | null;
   // Aggregated metrics
   orderCount: number;
   totalSpent: number;
@@ -203,7 +208,7 @@ function ClientsCRM() {
         const to = from + PAGE - 1;
         const { data, error } = await supabase
           .from("clients")
-          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at")
+          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .range(from, to);
@@ -299,6 +304,9 @@ function ClientsCRM() {
           phone: c.phone,
           mobile_number: c.mobile_number ?? null,
           landline_number: c.landline_number ?? null,
+          historicalTotalEvents: c.historical_total_events ?? null,
+          historicalLifetimeSpend: c.historical_lifetime_spend != null ? Number(c.historical_lifetime_spend) : null,
+          historicalLastEventDate: c.historical_last_event_date ?? null,
           orderCount: 0, totalSpent: 0,
           lastEventDate: null, nextEventDate: null,
           outstandingBalance: Number(c.outstanding_balance || 0),
@@ -334,6 +342,9 @@ function ClientsCRM() {
             phone: l.phone,
             mobile_number: l.mobile_number ?? null,
             landline_number: l.landline_number ?? null,
+            historicalTotalEvents: null,
+            historicalLifetimeSpend: null,
+            historicalLastEventDate: null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -367,6 +378,9 @@ function ClientsCRM() {
             phone: o.client_phone,
             mobile_number: null,
             landline_number: null,
+            historicalTotalEvents: null,
+            historicalLifetimeSpend: null,
+            historicalLastEventDate: null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -820,6 +834,13 @@ function ClientsCRM() {
                                   {!c.mobile_number && !c.landline_number && c.phone ? (
                                     <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
                                   ) : null}
+                                  {(c.historicalTotalEvents != null || c.historicalLifetimeSpend != null) && (
+                                    <span className="flex items-center gap-1 text-violet-700" title="Imported event history">
+                                      📅
+                                      {c.historicalTotalEvents != null ? `${c.historicalTotalEvents} past events` : "Past history"}
+                                      {c.historicalLifetimeSpend != null ? ` · R${Math.round(c.historicalLifetimeSpend).toLocaleString("en-ZA")} LTV` : ""}
+                                    </span>
+                                  )}
                                 </div>
                               </button>
                             </td>

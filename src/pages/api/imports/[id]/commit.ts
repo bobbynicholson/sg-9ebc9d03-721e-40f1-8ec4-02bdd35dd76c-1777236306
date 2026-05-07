@@ -386,6 +386,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           notes: mapped.notes || null,
           is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
+          // Imported-history rollup (Feature B). Sparse -- only the
+          // columns the operator actually filled in get persisted;
+          // rest stay null. Surfaced on the contact card so the
+          // client doesn't look like a fresh signup.
+          historical_total_events: mapped.historical_total_events ?? null,
+          historical_lifetime_spend: mapped.historical_lifetime_spend ?? null,
+          historical_last_event_date: mapped.historical_last_event_date || null,
+          historical_last_event_type: mapped.historical_last_event_type || null,
+          historical_notes: mapped.historical_notes || null,
         };
 
         if (existing && decision === "update") {
