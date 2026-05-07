@@ -134,7 +134,16 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 
 function ClientsCRM() {
   const { user, profile } = useAuth() as any;
-  const companyId = profile?.company_id || user?.company_id;
+  // Resilient companyId resolution. Different auth paths populate
+  // different fields -- profile.company_id is the canonical one but
+  // user.user_metadata.company_id and user.company_id are both used
+  // by sibling pages (client-search, leads). Read all three so a
+  // partial auth bootstrap doesn't leave the page empty.
+  const companyId =
+    (profile as any)?.company_id ||
+    (user as any)?.company_id ||
+    (user as any)?.user_metadata?.company_id ||
+    null;
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -234,6 +243,34 @@ function ClientsCRM() {
         .eq("company_id", companyId)
         .is("deleted_at", null),
     ]);
+
+    // Surface fetch errors loudly. The aggregator below treats null
+    // data as an empty list, which silently produced an empty page
+    // when a fetch failed (RLS hiccup, bad column ref, etc.). With
+    // 906 imported clients in production we can't keep guessing.
+    const fetchErrors: string[] = [];
+    if ((clientsRes as any)?.error) fetchErrors.push(`clients: ${(clientsRes as any).error.message}`);
+    if (leadsRes.error) fetchErrors.push(`leads: ${leadsRes.error.message}`);
+    if (ordersRes.error) fetchErrors.push(`orders: ${ordersRes.error.message}`);
+    if (quotesRes.error) fetchErrors.push(`quotes: ${quotesRes.error.message}`);
+    if (invoicesRes.error) fetchErrors.push(`invoices: ${invoicesRes.error.message}`);
+    if (fetchErrors.length > 0) {
+      console.error("[contacts] fetch errors:", fetchErrors);
+      toast({
+        title: "Couldn't load all contacts",
+        description: fetchErrors.join(" -- "),
+        variant: "destructive",
+      });
+    }
+    // Diagnostic log so we can see exactly what came back when the
+    // page renders empty. Counts only -- no PII.
+    console.info("[contacts] loaded:", {
+      clients: (clientsRes as any)?.data?.length ?? 0,
+      leads: leadsRes.data?.length ?? 0,
+      orders: ordersRes.data?.length ?? 0,
+      quotes: quotesRes.data?.length ?? 0,
+      invoices: invoicesRes.data?.length ?? 0,
+    });
 
       const today = new Date();
       const map = new Map<string, Contact>();
