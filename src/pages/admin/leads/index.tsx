@@ -775,15 +775,24 @@ export default function AdminLeads() {
                 </p>
               </div>
             </div>
-            {/*
-              Single import + add surface lives on /admin/contacts.
-              The contacts importer auto-classifies each row: future
-              event_date -> lead, past or absent -> client. So a
-              separate "Import leads" button here just creates two
-              ways to do the same thing. Hidden, not deleted -- if
-              the operator-flow ever splits again we can put them
-              back without rebuilding the wiring.
-            */}
+            <div className="flex gap-2">
+              {/*
+                Bulk import lives on /admin/contacts only -- one
+                import surface across the whole CRM. The unified
+                wizard auto-classifies each row by event_date so
+                "Import leads" here is redundant.
+                Add Lead stays -- /admin/leads/new is the
+                rich-enquiry-capture form (event type, guest count,
+                budget, venue, source) that the leaner Add contact
+                doesn't cover.
+              */}
+              <Link href="/admin/leads/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Lead
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Email-settings warning banner. Renders only when we've
