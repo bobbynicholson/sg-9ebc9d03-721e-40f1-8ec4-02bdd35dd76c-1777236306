@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLandingPageForRoleString } from "@/lib/authGuards";
+import { readCachedProfile, writeCachedProfile } from "@/lib/middleware/profileCache";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -246,37 +247,51 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Single profile fetch shared across all authenticated checks below
+  // Single profile fetch shared across all authenticated checks below.
+  // Signed-cookie cache (P2-15) short-circuits the two DB queries on
+  // rapid navigations; on miss we run the original queries and rewrite
+  // the cookie at the end of the request.
   let profileRole: string | null = null;
   let profileCompanyId: string | null = null;
-  try {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, company_id")
-      .eq("id", user.id)
-      .single();
-    profileRole = profile?.role ?? null;
-    profileCompanyId = profile?.company_id ?? null;
-  } catch (error) {
-    console.error("[Middleware] Error fetching profile:", error);
-  }
-
-  // Resolve user's own company slug + onboarding state for slug-aware
-  // landing redirects. We piggyback the onboarding_completed_at lookup
-  // on the slug fetch so it's a single round trip per request.
   let userCompanySlug: string | undefined;
   let onboardingCompletedAt: string | null = null;
-  if (profileCompanyId) {
+  let cacheHit = false;
+
+  const cached = await readCachedProfile(request, user.id);
+  if (cached) {
+    profileRole = cached.role;
+    profileCompanyId = cached.company_id;
+    userCompanySlug = cached.slug ?? undefined;
+    onboardingCompletedAt = cached.onboarding_completed_at;
+    cacheHit = true;
+  } else {
     try {
-      const { data: company } = await supabase
-        .from("companies")
-        .select("slug, onboarding_completed_at")
-        .eq("id", profileCompanyId)
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, company_id")
+        .eq("id", user.id)
         .single();
-      userCompanySlug = company?.slug ?? undefined;
-      onboardingCompletedAt = company?.onboarding_completed_at ?? null;
+      profileRole = profile?.role ?? null;
+      profileCompanyId = profile?.company_id ?? null;
     } catch (error) {
-      console.error("[Middleware] Error fetching user company slug:", error);
+      console.error("[Middleware] Error fetching profile:", error);
+    }
+
+    // Resolve user's own company slug + onboarding state for slug-aware
+    // landing redirects. We piggyback the onboarding_completed_at lookup
+    // on the slug fetch so it's a single round trip per request.
+    if (profileCompanyId) {
+      try {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("slug, onboarding_completed_at")
+          .eq("id", profileCompanyId)
+          .single();
+        userCompanySlug = company?.slug ?? undefined;
+        onboardingCompletedAt = company?.onboarding_completed_at ?? null;
+      } catch (error) {
+        console.error("[Middleware] Error fetching user company slug:", error);
+      }
     }
   }
 
@@ -353,6 +368,9 @@ export async function middleware(request: NextRequest) {
 
   // ✅ Tenant slug validation: /[slug]/admin|team-portal|client-portal/...
   // super_admin bypasses; everyone else must own the slug they're hitting.
+  // We already resolved userCompanySlug above (from cache or the
+  // companies.select earlier) -- compare against that instead of
+  // re-querying.
   if (companySlug && profileRole && profileRole !== "super_admin") {
     if (!profileCompanyId) {
       const url = request.nextUrl.clone();
@@ -360,24 +378,11 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("error", "no_company");
       return NextResponse.redirect(url);
     }
-    try {
-      const { data: company } = await supabase
-        .from("companies")
-        .select("slug")
-        .eq("id", profileCompanyId)
-        .single();
-      if (!company || company.slug !== companySlug) {
-        console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
-        const url = request.nextUrl.clone();
-        url.pathname = roleLandingPage ?? "/auth/login";
-        url.searchParams.set("error", "tenant_mismatch");
-        return NextResponse.redirect(url);
-      }
-    } catch (error) {
-      console.error("[Middleware] Error validating tenant slug:", error);
+    if (!userCompanySlug || userCompanySlug !== companySlug) {
+      console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
       const url = request.nextUrl.clone();
       url.pathname = roleLandingPage ?? "/auth/login";
-      url.searchParams.set("error", "tenant_check_failed");
+      url.searchParams.set("error", "tenant_mismatch");
       return NextResponse.redirect(url);
     }
   }
@@ -400,6 +405,19 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("error", "unauthorized");
       return NextResponse.redirect(url);
     }
+  }
+
+  // Refresh the signed-cookie cache on a miss so the next nav skips
+  // the DB queries. Redirects above don't carry this cookie -- next
+  // request after the redirect will refetch + cache.
+  if (!cacheHit) {
+    await writeCachedProfile(response, {
+      uid: user.id,
+      role: profileRole,
+      company_id: profileCompanyId,
+      slug: userCompanySlug ?? null,
+      onboarding_completed_at: onboardingCompletedAt,
+    });
   }
 
   return response;
