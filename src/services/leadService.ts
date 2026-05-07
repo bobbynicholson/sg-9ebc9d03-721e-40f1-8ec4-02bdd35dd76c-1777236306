@@ -201,7 +201,11 @@ Guests: ${lead.guest_count}`;
             companyId: data.company_id,
             to: lead.client_email,
             subject: `Thank you for your inquiry, ${lead.client_name || 'friend'}!`,
-            template: 'quote-request-confirmation',
+            // Template type aligns with the seed in
+            // 20260506130000_seed_email_templates.sql. Was
+            // "quote-request-confirmation" which had no row in
+            // email_templates [P0-14].
+            template: 'quote_request_received',
             variables: {
               clientName: lead.client_name || 'there',
               companyName: companyName,

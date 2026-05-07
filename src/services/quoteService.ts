@@ -126,7 +126,8 @@ export const quoteService = {
             companyId: quote.user_id,
             to: quote.client_email,
             subject: 'Quote Request Confirmation',
-            template: 'quote-request-confirmation',
+            // Template type aligns with the seed [P0-14].
+            template: 'quote_request_received',
             variables: {
                 clientName: quote.client_name,
                 companyName: companyName,
