@@ -197,7 +197,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div className="flex items-center gap-3">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Open navigation menu">
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
@@ -359,6 +359,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               )}
               onClick={toggleCollapse}
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!isCollapsed}
             >
               {isCollapsed ? (
                 <ChevronRight className="w-5 h-5" />
