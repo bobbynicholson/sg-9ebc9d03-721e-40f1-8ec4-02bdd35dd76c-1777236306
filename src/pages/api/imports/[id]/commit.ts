@@ -68,6 +68,25 @@ const addCounts = (a: CountTriad | undefined, b: CountTriad): CountTriad => ({
 });
 
 /**
+ * Sparse update: build a patch that only carries fields with real
+ * values. The operator re-uploading a cleaned-up sheet shouldn't have
+ * a blank "Notes" cell wipe out a manually-typed note we have on
+ * file. Treats null / undefined / "" as "leave unchanged"; non-empty
+ * values overwrite.
+ *
+ * Feature F: re-upload merge intelligence.
+ */
+function sparseUpdate(payload: Record<string, any>): Record<string, any> {
+  const patch: Record<string, any> = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    patch[k] = v;
+  }
+  return patch;
+}
+
+/**
  * Bulk dedup pre-fetch for the batch. One round trip per dedup table
  * instead of one per row -- the single biggest commit speedup. A
  * 250-row client batch goes from ~500 round trips to ~3.
@@ -404,9 +423,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (existing && decision === "update") {
           if (!dryRun) {
+            // Sparse merge -- only fields present in the new sheet
+            // overwrite. Empty cells leave the existing record's
+            // value alone. Lets operators re-upload a cleaned sheet
+            // without wiping notes / phones / addresses they typed
+            // by hand in the portal. (Feature F.)
+            const patch = sparseUpdate(payload);
             const { error } = await supabase
               .from("clients")
-              .update(payload)
+              .update(patch)
               .eq("id", existing)
               .eq("company_id", companyId);
             if (error) throw new Error(error.message);
@@ -582,9 +607,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (existing && decision === "update") {
           if (!dryRun) {
+            // Sparse merge (Feature F) -- see clients pass for why.
+            const patch = sparseUpdate(payload);
             const { error } = await supabase
               .from("leads")
-              .update(payload)
+              .update(patch)
               .eq("id", existing)
               .eq("company_id", companyId);
             if (error) throw new Error(error.message);

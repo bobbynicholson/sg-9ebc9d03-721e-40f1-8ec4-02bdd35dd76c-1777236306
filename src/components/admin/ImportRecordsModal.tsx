@@ -552,8 +552,30 @@ export function ImportRecordsModal({
               <Alert className="border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800 text-xs leading-relaxed">
-                  {duplicateCount} {duplicateCount === 1 ? "row matches an existing record" : "rows match existing records"}.
-                  Default is "skip". Switch any row to "update" to overwrite the existing record's fields, or "create new" to keep both.
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      {duplicateCount} {duplicateCount === 1 ? "row matches an existing record" : "rows match existing records"}.
+                      Default is "skip". If you're re-uploading a cleaned-up sheet,
+                      flip them to "update" -- the importer only overwrites fields the
+                      new sheet has values for, so manual edits stay safe.
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1 border-amber-300 hover:bg-amber-100"
+                      onClick={() => {
+                        // Flip every duplicate to "update". Optimistic
+                        // local update; persists per-row via the
+                        // existing decision endpoint.
+                        const targets = previewRows.filter((r) => r.dedup_match_id && (r.dedup_decision || "skip") === "skip");
+                        targets.forEach((r) => setRowDecision(r.id, "update"));
+                      }}
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Update all matches
+                    </Button>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
