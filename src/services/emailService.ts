@@ -235,16 +235,34 @@ export const emailService = {
     return fallback;
   },
 
+  /**
+   * Variable substitution for email templates. Aligned with the rest
+   * of the platform (templateResolver, message-template registry,
+   * seeded email_templates rows) on Mustache-style {{key}} double
+   * curlies. The previous single-curly {key} pattern silently failed
+   * for any template authored against the documented contract, and
+   * the RegExp-based replace was unsafe for variable names containing
+   * regex metacharacters [P1-25].
+   *
+   * Uses split/join rather than RegExp so no key escaping is needed.
+   * Unknown placeholders are left intact (matches templateResolver
+   * behaviour) so an operator can spot a typo against the live
+   * preview rather than a silently empty field.
+   */
   replaceVariables(template: string, variables: Record<string, any> = {}): string {
     let result = template;
     if (variables) {
       for (const [key, value] of Object.entries(variables)) {
         if (value !== undefined && value !== null) {
-          result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
+          // Double-curly canonical.
+          result = result.split(`{{${key}}}`).join(String(value));
+          // Backwards compat: also handle single-curly placeholders so
+          // legacy hardcoded fallbacks ({clientName}, {orderNumber})
+          // keep rendering until they're migrated.
+          result = result.split(`{${key}}`).join(String(value));
         }
       }
     }
-    result = result.replace(/{[^}]+}/g, "");
     return result;
   },
 
