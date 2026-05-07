@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
@@ -493,81 +494,34 @@ export default function DriverDashboard() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Today's Jobs
-                      <InfoTooltip content="Deliveries assigned to you for today." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
-                      {todaysJobs.length}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
-                    <Truck className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Completed
-                      <InfoTooltip content="Today's deliveries you've already finished and signed off." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 tabular-nums">
-                      {completedToday}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Pending
-                      <InfoTooltip content="Deliveries still left to do today." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 tabular-nums">
-                      {todaysJobs.length - completedToday}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
-                      Earnings
-                      <InfoTooltip content="What you've earned from finished deliveries that haven't been paid out yet." />
-                    </p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
-                      R{totalEarnings}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
-                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              icon={Truck}
+              iconColor="text-blue-600"
+              label="Today's Jobs"
+              value={todaysJobs.length}
+              tooltip="Deliveries assigned to you for today."
+            />
+            <MetricCard
+              icon={CheckCircle}
+              iconColor="text-green-600"
+              label="Completed"
+              value={completedToday}
+              tooltip="Today's deliveries you've already finished and signed off."
+            />
+            <MetricCard
+              icon={Clock}
+              iconColor="text-orange-600"
+              label="Pending"
+              value={todaysJobs.length - completedToday}
+              tooltip="Deliveries still left to do today."
+            />
+            <MetricCard
+              icon={DollarSign}
+              iconColor="text-green-600"
+              label="Earnings"
+              value={`R${totalEarnings}`}
+              tooltip="What you've earned from finished deliveries that haven't been paid out yet."
+            />
           </div>
 
           {/* Deliveries List */}
