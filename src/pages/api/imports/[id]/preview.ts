@@ -162,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     type Computed = {
       id: string;
       mapped: Record<string, any>;
-      target: "clients" | "orders" | "leads";
+      target: "clients" | "orders" | "leads" | "quotes";
       status: "pending" | "skipped" | "error";
       errorMessage: string | null;
       warnings: string[];
@@ -178,9 +178,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Per-row target. Starts from the sheet-level declaration but
       // is reclassified row-by-row below based on event_date for the
       // clients/leads sheets (Feature D: lead-vs-client auto-class).
-      let targetTable: "clients" | "orders" | "leads" =
+      let targetTable: "clients" | "orders" | "leads" | "quotes" =
         declared === "orders" ? "orders"
         : declared === "leads" ? "leads"
+        : declared === "quotes" ? "quotes"
         : "clients";
 
       const mapped: Record<string, any> = {};
@@ -238,8 +239,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // (past or no event date) and others are leads (event still
       // ahead). Picking the right type per row saves the operator
       // from running two imports. Skip when the sheet was forced to
-      // orders -- that pipeline is unrelated.
-      if (targetTable !== "orders") {
+      // orders or quotes -- those pipelines are unrelated.
+      if (targetTable !== "orders" && targetTable !== "quotes") {
         const eventDate = mapped.event_date as string | undefined;
         if (eventDate) {
           // event_date already normalised to ISO yyyy-mm-dd by
@@ -266,7 +267,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Per-row validation. Hard rules:
       //   clients: must have at least client_name OR email OR phone
-      //   orders : must have client_name and event_date
+      //   orders : must have (client_name OR client_email) AND event_date.
+      //            The commit pass auto-creates a stub client when
+      //            no match exists, so we just need a name/email
+      //            handle to label the stub with.
+      //   quotes : must have quote_number AND total_amount AND
+      //            (client_name OR client_email).
       //   leads  : must have contact_name AND email
       let status: "pending" | "skipped" | "error" = "pending";
       let errorMessage: string | null = null;
@@ -279,12 +285,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           errorMessage = "No client name / email / phone";
         }
       } else if (targetTable === "orders") {
-        if (!(mapped.client_name as string)?.trim()) {
+        const hasClientHandle =
+          (mapped.client_name as string)?.trim() || mapped.client_email;
+        if (!hasClientHandle) {
           status = "error";
-          errorMessage = "Order is missing a client name";
+          errorMessage = "Order is missing a client name or email";
         } else if (!mapped.event_date) {
           status = "error";
           errorMessage = "Order is missing an event date";
+        }
+      } else if (targetTable === "quotes") {
+        const hasClientHandle =
+          (mapped.client_name as string)?.trim() || mapped.client_email;
+        if (!mapped.quote_number) {
+          status = "error";
+          errorMessage = "Quote is missing a quote number";
+        } else if (!hasClientHandle) {
+          status = "error";
+          errorMessage = "Quote is missing a client name or email";
+        } else if (mapped.total_amount == null) {
+          status = "error";
+          errorMessage = "Quote is missing a total amount";
         }
       } else if (targetTable === "leads") {
         if (!(mapped.contact_name as string)?.trim()) {

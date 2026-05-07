@@ -15,7 +15,7 @@
  * column lists into the API routes; everyone reads from this file.
  */
 
-export type TemplateType = "clients" | "leads";
+export type TemplateType = "clients" | "leads" | "orders" | "quotes";
 
 export interface TemplateColumn {
   /** DB column name on the target table -- used by importNormalise + commit. */
@@ -35,7 +35,7 @@ export interface TemplateColumn {
 export interface TemplateDefinition {
   type: TemplateType;
   /** target_table the import engine writes to. */
-  targetTable: "clients" | "leads";
+  targetTable: "clients" | "leads" | "orders" | "quotes";
   /** Sheet name in the generated workbook + label shown in the UI. */
   sheetName: string;
   columns: TemplateColumn[];
@@ -158,9 +158,140 @@ const LEADS_TEMPLATE: TemplateDefinition = {
   ],
 };
 
+/**
+ * Orders template -- past or upcoming events. Goes to `orders`.
+ * Required: client_name OR client_email (so the linker can resolve a
+ * client) AND event_date (orders.event_date is NOT NULL on the schema).
+ *
+ * The cross-sheet linker resolves client_id in this priority order:
+ *   1. client row in the same workbook's clients sheet (by email/name)
+ *   2. existing client in the DB (by email/name match)
+ *   3. auto-create a stub client from this order row -- so an order
+ *      without a matching clients-sheet entry still lands. Required
+ *      because orders.client_id is NOT NULL.
+ */
+const ORDERS_TEMPLATE: TemplateDefinition = {
+  type: "orders",
+  targetTable: "orders",
+  sheetName: "Orders",
+  columns: [
+    { key: "client_name", header: "Client name *", required: true,
+      example: "Jane Smith",
+      hint: "Used to link this order to a client. Either name OR email is enough.",
+      aliases: ["customer", "customer name", "client"] },
+    { key: "client_email", header: "Client email", required: false,
+      example: "jane@example.co.za",
+      hint: "Helps the linker dedupe across sheets. Strongly recommended.",
+      aliases: ["email", "customer email"] },
+    { key: "client_phone", header: "Client phone", required: false,
+      example: "082 555 1234",
+      aliases: ["phone", "mobile", "cell"] },
+    { key: "event_name", header: "Event name", required: false,
+      example: "30th birthday braai",
+      aliases: ["function", "function name", "occasion"] },
+    { key: "event_date", header: "Event date *", required: true,
+      example: "2026-04-15",
+      hint: "YYYY-MM-DD or any standard date format. Past dates are fine -- those become historical orders.",
+      aliases: ["date", "function date", "service date"] },
+    { key: "event_time", header: "Event time", required: false,
+      example: "18:00",
+      aliases: ["start time", "time"] },
+    { key: "guest_count", header: "Guest count", required: false,
+      example: "80", aliases: ["pax", "guests", "headcount"] },
+    { key: "venue_address", header: "Venue address", required: false,
+      example: "12 Long Street, Cape Town",
+      aliases: ["venue", "location", "delivery address"] },
+    { key: "total_amount", header: "Total (R) *", required: true,
+      example: "12500",
+      hint: "Inclusive of VAT. Strip the 'R' if Excel won't parse it.",
+      aliases: ["total", "amount", "value"] },
+    { key: "deposit_amount", header: "Deposit (R)", required: false,
+      example: "5000",
+      aliases: ["deposit", "deposit paid"] },
+    { key: "status", header: "Status", required: false,
+      example: "completed",
+      hint: "pending, confirmed, completed, cancelled. Defaults to 'completed' for past dates, 'confirmed' for future.",
+      aliases: ["order status"] },
+    { key: "dietary_requirements", header: "Dietary", required: false,
+      example: "Halal, no nuts, 2 vegan",
+      aliases: ["dietary requirements", "allergens"] },
+    { key: "notes", header: "Notes", required: false,
+      example: "Setup at 16:00, pack-down by 22:00",
+      aliases: ["comments", "memo"] },
+  ],
+};
+
+/**
+ * Quotes template -- proposals sent to clients, may or may not have
+ * been accepted. Goes to `quotes`.
+ *
+ * Required: quote_number AND total_amount AND client_name (or client_email)
+ * so the linker can resolve a client. quote_number is the canonical
+ * key; the DB enforces per-tenant uniqueness on it.
+ */
+const QUOTES_TEMPLATE: TemplateDefinition = {
+  type: "quotes",
+  targetTable: "quotes",
+  sheetName: "Quotes",
+  columns: [
+    { key: "quote_number", header: "Quote number *", required: true,
+      example: "Q-2026-001",
+      hint: "Use whatever numbering scheme you already had. We preserve it verbatim.",
+      aliases: ["quote ref", "ref", "quote no", "number"] },
+    { key: "client_name", header: "Client name *", required: true,
+      example: "Jane Smith",
+      hint: "Used to link this quote to a client. Either name OR email is enough.",
+      aliases: ["customer", "customer name"] },
+    { key: "client_email", header: "Client email", required: false,
+      example: "jane@example.co.za",
+      aliases: ["email"] },
+    { key: "client_phone", header: "Client phone", required: false,
+      example: "082 555 1234",
+      aliases: ["phone"] },
+    { key: "quote_name", header: "Quote name", required: false,
+      example: "Wedding catering for 80",
+      hint: "Defaults to 'Imported quote' if blank.",
+      aliases: ["title", "description"] },
+    { key: "event_date", header: "Event date", required: false,
+      example: "2026-04-15",
+      aliases: ["date", "function date"] },
+    { key: "guest_count", header: "Guest count", required: false,
+      example: "80", aliases: ["pax", "guests"] },
+    { key: "venue_address", header: "Venue address", required: false,
+      example: "12 Long Street, Cape Town",
+      aliases: ["venue"] },
+    { key: "total_amount", header: "Total (R) *", required: true,
+      example: "12500",
+      hint: "Inclusive of VAT.",
+      aliases: ["total", "amount"] },
+    { key: "subtotal", header: "Subtotal (R)", required: false,
+      example: "10870",
+      hint: "Pre-VAT. Defaults to total if blank.",
+      aliases: ["sub total"] },
+    { key: "tax_amount", header: "VAT (R)", required: false,
+      example: "1630",
+      aliases: ["vat", "tax"] },
+    { key: "delivery_fee", header: "Delivery fee (R)", required: false,
+      example: "500",
+      aliases: ["delivery"] },
+    { key: "valid_until", header: "Valid until", required: false,
+      example: "2026-03-31",
+      aliases: ["expires", "expiry"] },
+    { key: "status", header: "Status", required: false,
+      example: "sent",
+      hint: "draft, sent, accepted, declined, expired. Defaults to 'sent'.",
+      aliases: ["quote status"] },
+    { key: "notes", header: "Notes", required: false,
+      example: "Client requested follow-up after Easter",
+      aliases: ["comments"] },
+  ],
+};
+
 const TEMPLATES: Record<TemplateType, TemplateDefinition> = {
   clients: CLIENTS_TEMPLATE,
   leads: LEADS_TEMPLATE,
+  orders: ORDERS_TEMPLATE,
+  quotes: QUOTES_TEMPLATE,
 };
 
 export function getTemplateDefinition(type: TemplateType): TemplateDefinition {

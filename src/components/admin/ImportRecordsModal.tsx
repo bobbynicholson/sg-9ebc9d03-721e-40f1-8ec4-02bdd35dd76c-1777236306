@@ -66,6 +66,20 @@ const EDIT_FIELDS: Record<TemplateType, Array<{ key: string; label: string; type
     { key: "company_name",     label: "Company" },
     { key: "event_date",       label: "Event date" },
   ],
+  orders: [
+    { key: "client_name",      label: "Client name" },
+    { key: "client_email",     label: "Client email", type: "email" },
+    { key: "event_date",       label: "Event date" },
+    { key: "event_name",       label: "Event name" },
+    { key: "total_amount",     label: "Total (R)" },
+  ],
+  quotes: [
+    { key: "quote_number",     label: "Quote number" },
+    { key: "client_name",      label: "Client name" },
+    { key: "client_email",     label: "Client email", type: "email" },
+    { key: "total_amount",     label: "Total (R)" },
+    { key: "event_date",       label: "Event date" },
+  ],
 };
 
 type Step = "pick" | "previewing" | "preview" | "committing" | "done";

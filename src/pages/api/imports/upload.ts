@@ -384,7 +384,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? Object.keys(sh.rows[0].data)
           : [];
         let def = recogniseHeaders(headers);
-        if (!def && (overrideTemplate === "clients" || overrideTemplate === "leads")) {
+        if (
+          !def &&
+          (overrideTemplate === "clients"
+            || overrideTemplate === "leads"
+            || overrideTemplate === "orders"
+            || overrideTemplate === "quotes")
+        ) {
           // Caller forced the target. Use it as long as at least the
           // required columns are present -- prevents an empty file
           // from inserting the wrong target_table.

@@ -57,6 +57,7 @@ interface CommitSummary {
   clients: CountTriad;
   orders:  CountTriad;
   leads:   CountTriad;
+  quotes:  CountTriad;
   dry_run: boolean;
 }
 
@@ -356,13 +357,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       clients: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
       orders:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
       leads:   { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      quotes:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
       dry_run: dryRun,
     };
 
-    // Three passes: clients first so orders can resolve client_id;
-    // leads runs independently (no FK to clients/orders).
+    // Four passes in dependency order: clients first so orders +
+    // quotes can resolve client_id; leads runs independently (no FK
+    // to clients/orders). Within a single commit batch the passes
+    // run sequentially below.
     const clientRows = rows.filter((r) => r.target_table === "clients" && r.status !== "error");
     const orderRows  = rows.filter((r) => r.target_table === "orders"  && r.status !== "error");
+    const quoteRows  = rows.filter((r) => r.target_table === "quotes"  && r.status !== "error");
     const leadRows   = rows.filter((r) => r.target_table === "leads"   && r.status !== "error");
 
     // ── Bulk dedup pre-fetch ───────────────────────────────────────
@@ -510,6 +515,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           clientId = newClientByName.get(k) ?? dedup.clientByName.get(k) ?? null;
         }
 
+        // Stub-client auto-creation. orders.client_id is NOT NULL on
+        // the schema; if the operator's spreadsheet has an order whose
+        // client isn't in the clients sheet AND isn't already in the
+        // DB, we auto-create a thin client from this row's
+        // name/email/phone so the order can land. The stub carries
+        // the same import_job_id so rollback handles it.
+        // Pre-audit (May 2026) this branch silently wrote
+        // client_id=null and the insert failed -- the bug the
+        // strategic audit caught.
+        if (!clientId && !dryRun) {
+          const stubName = (mapped.client_name as string)?.trim()
+            || (mapped.client_email as string) || "Imported client";
+          const stubEmail = (mapped.client_email as string) || null;
+          const stubPhone = (mapped.client_phone as string) || null;
+          const { data: stub, error: stubErr } = await supabase
+            .from("clients")
+            .insert({
+              company_id: companyId,
+              region_id: targetRegionId,
+              client_name: stubName,
+              email: stubEmail,
+              phone: stubPhone,
+              is_active: true,
+              import_job_id: jobId,
+              imported_filename: importedFilename,
+              notes: "Auto-created from order import -- no matching client row in the sheet.",
+            })
+            .select("id")
+            .single();
+          if (stubErr) throw new Error(`Stub client creation failed: ${stubErr.message}`);
+          clientId = (stub as any).id;
+          if (stubEmail) newClientByEmail.set(stubEmail.toLowerCase().trim(), clientId!);
+          newClientByName.set(stubName.toLowerCase().trim(), clientId!);
+          summary.clients.inserted += 1;
+        }
+
         const existingOrder = lookupExistingOrder(dedup, mapped);
         if (existingOrder) {
           summary.orders.skipped += 1;
@@ -536,8 +577,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           guest_count: mapped.guest_count ?? null,
           venue_address: mapped.venue_address || null,
           total_amount: mapped.total_amount ?? null,
-          status: mapped.status || "pending",
+          deposit_amount: mapped.deposit_amount ?? null,
+          dietary_requirements: mapped.dietary_requirements || null,
+          // Default status: completed for past events, confirmed for
+          // future. Operator can override with a status column.
+          status: mapped.status
+            || (mapped.event_date && String(mapped.event_date) < new Date().toISOString().slice(0, 10)
+              ? "completed"
+              : "confirmed"),
           import_job_id: jobId,
+          imported_filename: importedFilename,
         };
 
         if (dryRun) {
@@ -563,6 +612,116 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await supabase.from("import_rows").update({
             status: "error",
             error_message: e?.message || "insert failed",
+          } as any).eq("id", r.id);
+        }
+      }
+    });
+
+    // ── Quotes pass ──────────────────────────────────────────────
+    // Runs after clients + orders (so quote.client_id can resolve
+    // against any newly-inserted clients, including stubs the orders
+    // pass auto-created). Quotes dedupe by quote_number per company
+    // -- the DB enforces uniqueness via a partial index, but we
+    // skip-with-message before the insert so the operator sees a
+    // clean "duplicate quote number" rather than a SQL error.
+    await runChunked(quoteRows, ROW_CONCURRENCY, async (r) => {
+      try {
+        const mapped = r.mapped_data || {};
+
+        // Resolve client_id, same priority as orders.
+        let clientId: string | null = null;
+        if (mapped.client_email) {
+          const k = String(mapped.client_email).toLowerCase().trim();
+          clientId = newClientByEmail.get(k) ?? dedup.clientByEmail.get(k) ?? null;
+        }
+        if (!clientId && mapped.client_name) {
+          const k = String(mapped.client_name).toLowerCase().trim();
+          clientId = newClientByName.get(k) ?? dedup.clientByName.get(k) ?? null;
+        }
+        // No stub-creation for quotes -- quotes.client_id is nullable
+        // on the schema, so a quote without a matched client just
+        // lands with client_id=null and the dashboard handles it.
+
+        // Skip if a quote with this number already exists for the
+        // tenant. Cheaper than catching the unique-constraint error.
+        if (mapped.quote_number) {
+          const { data: existing } = await supabase
+            .from("quotes")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("quote_number", mapped.quote_number)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (existing) {
+            summary.quotes.skipped += 1;
+            if (!dryRun) {
+              await supabase.from("import_rows").update({
+                status: "skipped",
+                target_id: (existing as any).id,
+                error_message: "Quote with this number is already on file",
+              } as any).eq("id", r.id);
+            }
+            return;
+          }
+        }
+
+        const total = Number(mapped.total_amount ?? 0);
+        const subtotal = mapped.subtotal != null ? Number(mapped.subtotal) : total;
+        // quotes.client_email is NOT NULL on the schema. If the
+        // operator's spreadsheet doesn't have it, fall back to a
+        // placeholder so the row still lands; operator can fix it
+        // post-import on the quote detail page.
+        const clientEmailForQuote: string =
+          mapped.client_email || `imported-${mapped.quote_number}@unknown.local`;
+        const quotePayload: any = {
+          company_id: companyId,
+          region_id: targetRegionId,
+          client_id: clientId,
+          client_name: mapped.client_name || null,
+          client_email: clientEmailForQuote,
+          client_phone: mapped.client_phone || null,
+          quote_number: mapped.quote_number,
+          quote_name: mapped.quote_name || "Imported quote",
+          event_date: mapped.event_date || null,
+          event_time: mapped.event_time || null,
+          guest_count: mapped.guest_count ?? null,
+          venue_address: mapped.venue_address || null,
+          subtotal,
+          tax_amount: mapped.tax_amount != null ? Number(mapped.tax_amount) : null,
+          delivery_fee: mapped.delivery_fee != null ? Number(mapped.delivery_fee) : 0,
+          total_amount: total,
+          total: total,
+          valid_until: mapped.valid_until || null,
+          status: mapped.status || "sent",
+          notes: mapped.notes || null,
+          import_job_id: jobId,
+          imported_filename: importedFilename,
+          external_source: "import",
+        };
+
+        if (dryRun) {
+          summary.quotes.inserted += 1;
+          return;
+        }
+
+        const { data: inserted, error } = await supabase
+          .from("quotes")
+          .insert(quotePayload)
+          .select("id")
+          .single();
+        if (error) throw new Error(error.message);
+
+        summary.quotes.inserted += 1;
+        await supabase.from("import_rows").update({
+          status: "inserted",
+          target_id: (inserted as any).id,
+        } as any).eq("id", r.id);
+      } catch (e: any) {
+        summary.quotes.errored += 1;
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "Quote insert failed",
           } as any).eq("id", r.id);
         }
       }
@@ -687,6 +846,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             clients: addCounts(priorCommit.clients, summary.clients),
             orders:  addCounts(priorCommit.orders,  summary.orders),
             leads:   addCounts(priorCommit.leads,   summary.leads),
+            quotes:  addCounts(priorCommit.quotes,  summary.quotes),
             dry_run: false,
           }
         : summary;
@@ -706,6 +866,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             clients: addCounts(priorCommit.clients, summary.clients),
             orders:  addCounts(priorCommit.orders,  summary.orders),
             leads:   addCounts(priorCommit.leads,   summary.leads),
+            quotes:  addCounts(priorCommit.quotes,  summary.quotes),
             dry_run: false,
           }
         : summary;
