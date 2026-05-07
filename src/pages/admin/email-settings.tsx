@@ -175,6 +175,30 @@ function EmailSettingsPage() {
     if (!companyId) return;
     setSaving(true);
     try {
+      // Only invalidate domain verification when a save actually changes
+      // a verification-relevant field. Editing daily_send_cap or
+      // auto_attach toggles used to silently flip is_verified back to
+      // false, which dropped the operator back into "verify your domain
+      // again" without any indication why [P1-04].
+      const { data: existing } = await supabase
+        .from("email_provider_settings")
+        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, is_verified")
+        .eq("company_id", companyId)
+        .eq("provider", row.provider)
+        .maybeSingle();
+
+      const verificationRelevantChanged = !existing
+        ? true
+        : (existing as any).provider !== row.provider
+          || (existing as any).from_email !== row.from_email
+          || (existing as any).from_name !== row.from_name
+          || (row.provider === "smtp" && (
+                (existing as any).smtp_host !== row.smtp_host
+             || (existing as any).smtp_port !== row.smtp_port
+             || (existing as any).smtp_user !== row.smtp_user
+             || !!smtpPass /* new password = re-verify */
+          ));
+
       const payload = {
         company_id: companyId,
         provider: row.provider,
@@ -186,7 +210,10 @@ function EmailSettingsPage() {
         smtp_pass_encrypted: row.provider === "smtp" && smtpPass ? smtpPass : undefined,
         smtp_secure: row.smtp_secure,
         daily_send_cap: row.daily_send_cap,
-        is_verified: false,                // re-verify on every save
+        // Preserve existing verification when the save only touches
+        // non-credential fields. Reset to false only when something that
+        // actually invalidates verification changed.
+        is_verified: verificationRelevantChanged ? false : (existing as any)?.is_verified ?? false,
         auto_attach_on_quote_sent:          row.auto_attach_on_quote_sent,
         auto_attach_on_order_confirmed:     row.auto_attach_on_order_confirmed,
         auto_attach_on_order_status_change: row.auto_attach_on_order_status_change,
@@ -201,7 +228,12 @@ function EmailSettingsPage() {
         .from("email_provider_settings")
         .upsert(payload, { onConflict: "company_id,provider" });
       if (error) throw error;
-      toast({ title: "Saved", description: "Provider config updated." });
+      toast({
+        title: "Saved",
+        description: verificationRelevantChanged && existing
+          ? "Provider config updated. Domain verification reset because credentials changed."
+          : "Provider config updated.",
+      });
     } catch (e: any) {
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
     } finally {
