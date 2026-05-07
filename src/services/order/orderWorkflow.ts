@@ -11,12 +11,52 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
  * Handles order status transitions, assignments, and workflow logic
  */
 
+// Allowed transitions for the order lifecycle. Source-of-truth for
+// which next-status the workflow accepts given a current status.
+// Cancelled / completed are terminal in this map (re-opening goes
+// through a different code path, not this function). Pre-event
+// keeps the existing flexibility (pending can go back to draft for
+// quote rebuild). [P0-12]
+const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
+  draft: ["pending", "confirmed", "cancelled"],
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled", "in_transit", "ready", "out_for_delivery"],
+  preparing: ["ready", "cancelled", "out_for_delivery", "in_transit"],
+  ready: ["out_for_delivery", "in_transit", "cancelled"],
+  out_for_delivery: ["delivered", "in_transit", "cancelled"],
+  in_transit: ["delivered", "out_for_delivery", "cancelled"],
+  delivered: ["completed", "cancelled"],
+  completed: [], // terminal
+  cancelled: [], // terminal
+};
+
 export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
   updatedBy?: string
 ) {
   try {
+    // State-machine guard. Read current status before update; reject
+    // transitions not in ALLOWED_ORDER_TRANSITIONS. Previously the
+    // function happily flipped pending -> delivered, skipping
+    // confirmed-time invoice creation, kitchen prep, and inventory
+    // deduction. [P0-12]
+    const { data: current } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle();
+    const currentStatus = (current as any)?.status as string | null | undefined;
+    if (currentStatus && currentStatus !== newStatus) {
+      const allowed = ALLOWED_ORDER_TRANSITIONS[currentStatus];
+      if (allowed && !allowed.includes(newStatus)) {
+        return {
+          success: false,
+          error: `Invalid order transition ${currentStatus} -> ${newStatus}. Allowed next steps: ${allowed.length ? allowed.join(", ") : "(terminal state)"}.`,
+        };
+      }
+    }
+
     // Stamp confirmed_at the first time an order moves to (or past)
     // 'confirmed'. The dashboard's Booked Revenue gate keys on this
     // column, so it has to be written even when the operator skips
