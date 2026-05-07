@@ -119,6 +119,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Skip the auth round-trip on public marketing + tokenised routes
+    // [P2-14]. AuthProvider always wraps the tree (so shared chrome
+    // that calls useAuth() doesn't bomb on prerender) but on routes
+    // where there's no authenticated user to surface, we don't pay
+    // the supabase.auth.getSession() + profile hydration cost.
+    // setLoading(false) so consumers don't sit on a stuck loader.
+    const PUBLIC_ROUTES = [
+      /^\/$/,
+      /^\/pricing$/,
+      /^\/features(\/.*)?$/,
+      /^\/blog(\/.*)?$/,
+      /^\/page\//,
+      /^\/(contact|support|security|terms|privacy|demo|404)$/,
+      /^\/(uk|us|eu)(\/.*)?$/,
+      /^\/q\//,
+      /^\/pay\/i\//,
+      /^\/c\/order\//,
+    ];
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+    const isPublicRoute = PUBLIC_ROUTES.some((re) => re.test(pathname));
+    if (isPublicRoute) {
+      setLoading(false);
+      // Still subscribe to auth state so a sign-in elsewhere in the
+      // tab (rare) hydrates the context, but we don't fetch eagerly.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) handleSessionChange(session);
+      });
+      return () => subscription.unsubscribe();
+    }
+
     // Normal auth flow for production
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleSessionChange(session);
