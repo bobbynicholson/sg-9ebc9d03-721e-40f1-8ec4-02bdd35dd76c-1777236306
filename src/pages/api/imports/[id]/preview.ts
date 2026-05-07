@@ -182,14 +182,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const mapped: Record<string, any> = {};
       const warnings: string[] = [];
-      // Track which header sourced each phone-shaped field so a
-      // second column targeting the same field (e.g. spreadsheet has
-      // "Mobile" + "Office Phone" both auto-mapped to phone) can be
-      // resolved deterministically: prefer the mobile-shaped value
-      // over a landline. Without this, last-write-wins meant a
-      // client's landline could overwrite their mobile and Callum's
-      // WhatsApp button would never appear for them.
-      const phoneSources: Record<string, string> = {};
       for (const [header, raw] of Object.entries(r.source_data || {})) {
         const decision = sheetMapping[header];
         if (!decision || !decision.target || decision.target === "skip" || decision.target === "__schema__") continue;
@@ -197,24 +189,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (norm.warnings.length > 0) warnings.push(...norm.warnings);
         if (norm.value === null || norm.value === undefined || norm.value === "") continue;
 
-        // Phone-shaped fields: when two columns both target a phone
-        // field, keep whichever value is the most-mobile-looking. SA
-        // mobiles start with +27[678]; landlines start with +27[1-5].
+        // Phone-shaped fields get smart-routed:
+        //   - explicit Mobile column   -> mobile_number
+        //   - explicit Landline column -> landline_number
+        //   - generic Phone column     -> mobile_number if value looks
+        //                                 like a mobile, else
+        //                                 landline_number; ALSO mirror
+        //                                 onto `phone` so legacy code
+        //                                 still works
+        // Last-write-wins for non-phone fields is intentional (final
+        // column with a value should win, e.g. trailing notes column).
+        if (decision.target === "mobile_number") {
+          mapped.mobile_number = norm.value;
+          if (!mapped.phone) mapped.phone = norm.value;
+          continue;
+        }
+        if (decision.target === "landline_number") {
+          mapped.landline_number = norm.value;
+          if (!mapped.phone) mapped.phone = norm.value;
+          continue;
+        }
         if (decision.target === "phone" || decision.target === "client_phone") {
-          const existing = mapped[decision.target] as string | undefined;
-          if (!existing) {
-            mapped[decision.target] = norm.value;
-            phoneSources[decision.target] = String(header);
-            continue;
-          }
-          const existingIsMobile = isMobileShape(existing);
-          const candidateIsMobile = isMobileShape(String(norm.value));
-          // Prefer mobile over landline. If they're the same shape,
-          // keep the existing one (mirrors the source-column order
-          // for stable behaviour).
-          if (candidateIsMobile && !existingIsMobile) {
-            mapped[decision.target] = norm.value;
-            phoneSources[decision.target] = String(header);
+          const isMobile = isMobileShape(String(norm.value));
+          // Generic phone column: route into the typed slot but also
+          // keep on `phone` for backward compat with existing reads.
+          if (decision.target === "phone") {
+            if (isMobile && !mapped.mobile_number) mapped.mobile_number = norm.value;
+            else if (!isMobile && !mapped.landline_number) mapped.landline_number = norm.value;
+            mapped.phone = norm.value;
+          } else {
+            // client_phone (leads). Same routing pattern.
+            if (isMobile && !mapped.mobile_number) mapped.mobile_number = norm.value;
+            else if (!isMobile && !mapped.landline_number) mapped.landline_number = norm.value;
+            mapped.client_phone = norm.value;
+            if (!mapped.phone) mapped.phone = norm.value;
           }
           continue;
         }
@@ -242,7 +250,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (targetTable === "clients") {
         const hasContact =
           (mapped.client_name as string)?.trim() ||
-          mapped.email || mapped.phone;
+          mapped.email || mapped.phone || mapped.mobile_number || mapped.landline_number;
         if (!hasContact) {
           status = "skipped";
           errorMessage = "No client name / email / phone";

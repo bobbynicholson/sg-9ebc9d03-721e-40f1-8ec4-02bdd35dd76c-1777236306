@@ -74,6 +74,8 @@ interface Contact {
   name: string;
   email: string | null;
   phone: string | null;
+  mobile_number: string | null;
+  landline_number: string | null;
   // Aggregated metrics
   orderCount: number;
   totalSpent: number;
@@ -201,7 +203,7 @@ function ClientsCRM() {
         const to = from + PAGE - 1;
         const { data, error } = await supabase
           .from("clients")
-          .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
+          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .range(from, to);
@@ -219,7 +221,7 @@ function ClientsCRM() {
       fetchAllClients(),
       supabase
         .from("leads")
-        .select("id, contact_name, email, phone, status, source, event_date, created_at")
+        .select("id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at")
         .eq("company_id", companyId)
         .is("deleted_at", null),
       supabase
@@ -295,6 +297,8 @@ function ClientsCRM() {
           name: c.client_name || "Unnamed",
           email: c.email,
           phone: c.phone,
+          mobile_number: c.mobile_number ?? null,
+          landline_number: c.landline_number ?? null,
           orderCount: 0, totalSpent: 0,
           lastEventDate: null, nextEventDate: null,
           outstandingBalance: Number(c.outstanding_balance || 0),
@@ -328,6 +332,8 @@ function ClientsCRM() {
             name: l.contact_name || "Unnamed lead",
             email: l.email,
             phone: l.phone,
+            mobile_number: l.mobile_number ?? null,
+            landline_number: l.landline_number ?? null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -359,6 +365,8 @@ function ClientsCRM() {
             name: o.client_name || "Unnamed",
             email: o.client_email,
             phone: o.client_phone,
+            mobile_number: null,
+            landline_number: null,
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
@@ -797,9 +805,21 @@ function ClientsCRM() {
                                 className="text-left"
                               >
                                 <div className="font-semibold text-slate-900">{c.name}</div>
-                                <div className="text-xs text-slate-500 flex items-center gap-2">
+                                <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                                   {c.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>}
-                                  {c.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>}
+                                  {c.mobile_number ? (
+                                    <span className="flex items-center gap-1" title="Mobile">
+                                      <Phone className="w-3 h-3 text-emerald-600" />{c.mobile_number}
+                                    </span>
+                                  ) : null}
+                                  {c.landline_number ? (
+                                    <span className="flex items-center gap-1" title="Landline">
+                                      <Phone className="w-3 h-3" />{c.landline_number}
+                                    </span>
+                                  ) : null}
+                                  {!c.mobile_number && !c.landline_number && c.phone ? (
+                                    <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
+                                  ) : null}
                                 </div>
                               </button>
                             </td>
@@ -840,7 +860,7 @@ function ClientsCRM() {
                                     via lead follow-up). */}
                                 <WhatsAppButton
                                   kind="client"
-                                  phone={c.phone}
+                                  phone={c.mobile_number || c.phone}
                                   clientId={c.clientId}
                                   variant="outline"
                                   size="sm"

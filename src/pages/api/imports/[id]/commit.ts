@@ -376,7 +376,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           region_id: targetRegionId,
           client_name: mapped.client_name || mapped.company_name || "Imported client",
           email: mapped.email || null,
-          phone: mapped.phone || null,
+          // Three phone columns. mobile_number is the WhatsApp
+          // target; landline_number shows on the contact card; phone
+          // stays as the legacy "primary" pointer so existing reads
+          // keep working until every consumer migrates.
+          phone: mapped.phone || mapped.mobile_number || mapped.landline_number || null,
+          mobile_number: mapped.mobile_number || null,
+          landline_number: mapped.landline_number || null,
           notes: mapped.notes || null,
           is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
@@ -542,8 +548,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           client_name: mapped.client_name || contact,
           email: email,
           client_email: email,
-          phone: mapped.phone || mapped.client_phone || null,
-          client_phone: mapped.client_phone || mapped.phone || null,
+          phone: mapped.phone || mapped.client_phone || mapped.mobile_number || mapped.landline_number || null,
+          client_phone: mapped.client_phone || mapped.phone || mapped.mobile_number || mapped.landline_number || null,
+          mobile_number: mapped.mobile_number || null,
+          landline_number: mapped.landline_number || null,
           company_name: mapped.company_name || null,
           event_type: mapped.event_type || null,
           event_date: mapped.event_date || null,

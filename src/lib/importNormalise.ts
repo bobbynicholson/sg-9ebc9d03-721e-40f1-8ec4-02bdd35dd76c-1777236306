@@ -147,6 +147,8 @@ const FIELD_TYPE: Record<string, "email" | "phone" | "date" | "amount" | "int" |
   client_email: "email",
   phone: "phone",
   client_phone: "phone",
+  mobile_number: "phone",
+  landline_number: "phone",
   event_date: "date",
   created_at: "date",
   total_amount: "amount",
