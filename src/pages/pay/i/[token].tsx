@@ -150,7 +150,32 @@ export default function InvoicePaymentPage() {
       const testMode = process.env.NODE_ENV !== "production";
 
       if (!merchantId || !merchantKey) {
-        setError("Payment gateway not configured. Please contact the company to arrange payment.");
+        // Surface a fix-path the client can act on. Previously the
+        // operator's invoice link landed on a dead-end "contact the
+        // company" message [P1-39]. Now the link is actionable: a
+        // mailto: with the operator's email + the invoice number
+        // pre-filled. The operator's email comes off the invoice's
+        // company row.
+        const company = (invoice as any)?.companies || {};
+        const tenantEmail = company.email || company.contact_email || null;
+        const invNumber = (invoice as any)?.invoice_number || "your invoice";
+        const subject = encodeURIComponent(`Payment help -- ${invNumber}`);
+        const body = encodeURIComponent(
+          `Hi ${company.company_name || "there"},\n\n` +
+          `I tried to pay ${invNumber} but the online payment gateway isn't set up.\n` +
+          `Please send me alternative payment instructions (EFT, etc.).\n\nThanks.`
+        );
+        const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
+        setError(
+          link
+            ? `Online payment isn't available right now. Tap to email ${company.company_name || "the company"}: ${tenantEmail}`
+            : "Online payment isn't available right now. Please contact the company to arrange payment."
+        );
+        if (link) {
+          // Persist the mailto on the page state so the existing
+          // error renderer can promote it to a clickable link.
+          (window as any).__payFixLink = link;
+        }
         return;
       }
 
@@ -384,7 +409,19 @@ export default function InvoicePaymentPage() {
                   {error && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
+                      <AlertDescription>
+                        {error}
+                        {typeof window !== "undefined" && (window as any).__payFixLink && (
+                          <div className="mt-2">
+                            <a
+                              href={(window as any).__payFixLink}
+                              className="underline font-medium"
+                            >
+                              Email the company about this invoice
+                            </a>
+                          </div>
+                        )}
+                      </AlertDescription>
                     </Alert>
                   )}
 
