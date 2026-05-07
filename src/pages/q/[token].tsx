@@ -303,14 +303,24 @@ export default function PublicQuotePage() {
         <style>{`
           /* Force browsers to honour the brand colour on the printed
              quote -- without this Chrome/Edge default to "background
-             graphics off" and the tenant header prints as plain white. */
+             graphics off" and the tenant header prints as plain white.
+             html selector is for Safari (which sometimes ignores the
+             body-level rule on print). */
           @media print {
-            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            html, body, .brand-print {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
             body { background: white !important; }
             .no-print { display: none !important; }
             .print-shadow-none { box-shadow: none !important; }
             .print-border-none { border: none !important; }
             .print-bg-white { background: white !important; }
+            /* Avoid splitting the branded header across pages on Safari
+               which doesn't honour break-inside on flex children unless
+               page-break-inside is set explicitly. */
+            .brand-print { page-break-inside: avoid; break-inside: avoid; }
             @page { margin: 16mm; }
           }
         `}</style>

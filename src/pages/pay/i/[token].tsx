@@ -291,13 +291,20 @@ export default function InvoicePaymentPage() {
         <title>{`${docTitle} ${invoice.invoice_number} from ${companyName}`}</title>
         <meta name="robots" content="noindex, nofollow" />
         <style>{`
+          /* Mirror /q/[token] -- html selector + color-adjust fallback
+             keep Safari honouring the brand colour on print. */
           @media print {
-            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            html, body, .brand-print {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
             body { background: white !important; }
             .no-print { display: none !important; }
             .print-shadow-none { box-shadow: none !important; }
             .print-border-none { border: none !important; }
             .print-bg-white { background: white !important; }
+            .brand-print { page-break-inside: avoid; break-inside: avoid; }
             @page { margin: 16mm; }
           }
         `}</style>
