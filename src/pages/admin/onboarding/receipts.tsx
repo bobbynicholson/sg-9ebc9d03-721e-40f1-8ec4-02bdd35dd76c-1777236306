@@ -76,7 +76,7 @@ function ReceiptsImportPage() {
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                 Receipt scanner
-                <InfoTooltip content={"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\n\nClaude vision reads each receipt and pulls the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required."} />
+                <InfoTooltip content={"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\n\nWe read each receipt and pull the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required."} />
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
                 Photograph up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices so your inventory loads itself.

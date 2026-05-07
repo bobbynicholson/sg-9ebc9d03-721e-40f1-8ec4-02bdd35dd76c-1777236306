@@ -112,8 +112,8 @@ function ImportsHistoryPage() {
       (counts?.leads?.inserted || 0) +
       (counts?.quotes?.inserted || 0);
     const msg = inserted > 0
-      ? `Enable automated comms for the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"? After this, welcome emails / after-sales sequences / lead auto-replies can fire against them. There is no undo button. Comms run from the moment you click.`
-      : `Enable automated comms for this batch? After this, welcome emails / after-sales sequences / lead auto-replies can fire against the imported records.`;
+      ? `Allow automated emails on the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"?\n\nThis does NOT send anything immediately. It just lifts the pause so the system's existing email sequences (welcome message, lead auto-reply, after-sales follow-up) can fire against these records when their normal schedule says so.\n\nThere is no undo button: once you allow it, those sequences will start running on their usual cadence.`
+      : `Allow automated emails on this batch?\n\nThis does NOT send anything immediately. It just lifts the pause so the system's existing email sequences (welcome message, lead auto-reply, after-sales follow-up) can fire on these records when their schedule says so.`;
     if (!confirm(msg)) return;
     setBusyId(job.id);
     try {
@@ -123,14 +123,14 @@ function ImportsHistoryPage() {
       const cleared =
         (json.clients || 0) + (json.leads || 0) + (json.orders || 0) + (json.quotes || 0);
       toast({
-        title: "Comms enabled",
+        title: "Auto-emails allowed",
         description: cleared > 0
-          ? `Cleared the pause on ${cleared} record${cleared === 1 ? "" : "s"}.`
-          : "Batch is now green-lit.",
+          ? `Pause lifted on ${cleared} record${cleared === 1 ? "" : "s"}. Sequences will fire on their normal schedule from here.`
+          : "Batch is now green-lit. Sequences will fire on their normal schedule.",
       });
       load();
     } catch (e: any) {
-      toast({ title: "Could not enable comms", description: e?.message || "", variant: "destructive" });
+      toast({ title: "Could not allow auto-emails", description: e?.message || "", variant: "destructive" });
     } finally {
       setBusyId(null);
     }
@@ -301,12 +301,12 @@ function ImportsHistoryPage() {
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                   AI importer
-                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients, leads, orders, quotes, invoices or payments even if the column headings are weird. Claude maps the columns to our schema, you preview every row, then commit when it looks right.\n\nSix templates available on the next screen, or download the combined onboarding workbook with all six tabs in one .xlsx. Supports up to 5,000 rows per upload."} />
+                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients, leads, orders, quotes, invoices or payments even if the column headings are weird. We map the columns to our schema, you preview every row, then commit when it looks right.\n\nSix templates available on the next screen, or download the combined onboarding workbook with all six tabs in one .xlsx. Supports up to 5,000 rows per upload."} />
                 </span>
               </div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">Use when</p>
               <p className="text-xs text-slate-700 mb-2">
-                You've got a richer file or want to use our templates. Mixed columns, weird headers, or a workbook with multiple tabs (clients, leads, orders, quotes, invoices, payments). Claude maps the columns and you preview every row.
+                You've got a richer file or want to use our templates. Mixed columns, weird headers, or a workbook with multiple tabs (clients, leads, orders, quotes, invoices, payments). We map the columns and you preview every row.
               </p>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">You get</p>
               <p className="text-xs text-slate-600">
@@ -323,7 +323,7 @@ function ImportsHistoryPage() {
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                   Receipt scanner
-                  <InfoTooltip content={"Photograph supplier slips with your phone (up to 20 in one go). Claude vision reads each receipt and pulls the supplier, date, line items and totals so we can pre-populate your inventory cost prices.\n\nUseful on day one to seed real costs from your last few weeks of supplier purchases without typing them out."} />
+                  <InfoTooltip content={"Photograph supplier slips with your phone (up to 20 in one go). We read each receipt and pull the supplier, date, line items and totals so we can pre-populate your inventory cost prices.\n\nUseful on day one to seed real costs from your last few weeks of supplier purchases without typing them out."} />
                 </span>
               </div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 mb-1">Use when</p>
@@ -362,6 +362,14 @@ function ImportsHistoryPage() {
             </Card>
           ) : (
             <div className="space-y-3">
+              {jobs.some((j) => j.status === "completed" && !j.comms_enabled_at) && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 flex items-start gap-2">
+                  <BellOff className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Auto-emails are paused on every fresh import.</span> Imported records sit in your CRM exactly like normal, but the system's automated email sequences (welcome message, lead auto-reply, after-sales follow-up) will not fire on them until you click <span className="font-semibold">Allow auto-emails</span>. Clicking that button does not blast anything immediately. It just lifts the pause so those sequences can run on their normal schedule.
+                  </div>
+                </div>
+              )}
               {jobs.map((j) => {
                 const meta = STATUS_META[j.status] || STATUS_META.uploaded;
                 const ageHours =
@@ -388,14 +396,14 @@ function ImportsHistoryPage() {
                             isn't a useful signal there. */}
                         {j.status === "completed" && (
                           j.comms_enabled_at ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1">
+                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1" title="Auto-emails (welcome, follow-ups, after-sales) can fire on these records as soon as the schedule says so.">
                               <Bell className="w-2.5 h-2.5" />
-                              Comms live
+                              Auto-emails on
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 text-[10px] gap-1">
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 text-[10px] gap-1" title="Records imported, but our automated email sequences (welcome, follow-ups, after-sales) are paused on them until you allow them.">
                               <BellOff className="w-2.5 h-2.5" />
-                              Comms paused
+                              Auto-emails paused
                             </Badge>
                           )
                         )}
@@ -444,14 +452,14 @@ function ImportsHistoryPage() {
                             onClick={() => enableComms(j)}
                             disabled={busyId === j.id}
                             className="bg-emerald-600 hover:bg-emerald-700"
-                            title="Allow welcome emails / after-sales / lead auto-replies to fire on this batch"
+                            title="Lets the system's automated email sequences (welcome, follow-ups, after-sales) fire on this batch on their normal schedule. Does NOT send anything right now."
                           >
                             {busyId === j.id ? (
                               <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                             ) : (
                               <Bell className="w-3.5 h-3.5 mr-1.5" />
                             )}
-                            Enable comms
+                            Allow auto-emails
                           </Button>
                         )}
                         {canRollback && (

@@ -62,7 +62,7 @@ export default function ShoppingReceipts() {
             <div>
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 Receipt scanner
-                <InfoTooltip content={"Photograph supplier slips as they come in. Claude vision pulls the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
+                <InfoTooltip content={"Photograph supplier slips as they come in. We pull the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
               </h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-600">
                 Snap up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.

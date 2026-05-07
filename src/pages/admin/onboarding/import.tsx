@@ -410,7 +410,7 @@ function ImportPage() {
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                 AI Import
-                <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then Claude maps your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
+                <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
                 Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it.
@@ -426,7 +426,7 @@ function ImportPage() {
               const done = stepIndex(step) > i;
               const tip =
                 s === "upload"  ? "Step 1. Drop your spreadsheet. CSV or XLSX, up to 5 MB and 5,000 rows. Two tabs (one for clients, one for orders) is the cleanest shape, but a single sheet works too."
-                : s === "mapping" ? "Step 2. Claude reads your column headings and proposes a mapping to our fields (Name, Email, Phone, Event date, Total, etc.). You can override any guess before moving on."
+                : s === "mapping" ? "Step 2. We read your column headings and propose a mapping to our fields (Name, Email, Phone, Event date, Total, etc.). You can override any guess before moving on."
                 : s === "preview" ? "Step 3. We run every row through the validation pipeline and show you what will happen: insert, skip (already exists), or error. Fix anything you don't like before committing."
                 : s === "commit"  ? "Step 4. Apply the import. Each new row gets stamped with this job's id so we can roll the whole thing back inside 24 hours if anything looks off afterwards."
                 : "Step 5. Summary of what landed. From here you can roll back, view the rows, or jump straight to Clients / Orders to start working with the new data.";
@@ -457,7 +457,7 @@ function ImportPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-purple-600" />
                   Upload your spreadsheet
-                  <InfoTooltip content={"Drop a CSV or XLSX with the data you want to bring across.\n\nIdeal shape: two sheets named 'clients' and 'orders'. We accept any column headings; Claude maps them in the next step.\n\nIf it's just a contact list, the simpler 'Easy client list' tool may be a faster fit."} />
+                  <InfoTooltip content={"Drop a CSV or XLSX with the data you want to bring across.\n\nIdeal shape: two sheets named 'clients' and 'orders'. We accept any column headings; we map them in the next step.\n\nIf it's just a contact list, the simpler 'Easy client list' tool may be a faster fit."} />
                 </CardTitle>
                 <CardDescription>
                   CSV, XLS or XLSX. Two tabs work best, one for clients and one for orders. Single-tab files are fine too.
@@ -892,7 +892,7 @@ function ImportPage() {
                                           disabled={repairing}
                                           onClick={() => repairRow(r.id)}
                                           className="h-7 text-[11px] gap-1.5"
-                                          title="Ask Claude to repair this row's broken cells"
+                                          title="Auto-repair this row's broken cells"
                                         >
                                           {repairing ? (
                                             <Loader2 className="w-3 h-3 animate-spin" />
