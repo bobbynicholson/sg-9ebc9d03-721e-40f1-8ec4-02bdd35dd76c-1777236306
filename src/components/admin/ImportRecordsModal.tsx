@@ -19,7 +19,7 @@
  * the cap in /admin/platform/settings reflects here without a
  * redeploy.
  */
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,34 @@ import {
   Check,
   Loader2,
   RefreshCw,
+  Pencil,
+  X,
+  Save,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { TemplateType } from "@/lib/importTemplates";
+
+// Editable fields per target table -- the small set of common fields
+// the operator can fix from the preview screen without re-uploading.
+// Mirrors the columns in importTemplates so the operator sees the
+// same shape they uploaded.
+const EDIT_FIELDS: Record<TemplateType, Array<{ key: string; label: string; type?: "email" | "tel" | "text" }>> = {
+  clients: [
+    { key: "client_name",      label: "Client name" },
+    { key: "email",            label: "Email", type: "email" },
+    { key: "mobile_number",    label: "Mobile", type: "tel" },
+    { key: "landline_number",  label: "Landline", type: "tel" },
+    { key: "billing_city",     label: "City" },
+  ],
+  leads: [
+    { key: "contact_name",     label: "Contact name" },
+    { key: "email",            label: "Email", type: "email" },
+    { key: "mobile_number",    label: "Mobile", type: "tel" },
+    { key: "company_name",     label: "Company" },
+    { key: "event_date",       label: "Event date" },
+  ],
+};
 
 type Step = "pick" | "previewing" | "preview" | "committing" | "done";
 
@@ -104,6 +130,12 @@ export function ImportRecordsModal({
   // batch's `processed` + `remaining` so the user sees a live count
   // while a 4 000-row import works through 16 batches.
   const [commitProgress, setCommitProgress] = useState<{ done: number; total: number } | null>(null);
+  // Inline-edit state: which row is currently expanded for editing,
+  // and the form values in flight. Keyed by row id so switching
+  // between rows starts fresh each time.
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editSaving, setEditSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const reset = () => {
@@ -164,6 +196,88 @@ export function ImportRecordsModal({
       setBusy(false);
       // Reset the file input so re-picking the same file fires onChange.
       if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  // ── Inline edit: open / save / cancel ──────────────────────────
+  const openEditor = (row: PreviewRow) => {
+    if (!jobId) return;
+    setEditingRowId(row.id);
+    const m = row.mapped_data || {};
+    const initial: Record<string, string> = {};
+    for (const f of EDIT_FIELDS[template]) {
+      initial[f.key] = String(m[f.key] ?? "");
+    }
+    setEditForm(initial);
+    setError(null);
+  };
+
+  const cancelEditor = () => {
+    setEditingRowId(null);
+    setEditForm({});
+  };
+
+  const saveEditor = async () => {
+    if (!jobId || !editingRowId) return;
+    setEditSaving(true);
+    setError(null);
+    try {
+      // Send only fields the operator actually touched (non-empty
+      // strings + cleared fields signalled with empty string).
+      const overrides: Record<string, string> = {};
+      for (const [k, v] of Object.entries(editForm)) {
+        overrides[k] = v.trim();
+      }
+      const r = await fetch(`/api/imports/${jobId}/rows/${editingRowId}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Edit failed");
+
+      // Apply the server's updated row state to the in-memory preview
+      // list so the row's badge + summary refresh without a re-fetch.
+      setPreviewRows((prev) =>
+        prev.map((row) =>
+          row.id === editingRowId
+            ? {
+                ...row,
+                mapped_data: j.mapped_data,
+                status: j.status,
+                error_message: j.error_message,
+                preview_warnings: j.warnings,
+              }
+            : row,
+        ),
+      );
+
+      // Roll the summary's ok/error counts forward so the green
+      // "Will import" tile reflects the fix immediately.
+      if (previewSummary) {
+        const wasError = previewRows.find((p) => p.id === editingRowId)?.status === "error";
+        const nowError = j.status === "error";
+        if (wasError && !nowError) {
+          setPreviewSummary({
+            ...previewSummary,
+            errors: Math.max(0, previewSummary.errors - 1),
+            ok: previewSummary.ok + 1,
+          });
+        } else if (!wasError && nowError) {
+          setPreviewSummary({
+            ...previewSummary,
+            errors: previewSummary.errors + 1,
+            ok: Math.max(0, previewSummary.ok - 1),
+          });
+        }
+      }
+
+      setEditingRowId(null);
+      setEditForm({});
+    } catch (e: any) {
+      setError(e?.message || "Edit failed");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -433,51 +547,119 @@ export function ImportRecordsModal({
                     const isMatch = !!r.dedup_match_id;
                     const decision = (r.dedup_decision || "skip") as
                       | "skip" | "update" | "create_new";
+                    const flagged =
+                      r.status === "error" ||
+                      r.status === "skipped" ||
+                      (r.preview_warnings && r.preview_warnings.length > 0);
+                    const isEditing = editingRowId === r.id;
                     return (
-                      <tr key={r.id} className="border-t border-slate-100">
-                        <td className="px-3 py-1.5 font-mono text-slate-500">
-                          {r.source_row_index ?? "?"}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <RowStatusBadge
-                            status={r.status}
-                            warnings={r.preview_warnings || []}
-                            isDuplicate={isMatch}
-                          />
-                        </td>
-                        <td className="px-3 py-1.5 text-slate-700">
-                          <div className="truncate">{summary}</div>
-                          {r.error_message && (
-                            <div className="text-rose-600 text-[11px] mt-0.5">
-                              {r.error_message}
+                      <Fragment key={r.id}>
+                        <tr className="border-t border-slate-100">
+                          <td className="px-3 py-1.5 font-mono text-slate-500 align-top">
+                            {r.source_row_index ?? "?"}
+                          </td>
+                          <td className="px-3 py-1.5 align-top">
+                            <RowStatusBadge
+                              status={r.status}
+                              warnings={r.preview_warnings || []}
+                              isDuplicate={isMatch}
+                            />
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-700">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate">{summary}</div>
+                                {r.error_message && (
+                                  <div className="text-rose-600 text-[11px] mt-0.5">
+                                    {r.error_message}
+                                  </div>
+                                )}
+                                {r.preview_warnings && r.preview_warnings.length > 0 && (
+                                  <div className="text-amber-700 text-[11px] mt-0.5">
+                                    {r.preview_warnings.slice(0, 2).join("; ")}
+                                  </div>
+                                )}
+                                {isMatch && (
+                                  <div className="mt-1 flex items-center gap-1 text-[11px]">
+                                    <span className="text-amber-700">On file:</span>
+                                    <select
+                                      value={decision}
+                                      onChange={(e) =>
+                                        setRowDecision(
+                                          r.id,
+                                          e.target.value as "skip" | "update" | "create_new",
+                                        )
+                                      }
+                                      className="border border-slate-300 rounded px-1 py-0.5 bg-white text-[11px]"
+                                    >
+                                      <option value="skip">Skip</option>
+                                      <option value="update">Update existing</option>
+                                      <option value="create_new">Create new</option>
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                              {flagged && !isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditor(r)}
+                                  className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                                  title="Fix this row inline -- no re-upload needed"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  Fix
+                                </button>
+                              )}
                             </div>
-                          )}
-                          {r.preview_warnings && r.preview_warnings.length > 0 && (
-                            <div className="text-amber-700 text-[11px] mt-0.5">
-                              {r.preview_warnings.slice(0, 2).join("; ")}
-                            </div>
-                          )}
-                          {isMatch && (
-                            <div className="mt-1 flex items-center gap-1 text-[11px]">
-                              <span className="text-amber-700">On file:</span>
-                              <select
-                                value={decision}
-                                onChange={(e) =>
-                                  setRowDecision(
-                                    r.id,
-                                    e.target.value as "skip" | "update" | "create_new",
-                                  )
-                                }
-                                className="border border-slate-300 rounded px-1 py-0.5 bg-white text-[11px]"
-                              >
-                                <option value="skip">Skip</option>
-                                <option value="update">Update existing</option>
-                                <option value="create_new">Create new</option>
-                              </select>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
+                        {isEditing && (
+                          <tr className="bg-slate-50 border-t border-slate-100">
+                            <td colSpan={3} className="px-4 py-3">
+                              <div className="text-[11px] text-slate-600 mb-2 flex items-center gap-1">
+                                <Pencil className="w-3 h-3" />
+                                Editing row {r.source_row_index ?? "?"}. Save runs the same checks as the original preview -- if your fix resolves the error the row goes green automatically.
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {EDIT_FIELDS[template].map((f) => (
+                                  <div key={f.key}>
+                                    <Label className="text-[11px] text-slate-600">{f.label}</Label>
+                                    <Input
+                                      type={f.type ?? "text"}
+                                      value={editForm[f.key] ?? ""}
+                                      onChange={(e) =>
+                                        setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))
+                                      }
+                                      className="h-8 text-xs mt-0.5"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-end gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="gap-1 h-7 text-xs"
+                                  onClick={cancelEditor}
+                                  disabled={editSaving}
+                                >
+                                  <X className="w-3 h-3" />
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="gap-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                  onClick={saveEditor}
+                                  disabled={editSaving}
+                                >
+                                  {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                  Save
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
