@@ -88,6 +88,7 @@ function EmailSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   const [row, setRow] = useState<ProviderRow>({
     provider: "resend",
@@ -238,6 +239,50 @@ function EmailSettingsPage() {
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Send a test email to the operator's own from_email address [P1-05].
+  // Uses /api/test-email which is now auth-gated (P0-05). Lands the
+  // tenant-branded test in the operator's inbox so they can see what
+  // their clients will see, without sending to a stranger.
+  const sendTestEmail = async () => {
+    if (!companyId || !row.from_email) {
+      toast({
+        title: "Set a from address first",
+        description: "Add a from_email + save before testing.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await fetch("/api/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, to: row.from_email }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast({
+          title: "Test failed",
+          description: json.error || "Could not send test email. Check provider config.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Test sent",
+        description: `Inbox: ${row.from_email}. Check spam if it doesn't appear in 30 seconds.`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Test failed",
+        description: e?.message || "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -504,16 +549,42 @@ function EmailSettingsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <p className="text-xs text-slate-500">
+              {/* Shared-fallback sender disclosure [P1-06]. Until the
+                  tenant verifies their own domain in Resend, sends fall
+                  back to noreply@send.cateringms.com with Reply-To set
+                  to the tenant's from_email. Operators were stuck
+                  thinking they couldn't send anything until DNS
+                  verified -- explicitly tell them the fallback works. */}
+              {row.provider === "resend" && !row.is_verified && row.from_email && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Domain not yet verified. Emails still go out from
+                  <code className="mx-1 rounded bg-white px-1 py-0.5">noreply@send.cateringms.com</code>
+                  with Reply-To set to {row.from_email}. Verify your domain
+                  to switch to your own sender.
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <p className="text-xs text-slate-500 truncate">
                   {row.last_test_sent_at && (
                     <>Last connection check: {new Date(row.last_test_sent_at).toLocaleString("en-ZA")}</>
                   )}
                 </p>
-                <Button onClick={save} disabled={saving} className="gap-2">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                  Save provider config
-                </Button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    onClick={sendTestEmail}
+                    disabled={testing || saving || !row.from_email}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    Send test email
+                  </Button>
+                  <Button onClick={save} disabled={saving} className="gap-2">
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                    Save provider config
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
