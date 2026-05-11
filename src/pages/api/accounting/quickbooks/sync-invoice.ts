@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: invoice } = await supabase
       .from("invoices")
-      .select("id, company_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount, status, external_id, client_id, order_id")
+      .select("id, company_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount, status, external_id, client_id, order_id, last_synced_at")
       .eq("id", invoice_id)
       .maybeSingle();
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
@@ -89,7 +89,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (invoice.external_id) {
-      return res.status(200).json({ ok: true, alreadySynced: true, externalId: invoice.external_id });
+      // Phase 4 #4 conflict guard happens after the ai + token
+      // lookup below. Mark it for the post-ai branch by leaving the
+      // alreadySynced short-circuit to fall through.
     }
 
     const { data: integration } = await supabase
@@ -107,6 +109,75 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let accessToken = await ensureFreshAccessToken(supabase, ai);
     if (!accessToken) {
       return res.status(502).json({ error: "Could not obtain a QuickBooks access token" });
+    }
+
+    // Phase 4 #4: two-way conflict guard. Symmetrical to the Xero
+    // sync's update-mode drift check. If we already pushed this
+    // invoice to QB and someone has edited it on the QB side since
+    // (e.g. the bookkeeper changed the line description), we refuse
+    // to clobber and force the operator to reconcile manually. The
+    // fallback short-circuit below preserves existing behaviour --
+    // safe to retry when QB has nothing new.
+    if (invoice.external_id) {
+      try {
+        const driftResp = await fetch(
+          `${QB_BASE}/v3/company/${ai.tenant_id}/invoice/${invoice.external_id}?minorversion=70`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json",
+            },
+          },
+        );
+        // 401 retry mirrors the create path -- a stale token
+        // mid-call would otherwise look like a missing invoice.
+        let driftBody: any = null;
+        if (driftResp.status === 401) {
+          const refreshed = await ensureFreshAccessToken(supabase, ai, { force: true });
+          if (refreshed) {
+            accessToken = refreshed;
+            const retry = await fetch(
+              `${QB_BASE}/v3/company/${ai.tenant_id}/invoice/${invoice.external_id}?minorversion=70`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  Accept: "application/json",
+                },
+              },
+            );
+            driftBody = await retry.json().catch(() => ({}));
+          }
+        } else {
+          driftBody = await driftResp.json().catch(() => ({}));
+        }
+        const remoteUpdated: string | undefined =
+          driftBody?.Invoice?.MetaData?.LastUpdatedTime;
+        const ourLast = invoice.last_synced_at
+          ? new Date(invoice.last_synced_at).getTime()
+          : 0;
+        const theirLast = remoteUpdated ? Date.parse(remoteUpdated) : 0;
+        if (Number.isFinite(theirLast) && theirLast > 0 && ourLast && theirLast > ourLast) {
+          const message =
+            "QuickBooks has changes since the last sync. Reconcile manually before re-pushing.";
+          await supabase
+            .from("invoices")
+            .update({ sync_error: message })
+            .eq("id", invoice.id);
+          return res.status(409).json({
+            error: message,
+            conflict: true,
+            quickbooksLastUpdatedTime: remoteUpdated,
+            ourLastSyncedAt: invoice.last_synced_at,
+          });
+        }
+      } catch (driftErr) {
+        // Drift check failure shouldn't block an alreadySynced
+        // response -- conservative, matches the prior shape.
+        console.warn("[quickbooks/sync-invoice] drift check failed:", driftErr);
+      }
+      return res.status(200).json({ ok: true, alreadySynced: true, externalId: invoice.external_id });
     }
 
     // Build the customer ref. QuickBooks needs an existing customer
