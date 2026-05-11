@@ -917,6 +917,30 @@ async function sendStatusNotifications(order: any) {
           notification_kind: "client",
         });
       }
+      // Role-fanout: tell the kitchen team an order is in for them.
+      // Audit Notif G1 -- the kitchen inbox at
+      // /team-portal/kitchen/notifications had no producer anywhere,
+      // so non-assigned chefs were blind to incoming orders. Fan-out
+      // to the whole kitchen_staff role for this company so anyone
+      // on shift can see the new booking even if a specific chef
+      // hasn't been assigned yet via the order's assigned_chef_id.
+      // Non-blocking, await is short-circuited via void.
+      if (order.company_id) {
+        void notificationService.broadcastNotification({
+          companyId: order.company_id,
+          regionId: (order as any).region_id || null,
+          targetRoles: ["kitchen_staff" as any, "chef" as any],
+          title: "New confirmed order",
+          message: `Order ${orderNumber} confirmed${eventDateLabel ? ` for ${eventDateLabel}` : ""}. Prep tasks have been scheduled.`,
+          type: "order_confirmed",
+          priority: "normal",
+          link: `/team-portal/kitchen/prep-list?orderId=${order.id}`,
+          relatedEntityType: "order",
+          relatedEntityId: order.id,
+        }).catch((e) => {
+          console.warn("[sendStatusNotifications] kitchen broadcast failed:", e);
+        });
+      }
       break;
     case "preparing":
       if (order.user_id) {
@@ -1032,6 +1056,27 @@ async function sendStatusNotifications(order: any) {
           message: `Order ${orderNumber} delivered.`,
           notification_type: "delivered",
           notification_kind: "admin",
+        });
+      }
+      // Role-fanout: tell the cleaning team they have equipment
+      // coming back from this event. The cleaning_status rows were
+      // just inserted by the writer in updateOrderStatus, so this
+      // broadcast is the inbox ping that says "go look".
+      // Audit Notif G1 -- cleaning team had no producer.
+      if (order.company_id) {
+        void notificationService.broadcastNotification({
+          companyId: order.company_id,
+          regionId: (order as any).region_id || null,
+          targetRoles: ["cleaning_staff" as any],
+          title: "Equipment ready for cleaning",
+          message: `Event for order ${orderNumber} just delivered. Equipment will be returning -- check the cleaning board.`,
+          type: "cleaning_required",
+          priority: "normal",
+          link: `/team-portal/cleaning/dashboard?orderId=${order.id}`,
+          relatedEntityType: "order",
+          relatedEntityId: order.id,
+        }).catch((e) => {
+          console.warn("[sendStatusNotifications] cleaning broadcast failed:", e);
         });
       }
       break;

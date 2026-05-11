@@ -462,22 +462,50 @@ export async function deductInventoryForOrder(
       
       // 7. Check if now low stock and create notification
       if (newStock <= inventoryItem.minimum_stock) {
+        const title = newStock === 0 ? "Out of Stock Alert" : "Low Stock Alert";
+        const message = newStock === 0
+          ? `${ingredientName} is out of stock (used in order #${orderId.slice(-8)})`
+          : `${ingredientName} is low on stock (${newStock} ${inventoryItem.unit_of_measure} remaining after order #${orderId.slice(-8)})`;
+
         const { error: notifError } = await supabase
           .from("notifications")
           .insert({
             company_id: companyId,
             user_id: performedBy,
             type: 'stock_low',
-            title: newStock === 0 ? 'Out of Stock Alert' : 'Low Stock Alert',
-            message: newStock === 0 
-              ? `${ingredientName} is out of stock (used in order #${orderId.slice(-8)})`
-              : `${ingredientName} is low on stock (${newStock} ${inventoryItem.unit_of_measure} remaining after order #${orderId.slice(-8)})`,
+            title,
+            message,
             related_entity_type: 'inventory_item',
             related_entity_id: inventoryItem.id
           });
-        
+
         if (notifError) {
           console.error('Failed to create low stock notification:', notifError);
+        }
+
+        // Role-fanout to shopping_staff so the procurement team's
+        // /team-portal/shopping/notifications inbox has something to
+        // act on. Audit Notif G1 + Inventory G6 -- shopping was
+        // running blind off the admin's verbal nudges. Non-blocking;
+        // a failure here is logged and surfaces in the operator's
+        // primary 'stock_low' bell from the insert above. Imported
+        // dynamically to avoid widening the module's dependency
+        // graph for a sometimes-fired side effect.
+        try {
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.broadcastNotification({
+            companyId,
+            targetRoles: ["shopping_staff" as any],
+            title,
+            message: `${message}. Add to next shopping run.`,
+            type: "stock_low",
+            priority: newStock === 0 ? "high" : "normal",
+            link: `/team-portal/shopping/inventory?itemId=${inventoryItem.id}`,
+            relatedEntityType: "inventory_item",
+            relatedEntityId: inventoryItem.id,
+          });
+        } catch (broadcastErr) {
+          console.warn("[inventoryDeduction] shopping broadcast failed:", broadcastErr);
         }
       }
     }
