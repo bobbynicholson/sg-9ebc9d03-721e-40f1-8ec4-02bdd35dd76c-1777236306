@@ -299,8 +299,28 @@ export const kitchenPrepService = {
       if (!name) continue;
 
       const recipe = await this.lookupRecipe(companyId, name);
-      const prepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
-      const cookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
+      const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
+      const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
+
+      // Audit Kitchen G4: prep/cook minutes from the recipe are
+      // expressed per recipe.base_servings (e.g. "cook 4h for 10
+      // guests"). The previous code used the recipe value as-is no
+      // matter how many guests were on the order, so a 200-guest
+      // job was scheduled to cook in 4 hours and ran late.
+      //
+      // Scale by ceil(guestCount / base_servings) with a parallelism
+      // cap so a 5x order doesn't naively become a 5x prep slot --
+      // kitchens have multiple stations / ovens. The cap is the
+      // configurable parallelism factor on settings; default 3 means
+      // we never bill more than 3x the recipe time, which matches
+      // a typical small-kitchen layout. Operators can raise it on
+      // settings later.
+      const baseServings = Math.max(1, Number(recipe?.base_servings ?? 1));
+      const rawBatches = Math.ceil(guestCount / baseServings);
+      const parallelism = Math.max(1, Number((settings as any).prepParallelism ?? 3));
+      const effectiveBatches = Math.max(1, Math.min(rawBatches, parallelism));
+      const prepMin = Math.ceil(basePrepMin * effectiveBatches);
+      const cookMin = Math.ceil(baseCookMin * effectiveBatches);
 
       // Backwards plan
       const cookEndsAt = new Date(pickupAt.getTime() - settings.prepSafetyBufferMin * 60_000);

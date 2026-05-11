@@ -114,6 +114,53 @@ export async function updateOrderStatus(
     // Send notifications based on status
     await sendStatusNotifications(order);
 
+    // Kitchen prep lead-hours warning on confirm. Audit Kitchen G5:
+    // a 2-hour-from-event confirm with a 4-hour recipe is structurally
+    // impossible -- prep_starts_at lands in the past, kitchen tablet
+    // shows the order as on-track, then the food is late. Compute the
+    // gap between now and event_start; if it's tighter than the
+    // tenant's configured lead time, raise a HIGH-priority bell so
+    // the operator can either push the event back or hire help.
+    // Non-blocking: we WARN rather than refuse the confirm because
+    // operators occasionally take same-day rush jobs with a price
+    // premium and know what they're doing.
+    if (newStatus === "confirmed" && order.company_id && order.event_date) {
+      try {
+        const { data: co } = await supabase
+          .from("companies")
+          .select("kitchen_prep_lead_hours")
+          .eq("id", order.company_id)
+          .maybeSingle();
+        const leadHours = Number((co as any)?.kitchen_prep_lead_hours ?? 12);
+        if (leadHours > 0) {
+          const eventStart = new Date(order.event_date);
+          if (order.event_time) {
+            const [h, m] = String(order.event_time).split(":").map(Number);
+            eventStart.setHours(h || 0, m || 0, 0, 0);
+          }
+          const hoursUntilEvent = (eventStart.getTime() - Date.now()) / (60 * 60 * 1000);
+          if (hoursUntilEvent < leadHours) {
+            void notificationService.broadcastNotification({
+              companyId: order.company_id,
+              regionId: (order as any).region_id || null,
+              targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+              title: `Tight kitchen lead time on order ${order.order_number || order.id}`,
+              message: `Order confirmed with only ${Math.max(0, hoursUntilEvent).toFixed(1)}h until event start. Kitchen needs ${leadHours}h to prep cleanly -- consider pushing the event back or assigning extra hands.`,
+              type: "kitchen_prep_lead_short",
+              priority: "high",
+              link: `/admin/orders?orderId=${order.id}`,
+              relatedEntityType: "order",
+              relatedEntityId: order.id,
+            }).catch((e) => {
+              console.warn("[orderWorkflow] lead-hours warn broadcast failed:", e);
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[orderWorkflow] kitchen lead-hours check crashed (non-blocking):", e);
+      }
+    }
+
     // Auto-invoice on the confirmed transition. Idempotent -- if
     // an invoice already exists for this order, the helper returns
     // it without creating a duplicate. Imported / quarantined orders
