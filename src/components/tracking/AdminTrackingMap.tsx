@@ -125,7 +125,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       // Step B: hydrate names. Single IN-query is cheaper than N
       // round-trips and the driver list is small.
       const driverIds = locations.map((l: any) => l.driver_id).filter(Boolean);
-      let nameMap: Record<string, { full_name?: string }> = {};
+      const nameMap: Record<string, { full_name?: string }> = {};
       if (driverIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
@@ -221,7 +221,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         .eq("company_id", companyId);
       if (!locations) return;
       const driverIds = locations.map((l: any) => l.driver_id).filter(Boolean);
-      let nameMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
       if (driverIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
