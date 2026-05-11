@@ -37,6 +37,10 @@ export interface MenuItemPick {
   imageUrl: string | null;
   dietaryTags: string[];
   allergenCodes: string[];
+  /** Phase 2 #7: timestamp from menu_items.allergens_reviewed_at.
+   *  NULL means the kitchen lead never signed off on the allergen
+   *  declaration -- the quote builder should warn before accepting. */
+  allergensReviewedAt: string | null;
 }
 
 export interface MenuItemTypeaheadProps {
@@ -145,6 +149,7 @@ export function MenuItemTypeahead({
       imageUrl: r.image_url,
       dietaryTags: r.dietary_tags ?? [],
       allergenCodes: r.allergen_codes ?? [],
+      allergensReviewedAt: (r as any).allergens_reviewed_at ?? null,
     });
     onChange(r.item_name);
     setOpen(false);

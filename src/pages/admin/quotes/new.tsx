@@ -82,6 +82,7 @@ import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
+import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import {
   getEquipmentAvailability,
@@ -119,6 +120,10 @@ interface LineItem {
   /** Optional cost-per-unit copied off menu_items.cost_per_unit -- preserved
    *  for the future margin tracker, not displayed yet. */
   costPerUnit?: number;
+  /** Phase 2 #7: timestamp from menu_items.allergens_reviewed_at when
+   *  the line was picked from the catalogue. NULL means the kitchen
+   *  lead never signed off -- the quote builder warns at accept time. */
+  allergensReviewedAt?: string | null;
 }
 
 interface EquipmentLineItem {
@@ -754,6 +759,7 @@ function NewQuotePage() {
       // value the typeahead returns IS in the form's set.
       category: pick.category || "main",
       dietary_tags: pick.dietaryTags ?? null,
+      allergensReviewedAt: pick.allergensReviewedAt ?? null,
       unitPrice: safeNum(pick.pricePerPerson),
       // Cost-per-unit isn't in the typeahead payload; the menu picker
       // doesn't currently surface it. Leaving costPerUnit unset so
@@ -1541,7 +1547,19 @@ function NewQuotePage() {
                     return (
                       <div key={line.id} className="p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
                         <div className="flex items-start justify-between mb-2 gap-2">
-                          <span className="text-xs text-slate-500">Line {idx + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500">Line {idx + 1}</span>
+                            {/* Phase 2 #7: surface unreviewed allergen state
+                                inline so the staffer building the quote knows
+                                this menu item still needs a sign-off. */}
+                            {line.menu_item_id && (
+                              <AllergenReviewBadge
+                                reviewedAt={line.allergensReviewedAt}
+                                compact
+                                hideWhenReviewed
+                              />
+                            )}
+                          </div>
                           {menuItems.length > 1 && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLine(line.id)}>
                               <Trash2 className="w-4 h-4 text-rose-600" />

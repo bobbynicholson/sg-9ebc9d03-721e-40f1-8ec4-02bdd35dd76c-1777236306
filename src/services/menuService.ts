@@ -478,12 +478,15 @@ export const menuService = {
     allergen_codes: string[] | null;
     base_servings: number | null;
     is_available: boolean | null;
+    /** Phase 2 #7: surfaced so the quote builder can warn on
+     *  unreviewed items at acceptance time. NULL = never reviewed. */
+    allergens_reviewed_at: string | null;
   }>> {
     if (!companyId) return [];
     const t = (term || "").trim();
     let q = supabase
       .from("menu_items")
-      .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, is_available")
+      .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, is_available, allergens_reviewed_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       // Hide archived/disabled items from quote pickers -- the owner

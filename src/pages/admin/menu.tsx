@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -461,6 +462,12 @@ function MenuPage() {
         linked_inventory_item_id: itemDraft.is_buy_and_sell
           ? itemDraft.linked_inventory_item_id
           : null,
+        // Phase 2 #7: saving the menu item IS the allergen review --
+        // the staffer just confirmed the codes, dietary tags, etc.
+        // Stamp the review state so AllergenReviewBadge stops nagging.
+        // allergens_reviewed_by is set to the logged-in user.
+        allergens_reviewed_at: new Date().toISOString(),
+        allergens_reviewed_by: (profile as any)?.id ?? null,
       };
       if (editTargetId) itemPayload.id = editTargetId;
       // Mirror useful recipe fields onto menu_items so the kitchen menu
@@ -778,6 +785,17 @@ function MenuPage() {
                                   ) : (
                                     <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
                                   )}
+                                  {/* Phase 2 #7: allergen review state. Surfaces
+                                      the P0-15 data column so unreviewed items
+                                      are visible at a glance. Only renders the
+                                      amber unreviewed warning -- a green
+                                      "reviewed" badge on every row would
+                                      drown the layout. */}
+                                  <AllergenReviewBadge
+                                    reviewedAt={(it as any).allergens_reviewed_at ?? null}
+                                    compact
+                                    hideWhenReviewed
+                                  />
                                 </div>
                                 {it.description && (
                                   <p className="text-xs text-slate-500 truncate mt-0.5">{it.description}</p>
