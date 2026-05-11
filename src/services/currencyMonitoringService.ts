@@ -27,7 +27,19 @@ export interface ExchangeRateRow {
   id: string;
   date: string;
   usd_to_zar_rate: number;
+  /** Phase 4 #2: extended currency support. NULL on historical
+   *  rows logged before the cron started populating these. */
+  eur_to_zar_rate?: number | null;
+  gbp_to_zar_rate?: number | null;
+  aud_to_zar_rate?: number | null;
   created_at: string;
+}
+
+export interface LiveRates {
+  usd: number;
+  eur: number;
+  gbp: number;
+  aud: number;
 }
 
 export interface FluctuationAlertRow {
@@ -70,6 +82,74 @@ export const currencyMonitoringService = {
   },
 
   /**
+   * Phase 4 #2: extended live fetch returning every supported
+   * currency's *-to-ZAR rate in one round trip. exchangerate-api
+   * returns rates from USD base; we derive EUR-to-ZAR / GBP-to-ZAR
+   * / AUD-to-ZAR using rates.ZAR / rates.X. Falls back to FALLBACK_
+   * RATE per leg on partial response failures.
+   */
+  async fetchLiveRates(): Promise<LiveRates> {
+    try {
+      const r = await fetch(EXCHANGE_API_URL);
+      const j = await r.json();
+      const zar = Number(j?.rates?.ZAR);
+      const eur = Number(j?.rates?.EUR);
+      const gbp = Number(j?.rates?.GBP);
+      const aud = Number(j?.rates?.AUD);
+      const usdToZar = Number.isFinite(zar) && zar > 0 ? zar : FALLBACK_RATE;
+      // X-to-ZAR = ZAR / X (both quoted off USD).
+      const eurToZar = Number.isFinite(eur) && eur > 0 ? usdToZar / eur : FALLBACK_RATE * 1.07;
+      const gbpToZar = Number.isFinite(gbp) && gbp > 0 ? usdToZar / gbp : FALLBACK_RATE * 1.25;
+      const audToZar = Number.isFinite(aud) && aud > 0 ? usdToZar / aud : FALLBACK_RATE * 0.65;
+      return {
+        usd: usdToZar,
+        eur: +eurToZar.toFixed(4),
+        gbp: +gbpToZar.toFixed(4),
+        aud: +audToZar.toFixed(4),
+      };
+    } catch (e) {
+      console.error("[currency] fetchLiveRates failed:", e);
+      return {
+        usd: FALLBACK_RATE,
+        eur: +(FALLBACK_RATE * 1.07).toFixed(4),
+        gbp: +(FALLBACK_RATE * 1.25).toFixed(4),
+        aud: +(FALLBACK_RATE * 0.65).toFixed(4),
+      };
+    }
+  },
+
+  /**
+   * Look up the *-to-ZAR rate for a given source currency from the
+   * most recent stored row. Used by quote-builder / invoice display
+   * paths that want to show a USD/EUR/GBP/AUD equivalent next to a
+   * ZAR amount without reaching for the live API every time. Returns
+   * null if no rates have been stored yet.
+   */
+  async getCachedRate(
+    currency: "USD" | "EUR" | "GBP" | "AUD",
+    client: SbLike = defaultClient,
+  ): Promise<{ rate: number; date: string } | null> {
+    try {
+      const col =
+        currency === "USD" ? "usd_to_zar_rate" :
+        currency === "EUR" ? "eur_to_zar_rate" :
+        currency === "GBP" ? "gbp_to_zar_rate" :
+        "aud_to_zar_rate";
+      const { data, error } = await client
+        .from("exchange_rates")
+        .select(`date, ${col}`)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data || (data as any)[col] == null) return null;
+      return { rate: Number((data as any)[col]), date: (data as any).date };
+    } catch (e) {
+      console.error("[currency] getCachedRate failed:", e);
+      return null;
+    }
+  },
+
+  /**
    * Latest stored rate (from exchange_rates), used by the dashboard
    * "Current Rate" tile so it agrees with the history list. Returns
    * null if no rates have ever been stored.
@@ -91,10 +171,20 @@ export const currencyMonitoringService = {
   },
 
   /**
-   * Upsert today's rate row. Used by runDailyCheck.
+   * Upsert today's rate row. Used by runDailyCheck. Accepts either
+   * a number (legacy USD-only path) or a full LiveRates object.
    */
-  async storeRate(rate: number, client: SbLike = defaultClient): Promise<void> {
+  async storeRate(rate: number | LiveRates, client: SbLike = defaultClient): Promise<void> {
     const today = new Date().toISOString().slice(0, 10);
+    const payload: Record<string, number> =
+      typeof rate === "number"
+        ? { usd_to_zar_rate: rate }
+        : {
+            usd_to_zar_rate: rate.usd,
+            eur_to_zar_rate: rate.eur,
+            gbp_to_zar_rate: rate.gbp,
+            aud_to_zar_rate: rate.aud,
+          };
     try {
       const { data: existing, error: readErr } = await client
         .from("exchange_rates")
@@ -106,12 +196,12 @@ export const currencyMonitoringService = {
       if (existing?.id) {
         await client
           .from("exchange_rates")
-          .update({ usd_to_zar_rate: rate })
+          .update(payload)
           .eq("id", existing.id);
       } else {
         await client
           .from("exchange_rates")
-          .insert({ date: today, usd_to_zar_rate: rate });
+          .insert({ date: today, ...payload });
       }
     } catch (e) {
       console.error("[currency] storeRate failed:", e);
@@ -288,8 +378,14 @@ export const currencyMonitoringService = {
     fluctuation: number;
     alertCreated: boolean;
   }> {
-    const rate = await this.fetchLiveRate();
-    await this.storeRate(rate, client);
+    // Phase 4 #2: fetch all four currencies in one round trip and
+    // store them together so the cron populates eur/gbp/aud columns
+    // alongside the existing USD rate. fluctuation detection still
+    // keys off the USD-to-ZAR pair (the 15% threshold policy doesn't
+    // extend to the other currencies, by design).
+    const rates = await this.fetchLiveRates();
+    const rate = rates.usd;
+    await this.storeRate(rates, client);
 
     const fluctuation = await this.checkForSignificantFluctuation(client);
     let alertCreated = false;
