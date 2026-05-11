@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -112,21 +113,59 @@ const toneFor = (action: string): string => {
 
 function AuditLogsViewer() {
   const { user, loading: authLoading } = useAuth() as any;
+  const router = useRouter();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
-  // Filters
-  const [companyId, setCompanyId] = useState<string>("all");
-  const [actionFilter, setActionFilter] = useState<string>("");
-  const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
-  const [entityIdFilter, setEntityIdFilter] = useState<string>("");
-  const [sinceFilter, setSinceFilter] = useState<string>("7d");
+  // Phase 6 #2: filter state lives in the URL so a deep-link to a
+  // specific filtered view (e.g. a Slack message linking 'every
+  // refund_auto_failed for this tenant in the last 24h') survives
+  // tab reload and is shareable between super-admins. router.query
+  // is the source of truth; we hydrate state from it on mount and
+  // push changes back via router.replace.
+  const q = router.query;
+  const [companyId, setCompanyId] = useState<string>(
+    typeof q.company === "string" ? q.company : "all",
+  );
+  const [actionFilter, setActionFilter] = useState<string>(
+    typeof q.action === "string" ? q.action : "",
+  );
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>(
+    typeof q.entityType === "string" ? q.entityType : "all",
+  );
+  const [entityIdFilter, setEntityIdFilter] = useState<string>(
+    typeof q.entityId === "string" ? q.entityId : "",
+  );
+  const [sinceFilter, setSinceFilter] = useState<string>(
+    typeof q.since === "string" ? q.since : "7d",
+  );
   // Phase 5 #2: free-text search across details JSON. Casts the
   // jsonb to text on the server and ilike-matches so an operator
   // can find 'reason: late_arrival' without knowing the column key.
-  const [detailsSearch, setDetailsSearch] = useState<string>("");
-  const [page, setPage] = useState(0);
+  const [detailsSearch, setDetailsSearch] = useState<string>(
+    typeof q.q === "string" ? q.q : "",
+  );
+  const [page, setPage] = useState<number>(
+    typeof q.page === "string" && /^\d+$/.test(q.page) ? Number(q.page) : 0,
+  );
+
+  // Mirror state -> URL on any filter change. shallow:true so we
+  // don't refetch via getServerSideProps (which we don't use anyway).
+  // Defaults are stripped so /audit-logs without params stays clean.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = {};
+    if (companyId !== "all") next.company = companyId;
+    if (actionFilter.trim()) next.action = actionFilter.trim();
+    if (entityTypeFilter !== "all") next.entityType = entityTypeFilter;
+    if (entityIdFilter.trim()) next.entityId = entityIdFilter.trim();
+    if (sinceFilter !== "7d") next.since = sinceFilter;
+    if (detailsSearch.trim()) next.q = detailsSearch.trim();
+    if (page > 0) next.page = String(page);
+    router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
 
   // Lookups for label hydration. Worth a single round-trip per page
   // so the operator sees "Spit Braai Delivery" instead of a UUID.
