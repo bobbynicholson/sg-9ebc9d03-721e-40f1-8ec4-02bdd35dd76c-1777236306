@@ -177,6 +177,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[cancellation-request] notify failed:", e);
     }
 
+    // Phase 4 #5: customer-facing acknowledgement email. Closes the
+    // loop that the toast on the client portal already promises:
+    // "we'll come back to you by email shortly". Without this, the
+    // customer only ever heard back when the catering team actually
+    // approved or rejected -- which could be hours.
+    //
+    // Fire-and-forget; an email failure must not unwind the request
+    // row. Pulls the client email off the order so we never expose a
+    // staffer's address by mistake.
+    try {
+      const { data: orderForEmail } = await ssr
+        .from("orders")
+        .select("order_number, client_name, client_email, event_date, event_time")
+        .eq("id", order_id)
+        .maybeSingle();
+      const clientEmail = (orderForEmail as any)?.client_email;
+      if (clientEmail) {
+        const { emailService } = await import("@/services/emailService");
+        const evtDate = (orderForEmail as any).event_date
+          ? new Date((orderForEmail as any).event_date).toLocaleDateString("en-ZA", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "TBD";
+        const subject =
+          request_type === "cancel"
+            ? `Cancellation request received -- ${(orderForEmail as any).order_number || "your order"}`
+            : `Postponement request received -- ${(orderForEmail as any).order_number || "your order"}`;
+        const body =
+          request_type === "cancel"
+            ? `Hi ${(orderForEmail as any).client_name || "there"},\n\nWe've received your request to cancel your booking for ${evtDate}. The team will review and confirm by email shortly.\n\nReference: ${(orderForEmail as any).order_number || order_id}\n\nIf this wasn't you, please reply right away.`
+            : `Hi ${(orderForEmail as any).client_name || "there"},\n\nWe've received your request to postpone your booking from ${evtDate} to ${requested_postpone_date}. The team will confirm the new date by email shortly.\n\nReference: ${(orderForEmail as any).order_number || order_id}\n\nIf this wasn't you, please reply right away.`;
+        await emailService.sendEmail({
+          companyId: (order as any).company_id,
+          to: clientEmail,
+          subject,
+          template: "transactional",
+          orderId: order_id,
+          variables: {
+            clientName: (orderForEmail as any).client_name,
+            orderNumber: (orderForEmail as any).order_number,
+          },
+          html: `<p>${body.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br />")}</p>`,
+          text: body,
+          _client: ssr,
+        } as any);
+      }
+    } catch (ackErr) {
+      console.warn("[cancellation-request] client ack email failed:", ackErr);
+    }
+
     return res.status(200).json({
       ok: true,
       request_id: (inserted as any).id,
