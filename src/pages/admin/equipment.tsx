@@ -75,6 +75,12 @@ interface EquipmentRow {
   image_url?: string | null;
   replacement_cost?: number | null;
   cleaning_time_hours?: number | null;
+  // Phase 5 #1: maintenance log fields. Backed by Phase 4 #6
+  // schema. service_interval_days NULL means "no recurring
+  // schedule"; the cron leaves these alone.
+  service_interval_days?: number | null;
+  last_serviced_at?: string | null;
+  next_service_due?: string | null;
 }
 
 const SUGGESTED_CATEGORIES = [
@@ -201,6 +207,12 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const [saving, setSaving] = useState(false);
 
   const [reservationsFor, setReservationsFor] = useState<EquipmentRow | null>(null);
+  // Phase 5 #1: maintenance log entry dialog state.
+  const [loggingServiceFor, setLoggingServiceFor] = useState<EquipmentRow | null>(null);
+  const [logServiceType, setLogServiceType] = useState<string>("routine");
+  const [logServiceNotes, setLogServiceNotes] = useState("");
+  const [logServiceCost, setLogServiceCost] = useState("");
+  const [logServiceSaving, setLogServiceSaving] = useState(false);
   const [reservations, setReservations] = useState<EquipmentReservationRow[]>([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
 
@@ -298,6 +310,16 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         replacement_cost: editing.replacement_cost != null ? safeNum(editing.replacement_cost) : null,
         cleaning_time_hours: editing.cleaning_time_hours != null ? safeNum(editing.cleaning_time_hours) : null,
         image_url: editing.image_url || null,
+        // Phase 5 #1: maintenance schedule. service_interval_days
+        // empty -> NULL means no recurring service. The cron only
+        // alerts on equipment with non-NULL next_service_due, which
+        // the trigger derives from service_interval_days when a log
+        // entry lands.
+        service_interval_days:
+          editing.service_interval_days != null && String(editing.service_interval_days) !== ""
+            ? safeNum(editing.service_interval_days)
+            : null,
+        next_service_due: editing.next_service_due || null,
       } as any;
       if (editing.id && rows.some((r) => r.id === editing.id)) {
         await equipmentManagementService.updateEquipment(editing.id, payload);
@@ -662,12 +684,188 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                   </label>
                 </div>
               </div>
+
+              {/* Phase 5 #1: maintenance schedule + log entry. Only
+                  show on edit (existing rows) since you can't log
+                  service for an item that doesn't exist yet. */}
+              {editing.id && rows.some((r) => r.id === editing.id) && (
+                <div className="border-t border-slate-200 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Maintenance schedule</p>
+                      <p className="text-xs text-slate-500">
+                        Drives the daily 'service due' notifications to admin.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLoggingServiceFor(editing)}
+                    >
+                      Log a service
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Service interval (days)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editing.service_interval_days ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            service_interval_days:
+                              e.target.value === "" ? null : safeNum(e.target.value),
+                          })
+                        }
+                        placeholder="e.g. 90 for gas burners"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Empty = no recurring schedule. The next_service_due field auto-fills when a service is logged.
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Next service due (manual)</Label>
+                      <Input
+                        type="date"
+                        value={editing.next_service_due || ""}
+                        onChange={(e) =>
+                          setEditing({ ...editing, next_service_due: e.target.value || null })
+                        }
+                      />
+                      {editing.last_serviced_at && (
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Last serviced{" "}
+                          {new Date(editing.last_serviced_at).toLocaleDateString("en-ZA", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase 5 #1: log a service event. Inserts into
+          equipment_maintenance_log; the AFTER INSERT trigger rolls
+          last_serviced_at + next_service_due onto the equipment row. */}
+      <Dialog
+        open={!!loggingServiceFor}
+        onOpenChange={(o) => {
+          if (!o) {
+            setLoggingServiceFor(null);
+            setLogServiceType("routine");
+            setLogServiceNotes("");
+            setLogServiceCost("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log a service</DialogTitle>
+            <DialogDescription>
+              {loggingServiceFor?.name
+                ? `Record a service event for ${loggingServiceFor.name}. Stamps last_serviced_at and rolls next_service_due forward by the schedule.`
+                : "Record a service event."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Service type</Label>
+              <select
+                value={logServiceType}
+                onChange={(e) => setLogServiceType(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+              >
+                <option value="routine">Routine</option>
+                <option value="repair">Repair</option>
+                <option value="deep_clean">Deep clean</option>
+                <option value="inspection">Inspection / certification</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Cost (R, optional)</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={logServiceCost}
+                onChange={(e) => setLogServiceCost(e.target.value)}
+                placeholder="What you paid the technician"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Textarea
+                rows={3}
+                value={logServiceNotes}
+                onChange={(e) => setLogServiceNotes(e.target.value)}
+                placeholder="Replaced burner igniter, parts on file..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setLoggingServiceFor(null)}
+              disabled={logServiceSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!loggingServiceFor || !companyId) return;
+                setLogServiceSaving(true);
+                try {
+                  const { supabase } = await import("@/integrations/supabase/client");
+                  const { error } = await (supabase as any)
+                    .from("equipment_maintenance_log")
+                    .insert({
+                      company_id: companyId,
+                      equipment_id: loggingServiceFor.id,
+                      serviced_at: new Date().toISOString(),
+                      service_type: logServiceType,
+                      notes: logServiceNotes.trim() || null,
+                      cost: logServiceCost ? Number(logServiceCost) : null,
+                    });
+                  if (error) throw error;
+                  toast({
+                    title: "Service logged",
+                    description: "next_service_due rolled forward by the schedule.",
+                  });
+                  setLoggingServiceFor(null);
+                  setLogServiceType("routine");
+                  setLogServiceNotes("");
+                  setLogServiceCost("");
+                  loadRows();
+                } catch (e: any) {
+                  toast({
+                    title: "Could not log service",
+                    description: e?.message || "Try again",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setLogServiceSaving(false);
+                }
+              }}
+              disabled={logServiceSaving}
+            >
+              {logServiceSaving ? "Logging..." : "Log service"}
             </Button>
           </DialogFooter>
         </DialogContent>
