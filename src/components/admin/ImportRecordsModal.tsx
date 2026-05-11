@@ -181,6 +181,19 @@ export function ImportRecordsModal({
     totals: Record<string, number>;
     anomalies: Array<{ kind: string; detail: string; count: number }>;
   } | null>(null);
+  // Errored rows surfaced on the done screen so the operator can see
+  // exactly which rows didn't make it (Callum feedback: '7 errored
+  // and I have no idea which ones'). Pulled from import_rows where
+  // status='error' after the final batch lands.
+  const [erroredRows, setErroredRows] = useState<Array<{
+    id: string;
+    sheet: string;
+    sourceRowIndex: number | null;
+    errorMessage: string | null;
+    label: string;
+    raw: Record<string, any>;
+  }>>([]);
+  const [showErroredRows, setShowErroredRows] = useState(false);
   // Inline-edit state: which row is currently expanded for editing,
   // and the form values in flight. Keyed by row id so switching
   // between rows starts fresh each time.
@@ -198,6 +211,9 @@ export function ImportRecordsModal({
     setPreviewSummary(null);
     setCommitSummary(null);
     setDryRunSummary(null);
+    setReconcile(null);
+    setErroredRows([]);
+    setShowErroredRows(false);
   };
 
   const close = () => {
@@ -469,6 +485,47 @@ export function ImportRecordsModal({
         } catch {
           // Non-fatal -- the import is committed, the report is a
           // nice-to-have. We just won't render it.
+        }
+
+        // Pull errored rows so the operator can see exactly which
+        // rows didn't make it (Callum: "7 errored and I have no idea
+        // which ones"). Builds a small label per row from the most
+        // identifying field (email, then client_name, then anything
+        // truthy in the source data) so the list is readable without
+        // expanding every row.
+        try {
+          const rowsRes = await fetch(`/api/imports/${jobId}?rows=1`);
+          if (rowsRes.ok) {
+            const body = await rowsRes.json();
+            const all = Array.isArray(body?.rows) ? body.rows : [];
+            const errs = all
+              .filter((r: any) => String(r?.status || "").toLowerCase() === "error")
+              .map((r: any) => {
+                const m = (r.mapped_data || {}) as Record<string, any>;
+                const s = (r.source_data || {}) as Record<string, any>;
+                const pickedRaw =
+                  m.email || m.client_email ||
+                  m.client_name || m.contact_name || m.full_name || m.name ||
+                  m.invoice_number || m.quote_number || m.order_number ||
+                  s.email || s.client_email ||
+                  s.client_name || s.name ||
+                  Object.values(s).find((v) => typeof v === "string" && String(v).trim()) ||
+                  "(no identifier)";
+                const label = String(pickedRaw).trim().slice(0, 80) || "(no identifier)";
+                return {
+                  id: String(r.id),
+                  sheet: String(r.sheet || ""),
+                  sourceRowIndex: r.source_row_index ?? null,
+                  errorMessage: r.error_message || null,
+                  label,
+                  raw: m && Object.keys(m).length ? m : s,
+                };
+              });
+            setErroredRows(errs);
+          }
+        } catch {
+          // Non-fatal -- the count is already shown, the breakdown is
+          // a nice-to-have.
         }
         if (onComplete) onComplete();
       }
@@ -917,6 +974,86 @@ export function ImportRecordsModal({
                   </div>
                 )}
               </>
+            )}
+
+            {/* Errored rows drilldown. Only shown when something
+                actually errored. Lets the operator see exactly which
+                rows didn't make it (Callum's feedback) and download
+                them as CSV so they can fix in Excel and re-upload. */}
+            {erroredRows.length > 0 && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-rose-900">
+                    {erroredRows.length} row{erroredRows.length === 1 ? "" : "s"} did not import
+                  </p>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowErroredRows((v) => !v)}
+                      className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline-offset-2 hover:underline"
+                    >
+                      {showErroredRows ? "Hide" : "Show"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const headers = ["sheet", "source_row", "label", "error", "raw_json"];
+                        const escape = (v: any) => {
+                          const s = v == null ? "" : String(v);
+                          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                        };
+                        const rows = erroredRows.map((e) => [
+                          e.sheet,
+                          e.sourceRowIndex ?? "",
+                          e.label,
+                          e.errorMessage ?? "",
+                          JSON.stringify(e.raw || {}),
+                        ].map(escape).join(","));
+                        const csv = [headers.join(","), ...rows].join("\n");
+                        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `import-errors-${jobId || "job"}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline-offset-2 hover:underline"
+                    >
+                      Download CSV
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-rose-800/80 mt-1">
+                  Common causes: missing required field, invalid email format, value too long for the column. Fix in your spreadsheet and re-upload, or add manually from the {recordLabelPlural} page.
+                </p>
+                {showErroredRows && (
+                  <div className="mt-2 rounded border border-rose-200 bg-white max-h-64 overflow-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="sticky top-0 bg-rose-100 text-rose-900">
+                        <tr>
+                          <th className="text-left px-2 py-1.5 font-semibold">Row</th>
+                          <th className="text-left px-2 py-1.5 font-semibold">Identifier</th>
+                          <th className="text-left px-2 py-1.5 font-semibold">Why it failed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {erroredRows.map((e) => (
+                          <tr key={e.id} className="border-t border-rose-100">
+                            <td className="px-2 py-1.5 font-mono text-slate-600">
+                              {e.sheet ? `${e.sheet}:` : ""}{e.sourceRowIndex ?? "—"}
+                            </td>
+                            <td className="px-2 py-1.5 text-slate-900 break-all">{e.label}</td>
+                            <td className="px-2 py-1.5 text-rose-800 break-all">{e.errorMessage || "Unknown error"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
