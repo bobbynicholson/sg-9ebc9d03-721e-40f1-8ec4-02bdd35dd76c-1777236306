@@ -26,6 +26,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { ensureFreshQuickBooksToken } from "@/lib/accountingTokens";
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -306,62 +307,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
+// Phase 5 #6: shared helper. Same shape as the Xero variants -- a
+// fix to the refresh logic (force-flag, retry behaviour, future
+// encryption layer) lands once for all three sync endpoints. The
+// import lives at the top of the file with the other modules; this
+// thin wrapper preserves the original local function's call site.
 async function ensureFreshAccessToken(
   supabase: any,
   integration: AccountingIntegration,
   opts: { force?: boolean } = {},
 ): Promise<string | null> {
-  if (!integration.access_token) return null;
-
-  const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
-  const now = Date.now();
-  const fresh = expiresAt - now > 60 * 1000;
-  // Phase 3 #7: opts.force lets the 401-retry path skip the cached
-  // expiry check and unconditionally refresh. Intuit can revoke a
-  // token before its expires_at lapses (manual disconnect, scope
-  // change) so the only reliable signal is a 401 from the API.
-  if (fresh && !opts.force) return integration.access_token;
-  if (!integration.refresh_token) return null;
-
-  const clientId = process.env.QUICKBOOKS_CLIENT_ID;
-  const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    console.warn("[quickbooks] missing QUICKBOOKS_CLIENT_ID / QUICKBOOKS_CLIENT_SECRET env");
-    return null;
-  }
-
-  const tokenResp = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: integration.refresh_token,
-    }),
-  });
-  if (!tokenResp.ok) {
-    const body = await tokenResp.text();
-    console.warn("[quickbooks] token refresh failed:", body);
-    return null;
-  }
-  const tokens: any = await tokenResp.json();
-  const newAccess: string = tokens.access_token;
-  const newRefresh: string = tokens.refresh_token || integration.refresh_token;
-  const expiresIn: number = Number(tokens.expires_in || 3600);
-
-  await supabase
-    .from("accounting_integrations")
-    .update({
-      access_token: newAccess,
-      refresh_token: newRefresh,
-      expires_at: new Date(now + expiresIn * 1000).toISOString(),
-    })
-    .eq("id", integration.id);
-
-  return newAccess;
+  return ensureFreshQuickBooksToken(supabase, integration, opts);
 }
 
 /**

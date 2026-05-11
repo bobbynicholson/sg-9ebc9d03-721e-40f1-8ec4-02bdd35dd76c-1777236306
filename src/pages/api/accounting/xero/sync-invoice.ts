@@ -21,6 +21,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { ensureFreshXeroToken } from "@/lib/accountingTokens";
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const XERO_API = "https://api.xero.com/api.xro/2.0";
@@ -342,61 +343,14 @@ async function xeroFetch(
   return resp;
 }
 
+// Phase 5 #6: delegate to the shared accountingTokens helper so a
+// fix to the refresh logic (force-flag, retry behaviour, future
+// encryption layer) lands once for both sync-invoice and sync-
+// credit-note. The import lives at the top of the file.
 async function ensureFreshAccessToken(
   supabase: any,
   settings: XeroSettings,
   opts: { force?: boolean } = {},
 ): Promise<string | null> {
-  if (!settings.access_token_encrypted) return null;
-
-  const expiresAt = settings.token_expires_at ? new Date(settings.token_expires_at).getTime() : 0;
-  const now = Date.now();
-  const fresh = expiresAt - now > 60 * 1000;
-
-  // The columns are *_encrypted but we don't have the encryption
-  // helper wired here -- treat them as opaque strings. If/when an
-  // encryption layer lands, swap decrypt() in here. For now the
-  // RLS scoping on xero_integration_settings is the protection.
-  if (fresh && !opts.force) return settings.access_token_encrypted;
-
-  if (!settings.refresh_token_encrypted) return null;
-
-  const clientId = process.env.XERO_CLIENT_ID;
-  const clientSecret = process.env.XERO_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    console.warn("[xero] missing XERO_CLIENT_ID / XERO_CLIENT_SECRET env");
-    return null;
-  }
-
-  const tokenResp = await fetch("https://identity.xero.com/connect/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: settings.refresh_token_encrypted,
-    }),
-  });
-  if (!tokenResp.ok) {
-    const body = await tokenResp.text();
-    console.warn("[xero] token refresh failed:", body);
-    return null;
-  }
-  const tokens: any = await tokenResp.json();
-  const newAccess: string = tokens.access_token;
-  const newRefresh: string = tokens.refresh_token;
-  const expiresIn: number = Number(tokens.expires_in || 1800);
-
-  await supabase
-    .from("xero_integration_settings")
-    .update({
-      access_token_encrypted: newAccess,
-      refresh_token_encrypted: newRefresh,
-      token_expires_at: new Date(now + expiresIn * 1000).toISOString(),
-    })
-    .eq("company_id", settings.company_id);
-
-  return newAccess;
+  return ensureFreshXeroToken(supabase, settings, opts);
 }
