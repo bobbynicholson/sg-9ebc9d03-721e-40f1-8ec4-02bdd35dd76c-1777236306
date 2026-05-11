@@ -284,6 +284,53 @@ export default async function handler(
           // (item #9) once that lands.
           console.warn("Invoice payment confirmation email failed:", emailErr);
         }
+
+        // Auto-complete the linked order when:
+        //   (a) the invoice has an order_id (it's tied to a real order)
+        //   (b) the invoice is now fully paid (balance_due <= 0)
+        //   (c) the order is already in 'delivered' status -- meaning
+        //       the food / service was rendered and only the balance
+        //       was outstanding
+        //
+        // Without this hook the order sat in 'delivered' forever even
+        // after the client paid in full, so ensureScheduledAfterSales
+        // (gated on 'completed' transition) never fired, the
+        // after-sales nurture sequence never started, and the order
+        // never showed as 'fully closed' on operator dashboards.
+        if (invoiceData.order_id) {
+          try {
+            const { data: freshInvoice } = await supabase
+              .from("invoices")
+              .select("balance_due, status")
+              .eq("id", invoiceId)
+              .maybeSingle();
+            const fullyPaid = (freshInvoice as any)?.status === "paid"
+              || Number((freshInvoice as any)?.balance_due || 0) <= 0;
+            if (fullyPaid) {
+              const { data: linkedOrder } = await supabase
+                .from("orders")
+                .select("status")
+                .eq("id", invoiceData.order_id)
+                .maybeSingle();
+              const orderStatus = String((linkedOrder as any)?.status || "").toLowerCase();
+              if (orderStatus === "delivered") {
+                // Route through the state-machine helper so order_status_history
+                // gets the row + the post-completion hooks (after-sales
+                // scheduling) fire correctly. Non-blocking on failure.
+                const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+                const r = await updateOrderStatus(invoiceData.order_id, "completed" as any);
+                if (!(r as any)?.success) {
+                  console.warn(
+                    "[invoice-paid] auto-complete failed:",
+                    (r as any)?.error,
+                  );
+                }
+              }
+            }
+          } catch (autoCompleteErr) {
+            console.warn("[invoice-paid] auto-complete crashed (non-blocking):", autoCompleteErr);
+          }
+        }
         console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
       }
 
