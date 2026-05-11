@@ -88,6 +88,12 @@ function EmailSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
+  // Dirty-state tracking so the test-email button can tell the user
+  // "save first" instead of letting them test against stale DB rows
+  // and getting a confusing failure. Set after every successful save
+  // (and after the initial load) so editing then immediately testing
+  // surfaces the right blocker.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [row, setRow] = useState<ProviderRow>({
     provider: "resend",
     from_email: null,
@@ -142,18 +148,27 @@ function EmailSettingsPage() {
       setTodayCount(count ?? 0);
       setQueuedCount(queued ?? 0);
       if (data) {
-        setRow({
+        const loaded = {
           ...data,
           daily_send_cap: data.daily_send_cap ?? tierCap,
-        });
+        } as ProviderRow;
+        setRow(loaded);
+        setSavedSnapshot(JSON.stringify(loaded));
       } else {
         // Seed defaults from profile
-        setRow((r) => ({
-          ...r,
-          from_email: profile?.email || null,
-          from_name: profile?.full_name || profile?.company_name || null,
-          daily_send_cap: tierCap,
-        }));
+        setRow((r) => {
+          const next = {
+            ...r,
+            from_email: profile?.email || null,
+            from_name: profile?.full_name || profile?.company_name || null,
+            daily_send_cap: tierCap,
+          };
+          // No DB row yet, so the seeded defaults count as 'dirty'
+          // until the user saves. Set the snapshot to an empty marker
+          // so hasUnsavedChanges resolves true.
+          setSavedSnapshot("");
+          return next;
+        });
       }
 
       // Mailchimp row
@@ -227,6 +242,10 @@ function EmailSettingsPage() {
         .from("email_provider_settings")
         .upsert(payload, { onConflict: "company_id,provider" });
       if (error) throw error;
+      // Snapshot the saved form state so hasUnsavedChanges goes back
+      // to false. Without this the test-email button keeps blocking
+      // with "save first" even after a successful save.
+      setSavedSnapshot(JSON.stringify(row));
       toast({
         title: "Saved",
         description: verificationRelevantChanged && existing
@@ -240,15 +259,43 @@ function EmailSettingsPage() {
     }
   };
 
+  // Compare the live form state against the last saved snapshot.
+  // Cheap JSON.stringify is fine: the row object is small and only
+  // ever updated by setRow, so reference-stability isn't required.
+  const hasUnsavedChanges = JSON.stringify(row) !== savedSnapshot;
+
   // Send a test email to the operator's own from_email address [P1-05].
   // Uses /api/test-email which is now auth-gated (P0-05). Lands the
   // tenant-branded test in the operator's inbox so they can see what
   // their clients will see, without sending to a stranger.
   const sendTestEmail = async () => {
-    if (!companyId || !row.from_email) {
+    // Pre-flight: surface the specific blocker so the operator isn't
+    // told "set a from address" when the from address is clearly
+    // already on screen. Three distinct failure shapes here:
+    //   1. companyId is missing (super_admin view, or auth not loaded)
+    //   2. from_email is empty in form state
+    //   3. form is filled but not yet saved (DB hasn't caught up, the
+    //      test endpoint will read stale data + fail in a confusing way)
+    if (!companyId) {
       toast({
-        title: "Set a from address first",
-        description: "Add a from_email + save before testing.",
+        title: "Couldn't identify your company",
+        description: "Sign out and back in, then retry. If this keeps happening flag it to support.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!row.from_email || !row.from_email.trim()) {
+      toast({
+        title: "Add a from address first",
+        description: "Fill in From address, save, then test.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (hasUnsavedChanges) {
+      toast({
+        title: "Save your changes first",
+        description: "The test reads your provider config from the database, so save the form before running it.",
         variant: "destructive",
       });
       return;
@@ -571,16 +618,17 @@ function EmailSettingsPage() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
                     onClick={sendTestEmail}
-                    disabled={testing || saving || !row.from_email}
+                    disabled={testing || saving || !row.from_email || hasUnsavedChanges}
                     variant="outline"
                     className="gap-2"
+                    title={hasUnsavedChanges ? "Save your changes first, then test." : "Send a test email to your own from address."}
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                     Send test email
                   </Button>
                   <Button onClick={save} disabled={saving} className="gap-2">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                    Save provider config
+                    {hasUnsavedChanges ? "Save provider config" : "Saved"}
                   </Button>
                 </div>
               </div>
