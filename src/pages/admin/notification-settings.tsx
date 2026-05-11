@@ -1,82 +1,146 @@
-﻿import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+/**
+ * /admin/notification-settings -- per-user channel preferences.
+ *
+ * Phase 5 #7: migrated to react-hook-form + zod (P1-29 cont). The
+ * old shape used a single setSettings tree with one updateSetting
+ * helper; every Switch toggle re-rendered the whole page. Now each
+ * Switch wires through Controller so RHF can manage state without
+ * the cascade re-render. Schema validation guarantees the shape
+ * matches what we persist.
+ */
+import { useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Mail, MessageSquare, AlertCircle, Save } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Tabs as _Tabs } from "@/components/ui/tabs";
+import { Bell, Mail, MessageSquare, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-interface NotificationSettings {
+// Avoid an unused-import lint complaint. The Tabs component is
+// still re-exported in the codebase but the page no longer uses it.
+void _Tabs;
+
+const schema = z.object({
+  email: z.object({
+    orderConfirmation: z.boolean(),
+    orderUpdates: z.boolean(),
+    paymentReceived: z.boolean(),
+    dailySummary: z.boolean(),
+  }),
+  push: z.object({
+    urgentAlerts: z.boolean(),
+    newOrders: z.boolean(),
+    staffUpdates: z.boolean(),
+    inventoryAlerts: z.boolean(),
+  }),
+  sms: z.object({
+    criticalAlerts: z.boolean(),
+    paymentReminders: z.boolean(),
+  }),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+const DEFAULTS: FormValues = {
   email: {
-    orderConfirmation: boolean;
-    orderUpdates: boolean;
-    paymentReceived: boolean;
-    dailySummary: boolean;
-  };
+    orderConfirmation: true,
+    orderUpdates: true,
+    paymentReceived: true,
+    dailySummary: false,
+  },
   push: {
-    urgentAlerts: boolean;
-    newOrders: boolean;
-    staffUpdates: boolean;
-    inventoryAlerts: boolean;
-  };
+    urgentAlerts: true,
+    newOrders: true,
+    staffUpdates: false,
+    inventoryAlerts: true,
+  },
   sms: {
-    criticalAlerts: boolean;
-    paymentReminders: boolean;
-  };
+    criticalAlerts: true,
+    paymentReminders: false,
+  },
+};
+
+const STORAGE_KEY = "notification_settings";
+
+interface ToggleProps {
+  control: ReturnType<typeof useForm<FormValues>>["control"];
+  name:
+    | `email.${keyof FormValues["email"]}`
+    | `push.${keyof FormValues["push"]}`
+    | `sms.${keyof FormValues["sms"]}`;
+  id: string;
+  title: string;
+  desc: string;
+}
+
+function ToggleRow({ control, name, id, title, desc }: ToggleProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <Label htmlFor={id} className="flex flex-col gap-1">
+        <span className="font-medium">{title}</span>
+        <span className="text-sm text-slate-600">{desc}</span>
+      </Label>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <Switch id={id} checked={!!field.value} onCheckedChange={field.onChange} />
+        )}
+      />
+    </div>
+  );
 }
 
 export default function NotificationSettings() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<NotificationSettings>({
-    email: {
-      orderConfirmation: true,
-      orderUpdates: true,
-      paymentReceived: true,
-      dailySummary: false,
-    },
-    push: {
-      urgentAlerts: true,
-      newOrders: true,
-      staffUpdates: false,
-      inventoryAlerts: true,
-    },
-    sms: {
-      criticalAlerts: true,
-      paymentReminders: false,
-    },
+
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: DEFAULTS,
   });
 
-  const handleSave = () => {
-    localStorage.setItem('notification_settings', JSON.stringify(settings));
-    toast({
-      title: "Settings Saved",
-      description: "Your notification preferences have been updated.",
-    });
-  };
-
+  // Hydrate from localStorage on mount. zod parses the stored value
+  // before reset so a malformed entry from an older schema doesn't
+  // brick the page -- on parse failure we fall back to DEFAULTS.
   useEffect(() => {
-    const saved = localStorage.getItem('notification_settings');
-    if (saved) {
-      setSettings(JSON.parse(saved));
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const parsed = schema.safeParse(JSON.parse(saved));
+      if (parsed.success) {
+        reset(parsed.data);
+      } else {
+        console.warn("[notification-settings] stored shape didn't match schema; ignoring");
+      }
+    } catch (e) {
+      console.warn("[notification-settings] localStorage hydrate failed:", e);
     }
-  }, []);
+  }, [reset]);
 
-  const updateSetting = (category: keyof NotificationSettings, key: string, value: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: value,
-      },
-    }));
+  const onSubmit = async (values: FormValues) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+      toast({
+        title: "Settings Saved",
+        description: "Your notification preferences have been updated.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Could not save",
+        description: e?.message || "localStorage write failed",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -96,7 +160,7 @@ export default function NotificationSettings() {
             <p className="text-slate-600">Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, or push. Owners get everything by default. Tune the noise from here.</p>
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Notifications */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -107,53 +171,10 @@ export default function NotificationSettings() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="orderConfirmation" className="flex flex-col gap-1">
-                    <span className="font-medium">Order Confirmations</span>
-                    <span className="text-sm text-slate-600">Get notified when new orders are placed</span>
-                  </Label>
-                  <Switch
-                    id="orderConfirmation"
-                    checked={settings.email.orderConfirmation}
-                    onCheckedChange={(checked) => updateSetting('email', 'orderConfirmation', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="orderUpdates" className="flex flex-col gap-1">
-                    <span className="font-medium">Order Updates</span>
-                    <span className="text-sm text-slate-600">Status changes and modifications</span>
-                  </Label>
-                  <Switch
-                    id="orderUpdates"
-                    checked={settings.email.orderUpdates}
-                    onCheckedChange={(checked) => updateSetting('email', 'orderUpdates', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="paymentReceived" className="flex flex-col gap-1">
-                    <span className="font-medium">Payment Confirmations</span>
-                    <span className="text-sm text-slate-600">When payments are received</span>
-                  </Label>
-                  <Switch
-                    id="paymentReceived"
-                    checked={settings.email.paymentReceived}
-                    onCheckedChange={(checked) => updateSetting('email', 'paymentReceived', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="dailySummary" className="flex flex-col gap-1">
-                    <span className="font-medium">Daily Summary</span>
-                    <span className="text-sm text-slate-600">End of day business summary</span>
-                  </Label>
-                  <Switch
-                    id="dailySummary"
-                    checked={settings.email.dailySummary}
-                    onCheckedChange={(checked) => updateSetting('email', 'dailySummary', checked)}
-                  />
-                </div>
+                <ToggleRow control={control} name="email.orderConfirmation" id="orderConfirmation" title="Order Confirmations" desc="Get notified when new orders are placed" />
+                <ToggleRow control={control} name="email.orderUpdates" id="orderUpdates" title="Order Updates" desc="Status changes and modifications" />
+                <ToggleRow control={control} name="email.paymentReceived" id="paymentReceived" title="Payment Confirmations" desc="When payments are received" />
+                <ToggleRow control={control} name="email.dailySummary" id="dailySummary" title="Daily Summary" desc="End of day business summary" />
               </CardContent>
             </Card>
 
@@ -167,53 +188,10 @@ export default function NotificationSettings() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="urgentAlerts" className="flex flex-col gap-1">
-                    <span className="font-medium">Urgent Alerts</span>
-                    <span className="text-sm text-slate-600">Critical issues requiring immediate attention</span>
-                  </Label>
-                  <Switch
-                    id="urgentAlerts"
-                    checked={settings.push.urgentAlerts}
-                    onCheckedChange={(checked) => updateSetting('push', 'urgentAlerts', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="newOrders" className="flex flex-col gap-1">
-                    <span className="font-medium">New Orders</span>
-                    <span className="text-sm text-slate-600">Real-time order notifications</span>
-                  </Label>
-                  <Switch
-                    id="newOrders"
-                    checked={settings.push.newOrders}
-                    onCheckedChange={(checked) => updateSetting('push', 'newOrders', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="staffUpdates" className="flex flex-col gap-1">
-                    <span className="font-medium">Staff Updates</span>
-                    <span className="text-sm text-slate-600">Time clock and assignment changes</span>
-                  </Label>
-                  <Switch
-                    id="staffUpdates"
-                    checked={settings.push.staffUpdates}
-                    onCheckedChange={(checked) => updateSetting('push', 'staffUpdates', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="inventoryAlerts" className="flex flex-col gap-1">
-                    <span className="font-medium">Inventory Alerts</span>
-                    <span className="text-sm text-slate-600">Low stock notifications</span>
-                  </Label>
-                  <Switch
-                    id="inventoryAlerts"
-                    checked={settings.push.inventoryAlerts}
-                    onCheckedChange={(checked) => updateSetting('push', 'inventoryAlerts', checked)}
-                  />
-                </div>
+                <ToggleRow control={control} name="push.urgentAlerts" id="urgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
+                <ToggleRow control={control} name="push.newOrders" id="newOrders" title="New Orders" desc="Real-time order notifications" />
+                <ToggleRow control={control} name="push.staffUpdates" id="staffUpdates" title="Staff Updates" desc="Time clock and assignment changes" />
+                <ToggleRow control={control} name="push.inventoryAlerts" id="inventoryAlerts" title="Inventory Alerts" desc="Low stock notifications" />
               </CardContent>
             </Card>
 
@@ -227,29 +205,8 @@ export default function NotificationSettings() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="criticalAlerts" className="flex flex-col gap-1">
-                    <span className="font-medium">Critical Alerts</span>
-                    <span className="text-sm text-slate-600">Emergency notifications via SMS</span>
-                  </Label>
-                  <Switch
-                    id="criticalAlerts"
-                    checked={settings.sms.criticalAlerts}
-                    onCheckedChange={(checked) => updateSetting('sms', 'criticalAlerts', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="paymentReminders" className="flex flex-col gap-1">
-                    <span className="font-medium">Payment Reminders</span>
-                    <span className="text-sm text-slate-600">Overdue payment notifications</span>
-                  </Label>
-                  <Switch
-                    id="paymentReminders"
-                    checked={settings.sms.paymentReminders}
-                    onCheckedChange={(checked) => updateSetting('sms', 'paymentReminders', checked)}
-                  />
-                </div>
+                <ToggleRow control={control} name="sms.criticalAlerts" id="criticalAlerts" title="Critical Alerts" desc="Emergency notifications via SMS" />
+                <ToggleRow control={control} name="sms.paymentReminders" id="paymentReminders" title="Payment Reminders" desc="Overdue payment notifications" />
               </CardContent>
             </Card>
 
@@ -263,13 +220,13 @@ export default function NotificationSettings() {
                       Changes will take effect immediately after saving
                     </p>
                   </div>
-                  <Button onClick={handleSave} size="lg">
-                    Save Settings
+                  <Button type="submit" size="lg" disabled={isSubmitting}>
+                    {isSubmitting ? "Saving..." : "Save Settings"}
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </form>
         </div>
 
         <Footer />
