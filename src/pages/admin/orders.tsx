@@ -339,20 +339,21 @@ function OrderProcessDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Booked revenue is gated on actual confirmation, not on status
-    // advancing past pending. An order counts as booked when either:
-    //   * deposit_paid = true   (client paid the deposit), OR
-    //   * confirmed_at != null  (admin manually marked it confirmed)
-    // Cancelled orders are always excluded.
-    //
-    // Status-based filtering would over-count in messy data (an admin
-    // could push status to 'preparing' without recording a deposit).
-    // The explicit columns are the source of truth for "client has
-    // committed to this booking".
+    // Booked revenue counts every order whose lifecycle has advanced
+    // past pending / draft. The earlier gate required deposit_paid OR
+    // confirmed_at to be set, but the status column got pushed to
+    // 'confirmed' by several code paths (quote accept, manual status
+    // change) without those auxiliary columns being stamped --
+    // resulting in an order that the UI shows as 'Confirmed' but the
+    // revenue tile counted as zero. Status is the visible truth here,
+    // so it's the gate. The auxiliary columns still flip independently
+    // and are used elsewhere (deposit-paid signals, audit timestamps).
+    const BOOKED_STATUSES = new Set([
+      "confirmed", "preparing", "ready", "in_transit",
+      "delivered", "completed", "paused",
+    ]);
     const REALISED_STATUSES = new Set(["delivered", "completed"]);
-    const isConfirmedOrder = (o: any) =>
-      o.status !== "cancelled" &&
-      (o.deposit_paid === true || !!o.confirmed_at);
+    const isConfirmedOrder = (o: any) => BOOKED_STATUSES.has(String(o.status || "").toLowerCase());
 
     const visible = getFilteredOrders();
 

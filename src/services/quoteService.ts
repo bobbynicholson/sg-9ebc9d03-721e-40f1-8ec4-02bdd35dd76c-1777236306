@@ -484,6 +484,12 @@ export const quoteService = {
       internal_notes: q.notes ?? null,
       // Lifecycle
       status: "confirmed",
+      // Stamp confirmed_at here so downstream tiles (Booked revenue,
+      // financial dashboard, dispatch queue gates) treat this order as
+      // confirmed from the moment it's created. The orderWorkflow
+      // stamp covers later status moves but the initial INSERT was
+      // skipping the column, leaving 'confirmed but unstamped' rows.
+      confirmed_at: new Date().toISOString(),
       // order_number is assigned inside the convert_quote_to_order RPC
       // via consume_next_document_number(company_id, 'order') so the
       // sequence is atomic and per-tenant-configurable. Anything we

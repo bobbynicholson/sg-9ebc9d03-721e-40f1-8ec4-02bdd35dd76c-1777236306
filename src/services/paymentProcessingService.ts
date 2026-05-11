@@ -126,14 +126,27 @@ class PaymentProcessingService {
       // Phase 2: single update on orders. deposit_transaction_id now
       // lives on orders directly so we no longer need the parallel
       // payment_schedules write.
+      // Stamp confirmed_at on first transition so the Booked revenue
+      // tile (and every other downstream gate keyed on this column)
+      // counts the order from the deposit instant. Only set when NULL
+      // -- don't clobber an earlier admin-marked confirmation.
+      const { data: priorDeposit } = await supabase
+        .from("orders")
+        .select("confirmed_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      const depositUpdate: any = {
+        deposit_paid: true,
+        deposit_paid_at: new Date().toISOString(),
+        deposit_transaction_id: transactionId,
+        status: "confirmed",
+      };
+      if (!priorDeposit?.confirmed_at) {
+        depositUpdate.confirmed_at = new Date().toISOString();
+      }
       const { error: orderError } = await supabase
         .from("orders")
-        .update({
-          deposit_paid: true,
-          deposit_paid_at: new Date().toISOString(),
-          deposit_transaction_id: transactionId,
-          status: "confirmed",
-        })
+        .update(depositUpdate)
         .eq("id", orderId);
 
       if (orderError) {
@@ -216,15 +229,27 @@ class PaymentProcessingService {
       // Phase 2: single update on orders. balance_transaction_id now
       // lives on orders directly so we no longer write to the
       // payment_schedules mirror.
+      // Same confirmed_at guard as the deposit path -- balance-paid
+      // implies the order is locked in; stamp only when null so an
+      // earlier confirmation timestamp isn't overwritten.
+      const { data: priorBalance } = await supabase
+        .from("orders")
+        .select("confirmed_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      const balanceUpdate: any = {
+        balance_paid: true,
+        balance_paid_at: new Date().toISOString(),
+        balance_transaction_id: transactionId,
+        payment_status: "completed",
+        status: "confirmed",
+      };
+      if (!priorBalance?.confirmed_at) {
+        balanceUpdate.confirmed_at = new Date().toISOString();
+      }
       const { error: orderError } = await supabase
         .from("orders")
-        .update({
-          balance_paid: true,
-          balance_paid_at: new Date().toISOString(),
-          balance_transaction_id: transactionId,
-          payment_status: "completed",
-          status: "confirmed",
-        })
+        .update(balanceUpdate)
         .eq("id", orderId);
 
       if (orderError) {

@@ -249,6 +249,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       delivery_route_optimized: false,
       internal_notes: q.notes ?? null,
       status: "confirmed",
+      // Stamp confirmed_at so Booked-revenue tile and every other
+      // gate keyed on this column counts the order from creation.
+      // See quoteService.convertQuoteToOrder for the matching write.
+      confirmed_at: new Date().toISOString(),
       whatsapp_notifications_sent: [],
       xero_invoice_id: null,
       xero_synced_at: null,
