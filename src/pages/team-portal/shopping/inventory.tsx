@@ -168,6 +168,45 @@ export default function ShoppingInventoryPage() {
               </h1>
               <p className="text-sm text-slate-600 mt-1">Live inventory levels, click any row to adjust stock with an audit entry</p>
             </div>
+            {/* Phase 5 #5: one-click 'draft a reorder list' from
+                every below-par inventory item. Lands a draft
+                shopping_lists row the operator can edit before
+                assigning. Hidden when there's nothing to reorder. */}
+            {stats.below > 0 && (
+              <Button
+                variant="default"
+                className="bg-amber-600 hover:bg-amber-700 self-start sm:self-auto"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/admin/inventory/draft-reorder", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({}),
+                    });
+                    const j = await res.json().catch(() => ({}));
+                    if (!res.ok || !j.ok) {
+                      throw new Error(j?.error || "Could not draft reorder");
+                    }
+                    toast({
+                      title: "Reorder draft created",
+                      description: `${j.item_count} item${j.item_count === 1 ? "" : "s"} on the list. Review supplier + quantity before assigning.`,
+                    });
+                    if (j.list_id) {
+                      window.location.href = `/admin/shopping?listId=${j.list_id}`;
+                    }
+                  } catch (e: any) {
+                    toast({
+                      title: "Could not draft reorder",
+                      description: e?.message || "Try again",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Draft reorder ({stats.below})
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
