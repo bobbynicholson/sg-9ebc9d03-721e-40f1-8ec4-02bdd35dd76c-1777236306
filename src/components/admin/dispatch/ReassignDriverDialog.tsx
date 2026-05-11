@@ -74,8 +74,21 @@ export function ReassignDriverDialog({
     }, 5, { restrictToRegion: !lendFromOtherBranches }).then(setSuggestions).finally(() => setLoading(false));
   }, [open, companyId, order.id, lendFromOtherBranches]);
 
-  const handlePick = async (driverId: string, score?: number) => {
+  const handlePick = async (driverId: string, score?: number, blocked?: boolean) => {
     if (!companyId) return;
+    // Phase 3 #5: when the dispatcher picks a driver who has at
+    // least one gate failure (capacity, feasibility, vehicle), make
+    // them write a reason. Audit trail then has the "why" for the
+    // override, not just the swap. Skipped when picking a clean
+    // suggestion -- the reason field is still available but optional.
+    if (blocked && !reason.trim()) {
+      toast({
+        title: "Reason required to override gates",
+        description: "This driver has at least one capacity / feasibility / vehicle gate failing. Note why you're overriding before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const r = await dispatchService.assignDriverWithGate({
@@ -84,7 +97,7 @@ export function ReassignDriverDialog({
         driverId,
         performedBy,
         score,
-        reason: reason.trim() || "Reassigned",
+        reason: reason.trim() || (blocked ? "Reassigned (gate override)" : "Reassigned"),
       });
       if (!r.ok) {
         toast({ title: "Could not reassign", description: r.reason, variant: "destructive" });
@@ -207,7 +220,7 @@ export function ReassignDriverDialog({
                 <button
                   key={s.driver.id}
                   type="button"
-                  onClick={() => handlePick(s.driver.id, s.score.total)}
+                  onClick={() => handlePick(s.driver.id, s.score.total, blocked)}
                   disabled={saving}
                   className={`w-full text-left rounded-lg border p-3 transition-all ${
                     idx === 0 && !blocked
