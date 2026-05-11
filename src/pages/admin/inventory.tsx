@@ -45,6 +45,8 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePricingMode } from "@/hooks/usePricingMode";
+import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -1932,6 +1934,7 @@ function ItemForm({
   error: string;
   suppliers: SupplierOption[];
 }) {
+  const pricingMode = usePricingMode();
   return (
     <div className="space-y-3">
       <div>
@@ -1981,7 +1984,7 @@ function ItemForm({
           />
         </div>
         <div>
-          <Label htmlFor="cost_per_unit">Cost per unit (R)</Label>
+          <Label htmlFor="cost_per_unit">Cost per unit (R) {pricingMode.label}</Label>
           <Input
             id="cost_per_unit"
             type="number"
@@ -1992,6 +1995,13 @@ function ItemForm({
             placeholder="0.00"
             className="mt-1"
           />
+          {Number(form.cost_per_unit) > 0 && (
+            <p className="text-[11px] text-slate-500 mt-1">
+              {pricingMode.mode === "inc"
+                ? `= R${toExVat(Number(form.cost_per_unit), 0.15).toFixed(2)} ex VAT`
+                : `= R${toIncVat(Number(form.cost_per_unit), 0.15).toFixed(2)} inc VAT`}
+            </p>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

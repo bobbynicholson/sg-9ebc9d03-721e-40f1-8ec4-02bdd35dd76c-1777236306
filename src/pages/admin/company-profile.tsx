@@ -57,6 +57,7 @@ interface CompanyRow {
   vat_registered: boolean | null;
   vat_number: string | null;
   vat_rate: number | null;
+  pricing_includes_vat: boolean | null;
   bank_name: string | null;
   bank_account_holder: string | null;
   bank_account_number: string | null;
@@ -147,6 +148,7 @@ function CompanyProfilePage() {
         registration_number: row.registration_number,
         tax_number: row.tax_number,
         vat_registered: row.vat_registered ?? false,
+        pricing_includes_vat: (row as any).pricing_includes_vat ?? false,
         vat_number: row.vat_number,
         vat_rate: row.vat_rate ?? 15,
         bank_name: row.bank_name,
@@ -313,6 +315,37 @@ function CompanyProfilePage() {
                   disabled={!row.vat_registered}
                 />
               </Field>
+
+              {/* Pricing convention -- the call most operators get
+                  wrong and spend weeks fixing later. Drives whether
+                  the menu / equipment / inventory price fields are
+                  treated as gross (customer-facing) or net (ex-VAT).
+                  Setting it once and consistently is critical for
+                  the GP-per-serving math to make sense. */}
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <Label htmlFor="pricing_includes_vat" className="flex items-center gap-1">
+                  Pricing convention
+                  <InfoTooltip content={"Pick how you enter prices into the system, then leave it alone:\n\n• On (inc VAT): the rand you type into menu items, equipment hire prices and ingredient costs is what the customer pays / what the supplier charges. Quotes show the same total at the top; ex-VAT subtotal + VAT line are derived for accounting display.\n\n• Off (ex VAT): you enter pre-VAT figures. The system adds VAT on top at quote time.\n\nThe convention has to match across every input field, otherwise the gross-profit per serving will be wrong because cost and sell sides won't be on the same basis. Default is off (ex VAT)."} />
+                </Label>
+                <p className="text-xs text-slate-500">
+                  Drives whether prices everywhere are entered including or excluding VAT. Pick one and stay consistent.
+                </p>
+                <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3 cursor-pointer hover:bg-slate-50">
+                  <input
+                    id="pricing_includes_vat"
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={!!(row as any).pricing_includes_vat}
+                    onChange={(e) => setRow({ ...row, pricing_includes_vat: e.target.checked } as any)}
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Prices include VAT</p>
+                    <p className="text-xs text-slate-500">
+                      What you type into menu items, equipment and ingredient cost fields is the customer-facing / supplier-facing price. The system derives the ex-VAT subtotal for the quote / invoice. Turn off if you'd rather enter net prices and let the system add VAT on top.
+                    </p>
+                  </div>
+                </label>
+              </div>
             </CardContent>
           </Card>
 

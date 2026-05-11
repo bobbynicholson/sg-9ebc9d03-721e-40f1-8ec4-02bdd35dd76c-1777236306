@@ -277,8 +277,25 @@ export async function generateInvoiceData(
       taxRatePct = isRegistered ? normalisedPct : 0;
     }
     const taxRate = taxRatePct;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
+    // Honour the tenant's pricing convention. In inc-VAT mode the
+    // line item totals already include VAT, so we treat `subtotal`
+    // (sum of line item totals) as the GROSS and divide back to get
+    // the ex-VAT figure that gets shown as the invoice subtotal.
+    // In ex-VAT mode (the historic default) VAT is added on top.
+    const incVat = (companyData as any)?.pricing_includes_vat === true;
+    const rateDecimal = taxRate / 100;
+    let invoiceSubtotal: number;
+    let taxAmount: number;
+    let total: number;
+    if (incVat) {
+      total = Number(subtotal.toFixed(2));
+      invoiceSubtotal = rateDecimal > 0 ? Number((total / (1 + rateDecimal)).toFixed(2)) : total;
+      taxAmount = Number((total - invoiceSubtotal).toFixed(2));
+    } else {
+      invoiceSubtotal = Number(subtotal.toFixed(2));
+      taxAmount = Number((invoiceSubtotal * rateDecimal).toFixed(2));
+      total = Number((invoiceSubtotal + taxAmount).toFixed(2));
+    }
     const depositPaid = orderData.amount_paid || 0;
     const balanceDue = total - depositPaid;
 
@@ -330,7 +347,7 @@ export async function generateInvoiceData(
       guestCount: orderData.guest_count || 0,
       
       items,
-      subtotal,
+      subtotal: invoiceSubtotal,
       taxRate,
       taxAmount,
       total,

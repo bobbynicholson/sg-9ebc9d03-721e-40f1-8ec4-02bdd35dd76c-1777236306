@@ -49,6 +49,8 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePricingMode } from "@/hooks/usePricingMode";
+import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { equipmentManagementService } from "@/services/equipmentManagementService";
@@ -188,6 +190,7 @@ function EquipmentPage() {
 
 function CatalogTab({ companyId }: { companyId: string | null }) {
   const { toast } = useToast();
+  const pricingMode = usePricingMode();
   const [rows, setRows] = useState<EquipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -551,7 +554,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                   </datalist>
                 </div>
                 <div>
-                  <Label className="text-xs">Rental price client pays (R)</Label>
+                  <Label className="text-xs">Rental price client pays (R) {pricingMode.label}</Label>
                   <Input
                     type="number"
                     min={0}
@@ -559,7 +562,16 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                     value={editing.rental_price ?? 0}
                     onChange={(e) => setEditing({ ...editing, rental_price: safeNum(e.target.value) })}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">What you charge per booking.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    What you charge per booking.
+                    {Number(editing.rental_price) > 0 && (
+                      <>
+                        {" "}{pricingMode.mode === "inc"
+                          ? `= R${toExVat(Number(editing.rental_price), 0.15).toFixed(2)} ex VAT`
+                          : `= R${toIncVat(Number(editing.rental_price), 0.15).toFixed(2)} inc VAT`}
+                      </>
+                    )}
+                  </p>
                 </div>
               </div>
               <div>

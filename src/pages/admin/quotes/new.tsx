@@ -256,6 +256,11 @@ function NewQuotePage() {
    *  default. Held in state because it changes when the operator
    *  switches kitchen on a multi-branch quote. */
   const [taxRate, setTaxRate] = useState(0.15);
+  /** Whether the tenant enters prices INC-VAT (vs ex-VAT). Resolved
+   *  from companies.pricing_includes_vat. Drives the quote math
+   *  below: when true, line totals are gross and we derive ex-VAT
+   *  by dividing back; when false (default), VAT is added on top. */
+  const [pricingIncludesVat, setPricingIncludesVat] = useState(false);
   /** Effective deposit percentage. Stamped onto the quote at save so
    *  downstream order + invoice generation honour the branch override
    *  without re-resolving. */
@@ -355,9 +360,23 @@ function NewQuotePage() {
     const pctDiscount = afterSurge * (discountPct / 100);
     const afterDiscounts = afterSurge - pctDiscount - discountFlat;
 
-    const subtotal = afterDiscounts + deliveryFee;
-    const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    // Convention switch. When the tenant enters prices inc-VAT, the
+    // line sums + delivery fee + discounts are all gross numbers; we
+    // derive the ex-VAT subtotal by dividing back. When ex-VAT (the
+    // historic default), VAT is added on top.
+    const grossOrNet = afterDiscounts + deliveryFee;
+    let subtotal: number;
+    let tax: number;
+    let total: number;
+    if (pricingIncludesVat) {
+      total = Number(grossOrNet.toFixed(2));
+      subtotal = Number((total / (1 + taxRate)).toFixed(2));
+      tax = Number((total - subtotal).toFixed(2));
+    } else {
+      subtotal = Number(grossOrNet.toFixed(2));
+      tax = Number((subtotal * taxRate).toFixed(2));
+      total = Number((subtotal + tax).toFixed(2));
+    }
 
     return {
       lineFigures,
@@ -373,7 +392,7 @@ function NewQuotePage() {
       tax,
       total,
     };
-  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate]);
+  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate, pricingIncludesVat]);
 
   // ── Pre-fill: load company default delivery rate + buffer ─────────
   useEffect(() => {
@@ -563,6 +582,23 @@ function NewQuotePage() {
       selectedKitchen && selectedKitchen.source === "region"
         ? selectedKitchen.id
         : null;
+    // Resolve the per-tenant pricing convention once per quote. Not
+    // a branch-level override -- this is a company-wide accounting
+    // decision so it stays on companies.pricing_includes_vat.
+    (async () => {
+      try {
+        const { data: co } = await supabase
+          .from("companies")
+          .select("pricing_includes_vat")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (!cancelled) {
+          setPricingIncludesVat((co as any)?.pricing_includes_vat === true);
+        }
+      } catch (e) {
+        console.warn("[quotes/new] pricing convention load failed:", e);
+      }
+    })();
     (async () => {
       try {
         const s = await resolveBranchSettings(companyId, regionForResolver);

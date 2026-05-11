@@ -32,6 +32,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePricingMode } from "@/hooks/usePricingMode";
+import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useToast } from "@/hooks/use-toast";
 import {
   menuService,
@@ -104,6 +106,7 @@ const newKey = () => `ing-${++_ingKeyCounter}`;
 
 function MenuPage() {
   const { profile } = useAuth();
+  const pricingMode = usePricingMode();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id as string | undefined;
 
@@ -887,7 +890,7 @@ function MenuPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Base price (R) *</Label>
+                <Label>Base price (R) {pricingMode.label} *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -896,6 +899,17 @@ function MenuPage() {
                   onChange={(e) => setItemDraft({ ...itemDraft, base_price: e.target.value })}
                   placeholder="180.00"
                 />
+                {/* Live preview of the opposite-mode figure so the
+                    operator can sanity-check both numbers without
+                    reaching for a calculator. Hidden when the field
+                    is empty or zero. */}
+                {Number(itemDraft.base_price) > 0 && (
+                  <p className="text-[11px] text-slate-500">
+                    {pricingMode.mode === "inc"
+                      ? `= R${toExVat(Number(itemDraft.base_price), 0.15).toFixed(2)} ex VAT`
+                      : `= R${toIncVat(Number(itemDraft.base_price), 0.15).toFixed(2)} inc VAT`}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">

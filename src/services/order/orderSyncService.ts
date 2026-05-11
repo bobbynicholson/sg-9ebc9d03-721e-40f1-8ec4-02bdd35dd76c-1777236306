@@ -15,6 +15,7 @@
  * Idempotent + safe to spam.
  */
 import { supabase as defaultSb } from "@/integrations/supabase/client";
+import { breakdownFromLineSum } from "@/lib/vatMath";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 
@@ -43,7 +44,7 @@ export async function syncOrderArtifacts(
     // 1. Pull the order + its line + equipment data.
     const [{ data: order }, { data: items }, { data: bookings }] = await Promise.all([
       sb.from("orders")
-        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, client_name, venue_address, event_date, guest_count")
+        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, client_name, venue_address, event_date, guest_count, companies:company_id(pricing_includes_vat)")
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("order_items")
@@ -94,10 +95,22 @@ export async function syncOrderArtifacts(
 
     if (computedSubtotal > 0) {
       // Items + equipment cover the order -- recompute from them.
-      const taxRate = priorSubtotal > 0 ? priorTax / priorSubtotal : FALLBACK_TAX_RATE;
-      subtotal = computedSubtotal;
-      tax_amount = Number((subtotal * taxRate).toFixed(2));
-      total_amount = Number((subtotal + tax_amount).toFixed(2));
+      // Derive the tax rate from the order's prior totals so a quote
+      // signed at a non-standard rate (zero-rated export, exempt
+      // client, etc.) keeps that rate.
+      const priorRate = priorSubtotal > 0 ? priorTax / priorSubtotal : FALLBACK_TAX_RATE;
+      // Honour the tenant's pricing convention. If they store prices
+      // inc-VAT, computedSubtotal IS the gross and we derive ex-VAT
+      // by dividing back. Otherwise VAT is added on top.
+      const incVat = (order as any)?.companies?.pricing_includes_vat === true;
+      const breakdown = breakdownFromLineSum(
+        computedSubtotal,
+        priorRate,
+        incVat ? "inc" : "ex",
+      );
+      subtotal = breakdown.net;
+      tax_amount = breakdown.vat;
+      total_amount = breakdown.gross;
     } else {
       // Flat-price order with no line items / equipment to derive from
       // (typical when the quote captured a single negotiated price
