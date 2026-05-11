@@ -485,12 +485,30 @@ export const driverPayService = {
 
       const multiplier = (isSunday || isHoliday) ? 2 : null;
 
+      // Compute hours_worked here. The previous code persisted only
+      // actual_end + status, leaving hours_worked NULL forever, which
+      // made every auto-tracked shift invisible to getPaySummary
+      // (filters where hours_worked != null) AND made calculateShiftPay
+      // return R0 (Number(shift.hours_worked || 0)). Net effect: drivers
+      // earned R0 on the hourly portion of every auto-tracked delivery.
+      // The split-on-midnight Sunday/holiday miscalculation is a
+      // separate Phase 2 fix; this populates the column correctly for
+      // single-day shifts which is the common case.
+      const startMs = (openShift as any).actual_start
+        ? new Date((openShift as any).actual_start).getTime()
+        : NaN;
+      const endMs = new Date(nowIso).getTime();
+      const hoursWorked = Number.isFinite(startMs) && endMs > startMs
+        ? Number(((endMs - startMs) / 3_600_000).toFixed(4))
+        : null;
+
       const { error } = await (client as any)
         .from("driver_shifts")
         .update({
           actual_end: nowIso,
           status: "completed",
           rate_multiplier: multiplier,
+          hours_worked: hoursWorked,
         })
         .eq("id", (openShift as any).id);
       if (error) return { ok: false, error: error.message };

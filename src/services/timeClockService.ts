@@ -82,13 +82,49 @@ export const timeClockService = {
     const clockOutTime = new Date();
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
 
+    // Pull the staff member's real hourly rate from their profile +
+    // matching kitchen/driver/staff row. Previously hardcoded at R150
+    // which silently overpaid lower-rate staff and underpaid senior
+    // ones. The fallback chain is:
+    //   1. profiles.hourly_rate (canonical, set by /admin/users)
+    //   2. kitchen_staff_members.hourly_rate (kitchen-staff page)
+    //   3. drivers.hourly_rate / hourly_rate_normal (driver page)
+    //   4. Final fallback: 0 (clearly wrong; surfaces as an obvious
+    //      bug on the wage roll-up so the operator notices and sets
+    //      a rate, rather than silently paying a default that's
+    //      likely wrong)
     const { data: profile } = await supabase
       .from("profiles")
-      .select("*")
+      .select("hourly_rate, role")
       .eq("id", staffId)
       .single();
 
-    const hourlyRate = 150;
+    let hourlyRate = Number((profile as any)?.hourly_rate) || 0;
+    if (hourlyRate <= 0) {
+      // Walk the role-specific tables that store rate independently.
+      const { data: ks } = await supabase
+        .from("kitchen_staff_members")
+        .select("hourly_rate")
+        .eq("profile_id", staffId)
+        .maybeSingle();
+      if (ks && Number((ks as any).hourly_rate) > 0) {
+        hourlyRate = Number((ks as any).hourly_rate);
+      }
+    }
+    if (hourlyRate <= 0) {
+      const { data: dr } = await supabase
+        .from("drivers")
+        .select("hourly_rate, hourly_rate_normal")
+        .eq("profile_id", staffId)
+        .maybeSingle();
+      const r = Number((dr as any)?.hourly_rate) || Number((dr as any)?.hourly_rate_normal) || 0;
+      if (r > 0) hourlyRate = r;
+    }
+    if (hourlyRate <= 0) {
+      console.warn(
+        `[timeClockService.clockOut] no hourly_rate set for staff ${staffId}; earnings recorded as 0. Set a rate on /admin/users so wages compute correctly.`,
+      );
+    }
     const totalEarnings = totalHours * hourlyRate;
 
     const { data: updatedSession, error: updateError } = await supabase
