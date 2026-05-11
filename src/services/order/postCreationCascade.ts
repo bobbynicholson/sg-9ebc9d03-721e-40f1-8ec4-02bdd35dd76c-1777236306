@@ -141,6 +141,29 @@ export async function postOrderCreationCascade(
           ? new Date((order as any).event_date).toLocaleDateString()
           : "TBD";
 
+        // Phase 6 #5: invoice link in the confirmation email. The
+        // cascade just created an invoice (Step 1) and we have the
+        // id from the receipt -- pull the public_token so the
+        // client gets a one-click 'view invoice' deeplink instead
+        // of having to ask the operator for it. Best-effort; the
+        // email still goes if the lookup fails.
+        let invoiceLink: string | null = null;
+        if (receipt.invoice.ok && receipt.invoice.invoiceId) {
+          try {
+            const { data: invRow } = await (client as any)
+              .from("invoices")
+              .select("public_token")
+              .eq("id", receipt.invoice.invoiceId)
+              .maybeSingle();
+            const token = (invRow as any)?.public_token;
+            if (token && origin) {
+              invoiceLink = `${origin.replace(/\/$/, "")}/pay/i/${token}`;
+            }
+          } catch (linkErr) {
+            console.warn("[postOrderCreationCascade] invoice link lookup failed:", linkErr);
+          }
+        }
+
         const ok = await emailService.sendEmail({
           companyId,
           to: (order as any).client_email,
@@ -155,6 +178,12 @@ export async function postOrderCreationCascade(
             eventDate,
             totalAmount,
             companyName,
+            // Phase 6 #5: surface the invoice link as a template
+            // variable. Tenant-customised templates can drop
+            // {{invoice_link}} wherever; the default body picks it
+            // up at render time without any tenant action.
+            invoice_link: invoiceLink || "",
+            invoiceLink: invoiceLink || "",
           },
           // Forward the injected client so the gates + audit logging
           // happen under the same auth context as the rest of the
