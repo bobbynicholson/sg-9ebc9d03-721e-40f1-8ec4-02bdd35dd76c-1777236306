@@ -11,6 +11,7 @@ import {
 import { notificationService } from "./notificationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
+import { updateOrderStatus } from "./order/orderWorkflow";
 
 export interface PaymentSchedule {
   orderId: string;
@@ -123,35 +124,61 @@ class PaymentProcessingService {
     userId: string
   ): Promise<boolean> {
     try {
-      // Phase 2: single update on orders. deposit_transaction_id now
-      // lives on orders directly so we no longer need the parallel
-      // payment_schedules write.
-      // Stamp confirmed_at on first transition so the Booked revenue
-      // tile (and every other downstream gate keyed on this column)
-      // counts the order from the deposit instant. Only set when NULL
-      // -- don't clobber an earlier admin-marked confirmation.
+      // Split: write money fields directly (these are payment-row
+      // bookkeeping with no state-machine consequence), then route the
+      // status flip through updateOrderStatus so the central guard,
+      // order_status_history insert, sendStatusNotifications fan-out,
+      // and auto-invoice generation all run. The earlier code wrote
+      // status='confirmed' directly via a raw update, bypassing all
+      // four side-effects and silently regressing late orders that
+      // were already past 'confirmed' back to 'confirmed' when a
+      // second payment landed.
       const { data: priorDeposit } = await supabase
         .from("orders")
-        .select("confirmed_at")
+        .select("status, confirmed_at")
         .eq("id", orderId)
         .maybeSingle();
-      const depositUpdate: any = {
+
+      const moneyUpdate: any = {
         deposit_paid: true,
         deposit_paid_at: new Date().toISOString(),
         deposit_transaction_id: transactionId,
-        status: "confirmed",
       };
-      if (!priorDeposit?.confirmed_at) {
-        depositUpdate.confirmed_at = new Date().toISOString();
+      // Stamp confirmed_at if it's still NULL (first transition). The
+      // updateOrderStatus call below also stamps when it does the
+      // status flip; this covers the case where status is ALREADY at
+      // or past 'confirmed' so we skip the status update but still
+      // want the timestamp set for downstream tile gates.
+      if (!(priorDeposit as any)?.confirmed_at) {
+        moneyUpdate.confirmed_at = new Date().toISOString();
       }
       const { error: orderError } = await supabase
         .from("orders")
-        .update(depositUpdate)
+        .update(moneyUpdate)
         .eq("id", orderId);
 
       if (orderError) {
         console.error("Error updating order:", orderError);
         return false;
+      }
+
+      // Status flip via the state machine. Only when the order is
+      // still in a pre-confirmed state. Anything past confirmed
+      // (preparing, ready, in_transit, etc.) keeps its current
+      // status -- a later deposit payment shouldn't yank it back.
+      const currentStatus = String((priorDeposit as any)?.status || "").toLowerCase();
+      if (currentStatus === "draft" || currentStatus === "pending" || currentStatus === "") {
+        try {
+          const r = await updateOrderStatus(orderId, "confirmed", userId);
+          if (!(r as any)?.success) {
+            console.warn(
+              "[processDepositPayment] state-machine flip to confirmed failed (non-fatal):",
+              (r as any)?.error,
+            );
+          }
+        } catch (statusErr) {
+          console.warn("[processDepositPayment] state-machine flip threw (non-fatal):", statusErr);
+        }
       }
 
       // Get order details for notification. Schedule fields are now on
@@ -226,35 +253,57 @@ class PaymentProcessingService {
     userId: string
   ): Promise<boolean> {
     try {
-      // Phase 2: single update on orders. balance_transaction_id now
-      // lives on orders directly so we no longer write to the
-      // payment_schedules mirror.
-      // Same confirmed_at guard as the deposit path -- balance-paid
-      // implies the order is locked in; stamp only when null so an
-      // earlier confirmation timestamp isn't overwritten.
+      // Same split as processDepositPayment: money fields direct,
+      // status flip through the state machine. Balance-paid on an
+      // order that's already past confirmed (preparing, in_transit,
+      // delivered) keeps its current status -- payment doesn't
+      // regress lifecycle position. If the order is at 'delivered'
+      // and this balance closes the books, the auto-complete hook
+      // in webhooks/payment-confirmation.ts (Phase 0 #4) handles
+      // the flip to 'completed' separately.
       const { data: priorBalance } = await supabase
         .from("orders")
-        .select("confirmed_at")
+        .select("status, confirmed_at")
         .eq("id", orderId)
         .maybeSingle();
-      const balanceUpdate: any = {
+
+      const moneyUpdate: any = {
         balance_paid: true,
         balance_paid_at: new Date().toISOString(),
         balance_transaction_id: transactionId,
         payment_status: "completed",
-        status: "confirmed",
       };
-      if (!priorBalance?.confirmed_at) {
-        balanceUpdate.confirmed_at = new Date().toISOString();
+      if (!(priorBalance as any)?.confirmed_at) {
+        moneyUpdate.confirmed_at = new Date().toISOString();
       }
       const { error: orderError } = await supabase
         .from("orders")
-        .update(balanceUpdate)
+        .update(moneyUpdate)
         .eq("id", orderId);
 
       if (orderError) {
         console.error("Error updating order:", orderError);
         return false;
+      }
+
+      // Status flip via the state machine. Same gate as the deposit
+      // path -- only when the order is still pre-confirmed. Balance
+      // payment doesn't yank a delivered order back to confirmed; the
+      // separate auto-complete hook (Phase 0 #4) handles delivered ->
+      // completed when invoice fully paid.
+      const balanceCurrentStatus = String((priorBalance as any)?.status || "").toLowerCase();
+      if (balanceCurrentStatus === "draft" || balanceCurrentStatus === "pending" || balanceCurrentStatus === "") {
+        try {
+          const r = await updateOrderStatus(orderId, "confirmed", userId);
+          if (!(r as any)?.success) {
+            console.warn(
+              "[processBalancePayment] state-machine flip to confirmed failed (non-fatal):",
+              (r as any)?.error,
+            );
+          }
+        } catch (statusErr) {
+          console.warn("[processBalancePayment] state-machine flip threw (non-fatal):", statusErr);
+        }
       }
 
       // Get order details. Schedule fields live on orders now.
