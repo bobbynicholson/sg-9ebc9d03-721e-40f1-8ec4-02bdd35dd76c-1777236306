@@ -209,6 +209,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[amendment-request] notify failed:", e);
     }
 
+    // Phase 5 #9: customer-facing ack email. Mirrors the
+    // cancellation-request flow from Phase 4 #5. The client portal
+    // toast already says "the team will confirm by email shortly";
+    // we make that literally true so the customer has the request
+    // in their inbox without waiting for the admin to approve.
+    // Non-blocking -- an email failure must not unwind the row.
+    try {
+      const { data: orderForEmail } = await ssr
+        .from("orders")
+        .select("order_number, client_name, client_email, event_date")
+        .eq("id", order_id)
+        .maybeSingle();
+      const clientEmail = (orderForEmail as any)?.client_email;
+      if (clientEmail) {
+        const { emailService } = await import("@/services/emailService");
+        const evtDate = (orderForEmail as any)?.event_date
+          ? new Date((orderForEmail as any).event_date).toLocaleDateString("en-ZA", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "your event";
+        const keysList = Object.keys(sanitized);
+        const friendlyKeys = keysList.length > 0
+          ? keysList.map((k) => k.replace(/_/g, " ")).join(", ")
+          : "details";
+        const body =
+          `Hi ${((orderForEmail as any)?.client_name as string) || "there"},\n\n` +
+          `We've received your request to change ${friendlyKeys} on your booking for ${evtDate}. ` +
+          `The team will review it and confirm by email shortly.\n\n` +
+          `Reference: ${(orderForEmail as any)?.order_number || order_id}\n\n` +
+          `If anything else needs adjusting in the meantime, just reply to this email.`;
+        await emailService.sendEmail({
+          companyId: (order as any).company_id,
+          to: clientEmail,
+          subject: `Change request received -- ${(orderForEmail as any)?.order_number || "your order"}`,
+          template: "transactional",
+          orderId: order_id,
+          variables: {
+            clientName: (orderForEmail as any)?.client_name,
+            orderNumber: (orderForEmail as any)?.order_number,
+          },
+          html: `<p>${body.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br />")}</p>`,
+          text: body,
+          _client: ssr,
+        } as any);
+      }
+    } catch (ackErr) {
+      console.warn("[amendment-request] client ack email failed:", ackErr);
+    }
+
     return res.status(200).json({ ok: true, request_id: (inserted as any).id });
   } catch (err: any) {
     console.error("[amendment-request] crashed:", err);
