@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: "QuickBooks is not connected for this company" });
     }
 
-    const accessToken = await ensureFreshAccessToken(supabase, ai);
+    let accessToken = await ensureFreshAccessToken(supabase, ai);
     if (!accessToken) {
       return res.status(502).json({ error: "Could not obtain a QuickBooks access token" });
     }
@@ -149,15 +149,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       PrivateNote: `CateringMS:${invoice.id}`,
     };
 
-    const resp = await fetch(`${QB_BASE}/v3/company/${ai.tenant_id}/invoice?minorversion=70`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(qbPayload),
-    });
+    const postInvoice = (token: string) =>
+      fetch(`${QB_BASE}/v3/company/${ai.tenant_id}/invoice?minorversion=70`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(qbPayload),
+      });
+    let resp = await postInvoice(accessToken);
+    // Phase 3 #7: 401 retry. QuickBooks can invalidate an access
+    // token early (clock skew, intuit manual revoke, reconnect).
+    // Force a refresh + retry once to match the Xero sync behaviour.
+    if (resp.status === 401) {
+      const refreshed = await ensureFreshAccessToken(supabase, ai, { force: true });
+      if (refreshed) {
+        accessToken = refreshed;
+        resp = await postInvoice(accessToken);
+      }
+    }
     const qbBody: any = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
@@ -226,13 +238,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function ensureFreshAccessToken(
   supabase: any,
   integration: AccountingIntegration,
+  opts: { force?: boolean } = {},
 ): Promise<string | null> {
   if (!integration.access_token) return null;
 
   const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
   const now = Date.now();
   const fresh = expiresAt - now > 60 * 1000;
-  if (fresh) return integration.access_token;
+  // Phase 3 #7: opts.force lets the 401-retry path skip the cached
+  // expiry check and unconditionally refresh. Intuit can revoke a
+  // token before its expires_at lapses (manual disconnect, scope
+  // change) so the only reliable signal is a 401 from the API.
+  if (fresh && !opts.force) return integration.access_token;
   if (!integration.refresh_token) return null;
 
   const clientId = process.env.QUICKBOOKS_CLIENT_ID;
