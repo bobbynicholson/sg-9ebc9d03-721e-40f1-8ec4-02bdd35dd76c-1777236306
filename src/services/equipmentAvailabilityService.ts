@@ -25,7 +25,26 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Active booking statuses -- anything not in this set is either
 // cancelled, fully returned, or not yet committed.
-const ACTIVE_BOOKING_STATUSES = ["confirmed", "in_use", "delivered", "out", "pending"] as const;
+//
+// The status vocabulary across the codebase is fragmented today:
+// orders.tsx + equipmentService.bookEquipment write "booked"; the
+// cleaning dashboard reads "returned" (never written); this filter
+// historically expected "confirmed" / "in_use" / etc and silently
+// dropped every "booked" row from availability calculations,
+// so the conflict detector said "all green" while two events were
+// double-booked on the same equipment.
+//
+// Phase 0 #7 unifies the READ side by accepting both vocabularies.
+// Phase 1 will pick one canonical set (confirmed -> out -> returned
+// -> cleaning -> ready -> available) and migrate every writer.
+const ACTIVE_BOOKING_STATUSES = [
+  "booked",     // current orders.tsx + equipmentService writer vocab
+  "confirmed",  // historic equipmentAvailabilityService reader vocab
+  "in_use",
+  "delivered",
+  "out",
+  "pending",
+] as const;
 
 export interface EquipmentAvailability {
   /** Total units the company owns. */
