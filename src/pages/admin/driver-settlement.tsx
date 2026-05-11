@@ -373,6 +373,7 @@ function DriverSettlementPage() {
                               periodFrom={from}
                               periodTo={to}
                               companyName={companyName}
+                              toast={toast}
                             />
                           );
                         })}
@@ -390,7 +391,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyName,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyName, toast,
 }: {
   row: SettlementRow;
   t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
@@ -399,6 +400,8 @@ function FragmentRows({
   periodFrom: string;
   periodTo: string;
   companyName: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toast: any;
 }) {
   // Phase 4 #7: payslip download. jsPDF render of the same summary
   // the row above shows, so the operator can email or print one
@@ -423,6 +426,49 @@ function FragmentRows({
     a.download = `payslip_${safeName}_${periodFrom}_to_${periodTo}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Phase 5 #4: email the same PDF to the driver. Same render, but
+  // base64-encoded as an attachment on the per-tenant emailService
+  // send so it picks up the company's branded sender + audit logging.
+  const handleEmail = async () => {
+    if (!row.summary || !row.driver.email) return;
+    const { driverPayslipService } = await import("@/services/driverPayslipService");
+    const blob = driverPayslipService.generatePayslipPdf(
+      {
+        companyName,
+        driverName: row.driver.full_name,
+        driverEmail: row.driver.email,
+        periodFrom,
+        periodTo,
+      },
+      row.summary,
+    );
+    // Resend / nodemailer attachment shape: filename + content (base64).
+    const buf = await blob.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(buf).reduce((acc, b) => acc + String.fromCharCode(b), ""),
+    );
+    const safeName = row.driver.full_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const filename = `payslip_${safeName}_${periodFrom}_to_${periodTo}.pdf`;
+    const res = await fetch("/api/admin/email-driver-payslip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        driver_id: row.driver.id,
+        driver_email: row.driver.email,
+        driver_name: row.driver.full_name,
+        period_from: periodFrom,
+        period_to: periodTo,
+        grand_total: row.summary.totals.grand_total,
+        attachment_filename: filename,
+        attachment_base64: base64,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.error || "Could not email payslip");
+    }
   };
   return (
     <>
@@ -464,15 +510,42 @@ function FragmentRows({
         )}
         <td className="pr-2">
           {row.summary && t && t.grand_total > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1"
-              onClick={handleDownload}
-              title="Download payslip PDF"
-            >
-              <Download className="w-3 h-3" /> PDF
-            </Button>
+            <div className="flex items-center gap-1 justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                onClick={handleDownload}
+                title="Download payslip PDF"
+              >
+                <Download className="w-3 h-3" /> PDF
+              </Button>
+              {row.driver.email && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={async () => {
+                    try {
+                      await handleEmail();
+                      toast({
+                        title: "Payslip emailed",
+                        description: `Sent to ${row.driver.email}`,
+                      });
+                    } catch (e: any) {
+                      toast({
+                        title: "Could not email payslip",
+                        description: e?.message || "Try again",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  title="Email this payslip to the driver"
+                >
+                  Email
+                </Button>
+              )}
+            </div>
           )}
         </td>
       </tr>
