@@ -226,6 +226,112 @@ export async function updateOrderStatus(
       }
     }
 
+    // Auto-schedule a collection driver_assignment on delivered.
+    // Audit Driver G4 + Equipment G5: the platform never scheduled
+    // a return trip to collect equipment after the event ended.
+    // Operators ran the collection off paper notes; drivers weren't
+    // paid for the return leg; equipment availability stayed stuck
+    // because the cleaning queue had no trigger.
+    //
+    // Strategy: when the order is marked delivered AND has at least
+    // one equipment_booking, insert a second driver_assignments row
+    // with assignment_type='collection', linked to the original
+    // delivery assignment via parent_assignment_id, scheduled_for
+    // event_date end + 1 hour. Driver defaults to the same person
+    // who delivered (most common pattern); dispatch can re-assign
+    // before the scheduled time. Idempotent on (order_id, type).
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        // Skip when no equipment was on this order -- no collection
+        // needed.
+        const { count: bookingCount } = await supabase
+          .from("equipment_bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("order_id", order.id);
+        if ((bookingCount ?? 0) > 0) {
+          // Idempotency check.
+          const { data: existingCollection } = await (supabase as any)
+            .from("driver_assignments")
+            .select("id")
+            .eq("order_id", order.id)
+            .eq("assignment_type", "collection")
+            .maybeSingle();
+          if (!existingCollection) {
+            // Find the delivery assignment to copy driver + as parent.
+            const { data: deliveryAssignment } = await (supabase as any)
+              .from("driver_assignments")
+              .select("id, driver_id")
+              .eq("order_id", order.id)
+              .eq("assignment_type", "delivery")
+              .maybeSingle();
+
+            const deliveryDriverId =
+              (deliveryAssignment as any)?.driver_id || order.assigned_driver_id || null;
+            if (deliveryDriverId) {
+              // Default collection time: event_date + 22:00 + 1hr (i.e.
+              // 23:00). When event_time is set, use event_time + a 4hr
+              // assumed event duration + 1hr buffer instead.
+              let scheduledFor: Date;
+              const evDate = order.event_date ? new Date(order.event_date) : new Date();
+              if (order.event_time) {
+                const [h, m] = String(order.event_time).split(":").map(Number);
+                evDate.setHours(h || 0, m || 0, 0, 0);
+                // Event start + 4hr assumed duration + 1hr collection buffer.
+                scheduledFor = new Date(evDate.getTime() + 5 * 60 * 60 * 1000);
+              } else {
+                evDate.setHours(23, 0, 0, 0);
+                scheduledFor = evDate;
+              }
+
+              const { error: insErr } = await (supabase as any)
+                .from("driver_assignments")
+                .insert({
+                  company_id: order.company_id,
+                  order_id: order.id,
+                  driver_id: deliveryDriverId,
+                  assignment_type: "collection",
+                  scheduled_for: scheduledFor.toISOString(),
+                  parent_assignment_id: (deliveryAssignment as any)?.id || null,
+                  status: "pending",
+                  notes:
+                    "Collection trip: return to venue, pick up equipment, deliver to kitchen for cleaning.",
+                });
+              if (insErr) {
+                console.warn(
+                  "[orderWorkflow] collection assignment insert failed (non-blocking):",
+                  insErr.message,
+                );
+              } else {
+                // Ping the driver so they see the upcoming collection
+                // on their dashboard.
+                try {
+                  await notificationService.createNotification({
+                    company_id: order.company_id,
+                    user_id: deliveryDriverId,
+                    recipient_id: deliveryDriverId,
+                    title: "Collection trip scheduled",
+                    message: `Pick-up scheduled for order ${order.order_number || order.id} at ${scheduledFor.toLocaleString("en-ZA")}. Equipment needs to come back to base.`,
+                    notification_type: "collection_scheduled",
+                    priority: "normal",
+                    link: `/team-portal/driver/deliveries?orderId=${order.id}`,
+                    related_entity_type: "order",
+                    related_entity_id: order.id,
+                  });
+                } catch (notifErr) {
+                  console.warn(
+                    "[orderWorkflow] collection driver notification failed (non-blocking):",
+                    notifErr,
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn("[orderWorkflow] collection assignment scheduler crashed (non-blocking):", e);
+      }
+    }
+
     // Auto-queue cleaning rows on delivered. The audit flagged that
     // equipment_cleaning_status had no writer anywhere -- cleaning
     // team's inbox was permanently empty because no code path
