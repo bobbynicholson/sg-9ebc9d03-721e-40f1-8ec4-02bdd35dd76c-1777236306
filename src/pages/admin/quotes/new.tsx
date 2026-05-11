@@ -83,6 +83,7 @@ import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitch
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -177,8 +178,36 @@ const TAX_RATE = 0.15;
 const DEFAULT_VALIDITY_DAYS = 30;
 const AUTOSAVE_DELAY_MS = 1500;
 
-const fmtR = (v: number) =>
-  `R ${(Number.isFinite(v) ? v : 0).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Phase 6 #1: tenant-currency-aware money formatter. The module-
+// level fmtR was hard-coded to "R " + en-ZA; on a UK/US tenant the
+// builder still showed "R 1,234.56" instead of "£1,234.56". Now
+// fmtR reads through a module-level _currentFmt that the component
+// sets when the tenant currency resolves -- every existing
+// fmtR(...) call site stays unchanged because the closure re-reads
+// the underlying formatter each call.
+const CURRENCY_LOCALES: Record<string, string> = {
+  ZAR: "en-ZA",
+  USD: "en-US",
+  GBP: "en-GB",
+  EUR: "en-GB",
+  AUD: "en-AU",
+};
+function makeFmtMoney(code: string | null | undefined): (v: number) => string {
+  const safe = (code && code in CURRENCY_LOCALES ? code : "ZAR") as keyof typeof CURRENCY_LOCALES;
+  const locale = CURRENCY_LOCALES[safe];
+  const fmt = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: safe,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return (v: number) => fmt.format(Number.isFinite(v) ? v : 0);
+}
+let _currentFmt = makeFmtMoney("ZAR");
+const fmtR = (v: number) => _currentFmt(v);
+function setQuoteBuilderCurrency(code: string | null | undefined): void {
+  _currentFmt = makeFmtMoney(code);
+}
 
 const safeNum = (n: any) => {
   const v = typeof n === "string" ? parseFloat(n) : Number(n);
@@ -218,6 +247,16 @@ function NewQuotePage() {
   const { toast } = useToast();
   const { leadId, fromQuoteId } = router.query;
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+
+  // Phase 6 #1: tenant-currency-aware money formatter. Hook resolves
+  // the tenant's currency (companies.currency, ZAR default) and we
+  // rebind the module-level formatter so every existing fmtR(...)
+  // call site renders in the tenant's currency without diffing 37
+  // individual call sites.
+  const tenantCurrency = useTenantCurrency(companyId);
+  useEffect(() => {
+    setQuoteBuilderCurrency(tenantCurrency.code);
+  }, [tenantCurrency.code]);
 
   // ── Form state ─────────────────────────────────────────────────────
   const [clientId, setClientId] = useState<string | null>(null);
