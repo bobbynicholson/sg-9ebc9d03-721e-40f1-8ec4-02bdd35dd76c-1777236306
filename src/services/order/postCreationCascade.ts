@@ -49,6 +49,7 @@ export interface PostOrderCascadeOpts {
   skipKitchen?: boolean;
   skipEquipment?: boolean;
   skipConflictCheck?: boolean;
+  skipShoppingSuggestion?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
@@ -57,6 +58,7 @@ export interface PostOrderCascadeReceipt {
   kitchen: { ok: boolean; tasksCreated?: number; reason?: string };
   equipment: { ok: boolean; bookingsCreated?: number; reason?: string; skipped?: boolean };
   conflicts: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
+  shopping: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
 }
 
 /**
@@ -79,6 +81,7 @@ export async function postOrderCreationCascade(
     kitchen: { ok: false, tasksCreated: 0, reason: "not_attempted" },
     equipment: { ok: false, bookingsCreated: 0, reason: "not_attempted" },
     conflicts: { ok: false, shortfalls: 0, reason: "not_attempted" },
+    shopping: { ok: false, shortfalls: 0, reason: "not_attempted" },
   };
 
   // ── Step 1: Invoice ───────────────────────────────────────────────
@@ -386,6 +389,84 @@ export async function postOrderCreationCascade(
     }
   } else {
     receipt.conflicts = { ok: true, shortfalls: 0, skipped: true, reason: "skipped_by_caller" };
+  }
+
+  // ── Step 6: Shopping suggestion ──────────────────────────────────
+  // Audit Inventory G2 + Shopping G1: when an order lands, projected
+  // ingredient demand for the menu items + guest count can already
+  // exceed on-hand stock. Today we only notice at deduction time
+  // (when the order is delivered), which is too late -- shopping
+  // can't have driven to the supplier already. Now: run the same
+  // previewInventoryDeduction the admin sees in the order editor,
+  // and for every ingredient where needed > available, broadcast a
+  // single condensed alert to shopping_staff with the deficit list.
+  // Non-blocking: failures don't refuse the order, just log.
+  if (!opts.skipShoppingSuggestion) {
+    try {
+      const { data: order } = await (client as any)
+        .from("orders")
+        .select("id, menu_items, guest_count, final_guest_count, number_of_guests, event_date, region_id, order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!order) {
+        receipt.shopping = { ok: true, shortfalls: 0, reason: "order_not_found" };
+      } else {
+        const menuItems = Array.isArray((order as any).menu_items)
+          ? (order as any).menu_items
+          : [];
+        const guestCount = Number(
+          (order as any).final_guest_count ||
+            (order as any).guest_count ||
+            (order as any).number_of_guests ||
+            0,
+        );
+        if (menuItems.length === 0 || guestCount <= 0) {
+          receipt.shopping = { ok: true, shortfalls: 0, reason: "no_menu_or_guests" };
+        } else {
+          const { previewInventoryDeduction } = await import("@/services/inventoryDeductionService");
+          const preview = await previewInventoryDeduction(menuItems, guestCount, companyId);
+          const shortItems = preview.items.filter((i) => !i.sufficient);
+          if (shortItems.length > 0) {
+            const summary = shortItems
+              .slice(0, 6)
+              .map((i) => {
+                const deficit = Math.max(0, i.needed - i.available);
+                return `${i.ingredient} (short ${deficit.toFixed(2)} ${i.unit})`;
+              })
+              .join("; ");
+            const more = shortItems.length > 6 ? `, +${shortItems.length - 6} more` : "";
+            const eventLine = (order as any).event_date
+              ? ` for ${new Date((order as any).event_date).toLocaleDateString()}`
+              : "";
+            try {
+              await notificationService.broadcastNotification(
+                {
+                  companyId,
+                  regionId: (order as any).region_id || null,
+                  targetRoles: ["shopping_staff" as any],
+                  title: `Shopping needed for order #${(order as any).order_number || orderId.slice(-8)}`,
+                  message: `Projected demand${eventLine} exceeds stock: ${summary}${more}.`,
+                  type: "shopping_suggested",
+                  priority: "normal",
+                  link: `/team-portal/shopping/inventory?orderId=${orderId}`,
+                  relatedEntityType: "order",
+                  relatedEntityId: orderId,
+                },
+                client as any,
+              );
+            } catch (notifErr) {
+              console.warn("[postOrderCreationCascade] shopping suggestion broadcast failed:", notifErr);
+            }
+          }
+          receipt.shopping = { ok: true, shortfalls: shortItems.length };
+        }
+      }
+    } catch (e: any) {
+      receipt.shopping = { ok: false, shortfalls: 0, reason: e?.message || "shopping step crashed" };
+      console.warn("[postOrderCreationCascade] shopping step crashed:", { orderId, companyId, error: e });
+    }
+  } else {
+    receipt.shopping = { ok: true, shortfalls: 0, skipped: true, reason: "skipped_by_caller" };
   }
 
   return receipt;
