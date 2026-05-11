@@ -92,10 +92,22 @@ export function ReassignDriverDialog({
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
       const baseDesc = `${driverName}${order.client_name ? ` on ${order.client_name}` : ""}`;
-      toast({
-        title: "Driver reassigned",
-        description: r.vehicleNote ? `${baseDesc}, ${r.vehicleNote.toLowerCase()}` : baseDesc,
-      });
+      // Phase 2 #4: surface the double-booking warning if the dispatch
+      // service noticed an overlap. We let the assign land (warn-and-
+      // allow) but the dispatcher needs to see it, not just the admin
+      // bell.
+      if (r.conflictWarning) {
+        toast({
+          title: "Reassigned with conflict",
+          description: `${baseDesc}. ${r.conflictWarning}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Driver reassigned",
+          description: r.vehicleNote ? `${baseDesc}, ${r.vehicleNote.toLowerCase()}` : baseDesc,
+        });
+      }
       onOpenChange(false);
       onAssigned?.();
     } finally {

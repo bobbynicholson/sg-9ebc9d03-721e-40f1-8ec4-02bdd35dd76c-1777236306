@@ -574,36 +574,87 @@ export const dispatchService = {
     enforceGates?: boolean; // when true, refuse if capacity / feasibility fail. Default false (warn-and-allow).
     /** Optional: skip vehicle auto-booking when the operator wants to pick the vehicle by hand. */
     skipVehicleAutoBook?: boolean;
-  }): Promise<{ ok: boolean; reason?: string; vehicleNote?: string }> {
+  }): Promise<{ ok: boolean; reason?: string; vehicleNote?: string; conflictWarning?: string }> {
     // Fetch existing assignment to capture from_driver_id
     const { data: existing } = await supabase
       .from("orders")
-      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter")
+      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter, region_id, order_number")
       .eq("id", payload.orderId)
       .maybeSingle();
 
     const fromDriverId = existing?.assigned_driver_id ?? null;
 
-    // Optional gates
-    if (payload.enforceGates && existing) {
-      const { data: driverRow } = await supabase
-        .from("profiles")
-        .select("max_jobs_per_shift")
-        .eq("id", payload.driverId)
-        .maybeSingle();
-      const maxJobs = (driverRow as any)?.max_jobs_per_shift ?? null;
-      const cap = await this.checkCapacity(payload.driverId, existing.event_date, maxJobs);
-      if (!cap.ok) return { ok: false, reason: cap.reason };
+    // Phase 2 #4: ALWAYS run the double-booking check, independent of
+    // enforceGates. The old shape only ran the check on the strict
+    // path; warn-and-allow callers (the entire dispatch UI today) got
+    // no signal at all when a driver was already on a same-day
+    // overlapping job, so the same driver could land two events three
+    // hours apart with no warning. New shape:
+    //   - enforceGates=true  -> refuse on conflict (current strict)
+    //   - enforceGates=false -> assign anyway, attach conflictWarning
+    //                            to the result, broadcast a high-
+    //                            priority admin notification so the
+    //                            operator sees it in the bell, not
+    //                            just on the dispatch page.
+    let conflictWarning: string | undefined;
+    if (existing) {
+      if (payload.enforceGates) {
+        const { data: driverRow } = await supabase
+          .from("profiles")
+          .select("max_jobs_per_shift")
+          .eq("id", payload.driverId)
+          .maybeSingle();
+        const maxJobs = (driverRow as any)?.max_jobs_per_shift ?? null;
+        const cap = await this.checkCapacity(payload.driverId, existing.event_date, maxJobs);
+        if (!cap.ok) return { ok: false, reason: cap.reason };
+      }
 
-      // Refuse if this assignment would put the driver on two
-      // overlapping events (within +/-3h on the same day).
       const conflict = await this.checkDoubleBooking({
         driverId: payload.driverId,
         eventDate: existing.event_date,
         eventTime: (existing as any).event_time ?? null,
         ignoreOrderId: payload.orderId,
       });
-      if (!conflict.ok) return { ok: false, reason: conflict.reason };
+      if (!conflict.ok) {
+        if (payload.enforceGates) {
+          return { ok: false, reason: conflict.reason };
+        }
+        // Warn path: stash the message, fire an admin broadcast, and
+        // keep going. The dispatcher chose this driver knowingly; we
+        // just make sure no one is surprised later.
+        conflictWarning = conflict.reason;
+        try {
+          const { notificationService } = await import("./notificationService");
+          const { data: driverProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", payload.driverId)
+            .maybeSingle();
+          await notificationService.broadcastNotification({
+            companyId: payload.companyId,
+            regionId: (existing as any).region_id || null,
+            targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+            title: `Driver double-booked`,
+            message:
+              `${(driverProfile as any)?.full_name || "Driver"} is now on order ` +
+              `${(existing as any).order_number || payload.orderId.slice(0, 8)} ` +
+              `at ${(existing as any).event_time || "?"}, but already has ` +
+              `${conflict.conflictOrderNumber} at ${conflict.conflictTime}. ` +
+              `Reassign one of them before the events clash.`,
+            type: "driver_double_booked",
+            priority: "high",
+            link: `/admin/orders?orderId=${payload.orderId}`,
+            relatedEntityType: "order",
+            relatedEntityId: payload.orderId,
+            metadata: {
+              driverId: payload.driverId,
+              conflictOrderId: conflict.conflictOrderId,
+            } as any,
+          });
+        } catch (notifErr) {
+          console.warn("[assignDriverWithGate] conflict broadcast failed:", notifErr);
+        }
+      }
     }
 
     const { error: updErr } = await supabase
@@ -694,7 +745,7 @@ export const dispatchService = {
       }
     }
 
-    return { ok: true, vehicleNote };
+    return { ok: true, vehicleNote, conflictWarning };
   },
 
   /**

@@ -333,6 +333,17 @@ function DispatchQueuePage() {
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
       const eventLabel = assignTarget.event_date + (assignTarget.event_time ? ` at ${assignTarget.event_time}` : "");
+      // Phase 2 #4: surface a double-booking warning on warn-and-allow.
+      // The assignment landed but the dispatcher needs to know they
+      // just put this driver on two overlapping events.
+      if (r.conflictWarning) {
+        toast({
+          title: `${driverName} assigned with conflict`,
+          description: r.conflictWarning,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: `${driverName} assigned to ${assignTarget.client_name}`,
         description: `Event ${eventLabel}. Driver app updated.`,
