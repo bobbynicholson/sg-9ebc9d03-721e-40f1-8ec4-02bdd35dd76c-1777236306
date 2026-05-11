@@ -132,7 +132,13 @@ export default function CompanyClientLoginPage({
   slugNotFound,
 }: PageProps) {
   const router = useRouter();
-  const { company_slug, email: emailFromQuery, next, message } = router.query;
+  const { company_slug, email: emailFromQuery, next, message, reason } = router.query;
+  // Phase 3 #8: repeat-customer self-serve. When the URL has
+  // ?reason=view_orders we reframe the headline + CTA so a customer
+  // who clicks "Email me my orders" from marketing copy / website
+  // footer sees a purpose-shaped page instead of a generic sign-in.
+  // The actual flow is identical -- it's still a magic-link request.
+  const isViewOrdersIntent = reason === "view_orders";
 
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -308,7 +314,11 @@ export default function CompanyClientLoginPage({
                   {companyBrand?.name || "Your portal"}
                 </h1>
                 <p className="text-xs sm:text-sm text-white/80">
-                  {sent ? "Check your inbox" : "Sign in to your account"}
+                  {sent
+                    ? "Check your inbox"
+                    : isViewOrdersIntent
+                    ? "Email me my orders"
+                    : "Sign in to your account"}
                 </p>
               </div>
             </div>
@@ -318,7 +328,9 @@ export default function CompanyClientLoginPage({
             {!sent ? (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Enter your email and we&apos;ll send you a secure sign-in link. No password needed.
+                  {isViewOrdersIntent
+                    ? "Pop in the email you used to book and we'll send a secure link to your past orders. No password needed."
+                    : "Enter your email and we'll send you a secure sign-in link. No password needed."}
                 </p>
 
                 {/* The single most common support ticket on a magic-link
@@ -380,7 +392,7 @@ export default function CompanyClientLoginPage({
                     </>
                   ) : (
                     <>
-                      Email me a sign-in link
+                      {isViewOrdersIntent ? "Email me my orders" : "Email me a sign-in link"}
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </>
                   )}
