@@ -4,6 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import { updateDriverLocation } from "@/services/driver/gpsTracking";
 
 /**
+ * Phase 2 #11: Wake Lock keeps the device screen on while the
+ * driver has at least one active job, so the foreground GPS pinger
+ * keeps writing location updates instead of going silent the moment
+ * the screen times out. Returns null on devices that don't support
+ * the Wake Lock API (Safari < 16.4, very old Chrome) -- those drivers
+ * just get the screen-on default behaviour.
+ *
+ * True background tracking via a service worker is a larger piece of
+ * work (PWA install + periodic background sync, Chrome-only). Wake
+ * Lock covers the realistic catering case: driver opens portal,
+ * starts route, screen stays on, pings keep flowing for the duration
+ * of the delivery.
+ */
+async function requestWakeLock(): Promise<any | null> {
+  try {
+    if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return null;
+    const lock = await (navigator as any).wakeLock.request("screen");
+    return lock;
+  } catch (e) {
+    // Permission denied or feature gated. Best-effort only.
+    return null;
+  }
+}
+
+/**
  * Drip-feeds the active driver's GPS position to driver_locations +
  * gps_tracking while they have at least one active job. Dispatch can
  * then watch a live pin on the map and the client-portal tracking
@@ -41,8 +66,10 @@ export function useDriverGPSPing(
   const [isTracking, setIsTracking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastPingAt, setLastPingAt] = useState<number | null>(null);
+  const [wakeLockHeld, setWakeLockHeld] = useState(false);
   const watchIdRef = useRef<number | null>(null);
   const lastWriteRef = useRef<number>(0);
+  const wakeLockRef = useRef<any | null>(null);
 
   // Stable string key for the activeOrderIds array so the effect doesn't
   // teardown + re-mount on every parent re-render that produces a new
@@ -65,6 +92,32 @@ export function useDriverGPSPing(
 
     const orderIds = activeKey.split(",").filter(Boolean);
     const primaryOrderId = orderIds[0] || undefined;
+
+    // Phase 2 #11: keep the screen awake while the watcher is active.
+    // The Wake Lock auto-releases when the tab goes hidden (browser
+    // contract), so we re-request it on visibilitychange to survive
+    // a phone-in-pocket moment where the tab gets backgrounded then
+    // foregrounded again.
+    const acquireLock = async () => {
+      if (wakeLockRef.current) return;
+      const lock = await requestWakeLock();
+      if (!lock) return;
+      wakeLockRef.current = lock;
+      setWakeLockHeld(true);
+      lock.addEventListener?.("release", () => {
+        wakeLockRef.current = null;
+        setWakeLockHeld(false);
+      });
+    };
+    void acquireLock();
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void acquireLock();
+      }
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
@@ -119,10 +172,18 @@ export function useDriverGPSPing(
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
+      if (wakeLockRef.current) {
+        try { wakeLockRef.current.release?.(); } catch { /* ignore */ }
+        wakeLockRef.current = null;
+        setWakeLockHeld(false);
+      }
       setIsTracking(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId, activeKey, intervalMs]);
 
-  return { isTracking, lastError, lastPingAt };
+  return { isTracking, lastError, lastPingAt, wakeLockHeld };
 }

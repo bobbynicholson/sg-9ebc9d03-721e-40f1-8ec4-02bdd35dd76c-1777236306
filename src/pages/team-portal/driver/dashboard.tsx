@@ -81,7 +81,7 @@ export default function DriverDashboard() {
   // The hook bails when activeOrderIds is empty, so a driver browsing
   // the portal at home doesn't burn battery. Audit Driver G7.
   const activeOrderIds = jobs.map((j) => j.id);
-  const { isTracking: gpsActive, lastPingAt, lastError: gpsError } =
+  const { isTracking: gpsActive, lastPingAt, lastError: gpsError, wakeLockHeld } =
     useDriverGPSPing(user?.id ?? null, activeOrderIds);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
@@ -422,9 +422,12 @@ export default function DriverDashboard() {
             {/* GPS pinger status. Quiet when no active jobs; greenish
              *  pulse while the foreground hook is dripping coords to
              *  dispatch; a soft warning when geolocation was refused
-             *  so the driver knows the in-app tracker isn't running. */}
+             *  so the driver knows the in-app tracker isn't running.
+             *  Wake-lock pill shows when the screen-keep-on is held so
+             *  drivers know they don't need to manually keep tapping
+             *  the phone. */}
             {activeOrderIds.length > 0 && (
-              <div className="mb-4 sm:mb-6 flex items-center gap-2 text-xs sm:text-sm">
+              <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 {gpsActive && !gpsError ? (
                   <Badge className="bg-green-100 text-green-700 border-green-200">
                     <MapPin className="w-3 h-3 mr-1 animate-pulse" />
@@ -437,6 +440,11 @@ export default function DriverDashboard() {
                   <Badge className="bg-amber-100 text-amber-700 border-amber-200">
                     <MapPin className="w-3 h-3 mr-1" />
                     GPS off — dispatch can't see your live position
+                  </Badge>
+                )}
+                {wakeLockHeld && (
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                    Screen lock disabled while on route
                   </Badge>
                 )}
                 {gpsError && (
