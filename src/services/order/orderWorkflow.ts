@@ -211,6 +211,43 @@ export async function updateOrderStatus(
     // Idempotent on order_id via the unique index, so a retry on the
     // delivered transition just no-ops. Wrapped so a failure here
     // never blocks the order delivery.
+    // Phase 2 #5: every delivered order should have a POD on file.
+    // When the driver hit "at_venue" via the geofence / status tap and
+    // skipped the POD capture dialog, the order is marked delivered
+    // with pod_captured_at = NULL. Broadcast a notification to admin so
+    // they can chase the driver for proof before the client phones
+    // disputing the delivery. Non-blocking. Skipped on retries (the
+    // delivered transition is idempotent and we don't want to spam the
+    // bell every time the status restamps).
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        const { data: deliveredRow } = await (supabase as any)
+          .from("orders")
+          .select("pod_captured_at, order_number, region_id")
+          .eq("id", order.id)
+          .maybeSingle();
+        if (deliveredRow && !(deliveredRow as any).pod_captured_at) {
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.broadcastNotification({
+            companyId: order.company_id,
+            regionId: (deliveredRow as any).region_id || null,
+            targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+            title: `POD missing on ${(deliveredRow as any).order_number || order.id.slice(0, 8)}`,
+            message:
+              `Order was marked delivered without proof-of-delivery (photo + signature). ` +
+              `Ask the driver to capture POD on the driver app, or accept the bare delivery on the order detail.`,
+            type: "pod_missing",
+            priority: "high",
+            link: `/admin/orders?orderId=${order.id}`,
+            relatedEntityType: "order",
+            relatedEntityId: order.id,
+          });
+        }
+      } catch (podWarnErr) {
+        console.warn("[orderWorkflow] POD-missing broadcast failed (non-blocking):", podWarnErr);
+      }
+    }
+
     if (newStatus === "delivered" && order.company_id) {
       try {
         const deliveredAt = new Date();

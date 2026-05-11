@@ -630,8 +630,16 @@ export default function DriverDashboard() {
                           <span className="hidden sm:inline">Chat</span>
                         </Button>
 
-                        {/* Phase 5: Confirm delivery, POD capture dialog */}
-                        {!["delivered", "completed", "cancelled", "rejected"].includes(job.status) && (
+                        {/* POD capture dialog. Phase 2 #5 narrowed
+                            visibility -- the button used to appear on
+                            every non-terminal job including pending,
+                            which encouraged drivers to "confirm
+                            delivered" before they'd actually loaded
+                            the truck. Now only shows once the order is
+                            packed and moving: ready, out_for_delivery,
+                            in_transit, or already delivered (re-take
+                            POD if missing). */}
+                        {["ready", "out_for_delivery", "in_transit", "delivered"].includes(job.status) && (
                           <Button
                             size="sm"
                             className="flex-1 sm:flex-none text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 gap-1"
