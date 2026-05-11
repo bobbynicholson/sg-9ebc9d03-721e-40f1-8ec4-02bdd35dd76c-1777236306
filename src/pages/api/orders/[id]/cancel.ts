@@ -187,6 +187,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : "partially_refunded",
         } as any).eq("id", orderId);
 
+        // Phase 2 #6: auto-process the refund right now. cancellation-
+        // review.ts already does this; the admin-side cancel endpoint
+        // was inserting the pending payments row and walking away,
+        // which meant operators had to manually retry every cancellation
+        // through /admin/refunds. processRefund is idempotent and
+        // gracefully falls back to pending_manual when the parent
+        // payment wasn't PayFast (EFT, cash, etc.).
+        if (refundPaymentId) {
+          try {
+            const { refundService } = await import("@/services/refundService");
+            const refundResult = await refundService.processRefund(refundPaymentId, user.id);
+            // We don't block the cancel response on the processing
+            // outcome -- the cancellation already landed and the
+            // refund row exists. Operators see the eventual status
+            // via /admin/refunds.
+            console.log("[orders/cancel] refund process result:", refundResult.status);
+          } catch (e) {
+            console.warn("[orders/cancel] processRefund crashed (non-blocking):", e);
+          }
+        }
+
         // Fire-and-forget credit-note push to Xero (P1-24). Endpoint
         // handles "no Xero connected" / "invoice never synced" cases
         // gracefully with 409s; we don't block the cancel on the
