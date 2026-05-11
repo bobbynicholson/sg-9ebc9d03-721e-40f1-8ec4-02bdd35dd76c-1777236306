@@ -89,6 +89,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [forceVerifying, setForceVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
   const [state, setState] = useState<DomainState>({ records: [] });
@@ -319,6 +320,43 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     // Trigger an immediate poll instead of waiting for the timer.
     setSecondsToNextCheck(POLL_INTERVAL_MS / 1000);
     await Promise.all([runVerify(true), refreshDiagnostic()]);
+  };
+
+  const forceReverify = async () => {
+    if (
+      !window.confirm(
+        "Force re-verification?\n\nThis deletes the stuck domain object at Resend and re-creates it with the same hostname, giving Resend a fresh verification cycle. Resend's DKIM keys are deterministic per domain, so your DNS records stay byte-identical, you do NOT need to touch your DNS host.\n\nUse this when verification has been stuck on pending for over an hour despite the live DNS diagnostic showing every record as matched.",
+      )
+    ) {
+      return;
+    }
+    setForceVerifying(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/resend/force-reverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error || `Force re-verify failed (HTTP ${res.status}).`);
+        return;
+      }
+      await reload();
+      await refreshDiagnostic();
+      const flipped = body.status === "verified";
+      toast({
+        title: flipped ? "Verified" : "Fresh verification triggered",
+        description: flipped
+          ? `Emails will now go out from ${body.domain}.`
+          : "Resend's verifier is running against the new domain object. Usually flips within a minute.",
+      });
+      if (flipped && onVerified) onVerified(body.domain);
+    } catch (e: any) {
+      setError(e?.message || "Network error");
+    } finally {
+      setForceVerifying(false);
+    }
   };
 
   const reset = async () => {
@@ -870,15 +908,32 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
 
       {/* ACTIONS ROW */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={reset}
-          disabled={resetting}
-          className="text-xs text-slate-500 hover:text-red-600 underline-offset-2 hover:underline inline-flex items-center gap-1"
-        >
-          {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-          Reset domain
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={reset}
+            disabled={resetting}
+            className="text-xs text-slate-500 hover:text-red-600 underline-offset-2 hover:underline inline-flex items-center gap-1"
+          >
+            {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+            Reset domain
+          </button>
+          {/* Force re-verify only meaningful when stuck on pending and
+              the live diagnostic confirms DNS is matched. Surfacing it
+              elsewhere would just confuse. */}
+          {!verified && diagnostic?.summary?.all_match && (
+            <button
+              type="button"
+              onClick={forceReverify}
+              disabled={forceVerifying}
+              className="text-xs text-amber-700 hover:text-amber-900 underline-offset-2 hover:underline inline-flex items-center gap-1"
+              title="Delete + re-create the Resend domain object to kick a stuck verifier loose. DNS records stay identical, you don't need to change anything at your DNS host."
+            >
+              {forceVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Force re-verify
+            </button>
+          )}
+        </div>
         {!verified && (
           <Button onClick={verifyManual} disabled={verifying} size="sm" className="gap-2">
             {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
