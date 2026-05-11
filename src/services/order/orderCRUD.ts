@@ -91,6 +91,23 @@ export async function getAllOrders(companyId: string) {
 
 export async function updateOrder(orderId: string, updates: any) {
   try {
+    // Detect a guest_count change BEFORE we write. If the count moves
+    // we re-plan kitchen prep tasks after the update lands so the
+    // cook duration honours the new count (Phase 1 #10 scaled the
+    // duration but only for new tasks; existing tasks created at the
+    // old count would otherwise stay stale). Audit Kitchen G3.
+    let priorGuestCount: number | null = null;
+    let priorCompanyId: string | null = null;
+    if (updates && updates.guest_count !== undefined) {
+      const { data: prior } = await supabase
+        .from("orders")
+        .select("guest_count, company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      priorGuestCount = Number((prior as any)?.guest_count ?? 0);
+      priorCompanyId = (prior as any)?.company_id ?? null;
+    }
+
     // Defensive confirmed_at stamp. The admin orders page calls this
     // function with arbitrary updates including status changes, which
     // bypasses orderWorkflow.updateOrderStatus's confirmed_at logic.
@@ -124,6 +141,33 @@ export async function updateOrder(orderId: string, updates: any) {
       .single();
 
     if (error) throw error;
+
+    // Guest count moved -- re-plan kitchen prep tasks so the cook
+    // duration scales to the new count. Phase 1 #10 made the cook
+    // duration scale with guest_count / base_servings, but only at
+    // plan-time; an existing order whose count changed kept its
+    // original (now-stale) durations. force:true soft-deletes any
+    // pending tasks and re-plans from scratch. Non-blocking so an
+    // edit still saves even if the kitchen service is unhappy.
+    if (
+      priorGuestCount !== null &&
+      priorCompanyId &&
+      Number(updates.guest_count) !== priorGuestCount
+    ) {
+      try {
+        const { kitchenPrepService } = await import("@/services/kitchenPrepService");
+        await kitchenPrepService.ensurePrepTasksForOrder(
+          priorCompanyId,
+          orderId,
+          undefined,
+          undefined,
+          { force: true },
+        );
+      } catch (rescaleErr) {
+        console.warn("[updateOrder] prep task rescale failed (non-blocking):", rescaleErr);
+      }
+    }
+
     return { success: true, data };
   } catch (error: any) {
     console.error("Error updating order:", error);

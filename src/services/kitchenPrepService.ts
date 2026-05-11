@@ -374,7 +374,13 @@ export const kitchenPrepService = {
    * so a re-run after an event time change doesn't double up. Done /
    * skipped tasks are preserved (history is sacred).
    */
-  async ensurePrepTasksForOrder(companyId: string, orderId: string, performedBy?: string, client?: typeof supabase): Promise<{ created: number }> {
+  async ensurePrepTasksForOrder(
+    companyId: string,
+    orderId: string,
+    performedBy?: string,
+    client?: typeof supabase,
+    opts: { force?: boolean } = {},
+  ): Promise<{ created: number }> {
     // Server-safe injection. Browser callers pass nothing and get the
     // global anon client (RLS-gated). Server callers (post-order
     // cascade, leads route) inject a service-role client.
@@ -411,19 +417,33 @@ export const kitchenPrepService = {
     // would soft-delete + re-insert prep tasks, so a retry on a
     // partially-failed cascade would double-fire. Smallest fix: bail
     // when there are already pending/in_progress tasks for this order.
-    // The original "regen on event-time change" path is now an
-    // explicit caller responsibility -- callers that need a fresh
-    // plan should soft-delete first, then call this method.
+    //
+    // opts.force=true (used by guest-count rescale flows) soft-deletes
+    // existing PENDING tasks first and re-plans against the new guest
+    // count. In-progress tasks are preserved -- the chef has already
+    // started, you can't undo that. Audit Kitchen G3.
     const { data: existing } = await sb
       .from("kitchen_prep_tasks")
-      .select("id")
+      .select("id, status")
       .eq("order_id", orderId)
       .in("status", ["pending", "in_progress"])
-      .is("deleted_at", null)
-      .limit(1);
+      .is("deleted_at", null);
     if (existing && existing.length > 0) {
-      console.log(`[kitchenPrep] order ${orderId} already has pending tasks -- skipping regen`);
-      return { created: 0 };
+      if (opts.force) {
+        const pendingIds = (existing as any[])
+          .filter((r) => r.status === "pending")
+          .map((r) => r.id);
+        if (pendingIds.length > 0) {
+          await sb
+            .from("kitchen_prep_tasks")
+            .update({ deleted_at: new Date().toISOString() })
+            .in("id", pendingIds);
+        }
+        // Continue to re-plan below.
+      } else {
+        console.log(`[kitchenPrep] order ${orderId} already has pending tasks -- skipping regen`);
+        return { created: 0 };
+      }
     }
 
     const planned = await this.planTasksForOrder(companyId, orderId);
