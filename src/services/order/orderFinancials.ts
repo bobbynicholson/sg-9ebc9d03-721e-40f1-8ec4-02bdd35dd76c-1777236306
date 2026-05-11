@@ -12,26 +12,41 @@ import { supabase } from "@/integrations/supabase/client";
  * (0.15 = 15%) -- typically resolved via
  * `branchSettingsService.resolveBranchSettings(companyId, regionId).vatRate`.
  *
+ * pricingMode honours the tenant's `companies.pricing_includes_vat`:
+ *  - "ex" (default for back-compat): line totals are net, VAT added on top.
+ *  - "inc": line totals are gross; subtotal is derived by dividing back.
+ * Both modes return { subtotal: ex-VAT, tax, total: gross } so downstream
+ * code (invoices, accounting export) can rely on a consistent shape.
+ *
  * The 0.15 default is a safety fallback ONLY for ad-hoc test harnesses
  * and one-off scripts; production paths must always provide an explicit
- * tenant-aware rate. Audit (Agent 5) flagged that the previous
- * hard-coded 0.15 ignored per-tenant + per-branch overrides; this
- * signature change forces the call site to think about it.
+ * tenant-aware rate.
  */
-export async function calculateOrderTotal(orderItems: any[], taxRate: number = 0.15) {
-  const subtotal = orderItems.reduce((sum, item) => {
+export async function calculateOrderTotal(
+  orderItems: any[],
+  taxRate: number = 0.15,
+  pricingMode: "inc" | "ex" = "ex",
+) {
+  const lineSum = orderItems.reduce((sum, item) => {
     return sum + (item.unit_price * item.quantity);
   }, 0);
 
   const safeTaxRate = typeof taxRate === "number" && taxRate >= 0 && taxRate <= 1 ? taxRate : 0.15;
-  const tax = subtotal * safeTaxRate;
-  const total = subtotal + tax;
 
-  return {
-    subtotal,
-    tax,
-    total,
-  };
+  let subtotal: number;
+  let tax: number;
+  let total: number;
+  if (pricingMode === "inc") {
+    total = Number(lineSum.toFixed(2));
+    subtotal = Number((total / (1 + safeTaxRate)).toFixed(2));
+    tax = Number((total - subtotal).toFixed(2));
+  } else {
+    subtotal = Number(lineSum.toFixed(2));
+    tax = Number((subtotal * safeTaxRate).toFixed(2));
+    total = Number((subtotal + tax).toFixed(2));
+  }
+
+  return { subtotal, tax, total };
 }
 
 export interface RecordPaymentExtra {

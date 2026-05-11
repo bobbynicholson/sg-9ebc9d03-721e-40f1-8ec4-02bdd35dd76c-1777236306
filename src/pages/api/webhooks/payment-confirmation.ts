@@ -330,10 +330,31 @@ export default async function handler(
       ? order.deposit_amount
       : order.balance_amount;
 
-    // Verify amount matches
-    if (Math.abs(Number(amount_gross) - Number(expectedAmount)) > 0.01) {
-      console.error("Amount mismatch:", amount_gross, expectedAmount);
+    // Verify amount matches.
+    //
+    // Tolerance was 1 cent (0.01) which was too tight for inc-VAT
+    // tenants -- the stored deposit_amount and PayFast's amount_gross
+    // can drift by up to a few cents per R1k of order value because
+    // inc/ex rounding cascades through deposit-percent calculations.
+    // Catering orders sit in the R2k-R200k range so a 1-cent gate
+    // silently rejected real payments for the spit-braai / similar
+    // inc-VAT tenants.
+    //
+    // New tolerance: R1 absolute OR 0.5% of the expected amount,
+    // whichever is larger. Still tight enough to catch a real fraud
+    // attempt (mismatched amount by hundreds) but lets honest rounding
+    // through. Log the delta whenever it's non-zero so we can spot
+    // anything systematic in production.
+    const exp = Number(expectedAmount);
+    const got = Number(amount_gross);
+    const delta = Math.abs(got - exp);
+    const tolerance = Math.max(1.0, exp * 0.005);
+    if (delta > tolerance) {
+      console.error("Amount mismatch:", { got, expected: exp, delta, tolerance });
       return res.status(400).json({ error: "Amount mismatch" });
+    }
+    if (delta > 0.01) {
+      console.warn("Amount within tolerance but not exact:", { got, expected: exp, delta });
     }
 
     // Single insert via the canonical recordPayment helper. This also

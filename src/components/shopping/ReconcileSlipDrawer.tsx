@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
+import { toExVat } from "@/lib/vatMath";
 
 interface ExtractionLine {
   description: string;
@@ -340,6 +341,32 @@ export function ReconcileSlipDrawer({
     }
     setSaving(true);
     try {
+      // SA till slips report inc-VAT line totals. If the tenant is on
+      // ex-VAT pricing convention, strip the 15% before storing into
+      // inventory cost_per_unit so GP math on the menu / quote side
+      // stays apples-to-apples. inc-VAT tenants leave the slip values
+      // as-is, since their menu prices are also gross.
+      let stripVat = false;
+      let vatRate = 0.15;
+      try {
+        const { data: co } = await supabase
+          .from("companies")
+          .select("pricing_includes_vat, vat_rate")
+          .eq("id", companyId)
+          .maybeSingle();
+        const incVat = (co as any)?.pricing_includes_vat === true;
+        stripVat = !incVat; // ex-VAT tenant => strip
+        const rawRate = Number((co as any)?.vat_rate);
+        if (Number.isFinite(rawRate) && rawRate > 0) {
+          vatRate = rawRate <= 1 ? rawRate : rawRate / 100;
+        }
+      } catch {
+        // Fall back to leaving values as-is on lookup failure; the
+        // operator can correct later from /admin/inventory.
+        stripVat = false;
+      }
+      const toStoredCost = (val: number | null | undefined): number =>
+        !val || val <= 0 ? 0 : stripVat ? toExVat(Number(val), vatRate) : Number(val);
       // 1) Best-effort signed URL of the slip image so /admin/tax-purchases
       //    can show it. Imports bucket is private, so we sign for ~10 yrs.
       const imagePath: string | null = sourceData?.storage_path || null;
@@ -419,6 +446,7 @@ export function ReconcileSlipDrawer({
         let inventoryItemId: string | null = ln.inventory_item_id;
 
         if (ln.add_to_stock && !inventoryItemId && ln.create_new_name.trim()) {
+          const storedCost = toStoredCost(ln.unit_price);
           const { data: newInv, error: invErr } = await supabase
             .from("inventory_items")
             .insert({
@@ -426,7 +454,7 @@ export function ReconcileSlipDrawer({
               item_name: ln.create_new_name.trim(),
               unit_of_measure: ln.unit || "ea",
               current_stock: 0,
-              cost_per_unit: ln.unit_price || null,
+              cost_per_unit: storedCost > 0 ? storedCost : null,
               category: rules.find((r) => r.id === ln.tax_rule_id)?.group_label || null,
             })
             .select("id")
@@ -442,7 +470,7 @@ export function ReconcileSlipDrawer({
 
         const willReceive = ln.add_to_stock && !!inventoryItemId && ln.quantity > 0;
         if (willReceive && inventoryItemId) {
-          stockReceives.push({ itemId: inventoryItemId, qty: ln.quantity, unitCost: ln.unit_price || 0 });
+          stockReceives.push({ itemId: inventoryItemId, qty: ln.quantity, unitCost: toStoredCost(ln.unit_price) });
         }
 
         itemsToInsert.push({
