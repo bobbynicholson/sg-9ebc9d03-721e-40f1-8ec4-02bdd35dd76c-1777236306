@@ -38,25 +38,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
+import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
 
-// ── In-memory rate limit (best effort -- Vercel resets between cold starts) ─
-// Buckets keyed by `${email}|${ip}` to slow down credential-stuffing-style
-// probing while still letting a real user retry quickly. 5 hits per 10 mins.
-const RATE_BUCKET = new Map<string, { count: number; resetAt: number }>();
-const RATE_WINDOW_MS = 10 * 60 * 1000;
-const RATE_MAX = 5;
-
-function rateLimited(key: string): boolean {
-  const now = Date.now();
-  const entry = RATE_BUCKET.get(key);
-  if (!entry || entry.resetAt < now) {
-    RATE_BUCKET.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  if (entry.count > RATE_MAX) return true;
-  return false;
-}
+// Phase 4 #1: DB-backed rate limit (5 sends per 10 minutes per
+// email+IP combo). Used to live in an in-memory Map that reset
+// every Vercel cold start, so an attacker could spread their probe
+// across cold restarts to defeat the cap. The DB-backed limiter
+// gives a hard ceiling regardless of how many serverless instances
+// are warm. Falls back to an in-memory bucket if the RPC fails so
+// a transient DB blip doesn't fail-open.
+const MAGIC_LINK_MAX = 5;
+const MAGIC_LINK_WINDOW_SEC = 10 * 60;
 
 /**
  * Build the branded HTML email.
@@ -159,9 +151,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const xff = (req.headers["x-forwarded-for"] as string) || "";
     const ip = xff.split(",")[0]?.trim() || (req.socket as any)?.remoteAddress || "0.0.0.0";
 
-    if (rateLimited(`${cleanEmail}|${ip}`)) {
+    const limitKey = `magic-link:${cleanEmail}|${ip}`;
+    const rl = await consumeApiKeyRateLimitWindowed(getServiceSupabase(), limitKey, {
+      max: MAGIC_LINK_MAX,
+      windowSeconds: MAGIC_LINK_WINDOW_SEC,
+    });
+    if (!rl.allowed) {
+      const waitMin = Math.max(1, Math.ceil(rl.resetInMs / 60_000));
       return res.status(429).json({
-        error: "Too many sign-in attempts. Please wait a few minutes and try again.",
+        error: `Too many sign-in attempts. Try again in about ${waitMin} minute${waitMin === 1 ? "" : "s"}.`,
       });
     }
 

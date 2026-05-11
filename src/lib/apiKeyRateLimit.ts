@@ -110,3 +110,48 @@ export async function consumeApiKeyRateLimitDb(
     return consumeApiKeyRateLimit(keyHash, options);
   }
 }
+
+/**
+ * DB-backed limiter with a configurable window in seconds. Phase 4
+ * #1. The standard consumeApiKeyRateLimitDb is fixed at a 1-minute
+ * bucket which suits the integration endpoints; this variant exists
+ * for paths that want longer burst control (magic-link sends:
+ * 5 / 10 min, password resets: 3 / hour, etc).
+ *
+ * Falls back to a window-aware in-memory bucket on RPC error so
+ * the limiter is never fully disabled by a DB hiccup.
+ */
+export async function consumeApiKeyRateLimitWindowed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  serviceClient: any,
+  keyHash: string,
+  options: { max: number; windowSeconds: number },
+): Promise<RateLimitResult> {
+  try {
+    const { data, error } = await serviceClient.rpc(
+      "consume_api_key_rate_limit_windowed",
+      {
+        p_key_hash: keyHash,
+        p_max_per_window: options.max,
+        p_window_seconds: options.windowSeconds,
+      },
+    );
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error("Empty rate-limit RPC response");
+    return {
+      allowed: !!row.allowed,
+      remaining: Number(row.remaining ?? 0),
+      resetInMs: Number(row.reset_in_ms ?? options.windowSeconds * 1000),
+    };
+  } catch (e) {
+    console.warn("[consumeApiKeyRateLimitWindowed] falling back to in-memory:", e);
+    // Cheap in-memory fallback using the same Map as the standard
+    // limiter -- single window cap, no sliding. Different bucket key
+    // so it doesn't collide with per-minute caps for the same hash.
+    const inMem = consumeApiKeyRateLimit(`${keyHash}|w${options.windowSeconds}`, {
+      maxPerMinute: options.max,
+    });
+    return inMem;
+  }
+}
