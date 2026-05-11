@@ -43,7 +43,23 @@ import {
   type PublicQuoteView,
 } from "@/services/publicQuoteService";
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
+// style honours each currency's standard symbol + grouping (so GBP
+// shows £, USD shows $, EUR shows €, ZAR shows R). Locale is hung
+// off the currency code -- en-GB for GBP / EUR works for ZAR too;
+// for USD / AUD we prefer en-US.
+function fmtMoneyFor(code: string | null | undefined): (n: number) => string {
+  const safe = (code && ["ZAR", "USD", "EUR", "GBP", "AUD"].includes(code) ? code : "ZAR") as
+    "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
+  const locale =
+    safe === "USD" ? "en-US" :
+    safe === "AUD" ? "en-AU" :
+    safe === "GBP" ? "en-GB" :
+    safe === "EUR" ? "en-GB" :
+    "en-ZA";
+  const f = new Intl.NumberFormat(locale, { style: "currency", currency: safe, maximumFractionDigits: 0 });
+  return (n: number) => f.format(n || 0);
+}
 
 /**
  * Convert "#f59e0b" -> "245 158 11". Tailwind's bg-brand-primary
@@ -228,6 +244,9 @@ export default function PublicQuotePage() {
 
   const company = quote.company;
   const companyName = company?.company_name || "Your caterer";
+  // Phase 5 #10: tenant currency. Lives on company.currency now;
+  // ZAR fallback for legacy rows where it's NULL.
+  const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
   const companyAddress = [company?.address_line1, company?.address_line2, company?.city]
     .filter(Boolean).join(", ") || null;
   const accepted = !!quote.accepted_at;
@@ -472,12 +491,12 @@ export default function PublicQuotePage() {
                           )}
                           {qty > 1 && (
                             <p className="text-xs text-stone-500 mt-0.5">
-                              {qty} x {fmtMoney.format(unitPrice)}
+                              {qty} x {fmtMoney(unitPrice)}
                             </p>
                           )}
                         </div>
                         <p className="text-stone-900 font-semibold tabular-nums shrink-0">
-                          {fmtMoney.format(lineTotal)}
+                          {fmtMoney(lineTotal)}
                         </p>
                       </div>
                     );
@@ -509,7 +528,7 @@ export default function PublicQuotePage() {
                         </div>
                         {lineTotal > 0 && (
                           <p className="text-stone-900 font-semibold tabular-nums shrink-0">
-                            {fmtMoney.format(lineTotal)}
+                            {fmtMoney(lineTotal)}
                           </p>
                         )}
                       </div>
@@ -532,7 +551,7 @@ export default function PublicQuotePage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-stone-600">Items</span>
                     <span className="text-stone-900 tabular-nums">
-                      {fmtMoney.format(Number(quote.subtotal || 0) - Number((quote as any).delivery_fee || 0))}
+                      {fmtMoney(Number(quote.subtotal || 0) - Number((quote as any).delivery_fee || 0))}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -542,19 +561,19 @@ export default function PublicQuotePage() {
                         something the client needs to see. */}
                     <span className="text-stone-600">Delivery</span>
                     <span className="text-stone-900 tabular-nums">
-                      {fmtMoney.format(Number((quote as any).delivery_fee))}
+                      {fmtMoney(Number((quote as any).delivery_fee))}
                     </span>
                   </div>
                 </>
               ) : null}
               <div className="flex justify-between text-sm">
                 <span className="text-stone-600">Subtotal</span>
-                <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.subtotal || 0)}</span>
+                <span className="text-stone-900 tabular-nums">{fmtMoney(quote.subtotal || 0)}</span>
               </div>
               {!!quote.discount_amount && quote.discount_amount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-stone-600">Discount</span>
-                  <span className="text-emerald-700 tabular-nums">-{fmtMoney.format(quote.discount_amount)}</span>
+                  <span className="text-emerald-700 tabular-nums">-{fmtMoney(quote.discount_amount)}</span>
                 </div>
               )}
               {!!quote.tax_amount && quote.tax_amount > 0 && (
@@ -562,14 +581,14 @@ export default function PublicQuotePage() {
                   <span className="text-stone-600">
                     VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""}
                   </span>
-                  <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.tax_amount)}</span>
+                  <span className="text-stone-900 tabular-nums">{fmtMoney(quote.tax_amount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-brand-primary">
                 <span className="text-stone-900 font-serif">
                   Total{vatRegistered ? " incl. VAT" : ""}
                 </span>
-                <span className="text-brand-primary tabular-nums">{fmtMoney.format(total)}</span>
+                <span className="text-brand-primary tabular-nums">{fmtMoney(total)}</span>
               </div>
             </CardContent>
           </Card>

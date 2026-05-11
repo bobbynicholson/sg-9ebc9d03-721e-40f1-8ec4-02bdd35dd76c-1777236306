@@ -63,6 +63,9 @@ export interface PublicQuoteView {
     primary_color: string | null;
     secondary_color: string | null;
     accent_color: string | null;
+    /** Phase 5 #10: ISO 4217 code. Drives the currency symbol +
+     *  formatting on the public quote view. NULL falls back to ZAR. */
+    currency: string | null;
   } | null;
 }
 
@@ -96,7 +99,8 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
         id, company_name, logo_url, email, phone,
         address_line1, address_line2, city,
         vat_registered, vat_number, vat_rate,
-        primary_color, secondary_color, accent_color
+        primary_color, secondary_color, accent_color,
+        currency
       )
     `)
     .eq("public_token", token)
