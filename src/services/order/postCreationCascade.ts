@@ -469,5 +469,21 @@ export async function postOrderCreationCascade(
     receipt.shopping = { ok: true, shortfalls: 0, skipped: true, reason: "skipped_by_caller" };
   }
 
+  // Phase 3 #4: persist the receipt onto the order so the admin
+  // detail panel can show what happened at order-creation time.
+  // Non-blocking -- a write failure here doesn't unwind anything;
+  // the receipt object still returns to the caller.
+  try {
+    await (client as any)
+      .from("orders")
+      .update({
+        cascade_receipt: receipt,
+        cascade_receipt_at: new Date().toISOString(),
+      } as any)
+      .eq("id", orderId);
+  } catch (persistErr) {
+    console.warn("[postOrderCreationCascade] receipt persist failed (non-blocking):", persistErr);
+  }
+
   return receipt;
 }

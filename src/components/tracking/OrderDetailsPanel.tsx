@@ -88,6 +88,10 @@ interface OrderLike {
   pod_recipient_name?: string | null;
   pod_captured_at?: string | null;
   requires_refrigeration?: boolean;
+  /** Phase 3 #4: postOrderCreationCascade receipt persisted at
+   *  order-creation time. Shape lives in postCreationCascade.ts. */
+  cascade_receipt?: any;
+  cascade_receipt_at?: string | null;
 }
 
 interface Props {
@@ -586,6 +590,74 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </a>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Phase 3 #4: post-creation cascade receipt. Surfaces every
+       *  side-effect the order kicked off when it was created --
+       *  invoice generated, confirmation email queued, kitchen prep
+       *  tasks, equipment bookings, shortfall alerts, shopping
+       *  suggestions. Operator can see at a glance whether anything
+       *  failed without dropping into the audit log. */}
+      {order.cascade_receipt && (
+        <Card className="border-slate-200">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                <CheckCircle2 className="h-3 w-3" /> Order creation receipt
+              </div>
+              {order.cascade_receipt_at && (
+                <span className="text-[10px] text-slate-400">
+                  {new Date(order.cascade_receipt_at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              )}
+            </div>
+            <ul className="text-xs space-y-1">
+              {[
+                { key: "invoice", label: "Invoice generated" },
+                { key: "email", label: "Confirmation email" },
+                { key: "kitchen", label: "Kitchen prep tasks" },
+                { key: "equipment", label: "Equipment bookings" },
+                { key: "conflicts", label: "Equipment conflict check" },
+                { key: "shopping", label: "Shopping suggestion" },
+              ].map(({ key, label }) => {
+                const step = (order.cascade_receipt as Record<string, any>)?.[key];
+                if (!step) return null;
+                const detail =
+                  key === "kitchen" && step.tasksCreated != null
+                    ? `${step.tasksCreated} task${step.tasksCreated === 1 ? "" : "s"}`
+                    : key === "equipment" && step.bookingsCreated != null
+                    ? `${step.bookingsCreated} booking${step.bookingsCreated === 1 ? "" : "s"}`
+                    : key === "conflicts" && step.shortfalls != null
+                    ? step.shortfalls === 0
+                      ? "no shortfalls"
+                      : `${step.shortfalls} shortfall${step.shortfalls === 1 ? "" : "s"} flagged`
+                    : key === "shopping" && step.shortfalls != null
+                    ? step.shortfalls === 0
+                      ? "no deficit"
+                      : `${step.shortfalls} ingredient${step.shortfalls === 1 ? "" : "s"} short`
+                    : key === "email" && step.skipped
+                    ? `skipped (${step.reason || "no reason"})`
+                    : step.reason && !step.ok
+                    ? step.reason
+                    : "";
+                const tone = step.ok
+                  ? "text-emerald-700"
+                  : step.skipped
+                  ? "text-slate-500"
+                  : "text-rose-700";
+                const icon = step.ok ? "✓" : step.skipped ? "—" : "✗";
+                return (
+                  <li key={key} className="flex justify-between gap-2">
+                    <span className={tone}>
+                      <span className="font-mono">{icon}</span> {label}
+                    </span>
+                    {detail && <span className="text-slate-500 text-[11px]">{detail}</span>}
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
       )}
