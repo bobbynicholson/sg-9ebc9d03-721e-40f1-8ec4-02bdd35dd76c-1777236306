@@ -382,10 +382,44 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               })}
             </ol>
             {statusHistory.length > 0 && (
-              <p className="text-[10px] text-slate-400 pt-2 border-t mt-2">
-                {statusHistory.length} status change{statusHistory.length === 1 ? "" : "s"} recorded.
-                Last: {new Date(statusHistory[statusHistory.length - 1].created_at).toLocaleString("en-ZA")}
-              </p>
+              <details className="pt-2 border-t mt-2">
+                <summary className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-700">
+                  Full history ({statusHistory.length} change{statusHistory.length === 1 ? "" : "s"})
+                </summary>
+                {/* Phase 6 #4: per-event timeline. Each row in
+                    order_status_history is shown chronologically
+                    with the timestamp and the status it advanced to.
+                    Notes column (when present) surfaces the 'why'
+                    -- e.g. cancel reason, paused-from snapshot. */}
+                <ol className="mt-2 space-y-1.5 text-[11px]">
+                  {statusHistory.map((row: any) => {
+                    const ts = new Date(row.created_at).toLocaleString("en-ZA", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    return (
+                      <li
+                        key={row.id || `${row.created_at}-${row.status}`}
+                        className="flex items-start gap-2"
+                      >
+                        <span className="text-slate-400 font-mono tabular-nums shrink-0">
+                          {ts}
+                        </span>
+                        <span className="font-medium text-slate-900 capitalize">
+                          {String(row.status || "").replace(/_/g, " ")}
+                        </span>
+                        {row.notes && (
+                          <span className="text-slate-500 truncate" title={row.notes}>
+                            {row.notes}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </details>
             )}
           </CardContent>
         </Card>
