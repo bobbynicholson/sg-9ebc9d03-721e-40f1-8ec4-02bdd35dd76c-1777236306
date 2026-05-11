@@ -83,6 +83,11 @@ export default function KitchenPrepListPage() {
   const [aggregated, setAggregated] = useState<IngredientDemand[]>([]);
   const [aggregatedLoading, setAggregatedLoading] = useState(true);
 
+  // Phase 2 #3: kitchen prep lead hours drives the urgency calc. The
+  // companies row was already a P1-11 source of truth; default 12h
+  // matches the orderWorkflow lead-time warning.
+  const [kitchenLeadHours, setKitchenLeadHours] = useState(12);
+
   useEffect(() => {
     const companyId = profile?.company_id;
     if (!companyId) return;
@@ -133,6 +138,23 @@ export default function KitchenPrepListPage() {
         (orders || []).forEach((o: any) => { map[o.id] = o; });
         if (!cancelled) setOrderMeta(map);
       }
+
+      // Pull the company's kitchen lead hours so the urgency calc
+      // matches what the order-confirm flow warns about. Single read
+      // per page mount, cheap; failures fall back to the 12h default.
+      try {
+        const { data: companyRow } = await supabase
+          .from("companies")
+          .select("kitchen_prep_lead_hours")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (!cancelled && (companyRow as any)?.kitchen_prep_lead_hours != null) {
+          setKitchenLeadHours(Number((companyRow as any).kitchen_prep_lead_hours));
+        }
+      } catch (e) {
+        // Default already set; not worth toast-ing the user.
+      }
+
       setLoading(false);
 
       // Aggregated demand runs in parallel via the kitchen prep service
@@ -193,20 +215,70 @@ export default function KitchenPrepListPage() {
     return Array.from(map.values()).sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [rows]);
 
+  // Phase 2 #3: compute prep urgency per order. The chef cards now
+  // surface a tier (critical / high / watch / ok) and the in-bucket
+  // sort uses urgency_score directly instead of just date+time so
+  // big jobs and tight events rank above leisurely ones on the same
+  // day. Inputs:
+  //   slackHours = (event_start - now) - kitchen_prep_lead_hours
+  //   guestPressure = clamp(guest_count / 50, 1, 3) -- big jobs are
+  //     less recoverable when something slips
+  //   statusBoost = +6h penalty if order is still 'confirmed' but the
+  //     event is within the lead window (chef hasn't started)
+  // Tiers: critical <= 0h slack, high <= 4h, watch <= 12h, else ok.
+  const urgencyOf = (
+    o: { event_date: string; guest_count: number; order_status: string },
+    meta: OrderRow | undefined,
+  ) => {
+    let eventTs: number;
+    if (meta?.event_time) {
+      const composed = new Date(`${o.event_date}T${meta.event_time}`);
+      eventTs = isNaN(composed.getTime())
+        ? new Date(o.event_date + "T12:00:00").getTime()
+        : composed.getTime();
+    } else {
+      // No stamped time -> assume midday for sort stability. The lead
+      // window of 12h means a noon event still surfaces as urgent
+      // overnight, which matches the chef's mental model.
+      eventTs = new Date(o.event_date + "T12:00:00").getTime();
+    }
+    const hoursUntilEvent = (eventTs - Date.now()) / 3_600_000;
+    const guestPressure = Math.min(3, Math.max(1, Number(o.guest_count || 0) / 50));
+    let slackHours = hoursUntilEvent - kitchenLeadHours;
+    // Confirmed-but-not-started inside the lead window = chef is late
+    // to start. Bias the score downward so it ranks above same-slack
+    // orders that ARE in progress.
+    if (o.order_status === "confirmed" && hoursUntilEvent <= kitchenLeadHours) {
+      slackHours -= 6;
+    }
+    // Score: lower = more urgent. Multiply slack by guestPressure
+    // inverse so a 200-pax event with 4h slack ranks above a 30-pax
+    // event with the same 4h slack.
+    const score = slackHours / guestPressure;
+    let tier: "critical" | "high" | "watch" | "ok";
+    if (slackHours <= 0) tier = "critical";
+    else if (slackHours <= 4) tier = "high";
+    else if (slackHours <= 12) tier = "watch";
+    else tier = "ok";
+    return { tier, slackHours, score };
+  };
+
   const grouped = useMemo(() => {
-    // Priority sort within each bucket: event_date asc (already from
-    // the query), then event_time asc within a date so a 16:00
-    // collection ranks above a 19:00 plated event for the same day.
-    // Events without a stamped time fall to the bottom of their date
-    // group [P1-36]. The kitchen sees the highest-pressure prep
-    // tasks at the top of each bucket without having to mentally
-    // sort by clock.
-    const priority = (a: { event_date: string; event_time: string | null }, b: typeof a) => {
+    // Priority sort within each bucket -- urgency_score asc means the
+    // tightest jobs appear first. Falls back to event_date / event_time
+    // when scores tie. [P1-36 kept; Phase 2 #3 added urgency layer.]
+    const priority = (
+      a: { event_date: string; guest_count: number; order_status: string; order_id: string },
+      b: typeof a,
+    ) => {
+      const ua = urgencyOf(a, orderMeta[a.order_id]);
+      const ub = urgencyOf(b, orderMeta[b.order_id]);
+      if (ua.score !== ub.score) return ua.score - ub.score;
       if (a.event_date !== b.event_date) return a.event_date < b.event_date ? -1 : 1;
-      const at = a.event_time;
-      const bt = b.event_time;
+      const at = orderMeta[a.order_id]?.event_time || null;
+      const bt = orderMeta[b.order_id]?.event_time || null;
       if (!at && !bt) return 0;
-      if (!at) return 1; // null / no time -> end of day group
+      if (!at) return 1;
       if (!bt) return -1;
       return at < bt ? -1 : at > bt ? 1 : 0;
     };
@@ -221,7 +293,9 @@ export default function KitchenPrepListPage() {
         name: b,
         items: [...buckets[b]].sort(priority),
       }));
-  }, [orders]);
+    // urgencyOf depends on orderMeta + kitchenLeadHours, so list both.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, orderMeta, kitchenLeadHours]);
 
   const shortfallCount = aggregated.filter(d => d.shortfall > 0).length;
   const [creatingList, setCreatingList] = useState(false);
@@ -487,14 +561,40 @@ export default function KitchenPrepListPage() {
                       // ingredient don't both render "ok" when together they're short.
                       const aggMap = new Map(aggregated.map(a => [`${a.name.toLowerCase()}|${(a.unit || "").toLowerCase()}`, a]));
 
+                      const urgency = urgencyOf(o, meta);
+                      const urgencyBadge =
+                        urgency.tier === "critical"
+                          ? { label: "CRITICAL", className: "bg-red-200 text-red-900" }
+                          : urgency.tier === "high"
+                            ? { label: "HIGH", className: "bg-red-100 text-red-800" }
+                            : urgency.tier === "watch"
+                              ? { label: "WATCH", className: "bg-amber-100 text-amber-800" }
+                              : null;
+                      const cardBorder =
+                        urgency.tier === "critical"
+                          ? "border-l-4 border-l-red-600"
+                          : urgency.tier === "high"
+                            ? "border-l-4 border-l-red-400"
+                            : urgency.tier === "watch"
+                              ? "border-l-4 border-l-amber-400"
+                              : "border-0";
+
                       return (
-                        <Card key={o.order_id} className="border-0 shadow-lg">
+                        <Card key={o.order_id} className={`${cardBorder} shadow-lg`}>
                           <CardHeader className="pb-3">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                                   <span className="truncate">{o.event_name}</span>
                                   <Badge variant="outline" className="text-[10px]">{o.order_number}</Badge>
+                                  {urgencyBadge && (
+                                    <Badge
+                                      className={`text-[9px] font-bold tracking-wide border-0 ${urgencyBadge.className}`}
+                                      title={`${urgency.slackHours.toFixed(1)}h slack vs ${kitchenLeadHours}h lead time`}
+                                    >
+                                      {urgencyBadge.label}
+                                    </Badge>
+                                  )}
                                 </CardTitle>
                                 <CardDescription className="mt-1 flex flex-wrap items-center gap-3 text-xs">
                                   <span className="flex items-center gap-1">
