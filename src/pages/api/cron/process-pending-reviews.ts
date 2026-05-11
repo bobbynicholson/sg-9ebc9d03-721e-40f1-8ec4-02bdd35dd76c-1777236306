@@ -70,19 +70,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: error.message });
   }
 
-  // Cache company names so a batch of reviews for the same tenant
-  // doesn't fan out to a query per row.
-  const companyNameCache = new Map<string, string>();
-  const fetchCompanyName = async (companyId: string): Promise<string> => {
-    if (companyNameCache.has(companyId)) return companyNameCache.get(companyId)!;
+  // Cache company name + Google place_id so a batch of reviews for
+  // the same tenant doesn't fan out to a query per row. Phase 5 #3:
+  // place_id drives the review URL -- tenants with a Google Business
+  // Profile get a write-review deeplink, the rest fall back to a
+  // Maps search by name.
+  const companyCache = new Map<string, { name: string; placeId: string | null }>();
+  const fetchCompany = async (
+    companyId: string,
+  ): Promise<{ name: string; placeId: string | null }> => {
+    if (companyCache.has(companyId)) return companyCache.get(companyId)!;
     const { data } = await supabase
       .from("companies")
-      .select("company_name")
+      .select("company_name, google_place_id")
       .eq("id", companyId)
       .maybeSingle();
-    const name = ((data as any)?.company_name as string) || "us";
-    companyNameCache.set(companyId, name);
-    return name;
+    const row = {
+      name: ((data as any)?.company_name as string) || "us",
+      placeId: ((data as any)?.google_place_id as string) || null,
+    };
+    companyCache.set(companyId, row);
+    return row;
+  };
+
+  // Build the right review URL. Place-id-backed deeplink lands the
+  // customer straight on the write-review modal in their Google
+  // account -- highest conversion. Without a place_id we fall back
+  // to a Maps search; the customer still has to click into the
+  // listing but the operator at least gets actual Google reviews.
+  const reviewUrl = (placeId: string | null, companyName: string): string => {
+    if (placeId) {
+      return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyName)}`;
   };
 
   // Cache the review_request template per company. NULL means the
@@ -115,22 +135,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const companyName = await fetchCompanyName(row.company_id);
+      const company = await fetchCompany(row.company_id);
+      const companyName = company.name;
       const firstName = (row.client_name || "there").split(" ")[0];
+      const review = reviewUrl(company.placeId, companyName);
 
-      // Email send -- only if we have an address. The brief notes the
-      // template lives at email_templates.review_request; fall back
-      // when the tenant hasn't seeded one.
+      // Email send -- only if we have an address. Template lives at
+      // email_templates.review_request and supports {review_link}
+      // for tenants who want the link inside their custom copy;
+      // falls back to a hardcoded body otherwise.
       if (row.client_email) {
         const tpl = await fetchTemplate(row.company_id);
+        const vars = {
+          name: firstName,
+          company_name: companyName,
+          order_id: row.order_id,
+          review_link: review,
+        };
         const subject = tpl?.subject
-          ? interpolate(tpl.subject, { name: firstName, company_name: companyName, order_id: row.order_id })
+          ? interpolate(tpl.subject, vars)
           : `How was ${companyName}?`;
         const body = tpl?.body
-          ? interpolate(tpl.body, { name: firstName, company_name: companyName, order_id: row.order_id })
-          : `Hi ${firstName},\n\nHow was ${companyName}? We'd love to hear how it went -- ` +
-            `tag us on social or leave a quick review here:\n` +
-            `https://www.google.com/search?q=${encodeURIComponent(companyName)}\n\n` +
+          ? interpolate(tpl.body, vars)
+          : `Hi ${firstName},\n\nHow was ${companyName}? We'd love to hear how it went. ` +
+            `If you can spare 30 seconds, a quick Google review goes a long way:\n\n` +
+            `${review}\n\n` +
             `Thanks for booking with us.`;
 
         try {

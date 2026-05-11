@@ -68,6 +68,9 @@ interface CompanyRow {
    *  windows, kitchen lead-time gates, daily cron boundaries. */
   timezone: string | null;
   currency: string | null;
+  /** Phase 5 #3: Google Business Profile place_id. Drives the
+   *  after-sales review email to a proper write-review deeplink. */
+  google_place_id: string | null;
 }
 
 function CompanyProfilePage() {
@@ -175,6 +178,7 @@ function CompanyProfilePage() {
         eft_instructions: row.eft_instructions,
         timezone: row.timezone || null,
         currency: row.currency || null,
+        google_place_id: row.google_place_id?.trim() || null,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -329,6 +333,31 @@ function CompanyProfilePage() {
                   <option value="AUD">AUD — Australian Dollar</option>
                 </select>
               </Field>
+              {/* Phase 5 #3: Google Business Profile place_id. When
+                  set, the after-sales review email switches from a
+                  generic Google search link to the proper write-
+                  review deeplink so customers land on the review
+                  modal in one tap. */}
+              <Field id="google_place_id" label="Google Business place_id (for review emails)">
+                <Input
+                  id="google_place_id"
+                  value={row.google_place_id || ""}
+                  onChange={(e) => setRow({ ...row, google_place_id: e.target.value })}
+                  placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+                />
+              </Field>
+              <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+                Find your place_id at{" "}
+                <a
+                  href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  developers.google.com/maps/place-id
+                </a>{" "}
+                -- paste your business listing URL into the finder and copy the place_id. With this set, post-delivery review emails link directly to the 'leave a review' modal instead of a generic Google search.
+              </p>
             </CardContent>
           </Card>
 
