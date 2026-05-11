@@ -83,6 +83,16 @@ import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitch
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import {
   getEquipmentAvailability,
@@ -328,6 +338,7 @@ function NewQuotePage() {
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
+  const [allergenGateOpen, setAllergenGateOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -1130,7 +1141,20 @@ function NewQuotePage() {
     if (id) toast({ title: "Saved as draft" });
   };
 
-  const handleSend = async () => {
+  // Phase 3 #1: allergen gate. Sending a quote with menu items whose
+  // allergens have never been reviewed sends the kitchen blind --
+  // there's no signed-off statement of what's in each dish. We block
+  // the send until either the staffer goes back and reviews the
+  // flagged items, or explicitly accepts the risk. The detection
+  // (line.menu_item_id set + line.allergensReviewedAt null) reuses
+  // the data threaded through from Phase 2 #7.
+  const unreviewedAllergenLines = useMemo(() => {
+    return menuItems.filter(
+      (l) => !!l.menu_item_id && !l.allergensReviewedAt,
+    );
+  }, [menuItems]);
+
+  const handleSend = async (opts: { bypassAllergenGate?: boolean } = {}) => {
     if (!email || !email.trim()) {
       toast({
         title: "Client email required",
@@ -1141,6 +1165,10 @@ function NewQuotePage() {
     }
     if (computed.total <= 0) {
       toast({ title: "Add at least one priced line", variant: "destructive" });
+      return;
+    }
+    if (!opts.bypassAllergenGate && unreviewedAllergenLines.length > 0) {
+      setAllergenGateOpen(true);
       return;
     }
     setSending(true);
@@ -1238,7 +1266,7 @@ function NewQuotePage() {
               </div>
               <div className="flex items-center gap-1">
                 <Button
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={sending || saving || computed.total <= 0 || !email}
                   className="bg-gradient-to-r from-green-600 to-emerald-600"
                 >
@@ -2018,6 +2046,54 @@ function NewQuotePage() {
       </div>
 
       <ChatBot userRole="admin" companyId={companyId || undefined} />
+
+      {/* Phase 3 #1: allergen gate. Triggered from handleSend when one
+       *  or more picked menu items has allergens_reviewed_at = NULL.
+       *  The staffer can either go back and review (Cancel) or accept
+       *  the risk (Send anyway). The bypass path also stamps a console
+       *  warning so the action is at least observable in dev. */}
+      <AlertDialog open={allergenGateOpen} onOpenChange={setAllergenGateOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="w-5 h-5" />
+              Allergens not reviewed
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {unreviewedAllergenLines.length === 1 ? "1 item" : `${unreviewedAllergenLines.length} items`}{" "}
+              on this quote haven't had their allergen declaration signed off:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="text-sm text-slate-700 list-disc pl-6 space-y-1 max-h-40 overflow-y-auto">
+            {unreviewedAllergenLines.map((l) => (
+              <li key={l.id}>{l.name || "(unnamed line)"}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-slate-500">
+            Sending now puts the client and kitchen on the hook without a signed allergen statement. Open each item on{" "}
+            <Link href="/admin/menu" className="underline" target="_blank">/admin/menu</Link>{" "}
+            and save it to mark it reviewed, or send anyway if the risk is accepted.
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAllergenGateOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setAllergenGateOpen(false);
+                console.warn(
+                  "[quotes/new] allergen gate bypassed -- send with unreviewed items:",
+                  unreviewedAllergenLines.map((l) => ({ id: l.menu_item_id, name: l.name })),
+                );
+                void handleSend({ bypassAllergenGate: true });
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Send anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
