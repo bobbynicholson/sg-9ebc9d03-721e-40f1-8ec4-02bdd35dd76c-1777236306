@@ -32,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
 
 interface CompanyRow {
   id: string;
@@ -64,6 +64,10 @@ interface CompanyRow {
   bank_branch_code: string | null;
   bank_account_type: string | null;
   eft_instructions: string | null;
+  /** Phase 4 #3: IANA timezone that drives report buckets, BCEA pay
+   *  windows, kitchen lead-time gates, daily cron boundaries. */
+  timezone: string | null;
+  currency: string | null;
 }
 
 function CompanyProfilePage() {
@@ -126,6 +130,18 @@ function CompanyProfilePage() {
 
   const save = async () => {
     if (!row) return;
+    // Phase 4 #3: refuse a bogus IANA timezone so we never land an
+    // unparseable string in the DB. Empty falls back to the column
+    // default (Africa/Johannesburg) -- we let the picker emit
+    // "" -> null and treat that as 'use default'.
+    if (row.timezone && !isValidTimezone(row.timezone)) {
+      toast({
+        title: "Invalid timezone",
+        description: `'${row.timezone}' isn't a recognised IANA timezone. Pick from the list.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const payload: any = {
@@ -157,6 +173,8 @@ function CompanyProfilePage() {
         bank_branch_code: row.bank_branch_code,
         bank_account_type: row.bank_account_type,
         eft_instructions: row.eft_instructions,
+        timezone: row.timezone || null,
+        currency: row.currency || null,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -262,6 +280,54 @@ function CompanyProfilePage() {
               </Field>
               <Field id="tax" label="Tax number (income tax / company tax)">
                 <Input id="tax" value={row.tax_number || ""} onChange={(e) => setRow({ ...row, tax_number: e.target.value })} />
+              </Field>
+            </CardContent>
+          </Card>
+
+          {/* Phase 4 #3: tenant timezone + currency. Drives every
+              date-bucket boundary (kitchen lead time, BCEA pay
+              windows, daily cron) and the currency tag on quotes /
+              invoices / payslips. Pre-populated to Africa/Johannesburg
+              + ZAR by the DB migration so existing tenants don't see
+              an empty value. */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-blue-600" />
+                Region &amp; currency
+                <InfoTooltip content={"Sets the wall clock for every date bucket in the system. Reports, kitchen prep lead times, driver pay windows and the daily cron all key off this. Get it wrong on a UK or US deploy and reports will show events on the wrong day."} />
+              </CardTitle>
+              <CardDescription>
+                Timezone for date buckets (reports, kitchen lead time, pay windows). Currency tag on documents.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field id="timezone" label="Timezone (IANA)">
+                <select
+                  id="timezone"
+                  value={row.timezone || ""}
+                  onChange={(e) => setRow({ ...row, timezone: e.target.value || null })}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                >
+                  <option value="">— pick a timezone —</option>
+                  {TENANT_TIMEZONE_CHOICES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field id="currency" label="Currency">
+                <select
+                  id="currency"
+                  value={row.currency || "ZAR"}
+                  onChange={(e) => setRow({ ...row, currency: e.target.value })}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                >
+                  <option value="ZAR">ZAR — South African Rand</option>
+                  <option value="GBP">GBP — British Pound</option>
+                  <option value="USD">USD — US Dollar</option>
+                  <option value="EUR">EUR — Euro</option>
+                  <option value="AUD">AUD — Australian Dollar</option>
+                </select>
               </Field>
             </CardContent>
           </Card>
