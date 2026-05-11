@@ -74,71 +74,123 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: equipErr.message });
   }
 
+  // Phase 6 #3: same sweep for vehicles. The schema mirrors
+  // equipment, so we can fan into a single loop below using a
+  // discriminator field.
+  const { data: dueVehicles, error: vehErr } = await sb
+    .from("vehicles")
+    .select("id, company_id, plate, nickname, next_service_due, last_serviced_at")
+    .lte("next_service_due", cutoffIso)
+    .not("next_service_due", "is", null)
+    .is("deleted_at", null);
+  if (vehErr) {
+    console.warn("[equipment-service-due] vehicle lookup failed (non-blocking):", vehErr);
+  }
+
   let notified = 0;
   let skipped = 0;
 
-  // Pull recent dedupe history once -- DEDUPE_DAYS lookback per
-  // equipment id.
+  // Pull recent dedupe history once -- DEDUPE_DAYS lookback. Same
+  // table for both equipment and vehicle alerts; we key by
+  // {action, entity_id} so the equipment-due dedupe doesn't suppress
+  // a separate vehicle-due ping.
   const dedupeCutoff = new Date(today.getTime() - DEDUPE_DAYS * 86400_000).toISOString();
   const { data: recentAlerts } = await sb
     .from("audit_logs")
-    .select("entity_id, created_at")
-    .eq("action", "equipment_service_due_notified")
+    .select("action, entity_id, created_at")
+    .in("action", ["equipment_service_due_notified", "vehicle_service_due_notified"])
     .gte("created_at", dedupeCutoff);
   const recentSet = new Set<string>(
-    (recentAlerts || []).map((r: any) => String(r.entity_id || "")),
+    (recentAlerts || []).map((r: any) => `${r.action}|${r.entity_id || ""}`),
   );
 
-  for (const eq of (dueEquipment || []) as any[]) {
-    if (recentSet.has(eq.id)) {
+  // Normalise both lists into a single shape so the notify loop
+  // doesn't fork on kind.
+  type DueRow = {
+    id: string;
+    company_id: string;
+    name: string;
+    next_service_due: string | null;
+    kind: "equipment" | "vehicle";
+  };
+  const dueRows: DueRow[] = [
+    ...((dueEquipment || []) as any[]).map((eq) => ({
+      id: eq.id,
+      company_id: eq.company_id,
+      name: eq.name || "Unnamed equipment",
+      next_service_due: eq.next_service_due,
+      kind: "equipment" as const,
+    })),
+    ...((dueVehicles || []) as any[]).map((v) => ({
+      id: v.id,
+      company_id: v.company_id,
+      name: v.nickname || v.plate || "Unnamed vehicle",
+      next_service_due: v.next_service_due,
+      kind: "vehicle" as const,
+    })),
+  ];
+
+  for (const row of dueRows) {
+    const auditAction =
+      row.kind === "equipment"
+        ? "equipment_service_due_notified"
+        : "vehicle_service_due_notified";
+    if (recentSet.has(`${auditAction}|${row.id}`)) {
       skipped += 1;
       continue;
     }
     try {
-      const dueDate = eq.next_service_due
-        ? new Date(eq.next_service_due).toLocaleDateString("en-ZA", {
+      const dueDate = row.next_service_due
+        ? new Date(row.next_service_due).toLocaleDateString("en-ZA", {
             day: "numeric",
             month: "short",
             year: "numeric",
           })
         : "soon";
-      const overdue = eq.next_service_due
-        ? new Date(eq.next_service_due).getTime() < today.getTime()
+      const overdue = row.next_service_due
+        ? new Date(row.next_service_due).getTime() < today.getTime()
         : false;
+      const kindLabel = row.kind === "vehicle" ? "Vehicle" : "Equipment";
+      const link =
+        row.kind === "vehicle"
+          ? `/admin/vehicles?id=${row.id}`
+          : `/admin/equipment?id=${row.id}`;
       const { notificationService } = await import("@/services/notificationService");
       await notificationService.broadcastNotification(
         {
-          companyId: eq.company_id,
+          companyId: row.company_id,
           targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
-          title: overdue ? `Service overdue: ${eq.name}` : `Service due: ${eq.name}`,
+          title: overdue ? `Service overdue: ${row.name}` : `Service due: ${row.name}`,
           message: overdue
-            ? `Equipment '${eq.name}' was due for service on ${dueDate}. Log a service entry to reset the cycle.`
-            : `Equipment '${eq.name}' is due for service on ${dueDate}. Schedule it in advance so it stays available.`,
-          type: "equipment_service_due",
+            ? `${kindLabel} '${row.name}' was due for service on ${dueDate}. Log a service entry to reset the cycle.`
+            : `${kindLabel} '${row.name}' is due for service on ${dueDate}. Schedule it in advance so it stays available.`,
+          type:
+            row.kind === "vehicle" ? "vehicle_service_due" : "equipment_service_due",
           priority: overdue ? "high" : "normal",
-          link: `/admin/equipment?id=${eq.id}`,
-          relatedEntityType: "equipment",
-          relatedEntityId: eq.id,
+          link,
+          relatedEntityType: row.kind,
+          relatedEntityId: row.id,
         },
         sb,
       );
-      // Stamp the dedupe row.
       await sb.from("audit_logs").insert({
-        company_id: eq.company_id,
-        action: "equipment_service_due_notified",
-        entity_type: "equipment",
-        entity_id: eq.id,
-        details: { next_service_due: eq.next_service_due, overdue },
+        company_id: row.company_id,
+        action: auditAction,
+        entity_type: row.kind,
+        entity_id: row.id,
+        details: { next_service_due: row.next_service_due, overdue },
       });
       notified += 1;
     } catch (e: any) {
-      console.warn("[equipment-service-due] notify failed for", eq.id, e?.message);
+      console.warn("[equipment-service-due] notify failed for", row.kind, row.id, e?.message);
     }
   }
 
   return res.status(200).json({
     ok: true,
-    checked: dueEquipment?.length ?? 0,
+    checked: dueRows.length,
+    checked_equipment: dueEquipment?.length ?? 0,
+    checked_vehicles: dueVehicles?.length ?? 0,
     notified,
     skipped_dedupe: skipped,
   });
