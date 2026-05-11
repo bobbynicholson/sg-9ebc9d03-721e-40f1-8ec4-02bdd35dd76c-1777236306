@@ -148,6 +148,128 @@ export function calculateShiftPay(
 }
 
 /**
+ * Phase 2 #9: split a shift that may cross midnight into per-day
+ * buckets so each calendar day can carry its own BCEA multiplier.
+ * Returns an array of { date: 'YYYY-MM-DD', hours: number }.
+ *
+ * Used for the Sunday + public-holiday 2x rule (BCEA s16) so a
+ * Saturday-night-into-Sunday-morning shift correctly gets paid
+ * 1x for the Saturday hours and 2x for the Sunday hours, instead
+ * of slapping a single multiplier on the whole shift based on
+ * which day actual_end happened to fall on.
+ *
+ * Pure: doesn't read from anywhere, takes a (start, end) and emits
+ * the bucket list. Always uses the local-time day boundary the way
+ * the operator running the company experiences it -- not UTC. The
+ * tenant timezone handling is a future Phase 3 item; for now SAST
+ * matches every live tenant.
+ */
+export function splitShiftIntoDayBuckets(
+  startIso: string,
+  endIso: string,
+): Array<{ date: string; hours: number }> {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return [];
+  if (end.getTime() <= start.getTime()) return [];
+
+  const buckets: Array<{ date: string; hours: number }> = [];
+  let cursor = new Date(start);
+  while (cursor.getTime() < end.getTime()) {
+    // Midnight at the end of the current local-time day.
+    const dayEnd = new Date(cursor);
+    dayEnd.setHours(24, 0, 0, 0);
+    const sliceEnd = dayEnd.getTime() < end.getTime() ? dayEnd : end;
+    const hours = (sliceEnd.getTime() - cursor.getTime()) / 3_600_000;
+    if (hours > 0) {
+      // Local-date key 'YYYY-MM-DD'. toLocalISO would also work but
+      // we're constraint-free here so do it inline.
+      const yyyy = cursor.getFullYear();
+      const mm = String(cursor.getMonth() + 1).padStart(2, "0");
+      const dd = String(cursor.getDate()).padStart(2, "0");
+      buckets.push({ date: `${yyyy}-${mm}-${dd}`, hours: +hours.toFixed(4) });
+    }
+    cursor = sliceEnd;
+  }
+  return buckets;
+}
+
+/**
+ * Phase 2 #9: BCEA-aware pay calc for a shift defined by
+ * actual_start + actual_end. Walks per-day buckets and applies:
+ *   - 2x for Sundays + public holidays (BCEA s16)
+ *   - 1.5x for hours over 9 in any single bucket (BCEA s10 overtime)
+ * The 1.5x stacks on top of the day multiplier, e.g. a 10-hour
+ * Sunday shift pays 9h at 2x + 1h at 3x (2x * 1.5).
+ *
+ * holidayDateSet is a Set of 'YYYY-MM-DD' for one-off holidays
+ * specific to the year + a Set of 'MM-DD' for recurring annual ones.
+ * autoClockOut already builds these from public_holidays; this
+ * helper is pure so the caller hands them in.
+ */
+export interface BceaPayResult {
+  totalHours: number;
+  pay: number;
+  dominantMultiplier: number; // largest multiplier used (for rate_multiplier stamp)
+  buckets: Array<{
+    date: string;
+    hours: number;
+    dayMultiplier: number;
+    overtimeHours: number;
+    pay: number;
+  }>;
+}
+
+export function calculateBceaShiftPay(
+  startIso: string,
+  endIso: string,
+  hourlyRate: number,
+  holidays: { oneOff: Set<string>; recurringMD: Set<string> },
+  options: { overtimeThresholdHours?: number; overtimeMultiplier?: number } = {},
+): BceaPayResult {
+  const overtimeThreshold = options.overtimeThresholdHours ?? 9; // BCEA s10
+  const overtimeMultiplier = options.overtimeMultiplier ?? 1.5;
+  const buckets = splitShiftIntoDayBuckets(startIso, endIso);
+  let pay = 0;
+  let totalHours = 0;
+  let dominantMultiplier = 1;
+  const resultBuckets: BceaPayResult["buckets"] = [];
+
+  for (const b of buckets) {
+    const md = b.date.slice(5);
+    const dow = new Date(b.date + "T12:00:00").getDay(); // 0 = Sunday
+    const isSundayOrPH =
+      dow === 0 || holidays.oneOff.has(b.date) || holidays.recurringMD.has(md);
+    const dayMul = isSundayOrPH ? 2 : 1;
+    const regularHours = Math.min(b.hours, overtimeThreshold);
+    const overtimeHours = Math.max(0, b.hours - overtimeThreshold);
+    const bucketPay =
+      regularHours * dayMul * hourlyRate +
+      overtimeHours * dayMul * overtimeMultiplier * hourlyRate;
+    pay += bucketPay;
+    totalHours += b.hours;
+    if (dayMul > dominantMultiplier) dominantMultiplier = dayMul;
+    if (overtimeHours > 0 && dayMul * overtimeMultiplier > dominantMultiplier) {
+      dominantMultiplier = dayMul * overtimeMultiplier;
+    }
+    resultBuckets.push({
+      date: b.date,
+      hours: +b.hours.toFixed(4),
+      dayMultiplier: dayMul,
+      overtimeHours: +overtimeHours.toFixed(4),
+      pay: +bucketPay.toFixed(2),
+    });
+  }
+
+  return {
+    totalHours: +totalHours.toFixed(4),
+    pay: +pay.toFixed(2),
+    dominantMultiplier: +dominantMultiplier.toFixed(2),
+    buckets: resultBuckets,
+  };
+}
+
+/**
  * Compute the pay line for a single delivery. Reads
  * delivery_distance_km off the order (already snapshot at quote /
  * order time) and adds the flat callout fee on top.
@@ -453,54 +575,46 @@ export const driverPayService = {
       if (!openShift) return { ok: true }; // nothing to close, fine
 
       const nowIso = new Date().toISOString();
-      const today = nowIso.slice(0, 10);
-      const isSunday = new Date(nowIso).getDay() === 0;
+      const startIso = (openShift as any).actual_start as string | null;
 
-      // Public holiday lookup -- match either a one-off date for this
-      // company OR a recurring one (matched on month-day, year-agnostic).
-      let isHoliday = false;
-      const { data: oneOffs } = await (client as any)
+      // Phase 2 #9: BCEA multiplier needs to look across every day the
+      // shift touches, not just the day actual_end falls on. A
+      // Sat-23:00 -> Sun-04:00 shift used to get a single 1x or 2x
+      // multiplier based on which side of midnight the clock-out
+      // happened to land. We now pull the holiday set once and split
+      // the shift into per-day buckets; the dominant multiplier
+      // (largest bucket's day*overtime factor) is what we stamp on
+      // rate_multiplier so the legacy calculateShiftPay still works.
+      // The detailed per-bucket pay is computed by calculateBceaShiftPay
+      // when the summary view wants the breakdown.
+      const oneOffSet = new Set<string>();
+      const recurringMDSet = new Set<string>();
+      const { data: holidays } = await (client as any)
         .from("public_holidays")
         .select("date, is_recurring")
-        .eq("company_id", opts.companyId)
-        .eq("date", today)
-        .limit(1);
-      if (oneOffs && (oneOffs as any[]).length > 0) {
-        isHoliday = true;
-      } else {
-        // Recurring: we stored the original date but the holiday
-        // recurs annually -- match month + day.
-        const md = today.slice(5); // 'MM-DD'
-        const { data: recurring } = await (client as any)
-          .from("public_holidays")
-          .select("date")
-          .eq("company_id", opts.companyId)
-          .eq("is_recurring", true);
-        if (recurring) {
-          for (const r of recurring as Array<{ date: string }>) {
-            if (r.date && r.date.slice(5) === md) { isHoliday = true; break; }
-          }
-        }
+        .eq("company_id", opts.companyId);
+      for (const h of (holidays || []) as Array<{ date: string; is_recurring: boolean }>) {
+        if (!h.date) continue;
+        if (h.is_recurring) recurringMDSet.add(h.date.slice(5));
+        else oneOffSet.add(h.date);
       }
 
-      const multiplier = (isSunday || isHoliday) ? 2 : null;
-
-      // Compute hours_worked here. The previous code persisted only
-      // actual_end + status, leaving hours_worked NULL forever, which
-      // made every auto-tracked shift invisible to getPaySummary
-      // (filters where hours_worked != null) AND made calculateShiftPay
-      // return R0 (Number(shift.hours_worked || 0)). Net effect: drivers
-      // earned R0 on the hourly portion of every auto-tracked delivery.
-      // The split-on-midnight Sunday/holiday miscalculation is a
-      // separate Phase 2 fix; this populates the column correctly for
-      // single-day shifts which is the common case.
-      const startMs = (openShift as any).actual_start
-        ? new Date((openShift as any).actual_start).getTime()
-        : NaN;
-      const endMs = new Date(nowIso).getTime();
-      const hoursWorked = Number.isFinite(startMs) && endMs > startMs
-        ? Number(((endMs - startMs) / 3_600_000).toFixed(4))
-        : null;
+      let multiplier: number | null = null;
+      let hoursWorked: number | null = null;
+      if (startIso) {
+        const startMs = new Date(startIso).getTime();
+        const endMs = new Date(nowIso).getTime();
+        if (Number.isFinite(startMs) && endMs > startMs) {
+          hoursWorked = Number(((endMs - startMs) / 3_600_000).toFixed(4));
+          // hourlyRate=1 here -- we only need the dominant multiplier,
+          // not the actual pay (rates get applied at summary time).
+          const bcea = calculateBceaShiftPay(startIso, nowIso, 1, {
+            oneOff: oneOffSet,
+            recurringMD: recurringMDSet,
+          });
+          multiplier = bcea.dominantMultiplier > 1 ? bcea.dominantMultiplier : null;
+        }
+      }
 
       const { error } = await (client as any)
         .from("driver_shifts")
