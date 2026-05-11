@@ -102,6 +102,22 @@ function DriverSettlementPage() {
   const [rows, setRows] = useState<SettlementRow[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [companyName, setCompanyName] = useState<string>("CateringMS");
+
+  // Phase 4 #7: pull the company name once so per-driver payslips
+  // have the right header. Cheap; one row, runs on mount.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    (async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("companies")
+        .select("company_name")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if ((data as any)?.company_name) setCompanyName((data as any).company_name);
+    })().catch(() => { /* default name is fine */ });
+  }, [user?.company_id]);
 
   useEffect(() => {
     if (preset === "last_7") { setFrom(daysAgoIso(7)); setTo(todayIso()); }
@@ -354,6 +370,9 @@ function DriverSettlementPage() {
                               t={t}
                               isOpen={isOpen}
                               onToggle={() => toggleExpand(r.driver.id)}
+                              periodFrom={from}
+                              periodTo={to}
+                              companyName={companyName}
                             />
                           );
                         })}
@@ -371,13 +390,40 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyName,
 }: {
   row: SettlementRow;
   t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
   isOpen: boolean;
   onToggle: () => void;
+  periodFrom: string;
+  periodTo: string;
+  companyName: string;
 }) {
+  // Phase 4 #7: payslip download. jsPDF render of the same summary
+  // the row above shows, so the operator can email or print one
+  // per driver without re-keying anything.
+  const handleDownload = async () => {
+    if (!row.summary) return;
+    const { driverPayslipService } = await import("@/services/driverPayslipService");
+    const blob = driverPayslipService.generatePayslipPdf(
+      {
+        companyName,
+        driverName: row.driver.full_name,
+        driverEmail: row.driver.email || null,
+        periodFrom,
+        periodTo,
+      },
+      row.summary,
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const safeName = row.driver.full_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    a.download = `payslip_${safeName}_${periodFrom}_to_${periodTo}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   return (
     <>
       <tr className="border-t border-slate-100 hover:bg-slate-50">
@@ -416,7 +462,19 @@ function FragmentRows({
             <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-700">{formatR(t.grand_total)}</td>
           </>
         )}
-        <td></td>
+        <td className="pr-2">
+          {row.summary && t && t.grand_total > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={handleDownload}
+              title="Download payslip PDF"
+            >
+              <Download className="w-3 h-3" /> PDF
+            </Button>
+          )}
+        </td>
       </tr>
       {isOpen && row.summary && (
         <tr className="bg-slate-50/50">
