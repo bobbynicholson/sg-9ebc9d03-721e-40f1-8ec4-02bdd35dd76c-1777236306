@@ -634,9 +634,11 @@ export function getOrderModificationStatus(
  * code change.
  */
 export async function fetchRecentPayFastTransactions(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-  credentials: any,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  credentials: {
+    merchantId: string;
+    passphrase?: string;
+    isTest?: boolean;
+  },
   lookbackDays: number,
 ): Promise<Array<{
   pf_payment_id: string;
@@ -648,9 +650,102 @@ export async function fetchRecentPayFastTransactions(
   custom_str3?: string;
   custom_str4?: string;
 }>> {
-  console.warn(
-    "[payfastService] fetchRecentPayFastTransactions is a stub; " +
-    "PayFast Query API integration pending. Returning empty list.",
-  );
-  return [];
+  // Phase 3 #10: live implementation of PayFast's Transaction
+  // History query. The endpoint accepts a from / to date range and
+  // returns recent transactions for the merchant. Signature scheme
+  // is the same md5(query-string + passphrase) pattern PayFast uses
+  // everywhere else.
+  //
+  // Endpoint: GET https://api.payfast.co.za/transactions/history
+  // Headers: merchant-id, version, timestamp, signature
+  // Query: from (YYYY-MM-DD), to (YYYY-MM-DD)
+  //
+  // If anything in the upstream call fails (network, 4xx, parse), we
+  // log and return [] so the cron's downstream pipeline (dedup,
+  // replay-via-RPC, audit) is exercised on every run but doesn't
+  // surface false positives.
+  try {
+    if (!credentials?.merchantId) {
+      console.warn("[payfastService] history call skipped -- no merchantId");
+      return [];
+    }
+    const now = new Date();
+    const from = new Date(now.getTime() - lookbackDays * 86400 * 1000);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const timestamp = now.toISOString().replace(/\.\d+Z$/, "+00:00");
+
+    const queryParams: Record<string, string> = {
+      from: fmt(from),
+      to: fmt(now),
+    };
+
+    // Signature = md5 of the query string sorted lexicographically
+    // (PayFast's standard rule) with the passphrase appended.
+    const sortedKeys = Object.keys(queryParams).sort();
+    const queryString = sortedKeys
+      .map((k) => `${k}=${encodeURIComponent(queryParams[k])}`)
+      .join("&");
+    const signatureSource = credentials.passphrase
+      ? `${queryString}&passphrase=${encodeURIComponent(credentials.passphrase)}`
+      : queryString;
+    const { createHash } = await import("crypto");
+    const signature = createHash("md5").update(signatureSource).digest("hex");
+
+    const base = credentials.isTest
+      ? "https://sandbox.payfast.co.za"
+      : "https://api.payfast.co.za";
+    const url = `${base}/transactions/history?${queryString}`;
+
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        "merchant-id": credentials.merchantId,
+        version: "v1",
+        timestamp,
+        signature,
+      },
+    });
+
+    if (!resp.ok) {
+      console.warn(
+        "[payfastService] history call returned",
+        resp.status,
+        await resp.text().catch(() => ""),
+      );
+      return [];
+    }
+    const body: any = await resp.json().catch(() => null);
+    // PayFast returns { data: { response: [ {...} ] } } at the time
+    // of writing. Be defensive: fall back to any array shape.
+    const list: any[] = Array.isArray(body?.data?.response)
+      ? body.data.response
+      : Array.isArray(body?.data)
+      ? body.data
+      : Array.isArray(body)
+      ? body
+      : [];
+    // Filter to settled / successful only -- pending payments will
+    // either land via IPN or settle later and be picked up by a
+    // subsequent cron tick.
+    return list
+      .filter((r) =>
+        ["COMPLETE", "SUCCESSFUL", "complete", "successful"].includes(
+          String(r?.payment_status || r?.status || ""),
+        ),
+      )
+      .map((r) => ({
+        pf_payment_id: String(r.pf_payment_id || r.pfPaymentId || r.id || ""),
+        m_payment_id: String(r.m_payment_id || r.mPaymentId || r.merchant_reference || ""),
+        amount_gross: r.amount_gross ?? r.amountGross ?? r.amount ?? 0,
+        payment_status: String(r.payment_status || r.status || "COMPLETE"),
+        custom_str1: r.custom_str1 ?? r.customStr1,
+        custom_str2: r.custom_str2 ?? r.customStr2,
+        custom_str3: r.custom_str3 ?? r.customStr3,
+        custom_str4: r.custom_str4 ?? r.customStr4,
+      }))
+      .filter((r) => r.pf_payment_id);
+  } catch (e) {
+    console.warn("[payfastService] history fetch crashed:", e);
+    return [];
+  }
 }
