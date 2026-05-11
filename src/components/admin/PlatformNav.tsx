@@ -45,6 +45,7 @@ import {
   Calculator,
   Settings,
   Activity,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -129,6 +130,12 @@ const NAV: NavSection[] = [
         href: "/admin/platform/tenant-health",
         icon: Activity,
         sub: "Stuck onboarding, dormant, payment unset",
+      },
+      {
+        title: "Audit logs",
+        href: "/admin/platform/audit-logs",
+        icon: ScrollText,
+        sub: "Append-only trail across every tenant",
       },
     ],
   },
