@@ -76,19 +76,29 @@ export async function getEquipmentAvailability(
   const empty: EquipmentAvailability = { owned: 0, reserved: 0, available: 0, conflicts: [] };
   if (!companyId || !equipmentId || !eventDate) return empty;
 
-  // Pull the equipment row for `quantity` (owned). We don't trust a
-  // stored `available_quantity` for this -- that's a free-text field
-  // the admin overrides, not a live count.
+  // Pull the equipment row for `quantity` (owned) AND
+  // `cleaning_time_hours` so the overlap window can extend past
+  // booked_until to cover the time the item is still being cleaned
+  // and isn't actually back on the shelf. Audit Equipment G7 --
+  // 100 chairs returning Sunday 11pm looked "available" for a
+  // Monday 8am breakfast because nothing padded the window.
   const { data: eq } = await supabase
     .from("equipment")
-    .select("id, quantity")
+    .select("id, quantity, cleaning_time_hours")
     .eq("id", equipmentId)
     .eq("company_id", companyId)
     .maybeSingle();
   const owned = Number((eq as any)?.quantity ?? 0);
+  const cleaningHours = Math.max(
+    0,
+    Number((eq as any)?.cleaning_time_hours ?? 0),
+  );
 
-  // Window: any booking whose [booked_from, booked_until] interval
-  // overlaps [target-windowDays, target+windowDays] is a competitor.
+  // Window: any booking whose [booked_from, booked_until + cleaning]
+  // interval overlaps [target-windowDays, target+windowDays] is a
+  // competitor. cleaning_time_hours pads the END of the window so a
+  // booking that "officially" returns at 11pm but needs 4 hours of
+  // cleaning isn't considered free for an event starting at 2am.
   const target = new Date(eventDate);
   if (Number.isNaN(target.getTime())) return { ...empty, owned };
   const winStart = new Date(target);
@@ -100,6 +110,11 @@ export async function getEquipmentAvailability(
 
   // Postgres interval-overlap rule: A.start <= B.end AND A.end >= B.start.
   // We pull bookings whose booked_from <= winEnd AND booked_until >= winStart.
+  // The cleaning-time pad is applied per-row below (after fetching),
+  // because Supabase's query layer can't trivially express "where
+  // (booked_until + INTERVAL N hours) >= winStart" without a stored
+  // computed column. Fetching a slightly-wider window and filtering
+  // in-memory is cheap at the scale we're at.
   let q = supabase
     .from("equipment_bookings")
     .select(
@@ -118,6 +133,8 @@ export async function getEquipmentAvailability(
     return { ...empty, owned };
   }
 
+  const targetTs = target.getTime();
+  const cleaningPadMs = cleaningHours * 60 * 60 * 1000;
   let reserved = 0;
   const conflicts: EquipmentAvailability["conflicts"] = [];
   for (const b of (bookings || []) as any[]) {
@@ -127,6 +144,20 @@ export async function getEquipmentAvailability(
     // booking row may live on but it shouldn't compete for stock.
     const orderStatus = String(b.orders?.status || "").toLowerCase();
     if (orderStatus === "cancelled" || orderStatus === "completed") continue;
+
+    // Apply the cleaning-time pad: extend the booking's effective
+    // unavailable window by cleaning_time_hours past booked_until.
+    // A booking whose padded window doesn't reach the target date is
+    // safe to release back into available stock.
+    if (cleaningPadMs > 0 && b.booked_until) {
+      const paddedUntil = new Date(b.booked_until).getTime() + cleaningPadMs;
+      if (paddedUntil < targetTs) {
+        // Booking + cleaning already finished before the target event
+        // starts. Not a conflict.
+        continue;
+      }
+    }
+
     reserved += qty;
     conflicts.push({
       order_id: b.order_id,
