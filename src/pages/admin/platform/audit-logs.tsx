@@ -122,6 +122,10 @@ function AuditLogsViewer() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
   const [entityIdFilter, setEntityIdFilter] = useState<string>("");
   const [sinceFilter, setSinceFilter] = useState<string>("7d");
+  // Phase 5 #2: free-text search across details JSON. Casts the
+  // jsonb to text on the server and ilike-matches so an operator
+  // can find 'reason: late_arrival' without knowing the column key.
+  const [detailsSearch, setDetailsSearch] = useState<string>("");
   const [page, setPage] = useState(0);
 
   // Lookups for label hydration. Worth a single round-trip per page
@@ -135,7 +139,7 @@ function AuditLogsViewer() {
     void loadCompanies();
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, page]);
+  }, [authLoading, user, companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
 
   const loadCompanies = async () => {
     try {
@@ -179,6 +183,14 @@ function AuditLogsViewer() {
       if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
       if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
       if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
+      // Phase 5 #2: jsonb-as-text contains-match on the details
+      // payload. Postgres can ILIKE on a jsonb cast-to-text, no
+      // GIN index required for this volume. The same wildcard
+      // wraps the term so an operator types 'gateway_revoked' and
+      // gets every audit row where details mentions it.
+      if (detailsSearch.trim()) {
+        q = q.filter("details::text", "ilike", `%${detailsSearch.trim()}%`);
+      }
       const since = sinceTimestamp();
       if (since) q = q.gte("created_at", since);
 
@@ -258,7 +270,7 @@ function AuditLogsViewer() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                 <div>
                   <Label className="text-xs">Tenant</Label>
                   <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setPage(0); }}>
@@ -307,6 +319,14 @@ function AuditLogsViewer() {
                     value={entityIdFilter}
                     onChange={(e) => { setEntityIdFilter(e.target.value); setPage(0); }}
                     placeholder="UUID"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Details contains</Label>
+                  <Input
+                    value={detailsSearch}
+                    onChange={(e) => { setDetailsSearch(e.target.value); setPage(0); }}
+                    placeholder="e.g. gateway_revoked, $4123"
                   />
                 </div>
                 <div>
