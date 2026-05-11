@@ -91,6 +91,31 @@ export async function getAllOrders(companyId: string) {
 
 export async function updateOrder(orderId: string, updates: any) {
   try {
+    // Defensive confirmed_at stamp. The admin orders page calls this
+    // function with arbitrary updates including status changes, which
+    // bypasses orderWorkflow.updateOrderStatus's confirmed_at logic.
+    // Result: an admin moving a pending order to confirmed via the
+    // edit modal saved status='confirmed' but left confirmed_at null
+    // -- silently breaking the Booked Revenue tile and every other
+    // gate keyed on this column. Only set when not already in the
+    // updates payload and the row's existing value is null.
+    if (updates && typeof updates.status === "string" && updates.confirmed_at === undefined) {
+      const advancedStatuses = new Set([
+        "confirmed", "preparing", "ready", "in_transit",
+        "out_for_delivery", "delivered", "completed",
+      ]);
+      if (advancedStatuses.has(String(updates.status).toLowerCase())) {
+        const { data: existing } = await supabase
+          .from("orders")
+          .select("confirmed_at")
+          .eq("id", orderId)
+          .maybeSingle();
+        if (!(existing as any)?.confirmed_at) {
+          updates = { ...updates, confirmed_at: new Date().toISOString() };
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from("orders")
       .update(updates)

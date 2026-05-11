@@ -677,17 +677,30 @@ export async function resumeOrder(
     // missing (legacy paused orders pre-this-migration).
     const restoreTo = (existing as any).paused_from_status || "confirmed";
 
+    // Defensive confirmed_at backfill: if the order is resuming into
+    // a past-pending status and has no confirmed_at stamped (legacy
+    // row), set one now so downstream tiles count it correctly. Never
+    // clobber an existing timestamp.
+    const advancedStatuses = new Set([
+      "confirmed", "preparing", "ready", "in_transit",
+      "out_for_delivery", "delivered", "completed",
+    ]);
+    const updates: any = {
+      status: restoreTo,
+      paused_at: null,
+      paused_by_user_id: null,
+      paused_reason: null,
+      paused_reason_category: null,
+      paused_from_status: null,
+      paused_expected_resume_date: null,
+    };
+    if (advancedStatuses.has(restoreTo) && !(existing as any).confirmed_at) {
+      updates.confirmed_at = new Date().toISOString();
+    }
+
     const { data, error } = await sb
       .from("orders")
-      .update({
-        status: restoreTo,
-        paused_at: null,
-        paused_by_user_id: null,
-        paused_reason: null,
-        paused_reason_category: null,
-        paused_from_status: null,
-        paused_expected_resume_date: null,
-      } as any)
+      .update(updates)
       .eq("id", orderId)
       .select()
       .single();
