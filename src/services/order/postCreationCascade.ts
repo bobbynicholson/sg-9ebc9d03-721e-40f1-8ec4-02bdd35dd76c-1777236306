@@ -45,12 +45,14 @@ export interface PostOrderCascadeOpts {
   skipInvoice?: boolean;
   skipEmail?: boolean;
   skipKitchen?: boolean;
+  skipEquipment?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
   invoice: { ok: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; reason?: string };
   email: { ok: boolean; reason?: string; skipped?: boolean };
   kitchen: { ok: boolean; tasksCreated?: number; reason?: string };
+  equipment: { ok: boolean; bookingsCreated?: number; reason?: string; skipped?: boolean };
 }
 
 /**
@@ -71,6 +73,7 @@ export async function postOrderCreationCascade(
     invoice: { ok: false, reason: "not_attempted" },
     email: { ok: false, skipped: true, reason: "not_attempted" },
     kitchen: { ok: false, tasksCreated: 0, reason: "not_attempted" },
+    equipment: { ok: false, bookingsCreated: 0, reason: "not_attempted" },
   };
 
   // ── Step 1: Invoice ───────────────────────────────────────────────
@@ -179,6 +182,110 @@ export async function postOrderCreationCascade(
     }
   } else {
     receipt.kitchen = { ok: true, tasksCreated: 0, reason: "skipped_by_caller" };
+  }
+
+  // ── Step 4: Equipment bookings ────────────────────────────────────
+  // Audit Equipment G1: every convert-to-order path was leaving
+  // quote.equipment_items as a JSONB blob on the quote and never
+  // inserting equipment_bookings rows. Operators were manually
+  // re-adding each equipment line on each order, and any line they
+  // forgot vanished from the availability calculator -- double-
+  // bookings, missing hire-ins, blind cleaning queue.
+  //
+  // Walk the quote's equipment_items, insert one row per item with
+  // quantity > 0 and a resolved equipment_id. Idempotent: skip when
+  // a row already exists for (order_id, equipment_id) so a retry
+  // can't duplicate.
+  //
+  // booked_from / booked_until default to (event_date - 1 day) and
+  // (event_date + 1 day) to give the cleaning + return window some
+  // breathing room. The availability calc treats this as the
+  // overlap window. Phase 2 will pad by equipment.cleaning_time_hours.
+  if (!opts.skipEquipment) {
+    try {
+      const { data: order } = await (client as any)
+        .from("orders")
+        .select("id, quote_id, event_date, company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!order) {
+        receipt.equipment = { ok: false, bookingsCreated: 0, reason: "order_not_found" };
+      } else if (!(order as any).quote_id) {
+        receipt.equipment = { ok: true, bookingsCreated: 0, reason: "no_source_quote" };
+      } else {
+        const { data: quote } = await (client as any)
+          .from("quotes")
+          .select("equipment_items")
+          .eq("id", (order as any).quote_id)
+          .maybeSingle();
+        const raw = (quote as any)?.equipment_items;
+        const items: any[] = Array.isArray(raw)
+          ? raw
+          : typeof raw === "string"
+            ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
+            : [];
+
+        if (items.length === 0) {
+          receipt.equipment = { ok: true, bookingsCreated: 0, reason: "no_equipment_on_quote" };
+        } else {
+          const eventDate = (order as any).event_date;
+          const eventTs = eventDate ? new Date(eventDate).getTime() : Date.now();
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          const bookedFrom = new Date(eventTs - oneDayMs).toISOString();
+          const bookedUntil = new Date(eventTs + oneDayMs).toISOString();
+
+          // Idempotency: pull existing bookings for this order first
+          // so we don't re-insert on retry.
+          const { data: existing } = await (client as any)
+            .from("equipment_bookings")
+            .select("equipment_id")
+            .eq("order_id", orderId);
+          const taken = new Set((existing || []).map((b: any) => b.equipment_id));
+
+          const rows = items
+            .map((it: any) => {
+              const equipmentId = it.id || it.equipment_id || null;
+              const quantity = Number(it.quantity || 0);
+              if (!equipmentId || quantity <= 0 || taken.has(equipmentId)) return null;
+              return {
+                company_id: (order as any).company_id || companyId,
+                order_id: orderId,
+                equipment_id: equipmentId,
+                quantity,
+                status: "booked",
+                booked_from: it.booked_from || bookedFrom,
+                booked_until: it.booked_until || bookedUntil,
+              };
+            })
+            .filter(Boolean);
+
+          if (rows.length === 0) {
+            receipt.equipment = { ok: true, bookingsCreated: 0, reason: "all_idempotent_or_invalid" };
+          } else {
+            const { error: insErr } = await (client as any)
+              .from("equipment_bookings")
+              .insert(rows);
+            if (insErr) {
+              receipt.equipment = {
+                ok: false,
+                bookingsCreated: 0,
+                reason: insErr.message || "equipment_bookings insert failed",
+              };
+              console.warn("[postOrderCreationCascade] equipment step failed:", {
+                orderId, companyId, error: insErr,
+              });
+            } else {
+              receipt.equipment = { ok: true, bookingsCreated: rows.length };
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      receipt.equipment = { ok: false, bookingsCreated: 0, reason: e?.message || "equipment step crashed" };
+      console.warn("[postOrderCreationCascade] equipment step crashed:", { orderId, companyId, error: e });
+    }
+  } else {
+    receipt.equipment = { ok: true, bookingsCreated: 0, skipped: true, reason: "skipped_by_caller" };
   }
 
   return receipt;
