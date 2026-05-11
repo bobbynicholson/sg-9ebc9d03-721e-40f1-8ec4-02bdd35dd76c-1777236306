@@ -86,18 +86,19 @@ export function ClientTrackingMap({
   const subscriptionRef = useRef<any>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
 
-  // Fetch driver ID for the order
+  // Fetch driver ID for the order. Catering orders may use
+  // assigned_driver_id (current dispatch flow) or driver_id (legacy),
+  // so we read both and prefer the current column.
   useEffect(() => {
     const fetchDriverId = async () => {
       const { data: order } = await supabase
         .from("orders")
-        .select("driver_id")
+        .select("driver_id, assigned_driver_id")
         .eq("id", orderId)
         .single();
-      
-      if (order?.driver_id) {
-        setDriverId(order.driver_id);
-      }
+      const resolved =
+        (order as any)?.assigned_driver_id || (order as any)?.driver_id || null;
+      if (resolved) setDriverId(resolved);
     };
     fetchDriverId();
   }, [orderId]);
@@ -128,43 +129,48 @@ export function ClientTrackingMap({
     }
   }, [liveDriverLocation, venueLocation]);
 
-  // Set up real-time subscription for driver location
+  // Phase 2 #2: subscribe to the right tables. The foreground GPS
+  // pinger writes to driver_locations (current state) + gps_tracking
+  // (history) -- it does NOT touch profiles.current_lat. The previous
+  // subscription on profiles UPDATE was a no-op for live tracking;
+  // the pin only moved when the legacy column happened to be set.
+  //
+  // New shape:
+  //   - Realtime channel listens on gps_tracking INSERTs filtered to
+  //     this driver, so each fresh fix lands as a pin patch.
+  //   - 15s polling fallback reads driver_locations (single-row PK
+  //     lookup) plus a parallel profiles read for name/phone, which
+  //     gps_tracking doesn't carry.
   useEffect(() => {
     if (!driverId) return;
 
     setLiveDriverLocation(driverLocation);
 
-    // Subscribe to driver location updates via Supabase Realtime
     const channel = supabase
-      .channel(`client-tracking-${orderId}`)
+      .channel(`client-tracking-${orderId}-${driverId}`)
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "INSERT",
           schema: "public",
-          table: "profiles",
-          filter: `id=eq.${driverId}`,
+          table: "gps_tracking",
+          filter: `driver_id=eq.${driverId}`,
         },
-        (payload) => {
-          console.log("Driver location update:", payload);
-          
-          if (payload.new) {
-            const updatedDriver = payload.new as any;
-            
-            if (updatedDriver.current_lat && updatedDriver.current_lng) {
-              const newLocation = {
-                lat: updatedDriver.current_lat,
-                lng: updatedDriver.current_lng,
-                driver_name: updatedDriver.full_name || "Your Driver",
-                driver_phone: updatedDriver.phone,
-                last_updated: new Date().toISOString(),
-              };
-              
-              setLiveDriverLocation(newLocation);
-              onLocationUpdate?.({ lat: updatedDriver.current_lat, lng: updatedDriver.current_lng });
-            }
-          }
-        }
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row) return;
+          const lat = Number(row.latitude);
+          const lng = Number(row.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+          setLiveDriverLocation((prev) => ({
+            lat,
+            lng,
+            driver_name: prev?.driver_name || driverLocation?.driver_name || "Your Driver",
+            driver_phone: prev?.driver_phone || driverLocation?.driver_phone,
+            last_updated: row.timestamp || new Date().toISOString(),
+          }));
+          onLocationUpdate?.({ lat, lng });
+        },
       )
       .subscribe();
 
@@ -177,29 +183,42 @@ export function ClientTrackingMap({
     };
   }, [orderId, driverId, driverLocation, onLocationUpdate]);
 
-  // Fallback: Refresh driver location every 15 seconds
+  // Fallback polling. Realtime drops on backgrounded mobile tabs, so
+  // we still pull driver_locations every 15s to keep the pin warm.
   useEffect(() => {
     if (!driverId) return;
 
     const interval = setInterval(async () => {
-      const { data: driver } = await (supabase as any)
-        .from("profiles")
-        .select("current_lat, current_lng, full_name, phone")
-        .eq("id", driverId)
-        .single();
+      // Pin + name in parallel; driver_locations.driver_id is the PK
+      // so maybeSingle keeps the no-row case quiet.
+      const [{ data: pin }, { data: profile }] = await Promise.all([
+        (supabase as any)
+          .from("driver_locations")
+          .select("latitude, longitude, updated_at")
+          .eq("driver_id", driverId)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("id", driverId)
+          .maybeSingle(),
+      ]);
 
-      if (driver && driver.current_lat && driver.current_lng) {
+      if (pin && pin.latitude != null && pin.longitude != null) {
+        const lat = Number(pin.latitude);
+        const lng = Number(pin.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
         const newLocation = {
-          lat: driver.current_lat,
-          lng: driver.current_lng,
-          driver_name: driver.full_name || "Your Driver",
-          driver_phone: driver.phone,
-          last_updated: new Date().toISOString(),
+          lat,
+          lng,
+          driver_name: (profile as any)?.full_name || "Your Driver",
+          driver_phone: (profile as any)?.phone,
+          last_updated: pin.updated_at || new Date().toISOString(),
         };
         setLiveDriverLocation(newLocation);
-        onLocationUpdate?.({ lat: driver.current_lat, lng: driver.current_lng });
+        onLocationUpdate?.({ lat, lng });
       }
-    }, 15000); // 15 seconds
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [driverId, onLocationUpdate]);
