@@ -404,9 +404,63 @@ function IntegrationsPage() {
                   <li>Fire test on each from your Zap editor and from the recipe card here, both should turn green.</li>
                 </ol>
               </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800">
-                <p className="font-semibold mb-1">One-click native Xero connect (coming soon)</p>
-                <p>We're building a "Sign in with Xero" OAuth flow that skips Zapier entirely. Until then the Zapier path above works end-to-end, no Xero developer account needed on your side.</p>
+              {/* Phase 5 #8: native Xero OAuth connect. Hits the
+                  server-side initiator that mints state + cookies
+                  before redirecting to login.xero.com. The callback
+                  endpoint persists tokens to xero_integration_settings
+                  and the existing sync-invoice / sync-credit-note
+                  endpoints take it from there. */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-900 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold mb-1">One-click native Xero connect</p>
+                  <p>Skip Zapier entirely. Sign in with your Xero account once and CateringMS pushes invoices + credit notes directly. Tokens auto-refresh; on Xero-side edits we surface a 409 conflict so nothing silently overwrites.</p>
+                </div>
+                <a
+                  href="/api/accounting/xero/authorize"
+                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
+                >
+                  Connect Xero
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Phase 5 #8: QuickBooks counterpart. Same OAuth pattern;
+              the sync endpoint mirrors Xero's drift / 401-retry /
+              token-refresh shape via the shared accountingTokens lib. */}
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 to-teal-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                QuickBooks Online
+                <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Native OAuth</Badge>
+              </CardTitle>
+              <CardDescription>
+                Direct push of CateringMS invoices into QuickBooks Online. Idempotent on external_id; QuickBooks-side edits land a 409 conflict instead of clobbering.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="bg-white rounded-lg p-3 border border-emerald-100 text-xs space-y-1">
+                <p className="font-semibold text-slate-900">What gets pushed</p>
+                <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                  <li>Invoices created or marked sent in CateringMS land as draft invoices in QB.</li>
+                  <li>Customer matched by email; created if absent.</li>
+                  <li>Tokens refresh automatically on a 401 so you don't need to reconnect.</li>
+                </ul>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold mb-1">Connect QuickBooks Online</p>
+                  <p>Sign in once with your Intuit / QuickBooks account and CateringMS pushes invoices straight in.</p>
+                </div>
+                <a
+                  href="/api/accounting/quickbooks/authorize"
+                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3 py-2"
+                >
+                  Connect QuickBooks
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             </CardContent>
           </Card>
