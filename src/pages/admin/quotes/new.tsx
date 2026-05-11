@@ -1362,11 +1362,16 @@ function NewQuotePage() {
                       a manual fee until they pick a fresh address. */}
                   {(venueLat || deliveryDistance > 0) && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-blue-900">
-                        <span className="font-semibold">Delivery distance + fee</span>
+                      <div className="flex items-center justify-between text-xs text-blue-900 gap-2">
+                        <span className="font-semibold flex-shrink-0">Delivery distance + fee</span>
                         {selectedKitchen && kitchens.length === 1 && (
-                          <span className="text-blue-700/80">
-                            From {selectedKitchen.name}
+                          // Prefer the full address over the kitchen's
+                          // display name -- "From Cape Town" is too
+                          // vague when the operator wants to see the
+                          // actual departure point. Falls back to name
+                          // only if address isn't set.
+                          <span className="text-blue-700/80 text-right">
+                            From {selectedKitchen.address || selectedKitchen.name}
                           </span>
                         )}
                       </div>
@@ -1946,6 +1951,19 @@ function NewQuotePage() {
                               <span className="text-slate-900 font-medium">{fmtR(e.unitPrice * e.quantity)}</span>
                             </li>
                           ))}
+                          {/* Delivery line mirrors what shows on the
+                              public quote PDF + email. Hidden when
+                              there's no fee so on-site / collection
+                              quotes stay clean. */}
+                          {computed.deliveryFee > 0 && (
+                            <li className="flex justify-between text-xs">
+                              <span className="text-slate-700">
+                                Delivery
+                                {deliveryDistance > 0 ? ` (${deliveryDistance.toFixed(1)} km)` : ""}
+                              </span>
+                              <span className="text-slate-900 font-medium">{fmtR(computed.deliveryFee)}</span>
+                            </li>
+                          )}
                         </ul>
                         <div className="flex justify-between font-semibold border-t pt-2">
                           <span>Total (incl. VAT)</span>
