@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MessageCircle } from "lucide-react";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -74,6 +75,14 @@ export default function DriverDashboard() {
   const [chatJob, setChatJob] = useState<Job | null>(null);
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
+
+  // Foreground GPS pinger. Drip-feeds the driver's coords to
+  // driver_locations while they have at least one active job loaded.
+  // The hook bails when activeOrderIds is empty, so a driver browsing
+  // the portal at home doesn't burn battery. Audit Driver G7.
+  const activeOrderIds = jobs.map((j) => j.id);
+  const { isTracking: gpsActive, lastPingAt, lastError: gpsError } =
+    useDriverGPSPing(user?.id ?? null, activeOrderIds);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -409,6 +418,34 @@ export default function DriverDashboard() {
             </div>
 
             <TeamWelcomeBanner role="driver" userId={user?.id} />
+
+            {/* GPS pinger status. Quiet when no active jobs; greenish
+             *  pulse while the foreground hook is dripping coords to
+             *  dispatch; a soft warning when geolocation was refused
+             *  so the driver knows the in-app tracker isn't running. */}
+            {activeOrderIds.length > 0 && (
+              <div className="mb-4 sm:mb-6 flex items-center gap-2 text-xs sm:text-sm">
+                {gpsActive && !gpsError ? (
+                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                    <MapPin className="w-3 h-3 mr-1 animate-pulse" />
+                    GPS sharing on
+                    {lastPingAt
+                      ? ` • last ping ${new Date(lastPingAt).toLocaleTimeString()}`
+                      : ""}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    GPS off — dispatch can't see your live position
+                  </Badge>
+                )}
+                {gpsError && (
+                  <span className="text-slate-500 text-xs hidden sm:inline">
+                    ({gpsError})
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Today's Earnings Summary */}
             <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 mb-4 sm:mb-6">
