@@ -226,6 +226,64 @@ export async function updateOrderStatus(
       }
     }
 
+    // Auto-queue cleaning rows on delivered. The audit flagged that
+    // equipment_cleaning_status had no writer anywhere -- cleaning
+    // team's inbox was permanently empty because no code path
+    // inserted into the table. When the order hits 'delivered',
+    // walk its equipment_bookings and insert one cleaning row per
+    // booked equipment unit so the cleaning team has work to pick up.
+    //
+    // Idempotency: skip rows where a cleaning_status already exists
+    // for (order_id, equipment_id). Non-blocking on failure.
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        const { data: bookings } = await supabase
+          .from("equipment_bookings")
+          .select("id, equipment_id, quantity")
+          .eq("order_id", order.id);
+
+        if (bookings && bookings.length > 0) {
+          // Pre-fetch existing cleaning rows to dedupe.
+          const { data: existing } = await supabase
+            .from("equipment_cleaning_status")
+            .select("equipment_id")
+            .eq("order_id", order.id);
+          const taken = new Set(
+            ((existing || []) as any[])
+              .map((r) => r.equipment_id)
+              .filter(Boolean),
+          );
+
+          const rows = (bookings as any[])
+            .filter((b) => b.equipment_id && !taken.has(b.equipment_id))
+            .map((b) => ({
+              company_id: order.company_id,
+              order_id: order.id,
+              equipment_id: b.equipment_id,
+              returned_quantity: Number(b.quantity || 0),
+              cleaned_quantity: 0,
+              current_status: "pending",
+              status: "pending",
+              admin_notified: false,
+            }));
+
+          if (rows.length > 0) {
+            const { error: cleanErr } = await (supabase as any)
+              .from("equipment_cleaning_status")
+              .insert(rows);
+            if (cleanErr) {
+              console.warn(
+                "[orderWorkflow] cleaning rows insert failed (non-blocking):",
+                cleanErr.message,
+              );
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn("[orderWorkflow] cleaning rows insert crashed (non-blocking):", e);
+      }
+    }
+
     return { success: true, data: order };
   } catch (error: any) {
     console.error("Error updating order status:", error);
