@@ -114,6 +114,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Wrong company" });
     }
 
+    // Gate: refuse to convert a lead with no email on file unless
+    // the operator passed allowMissingEmail=true in the body. Same
+    // reasoning as quoteService.convertQuoteToOrder -- the deposit
+    // invoice, confirmation email and portal magic-link all rely
+    // on a client_email; without one the convert silently produces
+    // an unmessaged order that the client only finds out about at
+    // the venue. Operators can override for cash walk-ins / WhatsApp-
+    // only contacts by passing the flag.
+    const leadEmail = String(
+      (lead as any).client_email || (lead as any).email || "",
+    ).trim();
+    const allowMissingEmail = (req.body || {}).allowMissingEmail === true;
+    if (!leadEmail && !allowMissingEmail) {
+      return res.status(400).json({
+        error:
+          "This lead has no email on file. The deposit invoice, confirmation email and portal magic-link all rely on it. Add an email to the lead, or retry with allowMissingEmail=true for a walk-in / cash-only client.",
+        error_code: "no_client_email",
+      });
+    }
+
     // 2. Find candidate quotes -- by lead_id OR by client_id (covers
     // the case where the lead was promoted and a later quote was
     // created against the client without re-stamping lead_id).

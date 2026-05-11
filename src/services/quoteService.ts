@@ -376,6 +376,15 @@ export const quoteService = {
         method: "cash" | "eft" | "card" | "other";
         reference?: string | null;
       };
+      /** Set when the operator has acknowledged that the quote has
+       *  no client_email and they want to proceed anyway (e.g. cash
+       *  walk-in, WhatsApp-only contact). Without this flag,
+       *  convertQuoteToOrder refuses to create an order whose
+       *  client can't be reached for the deposit invoice + payment
+       *  receipt + portal magic-link, all of which key on email.
+       *  See audit Sales G8 -- silent breakage at the moment that
+       *  matters most. */
+      allowMissingEmail?: boolean;
     },
   ): Promise<{
     order: AppOrder | null;
@@ -384,6 +393,7 @@ export const quoteService = {
     kitchen: { ok: boolean; tasksCreated: number; reason?: string };
     deposit: { recorded: boolean; amount?: number; method?: string };
     error?: string;
+    error_code?: string;
   }> {
     const quote = await this.getQuote(quoteId);
     if (!quote) {
@@ -394,6 +404,26 @@ export const quoteService = {
         kitchen: { ok: false, tasksCreated: 0, reason: "no_quote" },
         deposit: { recorded: false },
         error: "Quote not found",
+      };
+    }
+
+    // Gate: refuse to convert a quote with no client_email unless
+    // the operator passed allowMissingEmail. Otherwise the order is
+    // created, the deposit invoice is generated, and then the email
+    // step silently no-ops -- client gets a confirmation by nobody
+    // and finds out at the venue. Surfaced loudly here so the UI
+    // can prompt the operator to add an email (or confirm walk-in).
+    const clientEmail = String((quote as any).client_email || "").trim();
+    if (!clientEmail && !options?.allowMissingEmail) {
+      return {
+        order: null,
+        invoice: { ok: false, error: "Quote has no client email" },
+        email: { sent: false, skipped: true, reason: "no_client_email" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "no_client_email" },
+        deposit: { recorded: false },
+        error:
+          "This quote has no client email on file. The deposit invoice, confirmation email and portal magic-link all rely on it. Add an email to the quote, or accept this quote with the walk-in / cash-only override.",
+        error_code: "no_client_email",
       };
     }
 
