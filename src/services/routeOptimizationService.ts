@@ -190,19 +190,139 @@ export const routeOptimizationService = {
       }
     }
 
-    // Calculate estimated completion time + feasibility rollup
-    const estimatedCompletion = currentTime.toISOString();
-    const infeasibleCount = optimizedStops.filter(s => s.time_window_breach).length;
+    // Phase 2 #10: 2-opt improvement pass. Greedy nearest-neighbour
+    // routinely produces routes with crossing edges (the classic NN
+    // weakness). 2-opt walks every pair of non-adjacent edges and
+    // reverses the sub-tour between them when the swap cuts total
+    // cost (distance + a heavy time-window penalty). Repeats until
+    // no improving swap exists. Cost function:
+    //   cost = sum(distance_km) + INFEASIBILITY_PENALTY * breaches
+    // The penalty (10000 km) means the optimiser will gladly take a
+    // dramatically longer drive to remove a single time-window
+    // breach -- which is exactly what we want for catering. Skipped
+    // when fewer than 4 stops because there's nothing to swap.
+    let bestStops = optimizedStops;
+    if (optimizedStops.length >= 4) {
+      bestStops = this._twoOptImprove(
+        optimizedStops,
+        startLat ?? optimizedStops[0].venue_lat,
+        startLng ?? optimizedStops[0].venue_lng,
+      );
+    }
+
+    // Recompute the journey totals against the (possibly reordered)
+    // sequence so the response numbers match the actual stop order.
+    let recomputedDistance = 0;
+    let recomputedDuration = 0;
+    let cursorTime = new Date();
+    let cursorLat = startLat ?? bestStops[0].venue_lat;
+    let cursorLng = startLng ?? bestStops[0].venue_lng;
+    let recomputedInfeasible = 0;
+    const finalStops: DeliveryStop[] = bestStops.map((s) => {
+      const leg = this.calculateDistance(cursorLat, cursorLng, s.venue_lat, s.venue_lng);
+      const travel = this.estimateTravelTime(leg);
+      recomputedDistance += leg;
+      recomputedDuration += travel;
+      const arrival = new Date(cursorTime.getTime() + travel * 60_000);
+      const buffer = s.arrival_buffer_minutes ?? 0;
+      const deadline = new Date(s.delivery_time);
+      let slack: number | undefined;
+      let breach = false;
+      if (!isNaN(deadline.getTime())) {
+        slack = Math.round((deadline.getTime() - buffer * 60_000 - arrival.getTime()) / 60_000);
+        breach = slack < 0;
+      }
+      if (breach) recomputedInfeasible += 1;
+      cursorTime = new Date(arrival.getTime() + 15 * 60_000);
+      cursorLat = s.venue_lat;
+      cursorLng = s.venue_lng;
+      return {
+        ...s,
+        predicted_arrival_at: arrival.toISOString(),
+        time_window_breach: breach,
+        slack_minutes: slack,
+      };
+    });
 
     return {
       driver_id: driverId,
-      stops: optimizedStops,
-      total_distance: Math.round(totalDistance * 100) / 100,
-      total_duration: Math.round(totalDuration),
-      estimated_completion: estimatedCompletion,
-      infeasible_count: infeasibleCount,
-      feasible: infeasibleCount === 0,
+      stops: finalStops,
+      total_distance: Math.round(recomputedDistance * 100) / 100,
+      total_duration: Math.round(recomputedDuration),
+      estimated_completion: cursorTime.toISOString(),
+      infeasible_count: recomputedInfeasible,
+      feasible: recomputedInfeasible === 0,
     };
+  },
+
+  /**
+   * Phase 2 #10: 2-opt local-search improvement on a sequenced route.
+   * Returns the best-cost sequence found. Pure -- doesn't mutate the
+   * input array. Cost penalises time-window breaches heavily so the
+   * solver prefers a longer feasible route over a shorter infeasible
+   * one.
+   *
+   * Complexity: O(n^3) worst case (n^2 pairs * n cost evaluation),
+   * which is fine for the realistic catering route size of < 30
+   * stops. Caps at 200 outer iterations so we can't pathologically
+   * loop on a flat-cost landscape.
+   */
+  _twoOptImprove(
+    stops: DeliveryStop[],
+    startLat: number,
+    startLng: number,
+  ): DeliveryStop[] {
+    const INFEASIBILITY_PENALTY = 10_000;
+    const SERVICE_MIN = 15;
+
+    const routeCost = (seq: DeliveryStop[]): number => {
+      let dist = 0;
+      let breaches = 0;
+      let lat = startLat;
+      let lng = startLng;
+      let cursor = new Date();
+      for (const s of seq) {
+        const leg = this.calculateDistance(lat, lng, s.venue_lat, s.venue_lng);
+        dist += leg;
+        const travel = this.estimateTravelTime(leg);
+        const arrival = new Date(cursor.getTime() + travel * 60_000);
+        const buffer = s.arrival_buffer_minutes ?? 0;
+        const deadline = new Date(s.delivery_time);
+        if (!isNaN(deadline.getTime())) {
+          if (arrival.getTime() > deadline.getTime() - buffer * 60_000) breaches += 1;
+        }
+        cursor = new Date(arrival.getTime() + SERVICE_MIN * 60_000);
+        lat = s.venue_lat;
+        lng = s.venue_lng;
+      }
+      return dist + INFEASIBILITY_PENALTY * breaches;
+    };
+
+    let best = [...stops];
+    let bestCost = routeCost(best);
+    let improved = true;
+    let outer = 0;
+    while (improved && outer < 200) {
+      improved = false;
+      outer += 1;
+      for (let i = 0; i < best.length - 1; i++) {
+        for (let j = i + 1; j < best.length; j++) {
+          // Reverse the slice [i, j] -- classic 2-opt swap.
+          const candidate = [
+            ...best.slice(0, i),
+            ...best.slice(i, j + 1).reverse(),
+            ...best.slice(j + 1),
+          ];
+          const cost = routeCost(candidate);
+          if (cost < bestCost - 1e-6) {
+            best = candidate;
+            bestCost = cost;
+            improved = true;
+          }
+        }
+      }
+    }
+    return best;
   },
 
   /**
