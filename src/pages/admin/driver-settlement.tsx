@@ -429,13 +429,68 @@ function FragmentRows({
                 {row.summary.shifts.length === 0 ? (
                   <p className="text-sm text-slate-500">No shifts in this period.</p>
                 ) : (
-                  <ul className="text-xs space-y-1">
-                    {row.summary.shifts.map((s) => (
-                      <li key={s.shift_id} className="flex justify-between">
-                        <span>{s.hours.toFixed(2)}h @ {formatR(s.hourly_rate)}/hr {s.multiplier !== 1 && `× ${s.multiplier}`}</span>
-                        <span className="font-medium">{formatR(s.pay)}</span>
-                      </li>
-                    ))}
+                  <ul className="text-xs space-y-2">
+                    {row.summary.shifts.map((s) => {
+                      const buckets = (s as any).bcea_buckets as
+                        | Array<{
+                            date: string;
+                            hours: number;
+                            dayMultiplier: number;
+                            overtimeHours: number;
+                            pay: number;
+                          }>
+                        | undefined;
+                      const hasBreakdown = buckets && buckets.length > 1;
+                      const hasMultiplier = s.multiplier !== 1;
+                      const hasOvertime = !!buckets?.some((b) => b.overtimeHours > 0);
+                      return (
+                        <li key={s.shift_id} className="border-l-2 border-slate-200 pl-2">
+                          <div className="flex justify-between">
+                            <span>
+                              {s.hours.toFixed(2)}h @ {formatR(s.hourly_rate)}/hr{" "}
+                              {hasMultiplier && (
+                                <span className="text-amber-700 font-medium">× {s.multiplier}</span>
+                              )}
+                              {hasOvertime && (
+                                <span className="text-amber-700 font-medium"> (includes overtime)</span>
+                              )}
+                            </span>
+                            <span className="font-medium">{formatR(s.pay)}</span>
+                          </div>
+                          {/* Phase 3 #2: per-day BCEA buckets, shown
+                              when a shift crosses midnight (multiple
+                              buckets) or includes Sunday/PH/overtime
+                              uplifts. Otherwise the single-day case
+                              is the same as the headline above. */}
+                          {hasBreakdown && (
+                            <ul className="mt-1 ml-2 text-[11px] text-slate-500 space-y-0.5">
+                              {buckets!.map((b) => {
+                                const day = new Date(b.date + "T12:00:00");
+                                const dayLabel = day.toLocaleDateString("en-ZA", {
+                                  weekday: "short",
+                                  day: "numeric",
+                                  month: "short",
+                                });
+                                const tags: string[] = [];
+                                if (b.dayMultiplier === 2) tags.push("Sun/PH ×2");
+                                if (b.overtimeHours > 0) tags.push(`${b.overtimeHours.toFixed(2)}h OT ×1.5`);
+                                return (
+                                  <li key={b.date} className="flex justify-between">
+                                    <span>
+                                      {dayLabel}: {b.hours.toFixed(2)}h
+                                      {tags.length > 0 && (
+                                        <span className="text-amber-700"> ({tags.join(" + ")})</span>
+                                      )}
+                                    </span>
+                                    <span className="tabular-nums">{formatR(b.pay)}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

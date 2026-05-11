@@ -74,6 +74,16 @@ export interface ShiftPayLine {
   multiplier: number;
   hourly_rate: number;
   pay: number;
+  /** Phase 3 #2: per-day BCEA buckets when the shift crosses
+   *  midnight or includes overtime. NULL on shifts that don't have
+   *  actual_start + actual_end timestamps (legacy / manual rows). */
+  bcea_buckets?: Array<{
+    date: string;
+    hours: number;
+    dayMultiplier: number;
+    overtimeHours: number;
+    pay: number;
+  }>;
 }
 
 export interface DeliveryPayLine {
@@ -443,17 +453,52 @@ export const driverPayService = {
     opts: { companyId: string; driverId: string; range: DateRange },
     client: Sb = defaultClient,
   ): Promise<DriverPaySummary> {
-    const [defaults, profile, shifts, orders] = await Promise.all([
+    const [defaults, profile, shifts, orders, holidayRows] = await Promise.all([
       this.getCompanyDefaults(opts.companyId, client),
       this.getDriverProfile(opts.driverId, client),
       this.listShifts({ ...opts, range: opts.range }, client),
       this._listCompletedDeliveries(opts, client),
+      // Phase 3 #2: pull holidays once so we can render per-bucket
+      // BCEA breakdowns per shift. Cheap (sub-100 rows per tenant).
+      (client as any)
+        .from("public_holidays")
+        .select("date, is_recurring")
+        .eq("company_id", opts.companyId)
+        .then((r: any) => r.data || []),
     ]);
     const rates = resolveEffectiveRates(profile, defaults);
 
+    // Holiday sets for the per-shift BCEA breakdown.
+    const oneOffSet = new Set<string>();
+    const recurringMDSet = new Set<string>();
+    for (const h of (holidayRows || []) as Array<{ date: string; is_recurring: boolean }>) {
+      if (!h.date) continue;
+      if (h.is_recurring) recurringMDSet.add(h.date.slice(5));
+      else oneOffSet.add(h.date);
+    }
+
     const shiftLines = shifts
       .filter((s) => s.status === "completed" && s.hours_worked != null)
-      .map((s) => calculateShiftPay(s, rates));
+      .map((s) => {
+        const base = calculateShiftPay(s, rates);
+        // When we have both timestamps, recompute the BCEA breakdown
+        // so the admin pay UI can show per-day buckets (cross-
+        // midnight Sunday + overtime are most useful to surface).
+        if (s.actual_start && s.actual_end) {
+          try {
+            const bcea = calculateBceaShiftPay(
+              s.actual_start,
+              s.actual_end,
+              rates.hourly_rate,
+              { oneOff: oneOffSet, recurringMD: recurringMDSet },
+            );
+            return { ...base, bcea_buckets: bcea.buckets };
+          } catch {
+            // Fall through to the base line without breakdown.
+          }
+        }
+        return base;
+      });
     // Prefer the rate-locked snapshot when present (stamped on
     // delivery completion via autoClockOut). Falls back to a live
     // calc for legacy orders that closed before snapshotting shipped.
