@@ -97,6 +97,19 @@ export const driverConfirmationService = {
     // Send WhatsApp to client with tracking link
     await this.sendWhatsAppNotification(orderId, 'driver_departed');
 
+    // Advance order status so the central sendStatusNotifications
+    // fan-out fires (client email, in-app pushes, audit trail).
+    // Audit Notif G4 -- previously this only inserted a
+    // driver_confirmations row + best-effort WhatsApp stub; the
+    // order status stayed at 'ready' forever and no client-facing
+    // email signalled the driver was en route. Non-blocking.
+    try {
+      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+      await updateOrderStatus(orderId, "in_transit" as any, driverId);
+    } catch (statusErr) {
+      console.warn("[confirmDepartedKitchen] order status flip failed (non-blocking):", statusErr);
+    }
+
     return data as DriverConfirmation;
   },
 
@@ -123,6 +136,20 @@ export const driverConfirmationService = {
 
     // Send WhatsApp to client
     await this.sendWhatsAppNotification(orderId, 'driver_arrived');
+
+    // Advance order status to delivered. Audit Notif G4 -- the
+    // arrival tap on the driver portal previously did not flip the
+    // order, so the central fan-out (client email, cleaning queue
+    // insert, collection-trip schedule, pending_reviews queue, after-
+    // sales nurture) never fired. Now: at_venue confirmation IS
+    // arrival = delivery on a catering job (the driver hands food
+    // over at the venue). Non-blocking.
+    try {
+      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+      await updateOrderStatus(orderId, "delivered" as any, driverId);
+    } catch (statusErr) {
+      console.warn("[confirmAtVenue] order status flip failed (non-blocking):", statusErr);
+    }
 
     return data as DriverConfirmation;
   },
