@@ -100,8 +100,36 @@ export default function AdminTracking() {
         return eventDate.getTime() >= today.getTime();
       });
 
-      // Load driver data
+      // Load driver data. Phase 2 #1: enrich with the latest pin from
+      // driver_locations -- profiles.current_lat / current_lng is the
+      // legacy column the foreground pinger no longer writes to, so
+      // the initial enrichment below would produce ETA=null on every
+      // active order until the first realtime tick. One IN-query keeps
+      // this cheap for tenants with O(20) drivers.
       const driverData = await driverService.getAllDrivers(companyId);
+      try {
+        const driverIds = driverData.map((d: any) => d.id).filter(Boolean);
+        if (driverIds.length > 0) {
+          const { data: pins } = await (supabase as any)
+            .from("driver_locations")
+            .select("driver_id, latitude, longitude, updated_at")
+            .in("driver_id", driverIds);
+          const pinMap: Record<string, any> = {};
+          for (const p of pins || []) {
+            pinMap[(p as any).driver_id] = p;
+          }
+          for (const d of driverData as any[]) {
+            const pin = pinMap[d.id];
+            if (pin && pin.latitude != null && pin.longitude != null) {
+              d.current_lat = Number(pin.latitude);
+              d.current_lng = Number(pin.longitude);
+              d.location_updated_at = pin.updated_at;
+            }
+          }
+        }
+      } catch (pinErr) {
+        console.warn("[admin/tracking] driver pin enrichment failed:", pinErr);
+      }
       setDrivers(driverData);
 
       // Enrich orders with driver location data. Try assigned_driver_id

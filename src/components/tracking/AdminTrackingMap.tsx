@@ -94,105 +94,157 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
     }
   }, [orders, liveDriverLocations]);
 
-  // Set up real-time subscription for driver locations
+  // Phase 2 #1: read pins from driver_locations + gps_tracking, not
+  // the legacy profiles.current_lat / current_lng columns. The
+  // foreground GPS pinger (useDriverGPSPing) writes to:
+  //   - driver_locations: current state, single row per driver, the
+  //     right source for the initial load + polling fallback.
+  //   - gps_tracking:     append-only history, drives the realtime
+  //     INSERT subscription so the pin animates as new fixes land.
+  // The old code subscribed to profiles UPDATE events that the
+  // pinger never fires, so the map was effectively static.
+  //
+  // Pull driver names alongside the location so the popup has a
+  // human-readable label without a second query per marker.
   useEffect(() => {
     setLiveDriverLocations(driverLocations);
 
-    // Subscribe to driver location updates via Supabase Realtime
+    let cancelled = false;
+
+    async function pullInitial() {
+      if (!companyId) return;
+      // Step A: current state from driver_locations, scoped to tenant.
+      // RLS already gates the read so company_id filter is belt-and-
+      // braces against any future relax.
+      const { data: locations } = await (supabase as any)
+        .from("driver_locations")
+        .select("driver_id, latitude, longitude, updated_at")
+        .eq("company_id", companyId);
+      if (cancelled || !locations) return;
+
+      // Step B: hydrate names. Single IN-query is cheaper than N
+      // round-trips and the driver list is small.
+      const driverIds = locations.map((l: any) => l.driver_id).filter(Boolean);
+      let nameMap: Record<string, { full_name?: string }> = {};
+      if (driverIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", driverIds);
+        for (const p of profiles || []) {
+          nameMap[(p as any).id] = { full_name: (p as any).full_name };
+        }
+      }
+
+      const hydrated: DriverLocation[] = locations
+        .filter((l: any) => l.latitude != null && l.longitude != null)
+        .map((l: any) => ({
+          id: l.driver_id,
+          driver_name: nameMap[l.driver_id]?.full_name || "Driver",
+          current_lat: Number(l.latitude),
+          current_lng: Number(l.longitude),
+          last_updated: l.updated_at || new Date().toISOString(),
+          status: "active",
+          available: true,
+        }));
+      if (cancelled) return;
+      setLiveDriverLocations(hydrated);
+      onDriverLocationUpdate?.(hydrated);
+    }
+
+    pullInitial();
+
+    // Realtime: every new gps_tracking INSERT is a fresh fix for some
+    // driver. Patch (or insert) the matching row in liveDriverLocations
+    // so the pin moves without re-running pullInitial.
     const channel = supabase
-      .channel("driver-locations")
+      .channel(`driver-locations-${companyId || "global"}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: "role=eq.driver",
+        { event: "INSERT", schema: "public", table: "gps_tracking" },
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row?.driver_id) return;
+          const lat = Number(row.latitude);
+          const lng = Number(row.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+          setLiveDriverLocations((prev) => {
+            // Tenant scope. We don't get company_id on gps_tracking
+            // rows, so we accept the update only if we already know
+            // this driver (i.e. they appeared in pullInitial for this
+            // tenant). Drivers from other tenants are silently ignored.
+            const existing = prev.findIndex((d) => d.id === row.driver_id);
+            if (existing === -1 && companyId) return prev;
+
+            const patched: DriverLocation = {
+              id: row.driver_id,
+              driver_name:
+                existing !== -1 ? prev[existing].driver_name : "Driver",
+              current_lat: lat,
+              current_lng: lng,
+              last_updated: row.timestamp || new Date().toISOString(),
+              status: existing !== -1 ? prev[existing].status : "active",
+              available: existing !== -1 ? prev[existing].available : true,
+            };
+            const next =
+              existing !== -1
+                ? prev.map((d, i) => (i === existing ? patched : d))
+                : [...prev, patched];
+            onDriverLocationUpdate?.(next);
+            return next;
+          });
         },
-        (payload) => {
-          console.log("Driver location update:", payload);
-          
-          if (payload.eventType === "UPDATE" && payload.new) {
-            const updatedDriver = payload.new as any;
-
-            // Realtime channels can't filter on multiple columns so we
-            // enforce the company scope here. Without this, drivers from
-            // other tenants would appear on the map.
-            if (companyId && updatedDriver.company_id !== companyId) return;
-
-            // Only update if driver has valid coordinates
-            if (updatedDriver.current_lat && updatedDriver.current_lng) {
-              setLiveDriverLocations((prev) => {
-                const existing = prev.findIndex((d) => d.id === updatedDriver.id);
-                const newDriver: DriverLocation = {
-                  id: updatedDriver.id,
-                  driver_name: updatedDriver.full_name || "Unknown Driver",
-                  current_lat: updatedDriver.current_lat,
-                  current_lng: updatedDriver.current_lng,
-                  last_updated: new Date().toISOString(),
-                  status: updatedDriver.status || "active",
-                  available: updatedDriver.available ?? true,
-                };
-
-                if (existing !== -1) {
-                  const updated = [...prev];
-                  updated[existing] = newDriver;
-                  onDriverLocationUpdate?.(updated);
-                  return updated;
-                } else {
-                  const updated = [...prev, newDriver];
-                  onDriverLocationUpdate?.(updated);
-                  return updated;
-                }
-              });
-            }
-          }
-        }
       )
       .subscribe();
 
     subscriptionRef.current = channel;
 
-    // Cleanup subscription on unmount
     return () => {
+      cancelled = true;
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverLocations, onDriverLocationUpdate, companyId]);
 
-  // Fallback: Refresh driver locations every 30 seconds
+  // Fallback polling. The realtime subscription drops on long-running
+  // tabs (browser throttling, network blips) and the operator should
+  // still see fresh pins. Polls driver_locations every 30s.
   useEffect(() => {
+    if (!companyId) return;
     const interval = setInterval(async () => {
-      let query = supabase
-        .from("profiles")
-        .select("id, full_name, current_lat, current_lng, status, available")
-        .eq("role", "driver")
-        .not("current_lat", "is", null)
-        .not("current_lng", "is", null);
-
-      // Scope the polling fallback to the admin's company so other
-      // tenants' drivers never appear on the map.
-      if (companyId) {
-        query = query.eq("company_id", companyId);
+      const { data: locations } = await (supabase as any)
+        .from("driver_locations")
+        .select("driver_id, latitude, longitude, updated_at")
+        .eq("company_id", companyId);
+      if (!locations) return;
+      const driverIds = locations.map((l: any) => l.driver_id).filter(Boolean);
+      let nameMap: Record<string, string> = {};
+      if (driverIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", driverIds);
+        for (const p of profiles || []) {
+          nameMap[(p as any).id] = (p as any).full_name;
+        }
       }
-
-      const { data: drivers } = await query;
-
-      if (drivers) {
-        const locations: DriverLocation[] = drivers.map((d: any) => ({
-          id: d.id,
-          driver_name: d.full_name || "Unknown Driver",
-          current_lat: d.current_lat,
-          current_lng: d.current_lng,
-          last_updated: new Date().toISOString(),
-          status: d.status || "active",
-          available: d.available ?? true,
+      const hydrated: DriverLocation[] = locations
+        .filter((l: any) => l.latitude != null && l.longitude != null)
+        .map((l: any) => ({
+          id: l.driver_id,
+          driver_name: nameMap[l.driver_id] || "Driver",
+          current_lat: Number(l.latitude),
+          current_lng: Number(l.longitude),
+          last_updated: l.updated_at || new Date().toISOString(),
+          status: "active",
+          available: true,
         }));
-        setLiveDriverLocations(locations);
-        onDriverLocationUpdate?.(locations);
-      }
-    }, 30000); // 30 seconds
+      setLiveDriverLocations(hydrated);
+      onDriverLocationUpdate?.(hydrated);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [onDriverLocationUpdate, companyId]);
