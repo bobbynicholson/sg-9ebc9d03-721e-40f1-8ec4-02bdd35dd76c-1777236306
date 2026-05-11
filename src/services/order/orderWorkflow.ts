@@ -30,6 +30,36 @@ const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
   cancelled: [], // terminal
 };
 
+// Phase 3 #6: explicit source-status allowlists for the cancel /
+// pause / resume paths. These functions write status directly (they
+// bypass updateOrderStatus because they have their own cascade
+// payload), so the ALLOWED_ORDER_TRANSITIONS map doesn't apply.
+// Without these sets, cancel/pause silently accepted any status the
+// caller could read and the per-function ad-hoc guards only caught
+// terminal states. Now they share the same intent as the main
+// transition map.
+//
+//   ALLOWED_CANCEL_FROM:
+//     Anywhere pre-completion is legal -- cancelling a confirmed
+//     order, a preparing order, even an in-transit one (truck
+//     breakdown) is real. Cancelling a delivered order should go
+//     via refund / credit-note, not a fresh cancellation, so it's
+//     excluded. Cancelled / completed are terminal.
+//   ALLOWED_PAUSE_FROM:
+//     Pre-event lifecycle only. Pausing a delivered or in-transit
+//     order makes no sense (the food is already out the door).
+//     Drivers + kitchen need decisive state, not 'on hold'.
+//   ALLOWED_RESUME_FROM:
+//     Trivially {paused}. Kept here for symmetry.
+const ALLOWED_CANCEL_FROM = new Set<string>([
+  "draft", "pending", "confirmed", "preparing", "ready",
+  "out_for_delivery", "in_transit", "paused",
+]);
+const ALLOWED_PAUSE_FROM = new Set<string>([
+  "draft", "pending", "confirmed", "preparing", "ready",
+]);
+const ALLOWED_RESUME_FROM = new Set<string>(["paused"]);
+
 export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
@@ -688,6 +718,15 @@ export async function cancelOrder(
         error: "Cannot cancel a completed order. Issue a refund or credit note instead.",
       };
     }
+    // Phase 3 #6: shared source-status allowlist. Catches edge cases
+    // the old per-function guard didn't (delivered orders, unknown
+    // legacy statuses, NULL statuses on imported rows).
+    if (currentStatus && !ALLOWED_CANCEL_FROM.has(currentStatus)) {
+      return {
+        success: false,
+        error: `Cannot cancel an order with status '${currentStatus}'. Allowed sources: ${Array.from(ALLOWED_CANCEL_FROM).join(", ")}.`,
+      };
+    }
 
     const { data, error } = await sb
       .from("orders")
@@ -818,6 +857,15 @@ export async function pauseOrder(
     if ((existing as any).status === "cancelled" || (existing as any).status === "completed") {
       return { success: false, error: "Cannot pause a cancelled or completed order." };
     }
+    // Phase 3 #6: source-status allowlist. Pausing a delivered or
+    // in-transit order makes no operational sense -- the food is out
+    // the door, the driver needs a decisive call. Hard refuse.
+    if ((existing as any).status && !ALLOWED_PAUSE_FROM.has((existing as any).status)) {
+      return {
+        success: false,
+        error: `Cannot pause an order with status '${(existing as any).status}'. Use cancel instead for post-event recovery.`,
+      };
+    }
     const fromStatus = (existing as any).status;
 
     const { data, error } = await sb
@@ -918,8 +966,11 @@ export async function resumeOrder(
       .eq("id", orderId)
       .single();
     if (readErr) throw readErr;
-    if ((existing as any).status !== "paused") {
-      return { success: false, error: "Order is not paused." };
+    if (!ALLOWED_RESUME_FROM.has((existing as any).status)) {
+      return {
+        success: false,
+        error: `Order is not paused (status='${(existing as any).status}'). Nothing to resume.`,
+      };
     }
     // Default back to 'confirmed' if paused_from_status is somehow
     // missing (legacy paused orders pre-this-migration).
