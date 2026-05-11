@@ -35,6 +35,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { emailService } from "@/services/emailService";
+import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
+import { notificationService } from "@/services/notificationService";
 
 export interface PostOrderCascadeOpts {
   /** Absolute base URL for outbound email links. Defaults to
@@ -46,6 +48,7 @@ export interface PostOrderCascadeOpts {
   skipEmail?: boolean;
   skipKitchen?: boolean;
   skipEquipment?: boolean;
+  skipConflictCheck?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
@@ -53,6 +56,7 @@ export interface PostOrderCascadeReceipt {
   email: { ok: boolean; reason?: string; skipped?: boolean };
   kitchen: { ok: boolean; tasksCreated?: number; reason?: string };
   equipment: { ok: boolean; bookingsCreated?: number; reason?: string; skipped?: boolean };
+  conflicts: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
 }
 
 /**
@@ -74,6 +78,7 @@ export async function postOrderCreationCascade(
     email: { ok: false, skipped: true, reason: "not_attempted" },
     kitchen: { ok: false, tasksCreated: 0, reason: "not_attempted" },
     equipment: { ok: false, bookingsCreated: 0, reason: "not_attempted" },
+    conflicts: { ok: false, shortfalls: 0, reason: "not_attempted" },
   };
 
   // ── Step 1: Invoice ───────────────────────────────────────────────
@@ -286,6 +291,101 @@ export async function postOrderCreationCascade(
     }
   } else {
     receipt.equipment = { ok: true, bookingsCreated: 0, skipped: true, reason: "skipped_by_caller" };
+  }
+
+  // ── Step 5: Equipment conflict check ─────────────────────────────
+  // Audit Equipment G3: getEquipmentAvailability existed as a
+  // service but was never invoked at order-create / confirm time,
+  // so two events on the same date could both claim the same kit
+  // with no warning until the truck was being loaded. Now: for each
+  // equipment_booking just created on this order, ask the
+  // availability calculator how many units are reserved against this
+  // date and if the total exceeds owned stock, raise an in-app
+  // notification to the admin so they can place a hire-in (or move
+  // the booking). Non-blocking: shortfalls don't refuse the order,
+  // just surface the problem loudly.
+  if (!opts.skipConflictCheck) {
+    try {
+      const { data: order } = await (client as any)
+        .from("orders")
+        .select("id, event_date, region_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!order || !(order as any).event_date) {
+        receipt.conflicts = { ok: true, shortfalls: 0, reason: "no_event_date" };
+      } else {
+        const { data: bookings } = await (client as any)
+          .from("equipment_bookings")
+          .select("equipment_id, quantity, equipment:equipment_id(name)")
+          .eq("order_id", orderId);
+        const bookingRows = (bookings || []) as any[];
+        if (bookingRows.length === 0) {
+          receipt.conflicts = { ok: true, shortfalls: 0, reason: "no_equipment_on_order" };
+        } else {
+          let shortfallCount = 0;
+          const shortfallDetails: Array<{ name: string; reserved: number; owned: number; needed: number }> = [];
+          for (const b of bookingRows) {
+            if (!b.equipment_id) continue;
+            try {
+              const avail = await getEquipmentAvailability(
+                companyId,
+                b.equipment_id,
+                (order as any).event_date,
+                { excludeOrderId: orderId },
+              );
+              const needed = Number(b.quantity || 0);
+              if (avail.reserved + needed > avail.owned) {
+                shortfallCount += 1;
+                shortfallDetails.push({
+                  name: (Array.isArray(b.equipment) ? b.equipment[0] : b.equipment)?.name || "Unnamed equipment",
+                  reserved: avail.reserved,
+                  owned: avail.owned,
+                  needed,
+                });
+              }
+            } catch (calcErr) {
+              console.warn("[postOrderCreationCascade] availability calc failed for item:", b.equipment_id, calcErr);
+            }
+          }
+
+          if (shortfallCount > 0) {
+            // Build a single condensed alert summarising every
+            // shortfall on this order. The bell deep-links to the
+            // order edit modal where the operator can place a hire-in.
+            const summary = shortfallDetails
+              .slice(0, 5)
+              .map((d) => `${d.name} (need ${d.needed}, only ${Math.max(0, d.owned - d.reserved)} free)`)
+              .join("; ");
+            const more = shortfallDetails.length > 5 ? `, +${shortfallDetails.length - 5} more` : "";
+            try {
+              await notificationService.broadcastNotification(
+                {
+                  companyId,
+                  regionId: (order as any).region_id || null,
+                  targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+                  title: `Equipment shortfall on order`,
+                  message: `Order needs hire-in for: ${summary}${more}. Place a hire-in or adjust booked equipment.`,
+                  type: "equipment_shortfall",
+                  priority: "high",
+                  link: `/admin/orders?orderId=${orderId}`,
+                  relatedEntityType: "order",
+                  relatedEntityId: orderId,
+                },
+                client as any,
+              );
+            } catch (notifErr) {
+              console.warn("[postOrderCreationCascade] shortfall broadcast failed:", notifErr);
+            }
+          }
+          receipt.conflicts = { ok: true, shortfalls: shortfallCount };
+        }
+      }
+    } catch (e: any) {
+      receipt.conflicts = { ok: false, shortfalls: 0, reason: e?.message || "conflict step crashed" };
+      console.warn("[postOrderCreationCascade] conflict step crashed:", { orderId, companyId, error: e });
+    }
+  } else {
+    receipt.conflicts = { ok: true, shortfalls: 0, skipped: true, reason: "skipped_by_caller" };
   }
 
   return receipt;
