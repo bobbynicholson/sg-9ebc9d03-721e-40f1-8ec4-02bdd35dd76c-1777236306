@@ -278,8 +278,23 @@ export function ImportRecordsModal({
     setEditingRowId(row.id);
     const m = row.mapped_data || {};
     const initial: Record<string, string> = {};
+    // Always seed the canonical editable fields for this template, in
+    // the curated order, so the form is consistent across rows.
     for (const f of EDIT_FIELDS[template]) {
       initial[f.key] = String(m[f.key] ?? "");
+    }
+    // Then add every other populated field on the row + every field
+    // mentioned by name in the row's warnings, so a misclassified
+    // value (Callum hit "South Africa" landing in payment_terms) is
+    // editable from the same form. Without this, a warning like
+    // 'payment_terms: "South Africa" is not a number' had no editable
+    // field and the operator was stuck.
+    const warningText = (row.preview_warnings || []).join(" ");
+    for (const [k, v] of Object.entries(m)) {
+      if (initial[k] !== undefined) continue;
+      const populated = v != null && String(v).trim() !== "";
+      const flagged = warningText.toLowerCase().includes(k.toLowerCase());
+      if (populated || flagged) initial[k] = String(v ?? "");
     }
     setEditForm(initial);
     setError(null);
@@ -810,22 +825,59 @@ export function ImportRecordsModal({
                             <td colSpan={3} className="px-4 py-3">
                               <div className="text-[11px] text-slate-600 mb-2 flex items-center gap-1">
                                 <Pencil className="w-3 h-3" />
-                                Editing row {r.source_row_index ?? "?"}. Save runs the same checks as the original preview -- if your fix resolves the error the row goes green automatically.
+                                Editing row {r.source_row_index ?? "?"}. Save runs the same checks as the original preview, if your fix resolves the error the row goes green automatically.
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {EDIT_FIELDS[template].map((f) => (
-                                  <div key={f.key}>
-                                    <Label className="text-[11px] text-slate-600">{f.label}</Label>
-                                    <Input
-                                      type={f.type ?? "text"}
-                                      value={editForm[f.key] ?? ""}
-                                      onChange={(e) =>
-                                        setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))
-                                      }
-                                      className="h-8 text-xs mt-0.5"
-                                    />
-                                  </div>
-                                ))}
+                                {(() => {
+                                  // Field list = curated fields first (in order),
+                                  // then any extra keys present on the row that
+                                  // the operator may need to fix (e.g. a value
+                                  // misclassified into payment_terms). Warnings
+                                  // mentioning a key get shown inline next to it.
+                                  const curated = EDIT_FIELDS[template];
+                                  const curatedKeys = new Set(curated.map((f) => f.key));
+                                  const extraKeys = Object.keys(editForm)
+                                    .filter((k) => !curatedKeys.has(k))
+                                    .sort();
+                                  const allFields = [
+                                    ...curated.map((f) => ({ key: f.key, label: f.label, type: f.type })),
+                                    ...extraKeys.map((k) => ({
+                                      key: k,
+                                      // humanise snake_case for the label
+                                      label: k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+                                      type: undefined as ("email" | "tel" | "text" | undefined),
+                                    })),
+                                  ];
+                                  const warnings = r.preview_warnings || [];
+                                  return allFields.map((f) => {
+                                    const matched = warnings.filter((w) =>
+                                      w.toLowerCase().includes(f.key.toLowerCase()),
+                                    );
+                                    return (
+                                      <div key={f.key}>
+                                        <Label className="text-[11px] text-slate-600 flex items-center gap-1">
+                                          {f.label}
+                                          {matched.length > 0 && (
+                                            <span className="text-[10px] text-amber-700 font-semibold">flagged</span>
+                                          )}
+                                        </Label>
+                                        <Input
+                                          type={f.type ?? "text"}
+                                          value={editForm[f.key] ?? ""}
+                                          onChange={(e) =>
+                                            setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))
+                                          }
+                                          className={`h-8 text-xs mt-0.5 ${matched.length > 0 ? "border-amber-300 bg-amber-50" : ""}`}
+                                        />
+                                        {matched.length > 0 && (
+                                          <p className="text-[10px] text-amber-700 mt-0.5 leading-snug">
+                                            {matched[0]}
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  });
+                                })()}
                               </div>
                               <div className="flex items-center justify-end gap-2 mt-3">
                                 <Button
