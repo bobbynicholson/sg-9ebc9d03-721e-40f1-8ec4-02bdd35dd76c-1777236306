@@ -1956,11 +1956,14 @@ function NewQuotePage() {
                               there's no fee so on-site / collection
                               quotes stay clean. */}
                           {computed.deliveryFee > 0 && (
+                            // Distance intentionally omitted from the
+                            // client-facing line. The kitchen-to-venue
+                            // km is internal context the operator uses
+                            // to validate the fee, not something the
+                            // client needs to see (and it can prompt
+                            // unnecessary back-and-forth on quotes).
                             <li className="flex justify-between text-xs">
-                              <span className="text-slate-700">
-                                Delivery
-                                {deliveryDistance > 0 ? ` (${deliveryDistance.toFixed(1)} km)` : ""}
-                              </span>
+                              <span className="text-slate-700">Delivery</span>
                               <span className="text-slate-900 font-medium">{fmtR(computed.deliveryFee)}</span>
                             </li>
                           )}

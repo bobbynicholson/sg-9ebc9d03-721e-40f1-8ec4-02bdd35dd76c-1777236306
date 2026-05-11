@@ -536,12 +536,11 @@ export default function PublicQuotePage() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">
-                      Delivery
-                      {(quote as any).delivery_distance_km
-                        ? ` (${Number((quote as any).delivery_distance_km).toFixed(1)} km)`
-                        : ""}
-                    </span>
+                    {/* Distance intentionally omitted from the
+                        client-facing line. It's internal context the
+                        operator uses to sanity-check the fee, not
+                        something the client needs to see. */}
+                    <span className="text-stone-600">Delivery</span>
                     <span className="text-stone-900 tabular-nums">
                       {fmtMoney.format(Number((quote as any).delivery_fee))}
                     </span>
