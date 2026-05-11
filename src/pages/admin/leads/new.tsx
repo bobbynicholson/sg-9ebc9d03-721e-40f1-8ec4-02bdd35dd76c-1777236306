@@ -1,4 +1,14 @@
-﻿import { useEffect, useState } from "react";
+/**
+ * /admin/leads/new -- create a new lead in the pipeline.
+ *
+ * Phase 4 #10: migrated off raw useState + onChange handlers to
+ * react-hook-form + zod. Field-level validation (required name +
+ * email, sane guest count, sensible budget) lands inline now
+ * instead of letting bad data through to leadService.createLead
+ * and surfacing as a generic toast. Keeps the existing visual
+ * layout untouched; only the form plumbing changed.
+ */
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,57 +26,110 @@ import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { useToast } from "@/hooks/use-toast";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+// Zod schema. Field-level rules:
+//   - name + email always required
+//   - email must parse as an email
+//   - guestCount, budget optional but numeric when present
+//   - eventTime requires eventDate (the UI also disables the input
+//     in that case, so the rule is belt-and-braces)
+const schema = z
+  .object({
+    name: z.string().trim().min(1, "Contact name is required"),
+    company: z.string().trim().optional().default(""),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required")
+      .email("Use a valid email address (name@example.com)"),
+    phone: z.string().trim().optional().default(""),
+    eventType: z.string().trim().optional().default(""),
+    eventDate: z.string().optional().default(""),
+    eventTime: z.string().optional().default(""),
+    guestCount: z
+      .string()
+      .optional()
+      .default("")
+      .refine((v) => v === "" || /^\d+$/.test(v), {
+        message: "Guest count must be a whole number",
+      }),
+    venueAddress: z.string().trim().optional().default(""),
+    budget: z
+      .string()
+      .optional()
+      .default("")
+      .refine((v) => v === "" || /^\d+(\.\d{1,2})?$/.test(v), {
+        message: "Budget must be a number, optionally with cents",
+      }),
+    source: z.string().default("manual_add"),
+    specialRequests: z.string().optional().default(""),
+    notes: z.string().optional().default(""),
+  })
+  .refine((d) => !d.eventTime || !!d.eventDate, {
+    path: ["eventTime"],
+    message: "Pick a date first",
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+const SOURCE_OPTIONS = [
+  { value: "manual_add",     label: "Direct enquiry / manual entry" },
+  { value: "website",        label: "Website form" },
+  { value: "referral",       label: "Referral / word of mouth" },
+  { value: "instagram",      label: "Instagram" },
+  { value: "facebook",       label: "Facebook" },
+  { value: "google_search",  label: "Google search" },
+  { value: "repeat_client",  label: "Repeat client" },
+  { value: "phone_enquiry",  label: "Phone enquiry" },
+  { value: "walk_in",        label: "Walk-in" },
+  { value: "other",          label: "Other" },
+];
+
+const EVENT_TYPE_SUGGESTIONS = [
+  "Wedding", "Corporate lunch", "Birthday party", "Anniversary",
+  "Year-end function", "Conference", "Funeral", "Other private event",
+];
 
 export default function NewLead() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    // Contact
-    name: "",
-    company: "",
-    email: "",
-    phone: "",
-    // Event
-    eventType: "",
-    eventDate: "",
-    eventTime: "",
-    guestCount: "",
-    venueAddress: "",
-    // Money + context
-    budget: "",
-    source: "manual_add",
-    specialRequests: "",
-    notes: "",
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: "",
+      company: "",
+      email: "",
+      phone: "",
+      eventType: "",
+      eventDate: "",
+      eventTime: "",
+      guestCount: "",
+      venueAddress: "",
+      budget: "",
+      source: "manual_add",
+      specialRequests: "",
+      notes: "",
+    },
   });
 
-  // Common lead-source options. Free text "Other" preserved via the
-  // dropdown's last option which falls back to manual_add behind the
-  // scenes -- the source string itself is human-readable in the leads
-  // funnel chart and used as-is.
-  const SOURCE_OPTIONS = [
-    { value: "manual_add",     label: "Direct enquiry / manual entry" },
-    { value: "website",        label: "Website form" },
-    { value: "referral",       label: "Referral / word of mouth" },
-    { value: "instagram",      label: "Instagram" },
-    { value: "facebook",       label: "Facebook" },
-    { value: "google_search",  label: "Google search" },
-    { value: "repeat_client",  label: "Repeat client" },
-    { value: "phone_enquiry",  label: "Phone enquiry" },
-    { value: "walk_in",        label: "Walk-in" },
-    { value: "other",          label: "Other" },
-  ];
-
-  const EVENT_TYPE_SUGGESTIONS = [
-    "Wedding", "Corporate lunch", "Birthday party", "Anniversary",
-    "Year-end function", "Conference", "Funeral", "Other private event",
-  ];
+  const eventDate = watch("eventDate");
 
   // Branch / kitchen scoping. Single-branch tenants get auto-picked
   // and the picker stays hidden; multi-branch tenants must choose
   // before save so quotes / orders flowing off this lead inherit
-  // the right region.
+  // the right region. Kept outside the form schema because it lives
+  // on the user's tenant, not the lead row.
   const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
   const [kitchenId, setKitchenId] = useState<string | null>(null);
   useEffect(() => {
@@ -78,29 +141,23 @@ export default function NewLead() {
       ? selectedKitchen.id
       : null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: FormValues) => {
     if (!user?.company_id) return;
-
-    setLoading(true);
     try {
-      // Stitch optional event_time onto the event_date so the time stays
+      // Stitch optional event_time onto event_date so the time stays
       // visible without a separate column. If only the date is given,
       // skip the suffix.
-      const eventDateTimeISO = formData.eventDate
-        ? (formData.eventTime
-            ? new Date(`${formData.eventDate}T${formData.eventTime}`).toISOString()
-            : new Date(formData.eventDate).toISOString())
+      const eventDateTimeISO = values.eventDate
+        ? (values.eventTime
+            ? new Date(`${values.eventDate}T${values.eventTime}`).toISOString()
+            : new Date(values.eventDate).toISOString())
         : null;
 
-      // Combine special requests + notes when both are filled. Special
-      // requests get a clear header so they're easy to scan when the
-      // lead later becomes a quote.
       const combinedNotes = [
-        formData.specialRequests
-          ? `Special requests / dietary:\n${formData.specialRequests}`
+        values.specialRequests
+          ? `Special requests / dietary:\n${values.specialRequests}`
           : null,
-        formData.notes ? formData.notes : null,
+        values.notes ? values.notes : null,
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -108,40 +165,38 @@ export default function NewLead() {
       await leadService.createLead({
         company_id: user.company_id,
         region_id: resolvedRegionId,
-        contact_name: formData.name,
-        company_name: formData.company || null,
-        client_name: formData.name,
-        client_email: formData.email,
-        email: formData.email,
-        phone: formData.phone || null,
-        client_phone: formData.phone || null,
+        contact_name: values.name,
+        company_name: values.company || null,
+        client_name: values.name,
+        client_email: values.email,
+        email: values.email,
+        phone: values.phone || null,
+        client_phone: values.phone || null,
         event_date: eventDateTimeISO,
-        guest_count: parseInt(formData.guestCount) || 0,
-        event_type: formData.eventType || null,
-        venue_address: formData.venueAddress || null,
-        budget_range: formData.budget,
-        budget: formData.budget ? parseFloat(formData.budget) : null,
-        special_requests: formData.specialRequests || null,
+        guest_count: values.guestCount ? parseInt(values.guestCount, 10) : 0,
+        event_type: values.eventType || null,
+        venue_address: values.venueAddress || null,
+        budget_range: values.budget,
+        budget: values.budget ? parseFloat(values.budget) : null,
+        special_requests: values.specialRequests || null,
         notes: combinedNotes || null,
         status: "new",
-        source: formData.source || "manual_add",
-      } as any);
-      
+        source: values.source || "manual_add",
+      } as never);
+
       toast({
         title: "Success",
-        description: "Lead created successfully"
+        description: "Lead created successfully",
       });
-      
+
       router.push("/admin/leads");
     } catch (error) {
       console.error("Error creating lead:", error);
       toast({
         title: "Error",
         description: "Failed to create lead",
-        variant: "destructive"
+        variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -176,7 +231,7 @@ export default function NewLead() {
               </p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-8">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
                 {/* ── Contact ───────────────────────────────────── */}
                 <section className="space-y-4">
@@ -187,21 +242,17 @@ export default function NewLead() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="name">Contact name *</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Full name"
-                        required
-                      />
+                      <Input id="name" placeholder="Full name" {...register("name")} />
+                      {errors.name && (
+                        <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="company">Company / organisation</Label>
                       <Input
                         id="company"
-                        value={formData.company}
-                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                         placeholder="Optional. Leave blank for individuals"
+                        {...register("company")}
                       />
                     </div>
                   </div>
@@ -211,36 +262,38 @@ export default function NewLead() {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="name@example.co.za"
-                        required
+                        {...register("email")}
                       />
+                      {errors.email && (
+                        <p className="text-xs text-rose-600 mt-1">{errors.email.message}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+27 21 555 1234"
-                      />
+                      <Input id="phone" placeholder="+27 21 555 1234" {...register("phone")} />
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="source">Where did this lead come from?</Label>
-                    <select
-                      id="source"
-                      value={formData.source}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      {SOURCE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Controller
+                      control={control}
+                      name="source"
+                      render={({ field }) => (
+                        <select
+                          id="source"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          {SOURCE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    />
                     <p className="text-xs text-slate-500 mt-1">
                       Helps the Lead source funnel chart on your dashboard see which channels actually convert.
                     </p>
@@ -259,9 +312,8 @@ export default function NewLead() {
                       <Input
                         id="eventType"
                         list="event-type-suggestions"
-                        value={formData.eventType}
-                        onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
                         placeholder="Wedding, corporate lunch, etc."
+                        {...register("eventType")}
                       />
                       <datalist id="event-type-suggestions">
                         {EVENT_TYPE_SUGGESTIONS.map((t) => (
@@ -275,33 +327,32 @@ export default function NewLead() {
                         id="guestCount"
                         type="number"
                         min={0}
-                        value={formData.guestCount}
-                        onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
                         placeholder="e.g. 80"
+                        {...register("guestCount")}
                       />
+                      {errors.guestCount && (
+                        <p className="text-xs text-rose-600 mt-1">{errors.guestCount.message}</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="eventDate">Event date</Label>
-                      <Input
-                        id="eventDate"
-                        type="date"
-                        value={formData.eventDate}
-                        onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                      />
+                      <Input id="eventDate" type="date" {...register("eventDate")} />
                     </div>
                     <div>
                       <Label htmlFor="eventTime">Start time</Label>
                       <Input
                         id="eventTime"
                         type="time"
-                        value={formData.eventTime}
-                        onChange={(e) => setFormData({ ...formData, eventTime: e.target.value })}
-                        disabled={!formData.eventDate}
+                        disabled={!eventDate}
+                        {...register("eventTime")}
                       />
-                      {!formData.eventDate && (
+                      {!eventDate && (
                         <p className="text-xs text-slate-400 mt-1">Pick a date first.</p>
+                      )}
+                      {errors.eventTime && (
+                        <p className="text-xs text-rose-600 mt-1">{errors.eventTime.message}</p>
                       )}
                     </div>
                   </div>
@@ -309,9 +360,8 @@ export default function NewLead() {
                     <Label htmlFor="venueAddress">Venue / event location</Label>
                     <Input
                       id="venueAddress"
-                      value={formData.venueAddress}
-                      onChange={(e) => setFormData({ ...formData, venueAddress: e.target.value })}
                       placeholder="Suburb, city, or full address if you have it"
+                      {...register("venueAddress")}
                     />
                     <p className="text-xs text-slate-500 mt-1">
                       Helpful for delivery distance + branch routing later. A suburb is fine for now.
@@ -324,10 +374,12 @@ export default function NewLead() {
                       type="number"
                       min={0}
                       step="0.01"
-                      value={formData.budget}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                       placeholder="Their estimated total spend"
+                      {...register("budget")}
                     />
+                    {errors.budget && (
+                      <p className="text-xs text-rose-600 mt-1">{errors.budget.message}</p>
+                    )}
                   </div>
                 </section>
 
@@ -341,20 +393,18 @@ export default function NewLead() {
                     <Label htmlFor="specialRequests">Special requests / dietary</Label>
                     <Textarea
                       id="specialRequests"
-                      value={formData.specialRequests}
-                      onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
                       rows={3}
                       placeholder={'e.g. "Halaal only", "2 vegan guests, 1 nut allergy", "no pork on the menu"'}
+                      {...register("specialRequests")}
                     />
                   </div>
                   <div>
                     <Label htmlFor="notes">Internal notes</Label>
                     <Textarea
                       id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       rows={4}
                       placeholder="Anything else you want to remember: how they sounded on the phone, who referred them, follow-up timing..."
+                      {...register("notes")}
                     />
                   </div>
                 </section>
@@ -384,9 +434,9 @@ export default function NewLead() {
                 )}
 
                 <div className="flex gap-3">
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={isSubmitting}>
                     <Save className="w-4 h-4 mr-2" />
-                    {loading ? "Creating..." : "Create Lead"}
+                    {isSubmitting ? "Creating..." : "Create Lead"}
                   </Button>
                   <Link href="/admin/leads">
                     <Button type="button" variant="outline">
@@ -402,7 +452,7 @@ export default function NewLead() {
         <Footer />
       </div>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="admin" companyId={(user as any)?.user_metadata?.company_id} />
     </>
   );
 }
