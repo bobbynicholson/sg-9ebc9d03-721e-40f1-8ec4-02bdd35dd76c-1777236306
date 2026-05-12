@@ -579,8 +579,47 @@ function KitchenStaffPage() {
                             {s.linked_profile_id && <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Logs in</Badge>}
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                            {s.phone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{s.phone}</span>}
-                            {s.email && <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{s.email}</span>}
+                            {/* Phase 21 #9: click-to-copy phone +
+                                email, same pattern as driver-
+                                management. Kitchen leads paste
+                                contact details into ops chats and
+                                rostering messages constantly. */}
+                            {s.phone && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await navigator.clipboard.writeText(String(s.phone || ""));
+                                    toast({ title: "Phone copied", description: s.phone });
+                                  } catch {
+                                    toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 hover:underline hover:text-slate-700"
+                                title="Copy phone number"
+                              >
+                                <Phone className="w-3 h-3" />{s.phone}
+                              </button>
+                            )}
+                            {s.email && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await navigator.clipboard.writeText(String(s.email || ""));
+                                    toast({ title: "Email copied", description: s.email });
+                                  } catch {
+                                    toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 hover:underline hover:text-slate-700"
+                                title="Copy email"
+                              >
+                                <Mail className="w-3 h-3" />{s.email}
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
