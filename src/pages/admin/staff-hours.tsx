@@ -285,7 +285,7 @@ function StaffHoursPage() {
                       <div className="text-right">
                         <div className="text-2xl font-bold">{Number(data.totalHours || 0).toFixed(1)}h</div>
                         <div className="text-sm text-muted-foreground">
-                          R {Number(data.totalEarnings || 0).toFixed(2)} total
+                          {C} {Number(data.totalEarnings || 0).toFixed(2)} total
                         </div>
                       </div>
                     </div>
@@ -296,7 +296,7 @@ function StaffHoursPage() {
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">Unpaid Hours</span>
                           <span className="text-lg font-bold text-amber-600">
-                            R {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
+                            {C} {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -327,7 +327,7 @@ function StaffHoursPage() {
                                   <div className="flex justify-between">
                                     <span>Total Amount:</span>
                                     <span className="font-bold text-green-600">
-                                      R {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
+                                      {C} {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
                                     </span>
                                   </div>
                                 </div>
@@ -429,7 +429,7 @@ function StaffHoursPage() {
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-green-600">
-                            R {Number(payment.total_amount).toFixed(2)}
+                            {C} {Number(payment.total_amount).toFixed(2)}
                           </div>
                           <div className="text-sm text-muted-foreground capitalize">
                             {payment.payment_method.replace("_", " ")}
