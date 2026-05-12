@@ -1566,6 +1566,10 @@ function OrderProcessDashboard() {
           event_date: editedOrder.event_date,
           status: editedOrder.status,
           internal_notes: (editedOrder as any).internal_notes,
+          // Phase 14 #5: discount carries through to the orders
+          // row + downstream invoice via the syncOrderArtifacts
+          // call below. null = clear the discount.
+          discount_amount: (editedOrder as any).discount_amount ?? null,
         });
         if (result && result.success === false) {
           throw new Error(result.error || "Update failed");
@@ -1964,12 +1968,43 @@ function OrderProcessDashboard() {
                 )}
 
                 {/* Money summary -- read-only at-a-glance for the team. */}
-                <div className="col-span-2 grid grid-cols-3 gap-3 mt-2 pt-3 border-t border-slate-200">
+                <div className="col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 pt-3 border-t border-slate-200">
                   <div>
                     <Label className="text-xs">Subtotal</Label>
                     <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
                       {C}{Number((selectedOrder as any).subtotal || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                     </p>
+                  </div>
+                  {/* Phase 14 #5: discount field. Editable inline so
+                      a sales rep can apply a once-off discount or
+                      goodwill credit without rebuilding the quote.
+                      orderSyncService picks discount_amount up on
+                      the next save and reflects it on the invoice. */}
+                  <div>
+                    <Label className="text-xs">Discount</Label>
+                    {editMode ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(editedOrder as any).discount_amount ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setEditedOrder({
+                            ...editedOrder,
+                            discount_amount: raw === "" ? null : Number(raw),
+                          } as any);
+                        }}
+                        placeholder="0.00"
+                        className="mt-1 h-8 text-sm tabular-nums"
+                      />
+                    ) : (
+                      <p className="text-sm font-semibold text-amber-700 mt-1 tabular-nums">
+                        {Number((selectedOrder as any).discount_amount || 0) > 0
+                          ? `−${C}${Number((selectedOrder as any).discount_amount).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}`
+                          : "—"}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs">Tax</Label>
