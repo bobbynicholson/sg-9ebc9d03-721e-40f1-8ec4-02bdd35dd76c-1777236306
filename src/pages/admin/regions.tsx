@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle, ArrowLeft,
-  AlertCircle, Loader2, Truck, ChefHat, Users,
+  AlertCircle, Loader2, Truck, ChefHat, Users, Clock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -442,6 +442,22 @@ function RegionsPage() {
                 <p className="text-slate-600 mt-1">
                   One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
                 </p>
+                {/* Phase 17 #6: HQ defaults chip. Each per-region
+                    chip surfaces a 'differs from HQ' warning
+                    (Phase 12 #10) when the value diverges; this
+                    line surfaces the HQ baseline so the operator
+                    can see what the diff is anchored to without
+                    opening /admin/company-profile. */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                  <Clock className="w-3 h-3" />
+                  HQ defaults:
+                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono">
+                    {companyDefaults.timezone}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono">
+                    {companyDefaults.currency}
+                  </span>
+                </div>
               </div>
             </div>
             <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
