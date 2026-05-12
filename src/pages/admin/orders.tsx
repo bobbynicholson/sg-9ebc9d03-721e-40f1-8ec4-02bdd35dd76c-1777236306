@@ -968,19 +968,32 @@ function OrderProcessDashboard() {
     useEffect(() => {
       const fetchHistory = async () => {
         setLoading(true);
-        const result = await orderService.getOrderStatusHistory(orderId);
-        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-          setHistory(result.data);
+        // Phase 12 #5: pull status history AND audit_logs in parallel
+        // so the timeline merges 'order moved to delivered' with
+        // 'note added' / 'shift logged' / 'amendment approved' for a
+        // single 'who did what when' read.
+        const [statusResult, auditRes] = await Promise.all([
+          orderService.getOrderStatusHistory(orderId),
+          (supabase as any)
+            .from("audit_logs")
+            .select("id, action, created_at, details, user_id")
+            .eq("entity_type", "order")
+            .eq("entity_id", orderId)
+            .order("created_at", { ascending: false })
+            .limit(50),
+        ]);
+
+        let statusEvents: any[] = [];
+        if (statusResult.success && Array.isArray(statusResult.data) && statusResult.data.length > 0) {
+          statusEvents = statusResult.data;
         } else {
           // Fallback timeline: build a synthetic history from the order's
           // own lifecycle timestamps. The order_status_history table is
           // empty for tenants who haven't wired up the trigger yet, but
           // we still have a perfectly good timeline on the order row.
           const o = orders.find((x) => x.id === orderId) as any;
-          if (!o) {
-            setHistory([]);
-          } else {
-            const events = [
+          if (o) {
+            statusEvents = [
               { ts: o.created_at,       status: "pending",    note: "Order created" },
               { ts: o.confirmed_at,     status: "confirmed",  note: "Client confirmed" },
               { ts: o.prep_started_at,  status: "preparing",  note: "Kitchen started prep" },
@@ -991,7 +1004,6 @@ function OrderProcessDashboard() {
               { ts: o.cancelled_at,     status: "cancelled",  note: o.cancellation_reason || "Order cancelled" },
             ]
               .filter((e) => !!e.ts)
-              .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
               .map((e, i) => ({
                 id: `synthetic-${orderId}-${i}`,
                 status: e.status,
@@ -999,9 +1011,30 @@ function OrderProcessDashboard() {
                 notes: e.note,
                 changed_by_profile: null,
               }));
-            setHistory(events);
           }
         }
+
+        // Map audit_logs entries onto the same shape as status events
+        // so the timeline renderer can mix them. status='audit' is a
+        // synthetic value -- the renderer falls through to a neutral
+        // STATUS_CONFIG default for any unknown status.
+        const auditEvents = ((auditRes as any)?.data || []).map((a: any) => {
+          const action = String(a.action || "").replace(/_/g, " ");
+          const author = a.details?.author_name || null;
+          return {
+            id: `audit-${a.id}`,
+            status: "audit",
+            created_at: a.created_at,
+            notes: author ? `${action} -- ${author}` : action,
+            changed_by_profile: null,
+            details: a.details,
+          };
+        });
+
+        const merged = [...statusEvents, ...auditEvents].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        setHistory(merged);
         setLoading(false);
       };
 
