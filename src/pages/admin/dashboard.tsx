@@ -24,6 +24,7 @@ import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWid
 import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
 import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
 import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
+import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -425,6 +426,11 @@ function AdminDashboardPage() {
               event_time over the last 30 days, with a 15-min
               grace window. Self-hides on a fresh tenant. */}
           <DeliverySlaWidget companyId={companyId} />
+
+          {/* Phase 13 #7: equipment cleaning queue. Items still
+              in pending / cleaning / drying after returning from
+              an event. Self-hides when the queue is empty. */}
+          <CleaningQueueWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
