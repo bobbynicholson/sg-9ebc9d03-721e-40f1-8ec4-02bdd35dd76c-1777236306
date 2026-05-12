@@ -22,6 +22,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -80,6 +81,10 @@ function DispatchQueuePage() {
   const { toast } = useToast();
   const companyId = profile?.company_id ?? user?.company_id ?? null;
   const userId = user?.id ?? "";
+  // Phase 10 #1: tenant currency for the order_total render in
+  // each row of the dispatch queue.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const C = tenantCurrency.symbol;
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -957,7 +962,7 @@ function DispatchQueuePage() {
                           <div>
                             <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Total</p>
                             <p className="text-slate-900 tabular-nums">
-                              R{order.total_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              {C}{order.total_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </p>
                           </div>
                         </div>

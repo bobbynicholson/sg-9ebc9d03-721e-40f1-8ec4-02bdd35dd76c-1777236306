@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Clock, Users, TrendingUp, CheckCircle, DollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,10 @@ export default function ProtectedStaffHoursPage() {
 
 function StaffHoursPage() {
   const { user } = useAuth();
+  // Phase 10 #2: tenant currency for the unpaid / paid totals +
+  // per-session earnings + per-payment hourly rate strings.
+  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const C = tenantCurrency.symbol;
   const [sessions, setSessions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -174,7 +179,7 @@ function StaffHoursPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">R {Number(summary.totalUnpaid || 0).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-amber-600">{C} {Number(summary.totalUnpaid || 0).toFixed(2)}</div>
                 <p className="text-xs text-muted-foreground">Pending payment</p>
               </CardContent>
             </Card>
@@ -185,7 +190,7 @@ function StaffHoursPage() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">R {Number(summary.totalPaid || 0).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-green-600">{C} {Number(summary.totalPaid || 0).toFixed(2)}</div>
                 <p className="text-xs text-muted-foreground">This {period}</p>
               </CardContent>
             </Card>
@@ -335,7 +340,7 @@ function StaffHoursPage() {
                           </div>
                           <div className="flex items-center gap-4">
                             <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
-                            <span className="font-medium">R {Number(session.total_earnings || 0).toFixed(2)}</span>
+                            <span className="font-medium">{C} {Number(session.total_earnings || 0).toFixed(2)}</span>
                             <Badge variant={session.payment_status === "paid" ? "default" : "secondary"}>
                               {session.payment_status}
                             </Badge>
@@ -366,7 +371,7 @@ function StaffHoursPage() {
                             {new Date(payment.payment_period_start).toLocaleDateString()} - {new Date(payment.payment_period_end).toLocaleDateString()}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {Number(payment.total_hours).toFixed(1)} hours @ R{Number(payment.hourly_rate).toFixed(2)}/hr
+                            {Number(payment.total_hours).toFixed(1)} hours @ {C}{Number(payment.hourly_rate).toFixed(2)}/hr
                           </div>
                         </div>
                         <div className="text-right">
