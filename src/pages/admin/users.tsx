@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { 
+import {
   Users,
   ArrowLeft,
   Search,
@@ -24,7 +24,8 @@ import {
   CheckCircle,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -302,6 +303,50 @@ function AdminUsersPage() {
                   content={"Refresh the user list to pick up the latest changes and department assignments."}
                   side="left"
                 />
+                {/* Phase 20 #2: team roster CSV export. HR + payroll
+                    regularly want a flat list of every login on the
+                    tenant with their email + primary department for
+                    handover docs, audits, and identity reviews. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (filteredUsers.length === 0) {
+                      toast({ title: "Nothing to export", description: "Adjust your search until at least one user is visible." });
+                      return;
+                    }
+                    const esc = (v: any) => {
+                      if (v == null) return "";
+                      const s = String(v).replace(/"/g, '""');
+                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    };
+                    const headers = ["Name", "Email", "Phone", "Primary department", "All departments", "Created"];
+                    const lines = [headers.join(",")];
+                    for (const u of filteredUsers as any[]) {
+                      lines.push([
+                        esc(u.full_name || ""),
+                        esc(u.email || ""),
+                        esc(u.phone || ""),
+                        esc(u.primary_department || ""),
+                        esc((u.departments || []).join("; ")),
+                        esc(u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : ""),
+                      ].join(","));
+                    }
+                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `team-${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  disabled={loading}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
