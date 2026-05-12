@@ -167,6 +167,53 @@ function ClientsCRM() {
   // contact passes if it has at least one of the selected tags.
   // Empty set means no tag filter is active.
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  // Phase 16 #8: saved-view chips. Sales reps with several
+  // standing segments ('VIPs', 'Active in JHB', 'Hot leads
+  // unread') had to manually re-set the status pill + tag
+  // filter + search box every switch. Snapshot all three
+  // dimensions under a named chip in localStorage.
+  interface SavedContactView {
+    id: string;
+    name: string;
+    filter: "all" | ClientStatus;
+    search: string;
+    tags: string[];
+  }
+  const [savedContactViews, setSavedContactViews] = useState<SavedContactView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminContacts.savedViews.v1");
+      if (raw) setSavedContactViews(JSON.parse(raw) as SavedContactView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminContacts.savedViews.v1",
+        JSON.stringify(savedContactViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedContactViews]);
+  const saveCurrentContactView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedContactViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), filter, search, tags: Array.from(tagFilter) },
+    ]);
+  };
+  const applySavedContactView = (v: SavedContactView) => {
+    setFilter(v.filter);
+    setSearch(v.search);
+    setTagFilter(new Set(v.tags));
+  };
+  const removeSavedContactView = (id: string) => {
+    setSavedContactViews((prev) => prev.filter((v) => v.id !== id));
+  };
   const [active, setActive] = useState<Contact | null>(null);
   const [contactedKeys, setContactedKeys] = useState<Record<string, string>>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -849,6 +896,41 @@ function ClientsCRM() {
               </div>
             </div>
           )}
+
+          {/* Phase 16 #8: saved-view chips. Snapshot status + tag
+              + search under a named chip so a sales rep can snap
+              back to 'VIPs', 'Active in JHB', 'Hot leads unread'
+              with one click. */}
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            {savedContactViews.map((v) => (
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => applySavedContactView(v)}
+                  className="px-2.5 py-0.5 hover:underline"
+                  title={`Apply: ${v.filter}${v.search ? ` + '${v.search}'` : ""}${v.tags.length ? ` + tags(${v.tags.join(",")})` : ""}`}
+                >
+                  {v.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSavedContactView(v.id)}
+                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  title="Remove this view"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={saveCurrentContactView}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              title="Save the current status + tag + search as a named view"
+            >
+              + Save view
+            </button>
+          </div>
 
           {/* Phase 9 #4: tag filter chip strip. Only renders when
               the book has at least one tagged contact. Click a chip
