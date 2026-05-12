@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown } from "lucide-react";
+import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -786,6 +786,60 @@ export default function AdminLeads() {
                 budget, venue, source) that the leaner Add contact
                 doesn't cover.
               */}
+              {/* Phase 19 #4: lead CSV export. Sales keeps wanting an
+                  offline list of the current pipeline for handover,
+                  prospecting reports, and outreach planning. Exports
+                  exactly what the user is looking at (the filter-
+                  applied + fuzzy-search filtered set) so what they
+                  see is what they get. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (filteredLeads.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one lead is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Created", "Status", "Name", "Email", "Phone", "Company",
+                    "Event type", "Event date", "Guest count", "Budget", "Venue", "Source", "Notes",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const l of filteredLeads as any[]) {
+                    lines.push([
+                      esc(l.created_at ? new Date(l.created_at).toISOString().slice(0, 10) : ""),
+                      esc(l.status || ""),
+                      esc(l.client_name || ""),
+                      esc(l.client_email || ""),
+                      esc(l.client_phone || ""),
+                      esc(l.company_name || ""),
+                      esc(l.event_type || ""),
+                      esc(l.event_date || ""),
+                      esc(l.guest_count ?? ""),
+                      esc(l.budget_range || ""),
+                      esc(l.venue || ""),
+                      esc(l.source || ""),
+                      esc(l.notes || ""),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
               <Link href="/admin/leads/new">
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
