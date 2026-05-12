@@ -35,7 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload } from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -710,6 +710,59 @@ function ClientsCRM() {
                   className="pl-9 w-64 sm:w-80"
                 />
               </div>
+              {/* Phase 13 #2: bulk CSV export of the currently
+                  filtered contact list (status + tag filters +
+                  search all flow through fuzzyVisible). Marketing
+                  team needed a way to pull a segment for a Mailchimp
+                  / SendGrid blast without bouncing through the DB. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const rows = fuzzyVisible;
+                  if (rows.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one contact is visible." });
+                    return;
+                  }
+                  const headers = [
+                    "Name", "Email", "Phone", "Status", "Source",
+                    "Lead status", "Lead source",
+                    "Order count", "Lifetime spend", "Outstanding balance",
+                    "Last event", "Next event",
+                    "Tags",
+                  ];
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const lines = [headers.join(",")];
+                  for (const c of rows) {
+                    const ltv = c.totalSpent + (c.historicalLifetimeSpend ?? 0);
+                    lines.push([
+                      esc(c.name), esc(c.email), esc(c.phone),
+                      esc(c.status), esc(c.source),
+                      esc(c.leadStatus), esc(c.leadSource),
+                      esc(c.orderCount + (c.historicalTotalEvents ?? 0)),
+                      esc(ltv),
+                      esc(c.outstandingBalance),
+                      esc(c.lastEventDate), esc(c.nextEventDate),
+                      esc((c.tags || []).join(";")),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const stamp = new Date().toISOString().slice(0, 10);
+                  a.download = `contacts_${stamp}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="gap-1.5"
+                title="Export the currently filtered contact list as CSV"
+              >
+                <Download className="w-4 h-4" /> Export CSV
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setImportOpen(true)}
