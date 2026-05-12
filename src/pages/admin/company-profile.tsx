@@ -33,6 +33,43 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
+import { z } from "zod";
+
+/**
+ * Phase 7 #9: zod-based pre-save validator. The original brief
+ * was a full react-hook-form migration of this 978-line form,
+ * but the actual safety win is at the save boundary -- catching
+ * a malformed email, an out-of-range VAT rate or a junk hex
+ * colour BEFORE the row hits the DB. RHF can land later as a
+ * field-by-field refactor; this guards the data either way.
+ *
+ * `.partial()` everywhere because most fields are nullable in
+ * the schema and the save flow tolerates blanks. `superRefine`
+ * is reserved for cross-field rules (vat_registered implies a
+ * VAT number).
+ */
+const hexColour = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const companyProfileSchema = z.object({
+  company_name: z.string().min(1, "Company name is required.").max(120),
+  email: z.string().email("Email looks invalid.").nullish().or(z.literal("")),
+  phone: z.string().max(40).nullish().or(z.literal("")),
+  website: z.string().url("Website should be a full URL, e.g. https://example.co.za").nullish().or(z.literal("")),
+  primary_color: z.string().regex(hexColour, "Brand colour must be a hex code, e.g. #10b981.").nullish().or(z.literal("")),
+  secondary_color: z.string().regex(hexColour, "Secondary colour must be a hex code, e.g. #0ea5e9.").nullish().or(z.literal("")),
+  vat_rate: z.coerce.number().min(0, "VAT rate can't be negative.").max(100, "VAT rate can't exceed 100%.").nullish(),
+  headquarters_lat: z.coerce.number().min(-90).max(90).nullish(),
+  headquarters_lng: z.coerce.number().min(-180).max(180).nullish(),
+  vat_registered: z.boolean().nullish(),
+  vat_number: z.string().max(40).nullish().or(z.literal("")),
+}).partial().superRefine((val, ctx) => {
+  if (val.vat_registered && !val.vat_number?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["vat_number"],
+      message: "VAT number required when registered for VAT.",
+    });
+  }
+});
 
 interface CompanyRow {
   id: string;
@@ -141,6 +178,31 @@ function CompanyProfilePage() {
       toast({
         title: "Invalid timezone",
         description: `'${row.timezone}' isn't a recognised IANA timezone. Pick from the list.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    // Phase 7 #9: zod pre-save validation. Surfaces the first
+    // problem as a destructive toast keyed to the offending
+    // field so the operator knows where to look.
+    const parsed = companyProfileSchema.safeParse({
+      company_name: row.company_name,
+      email: row.email,
+      phone: row.phone,
+      website: row.website,
+      primary_color: row.primary_color,
+      secondary_color: row.secondary_color,
+      vat_rate: row.vat_rate,
+      headquarters_lat: row.headquarters_lat,
+      headquarters_lng: row.headquarters_lng,
+      vat_registered: row.vat_registered,
+      vat_number: row.vat_number,
+    });
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      toast({
+        title: `Check ${first.path.join(".") || "the form"}`,
+        description: first.message,
         variant: "destructive",
       });
       return;
