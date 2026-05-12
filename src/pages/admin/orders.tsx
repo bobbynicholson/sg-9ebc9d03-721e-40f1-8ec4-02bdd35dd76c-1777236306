@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -168,6 +169,11 @@ function OrderProcessDashboard() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
+  // Phase 7 #6: bulk-select for the timeline view. Set of order ids
+  // currently ticked. Toolbar appears when size > 0; Kanban view
+  // ignores it (the cards are too dense to make checkboxes readable).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -489,6 +495,51 @@ function OrderProcessDashboard() {
 
   const getFilteredOrders = () => fuzzyOrders;
 
+  // Phase 7 #6: bulk-select helpers + bulk-status mutator.
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const selectAllVisible = () => {
+    const ids = fuzzyOrders.map((o: any) => o.id as string);
+    setSelectedIds(new Set(ids));
+  };
+  const bulkUpdateStatus = async (newStatus: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus as any })
+        .in("id", ids);
+      if (error) throw error;
+      // Optimistic local update so the screen reflects the move
+      // without waiting for a refetch.
+      setOrders((prev) =>
+        prev.map((o) => (selectedIds.has((o as any).id) ? ({ ...o, status: newStatus } as AppOrder) : o)),
+      );
+      toast({
+        title: "Bulk update",
+        description: `${ids.length} order${ids.length === 1 ? "" : "s"} moved to ${newStatus}.`,
+      });
+      clearSelection();
+    } catch (e: any) {
+      toast({
+        title: "Bulk update failed",
+        description: e?.message || "Could not update the selected orders.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   // Pre-group filtered orders by status once per filter-state change.
   // The kanban view calls getOrdersByStatus once per column (10+
   // columns); without this every render did a fresh O(n) filter per
@@ -650,10 +701,11 @@ function OrderProcessDashboard() {
     const isToday = eventDate.toDateString() === new Date().toDateString();
     const isPast = eventDate < new Date();
     const nextStage = getNextStage(order);
+    const isSelected = selectedIds.has((order as any).id);
 
     return (
-      <Card 
-        className="hover:shadow-md transition-shadow cursor-pointer"
+      <Card
+        className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-blue-400" : ""}`}
         onClick={() => {
           setSelectedOrder(order);
           setIsModalOpen(true);
@@ -662,7 +714,19 @@ function OrderProcessDashboard() {
         <CardContent className="p-6">
           <div className="space-y-4">
             {/* Order Header */}
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-3">
+              {/* Phase 7 #6: bulk-select checkbox. Click stops
+                  propagation so we don't open the details modal. */}
+              <div
+                className="pt-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleSelected((order as any).id)}
+                  aria-label={`Select order ${(order as any).order_number || order.client_name}`}
+                />
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
@@ -2387,6 +2451,55 @@ function OrderProcessDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Phase 7 #6: bulk action toolbar. Sticky at the
+                    top of the timeline list when at least one row
+                    is ticked. Bulk status update routes through
+                    bulkUpdateStatus which fans out a single UPDATE
+                    .. WHERE id IN (...) query. Cancellation is left
+                    to the per-order cancel dialog -- it has refund
+                    semantics that don't suit a quick fan-out. */}
+                {selectedIds.size > 0 && (
+                  <div className="sticky top-0 z-10 bg-white border border-blue-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-blue-900">
+                      {selectedIds.size} selected
+                    </span>
+                    <div className="flex items-center gap-2 ml-auto flex-wrap">
+                      <Select
+                        onValueChange={(v) => bulkUpdateStatus(v)}
+                        disabled={bulkBusy}
+                      >
+                        <SelectTrigger className="w-48 h-9">
+                          <SelectValue placeholder="Move to status..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="preparing">In prep</SelectItem>
+                          <SelectItem value="ready">Ready</SelectItem>
+                          <SelectItem value="in_transit">In transit</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllVisible}
+                        disabled={bulkBusy}
+                      >
+                        Select all visible
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelection}
+                        disabled={bulkBusy}
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {getFilteredOrders().length === 0 ? (
                   <Card className="border-0 shadow-lg">
                     <CardContent className="py-24">
