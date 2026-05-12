@@ -34,6 +34,7 @@ import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
 import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
 import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
 import { RecentInventoryAdjustsWidget } from "@/components/admin/RecentInventoryAdjustsWidget";
+import { RecentlyViewedWidget } from "@/components/admin/RecentlyViewedWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -430,6 +431,12 @@ function AdminDashboardPage() {
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
           <TodaysPulse companyId={companyId} />
+
+          {/* Phase 17 #8: recently-viewed shortcut. Tracks the last
+              5 entities the operator opened across orders / quotes /
+              contacts in localStorage so jumping back is one click.
+              Self-hides until at least one entity is tracked. */}
+          <RecentlyViewedWidget />
 
           {/* Phase 9 #10: quotes-to-chase widget. Surfaces the 5
               oldest in-play quotes sent more than 3 days ago without

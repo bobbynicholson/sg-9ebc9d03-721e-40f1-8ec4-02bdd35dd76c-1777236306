@@ -44,6 +44,7 @@ import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuIte
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
+import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -359,6 +360,19 @@ function OrderProcessDashboard() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Phase 17 #8: record opened order in the recently-viewed list so
+  // the dashboard widget can offer a quick jump back. Fires only
+  // when the modal opens (selectedOrder + isModalOpen).
+  useEffect(() => {
+    if (!selectedOrder?.id || !isModalOpen) return;
+    trackRecentlyViewed({
+      id: selectedOrder.id,
+      type: "order",
+      label: `${(selectedOrder as any).order_number || ""} -- ${selectedOrder.client_name || "Unknown"}`,
+      href: `/admin/orders?orderId=${selectedOrder.id}`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.id, isModalOpen]);
   const [editMode, setEditMode] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
