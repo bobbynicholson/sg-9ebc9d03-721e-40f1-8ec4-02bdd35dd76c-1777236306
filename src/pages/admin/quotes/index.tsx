@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download } from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -691,6 +691,59 @@ export default function AdminQuotes() {
    * still in draft, status flips to 'sent' so the suggester picks it
    * up like any normal sent quote.
    */
+  // Phase 11 #6: mark a quote as lost / rejected. Captures an
+  // optional reason in audit_logs so the sales lead can later
+  // review why deals fell through. No order is created.
+  const handleMarkAsLost = async (quote: Quote) => {
+    if (typeof window === "undefined") return;
+    const reason = window.prompt(
+      `Mark ${quote.client_name}'s quote as lost? Add a quick reason (optional):`,
+      "",
+    );
+    if (reason === null) return; // cancel
+    try {
+      const { error } = await (supabase as any)
+        .from("quotes")
+        .update({ status: "rejected" })
+        .eq("id", quote.id);
+      if (error) throw error;
+      setQuotes((prev) => prev.map((q) =>
+        q.id === quote.id ? ({ ...q, status: "rejected" } as Quote) : q,
+      ));
+      // Best-effort audit log so /admin/audit-logs shows the loss
+      // reason. Non-blocking if it trips.
+      if (user?.company_id) {
+        try {
+          await (supabase as any).from("audit_logs").insert({
+            company_id: user.company_id,
+            user_id: (user as any)?.id ?? null,
+            action: "quote_marked_lost",
+            entity_type: "quote",
+            entity_id: quote.id,
+            details: {
+              client_name: quote.client_name,
+              total: quote.total,
+              reason: reason.trim() || null,
+            },
+          });
+        } catch {
+          /* non-blocking */
+        }
+      }
+      toast({
+        title: "Marked as lost",
+        description: reason.trim() ? `Reason: ${reason.trim()}` : "No reason recorded.",
+      });
+    } catch (err: any) {
+      console.error("Mark as lost failed:", err);
+      toast({
+        title: "Could not mark as lost",
+        description: err?.message || "Try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleMarkAsSent = async (quote: Quote) => {
     const isAlreadySent = !!(quote as any).sent_at;
     const ok = isAlreadySent
@@ -1536,6 +1589,23 @@ export default function AdminQuotes() {
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
+                            </Button>
+                          )}
+                          {/* Phase 11 #6: mark-as-lost. Symmetric to
+                              the mark-accepted action above. Records
+                              an optional reason in audit_logs so the
+                              sales lead can later review why deals
+                              fell through. No downstream side-effects. */}
+                          {quote.status !== "accepted" && quote.status !== "rejected" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkAsLost(quote)}
+                              title="Client said no? Mark the quote as lost and capture a reason for sales analytics."
+                              className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Mark lost
                             </Button>
                           )}
                           {/* Mark-as-sent / Reset timestamp. Anchors
