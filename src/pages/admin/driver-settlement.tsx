@@ -112,6 +112,14 @@ function DriverSettlementPage() {
   // effect can re-run without losing the rows list.
   const [refreshTick, setRefreshTick] = useState(0);
 
+  // Phase 19 #2: sort selector for the per-driver breakdown table.
+  // Default is total-desc so the operator sees who they owe the most
+  // first when running payouts. Name-asc kept as the alphabetical
+  // fallback for ops who scan by driver.
+  const [driverSort, setDriverSort] = useState<"total_desc" | "hours_desc" | "name_asc">(
+    "total_desc",
+  );
+
   // Phase 4 #7: pull the company name once so per-driver payslips
   // have the right header. Cheap; one row, runs on mount.
   useEffect(() => {
@@ -302,6 +310,18 @@ function DriverSettlementPage() {
                 <Label className="text-xs text-slate-500">To</Label>
                 <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); }} className="mt-1 w-44" />
               </div>
+              <div>
+                <Label className="text-xs text-slate-500">Sort by</Label>
+                <select
+                  value={driverSort}
+                  onChange={(e) => setDriverSort(e.target.value as any)}
+                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="total_desc">Total owed (high to low)</option>
+                  <option value="hours_desc">Hours (high to low)</option>
+                  <option value="name_asc">Name (A to Z)</option>
+                </select>
+              </div>
               <div className="ml-auto flex gap-2">
                 <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="w-4 h-4 mr-2" /> Export CSV
@@ -394,6 +414,23 @@ function DriverSettlementPage() {
                           if (r.loading) return true;
                           const t = r.summary?.totals;
                           return !!t && t.grand_total > 0;
+                        })
+                        // Phase 19 #2: sort by what operators actually
+                        // triage on. Defaults to highest-owed first.
+                        .sort((a, b) => {
+                          const at = a.summary?.totals;
+                          const bt = b.summary?.totals;
+                          switch (driverSort) {
+                            case "hours_desc":
+                              return Number(bt?.hours_total || 0) - Number(at?.hours_total || 0);
+                            case "name_asc":
+                              return String((a.driver as any).full_name || "").localeCompare(
+                                String((b.driver as any).full_name || ""),
+                              );
+                            case "total_desc":
+                            default:
+                              return Number(bt?.grand_total || 0) - Number(at?.grand_total || 0);
+                          }
                         })
                         .map((r) => {
                           const t = r.summary?.totals;
