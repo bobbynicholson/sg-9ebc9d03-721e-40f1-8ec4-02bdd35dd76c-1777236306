@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -56,7 +57,25 @@ interface RefundRow {
 
 type FilterKey = "all" | "auto" | "pending" | "rejected";
 
-const fmt = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
+/**
+ * Phase 15 #10: tenant-currency-aware formatter. Same locale-
+ * lookup pattern used on the dashboard + invoice PDF -- falls
+ * back to ZAR / en-ZA when the tenant's currency code is
+ * unknown so existing tenants render unchanged.
+ */
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE", AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
+};
+const buildFmt = (code: string) => {
+  try {
+    return new Intl.NumberFormat(CURRENCY_LOCALE[code] || "en-ZA", {
+      style: "currency",
+      currency: code,
+    });
+  } catch {
+    return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
+  }
+};
 
 function ProtectedRefundsPage() {
   return (
@@ -115,6 +134,11 @@ function RefundsPage() {
   const { toast } = useToast();
   const { user } = useAuth() as any;
   const companyId = user?.company_id || null;
+  // Phase 15 #10: tenant currency. Closure-bind a formatter
+  // off the resolved code so a UK / US tenant sees their
+  // own symbol on the refund amounts.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const fmt = buildFmt(tenantCurrency.code);
 
   const [rows, setRows] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
