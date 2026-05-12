@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink, Loader2,
+  Calendar as CalendarIcon, ExternalLink, Loader2, Download,
 } from "lucide-react";
 import {
   listUpcomingReservations, getEquipmentAvailability,
@@ -373,6 +373,53 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         <div className="text-sm text-slate-600">
           Chafing dishes, tables, chairs, hire add-ons. The catalog feeds the quote builder, kitchen pack list and driver load list.
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {/* Phase 15 #6: equipment CSV export. Lets the team
+            stocktake / hand the catalogue to an insurer / quote
+            an external hire-out without opening each row. Reads
+            from the filtered list so search + availability scope
+            flows through. */}
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (filtered.length === 0) {
+              toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
+              return;
+            }
+            const headers = [
+              "Name", "Category", "Quantity", "Available", "Condition",
+              "Rental price", "Hire-in cost", "Cleaning hrs", "Hidden", "Description",
+            ];
+            const esc = (v: any) => {
+              if (v == null) return "";
+              const s = String(v).replace(/"/g, '""');
+              return /[",\n]/.test(s) ? `"${s}"` : s;
+            };
+            const lines = [headers.join(",")];
+            for (const r of filtered as any[]) {
+              lines.push([
+                esc(r.name), esc(r.category),
+                esc(r.quantity), esc(r.available_quantity),
+                esc(r.condition),
+                esc(r.rental_price), esc(r.hire_in_cost_per_unit),
+                esc(r.cleaning_time_hours),
+                esc(r.is_available === false ? "yes" : "no"),
+                esc(r.description),
+              ].join(","));
+            }
+            const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const stamp = new Date().toISOString().slice(0, 10);
+            a.download = `equipment_${stamp}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export CSV
+        </Button>
         <Button
           onClick={() =>
             setEditing({
@@ -393,6 +440,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
           <Plus className="w-4 h-4 mr-2" />
           Add equipment
         </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
