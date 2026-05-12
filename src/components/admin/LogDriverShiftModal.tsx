@@ -9,6 +9,7 @@
  * to admins of the same company; super_admin allowed too.
  */
 import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ export function LogDriverShiftModal({
   onCreated,
   actorUserId,
 }: Props) {
+  const { toast } = useToast();
   const [start, setStart] = useState(isoLocalNow(-60 * 4));
   const [end, setEnd] = useState(isoLocalNow());
   const [notes, setNotes] = useState("");
@@ -131,6 +133,20 @@ export function LogDriverShiftModal({
       }
       setDone(true);
       setConflict(false);
+      // Phase 7 #2: surface the BCEA fatigue warning if the
+      // service flagged one. Insert already succeeded; this is a
+      // post-action heads-up so the operator sees what they just
+      // committed to (a 14h shift, or a back-to-back without 12h
+      // rest). The toast survives the 700ms close because shadcn
+      // toast queues independent of dialog state.
+      const fatigue = (result as any).fatigueWarning;
+      if (fatigue) {
+        toast({
+          title: "BCEA fatigue check",
+          description: fatigue,
+          variant: "destructive",
+        });
+      }
       if (onCreated) onCreated();
       // Close after a brief flash so the operator sees the confirmation.
       setTimeout(() => onOpenChange(false), 700);

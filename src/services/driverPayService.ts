@@ -397,6 +397,11 @@ export const driverPayService = {
     shift?: DriverShift;
     error?: string;
     conflict?: { id: string; actual_start: string | null; actual_end: string | null };
+    /** Phase 7 #2: BCEA fatigue warning. Set when the shift exceeds
+     *  12h or the gap to the previous shift is under 12h. The
+     *  insert still succeeded; the operator just gets a heads-up
+     *  toast on the UI side. */
+    fatigueWarning?: string;
   }> {
     const start = new Date(payload.actual_start);
     const end = new Date(payload.actual_end);
@@ -435,6 +440,48 @@ export const driverPayService = {
         };
       }
     }
+
+    // Phase 7 #2: BCEA s9 fatigue cap. The Act limits ordinary daily
+    // hours to 12h with a mandatory 12h consecutive rest break
+    // between shifts. We don't refuse the insert (some real
+    // operations push past 12h on a one-off basis) but we surface
+    // a soft warning the operator must acknowledge. Skipped when
+    // allow_overlap is set since the operator already chose to
+    // override the related overlap check.
+    let fatigueWarning: string | null = null;
+    if (!payload.allow_overlap) {
+      const startMs = new Date(payload.actual_start).getTime();
+      const endMs = new Date(payload.actual_end).getTime();
+      const hoursThisShift = (endMs - startMs) / 3_600_000;
+      // (a) shift over 12h
+      if (hoursThisShift > 12) {
+        fatigueWarning = `BCEA cap: this shift is ${hoursThisShift.toFixed(1)}h. Ordinary daily limit is 12h.`;
+      } else {
+        // (b) less than 12h gap since the last completed shift on
+        // the same driver. Pull the most recent closed shift in
+        // the 24h before this one.
+        const lookbackIso = new Date(startMs - 24 * 3_600_000).toISOString();
+        const { data: prior } = await (client as any)
+          .from("driver_shifts")
+          .select("actual_end")
+          .eq("driver_id", payload.driver_id)
+          .is("deleted_at", null)
+          .not("actual_end", "is", null)
+          .gte("actual_end", lookbackIso)
+          .lte("actual_end", payload.actual_start)
+          .order("actual_end", { ascending: false })
+          .limit(1);
+        const lastEnd = (prior as any)?.[0]?.actual_end;
+        if (lastEnd) {
+          const gapHours = (startMs - new Date(lastEnd).getTime()) / 3_600_000;
+          if (gapHours < 12) {
+            fatigueWarning =
+              `BCEA cap: only ${gapHours.toFixed(1)}h between this shift and the driver's last one. ` +
+              `S15 requires 12h consecutive rest between shifts.`;
+          }
+        }
+      }
+    }
     const insertRow: any = {
       company_id: payload.company_id,
       driver_id: payload.driver_id,
@@ -453,7 +500,7 @@ export const driverPayService = {
       .select("*")
       .single();
     if (error) return { ok: false, error: error.message };
-    return { ok: true, shift: data as DriverShift };
+    return { ok: true, shift: data as DriverShift, fatigueWarning: fatigueWarning || undefined };
   },
 
   async updateShift(
