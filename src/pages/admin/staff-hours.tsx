@@ -450,11 +450,60 @@ function StaffHoursPage() {
 
             <TabsContent value="ledger" className="space-y-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content={"Every staff payment in this period, including the method, hours covered and rate paid."} /></CardTitle>
-                  <CardDescription>
-                    Complete record of all staff payments
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content={"Every staff payment in this period, including the method, hours covered and rate paid."} /></CardTitle>
+                    <CardDescription>
+                      Complete record of all staff payments
+                    </CardDescription>
+                  </div>
+                  {/* Phase 21 #7: payment ledger CSV. The sessions
+                      tab already exports the active shift log
+                      (Phase 17 #10) but this historical payments
+                      tab had no export. Payroll reconciliation
+                      and bookkeeping batch needs both. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={ledger.length === 0}
+                    onClick={() => {
+                      if (ledger.length === 0) return;
+                      const esc = (v: any) => {
+                        if (v == null) return "";
+                        const s = String(v).replace(/"/g, '""');
+                        return /[",\n]/.test(s) ? `"${s}"` : s;
+                      };
+                      const headers = [
+                        "Staff", "Period start", "Period end", "Hours", "Hourly rate",
+                        "Total", "Method", "Paid on",
+                      ];
+                      const lines = [headers.join(",")];
+                      for (const p of ledger as any[]) {
+                        lines.push([
+                          esc(p.staff?.full_name || ""),
+                          esc(p.payment_period_start || ""),
+                          esc(p.payment_period_end || ""),
+                          esc(Number(p.total_hours || 0).toFixed(2)),
+                          esc(Number(p.hourly_rate || 0).toFixed(2)),
+                          esc(Number(p.total_amount || 0).toFixed(2)),
+                          esc(p.payment_method || ""),
+                          esc(p.payment_date || ""),
+                        ].join(","));
+                      }
+                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `payment-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export ledger
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
