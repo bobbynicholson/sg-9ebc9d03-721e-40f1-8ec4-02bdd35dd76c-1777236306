@@ -1026,6 +1026,30 @@ function OrderProcessDashboard() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
+                  {(order as any).order_number && (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        // Phase 20 #10: row-level click-to-copy.
+                        // Same UX as Phase 20 #8 in the drawer but
+                        // without having to open the drawer first --
+                        // useful when triaging a long list.
+                        e.stopPropagation();
+                        const num = String((order as any).order_number);
+                        try {
+                          await navigator.clipboard.writeText(num);
+                          toast({ title: "Copied", description: `${num} on clipboard.` });
+                        } catch {
+                          toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
+                      title="Copy order number"
+                    >
+                      <Copy className="w-3 h-3" />
+                      {(order as any).order_number}
+                    </button>
+                  )}
                   <RegionBadge regionId={(order as any).region_id} />
                   {isToday && (
                     <Badge className="bg-blue-500">Today</Badge>
