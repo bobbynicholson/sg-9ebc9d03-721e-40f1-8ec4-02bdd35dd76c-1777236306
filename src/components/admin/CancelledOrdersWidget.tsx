@@ -107,28 +107,34 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
         ) : (
           <ul className="divide-y divide-slate-100">
             {rows.map((r) => (
-              <li key={r.id} className="py-2 flex items-center gap-3">
-                <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">
-                  {fmtAge(r.cancelled_at)}
-                </Badge>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    <Link href={`/admin/orders?orderId=${r.id}`} className="hover:underline">
+              // Phase 23 #1: full-row link, same pattern as the
+              // overdue / refunds / leads chase widgets from
+              // Phase 22.
+              <li key={r.id}>
+                <Link
+                  href={`/admin/orders?orderId=${r.id}`}
+                  className="py-2 flex items-center gap-3 hover:bg-slate-100/60 rounded transition"
+                >
+                  <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">
+                    {fmtAge(r.cancelled_at)}
+                  </Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
                       {r.client_name || "Unknown client"}
-                    </Link>
-                    {r.order_number && (
-                      <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
-                        {r.order_number}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {r.cancellation_reason || "No reason recorded"}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-slate-700">
-                  {tenantCurrency.format(Number(r.total_amount || 0), 0)}
-                </span>
+                      {r.order_number && (
+                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
+                          {r.order_number}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {r.cancellation_reason || "No reason recorded"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-slate-700">
+                    {tenantCurrency.format(Number(r.total_amount || 0), 0)}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
