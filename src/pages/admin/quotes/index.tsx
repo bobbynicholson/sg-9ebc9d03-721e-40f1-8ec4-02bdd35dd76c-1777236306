@@ -1461,6 +1461,31 @@ export default function AdminQuotes() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
+                            {(quote as any).quote_number && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  // Phase 21 #1: row-level click-to-copy
+                                  // for quote numbers, mirroring the
+                                  // Phase 20 #10 pattern on orders. Sales
+                                  // pastes quote refs into WhatsApp +
+                                  // emails constantly when following up.
+                                  e.stopPropagation();
+                                  const num = String((quote as any).quote_number);
+                                  try {
+                                    await navigator.clipboard.writeText(num);
+                                    toast({ title: "Copied", description: `${num} on clipboard.` });
+                                  } catch {
+                                    toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
+                                title="Copy quote number"
+                              >
+                                <Copy className="w-3 h-3" />
+                                {(quote as any).quote_number}
+                              </button>
+                            )}
                             <RegionBadge regionId={(quote as any).region_id} />
                             <Badge className={`${getStatusColor(quote.status)} border`}>
                               {quote.status}
