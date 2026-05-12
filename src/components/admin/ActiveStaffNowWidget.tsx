@@ -116,28 +116,36 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             {rows.map((r) => {
               const elapsedMs = Date.now() - new Date(r.clock_in).getTime();
               const overEight = elapsedMs > 8 * 3_600_000;
+              // Phase 23 #5: deep-link straight to /admin/staff-hours
+              // so closing a stale clock-in or reviewing the session
+              // history is one click.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${
-                    overEight
-                      ? "bg-amber-100 text-amber-800 border-amber-200"
-                      : "bg-emerald-100 text-emerald-800 border-emerald-200"
-                  }`}>
-                    {fmtElapsed(r.clock_in)}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.staff_name}
-                      {r.role_title && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500">
-                          {r.role_title}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Clocked in {new Date(r.clock_in).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
+                <li key={r.id}>
+                  <Link
+                    href="/admin/staff-hours"
+                    className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                  >
+                    <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${
+                      overEight
+                        ? "bg-amber-100 text-amber-800 border-amber-200"
+                        : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    }`}>
+                      {fmtElapsed(r.clock_in)}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.staff_name}
+                        {r.role_title && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500">
+                            {r.role_title}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Clocked in {new Date(r.clock_in).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
