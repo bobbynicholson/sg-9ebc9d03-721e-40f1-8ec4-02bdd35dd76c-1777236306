@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChefHat, UserPlus, Pencil, Archive, ArchiveRestore, Search, Phone, Mail,
-  DollarSign, Clock, AlertTriangle, ExternalLink, Download,
+  DollarSign, Clock, AlertTriangle, ExternalLink, Download, X,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -519,8 +519,20 @@ function KitchenStaffPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, role or phone..."
-                className="pl-9"
+                className="pl-9 pr-9"
               />
+              {/* Phase 25 #4: clear-search affordance. */}
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 px-3 rounded-md border border-slate-200 bg-white">
               <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
