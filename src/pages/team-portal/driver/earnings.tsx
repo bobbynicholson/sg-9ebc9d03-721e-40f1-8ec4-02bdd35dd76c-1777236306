@@ -31,9 +31,31 @@ import {
   driverPayService,
   type DriverPaySummary,
 } from "@/services/driverPayService";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
-const formatR = (n: number) =>
-  new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+/**
+ * Phase 10 #3: tenant-aware money formatter. Falls back to ZAR / R
+ * when the row doesn't declare a currency so existing tenants
+ * render identically. Pass a currency code (ZAR / USD / GBP / EUR
+ * / AUD / NZD / NGN / KES); anything else falls through to the
+ * Intl default for that code.
+ */
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE", AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
+};
+const buildFormatR = (code: string) => (n: number) => {
+  const locale = CURRENCY_LOCALE[code] || "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    return `${code} ${n.toFixed(2)}`;
+  }
+};
 
 type Preset = "last_7" | "last_30" | "month_to_date" | "last_month" | "custom";
 
@@ -61,6 +83,10 @@ function lastMonthRange(): { from: string; to: string } {
 export default function DriverEarningsPage() {
   const { user, profile } = useAuth() as any;
   const companyId: string | null = profile?.company_id ?? user?.company_id ?? null;
+  // Phase 10 #3: bind the formatter to the tenant's currency code
+  // so a UK / US driver sees their own currency instead of R.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const formatR = buildFormatR(tenantCurrency.code);
 
   const [preset, setPreset] = useState<Preset>("last_30");
   const [from, setFrom] = useState(daysAgoIso(30));
@@ -224,10 +250,10 @@ export default function DriverEarningsPage() {
                       <TabsTrigger value="deliveries">Deliveries ({stats.deliveryCount})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="shifts">
-                      <ShiftTable summary={summary} />
+                      <ShiftTable summary={summary} formatR={formatR} />
                     </TabsContent>
                     <TabsContent value="deliveries">
-                      <DeliveryTable summary={summary} />
+                      <DeliveryTable summary={summary} formatR={formatR} />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -266,7 +292,7 @@ function StatCard({
   );
 }
 
-function ShiftTable({ summary }: { summary: DriverPaySummary | null }) {
+function ShiftTable({ summary, formatR }: { summary: DriverPaySummary | null; formatR: (n: number) => string }) {
   if (!summary || summary.shifts.length === 0) {
     return (
       <div className="py-12 text-center text-slate-500">
@@ -301,7 +327,7 @@ function ShiftTable({ summary }: { summary: DriverPaySummary | null }) {
   );
 }
 
-function DeliveryTable({ summary }: { summary: DriverPaySummary | null }) {
+function DeliveryTable({ summary, formatR }: { summary: DriverPaySummary | null; formatR: (n: number) => string }) {
   if (!summary || summary.deliveries.length === 0) {
     return (
       <div className="py-12 text-center text-slate-500">

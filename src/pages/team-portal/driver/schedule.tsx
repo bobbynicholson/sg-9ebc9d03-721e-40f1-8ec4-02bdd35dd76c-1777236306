@@ -10,6 +10,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -36,6 +37,9 @@ const dayBucket = (d: Date, today: Date) => {
 
 export default function DriverSchedulePage() {
   const { user } = useAuth();
+  // Phase 10 #3: tenant currency for the per-job total chip.
+  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<ScheduleOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -169,7 +173,7 @@ export default function DriverSchedulePage() {
                           </div>
                           <div className="md:text-right">
                             <p className="font-semibold text-slate-900 flex items-center gap-1 md:justify-end">
-                              R{Number(o.total_amount || 0).toLocaleString()}
+                              {C}{Number(o.total_amount || 0).toLocaleString()}
                               <InfoTooltip content="The total bill the customer is paying for the event.\n\nThis isn't your delivery fee." />
                             </p>
                             <p className="text-xs text-slate-500">order value</p>

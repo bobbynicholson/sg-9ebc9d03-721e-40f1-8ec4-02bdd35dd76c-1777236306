@@ -14,6 +14,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 
@@ -54,6 +55,9 @@ const statusBadge = (status: string) => {
 
 export default function DriverDeliveriesPage() {
   const { user } = useAuth();
+  // Phase 10 #3: tenant currency for the per-job total chip.
+  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<DriverOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -285,7 +289,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
               <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
                 <span className="text-sm text-slate-500">{o.guest_count} pax</span>
                 <span className="font-semibold text-slate-900">
-                  R{Number(o.total_amount || 0).toLocaleString()}
+                  {C}{Number(o.total_amount || 0).toLocaleString()}
                 </span>
               </div>
             </div>
