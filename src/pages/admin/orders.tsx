@@ -183,6 +183,25 @@ function OrderProcessDashboard() {
   // on. Useful for kitchen leads + drivers who shouldn't be
   // distracted by other people's events.
   const [myOrdersOnly, setMyOrdersOnly] = useState(false);
+  // Phase 13 #9: tenant timezone chip in header. Surfaces the
+  // companies.timezone value so a multi-region tenant working
+  // across branches doesn't second-guess which clock is driving
+  // the date filters.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    const cid = (user as any)?.company_id;
+    if (!cid) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", cid)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [(user as any)?.company_id]);
   // Phase 8 #3: persist filter state across reloads. The dispatch
   // team usually has a steady working filter (e.g. "this week,
   // confirmed only, JHB region") and was losing it every time
@@ -2479,6 +2498,18 @@ function OrderProcessDashboard() {
                     Orders
                   </h1>
                   <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
+                  {/* Phase 13 #9: tenant timezone hint chip. The
+                      date filters interpret event_date in the
+                      company's configured timezone, but multi-
+                      region tenants couldn't see which clock was
+                      driving the math. Self-hides when no tz is
+                      set on companies.timezone. */}
+                  {tenantTimezone && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <Clock className="w-3 h-3" />
+                      Times shown in <span className="font-medium text-slate-700">{tenantTimezone}</span>
+                    </div>
+                  )}
                   {/* Phase 11 #8: pending amendment + cancellation
                       request badges. Hidden when both counts are
                       zero so a quiet day stays clean. Each badge
