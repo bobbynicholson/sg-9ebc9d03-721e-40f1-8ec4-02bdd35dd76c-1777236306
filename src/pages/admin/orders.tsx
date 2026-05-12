@@ -43,6 +43,7 @@ import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/Equip
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
+import { downloadOrderIcs } from "@/lib/orderToIcs";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -1764,6 +1765,22 @@ function OrderProcessDashboard() {
                         Kitchen ticket
                       </Button>
                     </Link>
+                  )}
+                  {/* Phase 17 #1: download an .ics so the dispatch
+                      lead can drop the event into Outlook / Google /
+                      Apple Calendar alongside personal commitments.
+                      Single VEVENT, no recurrence, floating local
+                      time so it pins to the recipient's clock. */}
+                  {selectedOrder && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadOrderIcs(selectedOrder as any)}
+                      title="Download an .ics calendar invite for this event"
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Calendar
+                    </Button>
                   )}
                   <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
                     <Edit className="w-4 h-4 mr-2" />
