@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin } from "lucide-react";
+import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -74,6 +74,17 @@ export default function ShoppingOrdersPage() {
   const [listDate, setListDate] = useState(toLocalISO(new Date()));
   const [listNotes, setListNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Phase 7 #7: complete-with-receipt dialog. The shopper picks
+  // a slip photo when they finish a list, mirroring the driver's
+  // POD flow on delivered orders. The url lands on shopping_lists.
+  // receipt_url and the existing badge surfaces it on the list.
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [actualTotal, setActualTotal] = useState<string>("");
+  const [completing, setCompleting] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -162,15 +173,70 @@ export default function ShoppingOrdersPage() {
     }
   };
 
-  const completeList = async (id: string) => {
+  const openComplete = (id: string) => {
+    setCompletingId(id);
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setActualTotal("");
+  };
+  const closeComplete = () => {
+    setCompletingId(null);
+    setReceiptFile(null);
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    setReceiptPreview(null);
+    setActualTotal("");
+  };
+  const onReceiptPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null;
+    setReceiptFile(f);
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    setReceiptPreview(f ? URL.createObjectURL(f) : null);
+  };
+  const completeList = async () => {
+    if (!completingId) return;
+    setCompleting(true);
     try {
-      await supabase.from("shopping_lists").update({
+      let receipt_url: string | null = null;
+      if (receiptFile) {
+        // Reuse the imports bucket -- it's the only one with a
+        // receipt-style policy already in place. Path-prefix the
+        // file so the shopping artefacts are easy to find later.
+        const ext = (receiptFile.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `shopping-list-receipts/${completingId}/receipt-${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("imports")
+          .upload(path, receiptFile, {
+            upsert: true,
+            contentType: receiptFile.type || "image/jpeg",
+          });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("imports").getPublicUrl(path);
+        receipt_url = pub.publicUrl;
+      }
+      const updates: Record<string, any> = {
         status: "completed",
-      }).eq("id", id);
-      toast({ title: "List completed" });
+      };
+      if (receipt_url) updates.receipt_url = receipt_url;
+      if (actualTotal.trim()) {
+        const n = Number(actualTotal.replace(/[^0-9.]/g, ""));
+        if (!isNaN(n)) updates.actual_total = n;
+      }
+      const { error } = await supabase
+        .from("shopping_lists")
+        .update(updates as never)
+        .eq("id", completingId);
+      if (error) throw error;
+      toast({ title: "List completed", description: receipt_url ? "Receipt attached." : undefined });
+      closeComplete();
       load();
-    } catch {
-      toast({ title: "Could not complete", variant: "destructive" });
+    } catch (e: any) {
+      toast({
+        title: "Could not complete",
+        description: e?.message || "Upload or update failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -253,7 +319,7 @@ export default function ShoppingOrdersPage() {
                             <Button size="sm" variant="outline" onClick={() => claimList(l.id)}>Claim</Button>
                           )}
                           {l.status !== "completed" && (
-                            <Button size="sm" onClick={() => completeList(l.id)} className="bg-emerald-600 hover:bg-emerald-700">
+                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-emerald-600 hover:bg-emerald-700">
                               <Check className="h-4 w-4 mr-1" />Complete
                             </Button>
                           )}
@@ -334,6 +400,87 @@ export default function ShoppingOrdersPage() {
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
             <Button onClick={saveCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create list"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase 7 #7: complete-with-receipt dialog. Mirrors the
+          driver POD flow -- the shopper closes out the list with
+          a photo of the supplier slip plus the actual cash total
+          paid so reconciliation against the till stays honest. */}
+      <Dialog open={completingId !== null} onOpenChange={(o) => !o && closeComplete()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete shopping list</DialogTitle>
+            <DialogDescription>
+              Snap the till slip and capture the actual amount paid.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="actual_total">Actual total paid (R)</Label>
+              <Input
+                id="actual_total"
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 1 248.50"
+                value={actualTotal}
+                onChange={(e) => setActualTotal(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Receipt photo</Label>
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={onReceiptPicked}
+                className="hidden"
+              />
+              {receiptPreview ? (
+                <div className="relative mt-1 border border-slate-200 rounded-md overflow-hidden">
+                  <img src={receiptPreview} alt="Receipt preview" className="w-full max-h-64 object-contain bg-slate-50" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 bg-white/80 hover:bg-white"
+                    onClick={() => {
+                      if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+                      setReceiptFile(null);
+                      setReceiptPreview(null);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="mt-1 w-full"
+                  onClick={() => receiptInputRef.current?.click()}
+                  type="button"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Take photo or pick file
+                </Button>
+              )}
+              <p className="text-[11px] text-slate-500 mt-1">
+                Optional but recommended. Goes into the imports bucket and surfaces on the list as a receipt-attached badge.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeComplete} disabled={completing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={completeList}
+              disabled={completing}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {completing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Check className="h-4 w-4 mr-2" />Mark complete</>}
             </Button>
           </DialogFooter>
         </DialogContent>
