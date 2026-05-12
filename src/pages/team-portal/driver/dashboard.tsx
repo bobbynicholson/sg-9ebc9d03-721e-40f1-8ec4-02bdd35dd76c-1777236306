@@ -24,6 +24,7 @@ import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
+import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -418,6 +419,15 @@ export default function DriverDashboard() {
             </div>
 
             <TeamWelcomeBanner role="driver" userId={user?.id} />
+
+            {/* Phase 7 #4: A2HS prompt. Renders only when the
+             *  browser fires beforeinstallprompt (Chrome / Edge /
+             *  Android) or when we detect iOS Safari. Self-hides
+             *  if the app is already running standalone or the
+             *  driver dismissed it within the last 14 days. */}
+            <div className="mb-4 sm:mb-6">
+              <PWAInstallPrompt />
+            </div>
 
             {/* GPS pinger status. Quiet when no active jobs; greenish
              *  pulse while the foreground hook is dripping coords to
