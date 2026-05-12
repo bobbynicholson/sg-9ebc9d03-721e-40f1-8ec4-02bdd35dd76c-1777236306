@@ -20,6 +20,7 @@ import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
+import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
@@ -333,6 +334,12 @@ function AdminDashboardPage() {
               quotes page to find the rotting ones. Self-hides when
               there's nothing to chase. */}
           <QuoteFollowupWidget companyId={companyId} />
+
+          {/* Phase 10 #4: inventory low-stock widget. Surfaces the
+              top 5 items at or below their minimum reorder level so
+              the shopping team gets a visual nudge straight from the
+              dashboard. Self-hides when nothing is short. */}
+          <InventoryLowStockWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
