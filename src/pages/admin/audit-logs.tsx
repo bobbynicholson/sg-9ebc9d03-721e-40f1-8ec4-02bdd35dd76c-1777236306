@@ -98,7 +98,57 @@ function CompanyAuditLogsViewer() {
 
   const [actionFilter, setActionFilter] = useState<string>("");
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
+  // Phase 17 #3: saved-view chips. Compliance + ops repeatedly
+  // hit the same audit slices (driver_shift edits last 24h,
+  // refund_auto_failed last 7d). Snapshot every filter dimension
+  // under a named chip in localStorage.
+  interface SavedAuditView {
+    id: string;
+    name: string;
+    actionFilter: string;
+    entityTypeFilter: string;
+    entityIdFilter: string;
+    sinceFilter: string;
+    detailsSearch: string;
+  }
+  const [savedAuditViews, setSavedAuditViews] = useState<SavedAuditView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminAuditLogs.savedViews.v1");
+      if (raw) setSavedAuditViews(JSON.parse(raw) as SavedAuditView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminAuditLogs.savedViews.v1",
+        JSON.stringify(savedAuditViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedAuditViews]);
   const [entityIdFilter, setEntityIdFilter] = useState<string>("");
+  const saveCurrentAuditView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedAuditViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch },
+    ]);
+  };
+  const applySavedAuditView = (v: SavedAuditView) => {
+    setActionFilter(v.actionFilter);
+    setEntityTypeFilter(v.entityTypeFilter);
+    setEntityIdFilter(v.entityIdFilter);
+    setSinceFilter(v.sinceFilter);
+    setDetailsSearch(v.detailsSearch);
+    setPage(0);
+  };
+  const removeSavedAuditView = (id: string) =>
+    setSavedAuditViews((prev) => prev.filter((v) => v.id !== id));
   const [sinceFilter, setSinceFilter] = useState<string>("7d");
   const [detailsSearch, setDetailsSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
@@ -347,6 +397,38 @@ function CompanyAuditLogsViewer() {
                       />
                     </div>
                   </div>
+                </div>
+                {/* Phase 17 #3: saved-view chips for compliance +
+                    ops slices that recur. */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {savedAuditViews.map((v) => (
+                    <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => applySavedAuditView(v)}
+                        className="px-2.5 py-0.5 hover:underline"
+                        title={`Apply: since=${v.sinceFilter}, entity=${v.entityTypeFilter}${v.actionFilter ? `, action=${v.actionFilter}` : ""}`}
+                      >
+                        {v.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSavedAuditView(v.id)}
+                        className="pr-1.5 text-purple-500 hover:text-purple-800"
+                        title="Remove this view"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={saveCurrentAuditView}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+                    title="Save the current filter combination as a named view"
+                  >
+                    + Save view
+                  </button>
                 </div>
               </CardContent>
             </Card>
