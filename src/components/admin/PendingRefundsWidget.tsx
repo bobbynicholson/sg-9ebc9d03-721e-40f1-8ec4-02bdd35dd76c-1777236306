@@ -102,27 +102,36 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
                 : age >= 3
                   ? "bg-orange-100 text-orange-800 border-orange-200"
                   : "bg-amber-100 text-amber-800 border-amber-200";
+              // Phase 22 #9: each row now deep-links into the
+              // refunds page with the row's payment id so the
+              // bookkeeper can act in one click. Mirrors the
+              // Phase 22 #8 OverdueInvoicesWidget pattern.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
-                    {age}d
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.order?.client_name || "Unknown client"}
-                      {r.order?.order_number && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
-                          {r.order.order_number}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500 capitalize">
-                      {r.payment_method || "method tbc"} · {r.payment_status || "pending"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
-                    {tenantCurrency.format(Number(r.amount || 0), 0)}
-                  </span>
+                <li key={r.id}>
+                  <Link
+                    href={`/admin/refunds?paymentId=${r.id}`}
+                    className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
+                  >
+                    <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
+                      {age}d
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.order?.client_name || "Unknown client"}
+                        {r.order?.order_number && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
+                            {r.order.order_number}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500 capitalize">
+                        {r.payment_method || "method tbc"} · {r.payment_status || "pending"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
+                      {tenantCurrency.format(Number(r.amount || 0), 0)}
+                    </span>
+                  </Link>
                 </li>
               );
             })}
