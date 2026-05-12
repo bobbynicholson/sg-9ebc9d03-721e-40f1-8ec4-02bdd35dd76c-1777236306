@@ -30,6 +30,7 @@ import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget"
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
+import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -475,6 +476,12 @@ function AdminDashboardPage() {
               orders in the next 7 days with no driver
               assigned. Self-hides when every event is covered. */}
           <DispatchGapWidget companyId={companyId} />
+
+          {/* Phase 14 #9: weekly order load mini chart. Shows the
+              past + next 7 days of confirmed-and-onwards orders
+              by event date so the kitchen lead can spot bunching
+              days at a glance. Self-hides on a fresh tenant. */}
+          <WeeklyOrdersChart companyId={companyId} />
 
           {/* Phase 14 #6: pending refunds list. The stat tile
               showed total + count; this surfaces individual rows
