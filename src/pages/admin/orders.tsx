@@ -3055,8 +3055,23 @@ function OrderProcessDashboard() {
                       placeholder="Search by client, order ID, venue or event..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 pr-10"
                     />
+                    {/* Phase 24 #7: clear-search affordance. Common
+                        across SaaS search inputs but missing here --
+                        operators kept selecting + deleting the
+                        whole string by hand to reset the view. */}
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                        title="Clear search"
+                        aria-label="Clear search"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full md:w-[200px]">
