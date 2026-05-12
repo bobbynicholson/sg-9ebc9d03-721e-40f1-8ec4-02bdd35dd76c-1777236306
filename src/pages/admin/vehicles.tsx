@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
-  User, Building2, Users,
+  User, Building2, Users, AlertTriangle,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -203,6 +203,24 @@ function VehiclesPage() {
     driverOwned: vehicles.filter(v => v.owner_kind === "driver").length,
     refrigerated: vehicles.filter(v => v.refrigerated).length,
   }), [vehicles]);
+
+  // Phase 19 #5: maintenance rollup, same shape as the equipment
+  // page's banner. The cron broadcasts daily but the fleet list
+  // itself never surfaced 'how many vehicles are overdue right now'
+  // so the operator had to count badges or trust the cron emails.
+  const serviceRollup = useMemo(() => {
+    const SEVEN = 7 * 86400_000;
+    const now = Date.now();
+    let overdue = 0;
+    let dueSoon = 0;
+    for (const v of vehicles as any[]) {
+      const t = v.next_service_due ? new Date(v.next_service_due).getTime() : null;
+      if (!t) continue;
+      if (t < now) overdue += 1;
+      else if (t - now <= SEVEN) dueSoon += 1;
+    }
+    return { overdue, dueSoon };
+  }, [vehicles]);
 
   const resetForm = () => {
     setForm({
@@ -423,6 +441,28 @@ function VehiclesPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Phase 19 #5: service-due rollup. Renders only when at
+              least one vehicle is overdue or due within 7 days. Same
+              shape and rules as the equipment page banner so a fleet
+              manager scanning both sees one consistent surface. */}
+          {(serviceRollup.overdue > 0 || serviceRollup.dueSoon > 0) && (
+            <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-amber-700" />
+              <span className="text-xs font-medium text-amber-900">Vehicle maintenance:</span>
+              {serviceRollup.overdue > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 text-red-800 text-xs px-2 py-0.5">
+                  <span className="font-semibold">{serviceRollup.overdue}</span> overdue
+                </span>
+              )}
+              {serviceRollup.dueSoon > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-xs px-2 py-0.5">
+                  <span className="font-semibold">{serviceRollup.dueSoon}</span> due within 7 days
+                </span>
+              )}
+              <span className="text-[11px] text-amber-700 ml-auto">Open a vehicle to log a service.</span>
+            </div>
+          )}
 
           {/* Roster vs Utilisation tabs */}
           <div className="flex gap-1 rounded-lg border border-slate-200 bg-white shadow-sm p-1 text-xs mb-4 w-fit">
