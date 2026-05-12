@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
+import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download, X } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -945,8 +945,22 @@ export default function AdminLeads() {
                     placeholder="Search by name, company, email, event type..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                   />
+                  {/* Phase 25 #1: clear-search affordance, matching
+                      the Phase 24 #7-10 sweep across orders /
+                      quotes / contacts / invoices. */}
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               {/* Status chip strip. Active is the daily-driver default;
