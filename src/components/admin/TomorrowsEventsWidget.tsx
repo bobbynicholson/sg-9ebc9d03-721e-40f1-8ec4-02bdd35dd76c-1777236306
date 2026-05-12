@@ -101,37 +101,43 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
             <ul className="divide-y divide-indigo-100">
               {rows.map((o) => {
                 const driverName = o.assigned_driver?.full_name || null;
+                // Phase 23 #4: full-row link to the order drawer.
                 return (
-                  <li key={o.id} className="py-2 flex items-baseline gap-3">
-                    <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">
-                      {fmtTime(o.event_time)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-slate-900 truncate">{o.client_name || "—"}</span>
-                        {o.order_number && (
-                          <span className="text-[11px] text-slate-500 tabular-nums">{o.order_number}</span>
-                        )}
-                        <Badge variant="outline" className="text-[10px] capitalize">{o.status?.replace(/_/g, " ")}</Badge>
+                  <li key={o.id}>
+                    <Link
+                      href={`/admin/orders?orderId=${o.id}`}
+                      className="py-2 flex items-baseline gap-3 hover:bg-indigo-50/60 rounded transition"
+                    >
+                      <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">
+                        {fmtTime(o.event_time)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-slate-900 truncate">{o.client_name || "—"}</span>
+                          {o.order_number && (
+                            <span className="text-[11px] text-slate-500 tabular-nums">{o.order_number}</span>
+                          )}
+                          <Badge variant="outline" className="text-[10px] capitalize">{o.status?.replace(/_/g, " ")}</Badge>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
+                          {o.guest_count != null && (
+                            <span className="inline-flex items-center gap-1 tabular-nums">
+                              <UsersIcon className="w-3 h-3" />{o.guest_count}
+                            </span>
+                          )}
+                          {o.venue_address && (
+                            <span className="inline-flex items-center gap-1 truncate">
+                              <MapPin className="w-3 h-3" />{o.venue_address}
+                            </span>
+                          )}
+                          {!driverName && (
+                            <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
+                              <Truck className="w-3 h-3" /> No driver
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
-                        {o.guest_count != null && (
-                          <span className="inline-flex items-center gap-1 tabular-nums">
-                            <UsersIcon className="w-3 h-3" />{o.guest_count}
-                          </span>
-                        )}
-                        {o.venue_address && (
-                          <span className="inline-flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3" />{o.venue_address}
-                          </span>
-                        )}
-                        {!driverName && (
-                          <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
-                            <Truck className="w-3 h-3" /> No driver
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}
