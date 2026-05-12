@@ -31,6 +31,7 @@ import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
+import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -461,6 +462,10 @@ function AdminDashboardPage() {
               in pending / cleaning / drying after returning from
               an event. Self-hides when the queue is empty. */}
           <CleaningQueueWidget companyId={companyId} />
+
+          {/* Phase 16 #2: equipment damages waiting on resolution.
+              Self-hides when nothing is unresolved. */}
+          <EquipmentDamagesWidget companyId={companyId} />
 
           {/* Phase 14 #1: lead aging. Active leads (not converted,
               not won/lost) older than 3 days, oldest first. Self-
