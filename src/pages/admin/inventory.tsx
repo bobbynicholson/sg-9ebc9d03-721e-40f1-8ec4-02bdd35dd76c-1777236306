@@ -39,6 +39,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   MoreHorizontal,
+  X,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -1070,9 +1071,25 @@ export default function AdminInventory() {
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
-                <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                  /
-                </kbd>
+                {/* Phase 25 #6: clear-search affordance. Swap the
+                    `/` keyboard hint for the X clear button when
+                    there's something to clear, so the right-side
+                    region only ever shows one icon. */}
+                {searchTerm ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    /
+                  </kbd>
+                )}
               </div>
 
               {/* Views dropdown */}
