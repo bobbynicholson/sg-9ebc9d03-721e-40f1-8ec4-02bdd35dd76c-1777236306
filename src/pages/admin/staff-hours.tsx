@@ -48,6 +48,12 @@ function StaffHoursPage() {
     reference: "",
     notes: "",
   });
+  // Phase 18 #7: sort order for the staff cards. Payroll wants
+  // "who do I owe the most" at the top during run-up to month-end;
+  // alphabetical is the default everywhere else.
+  const [staffSort, setStaffSort] = useState<"unpaid_desc" | "hours_desc" | "earnings_desc" | "name_asc">(
+    "unpaid_desc",
+  );
 
   useEffect(() => {
     if (user) {
@@ -122,6 +128,26 @@ function StaffHoursPage() {
       setLoading(false);
     }
   };
+
+  // Phase 18 #7: build sorted entries once so the JSX stays simple
+  // and the comparator only fires when the user picks a new sort.
+  const sortedStaffEntries = Object.entries(groupedSessions).sort(
+    ([, a]: [string, any], [, b]: [string, any]) => {
+      const unpaidOf = (x: any) =>
+        x.unpaidSessions.reduce((s: number, t: any) => s + Number(t.total_earnings || 0), 0);
+      switch (staffSort) {
+        case "hours_desc":
+          return Number(b.totalHours || 0) - Number(a.totalHours || 0);
+        case "earnings_desc":
+          return Number(b.totalEarnings || 0) - Number(a.totalEarnings || 0);
+        case "name_asc":
+          return String(a.staff?.full_name || "").localeCompare(String(b.staff?.full_name || ""));
+        case "unpaid_desc":
+        default:
+          return unpaidOf(b) - unpaidOf(a);
+      }
+    },
+  );
 
   const summary = {
     totalStaff: Object.keys(groupedSessions).length,
@@ -249,16 +275,32 @@ function StaffHoursPage() {
             </Card>
           </div>
 
-          <div className="flex items-center justify-between mb-6">
-            <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Last 7 Days</SelectItem>
-                <SelectItem value="month">Last 30 Days</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Last 7 Days</SelectItem>
+                  <SelectItem value="month">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Phase 18 #7: order staff cards by what payroll
+                  actually triages on. Default is highest-unpaid
+                  first because that's the run-up-to-payday case. */}
+              <Select value={staffSort} onValueChange={(v: any) => setStaffSort(v)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unpaid_desc">Sort: Unpaid (high to low)</SelectItem>
+                  <SelectItem value="hours_desc">Sort: Hours (high to low)</SelectItem>
+                  <SelectItem value="earnings_desc">Sort: Earnings (high to low)</SelectItem>
+                  <SelectItem value="name_asc">Sort: Name (A to Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button onClick={loadData} disabled={loading}>
               {loading ? "Loading..." : "Refresh"}
@@ -272,7 +314,7 @@ function StaffHoursPage() {
             </TabsList>
 
             <TabsContent value="hours" className="space-y-4">
-              {Object.entries(groupedSessions).map(([staffId, data]: [string, any]) => (
+              {sortedStaffEntries.map(([staffId, data]: [string, any]) => (
                 <Card key={staffId}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
