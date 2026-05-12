@@ -29,7 +29,7 @@ import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/servic
 import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
 import { dispatchService, formatMinutesAsCountdown, minutesUntilSlaBreach } from "@/services/dispatchService";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Download } from "lucide-react";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -517,14 +517,60 @@ export default function RoutePlanning() {
               {/* Unassigned orders queue */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-orange-500" />
-                    Unassigned Orders
-                    <InfoTooltip content={"Confirmed orders waiting on a driver. Run the optimiser to distribute these across your team."} />
-                  </CardTitle>
-                  <CardDescription>
-                    {filteredOrders.length} of {unassignedOrders.length} order{unassignedOrders.length === 1 ? "" : "s"}
-                  </CardDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-orange-500" />
+                        Unassigned Orders
+                        <InfoTooltip content={"Confirmed orders waiting on a driver. Run the optimiser to distribute these across your team."} />
+                      </CardTitle>
+                      <CardDescription>
+                        {filteredOrders.length} of {unassignedOrders.length} order{unassignedOrders.length === 1 ? "" : "s"}
+                      </CardDescription>
+                    </div>
+                    {/* Phase 22 #3: unassigned queue CSV. Dispatch
+                        leads working from a phone or handing the
+                        queue off to a colleague needed a flat list. */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={filteredOrders.length === 0}
+                      onClick={() => {
+                        const esc = (v: any) => {
+                          if (v == null) return "";
+                          const s = String(v).replace(/"/g, '""');
+                          return /[",\n]/.test(s) ? `"${s}"` : s;
+                        };
+                        const headers = [
+                          "Client", "Event date", "Event time", "Venue",
+                          "Guests", "Status",
+                        ];
+                        const lines = [headers.join(",")];
+                        for (const o of filteredOrders as any[]) {
+                          lines.push([
+                            esc(o.client_name || ""),
+                            esc(o.event_date || ""),
+                            esc(o.event_time || ""),
+                            esc(o.venue_address || o.venue_name || ""),
+                            esc(o.guest_count ?? ""),
+                            esc(o.status || ""),
+                          ].join(","));
+                        }
+                        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `unassigned-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" /> CSV
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
