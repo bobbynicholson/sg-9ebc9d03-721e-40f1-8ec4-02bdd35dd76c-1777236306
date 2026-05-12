@@ -31,6 +31,7 @@ import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget";
 import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
 import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
+import { CancelledOrdersWidget } from "@/components/admin/CancelledOrdersWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -531,6 +532,12 @@ function AdminDashboardPage() {
               Self-hides until a tenant has stamped at least one
               rating. */}
           <RecentRatingsWidget companyId={companyId} />
+
+          {/* Phase 20 #7: cancellations rollup. Surfaces the last 5
+              cancelled orders plus the 30-day lost-revenue total so
+              an owner sees patterns forming. Self-hides on a clean
+              month. */}
+          <CancelledOrdersWidget companyId={companyId} />
 
           {/* Phase 16 #9: recent payments collected. Today's Pulse
               shows 'Paid today' total but no row-level detail. This
