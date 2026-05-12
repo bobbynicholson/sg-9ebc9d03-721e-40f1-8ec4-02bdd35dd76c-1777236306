@@ -28,7 +28,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2 } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2, Download } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -111,9 +111,49 @@ function PublicHolidaysAdmin() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white">
-              <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
-            </Button>
+            <div className="flex gap-2">
+              {/* Phase 22 #4: holidays CSV. Payroll and ops planning
+                  cross-reference these against shift rosters, public-
+                  holiday surcharges and venue closures. */}
+              <Button
+                variant="outline"
+                disabled={filtered.length === 0}
+                onClick={() => {
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = ["Date", "Day", "Holiday", "Source", "Recurring", "Notes"];
+                  const lines = [headers.join(",")];
+                  for (const h of filtered) {
+                    const d = new Date(h.date);
+                    lines.push([
+                      esc(h.date),
+                      esc(d.toLocaleDateString("en-ZA", { weekday: "long" })),
+                      esc(h.name || ""),
+                      esc(h.company_id ? "company" : "gazetted"),
+                      esc(h.is_recurring ? "yes" : "no"),
+                      esc(h.notes || ""),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `public-holidays-${year}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4 mr-1.5" /> Export CSV
+              </Button>
+              <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white">
+                <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
+              </Button>
+            </div>
           </div>
 
           <Card className="border-0 shadow-sm mb-4">
