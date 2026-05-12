@@ -1332,6 +1332,25 @@ function DriverManagementPage() {
                                 {!driver.is_active && (
                                   <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
                                 )}
+                                {/* Phase 17 #7: rate-source badge.
+                                    Surfaces whether the driver inherits
+                                    the company default or has any per-
+                                    driver override set. Saves the admin
+                                    from opening each row to find out. */}
+                                {(() => {
+                                  const hasAny = driver.hourly_rate != null
+                                    || driver.distance_rate_per_km != null
+                                    || driver.base_callout_fee != null;
+                                  return hasAny ? (
+                                    <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[10px]">
+                                      Custom rates
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] text-slate-500">
+                                      Default rates
+                                    </Badge>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
                                 <span className="inline-flex items-center gap-1">
