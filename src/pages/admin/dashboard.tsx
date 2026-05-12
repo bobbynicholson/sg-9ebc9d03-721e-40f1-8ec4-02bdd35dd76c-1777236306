@@ -51,6 +51,10 @@ interface Stats {
   refundsOutstandingCount: number;
   refundsOutstandingValue: number;
   topCancelReason: string;
+  /** Phase 11 #7: sum of tax_amount on booked-and-onwards orders
+   *  in the range. Lets the bookkeeper eyeball VAT exposure for
+   *  the period without opening every invoice. */
+  vatCollected: number;
 }
 
 const EMPTY: Stats = {
@@ -62,6 +66,7 @@ const EMPTY: Stats = {
   lowStockItems: 0, activeUsers: 0,
   cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
   refundsOutstandingValue: 0, topCancelReason: "-",
+  vatCollected: 0,
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
@@ -113,7 +118,7 @@ function AdminDashboardPage() {
       const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
+          .select("id, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromISO)
@@ -162,6 +167,11 @@ function AdminDashboardPage() {
       let collectedRevenue = 0;
       let bookedOrders = 0;
       let collectedOrders = 0;
+      // Phase 11 #7: VAT exposure across booked orders in the
+      // selected range. Sums orders.tax_amount on the same
+      // booked-set so the bookkeeper sees how much VAT the
+      // period generated without opening each invoice.
+      let vatCollected = 0;
 
       for (const o of orders) {
         const status = String(o.status || "").toLowerCase();
@@ -181,6 +191,7 @@ function AdminDashboardPage() {
         if (isBooked) {
           bookedRevenue += total;
           bookedOrders += 1;
+          vatCollected += Number(o.tax_amount || 0);
         }
 
         // Collected: actual money in the bank
@@ -276,6 +287,7 @@ function AdminDashboardPage() {
         lowStockItems,
         cancelledOrdersInRange, refundsOutstandingCount,
         refundsOutstandingValue, topCancelReason,
+        vatCollected,
       });
     } catch (err: any) {
       console.error("Dashboard load error:", err);
@@ -468,6 +480,26 @@ function AdminDashboardPage() {
               loading={loading}
             />
           </div>
+
+          {/* Phase 11 #7: VAT exposure for the range. Splits out
+              from booked revenue so the bookkeeper has the
+              period's VAT total in one glance for SARS / HMRC
+              filings. Only renders when at least one booked order
+              in the range had non-zero tax_amount. */}
+          {stats.vatCollected > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+              <MetricCard
+                label="VAT in range"
+                value={fmt.format(stats.vatCollected)}
+                hint="Tax on booked orders"
+                tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
+                icon={DollarSign}
+                iconColor="text-amber-600"
+                badge={{ text: "Period", tone: "amber" }}
+                loading={loading}
+              />
+            </div>
+          )}
 
           {/* Pipeline tile -- quotes that have been sent but not yet
               accepted or rejected. Both the count and the rand value
