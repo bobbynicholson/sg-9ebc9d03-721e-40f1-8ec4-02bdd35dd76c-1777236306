@@ -27,6 +27,7 @@ import {
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +63,9 @@ export default function InvoicesPage() {
   // consumers so deep links keep working.
   const [clientFilterId, setClientFilterId] = useState<string | null>(null);
   const [clientFilterName, setClientFilterName] = useState<string | null>(null);
+  // Phase 6 #10: tenant currency. Drives the totals + balance
+  // displays so a UK / US tenant sees £ / $ instead of R.
+  const tenantMoney = useTenantCurrency(user?.company_id ?? null);
 
   useEffect(() => {
     if (user?.company_id) {
@@ -607,7 +611,7 @@ export default function InvoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                R {invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0).toFixed(2)}
+                {tenantMoney.format(invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
               </div>
             </CardContent>
           </Card>
@@ -728,10 +732,10 @@ export default function InvoicesPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="font-medium">R {invoice.total_amount?.toFixed(2)}</div>
+                        <div className="font-medium">{tenantMoney.format(invoice.total_amount || 0)}</div>
                         {invoice.balance_due > 0 && (
                           <div className="text-sm text-yellow-600">
-                            Balance: R {invoice.balance_due.toFixed(2)}
+                            Balance: {tenantMoney.format(invoice.balance_due)}
                           </div>
                         )}
                       </div>
