@@ -42,6 +42,7 @@ import { CancellationRequestsTab } from "@/components/admin/CancellationRequests
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
+import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -1720,6 +1721,21 @@ function OrderProcessDashboard() {
                     rows={3}
                     placeholder="Internal notes for the team. Not shown to the client."
                   />
+                </div>
+
+                {/* Phase 9 #6: chronological notes thread. The
+                    single-string internal_notes above is the
+                    'sticky note' on the order; this thread is
+                    'who said what when' so context survives shift
+                    changes. Backed by audit_logs so it inherits
+                    the existing RLS + shows up in /admin/audit-logs. */}
+                <div className="col-span-2">
+                  {selectedOrder?.id && (
+                    <OrderNotesThread
+                      orderId={selectedOrder.id}
+                      companyId={(selectedOrder as any).company_id || null}
+                    />
+                  )}
                 </div>
 
                 {(selectedOrder as any).special_instructions && (
