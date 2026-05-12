@@ -530,6 +530,53 @@ function RegionsPage() {
                         <div className="text-slate-500 italic mt-2">"{region.notes}"</div>
                       )}
                     </div>
+
+                    {/* Phase 7 #10: surface per-region pricing
+                        overrides as chips. Until now the only way
+                        to see whether a branch was on non-default
+                        VAT, deposit %, delivery cost or minimum
+                        fee was to open the edit dialog. The chips
+                        let an admin scanning the list immediately
+                        spot which regions are diverging from the
+                        company default and by how much. Anything
+                        null inherits silently and gets no chip. */}
+                    {(() => {
+                      const r: any = region;
+                      const chips: { label: string; value: string }[] = [];
+                      if (r.vat_rate != null) {
+                        chips.push({ label: "VAT", value: `${(Number(r.vat_rate) * 100).toFixed(1).replace(/\.0$/, "")}%` });
+                      }
+                      if (r.deposit_percent != null) {
+                        chips.push({ label: "Deposit", value: `${Number(r.deposit_percent)}%` });
+                      }
+                      if (r.delivery_cost_per_km != null) {
+                        chips.push({ label: "R/km", value: `R${Number(r.delivery_cost_per_km).toFixed(2)}` });
+                      }
+                      if (r.min_delivery_fee != null) {
+                        chips.push({ label: "Min fee", value: `R${Number(r.min_delivery_fee).toFixed(2)}` });
+                      }
+                      if (chips.length === 0) return null;
+                      return (
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                          <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1">
+                            Pricing overrides
+                            <InfoTooltip content={"This branch overrides the company default for these values. Anything not shown here inherits from the company profile."} />
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {chips.map((c) => (
+                              <Badge
+                                key={c.label}
+                                variant="outline"
+                                className="bg-purple-50 border-purple-200 text-purple-800 text-xs"
+                              >
+                                <span className="font-normal mr-1">{c.label}:</span>
+                                <span className="font-semibold tabular-nums">{c.value}</span>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               ))}
