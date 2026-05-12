@@ -32,6 +32,7 @@ import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
 import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
+import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -493,6 +494,12 @@ function AdminDashboardPage() {
               with client name + amount + age so the bookkeeper
               can act on the oldest first. */}
           <PendingRefundsWidget companyId={companyId} />
+
+          {/* Phase 16 #9: recent payments collected. Today's Pulse
+              shows 'Paid today' total but no row-level detail. This
+              card surfaces the last 5 completed payments so the
+              bookkeeper can reconcile against the bank deposit. */}
+          <RecentPaymentsWidget companyId={companyId} />
 
           {/* Phase 14 #7: recent activity timeline. Pivoted from
               the brand-colour preview slot since live preview
