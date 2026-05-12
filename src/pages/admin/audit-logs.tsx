@@ -32,7 +32,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Footer } from "@/components/Footer";
-import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search, Download } from "lucide-react";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search, Download, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface AuditRow {
   id: string;
@@ -89,6 +90,7 @@ const toneFor = (action: string): string => {
 
 function CompanyAuditLogsViewer() {
   const { user, loading: authLoading } = useAuth() as any;
+  const { toast } = useToast();
   const companyId = user?.company_id || null;
 
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -558,7 +560,27 @@ function CompanyAuditLogsViewer() {
                           <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span>by <span className="font-medium text-slate-800">{actorLabel}</span></span>
                             {r.entity_id && (
-                              <span className="font-mono">{r.entity_id.slice(0, 8)}...</span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  // Phase 21 #5: click-to-copy full
+                                  // entity_id. Support and DB
+                                  // debugging regularly want the full
+                                  // UUID, not the truncated preview.
+                                  const id = String(r.entity_id);
+                                  try {
+                                    await navigator.clipboard.writeText(id);
+                                    toast({ title: "Copied", description: `${id.slice(0, 8)}... on clipboard.` });
+                                  } catch {
+                                    toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 font-mono hover:text-slate-900 hover:underline"
+                                title={`Copy full ID: ${r.entity_id}`}
+                              >
+                                <Copy className="w-3 h-3 opacity-60" />
+                                {r.entity_id.slice(0, 8)}...
+                              </button>
                             )}
                             {href && (
                               <Link href={href} className="text-blue-600 hover:underline inline-flex items-center gap-1">
