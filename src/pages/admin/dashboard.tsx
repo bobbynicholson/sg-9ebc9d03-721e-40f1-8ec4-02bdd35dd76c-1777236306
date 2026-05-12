@@ -25,6 +25,7 @@ import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget"
 import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
 import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
+import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -431,6 +432,11 @@ function AdminDashboardPage() {
               in pending / cleaning / drying after returning from
               an event. Self-hides when the queue is empty. */}
           <CleaningQueueWidget companyId={companyId} />
+
+          {/* Phase 14 #1: lead aging. Active leads (not converted,
+              not won/lost) older than 3 days, oldest first. Self-
+              hides when nothing is overdue. */}
+          <LeadAgingWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
