@@ -28,7 +28,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types/app";
 import {
-  Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap,
+  Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
   ExternalLink, User as UserIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -491,10 +491,56 @@ function RefundsPage() {
                 Cancellation refunds. PayFast pushes automatically; EFT and cash need a manual mark as paid once the money has actually moved.
               </p>
             </div>
-            <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Phase 16 #7: refunds CSV export. Bookkeeping team
+                  reconciling refunds against the gateway / bank
+                  statement needs an offline copy. Reads from the
+                  filtered list so filter chip scope flows through. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (filtered.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one refund is visible." });
+                    return;
+                  }
+                  const headers = [
+                    "Created", "Processed", "Order number", "Client", "Event date",
+                    "Amount", "Status", "Refund gateway", "Parent gateway", "Parent method", "Reason",
+                  ];
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const lines = [headers.join(",")];
+                  for (const r of filtered) {
+                    lines.push([
+                      esc(r.created_at), esc(r.processed_at),
+                      esc(r.order_number), esc(r.client_name), esc(r.event_date),
+                      esc(r.amount), esc(r.status),
+                      esc(r.refund_gateway), esc(r.parent_gateway), esc(r.parent_method),
+                      esc(r.reason),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const stamp = new Date().toISOString().slice(0, 10);
+                  a.download = `refunds_${stamp}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </Button>
+              <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
