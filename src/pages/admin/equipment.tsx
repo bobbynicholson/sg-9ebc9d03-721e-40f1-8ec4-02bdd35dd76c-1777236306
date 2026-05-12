@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink, Loader2, Download,
+  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X,
 } from "lucide-react";
 import {
   listUpcomingReservations, getEquipmentAvailability,
@@ -492,8 +492,20 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, category, description..."
-            className="pl-9"
+            className="pl-9 pr-9"
           />
+          {/* Phase 25 #7: clear-search affordance. */}
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
           {(["all", "available", "hidden"] as const).map((k) => (
