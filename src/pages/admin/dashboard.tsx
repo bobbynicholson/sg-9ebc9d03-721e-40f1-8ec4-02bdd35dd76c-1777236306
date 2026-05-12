@@ -22,6 +22,7 @@ import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
@@ -73,10 +74,28 @@ function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fmt = useMemo(
-    () => new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 }),
-    [],
-  );
+  // Phase 11 #1: tenant currency on the main dashboard metric
+  // cards. Resolves the symbol + locale from companies.currency
+  // so a UK / US tenant sees their own currency on the revenue
+  // headline. Falls back to ZAR / en-ZA so existing tenants are
+  // unaffected.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const fmt = useMemo(() => {
+    const code = tenantCurrency.code;
+    const localeMap: Record<string, string> = {
+      ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE", AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
+    };
+    try {
+      return new Intl.NumberFormat(localeMap[code] || "en-ZA", {
+        style: "currency",
+        currency: code,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      // Fallback to ZAR if Intl rejects the code.
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+    }
+  }, [tenantCurrency.code]);
 
   const loadMetrics = async () => {
     if (!companyId) return;
