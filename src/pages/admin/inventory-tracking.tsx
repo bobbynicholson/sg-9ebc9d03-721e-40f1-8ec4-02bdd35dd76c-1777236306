@@ -24,6 +24,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Download,
 } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
@@ -466,6 +467,54 @@ export default function InventoryTracking() {
             <p className="text-slate-600 mt-1">Live stock levels with low-stock alerts. Generate a shopping list from the gap between what you have and what upcoming events will need.</p>
           </div>
           <div className="flex gap-2">
+            {/* Phase 19 #7: inventory CSV export. The shopping
+                list generator covers what to buy, but suppliers
+                and bookkeepers regularly want a flat snapshot of
+                current vs minimum vs cost for stock-take and
+                budgeting. Exports filteredItems so search +
+                category + status filters all flow through. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (filteredItems.length === 0) {
+                  toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
+                  return;
+                }
+                const esc = (v: any) => {
+                  if (v == null) return "";
+                  const s = String(v).replace(/"/g, '""');
+                  return /[",\n]/.test(s) ? `"${s}"` : s;
+                };
+                const headers = [
+                  "Item", "Category", "Current stock", "Minimum", "Maximum", "Unit", "Cost per unit", "Supplier",
+                ];
+                const lines = [headers.join(",")];
+                for (const it of filteredItems as InventoryItem[]) {
+                  lines.push([
+                    esc(it.item_name),
+                    esc(it.category),
+                    esc(it.current_stock),
+                    esc(it.minimum_stock),
+                    esc(it.maximum_stock),
+                    esc(it.unit_of_measure),
+                    esc(it.cost_per_unit),
+                    esc(it.supplier_name || ""),
+                  ].join(","));
+                }
+                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
             <Button variant="outline" onClick={generateShoppingList}>
               <ShoppingCart className="h-4 w-4 mr-2" />
               Generate Shopping List
