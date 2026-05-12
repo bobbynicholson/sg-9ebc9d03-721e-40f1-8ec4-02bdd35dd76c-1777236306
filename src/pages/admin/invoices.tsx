@@ -974,7 +974,23 @@ export default function InvoicesPage() {
                     )}
                     <div className="flex-1 grid grid-cols-4 gap-4">
                       <div>
-                        <div className="font-medium">{invoice.invoice_number}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          {invoice.invoice_number}
+                          {/* Phase 16 #6: notes-present indicator.
+                              When invoices.notes is non-empty (the
+                              bookkeeper jotted context on the row),
+                              surface a small chip so the next person
+                              opening the row reads it first. Title
+                              attribute previews the note on hover. */}
+                          {invoice.notes && String(invoice.notes).trim() && (
+                            <span
+                              className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200"
+                              title={String(invoice.notes).slice(0, 200)}
+                            >
+                              Note
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-slate-600">
                           {format(new Date(invoice.invoice_date), "dd MMM yyyy")}
                         </div>
