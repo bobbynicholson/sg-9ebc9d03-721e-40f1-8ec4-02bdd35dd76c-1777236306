@@ -25,6 +25,7 @@ import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
 import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWidget";
+import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -398,6 +399,17 @@ function AdminDashboardPage() {
               comparison for multi-branch tenants. Self-hides on
               single-branch setups so it doesn't take up space. */}
           <RegionPerformanceWidget companyId={companyId} />
+
+          {/* Phase 12 #4: year-over-year comparison. Same date
+              window shifted back 12 months so the 'this month
+              vs same month last year' read is one glance. Self-
+              hides if the prior-year window is empty. */}
+          <YearOverYearCard
+            companyId={companyId}
+            range={range}
+            thisYearRevenue={stats.bookedRevenue}
+            thisYearOrders={stats.bookedOrders}
+          />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
