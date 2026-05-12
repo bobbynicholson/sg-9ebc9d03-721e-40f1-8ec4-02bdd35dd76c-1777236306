@@ -25,7 +25,8 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Download
+  Download,
+  X
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -398,8 +399,21 @@ function AdminUsersPage() {
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 md:pl-10 text-sm md:text-base"
+                className="pl-9 md:pl-10 pr-9 text-sm md:text-base"
               />
+              {/* Phase 25 #3: clear-search affordance, matching
+                  the rest of the admin list pages. */}
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <SortMenu
               activeKey={userSort.sortKey}
