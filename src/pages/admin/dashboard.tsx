@@ -23,6 +23,7 @@ import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
+import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -385,6 +386,12 @@ function AdminDashboardPage() {
               days so the kitchen lead + sales lead see what's
               actually pulling. Self-hides on a fresh tenant. */}
           <MenuTopSellersWidget companyId={companyId} />
+
+          {/* Phase 11 #10: quote response time. Median sent->view
+              and sent->accept across the last 90 days. Helps the
+              sales lead spot pricing / tone problems separately
+              from chase cadence. Self-hides without a sample. */}
+          <QuoteResponseTimeWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
