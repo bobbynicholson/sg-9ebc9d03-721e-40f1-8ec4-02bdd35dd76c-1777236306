@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
-  User, Building2, Users, AlertTriangle,
+  User, Building2, Users, AlertTriangle, X,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -503,8 +503,20 @@ function VehiclesPage() {
                 placeholder="Search by plate, nickname, make or model"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
+              {/* Phase 25 #8: clear-search affordance. */}
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
               {([
