@@ -12,6 +12,103 @@ import { supabase } from "@/integrations/supabase/client";
  * cancelOrder workflow, which preserves payment + audit history.
  */
 
+/**
+ * Phase 8 #9: clone an existing order. Used by the "Duplicate"
+ * quick action on /admin/orders for repeat clients (corporate
+ * weekly drops, recurring weddings on the same package). Copies
+ * the order row + its menu_items / equipment_items snapshots,
+ * mints a new order_number, resets all lifecycle stamps so the
+ * clone starts at status='pending' with no payments / no driver
+ * / no POD. Returns the new order id.
+ *
+ * Caller passes the new event_date (string YYYY-MM-DD) -- a
+ * duplicate without a forward date would silently land on the
+ * source order's date and confuse dispatch.
+ */
+export async function duplicateOrder(
+  sourceOrderId: string,
+  newEventDate: string,
+): Promise<{ success: true; data: any } | { success: false; error: string }> {
+  try {
+    const { data: src, error: readErr } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", sourceOrderId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!src) return { success: false, error: "Source order not found" };
+    const s: any = src;
+
+    // Strip fields that should NOT carry over to the clone:
+    // ids, lifecycle stamps, payment state, public token, driver
+    // assignment, POD artefacts, audit timestamps.
+    const STRIP = new Set([
+      "id", "order_number", "created_at", "updated_at", "deleted_at",
+      "confirmed_at", "completed_at", "delivered_at", "cancelled_at",
+      "deposit_paid_at", "balance_paid_at", "amount_paid", "balance_due",
+      "payment_status", "deposit_payment_id", "balance_payment_id",
+      "public_token", "public_token_issued_at",
+      "assigned_driver_id", "assigned_chef_id", "assigned_vehicle_id",
+      "pod_photo_url", "pod_signature_url", "pod_recipient_name", "pod_captured_at",
+      "quote_id", "converted_from_quote_id",
+    ]);
+    const clone: any = {};
+    for (const [k, v] of Object.entries(s)) {
+      if (!STRIP.has(k)) clone[k] = v;
+    }
+    clone.event_date = newEventDate;
+    clone.status = "pending";
+    // Mint a fresh order_number with a -COPY suffix on the source
+    // so it's obvious in the list this is a clone, not a re-issue.
+    clone.order_number = `${(s.order_number || "ORD")}-COPY-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("orders")
+      .insert(clone)
+      .select()
+      .single();
+    if (insertErr) throw insertErr;
+    const newId = (inserted as any).id;
+
+    // Clone order_items if any. Equipment bookings are deliberately
+    // NOT cloned because they're tied to a specific booked window
+    // and would create immediate phantom reservations on the new date.
+    try {
+      const { data: items } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", sourceOrderId);
+      if (Array.isArray(items) && items.length > 0) {
+        const cloned = items.map((it: any) => {
+          const { id, created_at, updated_at, ...rest } = it;
+          return { ...rest, order_id: newId };
+        });
+        await supabase.from("order_items").insert(cloned);
+      }
+    } catch (itemsErr) {
+      console.warn("[duplicateOrder] order_items clone failed (non-blocking):", itemsErr);
+    }
+
+    // Lifecycle backfill so the new order shows up correctly in
+    // contacts / leads / quote / invoice scaffolding. Same path
+    // createOrder uses.
+    void (async () => {
+      try {
+        const { lifecycleService } = await import("@/services/lifecycleService");
+        await lifecycleService.ensureLifecycleArtifactsForOrder(newId);
+      } catch (e) {
+        console.warn("[duplicateOrder] lifecycle backfill failed:", e);
+      }
+    })();
+
+    return { success: true, data: inserted };
+  } catch (error: any) {
+    console.error("[duplicateOrder] failed:", error);
+    return { success: false, error: error?.message || "Duplicate failed" };
+  }
+}
+
 export async function createOrder(orderData: any) {
   try {
     const { data, error } = await supabase

@@ -16,6 +16,7 @@ import * as financialOps from "./order/orderFinancials";
 // Re-export all CRUD operations
 export const {
   createOrder,
+  duplicateOrder,
   getOrderById,
   getAllOrders,
   updateOrder,
@@ -51,6 +52,7 @@ export const {
 export const orderService = {
   // CRUD
   createOrder,
+  duplicateOrder,
   getOrderById,
   getAllOrders,
   updateOrder,

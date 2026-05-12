@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -1486,6 +1486,51 @@ function OrderProcessDashboard() {
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Cancel order
+                    </Button>
+                  )}
+                  {/* Phase 8 #9: duplicate order quick action.
+                      Prompts for the new event date (default: 1 week
+                      out), clones the row + order_items via
+                      orderService.duplicateOrder, then opens the new
+                      order in edit mode so the operator can refine
+                      it. Equipment bookings deliberately don't carry
+                      over so we don't create phantom reservations. */}
+                  {selectedOrder && (
+                    <Button
+                      onClick={async () => {
+                        const todayPlus7 = (() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 7);
+                          return toLocalISO(d);
+                        })();
+                        const newDate = window.prompt(
+                          "New event date for the duplicate (YYYY-MM-DD):",
+                          todayPlus7,
+                        );
+                        if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
+                        const res = await orderService.duplicateOrder(selectedOrder.id, newDate);
+                        if (!res.success) {
+                          toast({
+                            title: "Could not duplicate",
+                            description: (res as { success: false; error: string }).error,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        toast({
+                          title: "Order duplicated",
+                          description: `New order ${(res.data as any).order_number} created on ${newDate}.`,
+                        });
+                        // Reload the orders list so the new row
+                        // appears, then close + reopen on the clone.
+                        setIsModalOpen(false);
+                        loadOrders();
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplicate
                     </Button>
                   )}
                   <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
