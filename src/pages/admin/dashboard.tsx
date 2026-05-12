@@ -22,6 +22,7 @@ import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
+import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -413,6 +414,11 @@ function AdminDashboardPage() {
               expired batches still showing quantity. Self-hides
               when nothing is close. */}
           <InventoryExpiryWidget companyId={companyId} />
+
+          {/* Phase 13 #4: fleet service due. Vehicles whose
+              next_service_due lands within 30 days. Self-hides
+              when no service is on the horizon. */}
+          <VehicleServiceDueWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
