@@ -307,6 +307,17 @@ function OrderProcessDashboard() {
       /* storage blocked, harmless */
     }
   }, [searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode]);
+  // Phase 15 #7: render cap on the timeline view. The kanban
+  // view chunks rows by status column so it tolerates large
+  // sets gracefully, but the timeline rendered every order in
+  // a single column -- a tenant with 800+ confirmed-and-onwards
+  // orders saw the page freeze. Cap at 200 by default with an
+  // opt-in 'show all'.
+  const TIMELINE_CAP = 200;
+  const [timelineShowAll, setTimelineShowAll] = useState(false);
+  // Reset 'show all' when filters change so a heavy view doesn't
+  // re-explode after the operator narrows then widens again.
+  useEffect(() => { setTimelineShowAll(false); }, [statusFilter, dateFilter, dateFrom, dateTo, searchTerm]);
   // Phase 11 #8: pending amendment + cancellation request counts.
   // Surfaces as inline badges in the page header so the dispatch
   // lead sees how much client-driven work is queued without
@@ -2993,11 +3004,31 @@ function OrderProcessDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-                ) : (
-                  getFilteredOrders()
-                    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-                    .map((order) => <TimelineRow key={order.id} order={order} />)
-                )}
+                ) : (() => {
+                  const sorted = getFilteredOrders()
+                    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+                  const cappedToRender = timelineShowAll ? sorted : sorted.slice(0, TIMELINE_CAP);
+                  const hidden = sorted.length - cappedToRender.length;
+                  return (
+                    <>
+                      {hidden > 0 && (
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                          <span className="text-amber-900">
+                            Showing the first <strong className="tabular-nums">{cappedToRender.length}</strong> of <strong className="tabular-nums">{sorted.length}</strong> orders. Use a status or date filter to narrow it -- or load them all.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setTimelineShowAll(true)}
+                            className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
+                          >
+                            Show all {sorted.length}
+                          </button>
+                        </div>
+                      )}
+                      {cappedToRender.map((order) => <TimelineRow key={order.id} order={order} />)}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
