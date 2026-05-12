@@ -261,6 +261,52 @@ export default function AdminQuotes() {
       /* storage blocked */
     }
   }, [search, bucket, viewMode]);
+  // Phase 15 #1: saved-view chips. Mirrors the pattern on
+  // /admin/orders -- snapshot search + bucket + viewMode under a
+  // named chip so a sales lead can snap back to 'Stale -- list'
+  // or 'Won -- pipeline' with one click.
+  interface SavedQuoteView {
+    id: string;
+    name: string;
+    search: string;
+    bucket: QuoteBucket;
+    viewMode: "list" | "pipeline";
+  }
+  const [savedViews, setSavedViews] = useState<SavedQuoteView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminQuotes.savedViews.v1");
+      if (raw) setSavedViews(JSON.parse(raw) as SavedQuoteView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminQuotes.savedViews.v1",
+        JSON.stringify(savedViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedViews]);
+  const saveCurrentQuoteView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), search, bucket, viewMode },
+    ]);
+  };
+  const applySavedQuoteView = (v: SavedQuoteView) => {
+    setSearch(v.search);
+    setBucket(v.bucket);
+    setViewMode(v.viewMode);
+  };
+  const removeSavedQuoteView = (id: string) => {
+    setSavedViews((prev) => prev.filter((v) => v.id !== id));
+  };
   // Authoritative event details, sourced from the linked order whenever
   // a quote has converted (quote.converted_to_order_id is set). Without
   // this, a quote row's event_date / guest_count / total continue to
@@ -1117,6 +1163,41 @@ export default function AdminQuotes() {
                 </button>
               );
             })}
+          </div>
+
+          {/* Phase 15 #1: saved views. One-click snap-back to a
+              named filter snapshot. Lives in localStorage so each
+              browser session picks up the operator's own working
+              set. Bucket + search + viewMode all snapshotted. */}
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            {savedViews.map((v) => (
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => applySavedQuoteView(v)}
+                  className="px-2.5 py-0.5 hover:underline"
+                  title={`Apply: ${v.bucket} / ${v.viewMode}`}
+                >
+                  {v.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSavedQuoteView(v.id)}
+                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  title="Remove this view"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={saveCurrentQuoteView}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              title="Save the current bucket + search + view as a named view"
+            >
+              + Save view
+            </button>
           </div>
 
           {/*
