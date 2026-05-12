@@ -102,6 +102,10 @@ interface Contact {
   createdAt: string | null;
   /** Phase 8 #10: free-form customer tags from clients.tags. */
   tags: string[];
+  /** Phase 16 #4: client_type from clients.client_type. Surfaced
+   *  as a small Individual / Company badge on the contact row so
+   *  the sales rep doesn't have to open the dialog to check. */
+  clientType: string | null;
 }
 
 const STATUS_META: Record<ClientStatus, {
@@ -328,6 +332,7 @@ function ClientsCRM() {
           suggestion: { tone: "neutral", label: "Stay in touch", reason: "Existing client" },
           createdAt: c.created_at,
           tags: Array.isArray(c.tags) ? (c.tags as string[]) : [],
+          clientType: c.client_type || null,
         });
       });
 
@@ -369,6 +374,7 @@ function ClientsCRM() {
             suggestion: { tone: "urgent", label: "Reply within 24h", reason: "Lead waiting" },
             createdAt: l.created_at,
             tags: [],
+            clientType: null,
           });
         }
       });
@@ -406,6 +412,7 @@ function ClientsCRM() {
             suggestion: { tone: "neutral", label: "Stay in touch", reason: "Past customer" },
             createdAt: o.created_at,
             tags: [],
+            clientType: null,
           };
           map.set(k, c);
         }
@@ -1049,7 +1056,23 @@ function ClientsCRM() {
                                 onClick={() => setActive(c)}
                                 className="text-left"
                               >
-                                <div className="font-semibold text-slate-900">{c.name}</div>
+                                <div className="font-semibold text-slate-900 flex items-center gap-2">
+                                  {c.name}
+                                  {/* Phase 16 #4: client_type badge.
+                                      Only renders for actual clients
+                                      (source='client') so a lead /
+                                      order-only row doesn't show a
+                                      misleading 'Individual' chip. */}
+                                  {c.source === "client" && c.clientType && (
+                                    <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${
+                                      c.clientType === "company"
+                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                        : "bg-slate-50 text-slate-600 border-slate-200"
+                                    }`}>
+                                      {c.clientType === "company" ? "Company" : "Individual"}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                                   {c.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>}
                                   {c.mobile_number ? (
