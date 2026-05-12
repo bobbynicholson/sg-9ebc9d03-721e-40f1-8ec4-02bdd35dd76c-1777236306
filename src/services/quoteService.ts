@@ -8,7 +8,62 @@ import { regionService } from "./regionService";
 import { lifecycleService } from "./lifecycleService";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
 
+/**
+ * Phase 15 #3: clone an existing quote. Mirrors duplicateOrder
+ * (Phase 8 #9). Used for repeat clients (corporate weekly drops,
+ * recurring weddings on the same package). Copies the quotes row,
+ * mints a new quote_number with a -COPY suffix, resets every
+ * lifecycle stamp + token so the clone starts as a fresh draft.
+ *
+ * Caller passes the new event_date (YYYY-MM-DD) so a duplicate
+ * doesn't silently land on the source quote's date and confuse
+ * the diary.
+ */
+export async function duplicateQuote(
+  sourceQuoteId: string,
+  newEventDate: string,
+): Promise<{ success: true; data: any } | { success: false; error: string }> {
+  try {
+    const { data: src, error: readErr } = await supabase
+      .from("quotes")
+      .select("*")
+      .eq("id", sourceQuoteId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!src) return { success: false, error: "Source quote not found" };
+    const s: any = src;
+
+    // Strip fields that should NOT carry over to the clone.
+    const STRIP = new Set([
+      "id", "quote_number", "created_at", "updated_at", "deleted_at",
+      "sent_at", "viewed_at", "accepted_at", "rejected_at",
+      "public_token", "converted_to_order_id", "converted_at",
+      "lead_id",
+    ]);
+    const clone: any = {};
+    for (const [k, v] of Object.entries(s)) {
+      if (!STRIP.has(k)) clone[k] = v;
+    }
+    clone.event_date = newEventDate;
+    clone.status = "draft";
+    clone.quote_number = `${(s.quote_number || "QUO")}-COPY-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("quotes")
+      .insert(clone)
+      .select()
+      .single();
+    if (insertErr) throw insertErr;
+    return { success: true, data: inserted };
+  } catch (error: any) {
+    console.error("[duplicateQuote] failed:", error);
+    return { success: false, error: error?.message || "Duplicate failed" };
+  }
+}
+
 export const quoteService = {
+  duplicateQuote,
   async getQuotes(companyId: string): Promise<Quote[]> {
     const { data, error } = await supabase
       .from("quotes")

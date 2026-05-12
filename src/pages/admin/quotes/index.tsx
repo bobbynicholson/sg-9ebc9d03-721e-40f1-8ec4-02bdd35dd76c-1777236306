@@ -1713,6 +1713,46 @@ export default function AdminQuotes() {
                               Edit
                             </Button>
                           </Link>
+                          {/* Phase 15 #3: duplicate quote. Mints a
+                              fresh quote_number with a -COPY suffix,
+                              resets all lifecycle stamps (sent_at,
+                              viewed_at, accepted_at, public_token,
+                              converted_to_order_id), drops it as a
+                              new draft. Useful for repeat clients. */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (typeof window === "undefined") return;
+                              const todayPlus7 = (() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 7);
+                                return d.toISOString().slice(0, 10);
+                              })();
+                              const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
+                              if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
+                              const res = await quoteService.duplicateQuote(quote.id, newDate);
+                              if (!res.success) {
+                                toast({
+                                  title: "Could not duplicate",
+                                  description: (res as { success: false; error: string }).error,
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              toast({
+                                title: "Quote duplicated",
+                                description: `New quote ${(res.data as any).quote_number} created on ${newDate}.`,
+                              });
+                              // Reload via the existing helper.
+                              const fresh = await quoteService.getQuotes(user.company_id!);
+                              setQuotes(fresh);
+                            }}
+                            title="Clone this quote as a new draft for a repeat booking"
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicate
+                          </Button>
                           {/* Public share link. Copies a /q/[token]
                               URL the client opens with no login. The
                               row keeps a per-quote token (uuid) on
