@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle } from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -90,6 +90,116 @@ function deriveQuoteStatus(quote: Quote): QuoteStatus {
   return status;
 }
 
+/**
+ * Phase 8 #8: pipeline kanban. Six columns keyed off the
+ * intelligence bucket (action_needed / in_play / stale / won /
+ * expired / lost). Cards show the minimum the sales lead needs
+ * to triage: client, total, event date, last action label.
+ * Click jumps to the row in the list view.
+ */
+const PIPELINE_COLUMNS: Array<{
+  bucket: Exclude<QuoteBucket, "all">;
+  title: string;
+  tone: string;
+  Icon: any;
+}> = [
+  { bucket: "action_needed", title: "Action needed", tone: "border-rose-300 bg-rose-50",       Icon: Flame },
+  { bucket: "in_play",       title: "In play",       tone: "border-blue-300 bg-blue-50",       Icon: Sparkles },
+  { bucket: "stale",         title: "Stale",         tone: "border-amber-300 bg-amber-50",     Icon: Clock },
+  { bucket: "won",           title: "Won",           tone: "border-emerald-300 bg-emerald-50", Icon: Crown },
+  { bucket: "expired",       title: "Expired",       tone: "border-orange-300 bg-orange-50",   Icon: AlertTriangle },
+  { bucket: "lost",          title: "Lost",          tone: "border-slate-300 bg-slate-50",     Icon: Snowflake },
+];
+
+function PipelineBoard({
+  rows,
+  onOpen,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[];
+  onOpen: (quoteId: string) => void;
+}) {
+  // Pre-bucket once so each column doesn't re-filter the whole list.
+  const grouped = (() => {
+    const out: Record<string, any[]> = {};
+    for (const col of PIPELINE_COLUMNS) out[col.bucket] = [];
+    for (const r of rows) {
+      const b = r.intelligence?.bucket;
+      if (out[b]) out[b].push(r);
+    }
+    return out;
+  })();
+  return (
+    <div className="overflow-x-auto pb-4 mb-6">
+      <div className="flex gap-4 min-w-max px-1">
+        {PIPELINE_COLUMNS.map((col) => {
+          const list = grouped[col.bucket] || [];
+          const total = list.reduce((acc: number, r: any) => acc + Number(r.quote?.total || 0), 0);
+          const Icon = col.Icon;
+          return (
+            <div key={col.bucket} className={`w-72 shrink-0 rounded-xl border-2 ${col.tone}`}>
+              <div className="px-3 py-2 flex items-center justify-between border-b border-slate-200/70">
+                <div className="flex items-center gap-2">
+                  <Icon className="w-4 h-4 text-slate-700" />
+                  <span className="text-sm font-semibold text-slate-900">{col.title}</span>
+                  <span className="text-xs text-slate-500 tabular-nums">{list.length}</span>
+                </div>
+                <span className="text-[11px] text-slate-500 tabular-nums">
+                  R{Math.round(total / 1000)}k
+                </span>
+              </div>
+              <div className="p-2 space-y-2 max-h-[640px] overflow-y-auto">
+                {list.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">Nothing here.</p>
+                ) : (
+                  list.map((r: any) => {
+                    const q = r.quote;
+                    const intel = r.intelligence;
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => onOpen(q.id)}
+                        className="w-full text-left rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition p-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
+                          <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
+                            R{Number(q.total || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                          {q.event_date && (
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                            </span>
+                          )}
+                          {q.guest_count != null && (
+                            <span className="inline-flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {q.guest_count}
+                            </span>
+                          )}
+                        </div>
+                        {intel?.label && (
+                          <p className={`text-[11px] mt-1.5 ${intel.tone === "urgent" ? "text-rose-700 font-medium" : "text-slate-600"}`}>
+                            {intel.label}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminQuotes() {
   const { user, profile } = useAuth() as any;
   const { regionFilterId } = useRegionFilter();
@@ -107,6 +217,11 @@ export default function AdminQuotes() {
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<QuoteBucket>("all");
+  // Phase 8 #8: list (default) vs pipeline kanban view. The kanban
+  // groups by intelligence bucket (action_needed / in_play / stale /
+  // won / lost / expired) so the sales lead can see where every
+  // open quote sits in the pipeline at a glance.
+  const [viewMode, setViewMode] = useState<"list" | "pipeline">("list");
   // Authoritative event details, sourced from the linked order whenever
   // a quote has converted (quote.converted_to_order_id is set). Without
   // this, a quote row's event_date / guest_count / total continue to
@@ -770,6 +885,31 @@ export default function AdminQuotes() {
             </Card>
           </div>
 
+          {/* Phase 8 #8: list / pipeline view toggle. Pipeline groups
+              every quote in scope by intelligence bucket so the sales
+              lead can see the funnel at a glance without flipping
+              through pill filters one by one. */}
+          <div className="mb-3 flex justify-end">
+            <div className="inline-flex border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === "list" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                <List className="w-3.5 h-3.5" />
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("pipeline")}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === "pipeline" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Pipeline
+              </button>
+            </div>
+          </div>
+
           {/*
             Smart filter pills, mirrors the Clients CRM pattern. Each
             pill shows a live count so the team sees at a glance how
@@ -906,7 +1046,20 @@ export default function AdminQuotes() {
             </div>
           )}
 
-          <div className="space-y-4">
+          {viewMode === "pipeline" && quotes.length > 0 && filteredRows.length > 0 && (
+            <PipelineBoard
+              rows={filteredRows}
+              onOpen={(quoteId) => {
+                setFocusedQuoteId(quoteId);
+                setBucket("all");
+                setTimeout(() => {
+                  document.getElementById(`quote-${quoteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  setViewMode("list");
+                }, 0);
+              }}
+            />
+          )}
+          <div className={`space-y-4 ${viewMode === "pipeline" ? "hidden" : ""}`}>
             {quotes.length === 0 ? (
               <Card className="border-2 border-dashed">
                 <CardContent className="p-12 text-center">
