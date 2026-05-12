@@ -384,6 +384,30 @@ function RefundsPage() {
     return { all: rows.length, auto, pending, rejected };
   }, [rows]);
 
+  // Phase 19 #1: amount totals per filter so finance sees the
+  // monetary exposure for each slice next to the row counts. Same
+  // source array as counts so the two always agree.
+  const totals = useMemo(() => {
+    const sum = (xs: RefundRow[]) => xs.reduce((s, r) => s + Number(r.amount || 0), 0);
+    return {
+      all: sum(rows),
+      auto: sum(rows.filter(
+        (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
+      )),
+      pending: sum(rows.filter(
+        (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
+      )),
+      rejected: sum(rows.filter(
+        (r) => r.status === "failed" || r.status === "rejected",
+      )),
+    };
+  }, [rows]);
+  const fmtCompact = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+    return n.toFixed(0);
+  };
+
   const Row = ({ r }: { r: RefundRow }) => {
     const isCompleted = r.status === "completed";
     const isRejected = r.status === "failed" || r.status === "rejected";
@@ -494,7 +518,7 @@ function RefundsPage() {
     );
   };
 
-  const FilterChip = ({ k, label, count }: { k: FilterKey; label: string; count: number }) => (
+  const FilterChip = ({ k, label, count, total }: { k: FilterKey; label: string; count: number; total: number }) => (
     <button
       type="button"
       onClick={() => setFilter(k)}
@@ -503,11 +527,17 @@ function RefundsPage() {
           ? "bg-slate-900 text-white border-slate-900"
           : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
       }`}
+      title={total > 0 ? `${count} refund${count === 1 ? "" : "s"} totalling ${fmt.format(total)}` : undefined}
     >
       {label}
       <span className={`ml-2 ${filter === k ? "text-slate-300" : "text-slate-500"}`}>
         {count}
       </span>
+      {total > 0 && (
+        <span className={`ml-1.5 pl-1.5 border-l ${filter === k ? "border-slate-700 text-slate-300" : "border-slate-300 text-slate-500"}`}>
+          {tenantCurrency.symbol}{fmtCompact(total)}
+        </span>
+      )}
     </button>
   );
 
@@ -583,10 +613,10 @@ function RefundsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <FilterChip k="all" label="All" count={counts.all} />
-            <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} />
-            <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} />
-            <FilterChip k="rejected" label="Rejected" count={counts.rejected} />
+            <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
+            <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
+            <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} total={totals.pending} />
+            <FilterChip k="rejected" label="Rejected" count={counts.rejected} total={totals.rejected} />
           </div>
 
           {/* Phase 17 #2: saved-view chips. Same pattern as orders /
