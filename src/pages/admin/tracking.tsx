@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -530,6 +530,59 @@ export default function AdminTracking() {
                   className="w-full md:w-auto"
                 >
                   Refresh Now
+                </Button>
+
+                {/* Phase 21 #3: tracking snapshot CSV. End-of-day
+                    reviews and post-mortems regularly need a flat
+                    list of what was in flight, who carried it, and
+                    the risk tier. Walks filteredOrders so the
+                    driver + status + search filters all flow
+                    through. */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (filteredOrders.length === 0) {
+                      toast({ title: "Nothing to export", description: "Adjust filters until at least one order is visible." });
+                      return;
+                    }
+                    const esc = (v: any) => {
+                      if (v == null) return "";
+                      const s = String(v).replace(/"/g, '""');
+                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    };
+                    const headers = [
+                      "Order", "Client", "Status", "Delivery status",
+                      "Risk tier", "Event date", "Event time",
+                      "Driver", "Venue", "Total",
+                    ];
+                    const lines = [headers.join(",")];
+                    for (const o of filteredOrders as any[]) {
+                      lines.push([
+                        esc(o.order_number || ""),
+                        esc(o.client_name || ""),
+                        esc(o.status || ""),
+                        esc(o.delivery_status || ""),
+                        esc(o.risk_tier || ""),
+                        esc(o.event_date || ""),
+                        esc(o.event_time || ""),
+                        esc(o.driver_name || ""),
+                        esc(o.venue || o.venue_name || ""),
+                        esc(Number(o.total_amount || 0).toFixed(2)),
+                      ].join(","));
+                    }
+                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `tracking-${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full md:w-auto gap-1.5"
+                >
+                  <Download className="w-4 h-4" /> Export CSV
                 </Button>
               </div>
             </CardContent>
