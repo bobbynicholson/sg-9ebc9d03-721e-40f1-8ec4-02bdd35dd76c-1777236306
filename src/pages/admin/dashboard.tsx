@@ -21,6 +21,7 @@ import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
+import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
@@ -340,6 +341,12 @@ function AdminDashboardPage() {
               the shopping team gets a visual nudge straight from the
               dashboard. Self-hides when nothing is short. */}
           <InventoryLowStockWidget companyId={companyId} />
+
+          {/* Phase 10 #7: email failures widget. Surfaces the last
+              5 failed sends in the last 24h so quietly broken
+              automations don't go unnoticed. Self-hides when there
+              are no failures. */}
+          <EmailFailuresWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
