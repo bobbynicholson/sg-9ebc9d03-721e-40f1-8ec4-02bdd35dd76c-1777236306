@@ -59,6 +59,10 @@ export function LogDriverShiftModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Phase 6 #6: separate flag so the modal renders a 'Log anyway'
+  // override button when the backend returned a conflict (vs. a
+  // generic validation error which should NOT offer the override).
+  const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -82,7 +86,7 @@ export function LogDriverShiftModal({
     return Math.round(h * 100) / 100;
   })();
 
-  const submit = async () => {
+  const submit = async (opts: { allowOverlap?: boolean } = {}) => {
     setError(null);
     setBusy(true);
     try {
@@ -98,9 +102,35 @@ export function LogDriverShiftModal({
         notes: notes.trim() || null,
         rate_multiplier: multiplier === "1" ? null : Number(multiplier),
         created_by_user_id: actorUserId ?? null,
+        allow_overlap: opts.allowOverlap,
       });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        // Phase 6 #6: surface a structured conflict back to the
+        // operator so they can choose to override rather than just
+        // seeing a 'Failed to log shift' toast. The conflict info
+        // (existing shift window) is rendered inline in the alert.
+        if ((result as any).conflict) {
+          const c = (result as any).conflict;
+          const startWindow = c.actual_start
+            ? new Date(c.actual_start).toLocaleString("en-ZA", {
+                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+              })
+            : "?";
+          const endWindow = c.actual_end
+            ? new Date(c.actual_end).toLocaleString("en-ZA", {
+                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+              })
+            : "still open";
+          setError(
+            `Driver is already on a shift from ${startWindow} to ${endWindow}. Cancel below to revise the times, or use 'Log anyway' to record both.`,
+          );
+          setConflict(true);
+          return;
+        }
+        throw new Error(result.error);
+      }
       setDone(true);
+      setConflict(false);
       if (onCreated) onCreated();
       // Close after a brief flash so the operator sees the confirmation.
       setTimeout(() => onOpenChange(false), 700);
@@ -204,14 +234,25 @@ export function LogDriverShiftModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
-          <Button
-            onClick={submit}
-            disabled={busy || previewHours === null}
-            className="bg-orange-600 hover:bg-orange-700"
-          >
-            {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-            Save shift
-          </Button>
+          {conflict ? (
+            <Button
+              onClick={() => submit({ allowOverlap: true })}
+              disabled={busy}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              Log anyway
+            </Button>
+          ) : (
+            <Button
+              onClick={() => submit()}
+              disabled={busy || previewHours === null}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              Save shift
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

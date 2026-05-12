@@ -385,9 +385,19 @@ export const driverPayService = {
       notes?: string | null;
       created_by_user_id?: string | null;
       rate_multiplier?: number | null;
+      /** Phase 6 #6: opt-in bypass for the overlap check. Used when
+       *  the operator has reviewed the conflict and wants to log
+       *  the shift anyway (e.g. two short jobs that share a 5-min
+       *  window). Default behaviour refuses the insert. */
+      allow_overlap?: boolean;
     },
     client: Sb = defaultClient,
-  ): Promise<{ ok: boolean; shift?: DriverShift; error?: string }> {
+  ): Promise<{
+    ok: boolean;
+    shift?: DriverShift;
+    error?: string;
+    conflict?: { id: string; actual_start: string | null; actual_end: string | null };
+  }> {
     const start = new Date(payload.actual_start);
     const end = new Date(payload.actual_end);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
@@ -395,6 +405,35 @@ export const driverPayService = {
     }
     if (end < start) {
       return { ok: false, error: "Clock-out must be after clock-in" };
+    }
+    // Phase 6 #6: driver shift overlap check. A driver can't be on
+    // two shifts at the same time -- it's nonsense for hour
+    // tracking and downstream BCEA pay calc would double-count.
+    // We refuse the insert unless allow_overlap is set, in which
+    // case the operator gets the conflicting shift's id + window
+    // back so they can decide whether to merge / extend / split.
+    if (!payload.allow_overlap) {
+      const { data: overlaps } = await (client as any)
+        .from("driver_shifts")
+        .select("id, actual_start, actual_end")
+        .eq("driver_id", payload.driver_id)
+        .is("deleted_at", null)
+        .lt("actual_start", payload.actual_end)
+        .or(`actual_end.gt.${payload.actual_start},actual_end.is.null`)
+        .limit(1);
+      if (overlaps && (overlaps as any[]).length > 0) {
+        const c = (overlaps as any[])[0];
+        return {
+          ok: false,
+          error:
+            "This driver already has a shift that overlaps the window you're trying to log. Resolve the existing one or pass allow_overlap to proceed.",
+          conflict: {
+            id: c.id,
+            actual_start: c.actual_start,
+            actual_end: c.actual_end,
+          },
+        };
+      }
     }
     const insertRow: any = {
       company_id: payload.company_id,
