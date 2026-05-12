@@ -108,6 +108,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 import { toLocalISO } from "@/lib/localDate";
+import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -1964,6 +1965,20 @@ function NewQuotePage() {
                       placeholder="Optional message that goes out with the quote."
                     />
                   </div>
+                  {/* Phase 16 #1: chronological notes thread for the
+                      quote -- only renders once the quote has been
+                      saved (we need a quoteId to thread off). Mirrors
+                      the order notes thread for cross-team context. */}
+                  {quoteId && companyId && (
+                    <div className="pt-2 border-t border-slate-200">
+                      <EntityNotesThread
+                        entityType="quote"
+                        entityId={quoteId}
+                        companyId={companyId}
+                        placeholder="Add an internal note for this quote -- audit logged."
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
