@@ -19,7 +19,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink } from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedNotificationsPage() {
@@ -139,6 +139,34 @@ function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  // Phase 18 #5: lightweight CSV export of the currently filtered list so admins
+  // can keep an audit trail outside the app (forwarding to ops chats, archival, etc.).
+  const exportCsv = () => {
+    const esc = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const headers = ["Created", "Priority", "Type", "Title", "Message", "Read"];
+    const rows = filteredNotifications.map((n: Notification) => [
+      n.created_at ? new Date(n.created_at).toISOString() : "",
+      n.priority || "",
+      n.notification_type || "",
+      n.title || "",
+      n.message || "",
+      n.is_read ? "yes" : "no",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `notifications-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
       <AdminNav />
@@ -220,6 +248,15 @@ function NotificationsPage() {
                   Mark All Read
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportCsv}
+                disabled={filteredNotifications.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
