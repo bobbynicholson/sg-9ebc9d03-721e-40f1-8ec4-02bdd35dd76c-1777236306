@@ -29,7 +29,7 @@ import { InvoicePreview } from "@/components/InvoicePreview";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -1069,7 +1069,32 @@ export default function InvoicesPage() {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              Invoice Preview
+              {selectedInvoice?.invoiceNumber && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    // Phase 20 #9: click-to-copy invoice number,
+                    // same pattern as the order drawer. Bookkeeping
+                    // pastes invoice numbers into the bank's payment
+                    // reference field and reconciliation notes.
+                    const num = String(selectedInvoice.invoiceNumber);
+                    try {
+                      await navigator.clipboard.writeText(num);
+                      toast({ title: "Copied", description: `${num} on clipboard.` });
+                    } catch {
+                      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-2 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
+                  title="Copy invoice number"
+                >
+                  <Copy className="w-3 h-3" />
+                  {selectedInvoice.invoiceNumber}
+                </button>
+              )}
+            </DialogTitle>
             <DialogDescription>
               Review the invoice before sending to client
             </DialogDescription>
