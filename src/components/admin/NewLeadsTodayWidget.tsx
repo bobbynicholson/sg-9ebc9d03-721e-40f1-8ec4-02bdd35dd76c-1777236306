@@ -105,38 +105,44 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
               const email = r.email || r.client_email || "";
               const phone = r.phone || r.client_phone || "";
               const age = hoursAgo(r.created_at);
+              // Phase 23 #3: deep-link each row into the lead detail.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-emerald-100 text-emerald-800 border-emerald-200">
-                    {age <= 0 ? "now" : `${age}h ago`}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {name}
-                      {r.source && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500">
-                          via {r.source}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
-                      {email && (
-                        <span className="inline-flex items-center gap-1">
-                          <Mail className="w-3 h-3" />{email}
-                        </span>
-                      )}
-                      {phone && (
-                        <span className="inline-flex items-center gap-1">
-                          <Phone className="w-3 h-3" />{phone}
-                        </span>
-                      )}
-                      {r.event_date && (
-                        <span className="text-violet-700">
-                          Event {r.event_date}
-                        </span>
-                      )}
-                    </p>
-                  </div>
+                <li key={r.id}>
+                  <Link
+                    href={`/admin/leads?leadId=${r.id}`}
+                    className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                  >
+                    <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-emerald-100 text-emerald-800 border-emerald-200">
+                      {age <= 0 ? "now" : `${age}h ago`}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {name}
+                        {r.source && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500">
+                            via {r.source}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
+                        {email && (
+                          <span className="inline-flex items-center gap-1">
+                            <Mail className="w-3 h-3" />{email}
+                          </span>
+                        )}
+                        {phone && (
+                          <span className="inline-flex items-center gap-1">
+                            <Phone className="w-3 h-3" />{phone}
+                          </span>
+                        )}
+                        {r.event_date && (
+                          <span className="text-violet-700">
+                            Event {r.event_date}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
