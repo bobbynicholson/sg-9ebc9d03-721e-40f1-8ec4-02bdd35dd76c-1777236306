@@ -52,6 +52,58 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  // Phase 14 #10: bulk-mark-paid. Operators reconciling EFTs can
+  // tick multiple unpaid invoices and mark them all paid + record
+  // a payment in one shot rather than opening each one. The set
+  // holds invoice ids ticked in the current view.
+  const [bulkMarkPaidIds, setBulkMarkPaidIds] = useState<Set<string>>(new Set());
+  const [bulkMarkPaidBusy, setBulkMarkPaidBusy] = useState(false);
+  const toggleBulkMarkPaid = (id: string) => {
+    setBulkMarkPaidIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearBulkMarkPaid = () => setBulkMarkPaidIds(new Set());
+  const runBulkMarkPaid = async () => {
+    if (bulkMarkPaidIds.size === 0) return;
+    if (typeof window !== "undefined" && !window.confirm(
+      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This sets balance_due to 0 and amount_paid to total_amount on each.`,
+    )) return;
+    setBulkMarkPaidBusy(true);
+    try {
+      const ids = Array.from(bulkMarkPaidIds);
+      const targets = invoices.filter((inv) => ids.includes(inv.id));
+      const updates = targets.map((inv) => (supabase as any)
+        .from("invoices")
+        .update({
+          status: "paid",
+          amount_paid: Number(inv.total_amount || 0),
+          balance_due: 0,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", inv.id));
+      const results = await Promise.all(updates);
+      const failed = results.filter((r: any) => r.error).length;
+      if (failed > 0) throw new Error(`${failed} update${failed === 1 ? "" : "s"} failed`);
+      toast({
+        title: "Marked as paid",
+        description: `${ids.length} invoice${ids.length === 1 ? "" : "s"} updated. Reload to refresh totals.`,
+      });
+      clearBulkMarkPaid();
+      loadInvoices();
+    } catch (e: any) {
+      toast({
+        title: "Bulk mark-paid failed",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkMarkPaidBusy(false);
+    }
+  };
   // Send-dialog state. Opens the review-before-send composer rather
   // than firing /api/send-email immediately. The operator reviews,
   // edits, then clicks Send inside the dialog.
@@ -775,11 +827,49 @@ export default function InvoicesPage() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Phase 14 #10: bulk mark-paid toolbar. Sticky
+                    above the list when at least one invoice is
+                    ticked. */}
+                {bulkMarkPaidIds.size > 0 && (
+                  <div className="sticky top-2 z-10 bg-white border border-emerald-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-emerald-900">
+                      {bulkMarkPaidIds.size} invoice{bulkMarkPaidIds.size === 1 ? "" : "s"} selected
+                    </span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={runBulkMarkPaid}
+                        disabled={bulkMarkPaidBusy}
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {bulkMarkPaidBusy ? "Marking..." : "Mark all paid"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={clearBulkMarkPaid} disabled={bulkMarkPaidBusy}>
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {filteredInvoices.map(invoice => (
                   <div
                     key={invoice.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                    className={`flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
+                      bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-emerald-300 bg-emerald-50/30" : ""
+                    }`}
                   >
+                    {/* Phase 14 #10: row checkbox. Only renders for
+                        invoices that aren't already paid -- a paid
+                        row has nothing to bulk-action. */}
+                    {invoice.status !== "paid" && invoice.status !== "cancelled" && (
+                      <input
+                        type="checkbox"
+                        className="mr-3 h-4 w-4 cursor-pointer accent-emerald-600 shrink-0"
+                        checked={bulkMarkPaidIds.has(invoice.id)}
+                        onChange={() => toggleBulkMarkPaid(invoice.id)}
+                        title="Tick to include in bulk mark-paid"
+                        aria-label={`Select invoice ${invoice.invoice_number}`}
+                      />
+                    )}
                     <div className="flex-1 grid grid-cols-4 gap-4">
                       <div>
                         <div className="font-medium">{invoice.invoice_number}</div>
