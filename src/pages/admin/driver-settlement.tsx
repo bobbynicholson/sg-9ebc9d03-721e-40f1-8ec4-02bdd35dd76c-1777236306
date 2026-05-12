@@ -310,10 +310,37 @@ function DriverSettlementPage() {
             </CardContent>
           </Card>
 
-          {/* Period totals strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+          {/* Period totals strip + Phase 12 #9 utilisation tile.
+              Utilisation = total team hours / (drivers * working
+              days * 8h). Working days = elapsed days in the
+              period, including weekends, because catering trades
+              7 days. Anything > ~70% on a Spit Braai-style team
+              means the operator is leaning hard on a small bench;
+              < 30% means the bench is over-provisioned. */}
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
             <TotalCard label="Drivers paid" value={String(totals.drivers)} />
             <TotalCard label="Hours" value={`${totals.hours.toFixed(1)}h`} icon={Clock} accent="text-blue-600" />
+            {(() => {
+              const days = Math.max(
+                1,
+                Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1,
+              );
+              const capacity = totals.drivers * days * 8;
+              const pct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : 0;
+              const tone =
+                pct >= 70 ? "text-rose-600"
+                : pct >= 50 ? "text-amber-600"
+                : pct >= 25 ? "text-emerald-600"
+                : "text-slate-500";
+              return (
+                <TotalCard
+                  label="Utilisation"
+                  value={`${pct}%`}
+                  icon={Clock}
+                  accent={tone}
+                />
+              );
+            })()}
             <TotalCard label="Hourly pay" value={formatR(totals.hourlyPay)} icon={Clock} accent="text-blue-600" />
             <TotalCard label="Distance pay" value={formatR(totals.distancePay)} icon={Route} accent="text-amber-600" />
             <TotalCard label="Grand total" value={formatR(totals.grand)} accent="text-emerald-700" emphasize />
