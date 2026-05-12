@@ -33,6 +33,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/router";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useToast } from "@/hooks/use-toast";
@@ -116,6 +117,16 @@ function MenuPage() {
   const [items, setItems] = useState<MenuItemWithRecipeSummary[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
+  // Phase 24 #4: seed the search box from ?q so the dashboard's
+  // MenuTopSellers widget can deep-link a pre-filtered menu view.
+  // Same pattern as Phase 23 #7 on /admin/contacts.
+  const router = useRouter();
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    if (q) setSearch(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);

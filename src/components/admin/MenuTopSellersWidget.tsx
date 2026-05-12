@@ -14,6 +14,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChefHat, TrendingUp } from "lucide-react";
@@ -93,24 +94,32 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
           <ul className="space-y-2">
             {entries.map((e, i) => {
               const share = Math.max(8, Math.round((e.quantity / topQty) * 100));
+              // Phase 24 #4: deep-link to /admin/menu pre-filtered
+              // by the dish name. The matching ?q seam in menu.tsx
+              // wires that up.
               return (
-                <li key={e.name} className="flex items-center gap-3">
-                  <div className="w-6 text-xs font-semibold text-emerald-900 tabular-nums">#{i + 1}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-sm font-medium text-slate-900 truncate">{e.name}</span>
-                      <span className="text-xs tabular-nums text-slate-700 font-semibold shrink-0">
-                        {e.quantity} sold
-                      </span>
+                <li key={e.name}>
+                  <Link
+                    href={`/admin/menu?q=${encodeURIComponent(e.name)}`}
+                    className="flex items-center gap-3 py-1 -mx-1 px-1 rounded hover:bg-emerald-50/60 transition"
+                  >
+                    <div className="w-6 text-xs font-semibold text-emerald-900 tabular-nums">#{i + 1}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-900 truncate">{e.name}</span>
+                        <span className="text-xs tabular-nums text-slate-700 font-semibold shrink-0">
+                          {e.quantity} sold
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-emerald-100 rounded overflow-hidden mt-1">
+                        <div className="h-full bg-emerald-500" style={{ width: `${share}%` }} />
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums inline-flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" />
+                        on {e.appearances} order{e.appearances === 1 ? "" : "s"}
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-emerald-100 rounded overflow-hidden mt-1">
-                      <div className="h-full bg-emerald-500" style={{ width: `${share}%` }} />
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums inline-flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" />
-                      on {e.appearances} order{e.appearances === 1 ? "" : "s"}
-                    </div>
-                  </div>
+                  </Link>
                 </li>
               );
             })}
