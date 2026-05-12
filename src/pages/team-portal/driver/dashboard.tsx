@@ -25,6 +25,7 @@ import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
+import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -419,6 +420,14 @@ export default function DriverDashboard() {
             </div>
 
             <TeamWelcomeBanner role="driver" userId={user?.id} />
+
+            {/* Phase 10 #10: one-tap clock-in / clock-out.
+             *  Replaces the only-after-the-fact admin-logged shift
+             *  flow with a real-time clock. Drives the BCEA
+             *  fatigue checks (Phase 7 #2) honestly. */}
+            <div className="mb-4 sm:mb-6">
+              <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
+            </div>
 
             {/* Phase 7 #4: A2HS prompt. Renders only when the
              *  browser fires beforeinstallprompt (Chrome / Edge /
