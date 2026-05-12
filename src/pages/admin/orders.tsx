@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -373,6 +373,63 @@ function OrderProcessDashboard() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.id, isModalOpen]);
+
+  // Phase 18 #10: per-order quick rating. Ops wants a one-tap way to
+  // capture how an event went (1-5 stars) without leaving the order
+  // drawer. Persists via audit_logs (entity_type='order',
+  // action='order_rating_set') so no new table or migration is needed
+  // -- the timeline already pulls these in. Latest entry wins.
+  const [orderRating, setOrderRating] = useState<number | null>(null);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  useEffect(() => {
+    if (!selectedOrder?.id || !isModalOpen) { setOrderRating(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("audit_logs")
+          .select("details, created_at")
+          .eq("entity_type", "order")
+          .eq("entity_id", selectedOrder.id)
+          .eq("action", "order_rating_set")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (cancelled) return;
+        const r = Number((data?.[0] as any)?.details?.rating);
+        setOrderRating(Number.isFinite(r) && r >= 1 && r <= 5 ? r : null);
+      } catch { /* non-blocking */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedOrder?.id, isModalOpen]);
+  const setQuickRating = async (rating: number) => {
+    if (!selectedOrder?.id || ratingBusy) return;
+    if (rating === orderRating) return;
+    setRatingBusy(true);
+    const prev = orderRating;
+    setOrderRating(rating); // optimistic
+    try {
+      const { error } = await (supabase as any).from("audit_logs").insert({
+        entity_type: "order",
+        entity_id: selectedOrder.id,
+        action: "order_rating_set",
+        company_id: (selectedOrder as any).company_id || null,
+        user_id: (user as any)?.id || null,
+        details: {
+          rating,
+          author_name: (user as any)?.full_name || (user as any)?.email || null,
+          order_number: (selectedOrder as any).order_number || null,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "Rating saved", description: `Recorded ${rating} star${rating === 1 ? "" : "s"} for this order.` });
+    } catch (e: any) {
+      setOrderRating(prev); // rollback
+      toast({ title: "Couldn't save rating", description: e?.message || "Try again", variant: "destructive" });
+    } finally {
+      setRatingBusy(false);
+    }
+  };
+
   const [editMode, setEditMode] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
@@ -1742,6 +1799,32 @@ function OrderProcessDashboard() {
                     Open invoice
                     <ChevronRight className="w-3 h-3" />
                   </Link>
+                  {/* Phase 18 #10: quick rating capture. One-tap stars
+                      write to audit_logs so the value flows back
+                      through the timeline tab and survives reloads. */}
+                  <div
+                    className="inline-flex items-center gap-1 text-xs font-medium text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
+                    title={orderRating ? `Rated ${orderRating}/5. Tap a star to change.` : "Tap a star to rate this order (1-5)"}
+                  >
+                    <span className="text-[10px] uppercase tracking-wide text-yellow-700">Rate</span>
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const filled = orderRating != null && n <= orderRating;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setQuickRating(n)}
+                          disabled={ratingBusy}
+                          className="hover:scale-110 transition-transform disabled:opacity-50"
+                          aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
+                        >
+                          <Star
+                            className={`w-3.5 h-3.5 ${filled ? "fill-yellow-500 text-yellow-500" : "text-yellow-400"}`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               {!editMode ? (
