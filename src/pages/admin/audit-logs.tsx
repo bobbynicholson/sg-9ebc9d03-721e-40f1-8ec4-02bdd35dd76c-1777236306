@@ -434,6 +434,37 @@ function CompanyAuditLogsViewer() {
                     </div>
                   </div>
                 </div>
+                {/* Phase 18 #9: quick entity-type chips. The dropdown
+                    still owns the long tail; these chips give one-tap
+                    access to the entity types operators reach for
+                    repeatedly (order/quote/payment/refund). */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-slate-500 mr-1">Quick filter:</span>
+                  {([
+                    { v: "all", label: "All" },
+                    { v: "order", label: "Orders" },
+                    { v: "quote", label: "Quotes" },
+                    { v: "invoice", label: "Invoices" },
+                    { v: "payment", label: "Payments" },
+                    { v: "driver_shift", label: "Driver shifts" },
+                  ] as const).map((c) => {
+                    const active = entityTypeFilter === c.v;
+                    return (
+                      <button
+                        key={c.v}
+                        type="button"
+                        onClick={() => { setEntityTypeFilter(c.v); setPage(0); }}
+                        className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border transition ${
+                          active
+                            ? "border-slate-700 bg-slate-900 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
                 {/* Phase 17 #3: saved-view chips for compliance +
                     ops slices that recur. */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
