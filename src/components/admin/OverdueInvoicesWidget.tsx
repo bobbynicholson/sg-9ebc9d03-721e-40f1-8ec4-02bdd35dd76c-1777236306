@@ -110,27 +110,35 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
                 : age >= 14
                   ? "bg-orange-100 text-orange-800 border-orange-200"
                   : "bg-amber-100 text-amber-800 border-amber-200";
+              // Phase 22 #8: rows now navigate to the invoice via
+              // ?invoiceId so the bookkeeper can act on the chase in
+              // one click instead of digging through the list.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
-                    {age}d late
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.orders?.client_name || "Unknown client"}
-                      {r.invoice_number && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
-                          {r.invoice_number}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500 capitalize">
-                      Due {r.due_date || "tbc"} · {r.status || "outstanding"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-rose-800">
-                    {tenantCurrency.format(Number(r.total_amount || 0), 0)}
-                  </span>
+                <li key={r.id}>
+                  <Link
+                    href={`/admin/invoices?invoiceId=${r.id}`}
+                    className="py-2 flex items-center gap-3 hover:bg-rose-50/60 rounded transition"
+                  >
+                    <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
+                      {age}d late
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.orders?.client_name || "Unknown client"}
+                        {r.invoice_number && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
+                            {r.invoice_number}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500 capitalize">
+                        Due {r.due_date || "tbc"} · {r.status || "outstanding"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-rose-800">
+                      {tenantCurrency.format(Number(r.total_amount || 0), 0)}
+                    </span>
+                  </Link>
                 </li>
               );
             })}
