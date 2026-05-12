@@ -2086,7 +2086,7 @@ function OrderProcessDashboard() {
                   <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <div className="flex border rounded-lg overflow-hidden">
                   <Button
                     variant={viewMode === "kanban" ? "default" : "ghost"}
@@ -2107,6 +2107,69 @@ function OrderProcessDashboard() {
                     Timeline
                   </Button>
                 </div>
+                {/* Phase 7 #3: CSV export of the currently filtered
+                    list. Operators wanting to take orders into
+                    Sheets / Excel for accounting reconciliation
+                    or board reports had no in-product path -- they
+                    were copy-pasting cells. The button respects
+                    every filter state (status, date, region,
+                    search) so the export always matches what the
+                    operator sees on screen. Header + escaping
+                    handled inline; no new dependency. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const rows = fuzzyOrders;
+                    if (rows.length === 0) {
+                      toast({
+                        title: "Nothing to export",
+                        description: "Adjust filters until you see at least one order.",
+                      });
+                      return;
+                    }
+                    const headers = [
+                      "Order number", "Status", "Client", "Email", "Phone",
+                      "Event date", "Event time", "Guests", "Venue",
+                      "Total", "Currency", "Payment status",
+                      "Created", "Confirmed",
+                    ];
+                    const esc = (v: any) => {
+                      if (v == null) return "";
+                      const s = String(v).replace(/"/g, '""');
+                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    };
+                    const lines = [headers.join(",")];
+                    for (const o of rows as any[]) {
+                      lines.push([
+                        esc(o.order_number),
+                        esc(o.status),
+                        esc(o.client_name),
+                        esc(o.client_email),
+                        esc(o.client_phone),
+                        esc(o.event_date),
+                        esc(o.event_time),
+                        esc(o.guest_count),
+                        esc(o.venue_address),
+                        esc(o.total_amount),
+                        esc(o.currency || "ZAR"),
+                        esc(o.payment_status),
+                        esc(o.created_at),
+                        esc(o.confirmed_at),
+                      ].join(","));
+                    }
+                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    const stamp = new Date().toISOString().slice(0, 10);
+                    a.download = `orders_${stamp}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export CSV
+                </Button>
                 <Link href="/admin/order-assignments">
                   <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
                     <ShoppingCart className="w-4 h-4 mr-2" />
