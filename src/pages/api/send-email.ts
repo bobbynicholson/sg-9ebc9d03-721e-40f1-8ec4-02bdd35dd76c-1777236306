@@ -297,7 +297,7 @@ export default async function handler(
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
                 registration_number, tax_number,
-                payment_terms,
+                payment_terms, currency,
                 updated_at
               )
             `)
@@ -354,6 +354,10 @@ export default async function handler(
                 total_amount: Number(invAny.total_amount ?? 0),
                 amount_paid: invAny.amount_paid,
                 balance_due: invAny.balance_due,
+                // Phase 9 #2: tenant currency feeds the InvoiceDocument
+                // money formatter. Falls back to ZAR when company.currency
+                // is null so existing tenants render unchanged.
+                currency: company.currency || null,
                 notes: invAny.notes || stashed.notes || null,
                 payment_terms: stashed.paymentTerms || company.payment_terms || null,
                 company: {

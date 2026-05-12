@@ -86,16 +86,37 @@ export interface InvoicePdfData {
 
 // --- Helpers ---------------------------------------------------------------
 
-const fmtZAR = (n: number | null | undefined): string => {
+/**
+ * Phase 9 #2: tenant-currency-aware money formatter. Falls back
+ * to ZAR / R when the row doesn't declare a currency so existing
+ * invoices keep rendering identically. Pass the invoice.currency
+ * (or company.currency) string -- e.g. "USD", "GBP", "ZAR".
+ */
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA",
+  USD: "en-US",
+  GBP: "en-GB",
+  EUR: "en-IE",
+  AUD: "en-AU",
+  NZD: "en-NZ",
+  NGN: "en-NG",
+  KES: "en-KE",
+};
+const CURRENCY_FALLBACK_SYMBOL: Record<string, string> = {
+  ZAR: "R", USD: "$", GBP: "GBP ", EUR: "EUR ", AUD: "A$", NZD: "NZ$", NGN: "NGN ", KES: "KSh ",
+};
+const fmtMoney = (n: number | null | undefined, currency?: string | null): string => {
   const v = Number(n || 0);
+  const code = (currency || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
-    return new Intl.NumberFormat("en-ZA", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: "ZAR",
+      currency: code,
       maximumFractionDigits: 0,
     }).format(v);
   } catch {
-    return `R ${Math.round(v)}`;
+    return `${CURRENCY_FALLBACK_SYMBOL[code] || ""}${Math.round(v)}`;
   }
 };
 
@@ -376,6 +397,10 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const tax = Number(data.tax_amount || 0);
   const total = Number(data.total_amount || 0);
   const amountPaid = Number(data.amount_paid || 0);
+  // Phase 9 #2: tenant currency. Closure binds the row's currency
+  // (e.g. 'USD', 'GBP') so every money render below uses the
+  // right symbol + locale. Defaults to ZAR / R when unset.
+  const fmt = (n: number | null | undefined): string => fmtMoney(n, data.currency);
   const balanceDue = data.balance_due != null
     ? Number(data.balance_due)
     : Math.max(0, total - amountPaid);
@@ -510,11 +535,11 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                     ) : null}
                     {qty > 1 ? (
                       <Text style={styles.lineSub}>
-                        {qty} x {fmtZAR(unit)}
+                        {qty} x {fmt(unit)}
                       </Text>
                     ) : null}
                   </View>
-                  <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
+                  <Text style={styles.lineTotal}>{fmt(lineTotal)}</Text>
                 </View>
               );
             })}
@@ -525,7 +550,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         <View style={styles.totalsBlock} wrap={false}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
-            <Text style={styles.totalsValue}>{fmtZAR(subtotal)}</Text>
+            <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
           </View>
           {vatRegistered && tax > 0 ? (
             <View style={styles.totalsRow}>
@@ -535,19 +560,19 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                   ? ` (${Number(company.vat_rate).toFixed(0)}%)`
                   : ""}
               </Text>
-              <Text style={styles.totalsValue}>{fmtZAR(tax)}</Text>
+              <Text style={styles.totalsValue}>{fmt(tax)}</Text>
             </View>
           ) : null}
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>
               Total{vatRegistered ? " incl. VAT" : ""}
             </Text>
-            <Text style={styles.grandTotalValue}>{fmtZAR(total)}</Text>
+            <Text style={styles.grandTotalValue}>{fmt(total)}</Text>
           </View>
           {amountPaid > 0 ? (
             <View style={[styles.totalsRow, { marginTop: 6 }]}>
               <Text style={styles.totalsLabel}>Paid</Text>
-              <Text style={styles.paid}>-{fmtZAR(amountPaid)}</Text>
+              <Text style={styles.paid}>-{fmt(amountPaid)}</Text>
             </View>
           ) : null}
           <View style={styles.totalsRow}>
@@ -555,7 +580,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
               {balanceDue <= 0 ? "Balance" : "Balance due"}
             </Text>
             <Text style={balanceDue <= 0 ? styles.paid : styles.balanceDue}>
-              {fmtZAR(Math.max(0, balanceDue))}
+              {fmt(Math.max(0, balanceDue))}
             </Text>
           </View>
         </View>
