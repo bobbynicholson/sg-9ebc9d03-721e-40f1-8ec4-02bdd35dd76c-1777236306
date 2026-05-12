@@ -144,6 +144,45 @@ function RefundsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  // Phase 17 #2: saved-view chips. Bookkeeping segments (auto-
+  // processed for the day, pending EFT > 3 days, recently
+  // rejected) re-occur every reconciliation pass; named chips
+  // skip the manual filter clicks.
+  interface SavedRefundView {
+    id: string;
+    name: string;
+    filter: FilterKey;
+  }
+  const [savedRefundViews, setSavedRefundViews] = useState<SavedRefundView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminRefunds.savedViews.v1");
+      if (raw) setSavedRefundViews(JSON.parse(raw) as SavedRefundView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminRefunds.savedViews.v1",
+        JSON.stringify(savedRefundViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedRefundViews]);
+  const saveCurrentRefundView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedRefundViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), filter },
+    ]);
+  };
+  const applySavedRefundView = (v: SavedRefundView) => setFilter(v.filter);
+  const removeSavedRefundView = (id: string) =>
+    setSavedRefundViews((prev) => prev.filter((v) => v.id !== id));
 
   const load = async () => {
     if (!companyId) return;
@@ -548,6 +587,39 @@ function RefundsPage() {
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} />
             <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} />
             <FilterChip k="rejected" label="Rejected" count={counts.rejected} />
+          </div>
+
+          {/* Phase 17 #2: saved-view chips. Same pattern as orders /
+              quotes / invoices / contacts. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {savedRefundViews.map((v) => (
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => applySavedRefundView(v)}
+                  className="px-2.5 py-0.5 hover:underline"
+                  title={`Apply: ${v.filter}`}
+                >
+                  {v.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSavedRefundView(v.id)}
+                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  title="Remove this view"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={saveCurrentRefundView}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              title="Save the current filter as a named view"
+            >
+              + Save view
+            </button>
           </div>
 
           <Card>
