@@ -159,6 +159,10 @@ function ClientsCRM() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | ClientStatus>("all");
+  // Phase 9 #4: tag filter. Multi-select set of tag strings; a
+  // contact passes if it has at least one of the selected tags.
+  // Empty set means no tag filter is active.
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [active, setActive] = useState<Contact | null>(null);
   const [contactedKeys, setContactedKeys] = useState<Record<string, string>>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -600,11 +604,25 @@ function ClientsCRM() {
     return n;
   }, [contacts]);
 
+  // All distinct tags currently in use across the loaded book.
+  // Powers the tag-filter chip strip so the operator only sees
+  // tags that actually exist on at least one contact.
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of contacts) for (const t of c.tags) set.add(t);
+    return Array.from(set).sort();
+  }, [contacts]);
   // Status filter is applied first so the fuzzy matcher only ranks contacts
-  // the user is currently scoped to (e.g. "VIPs called Sarah").
+  // the user is currently scoped to (e.g. "VIPs called Sarah"). Tag filter
+  // (Phase 9 #4) layers on top -- a contact passes if it carries at
+  // least one of the selected tags.
   const statusFiltered = useMemo(() => {
-    return filter === "all" ? contacts : contacts.filter((c) => c.status === filter);
-  }, [contacts, filter]);
+    let base = filter === "all" ? contacts : contacts.filter((c) => c.status === filter);
+    if (tagFilter.size > 0) {
+      base = base.filter((c) => c.tags.some((t) => tagFilter.has(t)));
+    }
+    return base;
+  }, [contacts, filter, tagFilter]);
 
   // Smart fuzzy search across name, email, phone with name weighted highest.
   // The hook debounces and scores -- gives us prefix > substring > fuzzy.
@@ -688,6 +706,48 @@ function ClientsCRM() {
               </Button>
             </div>
           </div>
+
+          {/* Phase 9 #4: tag filter chip strip. Only renders when
+              the book has at least one tagged contact. Click a chip
+              to toggle it into the active filter set; multiple
+              selected = OR (contact must have at least one). */}
+          {allTags.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500 inline-flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5" />
+                Tags
+              </span>
+              {allTags.map((t) => {
+                const active = tagFilter.has(t);
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTagFilter((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(t)) next.delete(t);
+                      else next.add(t);
+                      return next;
+                    })}
+                    className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
+                      active
+                        ? "bg-purple-600 text-white border-purple-700"
+                        : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+              {tagFilter.size > 0 && (
+                <button
+                  onClick={() => setTagFilter(new Set())}
+                  className="text-[11px] text-slate-500 hover:text-slate-700 underline ml-1"
+                >
+                  Clear ({tagFilter.size})
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Smart filter chips with live counts */}
           <div className="mb-6 flex flex-wrap items-center gap-2">
