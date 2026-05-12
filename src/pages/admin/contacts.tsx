@@ -35,7 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download } from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -800,8 +800,21 @@ function ClientsCRM() {
                   placeholder="Search name, email, phone... (press /)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 w-64 sm:w-80"
+                  className="pl-9 pr-9 w-64 sm:w-80"
                 />
+                {/* Phase 24 #9: clear-search affordance, matching
+                    /admin/orders + /admin/quotes. */}
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               {/* Phase 15 #9: manual refresh. With the page now
                   capped at 500 rows (perf fix) operators sometimes
