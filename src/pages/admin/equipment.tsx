@@ -486,6 +486,21 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                 {items.map((r) => {
                   const offline = r.is_available === false;
                   const noFree = safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0;
+                  // Phase 6 #8: surface service-due state inline.
+                  // The Phase 4 #6 cron broadcasts daily but the
+                  // catalog list itself never showed which kit was
+                  // due / overdue; an operator scanning the page
+                  // has to mentally cross-reference notifications.
+                  // Now: a coloured badge per row when next_service_
+                  // due is within 7 days (amber 'due') or in the
+                  // past (red 'overdue').
+                  const nextDue = r.next_service_due
+                    ? new Date(r.next_service_due as string).getTime()
+                    : null;
+                  const now = Date.now();
+                  const sevenDays = 7 * 86400_000;
+                  const isOverdue = !!nextDue && nextDue < now;
+                  const isDueSoon = !!nextDue && !isOverdue && nextDue - now <= sevenDays;
                   return (
                     <Card key={r.id} className={`border-0 shadow-md ${offline ? "opacity-60" : ""}`}>
                       <CardContent className="p-4 flex flex-wrap items-center gap-3">
@@ -500,6 +515,24 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             {noFree && (
                               <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
                                 <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> none free
+                              </Badge>
+                            )}
+                            {isOverdue && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-red-50 text-red-700 border-red-300"
+                                title={`Service was due ${new Date(r.next_service_due as string).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
+                              >
+                                Service overdue
+                              </Badge>
+                            )}
+                            {isDueSoon && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-300"
+                                title={`Service due ${new Date(r.next_service_due as string).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
+                              >
+                                Service due
                               </Badge>
                             )}
                             {r.condition && r.condition !== "good" && (
