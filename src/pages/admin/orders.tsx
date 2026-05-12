@@ -1839,6 +1839,38 @@ function OrderProcessDashboard() {
                     <ChevronRight className="w-3 h-3" />
                     View as client sees it
                   </button>
+                  {/* Phase 22 #6: copy the tokenised public link.
+                      Same mint endpoint as 'View as client'; instead
+                      of opening a tab we drop the URL onto the
+                      clipboard so the operator can paste it into a
+                      WhatsApp / email message to the client. Tokens
+                      auto-expire after 60 days so this is safe. */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                        });
+                        const j = await r.json();
+                        if (!r.ok) throw new Error(j.error || "Could not mint link");
+                        await navigator.clipboard.writeText(String(j.url));
+                        toast({ title: "Client link copied", description: "Paste it into your WhatsApp or email." });
+                      } catch (e: any) {
+                        toast({
+                          title: "Couldn't copy link",
+                          description: e?.message || "Try again",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
+                    title="Copy a tokenised client-view link"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy client link
+                  </button>
                   <Link
                     href={`/admin/invoices`}
                     onClick={() => setIsModalOpen(false)}
