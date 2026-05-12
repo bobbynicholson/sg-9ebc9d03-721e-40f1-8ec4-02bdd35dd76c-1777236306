@@ -31,7 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera } from "lucide-react";
+import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
@@ -350,8 +350,64 @@ function SmartShoppingPage() {
                 </p>
               </div>
             </div>
-            {pickedCount > 0 && (
-              <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              {/* Phase 20 #1: shopping CSV export. Procurement
+                  brains the buy-now list nicely on screen, but the
+                  shopper out in the field wants a printable list
+                  on their phone or a CSV they can paste into the
+                  supplier's order form. Walks buyNow (the urgency-
+                  sorted shortfall + below-min set) so what you see
+                  on the Buy now tab is what you get. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (buyNow.length === 0) {
+                    toast({ title: "Nothing to export", description: "Buy now list is empty -- stock looks healthy." });
+                    return;
+                  }
+                  const esc = (v) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Item", "Category", "Status", "Current", "Minimum",
+                    "Reorder qty", "Unit", "Cost per unit", "Estimated cost",
+                    "Supplier", "Buy by", "Urgent",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const r of buyNow) {
+                    lines.push([
+                      esc(r.item_name),
+                      esc(r.category || ""),
+                      esc(r.status),
+                      esc(r.current_stock),
+                      esc(r.minimum_stock),
+                      esc(r.reorderQty),
+                      esc(r.unit_of_measure || ""),
+                      esc(Number(r.cost_per_unit || 0).toFixed(2)),
+                      esc(Number(r.cost || 0).toFixed(2)),
+                      esc(r.supplier?.supplier_name || ""),
+                      esc(r.buyBy ? toLocalISO(r.buyBy) : ""),
+                      esc(r.isUrgent ? "yes" : "no"),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `shopping-buy-now-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" /> Export buy-now
+              </Button>
+              {pickedCount > 0 && (
                 <Card className="border-0 shadow bg-emerald-50 px-4 py-2 flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   <div>
@@ -362,8 +418,8 @@ function SmartShoppingPage() {
                     <Truck className="w-3.5 h-3.5" /> Mark purchased
                   </Button>
                 </Card>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Top stats */}
