@@ -253,6 +253,40 @@ function OrderProcessDashboard() {
     }
   }, [user]);
 
+  // Phase 11 #5: realtime new-order toast. Subscribes to INSERT
+  // events on the orders table scoped to the current tenant so the
+  // dispatch team sees a chime + toast the moment a fresh order
+  // lands (e.g. client portal submission, embed form, paid quote
+  // conversion) without waiting for the next manual refresh.
+  useEffect(() => {
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-orders-new:${companyId}:${Math.random().toString(36).slice(2, 8)}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        (payload: any) => {
+          const row = payload?.new || {};
+          toast({
+            title: `New order: ${row.order_number || "incoming"}`,
+            description: row.client_name
+              ? `${row.client_name}${row.event_date ? ` -- ${new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}`
+              : "An order just landed. Pulling the latest list.",
+          });
+          // Refresh in the background so the new row shows up in
+          // the kanban / timeline without a manual click.
+          loadOrders();
+        },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(user as any)?.company_id]);
+
   // Sync drawer state with the URL query params. Notification links
   // land here as /admin/orders?orderId=...&amendment=... (or
   // &cancellation=...) so the operator sees the request inline rather
