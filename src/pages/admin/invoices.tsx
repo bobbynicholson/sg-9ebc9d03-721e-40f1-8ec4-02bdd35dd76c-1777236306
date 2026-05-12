@@ -28,7 +28,7 @@ import {
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -103,6 +103,24 @@ export default function InvoicesPage() {
   // holds invoice ids ticked in the current view.
   const [bulkMarkPaidIds, setBulkMarkPaidIds] = useState<Set<string>>(new Set());
   const [bulkMarkPaidBusy, setBulkMarkPaidBusy] = useState(false);
+  // Phase 15 #5: tenant timezone hint chip in header. The
+  // invoice + due dates render in companies.timezone; multi-region
+  // tenants couldn't tell which clock the math was using.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    const cid = (user as any)?.company_id;
+    if (!cid) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", cid)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [(user as any)?.company_id]);
   const toggleBulkMarkPaid = (id: string) => {
     setBulkMarkPaidIds((prev) => {
       const next = new Set(prev);
@@ -600,6 +618,12 @@ export default function InvoicesPage() {
             <h1 className="text-3xl font-bold mb-2">Invoices</h1>
             <p className="text-slate-600">
               Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
+              {tenantTimezone && (
+                <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
+                  <Clock className="w-3 h-3" />
+                  Dates in <span className="font-mono">{tenantTimezone}</span>
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
