@@ -32,6 +32,7 @@ import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget"
 import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
 import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
 import { CancelledOrdersWidget } from "@/components/admin/CancelledOrdersWidget";
+import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -563,6 +564,13 @@ function AdminDashboardPage() {
               days so the kitchen lead + sales lead see what's
               actually pulling. Self-hides on a fresh tenant. */}
           <MenuTopSellersWidget companyId={companyId} />
+
+          {/* Phase 21 #6: top clients by spend over the last 30
+              days. Retention surface for thank-yous, loyalty
+              perks and follow-up. Groups orders by client_name
+              and ranks the top 5 by total booked value. Self-
+              hides on a tenant with no qualifying orders. */}
+          <TopClientsWidget companyId={companyId} />
 
           {/* Phase 11 #10: quote response time. Median sent->view
               and sent->accept across the last 90 days. Helps the
