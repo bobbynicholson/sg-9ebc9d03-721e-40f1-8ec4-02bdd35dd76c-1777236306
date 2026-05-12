@@ -670,7 +670,22 @@ function ClientsCRM() {
     { key: "lastTouch", accessor: (r) => r.daysSinceLastTouch ?? Number.POSITIVE_INFINITY, type: "number" },
   ], []);
   const sortedView = useSortable<Contact>(fuzzyVisible as Contact[], sortColumns, { defaultKey: "name", defaultDir: "asc" });
-  const visible = sortedView.rows;
+  const allVisible = sortedView.rows;
+  // Render cap. The aggregation runs over the full book so the
+  // pill counts + filters stay accurate, but rendering 7500+
+  // table rows in a single pass tanked the page (8s+ to first
+  // paint on a busy tenant). We render the first DISPLAY_CAP rows
+  // by default and let the operator opt into 'show all'. Search /
+  // status / tag filters bypass the cap because they're already
+  // narrow enough.
+  const DISPLAY_CAP = 500;
+  const [showAll, setShowAll] = useState(false);
+  // Reset 'show all' when filters change so a heavy view doesn't
+  // re-explode after the operator narrows then widens again.
+  useEffect(() => { setShowAll(false); }, [filter, search, tagFilter]);
+  const filtersActive = filter !== "all" || search.trim().length > 0 || tagFilter.size > 0;
+  const visible = (filtersActive || showAll) ? allVisible : allVisible.slice(0, DISPLAY_CAP);
+  const cappedCount = allVisible.length - visible.length;
 
   const markContacted = (key: string) => {
     setContactedKeys((prev) => ({ ...prev, [key]: new Date().toISOString() }));
@@ -894,6 +909,28 @@ function ClientsCRM() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Render-cap notice. Shows only when 'all' is active
+              with no filters and the book is bigger than DISPLAY_CAP.
+              Most contact lookups are 'find this one client' so the
+              search box solves it instantly; this banner hands the
+              dispatch lead the override when they really do want
+              the whole 7000-row list. */}
+          {cappedCount > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+              <span className="text-amber-900">
+                Showing the first <strong className="tabular-nums">{visible.length}</strong> of <strong className="tabular-nums">{allVisible.length}</strong> contacts.
+                Use search or a status filter to find someone specific -- or load them all.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
+              >
+                Show all {allVisible.length}
+              </button>
+            </div>
+          )}
 
           {/* Table */}
           <Card className="border-0 shadow-lg">
