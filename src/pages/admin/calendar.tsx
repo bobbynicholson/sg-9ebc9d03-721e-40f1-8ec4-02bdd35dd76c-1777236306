@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedCalendarPage() {
   return (
@@ -74,6 +75,7 @@ interface OpenQuote {
 
 function AdminCalendar() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -312,6 +314,67 @@ function AdminCalendar() {
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Today
+              </Button>
+              {/* Phase 22 #1: calendar CSV. Operators print this for
+                  kitchen meal-plan briefings and morning whiteboards.
+                  Walks orders so future-dated events plus already-
+                  delivered history land in chronological order; we
+                  scope to the currently displayed month so the file
+                  matches what's on screen. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  const monthStart = new Date(year, month, 1);
+                  const monthEnd = new Date(year, month + 1, 0);
+                  const startIso = toLocalISO(monthStart);
+                  const endIso = toLocalISO(monthEnd);
+                  const monthOrders = orders.filter((o) => {
+                    const d = (o as any).event_date as string | null;
+                    return d && d >= startIso && d <= endIso;
+                  });
+                  if (monthOrders.length === 0) {
+                    toast({ title: "Nothing to export", description: `No events in ${monthNames[month]} ${year}.` });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Event date", "Event time", "Order", "Client",
+                    "Guests", "Venue", "Status", "Total",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const o of [...monthOrders].sort((a, b) =>
+                    String((a as any).event_date || "").localeCompare(String((b as any).event_date || ""))
+                  )) {
+                    const oa = o as any;
+                    lines.push([
+                      esc(oa.event_date || ""),
+                      esc(oa.event_time || ""),
+                      esc(oa.order_number || ""),
+                      esc(o.client_name || ""),
+                      esc(oa.guest_count ?? ""),
+                      esc(oa.venue_name || oa.venue || ""),
+                      esc(oa.status || ""),
+                      esc(Number(oa.total_amount || 0).toFixed(2)),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `calendar-${year}-${String(month + 1).padStart(2, "0")}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-3.5 h-3.5" /> Export month
               </Button>
               <Link href="/admin/order-assignments">
                 <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2">
