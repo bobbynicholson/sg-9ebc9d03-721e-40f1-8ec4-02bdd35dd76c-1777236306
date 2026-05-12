@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChefHat, UserPlus, Pencil, Archive, ArchiveRestore, Search, Phone, Mail,
-  DollarSign, Clock, AlertTriangle, ExternalLink,
+  DollarSign, Clock, AlertTriangle, ExternalLink, Download,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -381,10 +381,67 @@ function KitchenStaffPage() {
                 </p>
               </div>
             </div>
-            <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add staff
-            </Button>
+            <div className="flex gap-2">
+              {/* Phase 20 #3: kitchen-staff CSV export. Owners and
+                  payroll regularly need a flat roster (name +
+                  contact + role + pay type + rate + departments)
+                  for handover, audits, and payroll reconciliation
+                  outside the app. Walks the sort + filter + search
+                  applied 'visible' list. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (visible.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one staff member is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Name", "Role", "Phone", "Email", "Pay type",
+                    "Hourly rate", "Overtime rate", "Monthly salary", "Shift rate",
+                    "Std hours/day", "Departments", "Active", "Start date",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const s of visible as any[]) {
+                    lines.push([
+                      esc(s.full_name || ""),
+                      esc(s.role_title || ""),
+                      esc(s.phone || ""),
+                      esc(s.email || ""),
+                      esc(s.pay_type || ""),
+                      esc(s.hourly_rate ?? ""),
+                      esc(s.overtime_rate ?? ""),
+                      esc(s.monthly_salary ?? ""),
+                      esc(s.shift_rate ?? ""),
+                      esc(s.standard_hours_per_day ?? ""),
+                      esc(Array.isArray(s.departments) ? s.departments.join("; ") : ""),
+                      esc(s.is_active ? "yes" : "no"),
+                      esc(s.start_date || ""),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `kitchen-staff-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add staff
+              </Button>
+            </div>
           </div>
 
           {/* Stat strip */}
