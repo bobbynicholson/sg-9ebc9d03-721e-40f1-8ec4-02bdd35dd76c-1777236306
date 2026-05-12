@@ -25,6 +25,7 @@ interface PaymentRow {
   payment_status: string | null;
   payment_type: string | null;
   created_at: string | null;
+  order_id: string | null;
   order: {
     order_number: string | null;
     client_name: string | null;
@@ -55,7 +56,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
         const { data } = await (supabase as any)
           .from("payments")
           .select(`
-            id, amount, payment_method, payment_status, payment_type, created_at,
+            id, amount, payment_method, payment_status, payment_type, created_at, order_id,
             order:order_id ( order_number, client_name )
           `)
           .eq("company_id", companyId)
@@ -105,27 +106,47 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
         ) : (
           <>
             <ul className="divide-y divide-emerald-100">
-              {rows.map((r) => (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
-                    {r.payment_type || "payment"}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.order?.client_name || "Unknown client"}
-                      {r.order?.order_number && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">{r.order.order_number}</span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500 tabular-nums capitalize">
-                      {r.payment_method || "method tbc"} · {fmtRelative(r.created_at)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-800">
-                    {tenantCurrency.format(Number(r.amount || 0), 0)}
-                  </span>
-                </li>
-              ))}
+              {rows.map((r) => {
+                // Phase 23 #8: full-row link to the originating
+                // order so the bookkeeper can verify the payment
+                // in context. Falls back to a non-clickable row
+                // when the payment isn't tied to an order.
+                const Row = (
+                  <>
+                    <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                      {r.payment_type || "payment"}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.order?.client_name || "Unknown client"}
+                        {r.order?.order_number && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">{r.order.order_number}</span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500 tabular-nums capitalize">
+                        {r.payment_method || "method tbc"} · {fmtRelative(r.created_at)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-800">
+                      {tenantCurrency.format(Number(r.amount || 0), 0)}
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={r.id}>
+                    {r.order_id ? (
+                      <Link
+                        href={`/admin/orders?orderId=${r.order_id}`}
+                        className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                      >
+                        {Row}
+                      </Link>
+                    ) : (
+                      <div className="py-2 flex items-center gap-3">{Row}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-3 pt-2 border-t border-emerald-100 text-[11px] text-slate-500 flex items-center justify-between">
               <span>{rows.length} payment{rows.length === 1 ? "" : "s"}</span>
