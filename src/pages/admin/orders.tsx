@@ -183,18 +183,38 @@ function OrderProcessDashboard() {
   // confirmed only, JHB region") and was losing it every time
   // they navigated away. We hydrate once on mount and persist on
   // every relevant change.
+  // Phase 12 #8: URL query params take precedence over localStorage
+  // so a deep-link like /admin/orders?dateFilter=custom&from=2026-
+  // 04-01&to=2026-04-30 opens with that exact filter set. Makes
+  // filtered views shareable via Slack / email and respects router-
+  // driven navigation (e.g. dashboard 'this week' → orders).
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      const url = new URL(window.location.href);
+      const sp = url.searchParams;
+      const qSearch = sp.get("q");
+      const qStatus = sp.get("status");
+      const qDate = sp.get("dateFilter");
+      const qFrom = sp.get("from");
+      const qTo = sp.get("to");
+      const qView = sp.get("view");
+      // Apply URL params first; fall back to localStorage for any
+      // missing piece so half-deep-links still get a sane page.
       const raw = window.localStorage.getItem("cateringms.adminOrders.filters.v1");
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (typeof saved.searchTerm === "string") setSearchTerm(saved.searchTerm);
-      if (typeof saved.statusFilter === "string") setStatusFilter(saved.statusFilter);
-      if (typeof saved.dateFilter === "string") setDateFilter(saved.dateFilter);
-      if (typeof saved.dateFrom === "string") setDateFrom(saved.dateFrom);
-      if (typeof saved.dateTo === "string") setDateTo(saved.dateTo);
-      if (saved.viewMode === "kanban" || saved.viewMode === "timeline") setViewMode(saved.viewMode);
+      const saved = raw ? JSON.parse(raw) : {};
+      if (qSearch != null) setSearchTerm(qSearch);
+      else if (typeof saved.searchTerm === "string") setSearchTerm(saved.searchTerm);
+      if (qStatus != null) setStatusFilter(qStatus);
+      else if (typeof saved.statusFilter === "string") setStatusFilter(saved.statusFilter);
+      if (qDate != null) setDateFilter(qDate);
+      else if (typeof saved.dateFilter === "string") setDateFilter(saved.dateFilter);
+      if (qFrom != null) setDateFrom(qFrom);
+      else if (typeof saved.dateFrom === "string") setDateFrom(saved.dateFrom);
+      if (qTo != null) setDateTo(qTo);
+      else if (typeof saved.dateTo === "string") setDateTo(saved.dateTo);
+      if (qView === "kanban" || qView === "timeline") setViewMode(qView);
+      else if (saved.viewMode === "kanban" || saved.viewMode === "timeline") setViewMode(saved.viewMode);
     } catch {
       // Corrupt JSON or storage blocked -- silently fall back to defaults.
     }
