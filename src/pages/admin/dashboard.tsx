@@ -19,6 +19,7 @@ import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligenc
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
+import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
@@ -325,6 +326,13 @@ function AdminDashboardPage() {
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
           <TodaysPulse companyId={companyId} />
+
+          {/* Phase 9 #10: quotes-to-chase widget. Surfaces the 5
+              oldest in-play quotes sent more than 3 days ago without
+              a reply, so the sales lead doesn't have to open the
+              quotes page to find the rotting ones. Self-hides when
+              there's nothing to chase. */}
+          <QuoteFollowupWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
