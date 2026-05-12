@@ -96,30 +96,37 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
               const tone = STATUS_TONE[r.current_status || "pending"] || STATUS_TONE.pending;
               const ageMs = r.created_at ? Date.now() - new Date(r.created_at).getTime() : 0;
               const ageHours = Math.round(ageMs / 3_600_000);
+              // Phase 24 #5: full-row link into the cleaning portal
+              // where wash/dry/inspect status can be advanced.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge variant="outline" className={`shrink-0 ${tone} text-[10px] capitalize`}>
-                    {r.current_status || "pending"}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.equipment?.name || "Equipment"}
-                      {(r.returned_quantity != null) && (
-                        <span className="ml-1 text-xs font-normal text-slate-500 tabular-nums">
-                          x{r.returned_quantity}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-500 tabular-nums">
-                      {r.order?.order_number ? `${r.order.order_number} · ` : ""}
-                      {r.order?.event_date && new Date(r.order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                      {ageHours > 0 && (
-                        <span className="ml-2 text-slate-400">
-                          {ageHours < 24 ? `${ageHours}h ago` : `${Math.round(ageHours / 24)}d ago`}
-                        </span>
-                      )}
-                    </p>
-                  </div>
+                <li key={r.id}>
+                  <Link
+                    href="/team-portal/cleaning/dashboard"
+                    className="py-2 flex items-center gap-3 hover:bg-cyan-50/60 rounded transition"
+                  >
+                    <Badge variant="outline" className={`shrink-0 ${tone} text-[10px] capitalize`}>
+                      {r.current_status || "pending"}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.equipment?.name || "Equipment"}
+                        {(r.returned_quantity != null) && (
+                          <span className="ml-1 text-xs font-normal text-slate-500 tabular-nums">
+                            x{r.returned_quantity}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-slate-500 tabular-nums">
+                        {r.order?.order_number ? `${r.order.order_number} · ` : ""}
+                        {r.order?.event_date && new Date(r.order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                        {ageHours > 0 && (
+                          <span className="ml-2 text-slate-400">
+                            {ageHours < 24 ? `${ageHours}h ago` : `${Math.round(ageHours / 24)}d ago`}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
