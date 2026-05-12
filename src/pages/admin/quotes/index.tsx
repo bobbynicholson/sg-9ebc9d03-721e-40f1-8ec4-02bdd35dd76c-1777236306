@@ -40,6 +40,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
+import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -220,6 +221,19 @@ export default function AdminQuotes() {
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
+  // Phase 18 #1: record opened quote in the recently-viewed list
+  // so the dashboard widget can offer a one-click jump back. Fires
+  // when the compose drawer opens (which covers every Send / Edit
+  // path through this page).
+  useEffect(() => {
+    if (!composeQuote?.id) return;
+    trackRecentlyViewed({
+      id: composeQuote.id,
+      type: "quote",
+      label: `${(composeQuote as any).quote_number || ""} -- ${composeQuote.client_name || "Unknown"}`,
+      href: `/admin/quotes?quoteId=${composeQuote.id}`,
+    });
+  }, [composeQuote?.id]);
   const [composeMode, setComposeMode] = useState<"status" | "sweetener">("status");
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
