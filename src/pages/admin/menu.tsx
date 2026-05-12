@@ -23,7 +23,7 @@ import {
 import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
-  Upload, X, ShoppingBag,
+  Upload, X, ShoppingBag, Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -629,9 +629,55 @@ function MenuPage() {
                 </p>
               </div>
             </div>
-            <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
-              <Plus className="w-4 h-4 mr-2" />Add menu item
-            </Button>
+            <div className="flex gap-2">
+              {/* Phase 19 #9: menu CSV export. Kitchen leads and
+                  costing reviewers regularly want a flat snapshot of
+                  the price list + cost + margin to bring into pricing
+                  reviews or PDF rate-card builds outside the app. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (visible.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = ["Item", "Category", "Price", "Cost per serving", "Margin %", "Archived"];
+                  const lines = [headers.join(",")];
+                  for (const it of visible) {
+                    const price = Number(it.base_price || 0);
+                    const cost = Number((it.cost as any)?.cost_per_serving || 0);
+                    const margin = price > 0 ? (((price - cost) / price) * 100).toFixed(1) : "";
+                    lines.push([
+                      esc(it.item_name),
+                      esc(it.category || ""),
+                      esc(price.toFixed(2)),
+                      esc(cost.toFixed(2)),
+                      esc(margin),
+                      esc((it as any).is_archived ? "yes" : "no"),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `menu-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />Export CSV
+              </Button>
+              <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+                <Plus className="w-4 h-4 mr-2" />Add menu item
+              </Button>
+            </div>
           </div>
 
           {/* Stat strip */}
