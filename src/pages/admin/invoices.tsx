@@ -37,6 +37,7 @@ import {
 } from "@/services/accountingIntegrationService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
+import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -624,6 +625,11 @@ export default function InvoicesPage() {
 
         {/* Pending EFT claims (clients who tapped "I've made the EFT payment") */}
         <PendingClaimsBanner onAfterAction={loadInvoices} />
+
+        {/* Phase 10 #9: aging buckets so the bookkeeper can see at
+            a glance whether the receivable is mostly current /
+            mostly 90+ days. Self-hides when nothing is outstanding. */}
+        <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
