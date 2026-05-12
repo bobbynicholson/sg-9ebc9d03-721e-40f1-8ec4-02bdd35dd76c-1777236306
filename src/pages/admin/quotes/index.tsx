@@ -407,6 +407,26 @@ export default function AdminQuotes() {
   }, [rowStates, regionFilterId, myQuotesOnly, (user as any)?.id]);
 
   const counts = useMemo(() => countByBucket(regionFilteredRows), [regionFilteredRows]);
+  // Phase 18 #8: revenue-by-bucket chip. Sales asks "how much do we
+  // have stuck in stale" and "what's the in-play pipeline worth";
+  // counts alone don't answer that. Same regionFilteredRows source as
+  // counts so the numbers always agree with the pill counts.
+  const revenueByBucket = useMemo(() => {
+    const sums: Record<string, number> = { all: 0, action_needed: 0, in_play: 0, stale: 0, won: 0, expired: 0, lost: 0 };
+    for (const r of regionFilteredRows) {
+      const t = Number((r.quote as any).total ?? (r.quote as any).subtotal ?? 0);
+      if (!Number.isFinite(t)) continue;
+      sums.all += t;
+      const b = r.intelligence.bucket as string;
+      if (b in sums) sums[b] += t;
+    }
+    return sums;
+  }, [regionFilteredRows]);
+  const fmtCompact = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+    return n.toFixed(0);
+  };
   const bucketFilteredRows = useMemo(
     () => (bucket === "all" ? regionFilteredRows : regionFilteredRows.filter((r) => r.intelligence.bucket === bucket)),
     [regionFilteredRows, bucket],
@@ -1175,6 +1195,7 @@ export default function AdminQuotes() {
               const Icon = pill.icon;
               const active = bucket === pill.id;
               const count = (counts as any)[pill.id] as number;
+              const revenue = (revenueByBucket as any)[pill.id] as number | undefined;
               return (
                 <button
                   key={pill.id}
@@ -1185,10 +1206,16 @@ export default function AdminQuotes() {
                       ? `${pill.tone} ring-2 ring-offset-1 ring-slate-300`
                       : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
                   }`}
+                  title={revenue && revenue > 0 ? `${count} quote${count === 1 ? "" : "s"} totalling ${C} ${revenue.toFixed(2)}` : undefined}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span className="font-medium">{pill.label}</span>
                   <span className="text-xs font-semibold opacity-80">{count}</span>
+                  {revenue && revenue > 0 && (
+                    <span className="text-[10px] font-semibold opacity-70 border-l border-current/30 pl-1.5 ml-0.5">
+                      {C}{fmtCompact(revenue)}
+                    </span>
+                  )}
                 </button>
               );
             })}
