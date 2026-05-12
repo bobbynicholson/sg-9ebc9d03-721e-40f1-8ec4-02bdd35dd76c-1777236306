@@ -46,6 +46,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import type { ClientWhatsAppKind } from "@/lib/whatsappTemplates";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -215,6 +216,19 @@ function ClientsCRM() {
     setSavedContactViews((prev) => prev.filter((v) => v.id !== id));
   };
   const [active, setActive] = useState<Contact | null>(null);
+  // Phase 18 #2: track opened contact for the recently-viewed
+  // widget on /admin/dashboard. Fires when the compose drawer
+  // opens, which covers every meaningful 'open' on the page.
+  useEffect(() => {
+    if (!active?.key) return;
+    const id = active.clientId || active.key;
+    trackRecentlyViewed({
+      id,
+      type: "contact",
+      label: active.name || active.email || "Unknown contact",
+      href: "/admin/contacts",
+    });
+  }, [active?.key, active?.clientId, active?.name, active?.email]);
   const [contactedKeys, setContactedKeys] = useState<Record<string, string>>({});
   const searchRef = useRef<HTMLInputElement>(null);
   // CRUD state. `editing` carries an existing client id to load + update;
