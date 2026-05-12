@@ -30,6 +30,7 @@ import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget"
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget";
 import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
+import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -493,6 +494,13 @@ function AdminDashboardPage() {
               earliest start time + driver assignment for the
               evening-before review. Self-hides on a quiet day. */}
           <TomorrowsEventsWidget companyId={companyId} />
+
+          {/* Phase 20 #5: who's on the clock right now. Today's
+              Pulse shows the driver count but the kitchen +
+              cleaning + shopping side was invisible. Lists open
+              staff_work_sessions sorted by longest-running so
+              stale clock-ins surface to the top. */}
+          <ActiveStaffNowWidget companyId={companyId} />
 
           {/* Phase 14 #8: dispatch coverage gaps. Confirmed
               orders in the next 7 days with no driver
