@@ -444,8 +444,51 @@ function AdminUsersPage() {
                           </div>
                           
                           <div className="space-y-1 mb-3 text-xs md:text-sm text-slate-600">
-                            <p className="truncate">Email: {targetUser.email || "N/A"}</p>
-                            {targetUser.phone_number && <p>Phone: {targetUser.phone_number}</p>}
+                            {/* Phase 21 #10: click-to-copy email +
+                                phone on the team list. Owners and
+                                ops leads paste these into welcome
+                                emails, ID + payroll forms and
+                                handover docs. */}
+                            <p className="truncate">
+                              Email:{" "}
+                              {targetUser.email ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(String(targetUser.email || ""));
+                                      toast({ title: "Email copied", description: targetUser.email });
+                                    } catch {
+                                      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                    }
+                                  }}
+                                  className="text-slate-700 hover:underline"
+                                  title="Copy email"
+                                >
+                                  {targetUser.email}
+                                </button>
+                              ) : "N/A"}
+                            </p>
+                            {targetUser.phone_number && (
+                              <p>
+                                Phone:{" "}
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(String(targetUser.phone_number || ""));
+                                      toast({ title: "Phone copied", description: targetUser.phone_number });
+                                    } catch {
+                                      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                    }
+                                  }}
+                                  className="text-slate-700 hover:underline"
+                                  title="Copy phone number"
+                                >
+                                  {targetUser.phone_number}
+                                </button>
+                              </p>
+                            )}
                             {targetUser.company_name && <p>Company: {targetUser.company_name}</p>}
                             <p>Joined: {new Date(targetUser.created_at || Date.now()).toLocaleDateString()}</p>
                           </div>
