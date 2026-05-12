@@ -55,6 +55,10 @@ export interface InvoicePdfData {
 
   subtotal?: number | null;
   tax_amount?: number | null;
+  /** Phase 15 #8: discount applied to the order before tax. When
+   *  set the PDF renders a 'Discount' line under Subtotal so the
+   *  client sees the saving rather than just a lower headline. */
+  discount_amount?: number | null;
   total_amount: number;
   amount_paid?: number | null;
   balance_due?: number | null;
@@ -395,6 +399,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const lineItems = Array.isArray(data.line_items) ? data.line_items : [];
   const subtotal = Number(data.subtotal || 0);
   const tax = Number(data.tax_amount || 0);
+  const discount = Number(data.discount_amount || 0);
   const total = Number(data.total_amount || 0);
   const amountPaid = Number(data.amount_paid || 0);
   // Phase 9 #2: tenant currency. Closure binds the row's currency
@@ -552,6 +557,17 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
           </View>
+          {/* Phase 15 #8: discount line. Surfaces orders.
+              discount_amount on the PDF so the client sees the
+              saving rather than just a lower headline -- the
+              concession reads as concession, not as a quiet
+              price drop. */}
+          {discount > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>Discount</Text>
+              <Text style={styles.totalsValue}>-{fmt(discount)}</Text>
+            </View>
+          ) : null}
           {vatRegistered && tax > 0 ? (
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>

@@ -289,7 +289,7 @@ export default async function handler(
                 billing_city, billing_postal_code
               ),
               order:order_id (
-                id, order_number, event_name, event_date, updated_at
+                id, order_number, event_name, event_date, discount_amount, updated_at
               ),
               company:company_id (
                 company_name, legal_name, logo_url, email, phone,
@@ -351,6 +351,11 @@ export default async function handler(
                   : [],
                 subtotal: invAny.subtotal,
                 tax_amount: invAny.tax_amount,
+                // Phase 15 #8: discount comes from the linked order
+                // since invoices.discount_amount doesn't exist on
+                // the schema. The order owns the concession; the
+                // invoice surfaces it on the printed PDF.
+                discount_amount: order.discount_amount ?? null,
                 total_amount: Number(invAny.total_amount ?? 0),
                 amount_paid: invAny.amount_paid,
                 balance_due: invAny.balance_due,
