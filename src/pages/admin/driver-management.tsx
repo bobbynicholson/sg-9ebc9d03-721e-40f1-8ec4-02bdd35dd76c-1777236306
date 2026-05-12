@@ -18,6 +18,7 @@ import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Se
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
+import { DriverLeaderboard } from "@/components/admin/DriverLeaderboard";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1111,6 +1112,12 @@ function DriverManagementPage() {
               </Dialog>
             </div>
           </div>
+
+          {/* Phase 11 #3: month-to-date driver leaderboard.
+              Top 5 by hours worked with completed deliveries as
+              a tiebreaker. Self-hides if no driver has activity
+              this month. */}
+          <DriverLeaderboard companyId={(user as any)?.company_id ?? null} />
 
           {/* Stats, live operational signals */}
           {(() => {
