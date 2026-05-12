@@ -26,6 +26,7 @@ import {
   createInvoiceRecord,
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
+import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock } from "lucide-react";
@@ -411,6 +412,18 @@ export default function InvoicesPage() {
 
     setSelectedInvoice(invoiceData);
     setPreviewOpen(true);
+
+    // Phase 18 #3: track this invoice preview in the recently-
+    // viewed list so the dashboard widget can offer a jump back.
+    try {
+      const inv = invoices.find((i) => i.id === invoiceId);
+      trackRecentlyViewed({
+        id: invoiceId,
+        type: "invoice",
+        label: `${invoiceData?.invoiceNumber || inv?.invoice_number || ""} -- ${inv?.orders?.clients?.client_name || invoiceData?.clientName || "Unknown"}`,
+        href: `/admin/invoices?invoiceId=${invoiceId}`,
+      });
+    } catch { /* non-blocking */ }
   };
 
   // First click of the paper-plane icon opens the review-before-send
