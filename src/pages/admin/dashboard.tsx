@@ -22,6 +22,7 @@ import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
+import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -366,6 +367,12 @@ function AdminDashboardPage() {
               automations don't go unnoticed. Self-hides when there
               are no failures. */}
           <EmailFailuresWidget companyId={companyId} />
+
+          {/* Phase 11 #4: menu top-sellers. Shows the 5 dishes
+              moving most across confirmed orders in the last 30
+              days so the kitchen lead + sales lead see what's
+              actually pulling. Self-hides on a fresh tenant. */}
+          <MenuTopSellersWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
