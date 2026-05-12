@@ -31,7 +31,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Loader2, Download, Clock, Route, MapPin, ChevronDown, ChevronRight, RefreshCw,
+  Pencil, Trash2, Check, X,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import {
@@ -103,6 +107,10 @@ function DriverSettlementPage() {
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [companyName, setCompanyName] = useState<string>("CateringMS");
+  // Phase 8 #1: bump to refetch pay summaries after a shift edit
+  // or delete lands. We hold this at the page level so the recompute
+  // effect can re-run without losing the rows list.
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // Phase 4 #7: pull the company name once so per-driver payslips
   // have the right header. Cheap; one row, runs on mount.
@@ -191,7 +199,7 @@ function DriverSettlementPage() {
     // recompute fires when the list shape changes, not on every
     // setRows in the inner effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id, from, to, rows.length]);
+  }, [user?.company_id, from, to, rows.length, refreshTick]);
 
   const totals = useMemo(() => {
     let hours = 0, hourlyPay = 0, distanceKm = 0, distancePay = 0, callout = 0, grand = 0, drivers = 0;
@@ -374,6 +382,8 @@ function DriverSettlementPage() {
                               periodTo={to}
                               companyName={companyName}
                               toast={toast}
+                              actorUserId={user?.id}
+                              onShiftChanged={() => setRefreshTick((n) => n + 1)}
                             />
                           );
                         })}
@@ -391,7 +401,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyName, toast,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyName, toast, actorUserId, onShiftChanged,
 }: {
   row: SettlementRow;
   t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
@@ -402,7 +412,79 @@ function FragmentRows({
   companyName: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   toast: any;
+  actorUserId?: string | null;
+  onShiftChanged?: () => void;
 }) {
+  // Phase 8 #1: per-shift edit / delete state. Lives at the row
+  // level so multiple rows can each have their own dialog open
+  // without cross-talk.
+  const [editingShift, setEditingShift] = useState<{
+    shift_id: string;
+    actual_start: string;
+    actual_end: string;
+    notes: string;
+    rate_multiplier: number;
+  } | null>(null);
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
+
+  const toLocalForInput = (iso: string | null | undefined) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const openEditShift = (s: any) => {
+    setEditingShift({
+      shift_id: s.shift_id,
+      actual_start: toLocalForInput(s.actual_start),
+      actual_end: toLocalForInput(s.actual_end),
+      notes: s.notes || "",
+      rate_multiplier: s.multiplier ?? 1,
+    });
+  };
+  const saveShiftEdit = async () => {
+    if (!editingShift) return;
+    setShiftBusy(true);
+    try {
+      const startIso = editingShift.actual_start ? new Date(editingShift.actual_start).toISOString() : null;
+      const endIso = editingShift.actual_end ? new Date(editingShift.actual_end).toISOString() : null;
+      const res = await driverPayService.updateShift(
+        editingShift.shift_id,
+        {
+          actual_start: startIso as any,
+          actual_end: endIso as any,
+          notes: editingShift.notes.trim() || null,
+          rate_multiplier: editingShift.rate_multiplier === 1 ? null : editingShift.rate_multiplier,
+        },
+        undefined,
+        actorUserId ?? null,
+      );
+      if (!res.ok) throw new Error(res.error || "Update failed");
+      toast({ title: "Shift updated", description: "Settlement totals will refresh." });
+      setEditingShift(null);
+      onShiftChanged?.();
+    } catch (e: any) {
+      toast({ title: "Edit failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setShiftBusy(false);
+    }
+  };
+  const confirmDeleteShift = async () => {
+    if (!deletingShiftId) return;
+    setShiftBusy(true);
+    try {
+      const res = await driverPayService.deleteShift(deletingShiftId, undefined, actorUserId ?? null);
+      if (!res.ok) throw new Error(res.error || "Delete failed");
+      toast({ title: "Shift removed", description: "Settlement totals will refresh." });
+      setDeletingShiftId(null);
+      onShiftChanged?.();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setShiftBusy(false);
+    }
+  };
   // Phase 4 #7: payslip download. jsPDF render of the same summary
   // the row above shows, so the operator can email or print one
   // per driver without re-keying anything.
@@ -575,9 +657,9 @@ function FragmentRows({
                       const hasMultiplier = s.multiplier !== 1;
                       const hasOvertime = !!buckets?.some((b) => b.overtimeHours > 0);
                       return (
-                        <li key={s.shift_id} className="border-l-2 border-slate-200 pl-2">
-                          <div className="flex justify-between">
-                            <span>
+                        <li key={s.shift_id} className="border-l-2 border-slate-200 pl-2 group">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="flex-1">
                               {s.hours.toFixed(2)}h @ {formatR(s.hourly_rate)}/hr{" "}
                               {hasMultiplier && (
                                 <span className="text-amber-700 font-medium">× {s.multiplier}</span>
@@ -586,7 +668,29 @@ function FragmentRows({
                                 <span className="text-amber-700 font-medium"> (includes overtime)</span>
                               )}
                             </span>
-                            <span className="font-medium">{formatR(s.pay)}</span>
+                            <span className="font-medium tabular-nums">{formatR(s.pay)}</span>
+                            {/* Phase 8 #1: admin edit / soft-delete
+                                actions per shift. Visible on hover
+                                so they don't crowd the row. Audit log
+                                handled inside driverPayService. */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 -my-0.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditShift(s)}
+                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                title="Edit shift"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingShiftId(s.shift_id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title="Delete shift"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           {/* Phase 3 #2: per-day BCEA buckets, shown
                               when a shift crosses midnight (multiple
@@ -646,6 +750,124 @@ function FragmentRows({
           </td>
         </tr>
       )}
+
+      {/* Phase 8 #1: shift edit dialog. Mirrors LogDriverShiftModal
+          inputs but minus the create-new flow. Saved patch routes
+          through driverPayService.updateShift which writes an
+          audit_logs row with before + patch. */}
+      <Dialog open={!!editingShift} onOpenChange={(o) => !o && setEditingShift(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit shift</DialogTitle>
+            <DialogDescription>
+              Adjust the clock times, notes or pay multiplier. Audit logged.
+            </DialogDescription>
+          </DialogHeader>
+          {editingShift && (
+            <div className="space-y-3 py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="edit_shift_start">Clock in</Label>
+                  <Input
+                    id="edit_shift_start"
+                    type="datetime-local"
+                    value={editingShift.actual_start}
+                    onChange={(e) => setEditingShift({ ...editingShift, actual_start: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_shift_end">Clock out</Label>
+                  <Input
+                    id="edit_shift_end"
+                    type="datetime-local"
+                    value={editingShift.actual_end}
+                    onChange={(e) => setEditingShift({ ...editingShift, actual_end: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit_shift_mult">Pay multiplier</Label>
+                <select
+                  id="edit_shift_mult"
+                  value={String(editingShift.rate_multiplier)}
+                  onChange={(e) => setEditingShift({ ...editingShift, rate_multiplier: Number(e.target.value) })}
+                  className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="1">1x -- standard hours</option>
+                  <option value="1.5">1.5x -- overtime</option>
+                  <option value="2">2x -- Sunday / public holiday (BCEA)</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="edit_shift_notes">Notes</Label>
+                <Input
+                  id="edit_shift_notes"
+                  value={editingShift.notes}
+                  onChange={(e) => setEditingShift({ ...editingShift, notes: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setEditingShift(null)}
+              className="px-3 py-2 text-sm border border-slate-200 rounded-md hover:bg-slate-50"
+              disabled={shiftBusy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveShiftEdit}
+              disabled={shiftBusy}
+              className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {shiftBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Save changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase 8 #1: shift delete confirm. Soft delete via the
+          deleted_at column so historical settlement reports stay
+          truthful; audit row captures the before-snapshot so the
+          shift can be reconstructed if needed. */}
+      <Dialog open={!!deletingShiftId} onOpenChange={(o) => !o && setDeletingShiftId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove this shift?</DialogTitle>
+            <DialogDescription>
+              The shift will disappear from settlement and stop counting toward
+              pay. It is soft-deleted, so it can be recovered from audit logs
+              if needed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setDeletingShiftId(null)}
+              className="px-3 py-2 text-sm border border-slate-200 rounded-md hover:bg-slate-50"
+              disabled={shiftBusy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDeleteShift}
+              disabled={shiftBusy}
+              className="px-3 py-2 text-sm bg-rose-600 hover:bg-rose-700 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {shiftBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Remove
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

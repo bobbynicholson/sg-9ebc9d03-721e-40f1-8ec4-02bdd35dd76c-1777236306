@@ -507,12 +507,44 @@ export const driverPayService = {
     id: string,
     patch: Partial<Pick<DriverShift, "actual_start" | "actual_end" | "notes" | "rate_multiplier" | "status">>,
     client: Sb = defaultClient,
+    actorUserId?: string | null,
   ): Promise<{ ok: boolean; error?: string }> {
+    // Phase 8 #1: snapshot the row before we mutate it so the
+    // audit log can record both before + after. Best-effort -- a
+    // missing snapshot doesn't block the edit.
+    let before: any = null;
+    try {
+      const { data } = await (client as any)
+        .from("driver_shifts")
+        .select("id, company_id, driver_id, actual_start, actual_end, notes, rate_multiplier, status")
+        .eq("id", id)
+        .maybeSingle();
+      before = data || null;
+    } catch {
+      /* non-blocking */
+    }
     const { error } = await (client as any)
       .from("driver_shifts")
       .update(patch)
       .eq("id", id);
     if (error) return { ok: false, error: error.message };
+    // Best-effort audit row. Settlement view + payroll reads
+    // driver_shifts directly, so the immutable trail of who
+    // changed what + when sits in audit_logs.
+    if (before?.company_id) {
+      try {
+        await (client as any).from("audit_logs").insert({
+          company_id: before.company_id,
+          user_id: actorUserId ?? null,
+          action: "driver_shift_edited",
+          entity_type: "driver_shift",
+          entity_id: id,
+          details: { before, patch },
+        });
+      } catch {
+        /* non-blocking */
+      }
+    }
     return { ok: true };
   },
 
@@ -520,12 +552,38 @@ export const driverPayService = {
   async deleteShift(
     id: string,
     client: Sb = defaultClient,
+    actorUserId?: string | null,
   ): Promise<{ ok: boolean; error?: string }> {
+    let before: any = null;
+    try {
+      const { data } = await (client as any)
+        .from("driver_shifts")
+        .select("id, company_id, driver_id, actual_start, actual_end, notes, rate_multiplier, status")
+        .eq("id", id)
+        .maybeSingle();
+      before = data || null;
+    } catch {
+      /* non-blocking */
+    }
     const { error } = await (client as any)
       .from("driver_shifts")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return { ok: false, error: error.message };
+    if (before?.company_id) {
+      try {
+        await (client as any).from("audit_logs").insert({
+          company_id: before.company_id,
+          user_id: actorUserId ?? null,
+          action: "driver_shift_deleted",
+          entity_type: "driver_shift",
+          entity_id: id,
+          details: { before },
+        });
+      } catch {
+        /* non-blocking */
+      }
+    }
     return { ok: true };
   },
 
