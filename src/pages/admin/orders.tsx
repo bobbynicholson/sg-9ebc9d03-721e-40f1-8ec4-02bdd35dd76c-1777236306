@@ -2512,17 +2512,30 @@ function OrderProcessDashboard() {
   const KanbanColumn = ({ status, title }: { status: string; title: string }) => {
     const ordersInStatus = getOrdersByStatus(status);
     const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
+    // Phase 17 #5: per-column revenue sum. Lets the operator see
+    // both 'how many' and 'how much' in the column header without
+    // opening each card.
+    const columnRevenue = ordersInStatus.reduce(
+      (acc, o) => acc + Number((o as any).total_amount || 0), 0,
+    );
 
     return (
       <div className="flex flex-col w-[88vw] sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] flex-shrink-0">
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${config.dotColor}`} />
-            <h3 className="font-semibold text-slate-900">{title}</h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-3 h-3 rounded-full shrink-0 ${config.dotColor}`} />
+            <h3 className="font-semibold text-slate-900 truncate">{title}</h3>
           </div>
-          <Badge variant="secondary" className="font-semibold">
-            {ordersInStatus.length}
-          </Badge>
+          <div className="flex items-center gap-2 shrink-0">
+            {columnRevenue > 0 && (
+              <span className="text-[11px] tabular-nums font-semibold text-slate-600">
+                {C}{(columnRevenue / 1000).toFixed(columnRevenue >= 100_000 ? 0 : 1)}k
+              </span>
+            )}
+            <Badge variant="secondary" className="font-semibold">
+              {ordersInStatus.length}
+            </Badge>
+          </div>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-2">
           {ordersInStatus.length === 0 ? (
