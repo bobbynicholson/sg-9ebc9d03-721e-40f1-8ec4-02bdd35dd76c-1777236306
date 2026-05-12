@@ -2877,6 +2877,30 @@ function OrderProcessDashboard() {
                     named filter snapshots; mine-only restricts the
                     list to orders where I'm the chef or driver. */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {/* Phase 16 #5: quick-filter chips. One-tap shortcuts
+                      to common date scopes -- sets dateFilter without
+                      opening the dropdown. Highlights when active so
+                      it doubles as a status indicator. */}
+                  {([
+                    { key: "today",   label: "Today" },
+                    { key: "week",    label: "This week" },
+                    { key: "next30",  label: "Next 30 days" },
+                    { key: "past",    label: "Past events" },
+                  ] as const).map((q) => (
+                    <button
+                      key={q.key}
+                      type="button"
+                      onClick={() => setDateFilter(dateFilter === q.key ? "all" : q.key)}
+                      className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border ${
+                        dateFilter === q.key
+                          ? "border-emerald-500 bg-emerald-100 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                      }`}
+                      title={`Filter to ${q.label.toLowerCase()}`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={() => setMyOrdersOnly((v) => !v)}
