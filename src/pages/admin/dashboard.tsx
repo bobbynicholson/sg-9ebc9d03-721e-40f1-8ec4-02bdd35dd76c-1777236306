@@ -27,6 +27,7 @@ import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
+import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -467,6 +468,12 @@ function AdminDashboardPage() {
               earliest start time + driver assignment for the
               evening-before review. Self-hides on a quiet day. */}
           <TomorrowsEventsWidget companyId={companyId} />
+
+          {/* Phase 14 #6: pending refunds list. The stat tile
+              showed total + count; this surfaces individual rows
+              with client name + amount + age so the bookkeeper
+              can act on the oldest first. */}
+          <PendingRefundsWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
