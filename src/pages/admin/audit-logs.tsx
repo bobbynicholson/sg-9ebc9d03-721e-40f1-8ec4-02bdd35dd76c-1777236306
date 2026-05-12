@@ -32,7 +32,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Footer } from "@/components/Footer";
-import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search, Download } from "lucide-react";
 
 interface AuditRow {
   id: string;
@@ -178,6 +178,75 @@ function CompanyAuditLogsViewer() {
 
   const totalPages = totalCount != null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : 1;
 
+  // Phase 9 #9: CSV export of the currently filtered audit set.
+  // Re-runs the same query without the page range so the export
+  // covers EVERY matching row, not just the visible page. Capped
+  // at 5000 to keep the browser comfortable + avoid hammering the
+  // RLS check; if the count is higher the operator gets a heads-up
+  // and the export proceeds against the first 5k rows.
+  const [exporting, setExporting] = useState(false);
+  const exportCsv = async () => {
+    if (!companyId) return;
+    setExporting(true);
+    try {
+      const HARD_CAP = 5000;
+      let q = (supabase as any)
+        .from("audit_logs")
+        .select("id, created_at, user_id, company_id, action, entity_type, entity_id, ip_address, details")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .limit(HARD_CAP);
+      if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
+      if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
+      if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
+      if (detailsSearch.trim()) {
+        q = q.filter("details::text", "ilike", `%${detailsSearch.trim()}%`);
+      }
+      const since = sinceTimestamp();
+      if (since) q = q.gte("created_at", since);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data || []) as AuditRow[];
+      if (rows.length === 0) {
+        return;
+      }
+      const headers = ["timestamp", "actor", "action", "entity_type", "entity_id", "ip_address", "details"];
+      const esc = (v: any) => {
+        if (v == null) return "";
+        const s = typeof v === "string" ? v : JSON.stringify(v);
+        const cleaned = s.replace(/"/g, '""');
+        return /[",\n]/.test(cleaned) ? `"${cleaned}"` : cleaned;
+      };
+      const lines = [headers.join(",")];
+      for (const r of rows) {
+        const actor = r.user_id
+          ? (profileMap[r.user_id]?.full_name || profileMap[r.user_id]?.email || r.user_id)
+          : "system";
+        lines.push([
+          esc(r.created_at),
+          esc(actor),
+          esc(r.action),
+          esc(r.entity_type),
+          esc(r.entity_id),
+          esc(r.ip_address),
+          esc(r.details),
+        ].join(","));
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.download = `audit_logs_${stamp}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[audit-logs] export failed:", e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <>
       <Head><title>Audit logs - CateringMS</title></Head>
@@ -200,9 +269,21 @@ function CompanyAuditLogsViewer() {
                   </p>
                 </div>
               </div>
-              <Button onClick={() => { setPage(0); void load(); }} variant="outline" size="sm">
-                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={exportCsv}
+                  variant="outline"
+                  size="sm"
+                  disabled={exporting || loading || (totalCount ?? 0) === 0}
+                  title="Export the currently filtered set as CSV (capped at 5000 rows)"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {exporting ? "Exporting..." : "Export CSV"}
+                </Button>
+                <Button onClick={() => { setPage(0); void load(); }} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                </Button>
+              </div>
             </div>
 
             <Card>
