@@ -493,11 +493,50 @@ export default function InvoicesPage() {
 
       <div className="py-8 px-4 max-w-full">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Invoices</h1>
-          <p className="text-slate-600">
-            Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Invoices</h1>
+            <p className="text-slate-600">
+              Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
+            </p>
+          </div>
+          {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
+              branded reminder for every overdue invoice in one
+              click; safer scope (just overdue, not all
+              outstanding) so a slip-up doesn't blast every client
+              who's still inside their payment terms. */}
+          <Button
+            variant="outline"
+            className="self-start sm:self-auto"
+            onClick={async () => {
+              if (!confirm("Send a payment reminder to every client whose invoice is overdue? This goes out immediately.")) return;
+              try {
+                const res = await fetch("/api/admin/invoices/bulk-remind", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ scope: "overdue" }),
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok || !j.ok) {
+                  throw new Error(j?.error || "Bulk remind failed");
+                }
+                toast({
+                  title: "Reminders sent",
+                  description:
+                    `${j.sent} sent, ${j.failed} failed, ${j.skipped} skipped (no email on file). ${j.total} total.`,
+                });
+                loadInvoices();
+              } catch (e: any) {
+                toast({
+                  title: "Could not send reminders",
+                  description: e?.message || "Try again",
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            Send overdue reminders
+          </Button>
         </div>
 
         {/* Client filter pill -- shows when /admin/invoices was opened
