@@ -23,6 +23,7 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  X,
   Clock,
   Download,
 } from "lucide-react";
@@ -671,13 +672,25 @@ export default function InventoryTracking() {
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex gap-4">
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <Input
                   placeholder="Search by name, SKU, category, supplier, location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
+                  className="w-full pr-9"
                 />
+                {/* Phase 25 #9: clear-search affordance. */}
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-48">
