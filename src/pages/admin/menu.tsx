@@ -760,8 +760,20 @@ function MenuPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, category or description..."
-                className="pl-9"
+                className="pl-9 pr-9"
               />
+              {/* Phase 25 #5: clear-search affordance. */}
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <select
               value={filterCategory}
