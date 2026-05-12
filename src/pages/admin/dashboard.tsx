@@ -18,6 +18,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
+import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { toLocalISO } from "@/lib/localDate";
 
 interface Stats {
@@ -317,6 +318,13 @@ function AdminDashboardPage() {
               the header so it cannot be missed. Self-hides once
               email_settings is configured. */}
           {companyId ? <EmailProviderBanner companyId={companyId} /> : null}
+
+          {/* Phase 9 #5: Today's pulse -- live KPI strip with the
+              numbers the dispatch lead actually checks every morning:
+              today's confirmed events, in-transit deliveries, drivers
+              on shift, kitchen prep load, money landed today. Refreshes
+              every 60 seconds so the tab stays current. */}
+          <TodaysPulse companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
