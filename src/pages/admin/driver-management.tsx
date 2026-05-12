@@ -1353,13 +1353,45 @@ function DriverManagementPage() {
                                 })()}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                                <span className="inline-flex items-center gap-1">
+                                {/* Phase 21 #8: click-to-copy driver
+                                    email + phone. Dispatch leads
+                                    routinely paste these into ops
+                                    chats and SMS apps when calling
+                                    a driver about a job. Clicking
+                                    the chip copies the value. */}
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await navigator.clipboard.writeText(String(driver.email || ""));
+                                      toast({ title: "Email copied", description: driver.email });
+                                    } catch {
+                                      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 hover:underline hover:text-slate-900"
+                                  title="Copy email"
+                                >
                                   <Mail className="w-3 h-3" />{driver.email}
-                                </span>
+                                </button>
                                 {driver.phone_number && (
-                                  <span className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        await navigator.clipboard.writeText(String(driver.phone_number || ""));
+                                        toast({ title: "Phone copied", description: driver.phone_number });
+                                      } catch {
+                                        toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 hover:underline hover:text-slate-900"
+                                    title="Copy phone number"
+                                  >
                                     <Phone className="w-3 h-3" />{driver.phone_number}
-                                  </span>
+                                  </button>
                                 )}
                                 {driver.home_postcode && (
                                   <span className="inline-flex items-center gap-1">
