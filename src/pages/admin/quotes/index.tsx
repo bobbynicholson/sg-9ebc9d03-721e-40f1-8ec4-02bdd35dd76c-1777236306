@@ -43,6 +43,7 @@ import { quoteService } from "@/services/quoteService";
 import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import {
@@ -114,10 +115,15 @@ const PIPELINE_COLUMNS: Array<{
 function PipelineBoard({
   rows,
   onOpen,
+  currencySymbol = "R",
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[];
   onOpen: (quoteId: string) => void;
+  /** Phase 9 #1: tenant currency symbol for the per-card totals
+   *  + per-column rollup. Defaults to R so existing ZAR tenants
+   *  see no behaviour change. */
+  currencySymbol?: string;
 }) {
   // Pre-bucket once so each column doesn't re-filter the whole list.
   const grouped = (() => {
@@ -145,7 +151,7 @@ function PipelineBoard({
                   <span className="text-xs text-slate-500 tabular-nums">{list.length}</span>
                 </div>
                 <span className="text-[11px] text-slate-500 tabular-nums">
-                  R{Math.round(total / 1000)}k
+                  {currencySymbol}{Math.round(total / 1000)}k
                 </span>
               </div>
               <div className="p-2 space-y-2 max-h-[640px] overflow-y-auto">
@@ -165,7 +171,7 @@ function PipelineBoard({
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
                           <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
-                            R{Number(q.total || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                            {currencySymbol}{Number(q.total || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
@@ -202,6 +208,10 @@ function PipelineBoard({
 
 export default function AdminQuotes() {
   const { user, profile } = useAuth() as any;
+  // Phase 9 #1: tenant currency. Replaces the hardcoded R prefix
+  // throughout the quotes list, totals card and detail panes.
+  const tenantCurrency = useTenantCurrency(user?.company_id);
+  const C = tenantCurrency.symbol;
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -879,7 +889,7 @@ export default function AdminQuotes() {
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of every quote in the list, no matter the status."} /></p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  R{quotes.reduce((sum, q) => sum + (q.total ?? 0), 0).toLocaleString()}
+                  {C}{quotes.reduce((sum, q) => sum + (q.total ?? 0), 0).toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -1049,6 +1059,7 @@ export default function AdminQuotes() {
           {viewMode === "pipeline" && quotes.length > 0 && filteredRows.length > 0 && (
             <PipelineBoard
               rows={filteredRows}
+              currencySymbol={C}
               onOpen={(quoteId) => {
                 setFocusedQuoteId(quoteId);
                 setBucket("all");
@@ -1266,7 +1277,7 @@ export default function AdminQuotes() {
                             <div className="flex items-center gap-2 text-slate-600">
                               <DollarSign className="w-4 h-4" />
                               <span className="text-sm font-semibold text-green-600">
-                                R{Number(displayTotal).toFixed(2)}
+                                {C}{Number(displayTotal).toFixed(2)}
                               </span>
                             </div>
                           </div>
@@ -1337,16 +1348,16 @@ export default function AdminQuotes() {
                           <div className="space-y-2 mt-4">
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">Subtotal</span>
-                              <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
+                              <span className="font-medium">{C}{quote.subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">VAT (15%)</span>
-                              <span className="font-medium">R{(quote.tax ?? 0).toFixed(2)}</span>
+                              <span className="font-medium">{C}{(quote.tax ?? 0).toFixed(2)}</span>
                             </div>
                             <div className="h-px bg-slate-200" />
                             <div className="flex justify-between font-bold">
                               <span>Total</span>
-                              <span className="text-green-600">R{(quote.total ?? 0).toFixed(2)}</span>
+                              <span className="text-green-600">{C}{(quote.total ?? 0).toFixed(2)}</span>
                             </div>
                           </div>
                         </div>
