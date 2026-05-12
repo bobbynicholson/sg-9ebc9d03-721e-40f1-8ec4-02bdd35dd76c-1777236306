@@ -232,6 +232,35 @@ export default function AdminQuotes() {
   // won / lost / expired) so the sales lead can see where every
   // open quote sits in the pipeline at a glance.
   const [viewMode, setViewMode] = useState<"list" | "pipeline">("list");
+  // Phase 9 #3: persist filter state (search + bucket + viewMode)
+  // across reloads. Mirrors what /admin/orders does. Sales leads
+  // usually camp on a working filter (e.g. action_needed + list)
+  // and were losing it on every nav.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminQuotes.filters.v1");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (typeof saved.search === "string") setSearch(saved.search);
+      if (typeof saved.bucket === "string") setBucket(saved.bucket as QuoteBucket);
+      if (saved.viewMode === "list" || saved.viewMode === "pipeline") setViewMode(saved.viewMode);
+    } catch {
+      /* corrupt storage -- fall back to defaults */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminQuotes.filters.v1",
+        JSON.stringify({ search, bucket, viewMode }),
+      );
+    } catch {
+      /* storage blocked */
+    }
+  }, [search, bucket, viewMode]);
   // Authoritative event details, sourced from the linked order whenever
   // a quote has converted (quote.converted_to_order_id is set). Without
   // this, a quote row's event_date / guest_count / total continue to
