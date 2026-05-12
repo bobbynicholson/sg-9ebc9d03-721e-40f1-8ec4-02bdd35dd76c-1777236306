@@ -49,6 +49,51 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Phase 15 #2: saved-view chips on /admin/invoices. Mirrors the
+  // /admin/orders + /admin/quotes pattern -- snapshot search +
+  // status under a named chip. Bookkeepers running monthly close
+  // typically want to flip between 'overdue', 'paid this month'
+  // and 'unpaid > 30 days' without re-typing each filter.
+  interface SavedInvoiceView {
+    id: string;
+    name: string;
+    searchTerm: string;
+    statusFilter: string;
+  }
+  const [savedInvoiceViews, setSavedInvoiceViews] = useState<SavedInvoiceView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminInvoices.savedViews.v1");
+      if (raw) setSavedInvoiceViews(JSON.parse(raw) as SavedInvoiceView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminInvoices.savedViews.v1",
+        JSON.stringify(savedInvoiceViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedInvoiceViews]);
+  const saveCurrentInvoiceView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedInvoiceViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), searchTerm, statusFilter },
+    ]);
+  };
+  const applySavedInvoiceView = (v: SavedInvoiceView) => {
+    setSearchTerm(v.searchTerm);
+    setStatusFilter(v.statusFilter);
+  };
+  const removeSavedInvoiceView = (id: string) => {
+    setSavedInvoiceViews((prev) => prev.filter((v) => v.id !== id));
+  };
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
@@ -805,6 +850,39 @@ export default function InvoicesPage() {
                 <option value="paid">Paid</option>
                 <option value="overdue">Overdue</option>
               </select>
+            </div>
+            {/* Phase 15 #2: saved-view chips. Bookkeepers running
+                monthly close want to flip between 'overdue', 'paid
+                this month' and 'unpaid > 30 days' fast. */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              {savedInvoiceViews.map((v) => (
+                <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => applySavedInvoiceView(v)}
+                    className="px-2.5 py-0.5 hover:underline"
+                    title={`Apply: ${v.statusFilter}${v.searchTerm ? ` + '${v.searchTerm}'` : ""}`}
+                  >
+                    {v.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeSavedInvoiceView(v.id)}
+                    className="pr-1.5 text-purple-500 hover:text-purple-800"
+                    title="Remove this view"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={saveCurrentInvoiceView}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+                title="Save the current search + status as a named view"
+              >
+                + Save view
+              </button>
             </div>
           </CardContent>
         </Card>
