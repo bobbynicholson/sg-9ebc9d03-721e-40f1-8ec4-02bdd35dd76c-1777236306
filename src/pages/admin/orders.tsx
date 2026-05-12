@@ -2467,6 +2467,17 @@ function OrderProcessDashboard() {
                     Timeline
                   </Button>
                 </div>
+                {/* Phase 13 #1: today's delivery sheet. Opens a
+                    print-friendly single-page summary of every
+                    confirmed-and-onwards order with event_date =
+                    today, ordered by event_time. Auto-fires
+                    window.print() so it's a one-click action. */}
+                <Link href="/admin/orders/delivery-sheet" target="_blank">
+                  <Button variant="outline" size="sm">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Delivery sheet
+                  </Button>
+                </Link>
                 {/* Phase 7 #3: CSV export of the currently filtered
                     list. Operators wanting to take orders into
                     Sheets / Excel for accounting reconciliation
