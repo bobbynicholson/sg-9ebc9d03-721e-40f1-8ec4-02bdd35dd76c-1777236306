@@ -276,6 +276,17 @@ export default function AdminInventory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.company_id]);
 
+  // Phase 24 #6: seed the search box from ?q on mount so the
+  // dashboard's RecentInventoryAdjusts rows can deep-link a
+  // pre-filtered inventory view. Same isReady guard as
+  // /admin/contacts (Phase 23 #7) and /admin/menu (Phase 24 #4).
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    if (q) setSearchTerm(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
   // ── URL action handler: command palette can deep-link to a flow ──
   // /admin/inventory?action=receive | count | writeoff opens the dialog.
   useEffect(() => {

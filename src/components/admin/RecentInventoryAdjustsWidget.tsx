@@ -103,25 +103,37 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
               const positive = qty >= 0;
               const Icon = positive ? ArrowUp : ArrowDown;
               const tone = positive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+              // Phase 24 #6: link to /admin/inventory pre-filtered
+              // by the item name. The shopping team coordinator
+              // scanning movements drops straight onto the item row.
+              const itemName = r.inventory_items?.item_name || "";
+              const href = itemName
+                ? `/admin/inventory?q=${encodeURIComponent(itemName)}`
+                : "/admin/inventory";
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${tone}`}>
-                    <Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.inventory_items?.item_name || "Unknown item"}
-                    </p>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 tabular-nums">
-                      <Badge variant="outline" className="text-[10px] capitalize">
-                        {(r.transaction_type || "movement").replace(/_/g, " ")}
-                      </Badge>
-                      <span className={`font-semibold ${positive ? "text-emerald-700" : "text-rose-700"}`}>
-                        {positive ? "+" : ""}{qty} {r.inventory_items?.unit_of_measure || ""}
-                      </span>
-                      <span className="text-slate-400">{fmtRelative(r.created_at)}</span>
+                <li key={r.id}>
+                  <Link
+                    href={href}
+                    className="py-2 flex items-center gap-3 hover:bg-purple-50/60 rounded transition"
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${tone}`}>
+                      <Icon className="w-3.5 h-3.5" />
                     </div>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.inventory_items?.item_name || "Unknown item"}
+                      </p>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 tabular-nums">
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {(r.transaction_type || "movement").replace(/_/g, " ")}
+                        </Badge>
+                        <span className={`font-semibold ${positive ? "text-emerald-700" : "text-rose-700"}`}>
+                          {positive ? "+" : ""}{qty} {r.inventory_items?.unit_of_measure || ""}
+                        </span>
+                        <span className="text-slate-400">{fmtRelative(r.created_at)}</span>
+                      </div>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
