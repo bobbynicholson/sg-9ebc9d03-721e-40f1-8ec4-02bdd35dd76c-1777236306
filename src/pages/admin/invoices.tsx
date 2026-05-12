@@ -28,7 +28,7 @@ import {
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -504,6 +504,64 @@ export default function InvoicesPage() {
               Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
             </p>
           </div>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          {/* Phase 10 #6: invoice CSV export. Lets the bookkeeping
+              team pull the current filtered invoice set into Sheets
+              / Excel for VAT reconciliation, age analysis or
+              accountant hand-off. Respects status + client filters
+              + the search box so the export always matches what
+              the operator sees on screen. */}
+          <Button
+            variant="outline"
+            onClick={() => {
+              const rows = filteredInvoices as any[];
+              if (!rows || rows.length === 0) {
+                toast({ title: "Nothing to export", description: "Adjust filters until at least one invoice is visible." });
+                return;
+              }
+              const headers = [
+                "Invoice number", "Status", "Issued", "Due",
+                "Client", "Email",
+                "Subtotal", "Tax", "Total", "Amount paid", "Balance due",
+                "Currency", "Paid at", "Order ID",
+              ];
+              const esc = (v: any) => {
+                if (v == null) return "";
+                const s = String(v).replace(/"/g, '""');
+                return /[",\n]/.test(s) ? `"${s}"` : s;
+              };
+              const lines = [headers.join(",")];
+              for (const inv of rows) {
+                lines.push([
+                  esc(inv.invoice_number),
+                  esc(inv.status),
+                  esc(inv.invoice_date),
+                  esc(inv.due_date),
+                  esc(inv.client?.client_name || inv.invoice_data?.clientName),
+                  esc(inv.client?.email),
+                  esc(inv.subtotal),
+                  esc(inv.tax_amount),
+                  esc(inv.total_amount),
+                  esc(inv.amount_paid),
+                  esc(inv.balance_due),
+                  esc(tenantMoney.code),
+                  esc(inv.paid_at),
+                  esc(inv.order_id),
+                ].join(","));
+              }
+              const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              const stamp = new Date().toISOString().slice(0, 10);
+              a.download = `invoices_${stamp}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
           {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
               branded reminder for every overdue invoice in one
               click; safer scope (just overdue, not all
@@ -511,7 +569,6 @@ export default function InvoicesPage() {
               who's still inside their payment terms. */}
           <Button
             variant="outline"
-            className="self-start sm:self-auto"
             onClick={async () => {
               if (!confirm("Send a payment reminder to every client whose invoice is overdue? This goes out immediately.")) return;
               try {
@@ -541,6 +598,7 @@ export default function InvoicesPage() {
           >
             Send overdue reminders
           </Button>
+          </div>
         </div>
 
         {/* Client filter pill -- shows when /admin/invoices was opened
