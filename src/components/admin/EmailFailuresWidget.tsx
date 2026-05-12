@@ -93,29 +93,36 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
         ) : (
           <ul className="divide-y divide-rose-100">
             {rows.map((r) => (
-              <li key={r.id} className="py-2 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-md bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Mail className="w-4 h-4 text-rose-700" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-slate-900 truncate">
-                      {r.subject || r.template_type || "(no subject)"}
-                    </span>
-                    {r.template_type && (
-                      <Badge variant="outline" className="text-[10px]">{r.template_type.replace(/_/g, " ")}</Badge>
-                    )}
-                    <span className="text-[11px] text-slate-500 tabular-nums">{fmtRelative(r.created_at)}</span>
+              // Phase 24 #3: link straight into the email automation
+              // dashboard where retries + sender config live.
+              <li key={r.id}>
+                <Link
+                  href="/admin/email-automation-dashboard"
+                  className="py-2 flex items-start gap-3 hover:bg-rose-50/60 rounded transition"
+                >
+                  <div className="w-8 h-8 rounded-md bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <Mail className="w-4 h-4 text-rose-700" />
                   </div>
-                  <div className="text-[11px] text-slate-600 mt-0.5 truncate">
-                    {r.recipient_email || "(no recipient)"}
-                  </div>
-                  {r.error_message && (
-                    <div className="text-[11px] text-rose-700 mt-0.5 truncate" title={r.error_message}>
-                      {r.error_message}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-900 truncate">
+                        {r.subject || r.template_type || "(no subject)"}
+                      </span>
+                      {r.template_type && (
+                        <Badge variant="outline" className="text-[10px]">{r.template_type.replace(/_/g, " ")}</Badge>
+                      )}
+                      <span className="text-[11px] text-slate-500 tabular-nums">{fmtRelative(r.created_at)}</span>
                     </div>
-                  )}
-                </div>
+                    <div className="text-[11px] text-slate-600 mt-0.5 truncate">
+                      {r.recipient_email || "(no recipient)"}
+                    </div>
+                    {r.error_message && (
+                      <div className="text-[11px] text-rose-700 mt-0.5 truncate" title={r.error_message}>
+                        {r.error_message}
+                      </div>
+                    )}
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
