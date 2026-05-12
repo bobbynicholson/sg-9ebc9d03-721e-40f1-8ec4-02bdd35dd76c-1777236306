@@ -163,6 +163,16 @@ function ClientsCRM() {
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
+  // Phase 23 #7: seed the search box from ?q on mount so the
+  // dashboard's TopClients widget (and any future inbound link)
+  // can deep-link a pre-filtered contacts view. Runs once when
+  // router.isReady flips so SSR rehydration doesn't fight us.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    if (q) setSearch(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
   const [filter, setFilter] = useState<"all" | ClientStatus>("all");
   // Phase 9 #4: tag filter. Multi-select set of tag strings; a
   // contact passes if it has at least one of the selected tags.
