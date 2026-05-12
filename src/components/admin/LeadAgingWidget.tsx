@@ -102,28 +102,37 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
                 : age >= 7
                   ? "bg-orange-100 text-orange-800 border-orange-200"
                   : "bg-amber-100 text-amber-800 border-amber-200";
+              // Phase 22 #10: deep-link each row into the leads
+              // detail. Completes the clickable-rows pattern shared
+              // across the overdue invoices / pending refunds /
+              // cancelled orders / now leads chase widgets.
               return (
-                <li key={l.id} className="py-2 flex items-center gap-3">
-                  <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
-                    {age}d
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{l.contact_name || "Unknown"}</p>
-                    <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
-                      {l.email && (
-                        <span className="inline-flex items-center gap-1 truncate">
-                          <Mail className="w-3 h-3" /> {l.email}
-                        </span>
-                      )}
-                      {l.phone && (
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <Phone className="w-3 h-3" /> {l.phone}
-                        </span>
-                      )}
-                      {l.source && <span className="capitalize">via {l.source}</span>}
-                      {l.status && <Badge variant="outline" className="text-[10px] capitalize">{l.status}</Badge>}
+                <li key={l.id}>
+                  <Link
+                    href={`/admin/leads?leadId=${l.id}`}
+                    className="py-2 flex items-center gap-3 hover:bg-orange-50/60 rounded transition"
+                  >
+                    <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>
+                      {age}d
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{l.contact_name || "Unknown"}</p>
+                      <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
+                        {l.email && (
+                          <span className="inline-flex items-center gap-1 truncate">
+                            <Mail className="w-3 h-3" /> {l.email}
+                          </span>
+                        )}
+                        {l.phone && (
+                          <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Phone className="w-3 h-3" /> {l.phone}
+                          </span>
+                        )}
+                        {l.source && <span className="capitalize">via {l.source}</span>}
+                        {l.status && <Badge variant="outline" className="text-[10px] capitalize">{l.status}</Badge>}
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </li>
               );
             })}
