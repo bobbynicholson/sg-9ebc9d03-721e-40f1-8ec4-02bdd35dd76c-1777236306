@@ -273,6 +273,10 @@ export default function AdminQuotes() {
     viewMode: "list" | "pipeline";
   }
   const [savedViews, setSavedViews] = useState<SavedQuoteView[]>([]);
+  // Phase 15 #4: 'Mine only' toggle. Restricts the visible list to
+  // quotes the current user prepared. Useful when several sales
+  // reps share the page and want to focus on their own pipeline.
+  const [myQuotesOnly, setMyQuotesOnly] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -369,13 +373,24 @@ export default function AdminQuotes() {
 
   // Apply the global branch filter before bucketing so the bucket
   // counts reflect only the branch the operator is scoped to.
+  // Phase 15 #4: 'mine only' layers on top of the region filter
+  // so the bucket counts also reflect the user-scoped subset.
   const regionFilteredRows = useMemo(() => {
-    if (!regionFilterId) return rowStates;
-    return rowStates.filter((r) => {
-      const rid = (r.quote as any).region_id;
-      return !rid || rid === regionFilterId;
-    });
-  }, [rowStates, regionFilterId]);
+    let base = !regionFilterId
+      ? rowStates
+      : rowStates.filter((r) => {
+          const rid = (r.quote as any).region_id;
+          return !rid || rid === regionFilterId;
+        });
+    if (myQuotesOnly && (user as any)?.id) {
+      const me = (user as any).id;
+      base = base.filter((r) => {
+        const q = r.quote as any;
+        return q.prepared_by === me || q.user_id === me;
+      });
+    }
+    return base;
+  }, [rowStates, regionFilterId, myQuotesOnly, (user as any)?.id]);
 
   const counts = useMemo(() => countByBucket(regionFilteredRows), [regionFilteredRows]);
   const bucketFilteredRows = useMemo(
@@ -1165,11 +1180,23 @@ export default function AdminQuotes() {
             })}
           </div>
 
-          {/* Phase 15 #1: saved views. One-click snap-back to a
-              named filter snapshot. Lives in localStorage so each
-              browser session picks up the operator's own working
-              set. Bucket + search + viewMode all snapshotted. */}
+          {/* Phase 15 #1 + #4: saved views chip strip with a
+              'Mine only' toggle. Saved views snap back to named
+              filter snapshots; mine-only restricts to quotes the
+              current user prepared. */}
           <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setMyQuotesOnly((v) => !v)}
+              className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
+                myQuotesOnly
+                  ? "border-blue-500 bg-blue-100 text-blue-800"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+              }`}
+              title="Restrict to quotes I prepared"
+            >
+              Mine only
+            </button>
             {savedViews.map((v) => (
               <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
                 <button
