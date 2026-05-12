@@ -1356,8 +1356,21 @@ export default function AdminQuotes() {
                   placeholder="Search by client, event, venue, quote ref or total..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 pr-9"
                 />
+                {/* Phase 24 #8: clear-search affordance to match
+                    Phase 24 #7 on /admin/orders. */}
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               {(search.trim() || bucket !== "all") && (
                 <p className="text-xs text-slate-500 mt-1.5">
