@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2 } from "lucide-react";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -44,6 +44,33 @@ export default function ShoppingInventoryPage() {
   const [newStock, setNewStock] = useState<string>("");
   const [adjustNotes, setAdjustNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Phase 7 #8: per-item cycle count history. Opens a dialog
+  // showing the last 30 inventory_transactions rows (already
+  // written by adjustStock + supplier intake) so the warehouse
+  // lead can spot patterns of waste, shrinkage or under-counts
+  // without needing SQL access.
+  const [historyItem, setHistoryItem] = useState<Inventory | null>(null);
+  const [historyRows, setHistoryRows] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openHistory = async (item: Inventory) => {
+    setHistoryItem(item);
+    setHistoryLoading(true);
+    setHistoryRows([]);
+    try {
+      const rows = await inventoryService.getMovementsForItem(item.id, 30);
+      setHistoryRows(rows);
+    } catch (e: any) {
+      toast({ title: "Could not load history", description: e?.message ?? "Unknown error", variant: "destructive" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+  const closeHistory = () => {
+    setHistoryItem(null);
+    setHistoryRows([]);
+  };
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -318,9 +345,14 @@ export default function ShoppingInventoryPage() {
                               {i.cost_per_unit ? `R ${Number(i.cost_per_unit).toFixed(2)}` : "--"}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
-                                <Pencil className="h-4 w-4 mr-1" /> Adjust
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => openHistory(i)} title="View movement history">
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
+                                  <Pencil className="h-4 w-4 mr-1" /> Adjust
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -395,6 +427,69 @@ export default function ShoppingInventoryPage() {
             <Button onClick={saveAdjustment} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> : "Save adjustment"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase 7 #8: cycle count audit trail dialog. Reads the
+          last 30 inventory_transactions rows for the selected
+          item and lays them out as a timeline. Helps spot
+          recurring shrinkage on a SKU before the wastage adds up. */}
+      <Dialog open={!!historyItem} onOpenChange={(open) => !open && closeHistory()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Movement history</DialogTitle>
+            <DialogDescription>
+              {historyItem && `${historyItem.item_name} -- last 30 movements`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto -mx-6 px-6">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-10 text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...
+              </div>
+            ) : historyRows.length === 0 ? (
+              <div className="text-center py-10 text-slate-500 text-sm">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                No movements logged yet for this item.
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {historyRows.map((r) => {
+                  const qty = Number(r.quantity || 0);
+                  const positive = qty >= 0;
+                  return (
+                    <li key={r.id} className="py-2.5 flex items-start gap-3">
+                      <div className={`mt-0.5 flex items-center justify-center w-7 h-7 rounded-full ${positive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                        {positive ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium capitalize text-slate-900">
+                            {String(r.transaction_type || "movement").replace(/_/g, " ")}
+                          </span>
+                          <span className={`text-sm tabular-nums font-semibold ${positive ? "text-emerald-700" : "text-rose-700"}`}>
+                            {positive ? "+" : ""}{qty} {historyItem?.unit_of_measure}
+                          </span>
+                        </div>
+                        {r.notes && (
+                          <p className="text-xs text-slate-600 mt-0.5">{r.notes}</p>
+                        )}
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {r.created_at ? new Date(r.created_at).toLocaleString("en-ZA", {
+                            day: "numeric", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          }) : ""}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeHistory}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
