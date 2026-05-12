@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Users, TrendingUp, CheckCircle, DollarSign } from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
@@ -32,6 +32,7 @@ export default function ProtectedStaffHoursPage() {
 
 function StaffHoursPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   // Phase 10 #2: tenant currency for the unpaid / paid totals +
   // per-session earnings + per-payment hourly rate strings.
   const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
@@ -143,11 +144,63 @@ function StaffHoursPage() {
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Staff Hours</h1>
-            <p className="text-muted-foreground">
-              Working hours per staff member tracked against shifts and events. Drives the wages roll-up with overtime, Sunday, and public-holiday splits.
-            </p>
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Staff Hours</h1>
+              <p className="text-muted-foreground">
+                Working hours per staff member tracked against shifts and events. Drives the wages roll-up with overtime, Sunday, and public-holiday splits.
+              </p>
+            </div>
+            {/* Phase 17 #10: CSV export. Payroll team needs an
+                offline copy of the period roll-up to push through
+                their bank-transfer template + reconcile against
+                the ledger. Exports the sessions list (active
+                shifts) since that's the live tracking surface;
+                the payment ledger has its own historical
+                snapshot. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (sessions.length === 0) {
+                  toast({ title: "Nothing to export", description: "No sessions in this period." });
+                  return;
+                }
+                const headers = [
+                  "Staff name", "Email", "Clock in", "Clock out", "Hours",
+                  "Hourly rate", "Total earnings", "Paid",
+                ];
+                const esc = (v: any) => {
+                  if (v == null) return "";
+                  const s = String(v).replace(/"/g, '""');
+                  return /[",\n]/.test(s) ? `"${s}"` : s;
+                };
+                const lines = [headers.join(",")];
+                for (const s of sessions as any[]) {
+                  lines.push([
+                    esc(s.staff_name || s.profile?.full_name),
+                    esc(s.staff_email || s.profile?.email),
+                    esc(s.clock_in),
+                    esc(s.clock_out),
+                    esc(s.hours_worked),
+                    esc(s.hourly_rate),
+                    esc(s.total_earnings),
+                    esc(s.is_paid ? "yes" : "no"),
+                  ].join(","));
+                }
+                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const stamp = new Date().toISOString().slice(0, 10);
+                a.download = `staff-hours_${period}_${stamp}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="gap-2 self-start sm:self-auto"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
