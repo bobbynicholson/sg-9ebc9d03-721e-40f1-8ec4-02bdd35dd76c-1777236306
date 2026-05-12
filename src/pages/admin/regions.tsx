@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle, ArrowLeft,
-  AlertCircle, Loader2, Truck, ChefHat, Users, Clock,
+  AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -460,10 +460,60 @@ function RegionsPage() {
                 </div>
               </div>
             </div>
-            <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
-              <Plus className="w-4 h-4" />
-              Add Region
-            </Button>
+            <div className="flex gap-2">
+              {/* Phase 21 #4: per-branch performance CSV. Multi-
+                  branch operators run quarterly reviews comparing
+                  regions on revenue + order count + open quote
+                  load. Until now the page only surfaced the
+                  numbers on screen. */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (regions.length === 0) {
+                    toast({ title: "Nothing to export", description: "No regions on file yet." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Region", "Timezone", "Currency", "Active",
+                    "Open quotes", "MTD orders", "MTD revenue",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const r of regions as any[]) {
+                    lines.push([
+                      esc(r.name || ""),
+                      esc(r.timezone || ""),
+                      esc(r.currency || ""),
+                      esc(r.is_active === false ? "no" : "yes"),
+                      esc(r.open_quote_count ?? 0),
+                      esc(r.mtd_order_count ?? 0),
+                      esc(Number(r.mtd_revenue || 0).toFixed(2)),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `regions-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </Button>
+              <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+                <Plus className="w-4 h-4" />
+                Add Region
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
