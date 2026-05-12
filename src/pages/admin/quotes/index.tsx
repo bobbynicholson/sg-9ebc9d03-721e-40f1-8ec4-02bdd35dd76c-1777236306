@@ -362,6 +362,27 @@ export default function AdminQuotes() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      // Phase 10 #5: auto-expire stale sent quotes. Any quote with
+      // status in (sent, viewed, revised) and valid_until in the
+      // past is logically expired -- deriveQuoteStatus already
+      // renders it that way -- but the DB row stayed 'sent' which
+      // skewed the bucket counts and the kanban grouping. Single
+      // best-effort UPDATE before the read so the bucketing reads
+      // the truth. RLS gates this to the operator's tenant; a
+      // failure here is harmless because the derive helper still
+      // shows the expired state in the UI.
+      try {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        await (supabase as any)
+          .from("quotes")
+          .update({ status: "expired" })
+          .eq("company_id", user.company_id)
+          .in("status", ["sent", "viewed", "revised"])
+          .lt("valid_until", todayIso)
+          .is("deleted_at", null);
+      } catch {
+        /* non-blocking -- the derive helper still tags the row */
+      }
       const fetched = await quoteService.getQuotes(user.company_id!);
       if (cancelled) return;
       setQuotes(fetched);
