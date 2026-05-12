@@ -28,6 +28,7 @@ import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
+import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -508,6 +509,12 @@ function AdminDashboardPage() {
               with client name + amount + age so the bookkeeper
               can act on the oldest first. */}
           <PendingRefundsWidget companyId={companyId} />
+
+          {/* Phase 19 #8: overdue invoices list. The matching surface
+              for money waiting to come in -- invoices past due_date
+              that haven't been paid or cancelled, oldest first.
+              Self-hides on a tenant with no overdue invoices. */}
+          <OverdueInvoicesWidget companyId={companyId} />
 
           {/* Phase 16 #9: recent payments collected. Today's Pulse
               shows 'Paid today' total but no row-level detail. This
