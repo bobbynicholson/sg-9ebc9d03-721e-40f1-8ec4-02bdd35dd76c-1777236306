@@ -97,21 +97,29 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
         ) : (
           <ul className="divide-y divide-amber-100">
             {rows.map((r, idx) => (
-              <li key={r.client_name} className="py-2 flex items-center gap-3">
-                <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 border-amber-200">
-                  #{idx + 1}
-                </Badge>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {r.client_name}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    {r.orders} order{r.orders === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
-                  {tenantCurrency.format(r.total, 0)}
-                </span>
+              // Phase 23 #6: link straight into /admin/contacts with
+              // the client_name pre-filtered. The owner spotting a
+              // big spender uses this for thank-you outreach.
+              <li key={r.client_name}>
+                <Link
+                  href={`/admin/contacts?q=${encodeURIComponent(r.client_name)}`}
+                  className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
+                >
+                  <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 border-amber-200">
+                    #{idx + 1}
+                  </Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {r.client_name}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {r.orders} order{r.orders === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
+                    {tenantCurrency.format(r.total, 0)}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
