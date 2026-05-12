@@ -488,6 +488,46 @@ export default async function handler(
       priority: "high",
     }]);
 
+    // Phase 8 #6: also email the company contact address. The
+    // in-app bell only fires when an admin happens to be in the
+    // tab; for the operator on the road this email is the actual
+    // 'money landed' signal and prompts them to confirm with the
+    // kitchen / driver. Best-effort -- never undoes the webhook.
+    try {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("email, company_name")
+        .eq("id", order.company_id || order.user_id)
+        .maybeSingle();
+      const ownerEmail = (companyRow as any)?.email as string | null | undefined;
+      const companyName = (companyRow as any)?.company_name as string | null | undefined;
+      if (ownerEmail) {
+        const amountFmt = `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+        const subject = isDepositPayment
+          ? `Deposit landed -- ${order.order_number} (${order.client_name || "client"})`
+          : `Final payment landed -- ${order.order_number} (${order.client_name || "client"})`;
+        const eventLine = order.event_date
+          ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+          : "TBC";
+        const html = `<div style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #0f172a; max-width: 560px;">
+            <h2 style="margin: 0 0 12px;">${isDepositPayment ? "Deposit received" : "Final payment received"}</h2>
+            <p style="margin: 0 0 8px;"><strong>${order.client_name || "Client"}</strong> just paid <strong>${amountFmt}</strong> on order <strong>${order.order_number}</strong>.</p>
+            <p style="margin: 0 0 8px;">Event: ${eventLine}<br/>Venue: ${order.venue_address || "TBC"}</p>
+            <p style="margin: 0 0 8px;">Booking is now ${isDepositPayment ? "confirmed" : "fully paid"}.</p>
+            <p style="margin: 16px 0 0; font-size: 12px; color: #64748b;">${companyName || "Your team"} -- automated notification from CateringMS.</p>
+          </div>`;
+        await emailService.sendEmail({
+          companyId: order.company_id || order.user_id,
+          to: ownerEmail,
+          subject,
+          body: html,
+          orderId: order.id,
+        });
+      }
+    } catch (ownerEmailErr) {
+      console.warn("[payment-webhook] owner notification email failed (non-blocking):", ownerEmailErr);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Payment processed successfully"
