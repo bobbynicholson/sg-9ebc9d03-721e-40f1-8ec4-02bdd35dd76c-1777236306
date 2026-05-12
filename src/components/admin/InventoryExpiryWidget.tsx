@@ -148,24 +148,32 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
                 : e.daysUntil === 0
                   ? "today"
                   : `${e.daysUntil}d`;
+              // Phase 24 #1: full-row link into /admin/inventory
+              // where batch-level expiry can be triaged or written
+              // off.
               return (
-                <li key={e.id} className="py-2 flex items-center gap-3">
-                  <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>
-                    {e.daysUntil < 0 && <AlertCircle className="w-3 h-3" />}
-                    {label}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{e.itemName}</p>
-                    <p className="text-[11px] text-slate-500 tabular-nums">
-                      {e.quantity} {e.unit} on hand
-                      {e.expiry && (
-                        <span className="ml-2 text-slate-400">
-                          expires {new Date(e.expiry).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">{e.unit}</Badge>
+                <li key={e.id}>
+                  <Link
+                    href="/admin/inventory"
+                    className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
+                  >
+                    <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>
+                      {e.daysUntil < 0 && <AlertCircle className="w-3 h-3" />}
+                      {label}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{e.itemName}</p>
+                      <p className="text-[11px] text-slate-500 tabular-nums">
+                        {e.quantity} {e.unit} on hand
+                        {e.expiry && (
+                          <span className="ml-2 text-slate-400">
+                            expires {new Date(e.expiry).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">{e.unit}</Badge>
+                  </Link>
                 </li>
               );
             })}
