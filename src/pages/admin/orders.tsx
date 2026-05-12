@@ -42,6 +42,7 @@ import { CancellationRequestsTab } from "@/components/admin/CancellationRequests
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
+import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
@@ -1089,6 +1090,37 @@ function OrderProcessDashboard() {
         const until = new Date(d); until.setDate(until.getDate() + 1);
         bookedFrom = toLocalISO(from);
         bookedUntil = toLocalISO(until);
+      }
+      // Phase 8 #7: pre-flight double-booking check. Pulls live
+      // availability for this equipment around the event date so
+      // the operator gets a confirm prompt naming the conflicting
+      // orders before we land another booking on top. Excludes the
+      // current order so adding an item to an order it's already
+      // partly on doesn't trip the warning against itself.
+      if (eventDate && (selectedOrder as any).company_id) {
+        try {
+          const avail = await getEquipmentAvailability(
+            (selectedOrder as any).company_id,
+            eqPick.id,
+            String(eventDate),
+            { excludeOrderId: selectedOrder.id },
+          );
+          const wouldShortfall = avail.owned > 0 && (avail.reserved + qty) > avail.owned;
+          if (wouldShortfall || avail.conflicts.length > 0) {
+            const conflictNames = avail.conflicts
+              .slice(0, 3)
+              .map((c) => `${c.client_name || "another order"} (${c.event_date})`)
+              .join("; ");
+            const more = avail.conflicts.length > 3 ? ` and ${avail.conflicts.length - 3} more` : "";
+            const msg = wouldShortfall
+              ? `Booking ${qty} of ${eqPick.name} on ${eventDate} would put you ${(avail.reserved + qty) - avail.owned} short. Already reserved against: ${conflictNames}${more}.`
+              : `${eqPick.name} is already booked on ${eventDate} against: ${conflictNames}${more}.`;
+            const proceed = window.confirm(`${msg}\n\nDouble-book anyway?`);
+            if (!proceed) return;
+          }
+        } catch {
+          // Best-effort -- a check failure shouldn't block the booking.
+        }
       }
       setEqAdding(true);
       try {
