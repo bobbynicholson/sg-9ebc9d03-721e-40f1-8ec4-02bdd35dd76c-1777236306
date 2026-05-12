@@ -29,6 +29,7 @@ import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
+import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -469,6 +470,11 @@ function AdminDashboardPage() {
               earliest start time + driver assignment for the
               evening-before review. Self-hides on a quiet day. */}
           <TomorrowsEventsWidget companyId={companyId} />
+
+          {/* Phase 14 #8: dispatch coverage gaps. Confirmed
+              orders in the next 7 days with no driver
+              assigned. Self-hides when every event is covered. */}
+          <DispatchGapWidget companyId={companyId} />
 
           {/* Phase 14 #6: pending refunds list. The stat tile
               showed total + count; this surfaces individual rows
