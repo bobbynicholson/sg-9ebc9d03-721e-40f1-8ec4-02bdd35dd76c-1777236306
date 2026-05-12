@@ -221,6 +221,57 @@ function OrderProcessDashboard() {
     // Run once on mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Phase 13 #5: saved-view chips. Operators with a steady set of
+  // working filters (e.g. 'JHB next 7 days', 'overdue collections')
+  // can save the current filter snapshot as a named chip and snap
+  // back with one click. Stored in localStorage per browser.
+  interface SavedView {
+    id: string;
+    name: string;
+    searchTerm: string;
+    statusFilter: string;
+    dateFilter: string;
+    dateFrom: string;
+    dateTo: string;
+  }
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminOrders.savedViews.v1");
+      if (raw) setSavedViews(JSON.parse(raw) as SavedView[]);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminOrders.savedViews.v1",
+        JSON.stringify(savedViews),
+      );
+    } catch { /* storage blocked */ }
+  }, [savedViews]);
+  const saveCurrentView = () => {
+    if (typeof window === "undefined") return;
+    const name = window.prompt("Name this view:", "");
+    if (!name || !name.trim()) return;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setSavedViews((prev) => [
+      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      { id, name: name.trim(), searchTerm, statusFilter, dateFilter, dateFrom, dateTo },
+    ]);
+  };
+  const applySavedView = (v: SavedView) => {
+    setSearchTerm(v.searchTerm);
+    setStatusFilter(v.statusFilter);
+    setDateFilter(v.dateFilter);
+    setDateFrom(v.dateFrom);
+    setDateTo(v.dateTo);
+  };
+  const removeSavedView = (id: string) => {
+    setSavedViews((prev) => prev.filter((v) => v.id !== id));
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -2730,6 +2781,40 @@ function OrderProcessDashboard() {
                     <Download className="w-4 h-4" />
                     Export
                   </Button>
+                </div>
+                {/* Phase 13 #5: saved views. One-click snap-back to a
+                    named filter snapshot. Lives in localStorage so
+                    each browser session picks up the operator's
+                    own working set. */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {savedViews.map((v) => (
+                    <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => applySavedView(v)}
+                        className="px-2.5 py-0.5 hover:underline"
+                        title="Apply this saved view"
+                      >
+                        {v.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSavedView(v.id)}
+                        className="pr-1.5 text-purple-500 hover:text-purple-800"
+                        title="Remove this view"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={saveCurrentView}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+                    title="Save the current filter combination as a named view"
+                  >
+                    + Save view
+                  </button>
                 </div>
               </CardContent>
             </Card>
