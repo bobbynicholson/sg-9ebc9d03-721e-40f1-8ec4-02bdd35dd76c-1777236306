@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, Filter, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon } from "lucide-react";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, Filter, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -491,6 +491,62 @@ function DispatchQueuePage() {
               >
                 <Users className="w-4 h-4" />
                 Bulk assign ({selected.size})
+              </Button>
+              {/* Phase 20 #4: dispatch queue CSV export. Operations
+                  lead regularly hands the queue off to a colleague,
+                  drops it into a daily standup deck, or audits SLA
+                  outcomes -- having a flat file beats screenshots.
+                  Walks 'filtered' so the status + search + sort all
+                  flow through. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  if (filtered.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust the filter / search until at least one order is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Event date", "Event time", "Client", "Venue", "Guests",
+                    "Status", "Driver", "Vehicle", "Refrigeration",
+                    "Two drivers", "Total amount", "Assigned at",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const o of filtered as any[]) {
+                    lines.push([
+                      esc(o.event_date || ""),
+                      esc(o.event_time || ""),
+                      esc(o.client_name || ""),
+                      esc(o.venue || ""),
+                      esc(o.guest_count ?? ""),
+                      esc(o.status || ""),
+                      esc(o.assigned_driver_name || ""),
+                      esc(o.assigned_vehicle_plate || ""),
+                      esc(o.assigned_vehicle_refrigerated ? "yes" : "no"),
+                      esc(o.requires_two_drivers ? "yes" : "no"),
+                      esc(Number(o.total_amount || 0).toFixed(2)),
+                      esc(o.assigned_at ? new Date(o.assigned_at).toISOString() : ""),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `dispatch-queue-${new Date().toISOString().slice(0, 10)}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
               </Button>
             </div>
           </div>
