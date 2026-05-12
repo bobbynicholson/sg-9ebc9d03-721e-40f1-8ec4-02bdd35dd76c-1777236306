@@ -1092,6 +1092,12 @@ function OrderProcessDashboard() {
 
   const OrderHistoryTimeline = ({ orderId }: { orderId: string }) => {
     const [history, setHistory] = useState<any[]>([]);
+    // Phase 17 #9: filter the merged timeline. 'all' shows the
+    // raw stream (default), 'status' shows only the workflow
+    // transitions (pending -> confirmed -> ... -> completed),
+    // 'audit' shows only the audit_logs entries (notes, shift
+    // edits, deletions). Helps the operator isolate signal.
+    const [tlFilter, setTlFilter] = useState<"all" | "status" | "audit">("all");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -1187,15 +1193,50 @@ function OrderProcessDashboard() {
       );
     }
 
+    const visibleHistory = history.filter((h) => {
+      if (tlFilter === "all") return true;
+      if (tlFilter === "audit") return h.status === "audit";
+      // 'status' bucket -- everything that isn't an audit entry.
+      return h.status !== "audit";
+    });
+
     return (
       <div className="space-y-4">
+        {/* Phase 17 #9: filter pills. Toggles the merged stream
+            between all events / status transitions only / audit
+            entries only. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            { k: "all",    label: "All" },
+            { k: "status", label: "Status changes" },
+            { k: "audit",  label: "Audit + notes" },
+          ] as const).map((p) => (
+            <button
+              key={p.k}
+              type="button"
+              onClick={() => setTlFilter(p.k)}
+              className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border ${
+                tlFilter === p.k
+                  ? "border-blue-500 bg-blue-100 text-blue-800"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {visibleHistory.length === 0 ? (
+          <p className="text-xs text-slate-400 py-6 text-center">
+            No entries match this filter.
+          </p>
+        ) : (
         <div className="relative">
           {/* Timeline Line */}
           <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
 
           {/* History Items */}
           <div className="space-y-6">
-            {history.map((item, index) => {
+            {visibleHistory.map((item, index) => {
               const config = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
               const Icon = config.icon;
               const timestamp = new Date(item.created_at);
@@ -1262,6 +1303,7 @@ function OrderProcessDashboard() {
             })}
           </div>
         </div>
+        )}
       </div>
     );
   };
