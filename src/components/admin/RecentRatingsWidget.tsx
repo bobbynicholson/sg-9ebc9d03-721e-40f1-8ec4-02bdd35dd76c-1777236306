@@ -129,28 +129,34 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
         ) : (
           <ul className="divide-y divide-yellow-100">
             {rows.map((r) => (
-              <li key={r.entity_id} className="py-2 flex items-center gap-3">
-                <div className="shrink-0 flex items-center">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Star
-                      key={n}
-                      className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-yellow-500 text-yellow-500" : "text-yellow-300"}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    <Link href={`/admin/orders?orderId=${r.entity_id}`} className="hover:underline">
+              // Phase 23 #2: full-row link to /admin/orders so a
+              // single click off any rated order opens it for re-
+              // rating or post-mortem.
+              <li key={r.entity_id}>
+                <Link
+                  href={`/admin/orders?orderId=${r.entity_id}`}
+                  className="py-2 flex items-center gap-3 hover:bg-yellow-50/60 rounded transition"
+                >
+                  <div className="shrink-0 flex items-center">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star
+                        key={n}
+                        className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-yellow-500 text-yellow-500" : "text-yellow-300"}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
                       {r.order_number || "Order"}
-                    </Link>
-                    {r.author_name && (
-                      <span className="ml-2 text-[11px] font-normal text-slate-500">
-                        by {r.author_name}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{fmtAgo(r.created_at)}</p>
-                </div>
+                      {r.author_name && (
+                        <span className="ml-2 text-[11px] font-normal text-slate-500">
+                          by {r.author_name}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-slate-500">{fmtAgo(r.created_at)}</p>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
