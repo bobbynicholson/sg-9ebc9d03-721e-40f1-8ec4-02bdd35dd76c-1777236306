@@ -988,7 +988,30 @@ export default function InvoicesPage() {
                     <div className="flex-1 grid grid-cols-4 gap-4">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
-                          {invoice.invoice_number}
+                          {/* Phase 21 #2: row-level click-to-copy
+                              for the invoice number. Bookkeeping
+                              pastes refs into payment-reference
+                              fields, reconciliation notes and
+                              chase emails constantly. */}
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const num = String(invoice.invoice_number || "");
+                              if (!num) return;
+                              try {
+                                await navigator.clipboard.writeText(num);
+                                toast({ title: "Copied", description: `${num} on clipboard.` });
+                              } catch {
+                                toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 font-mono hover:underline"
+                            title="Copy invoice number"
+                          >
+                            <Copy className="w-3 h-3 opacity-60" />
+                            {invoice.invoice_number}
+                          </button>
                           {/* Phase 16 #6: notes-present indicator.
                               When invoices.notes is non-empty (the
                               bookkeeper jotted context on the row),
