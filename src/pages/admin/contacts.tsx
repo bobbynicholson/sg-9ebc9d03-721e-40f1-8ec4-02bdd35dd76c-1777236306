@@ -100,6 +100,8 @@ interface Contact {
   status: ClientStatus;
   suggestion: { tone: "urgent" | "warm" | "neutral"; label: string; reason: string };
   createdAt: string | null;
+  /** Phase 8 #10: free-form customer tags from clients.tags. */
+  tags: string[];
 }
 
 const STATUS_META: Record<ClientStatus, {
@@ -213,7 +215,7 @@ function ClientsCRM() {
         const to = from + PAGE - 1;
         const { data, error } = await supabase
           .from("clients")
-          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename")
+          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .range(from, to);
@@ -321,6 +323,7 @@ function ClientsCRM() {
           status: "won",
           suggestion: { tone: "neutral", label: "Stay in touch", reason: "Existing client" },
           createdAt: c.created_at,
+          tags: Array.isArray(c.tags) ? (c.tags as string[]) : [],
         });
       });
 
@@ -361,6 +364,7 @@ function ClientsCRM() {
             status: "hot_lead",
             suggestion: { tone: "urgent", label: "Reply within 24h", reason: "Lead waiting" },
             createdAt: l.created_at,
+            tags: [],
           });
         }
       });
@@ -397,6 +401,7 @@ function ClientsCRM() {
             status: "won",
             suggestion: { tone: "neutral", label: "Stay in touch", reason: "Past customer" },
             createdAt: o.created_at,
+            tags: [],
           };
           map.set(k, c);
         }
@@ -858,6 +863,21 @@ function ClientsCRM() {
                                     </span>
                                   )}
                                 </div>
+                                {/* Phase 8 #10: tag chips. Lowercased
+                                    on save so a tenant doesn't end
+                                    up with both 'VIP' and 'vip' chips. */}
+                                {c.tags.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {c.tags.map((t) => (
+                                      <span
+                                        key={t}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200"
+                                      >
+                                        {t}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </button>
                             </td>
                             <td className="py-3 px-2">
@@ -1381,6 +1401,10 @@ function ClientFormDialog({
     billing_city: "",
     billing_postal_code: "",
     notes: "",
+    // Phase 8 #10: customer tags. Stored as a comma-separated
+    // string in the form state so the operator can type freely;
+    // we normalise to a string[] before writing to clients.tags.
+    tags: "",
   });
 
   // Seed the form when the dialog opens. Two layers: first we seed from
@@ -1393,7 +1417,7 @@ function ClientFormDialog({
       setForm({
         client_name: "", email: "", phone: "", client_type: "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
-        billing_city: "", billing_postal_code: "", notes: "",
+        billing_city: "", billing_postal_code: "", notes: "", tags: "",
       });
       setShowMore(false);
       return;
@@ -1406,17 +1430,18 @@ function ClientFormDialog({
       phone:       editing.phone || "",
       client_type: "individual",
       tax_number: "", billing_address_line1: "", billing_address_line2: "",
-      billing_city: "", billing_postal_code: "", notes: "",
+      billing_city: "", billing_postal_code: "", notes: "", tags: "",
     });
     setShowMore(false);
-    // Layer 2: enrich from the row (billing, tax, notes).
+    // Layer 2: enrich from the row (billing, tax, notes, tags).
     (async () => {
       const { data } = await supabase
         .from("clients")
-        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes")
+        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags")
         .eq("id", editing.clientId)
         .maybeSingle();
       if (!data) return;
+      const dataTags = ((data as any).tags as string[] | null) || [];
       setForm({
         client_name: data.client_name || editing.name || "",
         email:       data.email || editing.email || "",
@@ -1428,8 +1453,9 @@ function ClientFormDialog({
         billing_city:        data.billing_city || "",
         billing_postal_code: data.billing_postal_code || "",
         notes:       data.notes || "",
+        tags:        dataTags.join(", "),
       });
-      const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes);
+      const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes || dataTags.length);
       setShowMore(hasOptional);
     })();
   }, [open, editing]);
@@ -1441,6 +1467,16 @@ function ClientFormDialog({
       return;
     }
     setSaving(true);
+    // Phase 8 #10: normalise the comma-separated tag string into
+    // a clean string[]. Trim each entry, drop blanks, dedupe and
+    // lowercase so 'VIP' and 'vip' don't show up twice on the
+    // client card.
+    const normalisedTags = Array.from(new Set(
+      form.tags
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
+    ));
     const payload: any = {
       company_id: companyId,
       client_name: form.client_name.trim(),
@@ -1453,6 +1489,7 @@ function ClientFormDialog({
       billing_city:        form.billing_city.trim() || null,
       billing_postal_code: form.billing_postal_code.trim() || null,
       notes:       form.notes.trim() || null,
+      tags:        normalisedTags.length > 0 ? normalisedTags : null,
     };
     let error: any = null;
     if (editing?.clientId) {
@@ -1540,6 +1577,23 @@ function ClientFormDialog({
               <div>
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Notes</label>
                 <Textarea value={form.notes} onChange={set("notes")} rows={3} className="mt-1" placeholder="Allergies, preferences, anything worth remembering..." />
+              </div>
+              {/* Phase 8 #10: customer tags. Comma-separated free
+                  text -- normalised to lowercase, deduped and
+                  trimmed at save. The tags surface as little
+                  chips on the contact card so VIP / corporate /
+                  vegan / no-pork etc. is visible at a glance. */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Tags</label>
+                <Input
+                  value={form.tags}
+                  onChange={set("tags")}
+                  className="mt-1"
+                  placeholder="vip, corporate, halaal, repeat (comma separated)"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Comma-separated. Lowercased and deduped on save.
+                </p>
               </div>
             </div>
           )}
