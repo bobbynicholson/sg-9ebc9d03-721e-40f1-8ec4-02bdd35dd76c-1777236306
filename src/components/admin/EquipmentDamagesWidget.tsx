@@ -99,31 +99,39 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
           <>
             <ul className="divide-y divide-rose-100">
               {rows.map((r) => (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
-                    {r.damage_type || "damage"}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {r.order?.client_name || "Unknown client"}
-                      {r.order?.order_number && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
-                          {r.order.order_number}
-                        </span>
-                      )}
-                    </p>
-                    {r.notes && (
-                      <p className="text-[11px] text-slate-600 truncate">{r.notes}</p>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {Number(r.repair_cost || 0) > 0 && (
-                      <p className="text-sm font-bold tabular-nums text-rose-800">
-                        {tenantCurrency.format(Number(r.repair_cost), 0)}
+                // Phase 24 #2: link straight into the equipment hub
+                // shortages tab so the operator can resolve the
+                // damage in one click.
+                <li key={r.id}>
+                  <Link
+                    href="/admin/equipment?tab=shortages"
+                    className="py-2 flex items-center gap-3 hover:bg-rose-50/60 rounded transition"
+                  >
+                    <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                      {r.damage_type || "damage"}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {r.order?.client_name || "Unknown client"}
+                        {r.order?.order_number && (
+                          <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
+                            {r.order.order_number}
+                          </span>
+                        )}
                       </p>
-                    )}
-                    <p className="text-[10px] text-slate-500 tabular-nums">{fmtAge(r.created_at)}</p>
-                  </div>
+                      {r.notes && (
+                        <p className="text-[11px] text-slate-600 truncate">{r.notes}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {Number(r.repair_cost || 0) > 0 && (
+                        <p className="text-sm font-bold tabular-nums text-rose-800">
+                          {tenantCurrency.format(Number(r.repair_cost), 0)}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-500 tabular-nums">{fmtAge(r.created_at)}</p>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
