@@ -27,12 +27,17 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
 
 export default function ShoppingInventoryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Phase 11 #9: tenant currency for the stock-value stat card +
+  // every cost / cost-per-unit render below. Drops the hardcoded
+  // R prefix so a UK / US tenant sees the right symbol.
+  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -258,7 +263,7 @@ export default function ShoppingInventoryPage() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-slate-600 flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></p>
-                <p className="text-2xl font-bold tabular-nums">R {stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p>
+                <p className="text-2xl font-bold tabular-nums">{tenantCurrency.symbol} {stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p>
               </CardContent>
             </Card>
           </div>
@@ -342,7 +347,7 @@ export default function ShoppingInventoryPage() {
                               <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
                             </td>
                             <td className="px-4 py-3 text-right tabular-nums text-slate-600">
-                              {i.cost_per_unit ? `R ${Number(i.cost_per_unit).toFixed(2)}` : "--"}
+                              {i.cost_per_unit ? `${tenantCurrency.symbol} ${Number(i.cost_per_unit).toFixed(2)}` : "--"}
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end gap-1">
