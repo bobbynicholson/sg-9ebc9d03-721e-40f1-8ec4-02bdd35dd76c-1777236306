@@ -22,7 +22,7 @@ import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
-  Boxes, ClipboardList, ArrowRight, Filter, MapPin,
+  Boxes, ClipboardList, ArrowRight, Filter, MapPin, Download,
 } from "lucide-react";
 
 interface AlertRow {
@@ -386,6 +386,49 @@ function StockPage() {
                       {c === "all" ? "All" : c === "hire-in" ? "Hire-in" : c[0].toUpperCase() + c.slice(1) + "s"}
                     </Button>
                   ))}
+                  {/* Phase 19 #6: CSV export of the morning-glance
+                      feed. The on-screen list is capped at 30 for
+                      readability; the export covers every row. */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (filteredAlerts.length === 0) {
+                        toast({ title: "Nothing to export", description: "No alerts in the current filter." });
+                        return;
+                      }
+                      const esc = (v: any) => {
+                        if (v == null) return "";
+                        const s = String(v).replace(/"/g, '""');
+                        return /[",\n]/.test(s) ? `"${s}"` : s;
+                      };
+                      const headers = ["Kind", "Severity", "Title", "Subtitle", "Date", "Link"];
+                      const lines = [headers.join(",")];
+                      for (const a of filteredAlerts) {
+                        lines.push([
+                          esc(a.kind),
+                          esc(a.severity),
+                          esc(a.title),
+                          esc(a.subtitle),
+                          esc(a.date),
+                          esc(a.href),
+                        ].join(","));
+                      }
+                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `stock-alerts-${new Date().toISOString().slice(0, 10)}.csv`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="h-7 px-2.5 text-xs"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    CSV
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -398,6 +441,11 @@ function StockPage() {
                 <p className="text-sm text-slate-500 py-4 text-center">Nothing flagged. Stock looks healthy.</p>
               ) : (
                 <ul className="space-y-2">
+                  {filteredAlerts.length > 30 && (
+                    <li className="text-xs text-slate-500 italic px-1">
+                      Showing the first 30 of {filteredAlerts.length}. Use the CSV export above for the full list.
+                    </li>
+                  )}
                   {filteredAlerts.slice(0, 30).map((a) => (
                     <li key={a.key}>
                       <Link
