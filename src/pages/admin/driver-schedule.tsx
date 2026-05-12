@@ -25,7 +25,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 
@@ -177,6 +177,59 @@ function DriverScheduleGrid() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
                   This week
+                </Button>
+                {/* Phase 22 #2: weekly grid CSV. Dispatch leads
+                    handing off the schedule to a colleague or
+                    printing it for the dispatch board needed a flat
+                    list rather than a screenshot. One row per
+                    driver-day with hours + status. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    if (drivers.length === 0) return;
+                    const esc = (v: any) => {
+                      if (v == null) return "";
+                      const s = String(v).replace(/"/g, '""');
+                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    };
+                    const headers = ["Driver", "Email", "Day", "Date", "Hours", "Status", "Rate multiplier"];
+                    const lines = [headers.join(",")];
+                    for (const d of drivers) {
+                      for (let i = 0; i < weekDays.length; i++) {
+                        const day = weekDays[i];
+                        const iso = toLocalISO(day);
+                        const dayShifts = shiftIndex[`${d.id}|${iso}`] || [];
+                        if (dayShifts.length === 0) continue;
+                        for (const s of dayShifts) {
+                          const { hours } = fmtHours(s.actual_start, s.actual_end);
+                          lines.push([
+                            esc(d.full_name || ""),
+                            esc(d.email || ""),
+                            esc(DAY_LABELS[i]),
+                            esc(iso),
+                            esc(hours.toFixed(2)),
+                            esc(s.status || ""),
+                            esc(s.rate_multiplier ?? 1),
+                          ].join(","));
+                        }
+                      }
+                    }
+                    if (lines.length === 1) return;
+                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `driver-schedule-${toLocalISO(weekStart)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  disabled={drivers.length === 0 || shifts.length === 0}
+                >
+                  <Download className="w-3.5 h-3.5" /> Export CSV
                 </Button>
               </div>
             </div>
