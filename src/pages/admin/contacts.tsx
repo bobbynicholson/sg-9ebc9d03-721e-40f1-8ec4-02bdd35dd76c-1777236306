@@ -666,7 +666,7 @@ function ClientsCRM() {
     { key: "status",    accessor: (r) => STATUS_META[r.status]?.label || r.status,     type: "string" },
     { key: "action",    accessor: (r) => STATUS_META[r.status]?.label || r.status,     type: "string" },
     { key: "orders",    accessor: (r) => r.orderCount,                                 type: "number" },
-    { key: "spent",     accessor: (r) => r.totalSpent,                                 type: "number" },
+    { key: "spent",     accessor: (r) => r.totalSpent + (r.historicalLifetimeSpend ?? 0), type: "number" },
     { key: "lastTouch", accessor: (r) => r.daysSinceLastTouch ?? Number.POSITIVE_INFINITY, type: "number" },
   ], []);
   const sortedView = useSortable<Contact>(fuzzyVisible as Contact[], sortColumns, { defaultKey: "name", defaultDir: "asc" });
@@ -1008,8 +1008,39 @@ function ClientsCRM() {
                               </div>
                               <div className="text-[11px] text-slate-500">{c.suggestion.reason}</div>
                             </td>
-                            <td className="py-3 px-2 text-right tabular-nums">{c.orderCount}</td>
-                            <td className="py-3 px-2 text-right tabular-nums">{c.totalSpent > 0 ? fmtMoney.format(c.totalSpent) : "-"}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">
+                              {/* Phase 10 #8: order count includes
+                                  imported historical events so a
+                                  freshly-onboarded client doesn't
+                                  look brand new when their book has
+                                  10 prior weddings. */}
+                              {c.orderCount + (c.historicalTotalEvents ?? 0)}
+                              {c.historicalTotalEvents ? (
+                                <span className="text-[10px] text-violet-600 ml-1" title={`${c.historicalTotalEvents} imported`}>
+                                  +{c.historicalTotalEvents}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-3 px-2 text-right tabular-nums">
+                              {/* Phase 10 #8: combined lifetime spend
+                                  -- in-system orders + imported
+                                  historical spend. Shows the full
+                                  customer-value picture instead of
+                                  only the new-system slice. */}
+                              {(() => {
+                                const combined = c.totalSpent + (c.historicalLifetimeSpend ?? 0);
+                                if (combined <= 0) return "-";
+                                const hasHistoric = (c.historicalLifetimeSpend ?? 0) > 0;
+                                return (
+                                  <span title={hasHistoric ? `In-system ${fmtMoney.format(c.totalSpent)} + imported ${fmtMoney.format(c.historicalLifetimeSpend!)}` : undefined}>
+                                    {fmtMoney.format(combined)}
+                                    {hasHistoric && (
+                                      <span className="text-[10px] text-violet-600 ml-1">incl. history</span>
+                                    )}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td className="py-3 px-2 text-xs text-slate-600">
                               {lastContacted ? (
                                 <span className="text-emerald-600">
