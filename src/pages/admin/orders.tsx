@@ -1601,6 +1601,19 @@ function OrderProcessDashboard() {
                       Duplicate
                     </Button>
                   )}
+                  {/* Phase 12 #1: print kitchen ticket. Opens the
+                      stripped /admin/orders/{id}/ticket route in a
+                      new tab and auto-fires window.print() so the
+                      head chef gets a clean A5-ish layout with
+                      menu items + allergens but no money. */}
+                  {selectedOrder && (
+                    <Link href={`/admin/orders/${selectedOrder.id}/ticket`} target="_blank">
+                      <Button variant="outline" size="sm">
+                        <FileText className="w-4 h-4 mr-2" />
+                        Kitchen ticket
+                      </Button>
+                    </Link>
+                  )}
                   <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
