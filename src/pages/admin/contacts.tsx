@@ -1743,11 +1743,109 @@ function ClientFormDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
-            {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
+          {/* Phase 12 #3: per-client data export. Compiles every
+              order, quote and invoice we hold for this client into
+              a CSV the operator can hand to a POPI / GDPR data
+              subject access request. Only renders when we know
+              the underlying clients.id (i.e. an existing client,
+              not a fresh capture). */}
+          {editing?.clientId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (!editing?.clientId) return;
+                try {
+                  const [ordersRes, quotesRes, invoicesRes] = await Promise.all([
+                    supabase
+                      .from("orders")
+                      .select("id, order_number, status, event_date, total_amount, payment_status, created_at")
+                      .eq("client_id", editing.clientId)
+                      .is("deleted_at", null)
+                      .order("event_date", { ascending: false }),
+                    supabase
+                      .from("quotes")
+                      .select("id, quote_number, status, event_date, total, sent_at, accepted_at")
+                      .eq("client_id", editing.clientId)
+                      .is("deleted_at", null)
+                      .order("created_at", { ascending: false }),
+                    supabase
+                      .from("invoices")
+                      .select("id, invoice_number, status, invoice_date, due_date, total_amount, balance_due, paid_at")
+                      .eq("client_id", editing.clientId)
+                      .is("deleted_at", null)
+                      .order("invoice_date", { ascending: false }),
+                  ]);
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = typeof v === "string" ? v : JSON.stringify(v);
+                    const cleaned = s.replace(/"/g, '""');
+                    return /[",\n]/.test(cleaned) ? `"${cleaned}"` : cleaned;
+                  };
+                  const lines: string[] = [];
+                  lines.push(`# Client data export -- ${form.client_name}`);
+                  lines.push(`# Exported ${new Date().toISOString()}`);
+                  lines.push("");
+                  lines.push("# Contact details");
+                  lines.push("field,value");
+                  for (const [k, v] of Object.entries({
+                    name: form.client_name, email: form.email, phone: form.phone,
+                    type: form.client_type, tax_number: form.tax_number,
+                    billing_address_line1: form.billing_address_line1,
+                    billing_address_line2: form.billing_address_line2,
+                    billing_city: form.billing_city,
+                    billing_postal_code: form.billing_postal_code,
+                    notes: form.notes, tags: form.tags,
+                  })) {
+                    lines.push(`${esc(k)},${esc(v)}`);
+                  }
+                  lines.push("");
+                  lines.push("# Orders");
+                  lines.push("order_number,status,event_date,total_amount,payment_status,created_at");
+                  for (const o of (ordersRes.data || []) as any[]) {
+                    lines.push([o.order_number, o.status, o.event_date, o.total_amount, o.payment_status, o.created_at].map(esc).join(","));
+                  }
+                  lines.push("");
+                  lines.push("# Quotes");
+                  lines.push("quote_number,status,event_date,total,sent_at,accepted_at");
+                  for (const q of (quotesRes.data || []) as any[]) {
+                    lines.push([q.quote_number, q.status, q.event_date, q.total, q.sent_at, q.accepted_at].map(esc).join(","));
+                  }
+                  lines.push("");
+                  lines.push("# Invoices");
+                  lines.push("invoice_number,status,invoice_date,due_date,total_amount,balance_due,paid_at");
+                  for (const inv of (invoicesRes.data || []) as any[]) {
+                    lines.push([inv.invoice_number, inv.status, inv.invoice_date, inv.due_date, inv.total_amount, inv.balance_due, inv.paid_at].map(esc).join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const safeName = (form.client_name || "client").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+                  a.download = `client_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: "Client data exported", description: "CSV download started." });
+                } catch (e: any) {
+                  toast({
+                    title: "Export failed",
+                    description: e?.message || "Try again",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Export client data
+            </Button>
+          )}
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
+              {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
