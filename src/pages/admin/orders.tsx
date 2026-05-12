@@ -178,6 +178,11 @@ function OrderProcessDashboard() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
+  // Phase 13 #8: 'My orders only' quick toggle. Restricts the
+  // visible list to orders the current user is the chef or driver
+  // on. Useful for kitchen leads + drivers who shouldn't be
+  // distracted by other people's events.
+  const [myOrdersOnly, setMyOrdersOnly] = useState(false);
   // Phase 8 #3: persist filter state across reloads. The dispatch
   // team usually has a steady working filter (e.g. "this week,
   // confirmed only, JHB region") and was losing it every time
@@ -598,6 +603,14 @@ function OrderProcessDashboard() {
       if (regionFilterId && (order as any).region_id && (order as any).region_id !== regionFilterId) {
         return false;
       }
+      // Phase 13 #8: 'my orders only' toggle. The kitchen lead /
+      // driver wants to drop everyone else's events out of the
+      // view; chef + driver assignments both qualify.
+      if (myOrdersOnly && (user as any)?.id) {
+        const me = (user as any).id;
+        const isMine = (order as any).assigned_chef_id === me || (order as any).assigned_driver_id === me;
+        if (!isMine) return false;
+      }
       // Hide cancelled by default ("All Statuses" excludes them).
       // Only surface cancelled when the operator explicitly picks
       // "cancelled" in the status dropdown -- otherwise they'd
@@ -657,7 +670,7 @@ function OrderProcessDashboard() {
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, (user as any)?.id]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -2782,11 +2795,23 @@ function OrderProcessDashboard() {
                     Export
                   </Button>
                 </div>
-                {/* Phase 13 #5: saved views. One-click snap-back to a
-                    named filter snapshot. Lives in localStorage so
-                    each browser session picks up the operator's
-                    own working set. */}
+                {/* Phase 13 #5 + 13 #8: saved views chip strip with
+                    a 'Mine only' toggle. Saved views snap back to
+                    named filter snapshots; mine-only restricts the
+                    list to orders where I'm the chef or driver. */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setMyOrdersOnly((v) => !v)}
+                    className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
+                      myOrdersOnly
+                        ? "border-blue-500 bg-blue-100 text-blue-800"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+                    }`}
+                    title="Restrict to orders where I'm the chef or driver"
+                  >
+                    Mine only
+                  </button>
                   {savedViews.map((v) => (
                     <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
                       <button
