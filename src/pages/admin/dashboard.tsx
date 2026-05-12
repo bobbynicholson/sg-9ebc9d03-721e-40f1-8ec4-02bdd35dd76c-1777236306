@@ -33,6 +33,7 @@ import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
 import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
 import { CancelledOrdersWidget } from "@/components/admin/CancelledOrdersWidget";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
+import { NewLeadsTodayWidget } from "@/components/admin/NewLeadsTodayWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -486,6 +487,12 @@ function AdminDashboardPage() {
           {/* Phase 16 #2: equipment damages waiting on resolution.
               Self-hides when nothing is unresolved. */}
           <EquipmentDamagesWidget companyId={companyId} />
+
+          {/* Phase 22 #5: brand-new leads inside the last 24 hours.
+              Pairs with LeadAgingWidget which surfaces the >3 day
+              stragglers. Together they cover the funnel: 'who's
+              fresh' on top, 'who's rotting' below. */}
+          <NewLeadsTodayWidget companyId={companyId} />
 
           {/* Phase 14 #1: lead aging. Active leads (not converted,
               not won/lost) older than 3 days, oldest first. Self-
