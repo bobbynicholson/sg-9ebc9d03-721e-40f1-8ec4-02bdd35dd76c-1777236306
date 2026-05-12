@@ -214,6 +214,26 @@ export default function KitchenMenuItemsPage() {
                               <span className="text-sm font-semibold tabular-nums text-orange-600 flex-shrink-0">R {Number(i.base_price).toFixed(2)}</span>
                             )}
                           </div>
+                          {/* Phase 13 #3: gross margin chip. Shows
+                              (price - cost) / price as a percentage
+                              when both base_price and cost_per_unit
+                              are set so the kitchen lead can spot
+                              dishes that are priced too tight to
+                              justify the prep work. */}
+                          {i.base_price != null && i.cost_per_unit != null && Number(i.base_price) > 0 && (() => {
+                            const price = Number(i.base_price);
+                            const cost = Number(i.cost_per_unit);
+                            const margin = ((price - cost) / price) * 100;
+                            const tone = margin >= 60 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : margin >= 40 ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : margin >= 20 ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-rose-50 text-rose-700 border-rose-200";
+                            return (
+                              <div className={`mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border ${tone}`} title={`Cost R ${cost.toFixed(2)} -> Price R ${price.toFixed(2)}`}>
+                                {margin.toFixed(0)}% margin
+                              </div>
+                            );
+                          })()}
                           {i.description && <p className="text-xs text-slate-600 line-clamp-2 mb-2">{i.description}</p>}
                           <div className="flex flex-wrap items-center gap-1.5">
                             {(i.dietary_tags || []).slice(0, 3).map((t) => (
