@@ -1740,7 +1740,32 @@ function OrderProcessDashboard() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle className="text-2xl">Order Details</DialogTitle>
+                <DialogTitle className="text-2xl flex items-center gap-2 flex-wrap">
+                  Order Details
+                  {(selectedOrder as any)?.order_number && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // Phase 20 #8: click-to-copy order number.
+                        // Ops chats and supplier emails reach for
+                        // this constantly -- one click beats select
+                        // + ctrl+c every time.
+                        const num = String((selectedOrder as any).order_number);
+                        try {
+                          await navigator.clipboard.writeText(num);
+                          toast({ title: "Copied", description: `${num} on clipboard.` });
+                        } catch {
+                          toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-2 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
+                      title="Copy order number"
+                    >
+                      <Copy className="w-3 h-3" />
+                      {(selectedOrder as any).order_number}
+                    </button>
+                  )}
+                </DialogTitle>
                 <DialogDescription className="mt-1">
                   {editMode ? "Edit order information" : "View order details"}
                 </DialogDescription>
