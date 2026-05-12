@@ -1740,6 +1740,38 @@ export default function AdminQuotes() {
                               Edit
                             </Button>
                           </Link>
+                          {/* Phase 16 #3: download the quote as a
+                              branded PDF. Hits the new /api/admin/
+                              quote-pdf route which streams the same
+                              renderQuotePdf output used by the email
+                              attachment flow. */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const r = await fetch(`/api/admin/quote-pdf?id=${quote.id}`);
+                                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                                const blob = await r.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `Quote-${quote.quote_number || quote.id}.pdf`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              } catch (e: any) {
+                                toast({
+                                  title: "Could not download PDF",
+                                  description: e?.message || "Try again",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            title="Download a branded PDF of this quote"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            PDF
+                          </Button>
                           {/* Phase 15 #3: duplicate quote. Mints a
                               fresh quote_number with a -COPY suffix,
                               resets all lifecycle stamps (sent_at,
