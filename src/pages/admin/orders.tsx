@@ -43,6 +43,7 @@ import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/Equip
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 interface OrderStats {
   total: number;
@@ -154,6 +155,12 @@ function OrderProcessDashboard() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
+  // Phase 8 #4: tenant currency symbol. Drops the hard-coded R
+  // throughout the page so a tenant trading in USD / GBP / NGN
+  // sees its real currency on every order card, modal subtotal
+  // and edit-mode line. Defaults to R until the row resolves.
+  const tenantCurrency = useTenantCurrency(user?.company_id);
+  const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<AppOrder[]>([]);
   // Per-order summary of email_automation_log entries: count of sent
   // automations, latest event, and a "post-event review automation
@@ -706,7 +713,7 @@ function OrderProcessDashboard() {
             {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <span className="font-semibold text-slate-900">
-                R{Number(order.total_amount || 0).toLocaleString()}
+                {C}{Number(order.total_amount || 0).toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
                 <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
@@ -801,7 +808,7 @@ function OrderProcessDashboard() {
                   </div>
                   <div className="flex items-center gap-1 font-semibold text-slate-900">
                     <DollarSign className="w-4 h-4" />
-                    <span>R{Number(order.total_amount || 0).toLocaleString()}</span>
+                    <span>{C}{Number(order.total_amount || 0).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -1652,19 +1659,19 @@ function OrderProcessDashboard() {
                   <div>
                     <Label className="text-xs">Subtotal</Label>
                     <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
-                      R{Number((selectedOrder as any).subtotal || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                      {C}{Number((selectedOrder as any).subtotal || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
                     <Label className="text-xs">Tax</Label>
                     <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
-                      R{Number((selectedOrder as any).tax_amount || (selectedOrder as any).tax || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                      {C}{Number((selectedOrder as any).tax_amount || (selectedOrder as any).tax || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
                     <Label className="text-xs">Total</Label>
                     <p className="text-base font-bold text-emerald-600 mt-1 tabular-nums">
-                      R{Number((selectedOrder as any).total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                      {C}{Number((selectedOrder as any).total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -1785,7 +1792,7 @@ function OrderProcessDashboard() {
                     {miPick && (
                       <p className="text-xs text-slate-600">
                         Selected: <strong>{miPick.name}</strong> ({miPick.category})
-                        {miPick.pricePerPerson ? ` · R${Number(miPick.pricePerPerson).toLocaleString("en-ZA")} / person` : ""}
+                        {miPick.pricePerPerson ? ` · ${C}${Number(miPick.pricePerPerson).toLocaleString("en-ZA")} / person` : ""}
                       </p>
                     )}
                   </div>
@@ -1827,10 +1834,10 @@ function OrderProcessDashboard() {
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums">{it.quantity ?? "—"}</td>
                             <td className="px-3 py-2 text-right tabular-nums">
-                              R{Number(it.unit_price || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                              {C}{Number(it.unit_price || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums font-medium">
-                              R{Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                              {C}{Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                             </td>
                             {editMode && (
                               <td className="px-3 py-2 text-right">
@@ -1903,7 +1910,7 @@ function OrderProcessDashboard() {
                       <p className="text-xs text-slate-600">
                         Selected: <strong>{eqPick.name}</strong>
                         {eqPick.availableQuantity !== null ? ` · ${eqPick.availableQuantity} available` : ""}
-                        {eqPick.rentalPrice ? ` · R${Number(eqPick.rentalPrice).toLocaleString("en-ZA")} / day` : ""}
+                        {eqPick.rentalPrice ? ` · ${C}${Number(eqPick.rentalPrice).toLocaleString("en-ZA")} / day` : ""}
                       </p>
                     )}
                     <p className="text-xs text-slate-500">
@@ -2055,11 +2062,11 @@ function OrderProcessDashboard() {
                   </p>
                   <div className="flex items-center justify-between text-xs text-emerald-900/80 pt-1 border-t border-emerald-200">
                     <span>Current total</span>
-                    <span className="tabular-nums">R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                    <span className="tabular-nums">{C}{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex items-center justify-between text-emerald-900 font-semibold">
                     <span>New total</span>
-                    <span className="tabular-nums">R{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                    <span className="tabular-nums">{C}{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
                   </div>
                   <p className="text-emerald-900/80 text-xs pt-1">
                     To change the per-unit prices (e.g., volume discount, menu upgrade), update the source quote.
@@ -2119,7 +2126,7 @@ function OrderProcessDashboard() {
                     </Button>
                   )}
                   <Button onClick={persistSave} disabled={saving}>
-                    {saving ? "Saving..." : `Save + scale to R${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+                    {saving ? "Saving..." : `Save + scale to ${C}${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
                   </Button>
                 </>
               )}
@@ -2300,10 +2307,10 @@ function OrderProcessDashboard() {
                         <InfoTooltip content={"Total value of orders the client has confirmed, either by paying a deposit or by being manually marked as confirmed by your team.\n\nPending, draft, and cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed, 'money in the till'."} />
                       </p>
                       <p className="text-2xl font-bold text-green-900">
-                        R{(stats.revenue.booked / 1000).toFixed(0)}k
+                        {C}{(stats.revenue.booked / 1000).toFixed(0)}k
                       </p>
                       <p className="text-[11px] text-green-700/80 mt-0.5">
-                        Realised: R{(stats.revenue.realised / 1000).toFixed(0)}k
+                        Realised: {C}{(stats.revenue.realised / 1000).toFixed(0)}k
                       </p>
                     </div>
                     <DollarSign className="w-8 h-8 text-green-600 opacity-30 flex-shrink-0" />
