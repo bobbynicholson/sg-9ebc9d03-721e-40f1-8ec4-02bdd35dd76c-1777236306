@@ -106,25 +106,34 @@ export function InventoryLowStockWidget({ companyId }: { companyId: string | nul
               const cur = Number(r.current_stock || 0);
               const min = Number(r.minimum_stock || 0);
               const out = cur <= 0;
+              // Phase 23 #9: deep-link straight to /admin/shopping
+              // since the action on a short item is always 'top up'.
+              // The shopping page's buy-now tab is the right next
+              // stop.
               return (
-                <li key={r.id} className="py-2 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-md bg-orange-100 flex items-center justify-center shrink-0">
-                    <Package className="w-4 h-4 text-orange-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-slate-900 text-sm truncate">{r.item_name}</span>
-                      {r.category && (
-                        <Badge variant="outline" className="text-[10px]">{r.category}</Badge>
-                      )}
-                      {out && (
-                        <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">Out</Badge>
-                      )}
+                <li key={r.id}>
+                  <Link
+                    href="/admin/shopping"
+                    className="py-2 flex items-center gap-3 hover:bg-orange-50/60 rounded transition"
+                  >
+                    <div className="w-8 h-8 rounded-md bg-orange-100 flex items-center justify-center shrink-0">
+                      <Package className="w-4 h-4 text-orange-700" />
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                      {cur} / {min} {r.unit_of_measure || ""} on hand
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-slate-900 text-sm truncate">{r.item_name}</span>
+                        {r.category && (
+                          <Badge variant="outline" className="text-[10px]">{r.category}</Badge>
+                        )}
+                        {out && (
+                          <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">Out</Badge>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                        {cur} / {min} {r.unit_of_measure || ""} on hand
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </li>
               );
             })}
