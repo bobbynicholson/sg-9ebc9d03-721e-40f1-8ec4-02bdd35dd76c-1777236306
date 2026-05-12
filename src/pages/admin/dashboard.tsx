@@ -21,6 +21,7 @@ import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
+import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -406,6 +407,12 @@ function AdminDashboardPage() {
               the shopping team gets a visual nudge straight from the
               dashboard. Self-hides when nothing is short. */}
           <InventoryLowStockWidget companyId={companyId} />
+
+          {/* Phase 12 #7: inventory expiry tracking. Batches with
+              stock on hand expiring within 14 days, plus already-
+              expired batches still showing quantity. Self-hides
+              when nothing is close. */}
+          <InventoryExpiryWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
