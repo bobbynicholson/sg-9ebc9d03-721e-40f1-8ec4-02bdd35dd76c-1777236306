@@ -13,10 +13,39 @@ import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+/** Phase 7 #5: short emoji-free chime so an urgent notification
+ *  doesn't get lost while the operator is heads-down in another
+ *  tab. WebAudio so we don't ship an MP3 asset. Stays silent if
+ *  the AudioContext can't be constructed (older Safari, locked
+ *  autoplay policy) -- toast still fires either way. */
+function chime() {
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.value = 0.05;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+    osc.stop(ctx.currentTime + 0.25);
+    setTimeout(() => ctx.close(), 400);
+  } catch {
+    // Best-effort -- silent failure is fine.
+  }
+}
 
 export function NotificationBell() {
   const router = useRouter();
   const { user, activeRole } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -37,6 +66,19 @@ export function NotificationBell() {
           if (prev.some((n) => n.id === notification.id)) return prev;
           return [notification, ...prev];
         });
+        // Phase 7 #5: surface high-signal notifications immediately
+        // so an admin watching another tab still notices a new urgent
+        // item land. Medium / low stay quiet -- the bell badge is
+        // enough for those.
+        const priority = (notification.priority || "").toLowerCase();
+        if (priority === "urgent" || priority === "high") {
+          chime();
+          toast({
+            title: notification.title || "New notification",
+            description: notification.message || undefined,
+            variant: priority === "urgent" ? "destructive" : "default",
+          });
+        }
       },
       activeRole,
     );
