@@ -24,6 +24,7 @@ import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWid
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
+import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -392,6 +393,11 @@ function AdminDashboardPage() {
               sales lead spot pricing / tone problems separately
               from chase cadence. Self-hides without a sample. */}
           <QuoteResponseTimeWidget companyId={companyId} />
+
+          {/* Phase 12 #2: per-branch revenue + order count
+              comparison for multi-branch tenants. Self-hides on
+              single-branch setups so it doesn't take up space. */}
+          <RegionPerformanceWidget companyId={companyId} />
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
