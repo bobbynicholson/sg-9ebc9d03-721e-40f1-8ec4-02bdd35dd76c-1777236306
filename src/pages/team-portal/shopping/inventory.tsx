@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown } from "lucide-react";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -200,6 +200,51 @@ export default function ShoppingInventoryPage() {
               </h1>
               <p className="text-sm text-slate-600 mt-1">Live inventory levels, click any row to adjust stock with an audit entry</p>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+            {/* Phase 13 #10: inventory CSV export. Pulls the
+                currently filtered list (category + below-par +
+                search all flow through filtered) so the export
+                matches what the operator sees. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (filtered.length === 0) {
+                  toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
+                  return;
+                }
+                const headers = [
+                  "Item", "SKU", "Category", "Unit", "On hand", "Min", "Reorder qty",
+                  "Cost / unit", "Stock value", "Storage location",
+                ];
+                const esc = (v: any) => {
+                  if (v == null) return "";
+                  const s = String(v).replace(/"/g, '""');
+                  return /[",\n]/.test(s) ? `"${s}"` : s;
+                };
+                const lines = [headers.join(",")];
+                for (const i of filtered) {
+                  const stockVal = Number(i.current_stock || 0) * Number(i.cost_per_unit || 0);
+                  lines.push([
+                    esc(i.item_name), esc(i.sku), esc(i.category),
+                    esc(i.unit_of_measure),
+                    esc(i.current_stock), esc(i.minimum_stock), esc((i as any).reorder_quantity),
+                    esc(i.cost_per_unit), esc(stockVal.toFixed(2)),
+                    esc(i.storage_location),
+                  ].join(","));
+                }
+                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const stamp = new Date().toISOString().slice(0, 10);
+                a.download = `inventory_${stamp}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
             {/* Phase 5 #5: one-click 'draft a reorder list' from
                 every below-par inventory item. Lands a draft
                 shopping_lists row the operator can edit before
@@ -239,6 +284,7 @@ export default function ShoppingInventoryPage() {
                 Draft reorder ({stats.below})
               </Button>
             )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
