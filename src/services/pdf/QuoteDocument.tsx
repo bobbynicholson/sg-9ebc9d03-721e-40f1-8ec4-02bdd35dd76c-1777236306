@@ -71,9 +71,11 @@ export interface QuotePdfData {
 
   company: {
     company_name?: string | null;
+    legal_name?: string | null;
     logo_url?: string | null;
     email?: string | null;
     phone?: string | null;
+    website?: string | null;
     address_line1?: string | null;
     address_line2?: string | null;
     city?: string | null;
@@ -81,6 +83,10 @@ export interface QuotePdfData {
     vat_registered?: boolean | null;
     vat_number?: string | null;
     vat_rate?: number | null;
+    /** Phase 8 #2: surfaced on the PDF footer when set, so the
+     *  client can verify the legal entity behind the quote. */
+    registration_number?: string | null;
+    tax_number?: string | null;
   };
 }
 
@@ -576,12 +582,28 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* FOOTER */}
+        {/* FOOTER -- contact line + (Phase 8 #2) legal identity
+            line so the client can verify the trading entity. We
+            split the two so the contact strip stays clean and the
+            legal IDs only render when the data is there. */}
         <Text style={styles.footer}>
-          {company.company_name ? `${company.company_name}` : ""}
-          {company.email ? `  |  ${company.email}` : ""}
-          {company.phone ? `  |  ${company.phone}` : ""}
+          {[
+            company.company_name || null,
+            company.email || null,
+            company.phone || null,
+            company.website || null,
+          ].filter(Boolean).join("  |  ")}
         </Text>
+        {(company.legal_name || company.registration_number || company.tax_number || (company.vat_registered && company.vat_number)) && (
+          <Text style={styles.footer}>
+            {[
+              company.legal_name || null,
+              company.registration_number ? `Reg ${company.registration_number}` : null,
+              company.tax_number ? `Tax ${company.tax_number}` : null,
+              company.vat_registered && company.vat_number ? `VAT ${company.vat_number}` : null,
+            ].filter(Boolean).join("  |  ")}
+          </Text>
+        )}
       </Page>
     </Document>
   );
