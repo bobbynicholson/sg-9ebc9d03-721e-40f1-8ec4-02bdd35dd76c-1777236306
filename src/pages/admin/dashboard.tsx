@@ -58,6 +58,9 @@ interface Stats {
    *  in the range. Lets the bookkeeper eyeball VAT exposure for
    *  the period without opening every invoice. */
   vatCollected: number;
+  /** Phase 12 #6: quote conversion. accepted / closed in range. */
+  quoteConversionRate: number;
+  quoteConversionSample: number;
 }
 
 const EMPTY: Stats = {
@@ -70,6 +73,7 @@ const EMPTY: Stats = {
   cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
   refundsOutstandingValue: 0, topCancelReason: "-",
   vatCollected: 0,
+  quoteConversionRate: 0, quoteConversionSample: 0,
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
@@ -118,7 +122,12 @@ function AdminDashboardPage() {
 
       // Pull every order whose event falls in the range, plus the always-on
       // counters (low stock, pending quotes, team size) which don't bind to range.
-      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes] = await Promise.all([
+      // Phase 12 #6: quote conversion rate. Pull every quote that
+      // closed (accepted / rejected / expired) in the range so we
+      // can compute accepted / (accepted + rejected + expired).
+      // Drafts are excluded -- they were never sent so their
+      // outcome is undecided, not a 'loss'.
+      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
@@ -151,6 +160,17 @@ function AdminDashboardPage() {
           .select("current_stock, minimum_stock")
           .eq("company_id", companyId)
           .is("deleted_at", null),
+        // Phase 12 #6: quote conversion sample. Pull every quote
+        // closed (accepted / rejected / expired) in the date range
+        // so we can render N accepted of M closed = X% conversion.
+        supabase
+          .from("quotes")
+          .select("status")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("status", ["accepted", "rejected", "expired"])
+          .gte("updated_at", `${fromISO}T00:00:00`)
+          .lte("updated_at", `${toISO}T23:59:59`),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -239,6 +259,15 @@ function AdminDashboardPage() {
         (r: any) => Number(r.current_stock || 0) <= Number(r.minimum_stock || 0),
       ).length;
 
+      // Phase 12 #6: quote conversion. Accepted ÷ (accepted + rejected
+      // + expired) closed in the range. Skipped when the sample is
+      // empty so the rate doesn't show a misleading 0%.
+      const closedQuotes = (conversionRes.data || []) as Array<{ status: string }>;
+      const closedAccepted = closedQuotes.filter((q) => q.status === "accepted").length;
+      const closedTotal = closedQuotes.length;
+      const quoteConversionRate = closedTotal > 0 ? (closedAccepted / closedTotal) * 100 : 0;
+      const quoteConversionSample = closedTotal;
+
       // Cancellations + refunds tile data. Pulls cancelled orders in
       // the date window plus all pending refunds for this tenant
       // (refunds are queue-style -- pending refunds are about
@@ -291,6 +320,7 @@ function AdminDashboardPage() {
         cancelledOrdersInRange, refundsOutstandingCount,
         refundsOutstandingValue, topCancelReason,
         vatCollected,
+        quoteConversionRate, quoteConversionSample,
       });
     } catch (err: any) {
       console.error("Dashboard load error:", err);
@@ -506,23 +536,37 @@ function AdminDashboardPage() {
             />
           </div>
 
-          {/* Phase 11 #7: VAT exposure for the range. Splits out
-              from booked revenue so the bookkeeper has the
-              period's VAT total in one glance for SARS / HMRC
-              filings. Only renders when at least one booked order
-              in the range had non-zero tax_amount. */}
-          {stats.vatCollected > 0 && (
+          {/* Phase 11 #7 + Phase 12 #6: secondary stat row -- VAT
+              and quote conversion. Each tile self-hides when its
+              underlying sample is empty so a fresh tenant doesn't
+              see meaningless zeros. Renders the row only if at
+              least one tile has data. */}
+          {(stats.vatCollected > 0 || stats.quoteConversionSample > 0) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
-              <MetricCard
-                label="VAT in range"
-                value={fmt.format(stats.vatCollected)}
-                hint="Tax on booked orders"
-                tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
-                icon={DollarSign}
-                iconColor="text-amber-600"
-                badge={{ text: "Period", tone: "amber" }}
-                loading={loading}
-              />
+              {stats.vatCollected > 0 && (
+                <MetricCard
+                  label="VAT in range"
+                  value={fmt.format(stats.vatCollected)}
+                  hint="Tax on booked orders"
+                  tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
+                  icon={DollarSign}
+                  iconColor="text-amber-600"
+                  badge={{ text: "Period", tone: "amber" }}
+                  loading={loading}
+                />
+              )}
+              {stats.quoteConversionSample > 0 && (
+                <MetricCard
+                  label="Quote conversion"
+                  value={`${stats.quoteConversionRate.toFixed(0)}%`}
+                  hint={`${stats.quoteConversionSample} closed in range`}
+                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded -- they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
+                  icon={CheckCircle}
+                  iconColor="text-emerald-600"
+                  badge={{ text: "Closed", tone: "green" }}
+                  loading={loading}
+                />
+              )}
             </div>
           )}
 
