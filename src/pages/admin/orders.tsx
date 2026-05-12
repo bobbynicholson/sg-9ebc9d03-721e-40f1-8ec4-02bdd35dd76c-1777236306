@@ -169,6 +169,40 @@ function OrderProcessDashboard() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
+  // Phase 8 #3: persist filter state across reloads. The dispatch
+  // team usually has a steady working filter (e.g. "this week,
+  // confirmed only, JHB region") and was losing it every time
+  // they navigated away. We hydrate once on mount and persist on
+  // every relevant change.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("cateringms.adminOrders.filters.v1");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (typeof saved.searchTerm === "string") setSearchTerm(saved.searchTerm);
+      if (typeof saved.statusFilter === "string") setStatusFilter(saved.statusFilter);
+      if (typeof saved.dateFilter === "string") setDateFilter(saved.dateFilter);
+      if (typeof saved.dateFrom === "string") setDateFrom(saved.dateFrom);
+      if (typeof saved.dateTo === "string") setDateTo(saved.dateTo);
+      if (saved.viewMode === "kanban" || saved.viewMode === "timeline") setViewMode(saved.viewMode);
+    } catch {
+      // Corrupt JSON or storage blocked -- silently fall back to defaults.
+    }
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "cateringms.adminOrders.filters.v1",
+        JSON.stringify({ searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode }),
+      );
+    } catch {
+      /* storage blocked, harmless */
+    }
+  }, [searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode]);
   // Phase 7 #6: bulk-select for the timeline view. Set of order ids
   // currently ticked. Toolbar appears when size > 0; Kanban view
   // ignores it (the cards are too dense to make checkboxes readable).
