@@ -23,6 +23,7 @@ import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
 import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
 import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
 import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
+import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -419,6 +420,11 @@ function AdminDashboardPage() {
               next_service_due lands within 30 days. Self-hides
               when no service is on the horizon. */}
           <VehicleServiceDueWidget companyId={companyId} />
+
+          {/* Phase 13 #6: delivery on-time SLA. delivered_at vs
+              event_time over the last 30 days, with a 15-min
+              grace window. Self-hides on a fresh tenant. */}
+          <DeliverySlaWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
