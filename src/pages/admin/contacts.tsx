@@ -612,6 +612,26 @@ function ClientsCRM() {
     for (const c of contacts) for (const t of c.tags) set.add(t);
     return Array.from(set).sort();
   }, [contacts]);
+
+  // Phase 9 #7: lead source breakdown. Counts how many contacts
+  // came in via each lead source (website, referral, instagram,
+  // walk-in etc.) so the marketing lead can see which channels
+  // are actually pulling. Only counts contacts where leadSource
+  // is set (i.e. contacts that came in as a lead at some point).
+  const sourceBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let withSource = 0;
+    for (const c of contacts) {
+      const s = (c.leadSource || "").trim().toLowerCase();
+      if (!s) continue;
+      counts[s] = (counts[s] || 0) + 1;
+      withSource++;
+    }
+    const ranked = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+    return { ranked, withSource };
+  }, [contacts]);
   // Status filter is applied first so the fuzzy matcher only ranks contacts
   // the user is currently scoped to (e.g. "VIPs called Sarah"). Tag filter
   // (Phase 9 #4) layers on top -- a contact passes if it carries at
@@ -706,6 +726,39 @@ function ClientsCRM() {
               </Button>
             </div>
           </div>
+
+          {/* Phase 9 #7: lead source breakdown. Compact horizontal
+              bar showing the top 6 lead sources in the book + the
+              count + the share of total. Helps the marketing lead
+              eyeball which channels are pulling. Only renders when
+              at least one contact has a lead source on file. */}
+          {sourceBreakdown.withSource > 0 && (
+            <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                  Lead source breakdown
+                </span>
+                <span className="text-[11px] text-slate-500 tabular-nums">
+                  {sourceBreakdown.withSource} contacts with source
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {sourceBreakdown.ranked.map(([source, count]) => {
+                  const share = Math.round((count / sourceBreakdown.withSource) * 100);
+                  return (
+                    <div
+                      key={source}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs"
+                    >
+                      <span className="font-medium text-slate-700 capitalize">{source.replace(/_/g, " ")}</span>
+                      <span className="text-slate-500 tabular-nums">{count}</span>
+                      <span className="text-[10px] text-slate-400 tabular-nums">{share}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Phase 9 #4: tag filter chip strip. Only renders when
               the book has at least one tagged contact. Click a chip
