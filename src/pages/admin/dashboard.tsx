@@ -33,6 +33,7 @@ import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
 import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
 import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
+import { RecentInventoryAdjustsWidget } from "@/components/admin/RecentInventoryAdjustsWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -448,6 +449,12 @@ function AdminDashboardPage() {
               expired batches still showing quantity. Self-hides
               when nothing is close. */}
           <InventoryExpiryWidget companyId={companyId} />
+
+          {/* Phase 16 #10: recent stock movements. Last 5
+              inventory_transactions in the past 7 days so the
+              shopping team coordinator sees activity at a
+              glance without per-item drilling. */}
+          <RecentInventoryAdjustsWidget companyId={companyId} />
 
           {/* Phase 13 #4: fleet service due. Vehicles whose
               next_service_due lands within 30 days. Self-hides
