@@ -91,6 +91,24 @@ function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Phase 14 #2: tenant timezone hint chip in the dashboard
+  // header. The date pickers + cron windows interpret event_date
+  // in companies.timezone, but multi-region tenants couldn't
+  // see which clock was driving the math.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   // Phase 11 #1: tenant currency on the main dashboard metric
   // cards. Resolves the symbol + locale from companies.currency
@@ -368,6 +386,12 @@ function AdminDashboardPage() {
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Live metrics for events in <span className="font-semibold text-slate-900">{range.label}</span>
+                  {tenantTimezone && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
+                      <Clock className="w-3 h-3" />
+                      <span className="font-mono">{tenantTimezone}</span>
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
