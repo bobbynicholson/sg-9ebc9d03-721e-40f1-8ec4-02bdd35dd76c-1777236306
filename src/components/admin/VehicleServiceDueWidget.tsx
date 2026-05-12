@@ -107,26 +107,33 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
                   ? "today"
                   : `${days}d`;
               const name = v.nickname || `${v.make || ""} ${v.model || ""}`.trim() || "Vehicle";
+              // Phase 23 #10: full-row link into /admin/vehicles so
+              // logging a service is one click from the dashboard.
               return (
-                <li key={v.id} className="py-2 flex items-center gap-3">
-                  <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>
-                    {overdue && <AlertCircle className="w-3 h-3" />}
-                    {label}
-                  </div>
-                  <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center shrink-0">
-                    <Truck className="w-4 h-4 text-blue-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{name}</p>
-                    <p className="text-[11px] text-slate-500 tabular-nums font-mono">
-                      {v.plate || "—"}
-                      {v.next_service_due && (
-                        <span className="ml-2 font-sans text-slate-400">
-                          due {new Date(v.next_service_due).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                        </span>
-                      )}
-                    </p>
-                  </div>
+                <li key={v.id}>
+                  <Link
+                    href="/admin/vehicles"
+                    className="py-2 flex items-center gap-3 hover:bg-blue-50/60 rounded transition"
+                  >
+                    <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>
+                      {overdue && <AlertCircle className="w-3 h-3" />}
+                      {label}
+                    </div>
+                    <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center shrink-0">
+                      <Truck className="w-4 h-4 text-blue-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{name}</p>
+                      <p className="text-[11px] text-slate-500 tabular-nums font-mono">
+                        {v.plate || "—"}
+                        {v.next_service_due && (
+                          <span className="ml-2 font-sans text-slate-400">
+                            due {new Date(v.next_service_due).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
