@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid } from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -907,12 +907,71 @@ export default function AdminQuotes() {
                   <p className="text-slate-600 mt-1">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
                 </div>
               </div>
-              <Link href="/admin/quotes/new">
-                <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                  <Plus className="w-5 h-5 mr-2" />
-                  New Quote
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Phase 11 #2: CSV export of the currently filtered
+                    quote set. Respects bucket + search so the file
+                    matches what the operator sees on screen. */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const rows = filteredRows;
+                    if (rows.length === 0) {
+                      toast({ title: "Nothing to export", description: "Adjust the bucket or search until at least one quote is visible." });
+                      return;
+                    }
+                    const headers = [
+                      "Quote number", "Status", "Bucket", "Client",
+                      "Email", "Event date", "Guests", "Venue",
+                      "Subtotal", "Tax", "Total", "Currency",
+                      "Sent", "Viewed", "Accepted",
+                    ];
+                    const esc = (v: any) => {
+                      if (v == null) return "";
+                      const s = String(v).replace(/"/g, '""');
+                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    };
+                    const lines = [headers.join(",")];
+                    for (const rs of rows) {
+                      const q: any = rs.quote;
+                      const bucket = rs.intelligence?.bucket || "";
+                      lines.push([
+                        esc(q.quote_number),
+                        esc(q.status),
+                        esc(bucket),
+                        esc(q.client_name),
+                        esc(q.client_email),
+                        esc(q.event_date),
+                        esc(q.guest_count),
+                        esc(q.venue_address),
+                        esc(q.subtotal),
+                        esc(q.tax),
+                        esc(q.total),
+                        esc(tenantCurrency.code),
+                        esc(q.sent_at),
+                        esc(q.viewed_at),
+                        esc(q.accepted_at),
+                      ].join(","));
+                    }
+                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    const stamp = new Date().toISOString().slice(0, 10);
+                    a.download = `quotes_${stamp}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
                 </Button>
-              </Link>
+                <Link href="/admin/quotes/new">
+                  <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                    <Plus className="w-5 h-5 mr-2" />
+                    New Quote
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
 
