@@ -711,6 +711,20 @@ export default function KitchenPrepListPage() {
                                 Ingredients to pull
                                 <InfoTooltip content="Quantity for this order, scaled to the guest count.\n\nA red warning is a real shortfall once you account for every other order using the same ingredient, not just this one." />
                               </p>
+                              {/* Phase 6 #7: explicit scaling
+                                  context. The ingredient list is
+                                  the per-serving recipe quantity
+                                  multiplied by guest_count, and
+                                  capped by parallelism on cook
+                                  duration (kitchenPrepService Phase
+                                  1 #10). Without this header the
+                                  chef has no anchor for why each
+                                  number is what it is. */}
+                              <p className="text-[10px] text-slate-500 -mt-1 mb-2">
+                                Recipes scaled for{" "}
+                                <span className="font-semibold text-slate-700">{o.guest_count} guests</span>
+                                {" -- "}per-portion x guest_count.
+                              </p>
                               <ul className="text-sm divide-y divide-slate-100">
                                 {ingredients.map((ing) => {
                                   // Look up aggregated shortfall for this ingredient
