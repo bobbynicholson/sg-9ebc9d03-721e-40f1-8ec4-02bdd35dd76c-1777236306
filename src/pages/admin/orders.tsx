@@ -212,6 +212,39 @@ function OrderProcessDashboard() {
       /* storage blocked, harmless */
     }
   }, [searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode]);
+  // Phase 11 #8: pending amendment + cancellation request counts.
+  // Surfaces as inline badges in the page header so the dispatch
+  // lead sees how much client-driven work is queued without
+  // opening each order.
+  const [pendingAmendmentCount, setPendingAmendmentCount] = useState(0);
+  const [pendingCancellationCount, setPendingCancellationCount] = useState(0);
+  useEffect(() => {
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [aRes, cRes] = await Promise.all([
+          (supabase as any)
+            .from("order_amendment_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .eq("status", "pending"),
+          (supabase as any)
+            .from("cancellation_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .eq("status", "pending"),
+        ]);
+        if (cancelled) return;
+        setPendingAmendmentCount(aRes?.count ?? 0);
+        setPendingCancellationCount(cRes?.count ?? 0);
+      } catch {
+        /* non-blocking */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [(user as any)?.company_id, orders.length]);
   // Phase 7 #6: bulk-select for the timeline view. Set of order ids
   // currently ticked. Toolbar appears when size > 0; Kanban view
   // ignores it (the cards are too dense to make checkboxes readable).
@@ -2316,6 +2349,35 @@ function OrderProcessDashboard() {
                     Orders
                   </h1>
                   <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
+                  {/* Phase 11 #8: pending amendment + cancellation
+                      request badges. Hidden when both counts are
+                      zero so a quiet day stays clean. Each badge
+                      deep-links to the relevant URL filter that
+                      opens the AmendmentReviewDrawer pre-scoped. */}
+                  {(pendingAmendmentCount > 0 || pendingCancellationCount > 0) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {pendingAmendmentCount > 0 && (
+                        <Link
+                          href="/admin/orders?status=pending-amendments"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5"
+                          title="Client-requested order amendments awaiting review"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          {pendingAmendmentCount} pending amendment{pendingAmendmentCount === 1 ? "" : "s"}
+                        </Link>
+                      )}
+                      {pendingCancellationCount > 0 && (
+                        <Link
+                          href="/admin/orders?status=pending-cancellations"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-800 bg-rose-100 border border-rose-200 rounded-full px-2.5 py-0.5"
+                          title="Client-requested cancellations awaiting decision"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          {pendingCancellationCount} pending cancellation{pendingCancellationCount === 1 ? "" : "s"}
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
