@@ -153,6 +153,31 @@ function CompanyAuditLogsViewer() {
   const [detailsSearch, setDetailsSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
 
+  // Phase 18 #6: retention hint. Compliance asks "how far back can
+  // we actually go" all the time, and the answer is whatever the
+  // earliest row in audit_logs for this company says. One cheap
+  // ascending-by-1 query on mount, surfaced as a small hint chip
+  // so the operator can size their "All time" filter expectations.
+  const [oldestEntryAt, setOldestEntryAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("audit_logs")
+          .select("created_at")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        if (!cancelled && data && data.length > 0) {
+          setOldestEntryAt((data[0] as any).created_at);
+        }
+      } catch { /* non-blocking */ }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
   const sinceTimestamp = (): string | null => {
     const now = Date.now();
     switch (sinceFilter) {
@@ -317,6 +342,17 @@ function CompanyAuditLogsViewer() {
                   <p className="text-slate-600 mt-1 text-sm">
                     Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only -- mutations belong on the per-entity pages.
                   </p>
+                  {oldestEntryAt && (() => {
+                    const days = Math.max(
+                      0,
+                      Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)),
+                    );
+                    return (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Earliest entry on file: {fmtTs(oldestEntryAt)} ({days} day{days === 1 ? "" : "s"} of history retained).
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="flex items-center gap-2">
