@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2 } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
@@ -701,6 +701,55 @@ function DriverManagementPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Phase 14 #4: driver roster CSV export. Bookkeeping
+                  + payroll teams need an offline copy of the team
+                  list for monthly run reconciliation. Exports the
+                  filtered set so search + sort scope flow through. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const rows = filteredDrivers as Driver[];
+                  if (rows.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust filters until at least one driver is visible." });
+                    return;
+                  }
+                  const headers = [
+                    "Name", "Email", "Phone",
+                    "Active", "Created",
+                    "Hourly rate", "Distance rate /km", "Callout fee",
+                    "Home postcode", "Drive time to kitchen (min)",
+                    "Max jobs / shift", "Regions covered",
+                  ];
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const lines = [headers.join(",")];
+                  for (const d of rows) {
+                    lines.push([
+                      esc(d.full_name), esc(d.email), esc(d.phone_number),
+                      esc(d.is_active ? "yes" : "no"), esc(d.created_at),
+                      esc(d.hourly_rate), esc(d.distance_rate_per_km), esc(d.base_callout_fee),
+                      esc(d.home_postcode), esc(d.drive_time_to_kitchen_minutes),
+                      esc(d.max_jobs_per_shift),
+                      esc((d.regions_covered || []).join(";")),
+                    ].join(","));
+                  }
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const stamp = new Date().toISOString().slice(0, 10);
+                  a.download = `drivers_${stamp}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
               <InfoTooltip
                 content={"Create a new driver account with login details. They can sign in to their portal as soon as you save."}
                 side="left"
