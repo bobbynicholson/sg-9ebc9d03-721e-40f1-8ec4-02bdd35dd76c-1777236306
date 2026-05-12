@@ -105,10 +105,21 @@ function VehiclesPage() {
     has_warmer: false,
     requires_two_people: false,
     notes: "",
+    // Phase 7 #1: maintenance fields, mirroring the equipment edit
+    // form. service_interval_days NULL = no recurring schedule.
+    service_interval_days: "",
+    next_service_due: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showNew, setShowNew] = useState(false);
+  // Phase 7 #1: log-a-service dialog state.
+  const [loggingServiceFor, setLoggingServiceFor] = useState<Vehicle | null>(null);
+  const [logServiceType, setLogServiceType] = useState<string>("service");
+  const [logServiceNotes, setLogServiceNotes] = useState("");
+  const [logServiceCost, setLogServiceCost] = useState("");
+  const [logServiceOdometer, setLogServiceOdometer] = useState("");
+  const [logServiceSaving, setLogServiceSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!companyId) { setLoading(false); return; }
@@ -211,6 +222,8 @@ function VehiclesPage() {
       has_warmer: false,
       requires_two_people: false,
       notes: "",
+      service_interval_days: "",
+      next_service_due: "",
     });
   };
 
@@ -240,6 +253,11 @@ function VehiclesPage() {
       has_warmer: !!v.has_warmer,
       requires_two_people: !!v.requires_two_people,
       notes: v.notes || "",
+      service_interval_days:
+        (v as any).service_interval_days != null
+          ? String((v as any).service_interval_days)
+          : "",
+      next_service_due: (v as any).next_service_due || "",
     });
     setError("");
   };
@@ -271,6 +289,14 @@ function VehiclesPage() {
         has_warmer: form.has_warmer,
         requires_two_people: form.requires_two_people,
         notes: form.notes.trim() || null,
+        // Phase 7 #1: maintenance schedule. Empty interval -> NULL
+        // means no recurring service for this vehicle (the service-
+        // due cron skips NULLs). next_service_due is a manual
+        // override; the AFTER INSERT trigger on vehicle_maintenance_
+        // log auto-derives it from interval when a service lands.
+        service_interval_days:
+          form.service_interval_days !== "" ? Number(form.service_interval_days) : null,
+        next_service_due: form.next_service_due || null,
       };
       if (editTarget) {
         await vehicleService.updateVehicle(editTarget.id, payload as any);
@@ -747,6 +773,69 @@ function VehiclesPage() {
               <Input id="notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional, e.g. tow bar, extra storage" className="mt-1" />
             </div>
 
+            {/* Phase 7 #1: maintenance schedule. Mirrors the
+                equipment edit dialog from Phase 5 #1. Only renders
+                on edit (existing rows) -- you can't log service
+                for a vehicle that doesn't exist yet. */}
+            {editTarget && (
+              <div className="border-t border-slate-200 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Maintenance schedule</p>
+                    <p className="text-xs text-slate-500">
+                      Drives the daily 'service due' notifications to admin.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLoggingServiceFor(editTarget)}
+                  >
+                    Log a service
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="service_interval_days" className="text-xs">Service interval (days)</Label>
+                    <Input
+                      id="service_interval_days"
+                      type="number"
+                      min={0}
+                      value={form.service_interval_days}
+                      onChange={e => setForm({ ...form, service_interval_days: e.target.value })}
+                      placeholder="e.g. 180 for 6-month service, 365 for COR"
+                      className="mt-1"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Empty = no recurring service. next_service_due auto-fills when a service is logged.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="next_service_due" className="text-xs">Next service due (manual)</Label>
+                    <Input
+                      id="next_service_due"
+                      type="date"
+                      value={form.next_service_due}
+                      onChange={e => setForm({ ...form, next_service_due: e.target.value })}
+                      className="mt-1"
+                    />
+                    {(editTarget as any).last_serviced_at && (
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Last serviced{" "}
+                        {new Date((editTarget as any).last_serviced_at).toLocaleDateString("en-ZA", {
+                          day: "numeric", month: "short", year: "numeric",
+                        })}
+                        {(editTarget as any).current_odometer_km && (
+                          <> at {(editTarget as any).current_odometer_km} km</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -761,6 +850,132 @@ function VehiclesPage() {
             </DialogClose>
             <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add vehicle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phase 7 #1: log a service event for a vehicle. Inserts
+          into vehicle_maintenance_log; the AFTER INSERT trigger
+          rolls last_serviced_at + next_service_due + current_
+          odometer_km onto the vehicle row. */}
+      <Dialog
+        open={!!loggingServiceFor}
+        onOpenChange={(o) => {
+          if (!o) {
+            setLoggingServiceFor(null);
+            setLogServiceType("service");
+            setLogServiceNotes("");
+            setLogServiceCost("");
+            setLogServiceOdometer("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log a service</DialogTitle>
+            <DialogDescription>
+              {loggingServiceFor
+                ? `Record a service event for ${loggingServiceFor.plate}. Stamps last_serviced_at and rolls next_service_due forward by the schedule.`
+                : "Record a service event."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Service type</Label>
+              <select
+                value={logServiceType}
+                onChange={(e) => setLogServiceType(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+              >
+                <option value="service">Service</option>
+                <option value="repair">Repair</option>
+                <option value="tyres">Tyres</option>
+                <option value="cor">COR / roadworthy</option>
+                <option value="inspection">Inspection</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Cost (R, optional)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={logServiceCost}
+                  onChange={(e) => setLogServiceCost(e.target.value)}
+                  placeholder="What you paid"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Odometer (km, optional)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={logServiceOdometer}
+                  onChange={(e) => setLogServiceOdometer(e.target.value)}
+                  placeholder="Current reading"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Input
+                value={logServiceNotes}
+                onChange={(e) => setLogServiceNotes(e.target.value)}
+                placeholder="Replaced front brake pads, tyre rotation..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setLoggingServiceFor(null)}
+              disabled={logServiceSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!loggingServiceFor || !companyId) return;
+                setLogServiceSaving(true);
+                try {
+                  const { error: insErr } = await (supabase as any)
+                    .from("vehicle_maintenance_log")
+                    .insert({
+                      company_id: companyId,
+                      vehicle_id: loggingServiceFor.id,
+                      serviced_at: new Date().toISOString(),
+                      service_type: logServiceType,
+                      notes: logServiceNotes.trim() || null,
+                      cost: logServiceCost ? Number(logServiceCost) : null,
+                      odometer_km: logServiceOdometer ? Number(logServiceOdometer) : null,
+                    });
+                  if (insErr) throw insErr;
+                  toast({
+                    title: "Service logged",
+                    description: "next_service_due rolled forward by the schedule.",
+                  });
+                  setLoggingServiceFor(null);
+                  setLogServiceType("service");
+                  setLogServiceNotes("");
+                  setLogServiceCost("");
+                  setLogServiceOdometer("");
+                  load();
+                } catch (e: any) {
+                  toast({
+                    title: "Could not log service",
+                    description: e?.message || "Try again",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setLogServiceSaving(false);
+                }
+              }}
+              disabled={logServiceSaving}
+            >
+              {logServiceSaving ? "Logging..." : "Log service"}
             </Button>
           </DialogFooter>
         </DialogContent>
