@@ -29,6 +29,7 @@ import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
 import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget";
+import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
 import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
@@ -515,6 +516,13 @@ function AdminDashboardPage() {
               that haven't been paid or cancelled, oldest first.
               Self-hides on a tenant with no overdue invoices. */}
           <OverdueInvoicesWidget companyId={companyId} />
+
+          {/* Phase 19 #10: recent event ratings. Closes the loop on
+              the Phase 18 #10 quick-rating capture in the order
+              drawer -- 30-day average plus the last 5 rated orders.
+              Self-hides until a tenant has stamped at least one
+              rating. */}
+          <RecentRatingsWidget companyId={companyId} />
 
           {/* Phase 16 #9: recent payments collected. Today's Pulse
               shows 'Paid today' total but no row-level detail. This
