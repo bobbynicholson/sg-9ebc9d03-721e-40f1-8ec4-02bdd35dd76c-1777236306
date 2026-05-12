@@ -26,6 +26,7 @@ import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
+import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -427,6 +428,14 @@ export default function DriverDashboard() {
              *  fatigue checks (Phase 7 #2) honestly. */}
             <div className="mb-4 sm:mb-6">
               <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
+            </div>
+
+            {/* Phase 17 #4: recent shift history. Driver-side
+             *  sanity-check for 'did I forget to clock out
+             *  yesterday?' Self-hides until at least one
+             *  shift is recorded. */}
+            <div className="mb-4 sm:mb-6">
+              <DriverShiftHistory driverId={user?.id} />
             </div>
 
             {/* Phase 7 #4: A2HS prompt. Renders only when the
