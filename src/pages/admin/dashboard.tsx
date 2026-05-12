@@ -28,6 +28,7 @@ import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
+import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -474,6 +475,13 @@ function AdminDashboardPage() {
               with client name + amount + age so the bookkeeper
               can act on the oldest first. */}
           <PendingRefundsWidget companyId={companyId} />
+
+          {/* Phase 14 #7: recent activity timeline. Pivoted from
+              the brand-colour preview slot since live preview
+              already exists on /admin/white-label. Shows the
+              last 8 audit_logs entries so owners get a quick
+              read on team activity from the dashboard. */}
+          <RecentActivityWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
