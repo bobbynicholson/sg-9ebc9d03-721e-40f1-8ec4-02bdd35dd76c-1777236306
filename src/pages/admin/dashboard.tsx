@@ -26,6 +26,7 @@ import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWid
 import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
+import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -461,6 +462,11 @@ function AdminDashboardPage() {
               not won/lost) older than 3 days, oldest first. Self-
               hides when nothing is overdue. */}
           <LeadAgingWidget companyId={companyId} />
+
+          {/* Phase 14 #3: tomorrow's events. Compact list with
+              earliest start time + driver assignment for the
+              evening-before review. Self-hides on a quiet day. */}
+          <TomorrowsEventsWidget companyId={companyId} />
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
