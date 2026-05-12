@@ -143,6 +143,31 @@ function RegionsPage() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
   const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string }>>([]);
+  // Phase 12 #10: company default tz + currency for the divergence
+  // chip on each region card. A region with a different tz / code
+  // gets a small 'differs from HQ' warning so an accidental misconfig
+  // doesn't silently break BCEA windows + cron boundaries.
+  const [companyDefaults, setCompanyDefaults] = useState<{ timezone: string; currency: string }>({
+    timezone: "Africa/Johannesburg",
+    currency: "ZAR",
+  });
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone, currency")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (cancelled) return;
+      setCompanyDefaults({
+        timezone: (data as any)?.timezone || "Africa/Johannesburg",
+        currency: (data as any)?.currency || "ZAR",
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Region | null>(null);
   const [form, setForm] = useState<RegionFormState>(emptyForm);
@@ -524,7 +549,31 @@ function RegionsPage() {
                       {(region.operating_hours_start || region.operating_hours_end) && (
                         <div><span className="font-medium text-slate-700">Hours:</span> {region.operating_hours_start}, {region.operating_hours_end}</div>
                       )}
-                      <div><span className="font-medium text-slate-700">Currency:</span> {region.currency} &nbsp;<span className="font-medium text-slate-700">Timezone:</span> {region.timezone}</div>
+                      {/* Phase 12 #10: currency + timezone chips with
+                          a 'differs from HQ' warning when either
+                          diverges from the company default. Catches
+                          accidental misconfig before BCEA / cron
+                          windows quietly produce wrong numbers. */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(() => {
+                          const currencyDiff = region.currency && region.currency !== companyDefaults.currency;
+                          const tzDiff = region.timezone && region.timezone !== companyDefaults.timezone;
+                          return (
+                            <>
+                              <span className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${currencyDiff ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                                <span className="font-medium">Currency:</span>
+                                <span className="font-mono">{region.currency || "—"}</span>
+                                {currencyDiff && <span className="text-amber-700 font-semibold">≠ HQ</span>}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${tzDiff ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                                <span className="font-medium">Timezone:</span>
+                                <span className="font-mono">{region.timezone || "—"}</span>
+                                {tzDiff && <span className="text-amber-700 font-semibold">≠ HQ</span>}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
                       <div><span className="font-medium text-slate-700">Delivery radius:</span> {region.delivery_radius_km} km</div>
                       {region.notes && (
                         <div className="text-slate-500 italic mt-2">"{region.notes}"</div>
