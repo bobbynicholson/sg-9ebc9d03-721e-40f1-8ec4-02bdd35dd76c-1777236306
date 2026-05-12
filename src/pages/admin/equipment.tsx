@@ -366,6 +366,20 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const lowStock = rows.filter(
     (r) => r.is_available !== false && safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0,
   ).length;
+  // Phase 19 #3: roll up service-due state so an operator scanning
+  // the page sees how much kit needs servicing without having to
+  // scroll through and read each row's badge. Same definition as the
+  // per-row badge (within 7 days = due soon, in the past = overdue).
+  const SEVEN_DAYS_MS = 7 * 86400_000;
+  const nowMs = Date.now();
+  const overdueServiceCount = rows.filter((r) => {
+    const t = r.next_service_due ? new Date(r.next_service_due as string).getTime() : null;
+    return !!t && t < nowMs;
+  }).length;
+  const dueSoonServiceCount = rows.filter((r) => {
+    const t = r.next_service_due ? new Date(r.next_service_due as string).getTime() : null;
+    return !!t && t >= nowMs && t - nowMs <= SEVEN_DAYS_MS;
+  }).length;
 
   return (
     <>
@@ -449,6 +463,27 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Hidden from quotes</p><p className="text-2xl font-bold text-slate-500">{offlineItems}</p></CardContent></Card>
       </div>
+
+      {/* Phase 19 #3: service-due rollup banner. Renders only when
+          something actually needs servicing so the page stays clean
+          for tenants who don't track maintenance. */}
+      {(overdueServiceCount > 0 || dueSoonServiceCount > 0) && (
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <AlertTriangle className="w-4 h-4 text-amber-700" />
+          <span className="text-xs font-medium text-amber-900">Maintenance:</span>
+          {overdueServiceCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 text-red-800 text-xs px-2 py-0.5">
+              <span className="font-semibold">{overdueServiceCount}</span> overdue
+            </span>
+          )}
+          {dueSoonServiceCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-xs px-2 py-0.5">
+              <span className="font-semibold">{dueSoonServiceCount}</span> due within 7 days
+            </span>
+          )}
+          <span className="text-[11px] text-amber-700 ml-auto">Open each row to log a service.</span>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
         <div className="relative flex-1">
