@@ -82,13 +82,19 @@ export default function CheckoutPage() {
 
       const payfastService = new PayFastService(payfastConfig);
 
+      // We don't have a logged-in catering company yet at this point
+      // (prospect arriving from /pricing). Use the email as the
+      // reconciliation key in custom_str1 so the webhook can match
+      // the eventual subscription to the right tenant once the user
+      // creates an account. Previously sent a `temp_${Date.now()}`
+      // orphan that nothing downstream could ever join back to.
       const subscriptionParams = payfastService.createSubscriptionParams(
         plan,
         {
           firstName,
           lastName,
           email,
-          userId: `temp_${Date.now()}`,
+          userId: email.trim().toLowerCase(),
         },
         billingCycle
       );
