@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Download, Printer, Mail, Calendar, MapPin, FileText } from "lucide-react";
+import { Download, Printer, Calendar, MapPin, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -31,7 +31,6 @@ interface InvoiceDetailModalProps {
 export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModalProps) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
-  const [emailing, setEmailing] = useState(false);
 
   const handleDownload = async () => {
     try {
@@ -56,27 +55,6 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleEmail = async () => {
-    try {
-      setEmailing(true);
-      const blob = await invoiceService.generateOrderInvoice(invoice.order_id);
-      // Email to user - would need user email from context
-      toast({
-        title: "Success",
-        description: "Invoice sent to your email",
-      });
-    } catch (error) {
-      console.error("Email error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send invoice",
-        variant: "destructive",
-      });
-    } finally {
-      setEmailing(false);
-    }
   };
 
   return (
@@ -185,15 +163,6 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
             <Button variant="outline" className="flex-1" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" />
               Print
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleEmail}
-              disabled={emailing}
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              {emailing ? "Sending..." : "Email"}
             </Button>
           </div>
         </div>
