@@ -207,6 +207,8 @@ function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    let dbWriteOk = true;
+    let dbErrorMessage: string | null = null;
     localStorage.setItem("admin_settings", JSON.stringify(settings));
     try {
       await supabase.auth.updateUser({ data: { admin_settings: settings } });
@@ -224,6 +226,18 @@ function SettingsPage() {
           .eq("id", user.id)
           .single();
         if (profile?.company_id) {
+          // Read the current JSONB so we merge instead of clobber.
+          // Audit (May 2026, Wave 8): dispatch_settings is shared with
+          // other writers (DispatchSettingsTab, branch overrides);
+          // overwriting the whole blob would wipe sibling keys.
+          const { data: existing } = await (supabase as any)
+            .from("companies")
+            .select("dispatch_settings, kitchen_settings")
+            .eq("id", profile.company_id)
+            .maybeSingle();
+          const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
+          const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
+
           await (supabase as any)
             .from("companies")
             .update({
@@ -234,33 +248,84 @@ function SettingsPage() {
               logo_url: settings.company.logo || null,
               headquarters_lat: settings.company.kitchenLat || null,
               headquarters_lng: settings.company.kitchenLng || null,
-              // Persist financial settings to the canonical columns.
-              // depositPercent feeds resolveBranchSettings + the
-              // new-quote builder; the rest landed via the
-              // companies_financial_settings_columns migration so the
-              // values stop being silently dropped on save.
-              // finalOrderChangeDays maps onto amendment_cutoff_days
-              // (already used by the is_order_amendable RPC, so this
-              // immediately tightens / loosens the client amendment
-              // window).
+              // Financial: deposit / balance-due / amendment cutoff /
+              // cancellation fee / refund SLA. depositPercent feeds
+              // resolveBranchSettings + the quote builder.
               deposit_percent: Number(settings.financial.depositPercent) || 30,
               balance_due_days: Number(settings.financial.balanceDueDays) || 7,
               amendment_cutoff_days: Number(settings.financial.finalOrderChangeDays) || 7,
               cancellation_fee_percent: Number(settings.financial.cancellationFeePercent) || 25,
               refund_process_days: Number(settings.financial.refundProcessDays) || 7,
+              // Audit (May 2026, Wave 8): the previous save only
+              // persisted seven fields. currency, VAT rate, every
+              // operations and pricing key, and notification toggles
+              // all silently fell into user_metadata + localStorage,
+              // so a second admin on the same tenant saw stale or
+              // default values. Now persisted to canonical company
+              // columns / JSONB so every admin shares one source of
+              // truth.
+              currency: settings.financial.currency || "ZAR",
+              vat_rate: Number(settings.financial.taxRate) || 0,
+              // Dispatch settings: merge into the existing JSONB so
+              // sibling keys (set by DispatchSettingsTab, region
+              // overrides, etc) are preserved.
+              dispatch_settings: {
+                ...priorDispatch,
+                deliveryCostPerKm: Number(settings.operations.deliveryCostPerKm) || 0,
+                minDeliveryFee: priorDispatch.minDeliveryFee ?? 0,
+                deliveryBufferMinutes: Number(settings.operations.deliveryBufferMinutes) || 30,
+                driverRadius: Number(settings.operations.driverRadius) || 50,
+                maxConcurrentEvents: Number(settings.operations.maxConcurrentEvents) || 5,
+                equipmentCleaningHours: Number(settings.operations.equipmentCleaningHours) || 4,
+                pricing: {
+                  ...((priorDispatch as any).pricing || {}),
+                  weekendPremium: Number(settings.pricing?.weekendPremium) || 0,
+                  lastMinuteSurcharge: Number(settings.pricing?.lastMinuteSurcharge) || 0,
+                  earlyBirdDiscount: Number(settings.pricing?.earlyBirdDiscount) || 0,
+                  bulkDiscountThreshold: Number(settings.pricing?.bulkDiscountThreshold) || 0,
+                  bulkDiscountPercent: Number(settings.pricing?.bulkDiscountPercent) || 0,
+                  minimumOrderValue: Number(settings.pricing?.minimumOrderValue) || 0,
+                },
+                notifications: {
+                  ...((priorDispatch as any).notifications || {}),
+                  emailNewLead: !!settings.notifications?.emailNewLead,
+                  emailQuoteAccepted: !!settings.notifications?.emailQuoteAccepted,
+                  emailPaymentReceived: !!settings.notifications?.emailPaymentReceived,
+                  emailComplaint: !!settings.notifications?.emailComplaint,
+                  emailDailyReport: !!settings.notifications?.emailDailyReport,
+                  smsDriverAssigned: !!settings.notifications?.smsDriverAssigned,
+                },
+              },
+              // Kitchen prep lead time merges into kitchen_settings.
+              kitchen_settings: {
+                ...priorKitchen,
+                kitchenPrepHours: Number(settings.operations.kitchenPrepHours) || 48,
+              },
             })
             .eq("id", profile.company_id);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to persist company settings to DB:", e);
+      dbWriteOk = false;
+      dbErrorMessage = e?.message || "DB save failed.";
     }
 
-    // Update the snapshot so the dirty-tracker shows clean again.
-    setSavedSnapshot(JSON.stringify(settings));
+    // Update the snapshot so the dirty-tracker shows clean again --
+    // but only when the DB write actually succeeded. Audit (May 2026,
+    // Wave 8): previous code fired the green "Settings saved" toast
+    // unconditionally, even when the companies update was rejected
+    // (permissions, validation, etc), so the operator thought
+    // financial settings persisted when they hadn't.
+    if (dbWriteOk) {
+      setSavedSnapshot(JSON.stringify(settings));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } else if (typeof window !== "undefined") {
+      // eslint-disable-next-line no-alert
+      window.alert(`Settings did not save to the company record: ${dbErrorMessage}. Try again or contact support.`);
+    }
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
   };
 
   // Beforeunload guard: warn the operator if they try to leave the page
