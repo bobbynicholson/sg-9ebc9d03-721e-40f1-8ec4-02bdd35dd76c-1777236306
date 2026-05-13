@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Users, CreditCard, TrendingUp, AlertCircle, CheckCircle, Clock, DollarSign, ArrowUpRight, Activity } from "lucide-react";
+import { Building2, CreditCard, TrendingUp, CheckCircle, Clock, DollarSign, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -234,41 +234,35 @@ export default function SuperAdminManagementDashboard() {
           </Card>
         </div>
 
-        {/* Platform Status */}
+        {/* Platform Status -- external monitoring panel. The numbers
+            below used to be hardcoded fiction (124ms / 99.98% / 247
+            users). Real telemetry lives outside this app; surface the
+            canonical sources so the super admin can drill in. */}
         <Card>
           <CardHeader>
             <CardTitle>Platform Status</CardTitle>
-            <CardDescription>System health and performance</CardDescription>
+            <CardDescription>External monitoring sources</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">API Response Time</span>
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    Excellent
-                  </Badge>
-                </div>
-                <div className="text-2xl font-bold">124ms</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">Uptime</span>
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    Healthy
-                  </Badge>
-                </div>
-                <div className="text-2xl font-bold">99.98%</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">Active Users</span>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    Normal
-                  </Badge>
-                </div>
-                <div className="text-2xl font-bold">247</div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <a
+                href="https://vercel.com/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-4 rounded-lg border border-slate-200 hover:bg-slate-50"
+              >
+                <div className="text-sm font-medium">Vercel deployments + analytics</div>
+                <div className="text-xs text-slate-500 mt-0.5">Response time, edge errors, build status</div>
+              </a>
+              <a
+                href="https://status.supabase.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-4 rounded-lg border border-slate-200 hover:bg-slate-50"
+              >
+                <div className="text-sm font-medium">Supabase status</div>
+                <div className="text-xs text-slate-500 mt-0.5">Database, auth, storage availability</div>
+              </a>
             </div>
           </CardContent>
         </Card>
