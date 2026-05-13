@@ -201,7 +201,7 @@ export default async function handler(
               id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, status,
-              delivery_fee, delivery_distance_km,
+              delivery_fee, delivery_distance_km, delivery_rate_per_km,
               valid_until, accepted_at, updated_at,
               company:company_id (
                 company_name, legal_name, logo_url, email, phone, website,
@@ -232,6 +232,7 @@ export default async function handler(
                 subtotal: (q as any).subtotal,
                 delivery_fee: (q as any).delivery_fee,
                 delivery_distance_km: (q as any).delivery_distance_km,
+                delivery_rate_per_km: (q as any).delivery_rate_per_km,
                 discount_amount: (q as any).discount_amount,
                 tax_amount: (q as any).tax_amount,
                 total: Number((q as any).total ?? (q as any).total_amount ?? 0),
