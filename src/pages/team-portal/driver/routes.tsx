@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
 import driverService from "@/services/driverService";
+import { driverPayService, resolveEffectiveRates, type DriverPayRates } from "@/services/driverPayService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
@@ -50,12 +51,28 @@ export default function DriverRoutes() {
   const [selectedDelivery, setSelectedDelivery] = useState<{ id: string; name: string } | null>(null);
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
+  // Per-driver pay rates (override falling back to companies.default_*)
+  // -- used so the earnings tiles show the real number, not R250.
+  const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
 
   useEffect(() => {
     if (user?.id) {
       loadOptimizedRoute();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.id || !user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const [defaults, profile] = await Promise.all([
+        driverPayService.getCompanyDefaults(user.company_id),
+        driverPayService.getDriverProfile(user.id),
+      ]);
+      if (!cancelled) setPayRates(resolveEffectiveRates(profile, defaults));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, user?.company_id]);
 
   const loadOptimizedRoute = async () => {
     if (!user?.id) return;
@@ -247,7 +264,14 @@ export default function DriverRoutes() {
   const stats = routeOptimizationService.calculateRouteStats(route);
   const completedStops = route.stops.filter(s => s.status === "completed" || s.status === "delivered").length;
   const currentStop = route.stops[currentStopIndex];
-  const estimatedEarnings = route.stops.length * 250; // R250 per delivery
+  // Estimated earnings = callout per stop + per-km on the optimised
+  // route's total_distance (the actual driven path including legs
+  // between stops). Shows 0 until rates load so we don't flash R250.
+  const calloutFee = payRates?.base_callout_fee ?? 0;
+  const distanceRate = payRates?.distance_rate_per_km ?? 0;
+  const estimatedEarnings = payRates
+    ? Math.round(route.stops.length * calloutFee + route.total_distance * distanceRate)
+    : 0;
 
   return (
     <>
@@ -454,7 +478,7 @@ export default function DriverRoutes() {
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4" />
-                          <span>Earning: R250</span>
+                          <span>Callout: R{calloutFee.toFixed(0)} + R{distanceRate.toFixed(2)}/km</span>
                         </div>
                       </div>
 
@@ -628,7 +652,7 @@ export default function DriverRoutes() {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <DollarSign className="w-3 h-3" />
-                                  R250 earnings
+                                  R{calloutFee.toFixed(0)} callout
                                 </span>
                               </div>
                             </div>
