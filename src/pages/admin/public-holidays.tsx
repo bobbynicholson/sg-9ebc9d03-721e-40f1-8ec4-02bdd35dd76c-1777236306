@@ -28,7 +28,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2, Download } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2, Download, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -112,6 +112,18 @@ function PublicHolidaysAdmin() {
               </div>
             </div>
             <div className="flex gap-2">
+              {/* Phase 28 #7: manual refresh. Year switching already
+                  triggers a reload but a manual button covers the
+                  case where another admin has just added a company
+                  custom holiday from a different tab. */}
+              <Button
+                variant="outline"
+                onClick={reload}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {/* Phase 22 #4: holidays CSV. Payroll and ops planning
                   cross-reference these against shift rosters, public-
                   holiday surcharges and venue closures. */}
