@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,29 @@ function RefundsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  // Phase 27 #3: ?paymentId scrolls to + highlights the matching
+  // refund row. Used by PendingRefundsWidget deep-link from the
+  // dashboard so the bookkeeper lands inside their chase.
+  const router = useRouter();
+  const [focusedRefundId, setFocusedRefundId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+    const target = typeof router.query.paymentId === "string" ? router.query.paymentId : null;
+    if (!target) return;
+    setFilter("all");
+    setFocusedRefundId(target);
+    const t = setTimeout(() => {
+      const el = typeof document !== "undefined"
+        ? document.getElementById(`refund-row-${target}`)
+        : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    const clearT = setTimeout(() => setFocusedRefundId(null), 4000);
+    const { paymentId: _drop, ...rest } = router.query;
+    router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    return () => { clearTimeout(t); clearTimeout(clearT); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.paymentId, loading]);
   // Phase 17 #2: saved-view chips. Bookkeeping segments (auto-
   // processed for the day, pending EFT > 3 days, recently
   // rejected) re-occur every reconciliation pass; named chips
@@ -423,7 +447,14 @@ function RefundsPage() {
     const Icon = isCompleted ? CheckCircle2 : isRejected ? XCircle : Clock;
 
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
+      <div
+        id={`refund-row-${r.id}`}
+        className={`flex items-start gap-3 rounded-lg border bg-white p-3 ${
+          focusedRefundId === r.id
+            ? "border-amber-400 ring-2 ring-amber-300 ring-inset bg-amber-50 animate-pulse"
+            : "border-slate-200"
+        }`}
+      >
         <div className={`p-2 rounded-full ${iconBg}`}>
           <Icon className="w-4 h-4" />
         </div>
