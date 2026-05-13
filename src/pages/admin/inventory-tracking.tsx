@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,6 +71,29 @@ export default function InventoryTracking() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  // Phase 29 #9: "/" focus + "n" open Add Item. Same keyboard
+  // pattern as the rest of the admin list pages.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setIsAddItemOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -686,7 +709,8 @@ export default function InventoryTracking() {
             <div className="flex gap-4">
               <div className="flex-1 relative">
                 <Input
-                  placeholder="Search by name, SKU, category, supplier, location..."
+                  ref={searchRef}
+                  placeholder="Search by name, SKU, category, supplier, location... (press /)"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pr-9"
