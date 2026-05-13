@@ -289,18 +289,28 @@ export async function generateInvoiceData(
       taxRatePct = isRegistered ? normalisedPct : 0;
     }
     const taxRate = taxRatePct;
-    // Honour the tenant's pricing convention. In inc-VAT mode the
-    // line item totals already include VAT, so we treat `subtotal`
-    // (sum of line item totals) as the GROSS and divide back to get
-    // the ex-VAT figure that gets shown as the invoice subtotal.
-    // In ex-VAT mode (the historic default) VAT is added on top.
+    // Wave 13 audit: this branch used to read `subtotal` (= orders.subtotal
+    // or sum-of-line-items) as the GROSS source under inc-VAT mode and
+    // divide it by 1.15 to derive the ex-VAT net. That broke because
+    // orders.subtotal is already the ex-VAT net (written that way by
+    // convertQuoteToOrder / quote builder under inc-VAT mode), so the
+    // math divided net by 1.15 a second time -- the invoice landed at
+    // ~85% of the order total. The order total + the public quote view
+    // agreed; only the invoice was wrong.
+    //
+    // Fix: use orders.total_amount as the canonical gross under inc-VAT.
+    // It's written by the quote->order conversion as breakdownFromLineSum.gross
+    // and matches both the public quote view and the editor running
+    // total. Fall back to sum-of-line-items (also gross under inc-VAT)
+    // when total_amount is missing on legacy rows.
     const incVat = (companyData as any)?.pricing_includes_vat === true;
     const rateDecimal = taxRate / 100;
     let invoiceSubtotal: number;
     let taxAmount: number;
     let total: number;
     if (incVat) {
-      total = Number(subtotal.toFixed(2));
+      const orderTotalGross = Number(orderData.total_amount || 0);
+      total = Number((orderTotalGross > 0 ? orderTotalGross : computedSubtotal).toFixed(2));
       invoiceSubtotal = rateDecimal > 0 ? Number((total / (1 + rateDecimal)).toFixed(2)) : total;
       taxAmount = Number((total - invoiceSubtotal).toFixed(2));
     } else {

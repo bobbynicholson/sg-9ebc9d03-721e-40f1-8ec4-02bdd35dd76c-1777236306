@@ -236,7 +236,13 @@ export async function postOrderCreationCascade(
           }
         }
 
-        const ok = await emailService.sendEmail({
+        // Wave 13 audit: this used to call sendEmail (boolean wrapper)
+        // and store the generic "send_failed" reason, throwing away
+        // the structured diagnosis. Switch to sendEmailDetailed so the
+        // operator sees the real cause -- "Resend domain not verified",
+        // "from_email_domain_mismatch", "blocked_recipient" etc. --
+        // in the accept-on-behalf toast and the email-failures dashboard.
+        const detailed = await (emailService as any).sendEmailDetailed({
           companyId,
           to: (order as any).client_email,
           subject: `Order Confirmed - #${(order as any).order_number || orderId}`,
@@ -261,10 +267,18 @@ export async function postOrderCreationCascade(
           // happen under the same auth context as the rest of the
           // cascade.
           _client: client,
-        } as any);
-        receipt.email = ok ? { ok: true, skipped: false } : { ok: false, skipped: false, reason: "send_failed" };
-        if (!ok) {
-          console.warn("[postOrderCreationCascade] email send returned false:", { orderId, companyId });
+        });
+        if (detailed?.success) {
+          receipt.email = { ok: true, skipped: false };
+        } else {
+          const reason = detailed?.error_code || detailed?.error || "send_failed";
+          receipt.email = { ok: false, skipped: false, reason };
+          console.warn("[postOrderCreationCascade] email send failed:", {
+            orderId,
+            companyId,
+            error_code: detailed?.error_code,
+            error: detailed?.error,
+          });
         }
       }
     } catch (e: any) {

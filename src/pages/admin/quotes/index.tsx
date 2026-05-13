@@ -1049,13 +1049,29 @@ export default function AdminQuotes() {
       // Build a multi-line summary so the operator knows exactly what
       // landed and what didn't. Each step reports back independently.
       const orderNum = (receipt.order as any).order_number;
+      const orderTotal = Number((receipt.order as any).total_amount || 0);
+      const depositPaidAmount = Number(receipt.deposit.amount || 0);
+      // Wave 13 audit: copy used to say "Order + invoice marked paid"
+      // for any deposit, which was a lie -- the DB rightly stored
+      // payment_status='partial' when the deposit didn't cover the
+      // full balance. Now reflect reality: full / partial.
+      const settlesInFull = depositPaidAmount > 0 && depositPaidAmount >= orderTotal - 0.01;
       const lines: string[] = [`Order ${orderNum} created.`];
       if (receipt.deposit.recorded) {
-        lines.push(`Deposit ${fmtMoney.format(receipt.deposit.amount || 0)} recorded as paid via ${receipt.deposit.method}. Order + invoice marked paid.`);
+        if (settlesInFull) {
+          lines.push(`${fmtMoney.format(depositPaidAmount)} recorded via ${receipt.deposit.method} -- order paid in full.`);
+        } else {
+          const balance = Math.max(0, orderTotal - depositPaidAmount);
+          lines.push(`Deposit ${fmtMoney.format(depositPaidAmount)} recorded via ${receipt.deposit.method}. Balance ${fmtMoney.format(balance)} still due.`);
+        }
       }
       if (receipt.invoice.ok) {
         lines.push(receipt.invoice.number
-          ? (receipt.deposit.recorded ? `Deposit invoice ${receipt.invoice.number} stamped paid.` : `Deposit invoice ${receipt.invoice.number} queued.`)
+          ? (receipt.deposit.recorded
+              ? (settlesInFull
+                  ? `Invoice ${receipt.invoice.number} stamped paid.`
+                  : `Invoice ${receipt.invoice.number} stamped partially paid.`)
+              : `Deposit invoice ${receipt.invoice.number} queued.`)
           : `Deposit invoice queued.`);
       } else {
         lines.push(`Invoice did NOT generate. ${receipt.invoice.error || "unknown error"}. Generate it manually on the order.`);
