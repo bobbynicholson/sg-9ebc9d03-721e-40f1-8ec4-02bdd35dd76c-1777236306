@@ -25,7 +25,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 
@@ -177,6 +177,19 @@ function DriverScheduleGrid() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
                   This week
+                </Button>
+                {/* Phase 28 #8: manual refresh. A dispatcher who
+                    has just logged a shift from another tab or
+                    fielded a swap request needs to pull the
+                    grid without flipping the week chevron back
+                    and forth. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={load}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
                 </Button>
                 {/* Phase 22 #2: weekly grid CSV. Dispatch leads
                     handing off the schedule to a colleague or
