@@ -1571,7 +1571,9 @@ function NewQuotePage() {
                       <p className="text-[11px] text-blue-700/80">
                         {deliveryFeeOverridden
                           ? `Flat fee active. Fee = R${deliveryFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
-                          : `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`}
+                          : deliveryDistance > 0
+                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`
+                            : `Pick a venue or type a distance to auto-calculate; or type a flat fee directly into the Fee box.`}
                       </p>
                     </div>
                   )}
