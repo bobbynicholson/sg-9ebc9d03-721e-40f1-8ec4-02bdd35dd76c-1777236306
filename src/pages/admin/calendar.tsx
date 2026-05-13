@@ -248,12 +248,15 @@ function AdminCalendar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
 
-  const upcoming = useMemo(() =>
+  // Full list of open events from today onwards -- drives the KPI tile.
+  // The preview list slices this to 5 separately so the count isn't
+  // capped at five (a real bookings number is the useful figure).
+  const upcomingAll = useMemo(() =>
     orders
       .filter((o) => (o.event_date as any) >= todayISO && o.status !== "cancelled")
-      .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)))
-      .slice(0, 5),
+      .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date))),
   [orders, todayISO]);
+  const upcoming = useMemo(() => upcomingAll.slice(0, 5), [upcomingAll]);
 
   /** Next-30-day diary stats. Drives the gap-finder strip + sidebar:
    *  the operator sees at a glance how many days are booked, how many
@@ -703,8 +706,8 @@ function AdminCalendar() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Open events dated today or later. Matches the five-event preview shown above."} /></span>
-                    <span className="text-2xl font-bold text-emerald-900 tabular-nums">{upcoming.length}</span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Every open event dated today or later. The preview above lists only the next five, but this is the real count."} /></span>
+                    <span className="text-2xl font-bold text-emerald-900 tabular-nums">{upcomingAll.length}</span>
                   </div>
                 </CardContent>
               </Card>
