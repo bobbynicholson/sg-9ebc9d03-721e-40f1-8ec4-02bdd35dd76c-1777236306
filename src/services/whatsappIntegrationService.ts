@@ -49,10 +49,27 @@ export const whatsappIntegrationService = {
         throw new Error("Invalid WhatsApp Business credentials");
       }
 
+      // Audit (May 2026, Wave 7): integrations row is now keyed on
+      // company_id so EVERY admin on the same tenant resolves the
+      // same connection. The previous user_id-only keying meant the
+      // connection was visible only to the admin who connected it;
+      // a second admin saw "WhatsApp not connected" or, worse, picked
+      // up a different user's stale connection.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", user.user.id)
+        .maybeSingle();
+      const companyId = (profile as any)?.company_id || null;
+      if (!companyId) {
+        throw new Error("Cannot connect WhatsApp: profile has no company_id.");
+      }
+
       await supabase
         .from("integrations")
         .upsert({
-          user_id: user.user.id,
+          company_id: companyId,
+          user_id: user.user.id, // who connected it, for audit
           integration_type: "whatsapp",
           credentials: {
             phoneNumberId: config.phoneNumberId,
@@ -61,7 +78,7 @@ export const whatsappIntegrationService = {
           },
           is_active: true,
           connected_at: new Date().toISOString()
-        });
+        }, { onConflict: "company_id,integration_type" } as any);
 
       return true;
     } catch (error) {
@@ -74,10 +91,18 @@ export const whatsappIntegrationService = {
     const { data: user } = await supabase.auth.getUser();
     if (!user?.user) throw new Error("User not authenticated");
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", user.user.id)
+      .maybeSingle();
+    const companyId = (profile as any)?.company_id || null;
+    if (!companyId) return;
+
     await supabase
       .from("integrations")
       .update({ is_active: false, disconnected_at: new Date().toISOString() })
-      .eq("user_id", user.user.id)
+      .eq("company_id", companyId)
       .eq("integration_type", "whatsapp");
   },
 
@@ -106,16 +131,33 @@ export const whatsappIntegrationService = {
         }
       }
 
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) throw new Error("User not authenticated");
+      // Resolve the tenant's WhatsApp connection. Audit (May 2026,
+      // Wave 7): scope by company_id (preferring the meta-passed
+      // value, falling back to the caller's profile) instead of
+      // user_id so every admin on the same tenant sees the same
+      // connection.
+      let connectionCompanyId = meta?.companyId || null;
+      if (!connectionCompanyId) {
+        const { data: user } = await supabase.auth.getUser();
+        if (!user?.user) throw new Error("User not authenticated");
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("id", user.user.id)
+          .maybeSingle();
+        connectionCompanyId = (profile as any)?.company_id || null;
+      }
+      if (!connectionCompanyId) {
+        throw new Error("WhatsApp send: company_id could not be resolved.");
+      }
 
       const { data: integration } = await supabase
         .from("integrations")
         .select("*")
-        .eq("user_id", user.user.id)
+        .eq("company_id", connectionCompanyId)
         .eq("integration_type", "whatsapp")
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (!integration) {
         throw new Error("WhatsApp integration not connected");
@@ -158,7 +200,7 @@ export const whatsappIntegrationService = {
         .from("orders")
         .select(`
           *,
-          profiles:client_id (full_name, phone, email)
+          clients:client_id (client_name, phone, email)
         `)
         .eq("id", orderId)
         .single();
@@ -167,9 +209,13 @@ export const whatsappIntegrationService = {
         throw new Error("Order not found");
       }
 
-      const profile = Array.isArray((order as any).profiles)
-        ? (order as any).profiles[0]
-        : (order as any).profiles;
+      // Audit (May 2026, Wave 7): orders.client_id references the
+      // clients table, NOT profiles -- the previous join returned
+      // null and every WhatsApp confirmation/update silently exited
+      // with "phone not available".
+      const profile = Array.isArray((order as any).clients)
+        ? (order as any).clients[0]
+        : (order as any).clients;
 
       if (!profile?.phone) {
         console.warn("Customer phone number not available");
@@ -202,7 +248,7 @@ export const whatsappIntegrationService = {
         .from("orders")
         .select(`
           *,
-          profiles:client_id (full_name, phone, email)
+          clients:client_id (client_name, phone, email)
         `)
         .eq("id", orderId)
         .single();
@@ -211,9 +257,13 @@ export const whatsappIntegrationService = {
         throw new Error("Order not found");
       }
 
-      const profile = Array.isArray((order as any).profiles)
-        ? (order as any).profiles[0]
-        : (order as any).profiles;
+      // Audit (May 2026, Wave 7): orders.client_id references the
+      // clients table, NOT profiles -- the previous join returned
+      // null and every WhatsApp confirmation/update silently exited
+      // with "phone not available".
+      const profile = Array.isArray((order as any).clients)
+        ? (order as any).clients[0]
+        : (order as any).clients;
 
       if (!profile?.phone) {
         console.warn("Customer phone number not available");
@@ -251,7 +301,7 @@ export const whatsappIntegrationService = {
         .from("orders")
         .select(`
           *,
-          profiles:client_id (full_name, phone, email)
+          clients:client_id (client_name, phone, email)
         `)
         .eq("id", orderId)
         .single();
@@ -262,9 +312,9 @@ export const whatsappIntegrationService = {
 
       const order = orderData as any;
 
-      const profile = Array.isArray(order.profiles)
-        ? order.profiles[0]
-        : order.profiles;
+      const profile = Array.isArray(order.clients)
+        ? order.clients[0]
+        : order.clients;
 
       if (!profile?.phone) {
         console.warn("Customer phone number not available");
