@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
+import { UserRole } from "@/types/app";
 
 type EquipmentHandover = Database["public"]["Tables"]["equipment_handovers"]["Row"];
 type EquipmentDamage = Database["public"]["Tables"]["equipment_damages"]["Row"];
@@ -181,31 +182,45 @@ export const equipmentTrackingService = {
     const equipmentName = equipment?.name || "Unknown Equipment";
 
     if (order) {
-      // 1. In-portal notification. Deep-links to the equipment page's
-      // shortages tab with the specific equipment id surfaced, plus
-      // related_entity for the contextual CTA on the notifications
-      // page.
-      await notificationService.createNotification({
-        company_id: order.company_id,
-        user_id: order.user_id,
-        recipient_id: order.user_id,
-        notification_type: "equipment_damage",
+      // 1. In-portal notification. Audit (May 2026): old code wrote
+      // recipient_id = order.user_id (the CLIENT). Damage alerts
+      // belong to the catering company's admin / dispatch team.
+      // Broadcast to admin roles within the tenant.
+      await notificationService.broadcastNotification({
+        companyId: order.company_id,
+        type: "equipment_damage",
         title: "🔧 Equipment Damage Reported",
         message: `${params.quantityDamaged}x ${params.damageType} at ${params.damageStage} stage. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          UserRole.REGION_ADMIN,
+        ],
         priority: "high",
         link: `/admin/equipment?tab=shortages&equipmentId=${params.equipmentId}`,
-        order_id: params.orderId,
-        related_entity_type: "equipment",
-        related_entity_id: params.equipmentId,
+        relatedEntityType: "equipment",
+        relatedEntityId: params.equipmentId,
       });
 
-      // ✅ FIX BUG #7.1: Send email notification to admin
+      // Lookup the tenant's owner / first admin to address the email
+      // to. Audit (May 2026): the previous lookup used .eq("id",
+      // order.user_id) which is the client, not the admin.
       try {
         const { data: adminProfile } = await supabase
           .from("profiles")
-          .select("email, full_name, company_name, phone, phone_number")
-          .eq("id", order.user_id)
-          .single();
+          .select("email, full_name, phone, phone_number")
+          .eq("company_id", order.company_id)
+          .in("role", ["company_admin", "owner", "admin"])
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        const { data: companyRow } = await supabase
+          .from("companies")
+          .select("company_name")
+          .eq("id", order.company_id)
+          .maybeSingle();
+        const companyName = (companyRow as any)?.company_name || "CateringMS";
 
         if (adminProfile?.email) {
           const subject = `🔧 Equipment Damage Alert - Order ${order.order_number}`;
@@ -236,22 +251,21 @@ View Details: ${typeof window !== "undefined" ? window.location.origin : (proces
 This equipment has been removed from available inventory until resolved.
 
 Best regards,
-${adminProfile.company_name || "CateringMS Platform"}`;
+${companyName}`;
 
           await sendEmailViaAPI({
-            companyId: order.user_id,
+            companyId: order.company_id,
             to: adminProfile.email,
             subject,
             body,
             variables: {
               orderNumber: order.order_number,
-              companyName: adminProfile.company_name || "CateringMS"
+              companyName,
             }
           });
-          console.log("✅ Equipment damage email sent to admin:", adminProfile.email);
         }
 
-        // ✅ FIX BUG #7.2: Send WhatsApp notification to admin (when configured)
+        // WhatsApp ping to the same admin (when configured).
         const adminPhone = adminProfile?.phone || adminProfile?.phone_number;
         if (adminPhone) {
           try {
@@ -604,32 +618,46 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
           .eq("id", statusData.order_id)
           .single();
 
-        if (order) {
+        if (order && order.company_id) {
           const equipmentName = (statusData as any).equipment?.name || "Equipment";
-          
-          // 1. In-portal notification. Deep-links to the equipment
-          // page so the operator can verify the item is ready for the
-          // next booking.
-          await notificationService.createNotification({
-            company_id: order.company_id,
-            user_id: order.user_id,
-            recipient_id: order.user_id,
-            notification_type: "cleaning_completed",
+
+          // Audit (May 2026): notification + email previously used
+          // order.user_id (the CLIENT) as both recipient and lookup
+          // key. Cleaning-ready signals belong to the catering company's
+          // admin / dispatch team. Broadcast to admin roles within the
+          // tenant.
+          await notificationService.broadcastNotification({
+            companyId: order.company_id,
+            type: "cleaning_completed",
             title: "✨ Equipment Ready for Use",
             message: `${equipmentName} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
+            targetRoles: [
+              UserRole.SUPER_ADMIN,
+              UserRole.COMPANY_ADMIN,
+              UserRole.ADMIN,
+              UserRole.REGION_ADMIN,
+            ],
             priority: "low",
             link: `/admin/orders?orderId=${statusData.order_id}`,
-            related_entity_type: "order",
-            related_entity_id: statusData.order_id,
+            relatedEntityType: "order",
+            relatedEntityId: statusData.order_id,
           });
 
-          // ✅ FIX BUG #8: Send email notification to admin
           try {
             const { data: adminProfile } = await supabase
               .from("profiles")
-              .select("email, full_name, company_name")
-              .eq("id", order.user_id)
-              .single();
+              .select("email, full_name")
+              .eq("company_id", order.company_id)
+              .in("role", ["company_admin", "owner", "admin"])
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            const { data: companyRow } = await supabase
+              .from("companies")
+              .select("company_name")
+              .eq("id", order.company_id)
+              .maybeSingle();
+            const companyName = (companyRow as any)?.company_name || "CateringMS";
 
             if (adminProfile?.email) {
               const subject = `✨ Equipment Ready - ${equipmentName}`;
@@ -648,18 +676,15 @@ This equipment is now available for your next booking!
 View Inventory: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/inventory
 
 Best regards,
-${adminProfile.company_name || "CateringMS Platform"}`;
+${companyName}`;
 
               await sendEmailViaAPI({
-                companyId: order.user_id,
+                companyId: order.company_id,
                 to: adminProfile.email,
                 subject,
                 body,
-                variables: {
-                  companyName: adminProfile.company_name || "CateringMS"
-                }
+                variables: { companyName },
               });
-              console.log("✅ Equipment ready email sent to admin:", adminProfile.email);
             }
           } catch (emailError) {
             console.error("⚠️ Failed to send equipment ready email (non-blocking):", emailError);

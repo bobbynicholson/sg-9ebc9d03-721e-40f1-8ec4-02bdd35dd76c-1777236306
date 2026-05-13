@@ -2,6 +2,19 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
+import { UserRole } from "@/types/app";
+
+// Admin-side roles that should receive dispatch / driver-status pings.
+// Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
+// were routing to orders.user_id -- which on this codebase is the
+// CLIENT, not the admin. Pings landed in client inboxes with
+// admin-style copy and /admin/* deep links.
+const ADMIN_DISPATCH_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.COMPANY_ADMIN,
+  UserRole.ADMIN,
+  UserRole.REGION_ADMIN,
+];
 
 export interface DriverConfirmation {
   id: string;
@@ -190,10 +203,17 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Send alert to admin that driver hasn't confirmed en-route
+   * Send alert to admin that driver hasn't confirmed en-route. Fires
+   * from checkEnRouteConfirmation when the event is inside the
+   * minutesBeforeFunction window and no en_route_to_kitchen
+   * confirmation has been logged.
+   *
+   * Audit (May 2026): previously the title said "Driver Confirmed"
+   * (the opposite of what this function detects) and the recipient
+   * was order.user_id (the client). Both fixed -- title now reflects
+   * the missing confirmation, recipients are dispatch / admin only.
    */
   async sendEnRouteAlert(orderId: string, driverId: string) {
-    // Get driver and order details
     const { data: driver } = await supabase
       .from('profiles')
       .select('full_name, phone_number')
@@ -202,29 +222,22 @@ export const driverConfirmationService = {
 
     const { data: order } = await supabase
       .from('orders')
-      .select('order_number, event_date, event_time, user_id, company_id')
+      .select('order_number, event_date, event_time, company_id')
       .eq('id', orderId)
       .single();
 
-    if (!driver || !order) return;
+    if (!driver || !order || !order.company_id) return;
 
-    // Notify the admin (recipient_id) that the driver has confirmed.
-    // user_id is the originator; "system" was a stub that broke the
-    // UUID column. Use the driver's id as the originator since they
-    // triggered the notification by confirming. Deep-link to the order
-    // on the admin dashboard so dispatch sees the confirmation in the
-    // order's row.
-    await notificationService.createNotification({
-      company_id: order.company_id,
-      user_id: driverId,
-      recipient_id: order.user_id,
-      title: `Driver Confirmed: ${order.order_number}`,
-      message: `${driver.full_name} confirmed the job.`,
-      notification_type: "driver_confirmed",
-      priority: "high",
+    await notificationService.broadcastNotification({
+      companyId: order.company_id,
+      type: "driver_not_confirmed",
+      title: `Driver has NOT confirmed: ${order.order_number}`,
+      message: `${driver.full_name} has not confirmed en-route. Event is within the alert window. Call ${driver.phone_number || "the driver"} now.`,
+      targetRoles: ADMIN_DISPATCH_ROLES,
+      priority: "urgent",
       link: `/admin/orders?orderId=${orderId}`,
-      related_entity_type: "order",
-      related_entity_id: orderId,
+      relatedEntityType: "order",
+      relatedEntityId: orderId,
     });
   },
 
@@ -293,7 +306,7 @@ export const driverConfirmationService = {
       .eq('id', orderId)
       .single();
 
-    if (!driver || !order) return;
+    if (!driver || !order || !order.company_id) return;
 
     const messages = {
       'en_route_to_kitchen': `🚗 ${driver.full_name} is en-route to kitchen for Order #${order.order_number}`,
@@ -303,20 +316,19 @@ export const driverConfirmationService = {
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
-    if (!order.user_id) return;
-
-    await notificationService.createNotification({
-      company_id: order.company_id,
-      user_id: driverId,
-      recipient_id: order.user_id,
-      notification_type: 'driver_status_update',
-      title: 'Driver Status Update',
-      message: messages[confirmationType as keyof typeof messages],
-      priority: 'medium',
+    // Broadcast to admin / dispatch in the same tenant. Audit (May 2026):
+    // previously routed to order.user_id (the client). Driver status
+    // pings belong to dispatch, not the customer.
+    await notificationService.broadcastNotification({
+      companyId: order.company_id,
+      type: "driver_status_update",
+      title: "Driver Status Update",
+      message: messages[confirmationType as keyof typeof messages] || "Driver status changed.",
+      targetRoles: ADMIN_DISPATCH_ROLES,
+      priority: "medium",
       link: `/admin/orders?orderId=${orderId}`,
-      related_entity_type: 'order',
-      related_entity_id: orderId,
-      metadata: { driverId, orderNumber: order.order_number, confirmationType }
+      relatedEntityType: "order",
+      relatedEntityId: orderId,
     });
   },
 
@@ -349,13 +361,22 @@ export const driverConfirmationService = {
 
       if (!order) return;
 
-      // Replace template variables
+      // Replace template variables. Audit (May 2026): the tracking
+      // link was built from window.location.origin which is undefined
+      // on the server (cron, edge function, scheduled job). Honour
+      // NEXT_PUBLIC_APP_URL first so SSR sends don't ship "undefined"
+      // into the WhatsApp body, and the link now points at the actual
+      // client-portal tracking route (the /tracking/client URL did
+      // not exist in this codebase).
+      const baseUrl = typeof window !== "undefined"
+        ? window.location.origin
+        : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
       let message = template.template_content;
       const variables: Record<string, string> = {
         driver_name: order.driver?.full_name || 'Your driver',
         order_number: order.order_number || '',
         collection_time: order.event_time || '',
-        tracking_link: `${window.location.origin}/tracking/client?order=${orderId}`,
+        tracking_link: `${baseUrl}/client-portal/tracking?orderId=${orderId}`,
         venue_name: order.venue_address || ''
       };
 

@@ -4,6 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
+import { UserRole } from "@/types/app";
+
+// Admin-side roles that should receive kitchen-duty pings. Audit (May
+// 2026): every kitchen notification in this service was routed back to
+// the staff member who just clocked in / completed a task / reported
+// an emergency. Admins never saw the signal. Fixed by broadcasting to
+// dispatch/admin roles within the same tenant.
+const KITCHEN_ADMIN_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.COMPANY_ADMIN,
+  UserRole.ADMIN,
+  UserRole.REGION_ADMIN,
+];
 
 type DutyShift = Database["public"]["Tables"]["kitchen_duty_shifts"]["Row"];
 type DutyShiftInsert = Database["public"]["Tables"]["kitchen_duty_shifts"]["Insert"];
@@ -58,12 +71,24 @@ export const kitchenDutyService = {
       await this.endDutyShift(currentShift.id);
     }
 
+    // Resolve company_id from the staff member's profile, NOT from the
+    // optional order. Audit (May 2026): non-order-bound shifts (prep
+    // days, deep cleans, opening hours) were inserted with NULL
+    // company_id, so any tenant-scoped wage query missed those hours.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id, full_name")
+      .eq("id", staffId)
+      .maybeSingle();
+    const companyId = profile?.company_id || null;
+
     const shiftData: DutyShiftInsert = {
       user_id: userId,
       staff_id: staffId,
       order_id: orderId || null,
       shift_start: new Date().toISOString(),
       is_active: true,
+      company_id: companyId,
     };
 
     const { data, error } = await supabase
@@ -74,23 +99,25 @@ export const kitchenDutyService = {
 
     if (error) throw error;
 
-    // NOTIFICATION: Kitchen staff clocked in → Notification to admin
-    if(data) {
-        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
-        if (order) {
-            await notificationService.createNotification({
-                company_id: order.company_id,
-                user_id: data.user_id,
-                recipient_id: data.user_id, // Admin
-                title: "Kitchen Staff Clocked In",
-                message: `A staff member has clocked in for kitchen duty.`,
-                notification_type: "kitchen_clock_in",
-                priority: "low",
-                link: `/admin/kitchen-duty-tracking?shiftId=${data.id}`,
-                related_entity_type: "kitchen_shift",
-                related_entity_id: data.id,
-            });
-        }
+    // Notify the tenant's admins that a staff member is on duty.
+    // Audit (May 2026): the old code set recipient_id = data.user_id
+    // (the staff member themselves) so admins never saw the signal.
+    if (data && companyId) {
+      try {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "kitchen_clock_in",
+          title: "Kitchen staff clocked in",
+          message: `${profile?.full_name || "A staff member"} has clocked in for kitchen duty.`,
+          targetRoles: KITCHEN_ADMIN_ROLES,
+          priority: "low",
+          link: `/admin/kitchen-duty-tracking?shiftId=${data.id}`,
+          relatedEntityType: "kitchen_shift",
+          relatedEntityId: data.id,
+        });
+      } catch (e) {
+        console.warn("[kitchenDutyService.startDutyShift] notify failed:", e);
+      }
     }
 
     return data;
@@ -220,42 +247,68 @@ export const kitchenDutyService = {
 
     if (error) throw error;
 
-    // NOTIFICATION: Kitchen task completed → Notification to admin
-    if (data) {
-        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
-        if (order) {
-            await notificationService.createNotification({
-                company_id: order.company_id,
-                user_id: data.user_id,
-                recipient_id: data.user_id, // Admin
-                title: "Kitchen Task Completed",
-                message: `Task "${data.task_type}" for order ${data.order_id} has been completed.`,
-                notification_type: "kitchen_task_completed",
-                priority: "medium",
-                link: `/admin/orders?orderId=${data.order_id}`,
-                related_entity_type: "order",
-                related_entity_id: data.order_id,
-            });
+    // Notify admins of the completion. Audit (May 2026): old code
+    // set recipient_id = data.user_id (the staffer who just completed
+    // the task) so admins never saw it. Broadcast to admin roles
+    // instead.
+    if (data && data.order_id) {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("company_id, assigned_driver_id, order_number")
+        .eq("id", data.order_id)
+        .maybeSingle();
+      if (order?.company_id) {
+        try {
+          await notificationService.broadcastNotification({
+            companyId: order.company_id,
+            type: "kitchen_task_completed",
+            title: "Kitchen task completed",
+            message: `Task "${data.task_type}" for ${order.order_number || `order ${data.order_id}`} is done.`,
+            targetRoles: KITCHEN_ADMIN_ROLES,
+            priority: "medium",
+            link: `/admin/orders?orderId=${data.order_id}`,
+            relatedEntityType: "order",
+            relatedEntityId: data.order_id,
+          });
+        } catch (e) {
+          console.warn("[kitchenDutyService] task-complete notify failed:", e);
         }
-    }
 
-    // Check if this is a milestone task that affects driver
-    if ((taskType === "prep_completed" || taskType === "all_tasks_completed") && data.order_id) {
-        const { data: order } = await supabase.from('orders').select('assigned_driver_id, company_id').eq('id', data.order_id).single();
-        if (order?.assigned_driver_id) {
-            await notificationService.createNotification({
+        // Milestone: prep done -> ping the assigned driver(s). Also
+        // fan-out to every driver_assignments row so multi-driver
+        // orders dispatched via the assignment table aren't missed.
+        if (taskType === "prep_completed" || taskType === "all_tasks_completed") {
+          const recipientIds = new Set<string>();
+          if (order.assigned_driver_id) recipientIds.add(order.assigned_driver_id);
+          const { data: assignments } = await supabase
+            .from("driver_assignments")
+            .select("driver_id, status")
+            .eq("order_id", data.order_id);
+          for (const a of (assignments || []) as any[]) {
+            if (a.driver_id && a.status !== "cancelled" && a.status !== "declined") {
+              recipientIds.add(a.driver_id);
+            }
+          }
+          for (const driverId of recipientIds) {
+            try {
+              await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: data.user_id,
-                recipient_id: order.assigned_driver_id,
-                title: `Order ${data.order_id} Ready for Pickup`,
-                message: `Kitchen tasks for order ${data.order_id} are complete.`,
+                recipient_id: driverId,
+                title: `${order.order_number || "Order"} ready for pickup`,
+                message: `Kitchen prep complete. You're cleared to head to the kitchen.`,
                 notification_type: "order_ready",
                 priority: "high",
                 link: `/team-portal/driver/deliveries?orderId=${data.order_id}`,
                 related_entity_type: "order",
                 related_entity_id: data.order_id,
-            });
+              });
+            } catch (e) {
+              console.warn("[kitchenDutyService] driver ready notify failed:", e);
+            }
+          }
         }
+      }
     }
 
     return data;
@@ -404,20 +457,21 @@ export const kitchenDutyService = {
     emergencyType: string,
     description: string
   ): Promise<void> {
-    // NOTIFICATION: Kitchen emergency/issue → Urgent notification to admin.
-    // Deep-links to the order on the admin dashboard so dispatch can
-    // see the run and the kitchen state side by side.
-    await notificationService.createNotification({
-        company_id: companyId,
-        user_id: staffId,
-        recipient_id: userId, // Admin
-        title: `🚨 KITCHEN EMERGENCY: ${emergencyType}`,
-        message: `Emergency reported for order ${orderId}: ${description}`,
-        notification_type: "kitchen_emergency",
-        priority: "urgent",
-        link: `/admin/orders?orderId=${orderId}`,
-        related_entity_type: "order",
-        related_entity_id: orderId,
+    // Audit (May 2026): the previous code wrote recipient_id = userId
+    // -- the same userId that called the function. So the emergency
+    // alert fired straight back to the person reporting it; no admin
+    // ever saw "🚨 KITCHEN EMERGENCY". Broadcast to every admin role
+    // in the tenant on urgent priority.
+    await notificationService.broadcastNotification({
+      companyId,
+      type: "kitchen_emergency",
+      title: `🚨 KITCHEN EMERGENCY: ${emergencyType}`,
+      message: `Emergency reported for order ${orderId}: ${description}`,
+      targetRoles: KITCHEN_ADMIN_ROLES,
+      priority: "urgent",
+      link: `/admin/orders?orderId=${orderId}`,
+      relatedEntityType: "order",
+      relatedEntityId: orderId,
     });
   },
 };
