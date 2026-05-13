@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
@@ -240,6 +240,25 @@ export default function AdminQuotes() {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
+  // Phase 26 #2: "/" or Cmd-F focuses the search input. Same
+  // pattern as /admin/orders + /admin/contacts.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [bucket, setBucket] = useState<QuoteBucket>("all");
   // Phase 8 #8: list (default) vs pipeline kanban view. The kanban
   // groups by intelligence bucket (action_needed / in_play / stale /
@@ -1353,7 +1372,8 @@ export default function AdminQuotes() {
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
-                  placeholder="Search by client, event, venue, quote ref or total..."
+                  ref={searchRef}
+                  placeholder="Search by client, event, venue, quote ref or total... (press /)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 pr-9"
