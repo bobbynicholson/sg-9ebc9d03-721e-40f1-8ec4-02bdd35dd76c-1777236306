@@ -297,13 +297,16 @@ export const deliveryService = {
     const failed = deliveries?.filter(d => d.status === "failed").length || 0;
     const total = deliveries?.length || 0;
 
+    // Earnings intentionally omitted -- driverPayService is the
+    // canonical source for what a driver gets paid. A flat R250-per-
+    // delivery field here used to be a footgun: any caller that
+    // displayed it would lie about real per-driver rates.
     return {
       completed,
       failed,
       pending: total - completed - failed,
       total,
       success_rate: total > 0 ? Math.round((completed / total) * 100) : 0,
-      earnings: completed * 250, // R250 per delivery
     };
   },
 
