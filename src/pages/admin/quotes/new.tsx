@@ -97,6 +97,7 @@ import {
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import {
   getEquipmentAvailability,
+  getEquipmentMeta,
   splitQuantity,
   type EquipmentAvailability,
 } from "@/services/equipmentAvailabilityService";
@@ -900,6 +901,43 @@ function NewQuotePage() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, eventDate, equipment.map((e) => e.equipment_id).join("|"), quoteId]);
+
+  // Refresh hire_in_cost from the live catalog. The stored quote's
+  // equipment_items JSON includes a hire_in_cost_per_unit snapshot from
+  // whenever it was last saved. If the operator hadn't entered a
+  // hire-in cost back then it stays 0 forever and the "Set hire-in
+  // cost on this catalog item" warning fires on every duplicate, even
+  // after the catalog row has been priced. Re-resolve the per-line
+  // cost from equipment.hire_in_cost so the catalog is the source of
+  // truth.
+  useEffect(() => {
+    if (!companyId) return;
+    const stalelines = equipment.filter(
+      (e) => e.equipment_id && (e.hireInCost == null || e.hireInCost === 0),
+    );
+    if (stalelines.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, number> = {};
+      for (const line of stalelines) {
+        try {
+          const meta = await getEquipmentMeta(companyId, line.equipment_id!);
+          if (meta && meta.hire_in_cost > 0) updates[line.id] = meta.hire_in_cost;
+        } catch {
+          // Best-effort -- if the catalog read fails the line just
+          // keeps whatever it had, which is the same state as before.
+        }
+      }
+      if (cancelled || Object.keys(updates).length === 0) return;
+      setEquipment((prev) =>
+        prev.map((e) =>
+          updates[e.id] != null ? { ...e, hireInCost: updates[e.id] } : e,
+        ),
+      );
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, equipment.map((e) => `${e.id}:${e.equipment_id}`).join("|")]);
 
   // When the event date changes, blow the cache so the next render
   // re-fetches every line against the new date.
