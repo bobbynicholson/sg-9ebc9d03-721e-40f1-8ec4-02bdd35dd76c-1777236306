@@ -256,6 +256,7 @@ export default function PublicQuotePage() {
   // these via /admin/company-profile -> VAT registration toggle.
   const vatRegistered = !!company?.vat_registered;
   const vatNumber = company?.vat_number || null;
+  const registrationNumber = (company as any)?.registration_number || null;
   const eventDate = quote.event_date
     ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -406,8 +407,13 @@ export default function PublicQuotePage() {
                 <p className="text-sm text-stone-600 mt-2">
                   Reference <span className="font-mono">{quote.quote_number}</span> · prepared {today}
                 </p>
-                {vatRegistered && vatNumber && (
+                {registrationNumber && (
                   <p className="text-xs text-stone-500 mt-1">
+                    Reg No: <span className="font-mono">{registrationNumber}</span>
+                  </p>
+                )}
+                {vatRegistered && vatNumber && (
+                  <p className="text-xs text-stone-500 mt-0.5">
                     VAT Reg No: <span className="font-mono">{vatNumber}</span>
                   </p>
                 )}

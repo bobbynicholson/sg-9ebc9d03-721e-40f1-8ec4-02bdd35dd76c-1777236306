@@ -215,10 +215,19 @@ export async function generateInvoiceData(
     // step, not a totals adjustment.
     const deliveryFee = Number(orderData.delivery_fee || 0);
     if (deliveryFee > 0) {
+      // Show the km breakdown only when the saved fee matches the
+      // canonical round-trip auto-calc (distance * 2 * rate). When
+      // the operator overrode the fee with a flat amount, the km
+      // hint is misleading -- collapse to plain "Delivery" so the
+      // invoice + the public quote show the same flat figure.
+      const dist = Number(orderData.delivery_distance_km) || 0;
+      const rate = Number(orderData.delivery_rate_per_km) || 0;
+      const roundTrip = dist * 2 * rate;
+      const isFlatFee = !dist || Math.abs(deliveryFee - roundTrip) > 0.01;
       items.push({
-        description: orderData.delivery_distance_km
-          ? `Delivery (${Number(orderData.delivery_distance_km).toFixed(1)} km)`
-          : "Delivery",
+        description: isFlatFee
+          ? "Delivery"
+          : `Delivery (${dist.toFixed(1)} km × 2)`,
         quantity: 1,
         unitPrice: deliveryFee,
         total: deliveryFee,

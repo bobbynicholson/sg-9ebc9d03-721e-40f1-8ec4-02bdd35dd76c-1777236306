@@ -389,6 +389,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 Reference {data.quote_number}
                 {today ? `  |  prepared ${today}` : ""}
               </Text>
+              {company.registration_number ? (
+                <Text style={styles.vatLine}>Reg No: {company.registration_number}</Text>
+              ) : null}
               {vatRegistered && vatNumber ? (
                 <Text style={styles.vatLine}>VAT Reg No: {vatNumber}</Text>
               ) : null}

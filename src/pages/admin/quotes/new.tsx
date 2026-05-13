@@ -589,13 +589,16 @@ function NewQuotePage() {
     if (typeof q.delivery_rate_per_km === "number") setDeliveryCostPerKm(q.delivery_rate_per_km);
     if (typeof q.delivery_fee === "number") {
       setDeliveryFee(q.delivery_fee);
-      // If the saved fee doesn't match distance * rate, treat it as
-      // an explicit override -- otherwise let the auto-calc keep
-      // owning it as distances or rates change.
+      // If the saved fee doesn't match the canonical round-trip
+      // formula, treat it as a manual / flat-fee override -- otherwise
+      // let the auto-calc keep owning it as distances or rates
+      // change. Anchored on round-trip math so legacy one-way quotes
+      // (saved before the Phase 30 round-trip switch) land as frozen
+      // overrides on reopen rather than silently doubling.
       const dist = Number(q.delivery_distance_km) || 0;
       const rate = Number(q.delivery_rate_per_km) || 0;
-      const computed = dist * rate;
-      if (q.delivery_fee !== computed) setDeliveryFeeOverridden(true);
+      const roundTrip = dist * 2 * rate;
+      if (Math.abs(q.delivery_fee - roundTrip) > 0.01) setDeliveryFeeOverridden(true);
     }
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
@@ -683,6 +686,13 @@ function NewQuotePage() {
   // ── Auto-distance from selected kitchen to venue (haversine). ────
   // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
   // on pick) OR the operator switches kitchen via the picker.
+  //
+  // havInitRef guards the FIRST run after mount so reopening a quote
+  // with a saved flat-fee override doesn't have the override cleared
+  // by the loader-triggered distance recompute. Real subsequent
+  // changes (operator picks a new kitchen / venue on this session)
+  // still clear the override and re-enable auto-fee.
+  const havInitRef = useRef(false);
   useEffect(() => {
     if (
       !selectedKitchen ||
@@ -699,17 +709,23 @@ function NewQuotePage() {
         Math.sin(dLng / 2) ** 2;
     const km = 2 * R * Math.asin(Math.sqrt(a));
     setDeliveryDistance(Number(km.toFixed(2)));
-    // Switching kitchen / picking new address re-enables auto-fee.
-    setDeliveryFeeOverridden(false);
+    if (havInitRef.current) {
+      // Real user-driven change: switching kitchen / picking new
+      // address re-enables auto-fee.
+      setDeliveryFeeOverridden(false);
+    } else {
+      havInitRef.current = true;
+    }
   }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
 
-  // ── Auto-fee from distance × per-km, floored at min fee. ──────────
-  // Skipped once the operator has typed a manual override into the
-  // delivery fee input.
+  // ── Auto-fee from distance × 2 (round-trip) × per-km, floored at
+  // min fee. The ×2 covers the return leg -- a venue 10km away costs
+  // 20km of fuel + driver time. Skipped once the operator has typed
+  // a flat-fee override into the delivery fee input.
   useEffect(() => {
     if (deliveryFeeOverridden) return;
-    const calc = deliveryDistance * deliveryCostPerKm;
-    setDeliveryFee(Math.max(calc, minDeliveryFee));
+    const calc = deliveryDistance * 2 * deliveryCostPerKm;
+    setDeliveryFee(Number(Math.max(calc, minDeliveryFee).toFixed(2)));
   }, [deliveryDistance, deliveryCostPerKm, minDeliveryFee, deliveryFeeOverridden]);
 
   // ── Cascade guest count to per_person lines ───────────────────────
@@ -1536,7 +1552,7 @@ function NewQuotePage() {
                           <Label className="text-[11px] text-blue-900 flex items-center gap-1">
                             Fee (R)
                             {deliveryFeeOverridden && (
-                              <span className="text-[10px] text-rose-700 font-normal">(manual)</span>
+                              <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
                             )}
                           </Label>
                           <Input
@@ -1554,8 +1570,8 @@ function NewQuotePage() {
                       </div>
                       <p className="text-[11px] text-blue-700/80">
                         {deliveryFeeOverridden
-                          ? `Manual override active. Fee = R${deliveryFee.toFixed(2)}.`
-                          : `Auto: ${deliveryDistance.toFixed(1)}km × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`}
+                          ? `Flat fee active. Fee = R${deliveryFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
+                          : `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`}
                       </p>
                     </div>
                   )}
@@ -2005,7 +2021,15 @@ function NewQuotePage() {
                     {computed.flatDiscount > 0 && (
                       <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
                     )}
-                    <Row label={`Delivery (${deliveryDistance.toFixed(1)}km @ R${deliveryCostPerKm}/km)`} value={fmtR(deliveryFee)} muted />
+                    <Row
+                      label={
+                        deliveryFeeOverridden || deliveryDistance === 0
+                          ? "Delivery"
+                          : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
+                      }
+                      value={fmtR(deliveryFee)}
+                      muted
+                    />
                     <div className="my-1 border-t border-slate-200" />
                     <Row label="Subtotal" value={fmtR(computed.subtotal)} />
                     <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
