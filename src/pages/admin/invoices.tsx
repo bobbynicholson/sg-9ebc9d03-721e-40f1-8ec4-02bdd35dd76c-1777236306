@@ -674,6 +674,17 @@ export default function InvoicesPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          {/* Phase 27 #5: manual refresh. Bookkeeping running
+              reconciliation throughout the day needed a way to
+              pick up new payments without a hard reload. */}
+          <Button
+            variant="outline"
+            onClick={loadInvoices}
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           {/* Phase 10 #6: invoice CSV export. Lets the bookkeeping
               team pull the current filtered invoice set into Sheets
               / Excel for VAT reconciliation, age analysis or
