@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
@@ -41,6 +41,24 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  // Phase 26 #6: "/" or Cmd-F focuses the search input.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [selectedDepartments, setSelectedDepartments] = useState<UserRole[]>([]);
   const [primaryDepartment, setPrimaryDepartment] = useState<UserRole | null>(null);
@@ -395,8 +413,9 @@ function AdminUsersPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
               <Input
+                ref={searchRef}
                 type="text"
-                placeholder="Search by name or email..."
+                placeholder="Search by name or email... (press /)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 md:pl-10 pr-9 text-sm md:text-base"
