@@ -1,5 +1,5 @@
 ﻿import { UserRole } from "@/types/app";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
@@ -89,6 +89,24 @@ function DriverManagementPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  // Phase 26 #10: "/" or Cmd-F focuses the search input.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [addDriverLoading, setAddDriverLoading] = useState(false);
   // The Add-Driver dialog is now a single scrollable form covering driver
@@ -1243,9 +1261,10 @@ function DriverManagementPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <Input
+              ref={searchRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search drivers by name or email..."
+              placeholder="Search drivers by name or email... (press /)"
               className="pl-10 pr-10 h-12"
             />
             {/* Phase 25 #10: clear-search affordance, finishing
