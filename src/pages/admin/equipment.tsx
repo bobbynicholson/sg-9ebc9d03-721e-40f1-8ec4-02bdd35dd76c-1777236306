@@ -201,6 +201,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   // Phase 26 #8: "/" or Cmd-F focuses the search input.
+  // Phase 29 #6: "n" opens the Add equipment dialog.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -214,10 +215,26 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setEditing({
+          id: "",
+          company_id: companyId,
+          name: "",
+          category: "",
+          description: "",
+          rental_price: 0,
+          quantity: 0,
+          available_quantity: 0,
+          condition: "good",
+          is_available: true,
+        });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
   const [filterAvailable, setFilterAvailable] = useState<"all" | "available" | "hidden">("all");
 
   const [editing, setEditing] = useState<EquipmentRow | null>(null);
