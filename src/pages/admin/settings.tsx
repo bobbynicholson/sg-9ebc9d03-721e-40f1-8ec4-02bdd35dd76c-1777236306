@@ -137,9 +137,14 @@ function SettingsPage() {
         .single();
       if (!profile?.company_id || cancelled) return;
 
-      const { data: company } = await supabase
+      // Cast to any so the new financial columns (added in
+      // migration companies_financial_settings_columns) compile
+      // without regenerating Supabase types -- the type file is
+      // 370k+ chars and rebuilding it for three new columns
+      // would balloon every diff in the project.
+      const { data: company } = await (supabase as any)
         .from("companies")
-        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent")
+        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent, balance_due_days, amendment_cutoff_days, cancellation_fee_percent, refund_process_days")
         .eq("id", profile.company_id)
         .single();
       if (!company || cancelled) return;
@@ -160,13 +165,28 @@ function SettingsPage() {
           },
           financial: {
             ...prev.financial,
-            // companies.deposit_percent is the canonical source -- we
-            // override the localStorage / user_metadata copy so a
-            // colleague who set the value on another machine doesn't
-            // get stale local state.
+            // companies columns are the canonical source -- override
+            // the localStorage / user_metadata copy so a colleague
+            // who set values on another machine doesn't get stale
+            // local state. finalOrderChangeDays maps onto the
+            // existing amendment_cutoff_days column already used by
+            // the is_order_amendable RPC; the rest landed via the
+            // companies_financial_settings_columns migration.
             depositPercent: company.deposit_percent != null
               ? Number(company.deposit_percent)
               : prev.financial.depositPercent,
+            balanceDueDays: company.balance_due_days != null
+              ? Number(company.balance_due_days)
+              : prev.financial.balanceDueDays,
+            finalOrderChangeDays: (company as any).amendment_cutoff_days != null
+              ? Number((company as any).amendment_cutoff_days)
+              : prev.financial.finalOrderChangeDays,
+            cancellationFeePercent: (company as any).cancellation_fee_percent != null
+              ? Number((company as any).cancellation_fee_percent)
+              : prev.financial.cancellationFeePercent,
+            refundProcessDays: (company as any).refund_process_days != null
+              ? Number((company as any).refund_process_days)
+              : prev.financial.refundProcessDays,
           },
         };
         // Take the snapshot AFTER the company fields land so the
@@ -204,7 +224,7 @@ function SettingsPage() {
           .eq("id", user.id)
           .single();
         if (profile?.company_id) {
-          await supabase
+          await (supabase as any)
             .from("companies")
             .update({
               company_name: settings.company.name,
@@ -214,13 +234,20 @@ function SettingsPage() {
               logo_url: settings.company.logo || null,
               headquarters_lat: settings.company.kitchenLat || null,
               headquarters_lng: settings.company.kitchenLng || null,
-              // Persist the financial deposit % to the canonical
-              // companies column so resolveBranchSettings + the new-
-              // quote builder pick it up. Was previously lost to
-              // user_metadata only -- the quote acceptance flow read
-              // companies.deposit_percent directly and silently
-              // showed the stale 30% default.
+              // Persist financial settings to the canonical columns.
+              // depositPercent feeds resolveBranchSettings + the
+              // new-quote builder; the rest landed via the
+              // companies_financial_settings_columns migration so the
+              // values stop being silently dropped on save.
+              // finalOrderChangeDays maps onto amendment_cutoff_days
+              // (already used by the is_order_amendable RPC, so this
+              // immediately tightens / loosens the client amendment
+              // window).
               deposit_percent: Number(settings.financial.depositPercent) || 30,
+              balance_due_days: Number(settings.financial.balanceDueDays) || 7,
+              amendment_cutoff_days: Number(settings.financial.finalOrderChangeDays) || 7,
+              cancellation_fee_percent: Number(settings.financial.cancellationFeePercent) || 25,
+              refund_process_days: Number(settings.financial.refundProcessDays) || 7,
             })
             .eq("id", profile.company_id);
         }

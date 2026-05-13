@@ -584,6 +584,39 @@ export const quoteService = {
       xero_synced_at: null,
     };
 
+    // Stamp orders.balance_due_date from companies.balance_due_days.
+    // Was previously left null because the only writer
+    // (paymentProcessingService.initializePaymentSchedule) is dead
+    // code -- meaning the per-tenant "balance must clear N days
+    // before the event" setting drove nothing. Now that Settings ->
+    // Financial persists balance_due_days to the companies column,
+    // resolve it here and stamp the date so the balance-reminder
+    // cadence + the public PaymentScheduleCard both have something
+    // to honour.
+    try {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("balance_due_days")
+        .eq("id", q.company_id)
+        .maybeSingle();
+      const days = Number((companyRow as any)?.balance_due_days ?? 7);
+      const eventDateStr = (q.event_date as string | null) || null;
+      if (eventDateStr && Number.isFinite(days) && days > 0) {
+        // Build the date in local terms so a midnight rollover in a
+        // distant timezone doesn't swing the due date by a day.
+        const ev = new Date(`${eventDateStr}T00:00:00`);
+        if (!isNaN(ev.getTime())) {
+          ev.setDate(ev.getDate() - Math.floor(days));
+          const yyyy = ev.getFullYear();
+          const mm = String(ev.getMonth() + 1).padStart(2, "0");
+          const dd = String(ev.getDate()).padStart(2, "0");
+          orderData.balance_due_date = `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    } catch (e) {
+      console.warn("[convertQuoteToOrder] balance_due_date stamp failed:", e);
+    }
+
     // If the operator captured a deposit at accept time, stamp it on
     // the order so the order record matches what the bank shows. The
     // invoice gets the same treatment after generation (below).
