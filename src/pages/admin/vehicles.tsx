@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
-  User, Building2, Users, AlertTriangle, X,
+  User, Building2, Users, AlertTriangle, X, RefreshCw,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -393,14 +393,28 @@ function VehiclesPage() {
                 </p>
               </div>
             </div>
-            <Button
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700 gap-2"
-              onClick={openNew}
-            >
-              <Plus className="w-4 h-4" />
-              Add vehicle
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Phase 28 #3: manual refresh. Fleet roster loads on
+                  mount; a dispatcher who has just had a colleague
+                  add a hire-in vehicle needs to pull the new row. */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={load}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 gap-2"
+                onClick={openNew}
+              >
+                <Plus className="w-4 h-4" />
+                Add vehicle
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
