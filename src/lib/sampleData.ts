@@ -269,7 +269,7 @@ export const sampleOrders = [
     venue_address: "Umhlanga Convention Centre, Gateway Drive",
     venue_contact: "+27 31 566 1234",
     status: "pending",
-    payment_status: "deposit_paid",
+    payment_status: "partial",
     total_amount: 42000,
     deposit_amount: 21000,
     balance_due: 21000,

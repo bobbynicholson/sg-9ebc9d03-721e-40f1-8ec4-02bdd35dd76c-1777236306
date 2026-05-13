@@ -629,8 +629,14 @@ export const quoteService = {
       orderData.deposit_amount = paid;
       orderData.payment_method = options.depositPaid.method;
       orderData.payment_reference = options.depositPaid.reference || null;
-      // payment_status: 'deposit_paid' if partial, 'paid' if full.
-      orderData.payment_status = paid >= totalAmt - 0.01 ? "paid" : "deposit_paid";
+      // payment_status: 'partial' when client has paid part of the
+      // total (deposit captured), 'paid' when the deposit covers
+      // the full balance. Was previously writing 'deposit_paid'
+      // which is NOT a valid payment_status enum value -- the
+      // convert_quote_to_order RPC blew up with an enum violation
+      // on every partial deposit, leaving the operator with a
+      // generic "Conversion failed" toast and no order.
+      orderData.payment_status = paid >= totalAmt - 0.01 ? "paid" : "partial";
       orderData.balance_amount = Math.max(0, totalAmt - paid);
     }
 
