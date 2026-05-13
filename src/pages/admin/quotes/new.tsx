@@ -950,9 +950,16 @@ function NewQuotePage() {
     const menuJson = menuItems
       .filter((l) => l.name)
       .map((l) => {
+        // Audit (May 2026, Wave 3): the per-person branch previously
+        // wrote q = guestCount unconditionally, but the displayed
+        // `computed` totals used `line.quantity > 0 ? line.quantity :
+        // guestCount`. An operator who set "vegetarian for 5 of 100"
+        // saw R12,500 on screen but the row saved R15,000 (5 vs 60).
+        // Mirror the same resolution branch here so the persisted
+        // quantity matches what was priced.
         const q =
           l.pricingMode === "per_person"
-            ? guestCount
+            ? (l.quantity > 0 ? l.quantity : guestCount)
             : l.pricingMode === "flat"
               ? 1
               : l.quantity;

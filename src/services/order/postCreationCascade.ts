@@ -84,6 +84,78 @@ export async function postOrderCreationCascade(
     shopping: { ok: false, shortfalls: 0, reason: "not_attempted" },
   };
 
+  // ── Step 0: Line items ────────────────────────────────────────────
+  // Audit (May 2026, Wave 3): convertQuoteToOrder writes the order
+  // row without menu_items / equipment_items columns (they live on
+  // quotes only), and never populated order_items from the source
+  // quote. Result: every accepted quote became an order with zero
+  // line items -- the invoice was R0.00, kitchen had no prep list,
+  // dispatch saw nothing to load. Wire it here so every cascade
+  // entry point (quote accept, leads convert, future webhooks) gets
+  // the same back-fill before the invoice step reads order_items.
+  //
+  // Idempotent: skip when the order already has any rows.
+  try {
+    const { data: order0 } = await (client as any)
+      .from("orders")
+      .select("quote_id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (order0?.quote_id) {
+      const { data: existing0 } = await (client as any)
+        .from("order_items")
+        .select("id")
+        .eq("order_id", orderId)
+        .limit(1);
+      if (!existing0 || existing0.length === 0) {
+        const { data: quote0 } = await (client as any)
+          .from("quotes")
+          .select("menu_items, guest_count")
+          .eq("id", order0.quote_id)
+          .maybeSingle();
+        const raw = (quote0 as any)?.menu_items;
+        const items: any[] = Array.isArray(raw)
+          ? raw
+          : typeof raw === "string"
+            ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
+            : [];
+        const guestCount = Number((quote0 as any)?.guest_count || 0);
+        const rows = items
+          .map((it: any) => {
+            const name = it.item_name || it.name || "";
+            if (!name) return null;
+            const mode = String(it.pricing_mode || it.pricingMode || "per_person");
+            const baseQty = Number(it.quantity || 0);
+            const qty = mode === "per_person"
+              ? (baseQty > 0 ? baseQty : guestCount)
+              : (mode === "flat" ? 1 : baseQty);
+            const unit = Number(it.unit_price ?? it.unitPrice ?? it.pricePerPerson ?? 0);
+            const lineTotal = Number(it.line_total ?? (qty * unit));
+            return {
+              order_id: orderId,
+              menu_item_id: it.menu_item_id || null,
+              item_name: name,
+              description: it.category || it.dietary_tags?.join?.(", ") || null,
+              quantity: qty,
+              unit_price: unit,
+              line_total: lineTotal,
+            };
+          })
+          .filter(Boolean);
+        if (rows.length > 0) {
+          const { error: insErr } = await (client as any)
+            .from("order_items")
+            .insert(rows);
+          if (insErr) {
+            console.warn("[postOrderCreationCascade] order_items insert failed:", { orderId, error: insErr });
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn("[postOrderCreationCascade] order_items step crashed:", { orderId, error: e });
+  }
+
   // ── Step 1: Invoice ───────────────────────────────────────────────
   if (!opts.skipInvoice) {
     try {

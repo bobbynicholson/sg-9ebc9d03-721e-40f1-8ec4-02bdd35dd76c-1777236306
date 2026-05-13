@@ -572,14 +572,31 @@ export default function PublicQuotePage() {
                   </div>
                 </>
               ) : null}
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-600">Subtotal</span>
-                <span className="text-stone-900 tabular-nums">{fmtMoney(quote.subtotal || 0)}</span>
-              </div>
-              {!!quote.discount_amount && quote.discount_amount > 0 && (
+              {/* Audit (May 2026, Wave 3): public view used to show
+                  Subtotal (the saved post-discount figure) and then a
+                  separate "- discount" line, double-counting the
+                  discount visually. The quote builder already folds
+                  discount into the stored `subtotal`, so we either
+                  hide the discount line OR show pre-discount subtotal
+                  with discount as a real deduction. Pre-discount is
+                  the more transparent option. */}
+              {!!quote.discount_amount && quote.discount_amount > 0 ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-stone-600">Subtotal</span>
+                    <span className="text-stone-900 tabular-nums">
+                      {fmtMoney(Number(quote.subtotal || 0) + Number(quote.discount_amount || 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-stone-600">Discount</span>
+                    <span className="text-emerald-700 tabular-nums">-{fmtMoney(quote.discount_amount)}</span>
+                  </div>
+                </>
+              ) : (
                 <div className="flex justify-between text-sm">
-                  <span className="text-stone-600">Discount</span>
-                  <span className="text-emerald-700 tabular-nums">-{fmtMoney(quote.discount_amount)}</span>
+                  <span className="text-stone-600">Subtotal</span>
+                  <span className="text-stone-900 tabular-nums">{fmtMoney(quote.subtotal || 0)}</span>
                 </div>
               )}
               {!!quote.tax_amount && quote.tax_amount > 0 && (

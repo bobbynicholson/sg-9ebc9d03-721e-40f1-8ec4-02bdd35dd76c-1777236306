@@ -68,6 +68,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });
   }
 
+  // Audit (May 2026, Wave 3): the endpoint previously stamped
+  // accepted_at + status='accepted' on ANY quote matching the token,
+  // even if it was already rejected, expired or past valid_until.
+  // A client (or anyone with the token) could re-accept stale pricing
+  // weeks later. Gate the acceptance on a fresh status check first.
+  const { data: existing } = await (supabase as any)
+    .from("quotes")
+    .select("id, status, valid_until, converted_to_order_id")
+    .eq("public_token", token)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
+  if (existing.converted_to_order_id) {
+    return res.status(409).json({ ok: false, error: "This quote has already been accepted and converted to an order." });
+  }
+  if (existing.status === "rejected") {
+    return res.status(409).json({ ok: false, error: "This quote was previously declined. Please request a new one." });
+  }
+  if (existing.status === "expired") {
+    return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
+  }
+  if (existing.valid_until) {
+    const validUntil = new Date(existing.valid_until);
+    if (!Number.isNaN(validUntil.getTime()) && validUntil < new Date()) {
+      // Defensive flip: stamp the quote as expired so the next call
+      // returns the same answer without re-checking the date.
+      await (supabase as any)
+        .from("quotes")
+        .update({ status: "expired" })
+        .eq("id", existing.id);
+      return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
+    }
+  }
+
   // Resolve quote + stamp acceptance.
   const nowIso = new Date().toISOString();
   const { data: updated, error } = await (supabase as any)
@@ -80,6 +115,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (error) return res.status(500).json({ ok: false, error: error.message });
   if (!updated) return res.status(404).json({ ok: false, error: "Quote not found." });
+
+  // Audit (May 2026, Wave 3): public acceptance now fires the same
+  // convert-to-order cascade the admin "Mark accepted" path uses --
+  // creates the order via convert_quote_to_order RPC, then
+  // postOrderCreationCascade for invoice + email + kitchen prep +
+  // equipment bookings + line items. Previously the public path only
+  // stamped accepted_at and the catering team had to manually convert
+  // every accepted quote into an order, with the on-page timeline
+  // ("Step 2: Deposit invoice") being a lie until they did.
+  try {
+    const { quoteService } = await import("@/services/quoteService");
+    await (quoteService as any).convertQuoteToOrder(updated.id);
+  } catch (err) {
+    console.warn("[public/quotes/accept] convert-to-order cascade failed (non-blocking):", err);
+  }
 
   // Audit row -- separate table so the quote row stays clean and we
   // can keep multiple acceptance attempts (rare but the data exists).
