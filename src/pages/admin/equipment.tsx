@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X,
+  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X, RefreshCw,
 } from "lucide-react";
 import {
   listUpcomingReservations, getEquipmentAvailability,
@@ -406,6 +406,18 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
           Chafing dishes, tables, chairs, hire add-ons. The catalog feeds the quote builder, kitchen pack list and driver load list.
         </div>
         <div className="flex flex-wrap items-center gap-2">
+        {/* Phase 27 #10: manual refresh. The page caches the
+            catalogue at mount; an operator who has added a kit
+            from a colleague's mobile tablet needs a way to pull
+            the new row without hard-reloading. */}
+        <Button
+          variant="outline"
+          onClick={loadRows}
+          disabled={loading}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
         {/* Phase 15 #6: equipment CSV export. Lets the team
             stocktake / hand the catalogue to an insurer / quote
             an external hire-out without opening each row. Reads
