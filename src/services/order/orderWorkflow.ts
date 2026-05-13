@@ -357,11 +357,15 @@ export async function updateOrderStatus(
     if (newStatus === "delivered" && order.company_id) {
       try {
         // Skip when no equipment was on this order -- no collection
-        // needed.
+        // needed. Audit (May 2026, Wave 4): the count previously
+        // didn't filter by status, so cancelled bookings under an
+        // amendment-revised order still triggered a phantom collection
+        // assignment.
         const { count: bookingCount } = await supabase
           .from("equipment_bookings")
           .select("id", { count: "exact", head: true })
-          .eq("order_id", order.id);
+          .eq("order_id", order.id)
+          .eq("status", "booked");
         if ((bookingCount ?? 0) > 0) {
           // Idempotency check.
           const { data: existingCollection } = await (supabase as any)
@@ -705,10 +709,12 @@ export async function cancelOrder(
     // bail early if already cancelled (idempotency).
     const { data: current } = await sb
       .from("orders")
-      .select("status")
+      .select("status, company_id, user_id")
       .eq("id", orderId)
       .maybeSingle();
     const currentStatus = (current as any)?.status as string | null | undefined;
+    const orderCompanyId = (current as any)?.company_id as string | null | undefined;
+    const orderUserId = (current as any)?.user_id as string | null | undefined;
     if (currentStatus === "cancelled") {
       return { success: true, data: { id: orderId, _idempotent: true } };
     }
@@ -769,6 +775,25 @@ export async function cancelOrder(
           .eq("order_id", orderId);
       } catch (e) {
         console.warn("[cancelOrder] kitchen_prep_tasks release failed:", e);
+      }
+    })();
+
+    // Audit (May 2026, Wave 4): cancellation previously left every
+    // inventory deduction in place. A 200-guest cancellation
+    // permanently removed 40kg of lamb from the books. Reverse the
+    // prior 'usage' transactions and restore stock so reorder
+    // thresholds + COGS reports stay honest.
+    void (async () => {
+      try {
+        if (!orderCompanyId) return;
+        const { reverseInventoryForOrder } = await import("@/services/inventoryDeductionService");
+        await reverseInventoryForOrder(
+          orderId,
+          orderCompanyId,
+          opts.cancelled_by_user_id || orderUserId || "system",
+        );
+      } catch (e) {
+        console.warn("[cancelOrder] inventory reverse failed:", e);
       }
     })();
 

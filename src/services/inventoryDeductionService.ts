@@ -645,6 +645,84 @@ export async function recalculateInventoryForOrder(
 }
 
 /**
+ * Reverse every prior inventory deduction for an order. Used on
+ * cancellation -- the previous code path left deductions in place
+ * forever, so a 200-guest cancellation permanently removed 40kg of
+ * lamb from the books. Reorder thresholds, COGS and pantry counts
+ * all went wrong.
+ *
+ * Symmetric to recalculateInventoryForOrder steps 1+2+3 but does
+ * not re-run the deduction (the order is cancelled, no replay).
+ *
+ * Idempotent: a no-op when there are no prior 'usage' transactions
+ * for the order.
+ */
+export async function reverseInventoryForOrder(
+  orderId: string,
+  companyId: string,
+  performedBy: string,
+): Promise<{ success: boolean; reversed: number; errors: string[] }> {
+  const orderTag = orderId.slice(-8);
+  const errors: string[] = [];
+  let reversed = 0;
+
+  try {
+    const { data: priorTx, error: txErr } = await (supabase as any)
+      .from("inventory_transactions")
+      .select("id, inventory_item_id, quantity")
+      .eq("company_id", companyId)
+      .eq("transaction_type", "usage")
+      .ilike("notes", `%order #${orderTag}%`);
+    if (txErr) {
+      errors.push(`Couldn't read prior transactions: ${txErr.message}`);
+      return { success: false, reversed: 0, errors };
+    }
+
+    for (const tx of priorTx || []) {
+      const { data: item } = await (supabase as any)
+        .from("inventory_items")
+        .select("current_stock")
+        .eq("id", (tx as any).inventory_item_id)
+        .maybeSingle();
+      if (!item) continue;
+      const restored = Number((item as any).current_stock || 0) + Number((tx as any).quantity || 0);
+      await (supabase as any)
+        .from("inventory_items")
+        .update({ current_stock: restored })
+        .eq("id", (tx as any).inventory_item_id);
+      await (supabase as any)
+        .from("inventory_transactions")
+        .insert({
+          company_id: companyId,
+          inventory_item_id: (tx as any).inventory_item_id,
+          transaction_type: "adjustment",
+          quantity: Number((tx as any).quantity || 0),
+          notes: `Reversed on cancellation of order #${orderTag}`,
+          performed_by: performedBy,
+        });
+      reversed += 1;
+    }
+
+    // Clear the idempotency stamp so a re-confirmation of the same
+    // order (rare but possible via amendment workflow) can re-deduct.
+    if (reversed > 0) {
+      await (supabase as any)
+        .from("orders")
+        .update({ inventory_deducted_at: null })
+        .eq("id", orderId);
+    }
+
+    return { success: errors.length === 0, reversed, errors };
+  } catch (e: any) {
+    return {
+      success: false,
+      reversed,
+      errors: [...errors, e?.message || "reverseInventoryForOrder crashed"],
+    };
+  }
+}
+
+/**
  * Preview what would be deducted (useful for order creation)
  */
 export async function previewInventoryDeduction(

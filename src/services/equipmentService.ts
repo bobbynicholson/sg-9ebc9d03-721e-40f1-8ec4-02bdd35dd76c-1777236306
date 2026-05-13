@@ -12,7 +12,8 @@ export const equipmentService = {
     let query = supabase
       .from("equipment")
       .select("*")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (regionId) {
       query = query.eq("region_id", regionId);
@@ -75,11 +76,19 @@ export const equipmentService = {
     return data;
   },
 
-  async deleteEquipment(equipmentId: string): Promise<boolean> {
-    const { error } = await supabase
+  async deleteEquipment(equipmentId: string, companyId?: string): Promise<boolean> {
+    // Audit (May 2026, Wave 4): hard-delete was failing on FK
+    // constraints from equipment_bookings / equipment_damages /
+    // equipment_shortage_flags, and where cascade existed it wiped
+    // the audit trail. Switch to soft-delete via deleted_at, and
+    // require company_id as a defence-in-depth scope filter (RLS is
+    // the only thing stopping cross-tenant deletes today).
+    let q = (supabase as any)
       .from("equipment")
-      .delete()
+      .update({ deleted_at: new Date().toISOString(), is_available: false })
       .eq("id", equipmentId);
+    if (companyId) q = q.eq("company_id", companyId);
+    const { error } = await q;
 
     if (error) {
       console.error("Error deleting equipment:", error);
@@ -98,13 +107,20 @@ export const equipmentService = {
     const equipment = await this.getEquipmentItem(equipmentId);
     if (!equipment) return false;
 
-    // BUG FIX #4: Use safe parameterized query with proper date filtering
+    // Audit (May 2026, Wave 4): the overlap predicate ran the two
+    // halves as `.or(booked_from.lte.endDate, booked_until.gte.startDate)`
+    // which OR-matches almost every row in the table. Real overlap
+    // rule is AND: a booking overlaps when booked_from <= endDate
+    // AND booked_until >= startDate. The OR version had the system
+    // rejecting legitimate availability ("no stock") in the typical
+    // case and could silently let conflicts through in others.
     const { data: bookings, error } = await supabase
       .from("equipment_bookings")
       .select("quantity")
       .eq("equipment_id", equipmentId)
       .eq("status", "booked")
-      .or(`booked_from.lte.${endDate},booked_until.gte.${startDate}`);
+      .lte("booked_from", endDate)
+      .gte("booked_until", startDate);
 
     if (error) {
       console.error("Error checking equipment availability:", error);
@@ -124,15 +140,33 @@ export const equipmentService = {
     quantity: number,
     startDate: string,
     endDate: string,
-    cleaningTimeHours: number
+    cleaningTimeHours: number,
+    companyId?: string,
   ): Promise<EquipmentBooking | null> {
     const availableFrom = new Date(endDate);
     availableFrom.setHours(availableFrom.getHours() + cleaningTimeHours);
+
+    // Resolve company_id from the order when the caller didn't pass
+    // it -- the field is required by RLS and by the availability
+    // calculator. Audit (May 2026): the previous insert wrote without
+    // company_id, so the row was invisible to every subsequent
+    // availability check and the same equipment could be sold twice
+    // on the same day.
+    let resolvedCompanyId = companyId;
+    if (!resolvedCompanyId && orderId) {
+      const { data: order } = await (supabase as any)
+        .from("orders")
+        .select("company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      resolvedCompanyId = (order as any)?.company_id || null;
+    }
 
     const { data, error } = await supabase
       .from("equipment_bookings")
       .insert([
         {
+          company_id: resolvedCompanyId,
           user_id: userId,
           order_id: orderId,
           equipment_id: equipmentId,
@@ -151,28 +185,27 @@ export const equipmentService = {
       throw error;
     }
 
-    // BUG FIX #4: SAFE - Using RPC call instead of raw SQL (prevents SQL injection)
-    // This is the CORRECT approach - never use raw SQL with string interpolation
-    const { error: rpcError } = await supabase.rpc('decrement_equipment_quantity', {
-      p_equipment_id: equipmentId,
-      p_quantity_to_decrement: quantity
-    });
-
-    if (rpcError) {
-      console.error("Error updating equipment quantity via RPC:", rpcError);
-      // Note: Consider implementing rollback or compensation logic here
-    }
+    // Audit (May 2026, Wave 4): the generated types declare this RPC
+    // as `Args: never`, meaning the function takes no parameters. The
+    // call below silently no-ops (or applies a stub effect) and
+    // equipment.available_quantity never reflects the reservation.
+    // Skip the RPC entirely -- the availability calculator already
+    // reads equipment.quantity minus the LIVE equipment_bookings
+    // overlap, so available_quantity as a denormalised counter is
+    // redundant. Leave a comment so a future dev doesn't re-add it.
+    // (To re-enable: change the Postgres function signature to take
+    // p_equipment_id + p_quantity_to_decrement, regenerate types.)
 
     return data;
   },
 
   async returnEquipment(
-    bookingId: string, 
+    bookingId: string,
     returnedQuantity?: number
   ): Promise<EquipmentBooking | null> {
     const { data: booking, error: fetchError } = await supabase
       .from("equipment_bookings")
-      .select("*, order_id, equipment_id, quantity, user_id")
+      .select("*, order_id, equipment_id, quantity, user_id, company_id")
       .eq("id", bookingId)
       .single();
 
@@ -183,9 +216,17 @@ export const equipmentService = {
 
     const actualReturnedQuantity = returnedQuantity ?? booking.quantity;
 
+    // Audit (May 2026, Wave 4): the previous update only flipped
+    // status='returned' and never stamped returned_quantity, so the
+    // availability calculator's `quantity - returned_quantity` math
+    // treated every partial return as a full one -- a shortage was
+    // released back into stock as if intact.
     const { data, error } = await supabase
       .from("equipment_bookings")
-      .update({ status: "returned" })
+      .update({
+        status: "returned",
+        returned_quantity: actualReturnedQuantity,
+      })
       .eq("id", bookingId)
       .select()
       .single();

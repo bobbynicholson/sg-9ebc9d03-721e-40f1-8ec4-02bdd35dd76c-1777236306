@@ -21,10 +21,27 @@ export const equipmentShortageService = {
     priority?: "low" | "medium" | "high" | "urgent";
     financialImpact?: number;
     userId: string;
+    companyId?: string;
   }) {
     const shortageQuantity = data.expectedQuantity - data.returnedQuantity;
 
+    // Audit (May 2026, Wave 4): the insert was missing company_id, but
+    // every read (getShortageFlags / getPendingShortagesCount) filters
+    // by it -- so flags were invisible to the dashboard they were
+    // meant to surface. Resolve from the order when the caller didn't
+    // pass an explicit companyId.
+    let resolvedCompanyId = data.companyId || null;
+    if (!resolvedCompanyId && data.orderId) {
+      const { data: order } = await (supabase as any)
+        .from("orders")
+        .select("company_id")
+        .eq("id", data.orderId)
+        .maybeSingle();
+      resolvedCompanyId = (order as any)?.company_id || null;
+    }
+
     const insertData: EquipmentShortageFlagInsert = {
+      company_id: resolvedCompanyId,
       user_id: data.userId,
       order_id: data.orderId,
       equipment_booking_id: data.equipmentBookingId,
