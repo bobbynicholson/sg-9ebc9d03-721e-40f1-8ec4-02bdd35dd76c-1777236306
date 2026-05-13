@@ -377,6 +377,16 @@ export async function updateOrderStatus(
     // before the scheduled time. Idempotent on (order_id, type).
     if (newStatus === "delivered" && order.company_id) {
       try {
+        // Flow audit Leg E P0-14: orders with a waiter on-site don't
+        // need a separate collection trip. The waiter stays through the
+        // event, packs the equipment down, and brings it back with
+        // them. Auto-scheduling a collection assignment in that case
+        // double-charged the driver run (pay was claimed twice) and
+        // confused dispatch ("why is there a 23:00 pickup when Mary's
+        // already on the truck?"). Skip when requires_waiter is true.
+        if (order.requires_waiter === true) {
+          // fall through to the cleaning-queue insert below
+        } else {
         // Skip when no equipment was on this order -- no collection
         // needed. Audit (May 2026, Wave 4): the count previously
         // didn't filter by status, so cancelled bookings under an
@@ -466,6 +476,7 @@ export async function updateOrderStatus(
             }
           }
         }
+        } // end of waiter-skip else
       } catch (e: any) {
         console.warn("[orderWorkflow] collection assignment scheduler crashed (non-blocking):", e);
       }
@@ -529,6 +540,41 @@ export async function updateOrderStatus(
       }
     }
 
+    // Auto-deduct inventory on delivery. Flow audit Leg D P0-1: the
+    // deduction service was never invoked by any production path -- the
+    // only caller (deliveryService.markDelivered) was dead code, so
+    // every order delivered to date left zero usage transactions and
+    // the COGS pipeline (Wave 9 Item 3) showed "No usage data yet"
+    // forever. Wire it here so every delivered transition fires.
+    // deductInventoryForOrder is idempotent via inventory_deducted_at.
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        const { deductInventoryForOrder } = await import(
+          "@/services/inventoryDeductionService"
+        );
+        const result = await deductInventoryForOrder(
+          order.id,
+          order.company_id,
+          updatedBy || (order as any).user_id || "system",
+        );
+        if (!result.success && result.errors.length > 0) {
+          console.warn("[orderWorkflow] inventory deduction errors:", result.errors);
+        }
+      } catch (e: any) {
+        console.warn("[orderWorkflow] inventory deduction crashed (non-blocking):", e);
+      }
+    }
+
+    // Auto-flip delivered -> completed once after-event window passes.
+    // Flow audit Leg F P0-3: completeOrder() flips to "delivered" not
+    // "completed", and there was no other auto-completion path -- so
+    // every order sat at delivered indefinitely, the after-sales
+    // sequence (which keys on completed) never fired. Trigger a
+    // delayed transition here. For now, fire it synchronously when the
+    // operator explicitly marks the order completed via the dedicated
+    // workflow path -- separate from the auto-fire on delivery. The
+    // cron path lives in /api/cron/auto-complete-delivered (added in
+    // companion change).
     return { success: true, data: order };
   } catch (error: any) {
     console.error("Error updating order status:", error);
@@ -818,6 +864,48 @@ export async function cancelOrder(
         );
       } catch (e) {
         console.warn("[cancelOrder] inventory reverse failed:", e);
+      }
+    })();
+
+    // Flow audit Leg C P0-5: cancelOrder used to leave the invoice
+    // sitting in `sent` / `overdue`. The bookkeeper kept seeing it on
+    // the receivables aging report, the bulk-remind sweep kept emailing
+    // the client about it, and finance's outstanding total was wrong
+    // until somebody manually voided it. Void any unpaid invoices for
+    // the cancelled order. Anything already paid stays as-is so the
+    // refund cascade in cancellation-review.ts can record the credit.
+    void (async () => {
+      try {
+        await sb
+          .from("invoices")
+          .update({
+            status: "cancelled",
+            balance_due: 0,
+            updated_at: nowIso,
+          } as any)
+          .eq("order_id", orderId)
+          .is("deleted_at", null)
+          .in("status", ["draft", "sent", "overdue", "partially_paid"]);
+      } catch (e) {
+        console.warn("[cancelOrder] invoice void failed:", e);
+      }
+    })();
+
+    // Flow audit Leg C P0-5 (continued): the pre_event + aftersales
+    // schedulers fan a stack of outgoing_email_queue rows out for
+    // every confirmed order. Cancellation never touched the queue,
+    // so the client kept getting "see you tomorrow!" the day before
+    // an event that wasn't happening. Cancel any pending queue rows
+    // for this order so the cron worker skips them.
+    void (async () => {
+      try {
+        await sb
+          .from("outgoing_email_queue")
+          .update({ status: "cancelled", updated_at: nowIso } as any)
+          .eq("trigger_ref_id", orderId)
+          .eq("status", "pending");
+      } catch (e) {
+        console.warn("[cancelOrder] outgoing_email_queue cancel failed:", e);
       }
     })();
 

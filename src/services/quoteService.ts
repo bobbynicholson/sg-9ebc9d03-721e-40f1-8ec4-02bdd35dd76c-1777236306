@@ -722,6 +722,35 @@ export const quoteService = {
             status: balance < 0.01 ? "paid" : "sent",
           })
           .eq("id", cascade.invoice.invoiceId);
+
+        // Flow audit Leg C P0-3: when an admin accepts on behalf and
+        // captures the deposit at the same time, the order + invoice
+        // were stamped with amount_paid but NO row was ever inserted
+        // into `payments`. Result: the finance dashboard's payment
+        // ledger missed the deposit, the per-client receipt list was
+        // empty, and the receivables aging report under-reported
+        // collected cash. Best-effort insert here -- the cascade is
+        // already non-fatal for any single sub-step, so the order
+        // still lands cleanly if the payments policy denies the write.
+        try {
+          const txnId = `accept-${newOrder.id}-deposit`;
+          await (supabase as any).from("payments").insert({
+            company_id: newOrder.company_id,
+            order_id: newOrder.id,
+            invoice_id: cascade.invoice.invoiceId,
+            client_id: newOrder.client_id ?? null,
+            amount: paid,
+            payment_type: "deposit",
+            payment_method: options.depositPaid.method,
+            payment_reference: options.depositPaid.reference || null,
+            transaction_id: txnId,
+            payment_status: "completed",
+            processed_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.warn("[convertQuoteToOrder] deposit payments insert failed (non-blocking):", e);
+        }
       }
       invoiceReceipt = {
         ok: true,

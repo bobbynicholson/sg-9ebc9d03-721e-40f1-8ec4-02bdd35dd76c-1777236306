@@ -46,6 +46,14 @@
     {
       "path": "/api/cron/equipment-service-due",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/check-en-route",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/auto-complete-delivered",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -359,8 +359,51 @@ export function RebookDialog({
         notes: noteParts.join(" "),
       };
 
-      const { error } = await supabase.from("quotes").insert(insertPayload);
+      const { data: insertedQuote, error } = await supabase
+        .from("quotes")
+        .insert(insertPayload)
+        .select("id")
+        .single();
       if (error) throw error;
+
+      // Flow audit Leg B P0-8: rebook + portal-quote requests landed
+      // straight into `quotes` but never inserted a `leads` row, so the
+      // lead-source funnel + lead-source-conversion analytics had a
+      // permanent blind spot for inbound client-portal demand. Repeat
+      // customers showed up only as draft quotes with no rebook
+      // attribution. Insert a matching lead now, marked already-quoted
+      // so the funnel counts it as a closed-loop conversion and not as
+      // an unanswered enquiry.
+      try {
+        const leadPayload: any = {
+          company_id: companyId,
+          email: user.email || "",
+          client_email: user.email || "",
+          contact_name: profileFullName || user.email || "Client portal",
+          client_name: profileFullName || user.email || "Client portal",
+          phone: profilePhone || null,
+          client_phone: profilePhone || null,
+          event_date: eventDate,
+          guest_count: guestCount ? parseInt(guestCount, 10) || null : null,
+          venue_address: venueAddress.trim() || null,
+          venue_lat: venueLat,
+          venue_lng: venueLng,
+          requested_items: menuItemsJson.length > 0 ? menuItemsJson : null,
+          source: sourceOrder ? "client_portal_rebook" : "client_portal_request",
+          source_order_id: sourceOrder?.id ?? null,
+          status: "quoted",
+          converted_at: new Date().toISOString(),
+          notes: noteParts.join(" "),
+          special_requests: dietary.trim() || null,
+          user_id: user.id,
+        };
+        await supabase.from("leads").insert(leadPayload);
+      } catch (leadErr) {
+        // Lead insert is for analytics only -- the operator already has
+        // the draft quote, so don't fail the dialog if RLS or a missing
+        // field rejects the lead row.
+        console.warn("[RebookDialog] lead capture failed (non-blocking):", leadErr);
+      }
 
       toast({
         title: "Request sent",

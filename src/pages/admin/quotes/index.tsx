@@ -88,7 +88,9 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 function deriveQuoteStatus(quote: Quote): QuoteStatus {
   const validUntil = (quote as any).valid_until as string | null | undefined;
   const status = quote.status as QuoteStatus;
-  if ((status === "sent" || status === "revised") && validUntil) {
+  // Enum cleanup (flow audit Leg B): 'revised' + 'viewed' dropped
+  // from quote_status. Only 'sent' is active-and-action-needed now.
+  if (status === "sent" && validUntil) {
     if (new Date(validUntil).getTime() < Date.now()) return "expired";
   }
   return status;
@@ -502,7 +504,7 @@ export default function AdminQuotes() {
           .from("quotes")
           .update({ status: "expired" })
           .eq("company_id", user.company_id)
-          .in("status", ["sent", "viewed", "revised"])
+          .in("status", ["sent"])
           .lt("valid_until", todayIso)
           .is("deleted_at", null);
       } catch {
@@ -1521,7 +1523,7 @@ export default function AdminQuotes() {
                 const sweetenerEligible =
                   diary.sweetenerWorthwhile &&
                   canCompose &&
-                  ["sent", "revised", "viewed", "pending"].includes((quote.status || "").toLowerCase()) &&
+                  ["sent", "pending"].includes((quote.status || "").toLowerCase()) &&
                   intel.bucket !== "won" &&
                   intel.bucket !== "lost";
                 const followup = followupByQuote[quote.id];
@@ -2102,8 +2104,11 @@ export default function AdminQuotes() {
               }
 
               try {
+                // Flow audit Leg B P0-1: quote_status enum no longer
+                // includes 'revised'. Sweetener apply keeps the quote
+                // at 'sent' (still actionable) and pushes the change
+                // intent via the existing valid_until / total updates.
                 const patch: any = {
-                  status: "revised",
                   valid_until: offer.validUntil || (composeQuote as any).valid_until,
                 };
                 if (offer.discountKind !== "perk") {

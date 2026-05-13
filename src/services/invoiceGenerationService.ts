@@ -548,6 +548,91 @@ export async function ensureInvoiceForOrder(
 }
 
 /**
+ * Recompute an existing invoice from the current order state and patch
+ * it in place. Use after an amendment that changed guest_count, menu
+ * items, equipment items, delivery / waiter fees, or anything else that
+ * moves the order's totals.
+ *
+ * Flow audit Leg C P0-4: amendment-review.ts called ensureInvoiceForOrder
+ * after applying the diff, but ensureInvoiceForOrder no-ops when an
+ * invoice already exists -- so the operator approved the change, the
+ * order total moved, and the invoice + balance_due stayed at the OLD
+ * number. The client paid the wrong amount, the receivables aging
+ * report was wrong, and the accounting sync re-pushed nothing.
+ *
+ * Strategy: rebuild via generateInvoiceData (same code path as initial
+ * creation, so VAT modes, branch overrides, line item flattening all
+ * stay coherent), then UPDATE the existing row preserving the
+ * invoice_number / paid_at / amount_paid the bookkeeper has already
+ * touched. Recompute balance_due against the NEW total. Status:
+ *   - paid stays paid only if amount_paid still settles the new total
+ *   - paid -> partially_paid when the new total now exceeds amount_paid
+ *   - sent / draft / overdue stay as-is unless the recompute closes
+ *     the balance, in which case it flips to paid.
+ */
+export async function recalcInvoiceForOrder(
+  orderId: string,
+  companyId: string,
+  client?: SupabaseLike,
+): Promise<{ success: boolean; updated?: boolean; reason?: string; invoiceId?: string; error?: string }> {
+  const supabase = resolveClient(client);
+  try {
+    const { data: existing } = await supabase
+      .from("invoices")
+      .select("id, amount_paid, status, invoice_number")
+      .eq("order_id", orderId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!existing?.id) {
+      return { success: true, updated: false, reason: "no_invoice" };
+    }
+    const built = await generateInvoiceData(orderId, companyId, supabase);
+    if (!built.success || !built.data) {
+      return { success: false, error: built.error || "Could not rebuild invoice data" };
+    }
+    const newTotal = Number(built.data.total) || 0;
+    const amountPaid = Number((existing as any).amount_paid) || 0;
+    const newBalance = Math.max(0, Number((newTotal - amountPaid).toFixed(2)));
+    const prevStatus = String((existing as any).status || "");
+    let nextStatus = prevStatus;
+    if (newBalance < 0.01) {
+      nextStatus = "paid";
+    } else if (prevStatus === "paid" && amountPaid > 0 && amountPaid < newTotal) {
+      nextStatus = "partially_paid";
+    } else if (prevStatus === "paid") {
+      nextStatus = "sent";
+    }
+    // Preserve invoice_number from the original row inside invoice_data
+    // so the snapshot doesn't quietly drift from the persisted column.
+    const stampedData = {
+      ...built.data,
+      invoiceNumber: (existing as any).invoice_number || built.data.invoiceNumber,
+      depositPaid: amountPaid,
+      balanceDue: newBalance,
+    };
+    const { error: updErr } = await supabase
+      .from("invoices")
+      .update({
+        subtotal: stampedData.subtotal,
+        tax_amount: stampedData.taxAmount,
+        total_amount: newTotal,
+        balance_due: newBalance,
+        status: nextStatus,
+        invoice_data: stampedData as any,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq("id", (existing as any).id);
+    if (updErr) {
+      return { success: false, error: updErr.message };
+    }
+    return { success: true, updated: true, invoiceId: (existing as any).id };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "recalcInvoiceForOrder crashed" };
+  }
+}
+
+/**
  * Email + in-app push to the client when a deposit invoice is issued.
  *
  * Idempotency: skips if a notifications row with notification_type=

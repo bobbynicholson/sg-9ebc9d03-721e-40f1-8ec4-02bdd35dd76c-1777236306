@@ -128,6 +128,15 @@ interface LineItem {
   unitPrice: number;
   /** For per_person: copy of guestCount. per_portion: portions. flat: 1. */
   quantity: number;
+  /**
+   * Flow audit Leg B P0-9: when the operator types a non-default
+   * quantity on a per_person line ("vegetarian for 5 of 100"),
+   * subsequent guestCount changes used to clobber it back to the new
+   * guestCount. Flag flips true the moment the operator overrides
+   * the line and stays true for the lifetime of the row, so the
+   * guestCount cascade leaves overridden lines alone.
+   */
+  quantityOverridden?: boolean;
   /** Per-line discount in percent (0-100). */
   discountPct: number;
   /** Optional cost-per-unit copied off menu_items.cost_per_unit -- preserved
@@ -730,10 +739,14 @@ function NewQuotePage() {
   }, [deliveryDistance, deliveryCostPerKm, minDeliveryFee, deliveryFeeOverridden]);
 
   // ── Cascade guest count to per_person lines ───────────────────────
+  // Only cascades into lines the operator hasn't overridden. A line
+  // with quantityOverridden=true is intentionally tracking a subset
+  // of the guest list (the "5 vegetarians of 100" case) and the
+  // operator's number is sacred.
   useEffect(() => {
     setMenuItems((prev) =>
       prev.map((it) =>
-        it.pricingMode === "per_person" && it.quantity !== guestCount
+        it.pricingMode === "per_person" && !it.quantityOverridden && it.quantity !== guestCount
           ? { ...it, quantity: guestCount }
           : it,
       ),
@@ -1765,7 +1778,13 @@ function NewQuotePage() {
                                     ? 1
                                     : line.quantity || ""
                                 }
-                                onChange={(e) => updateLine(line.id, { quantity: safeNum(e.target.value) })}
+                                onChange={(e) => updateLine(line.id, {
+                                  quantity: safeNum(e.target.value),
+                                  // Mark sticky -- the guestCount cascade now
+                                  // leaves this row alone for the lifetime of
+                                  // the quote.
+                                  quantityOverridden: true,
+                                })}
                               />
                             </div>
                             <div className="sm:col-span-2">

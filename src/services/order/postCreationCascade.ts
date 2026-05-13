@@ -506,15 +506,26 @@ export async function postOrderCreationCascade(
     try {
       const { data: order } = await (client as any)
         .from("orders")
-        .select("id, menu_items, guest_count, final_guest_count, number_of_guests, event_date, region_id, order_number")
+        .select("id, guest_count, final_guest_count, number_of_guests, event_date, region_id, order_number")
         .eq("id", orderId)
         .maybeSingle();
       if (!order) {
         receipt.shopping = { ok: true, shortfalls: 0, reason: "order_not_found" };
       } else {
-        const menuItems = Array.isArray((order as any).menu_items)
-          ? (order as any).menu_items
-          : [];
+        // Flow audit Leg D P0-3: previously read orders.menu_items
+        // which is a quote-only column. For leads-convert-to-order
+        // and webhook-created paths the field is null/empty and the
+        // shopping forecast silently no-op'd. Read from order_items
+        // (back-filled by Step 0 from quote.menu_items).
+        const { data: itemRows } = await (client as any)
+          .from("order_items")
+          .select("item_name, menu_item_id, quantity")
+          .eq("order_id", orderId);
+        const menuItems = (itemRows || []).map((r: any) => ({
+          name: r.item_name,
+          menu_item_id: r.menu_item_id,
+          quantity: 1,
+        }));
         const guestCount = Number(
           (order as any).final_guest_count ||
             (order as any).guest_count ||

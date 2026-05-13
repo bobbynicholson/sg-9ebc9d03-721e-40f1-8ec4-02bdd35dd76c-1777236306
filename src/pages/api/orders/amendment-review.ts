@@ -200,9 +200,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
-      await ensureInvoiceForOrder((request as any).order_id, (request as any).company_id);
-      cascade.invoice.ok = true;
+      const {
+        ensureInvoiceForOrder,
+        recalcInvoiceForOrder,
+      } = await import("@/services/invoiceGenerationService");
+      // Flow audit Leg C P0-4: ensureInvoiceForOrder no-ops when an
+      // invoice already exists, so previously the amendment shifted
+      // the order total but left the invoice + balance_due frozen.
+      // Try to recalc first; if no invoice exists yet (rare for an
+      // order under amendment), fall back to ensure.
+      const recalc = await recalcInvoiceForOrder(
+        (request as any).order_id,
+        (request as any).company_id,
+        ssr,
+      );
+      if (recalc.success && recalc.updated) {
+        cascade.invoice.ok = true;
+      } else if (recalc.reason === "no_invoice") {
+        await ensureInvoiceForOrder(
+          (request as any).order_id,
+          (request as any).company_id,
+          ssr,
+        );
+        cascade.invoice.ok = true;
+      } else {
+        cascade.invoice.ok = false;
+        cascade.invoice.reason = recalc.error || recalc.reason || "invoice recalc returned no update";
+      }
     } catch (e: any) {
       cascade.invoice.reason = e?.message || "invoice refresh failed";
       console.warn("[amendment-review] invoice refresh failed:", e);

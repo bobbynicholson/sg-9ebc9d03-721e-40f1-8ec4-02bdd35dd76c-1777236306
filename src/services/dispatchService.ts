@@ -657,10 +657,19 @@ export const dispatchService = {
       }
     }
 
+    // Flow audit Leg E P0-12: the legacy `driver_id` column on
+    // `orders` still exists and is read by several driver-side flows
+    // (team-portal/driver/deliveries, dashboard subscriptions,
+    // job-progress views). The dispatch path used to write only
+    // `assigned_driver_id`, so newly-assigned orders were invisible
+    // to those read paths and only the orders dispatched before the
+    // column rename were ever shown. Write both columns in lockstep
+    // until the legacy column is dropped to keep read paths coherent.
     const { error: updErr } = await supabase
       .from("orders")
       .update({
         assigned_driver_id: payload.driverId,
+        driver_id: payload.driverId,
         assignment_score: payload.score ?? null,
       })
       .eq("id", payload.orderId);
@@ -792,11 +801,41 @@ export const dispatchService = {
       .maybeSingle();
     const fromDriverId = existing?.assigned_driver_id ?? null;
 
+    // Mirror the unassign on the legacy column so reads that still
+    // route through driver_id (deliveries view, dashboard
+    // subscriptions) don't keep the stale link visible.
     const { error } = await supabase
       .from("orders")
-      .update({ assigned_driver_id: null, assignment_score: null })
+      .update({ assigned_driver_id: null, driver_id: null, assignment_score: null })
       .eq("id", payload.orderId);
     if (error) throw error;
+
+    // Flow audit Leg E P0-13: previously unassignDriver only flipped
+    // the order column. The downstream cascade (release the vehicle
+    // booking + cancel the driver's pre-event reminder rows) lived in
+    // ad-hoc places or nowhere at all, so an unassign on a confirmed
+    // order kept the vehicle booked and the driver got pinged for an
+    // event they were no longer working. Trigger them inline now so
+    // every unassign path picks the cleanup up for free.
+    try {
+      await supabase
+        .from("equipment_bookings")
+        .update({ driver_id: null } as any)
+        .eq("order_id", payload.orderId);
+    } catch (e) {
+      console.warn("[dispatch] unassign equipment booking detach failed:", e);
+    }
+    try {
+      const { vehicleService } = await import("./vehicleService");
+      await vehicleService.cancelBookingsForOrder(payload.orderId);
+      // Clear the order's vehicle pointer so re-assign starts clean.
+      await supabase
+        .from("orders")
+        .update({ assigned_vehicle_id: null } as any)
+        .eq("id", payload.orderId);
+    } catch (e) {
+      console.warn("[dispatch] unassign vehicle release failed:", e);
+    }
 
     await supabase.from("order_assignment_audit").insert([{
       company_id: payload.companyId,

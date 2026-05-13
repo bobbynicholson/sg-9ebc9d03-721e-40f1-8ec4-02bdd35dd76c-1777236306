@@ -239,12 +239,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } as any).select("id").single();
       refundPaymentId = (payRow as any)?.id || null;
 
-      await ssr.from("orders").update({
-        payment_status: refund_final >= Number(snap.total_amount_paid || 0)
-          ? "refunded"
-          : "partially_refunded",
-      } as any).eq("id", (request as any).order_id);
-
       // Auto-route through PayFast when the parent capture was via
       // PayFast. EFT / cash / manual stay pending for the existing
       // /admin/refunds mark-paid flow. Awaited so the operator's
@@ -265,6 +259,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.warn("[cancellation-review] refundService threw:", e);
           refundStatus = "pending_manual";
         }
+      }
+
+      // Flow audit Leg C P0-6: order.payment_status used to flip to
+      // 'refunded' / 'partially_refunded' BEFORE processRefund ran.
+      // If PayFast then refused the refund (auto_failed), the order
+      // stayed stamped as refunded even though the money was still
+      // sitting with the merchant. Now we only mark the order
+      // refunded when the refund actually settled (auto_processed)
+      // or the operator explicitly opted into a manual EFT
+      // (pending_manual). On auto_failed we leave payment_status
+      // alone so the retry flow at /admin/refunds shows the order
+      // as still paid, matching reality.
+      if (refundStatus === "auto_processed" || refundStatus === "pending_manual") {
+        await ssr.from("orders").update({
+          payment_status: refund_final >= Number(snap.total_amount_paid || 0)
+            ? "refunded"
+            : "partially_refunded",
+        } as any).eq("id", (request as any).order_id);
       }
     }
 

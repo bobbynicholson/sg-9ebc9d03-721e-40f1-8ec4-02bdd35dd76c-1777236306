@@ -233,26 +233,38 @@ export async function getDriverDeliveries(
 }
 
 /**
- * Mark order as picked up from kitchen
+ * Mark order as picked up from kitchen.
+ *
+ * Flow audit Leg E P0-3: the previous version wrote `status='in_transit'`
+ * directly to orders, bypassing updateOrderStatus -- no transition
+ * validation (a driver could pick up a cancelled order), no
+ * order_status_history row, no sendStatusNotifications fan-out (client
+ * "your order is on its way" email never fired from this path).
+ * Now delegates to the state machine + keeps the autoClockIn hook.
  */
 export async function markOrderPickedUp(
   orderId: string,
   driverId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
+    // Ownership guard
+    const { data: order } = await supabase
       .from("orders")
-      .update({
-        status: "in_transit",
-        picked_up_at: new Date().toISOString(),
-      })
+      .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
-      .eq("assigned_driver_id", driverId);
+      .maybeSingle();
+    if (!order) return { success: false, error: "Order not found." };
+    const isAssigned =
+      (order as any).assigned_driver_id === driverId ||
+      (order as any).driver_id === driverId;
+    if (!isAssigned) {
+      return { success: false, error: "You are not assigned to this order." };
+    }
 
-    if (error) throw error;
+    const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+    const result = await updateOrderStatus(orderId, "in_transit", driverId);
+    if (!result.success) return { success: false, error: (result as any).error };
 
-    // Open the auto-shift for hourly-pay tracking (Stage 4). Idempotent
-    // -- service skips if a shift already exists for this driver+order.
     const companyId = await companyIdForOrder(orderId);
     if (companyId) {
       await driverPayService.autoClockIn({ companyId, driverId, orderId });

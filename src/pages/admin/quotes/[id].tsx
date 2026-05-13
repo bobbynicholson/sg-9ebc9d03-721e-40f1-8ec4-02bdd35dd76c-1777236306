@@ -40,6 +40,8 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
+import { breakdownFromLineSum } from "@/lib/vatMath";
+import { usePricingMode } from "@/hooks/usePricingMode";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
@@ -302,19 +304,31 @@ export default function AdminQuoteDetail() {
     window.location.href = href;
   };
 
-  // Live-computed totals from the editor state. Falls back to the
-  // saved totals when the quote isn't a draft (we still display them
-  // in the read-only view).
+  // Flow audit Leg C P0-7: this page used to compute
+  // `total = subtotal + (subtotal * taxRate)` regardless of the
+  // tenant's pricing convention. For tenants on
+  // companies.pricing_includes_vat=true the line unit_prices already
+  // include VAT, so adding VAT on top produced a quote that was 15%
+  // higher than the saleable price the operator typed in.
+  // Route through breakdownFromLineSum so inc-VAT and ex-VAT tenants
+  // both get arithmetic that matches the rest of the system
+  // (invoice generation already honours the flag).
+  const pricingMode = usePricingMode();
   const computed = useMemo(() => {
     const itemsSubtotal = items.reduce(
       (s, it) => s + it.quantity * it.unit_price,
       0,
     );
-    const subtotal = itemsSubtotal + deliveryFee - discount;
-    const tax = subtotal * taxRate;
-    const total = subtotal + tax;
-    return { itemsSubtotal, subtotal, tax, total };
-  }, [items, deliveryFee, discount, taxRate]);
+    const lineSum = itemsSubtotal + deliveryFee - discount;
+    const br = breakdownFromLineSum(lineSum, taxRate, pricingMode.mode);
+    return {
+      itemsSubtotal,
+      // subtotal here is the ex-VAT figure, matching the invoice math.
+      subtotal: br.net,
+      tax: br.vat,
+      total: br.gross,
+    };
+  }, [items, deliveryFee, discount, taxRate, pricingMode.mode]);
 
   const updateItem = (key: string, patch: Partial<MenuItemRow>) =>
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));

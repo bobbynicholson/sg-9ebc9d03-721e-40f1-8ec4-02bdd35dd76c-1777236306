@@ -276,9 +276,18 @@ Guests: ${lead.guest_count}`;
   },
 
   async deleteLead(id: string) {
+    // Flow audit Leg B P0-11: hard DELETE on leads cascaded loudly --
+    // quotes referencing the lead via lead_id either lost the linkage
+    // (FK ON DELETE SET NULL) or refused to drop (when the constraint
+    // was RESTRICT, leaving the operator staring at a generic "delete
+    // failed" toast). Soft-delete via deleted_at instead: matches the
+    // pattern used on companies / clients / orders / invoices, keeps
+    // referential integrity intact, and the `is("deleted_at", null)`
+    // filters every list query already applies hide the row from the
+    // operator's UI.
     const { error } = await supabase
       .from("leads")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() } as any)
       .eq("id", id);
 
     if (error) throw error;

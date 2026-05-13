@@ -103,14 +103,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const appendBlock = `\n\n${recentMarker}${stamp}\n${text}`;
     const newNotes = (quote.notes || "") + appendBlock;
 
+    // Flow audit Leg B P0-1: `quote_status` enum was recreated
+    // without `revised` (only draft/sent/accepted/rejected/expired).
+    // The previous update tried to write 'revised' and Postgres
+    // rejected with "invalid input value for enum quote_status".
+    // Keep the quote at 'sent' so it's still actionable by the
+    // operator, and surface the change-request via a parallel
+    // quote_change_requests row (the public path's behaviour) so
+    // both flows land in the same place the ChangeRequestPanel
+    // already reads.
     const { error: updErr } = await admin
       .from("quotes")
       .update({
-        status: "revised",
         notes: newNotes,
         updated_at: stamp,
       })
       .eq("id", quote.id);
+
+    // Mirror to quote_change_requests so /admin/quotes/[id] sees
+    // the request alongside public-path ones.
+    try {
+      await admin.from("quote_change_requests").insert([{
+        company_id: quote.company_id,
+        quote_id: quote.id,
+        message: text,
+        source: "client_portal",
+        status: "pending",
+      }]);
+    } catch (e) {
+      console.warn("request-edits: change-request mirror failed (non-blocking):", e);
+    }
     if (updErr) {
       console.error("request-edits: update failed", updErr);
       return res.status(500).json({ error: updErr.message });

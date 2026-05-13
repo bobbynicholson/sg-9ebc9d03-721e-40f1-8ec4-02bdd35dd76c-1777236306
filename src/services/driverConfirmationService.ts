@@ -127,9 +127,22 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Driver confirms arrival at venue
+   * Driver confirms arrival at venue.
+   *
+   * Flow audit Leg E P0-5: previously the POD args were never
+   * accepted by this path (DriverConfirmationPanel calls it without
+   * POD), so every delivery confirmed via the canonical driver tap
+   * landed with NULL pod_*, tripping the POD-missing admin alert
+   * and leaving no proof on disputed drops. Now accepts optional
+   * POD artefacts and stamps them BEFORE the status flip so the
+   * delivered branch's POD-missing check passes.
    */
-  async confirmAtVenue(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
+  async confirmAtVenue(
+    orderId: string,
+    driverId: string,
+    location?: { lat: number; lng: number },
+    pod?: { photoUrl?: string; signatureUrl?: string; recipientName?: string; notes?: string },
+  ) {
     const { data, error } = await supabase
       .from('driver_confirmations')
       .insert([{
@@ -138,6 +151,7 @@ export const driverConfirmationService = {
         confirmation_type: 'at_venue',
         location_lat: location?.lat,
         location_lng: location?.lng,
+        notes: pod?.notes,
         confirmed_at: new Date().toISOString()
       }])
       .select()
@@ -145,18 +159,29 @@ export const driverConfirmationService = {
 
     if (error) throw error;
 
+    // Persist POD on the orders row up front (before the delivered
+    // transition runs its POD-missing check).
+    if (pod && (pod.photoUrl || pod.signatureUrl || pod.recipientName)) {
+      const podUpdate: any = { pod_captured_at: new Date().toISOString() };
+      if (pod.photoUrl) podUpdate.pod_photo_url = pod.photoUrl;
+      if (pod.signatureUrl) podUpdate.pod_signature_url = pod.signatureUrl;
+      if (pod.recipientName) podUpdate.pod_recipient_name = pod.recipientName;
+      try {
+        await supabase.from("orders").update(podUpdate).eq("id", orderId);
+      } catch (podErr) {
+        console.warn("[confirmAtVenue] POD stamp failed (non-blocking):", podErr);
+      }
+    }
+
     await this.notifyAdminOfConfirmation(orderId, driverId, 'at_venue');
 
     // Send WhatsApp to client
     await this.sendWhatsAppNotification(orderId, 'driver_arrived');
 
-    // Advance order status to delivered. Audit Notif G4 -- the
-    // arrival tap on the driver portal previously did not flip the
-    // order, so the central fan-out (client email, cleaning queue
-    // insert, collection-trip schedule, pending_reviews queue, after-
-    // sales nurture) never fired. Now: at_venue confirmation IS
-    // arrival = delivery on a catering job (the driver hands food
-    // over at the venue). Non-blocking.
+    // Advance order status to delivered. updateOrderStatus now fires
+    // the full cascade: inventory deduction (Leg D), POD-missing alert
+    // (skipped if POD was just persisted above), cleaning rows,
+    // collection scheduler, pending_reviews queue, after-sales.
     try {
       const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
       await updateOrderStatus(orderId, "delivered" as any, driverId);
@@ -164,7 +189,205 @@ export const driverConfirmationService = {
       console.warn("[confirmAtVenue] order status flip failed (non-blocking):", statusErr);
     }
 
+    // Close the driver's auto-shift. Flow audit Leg E P0-4: the
+    // autoClockOut hook used to live only in deliveryManagement, so
+    // a driver who completed their day via DriverConfirmationPanel
+    // never closed the shift -- driver_shifts.actual_end stayed null
+    // and the next auto-clock-in landed on top of an open shift.
+    try {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      const companyId = (orderRow as any)?.company_id;
+      if (companyId) {
+        const { driverPayService } = await import("@/services/driverPayService");
+        await (driverPayService as any).autoClockOut({ companyId, driverId, orderId });
+      }
+    } catch (shiftErr) {
+      console.warn("[confirmAtVenue] autoClockOut failed (non-blocking):", shiftErr);
+    }
+
     return data as DriverConfirmation;
+  },
+
+  /**
+   * Driver completes the collection trip (event over, equipment back
+   * at base).
+   *
+   * Flow audit Leg E P0-15: orderWorkflow scheduled a collection
+   * driver_assignment on `delivered`, but no code path ever marked
+   * the collection done. Result: equipment_bookings stayed at
+   * status='booked' forever, the availability calculator treated the
+   * gear as still on a run, and the cleaning team had to manually
+   * close out every shortage. Side-effects on completion:
+   *   - flips the collection driver_assignment to 'completed'
+   *   - calls equipmentService.returnEquipment for every booking on
+   *     the order so availability frees up
+   *   - autoClockOut so the driver's shift closes (matches
+   *     confirmAtVenue's pattern)
+   *
+   * Best-effort on every sub-step -- the operator can re-trigger
+   * individual cleanups from /admin/equipment if any fail.
+   */
+  async completeCollection(
+    orderId: string,
+    driverId: string,
+    options?: {
+      shortageNotes?: string;
+      damages?: Array<{
+        equipmentId: string;
+        quantityDamaged: number;
+        damageType: "broken" | "lost" | "stolen" | "damaged";
+        unitCost: number;
+        description?: string;
+        photoUrl?: string;
+      }>;
+    },
+  ) {
+    const { data: confirmation, error } = await supabase
+      .from('driver_confirmations')
+      .insert([{
+        order_id: orderId,
+        driver_id: driverId,
+        confirmation_type: 'completed',
+        notes: options?.shortageNotes || 'Collection trip completed',
+        confirmed_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+
+    // Flip the collection driver_assignment to completed so dispatch
+    // stops surfacing it as outstanding.
+    try {
+      await supabase
+        .from("driver_assignments")
+        .update({ status: "completed", completed_at: new Date().toISOString() } as any)
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .neq("status", "completed");
+    } catch (e) {
+      console.warn("[completeCollection] driver_assignments close failed (non-blocking):", e);
+    }
+
+    // Flow audit Leg E P0-17: drivers used to drop damaged gear in
+    // the cleaning bay with no paper trail, so cleaning got blamed
+    // for breakages that happened at venue. Capture damage reports
+    // inline through equipmentTrackingService so the responsible
+    // party is the driver, not the cleaner, and the damage cost
+    // hits the right cost-centre.
+    if (options?.damages && options.damages.length > 0) {
+      try {
+        const { equipmentTrackingService } = await import("@/services/equipmentTrackingService");
+        for (const d of options.damages) {
+          try {
+            await (equipmentTrackingService as any).reportDamage({
+              orderId,
+              equipmentId: d.equipmentId,
+              quantityDamaged: d.quantityDamaged,
+              damageType: d.damageType,
+              damageStage: "return",
+              unitCost: d.unitCost,
+              responsibleUserId: driverId,
+              description: d.description,
+              photoUrl: d.photoUrl,
+            });
+          } catch (e) {
+            console.warn("[completeCollection] damage report failed for", d.equipmentId, e);
+          }
+        }
+      } catch (e) {
+        console.warn("[completeCollection] damage cascade crashed (non-blocking):", e);
+      }
+    }
+
+    // Walk equipment_bookings for this order and call returnEquipment
+    // on each. Status='returned' is the canonical signal for the
+    // availability calculator + the cleaning queue.
+    try {
+      const { data: bookings } = await supabase
+        .from("equipment_bookings")
+        .select("id, status")
+        .eq("order_id", orderId);
+      const { equipmentService } = await import("@/services/equipmentService");
+      for (const b of (bookings || []) as any[]) {
+        if (b.status === "returned") continue;
+        try {
+          await (equipmentService as any).returnEquipment(b.id);
+        } catch (returnErr) {
+          console.warn("[completeCollection] returnEquipment failed for booking", b.id, returnErr);
+        }
+      }
+    } catch (e) {
+      console.warn("[completeCollection] equipment return cascade crashed (non-blocking):", e);
+    }
+
+    // autoClockOut to close the collection shift. Same pattern as
+    // confirmAtVenue so single-driver days end cleanly.
+    try {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      const companyId = (orderRow as any)?.company_id;
+      if (companyId) {
+        const { driverPayService } = await import("@/services/driverPayService");
+        await (driverPayService as any).autoClockOut({ companyId, driverId, orderId });
+      }
+    } catch (shiftErr) {
+      console.warn("[completeCollection] autoClockOut failed (non-blocking):", shiftErr);
+    }
+
+    return confirmation as DriverConfirmation;
+  },
+
+  /**
+   * Driver clocks in for the collection run.
+   *
+   * Flow audit Leg E P1-16: the collection trip is a paid run too, but
+   * autoClockIn only ever fired on the delivery leg. Drivers either
+   * worked the collection off-clock (silent pay loss) or punched in
+   * manually. Mirror the delivery-leg clock-in here so the collection
+   * trip is automatically billable from the moment the driver hits
+   * "On my way to collect".
+   */
+  async startCollection(orderId: string, driverId: string) {
+    try {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("company_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      const companyId = (orderRow as any)?.company_id;
+      if (!companyId) return null;
+      const { driverPayService } = await import("@/services/driverPayService");
+      // The autoClockIn helper handles "already on a shift" cases; we
+      // don't need to read driver_shifts ourselves.
+      // autoClockIn deduplicates against an existing open shift on
+      // (driver, order), so calling it from the collection trip after
+      // the delivery shift already closed safely opens a new one.
+      const shift = await (driverPayService as any).autoClockIn({
+        companyId,
+        driverId,
+        orderId,
+      });
+      // Flip the driver_assignment to in_progress so dispatch sees the
+      // collection trip is live. en_route_at is the equivalent of a
+      // "started" timestamp on this table.
+      await supabase
+        .from("driver_assignments")
+        .update({ status: "in_progress", en_route_at: new Date().toISOString() } as any)
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .eq("status", "pending");
+      return shift;
+    } catch (e) {
+      console.warn("[startCollection] failed:", e);
+      return null;
+    }
   },
 
   /**

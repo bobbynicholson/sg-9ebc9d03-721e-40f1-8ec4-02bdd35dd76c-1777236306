@@ -179,12 +179,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 6) Map and insert the lead
   const mapped = mapPayloadToLead(fields, payload);
 
-  // Lead schema requires `contact_name` + `email` (not nullable). Backfill
-  // sensible defaults when the form didn't collect them.
+  // Flow audit Leg B P0-10: previously a form that omitted an email
+  // field would still insert a lead with email='no-reply@embed.local'.
+  // That poisoned the lead-source funnel, broke conversion-to-order
+  // (convertQuoteToOrder needs a real email), and made it impossible
+  // for the operator to reply. Reject the submission now -- if a form
+  // designer doesn't include an email field, the form isn't usable
+  // for lead capture and the operator should know.
+  const submittedEmail =
+    (mapped.email || mapped.client_email || "").toString().trim();
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submittedEmail);
+  if (!emailLooksValid) {
+    return res.status(400).json({
+      ok: false,
+      message: "An email address is required so the team can reply.",
+      errors: { email: "Please enter a valid email address" },
+    });
+  }
   const contactName =
     mapped.contact_name || mapped.client_name || "Embedded form enquiry";
-  const contactEmail =
-    mapped.email || mapped.client_email || "no-reply@embed.local";
+  const contactEmail = submittedEmail;
 
   const leadInsert: Record<string, any> = {
     company_id: company.id,

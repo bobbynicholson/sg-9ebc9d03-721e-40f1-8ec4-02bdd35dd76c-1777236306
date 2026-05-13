@@ -138,7 +138,43 @@ export default async function handler(
     const rawBody = await readRawBody(req);
     const { ordered, map: paymentData } = parsePayFastBody(rawBody);
 
-    const passphrase = process.env.PAYFAST_PASSPHRASE || "";
+    // Flow audit Leg C P0-2: PayFast signs every IPN with the merchant's
+    // own passphrase, not a platform-wide one. The previous code only
+    // ever read process.env.PAYFAST_PASSPHRASE so any tenant whose
+    // PayFast account had a different passphrase (i.e. every tenant in
+    // production once we onboard merchants other than the platform's
+    // own test account) would fail signature verification on EVERY
+    // IPN -- payments would land but never close orders or invoices.
+    //
+    // Strategy: PayFast IPNs always carry the tenant's company id in
+    // custom_str3. Look that up first, pull the active gateway's
+    // passphrase from payment_gateway_credentials, and verify against
+    // it. Fall back to the env passphrase only when no tenant match is
+    // found (so the legacy single-tenant deployment + bootstrap of a
+    // brand-new tenant whose creds aren't in the table yet still work).
+    const tenantCompanyIdFromIpn = (paymentData.custom_str3 || "").trim();
+    let passphrase = process.env.PAYFAST_PASSPHRASE || "";
+    if (tenantCompanyIdFromIpn && /^[0-9a-f-]{36}$/i.test(tenantCompanyIdFromIpn)) {
+      try {
+        const { getServiceSupabase } = await import("@/lib/supabase/service");
+        const { paymentGatewayService } = await import("@/services/paymentGatewayService");
+        const svc = getServiceSupabase();
+        const tenantCfg = await paymentGatewayService.getActiveWithCredentials(
+          tenantCompanyIdFromIpn,
+          svc,
+        );
+        if (tenantCfg && tenantCfg.gateway.provider === "payfast") {
+          const tenantPassphrase = (tenantCfg.credentials?.passphrase || "").toString();
+          // Empty string is a valid PayFast configuration (no passphrase)
+          // -- only fall back to env when the tenant has no payfast row
+          // at all. Once we have a payfast row, that's authoritative.
+          passphrase = tenantPassphrase;
+        }
+      } catch (e) {
+        console.warn("[payfast-webhook] tenant passphrase lookup failed, using env fallback:", e);
+      }
+    }
+
     const signedString = buildPayFastSignedString(ordered, passphrase);
     const expectedSignature = crypto
       .createHash("md5")
@@ -147,7 +183,7 @@ export default async function handler(
     const providedSignature = (paymentData.signature || "").toLowerCase();
 
     if (expectedSignature.toLowerCase() !== providedSignature) {
-      console.warn("[payfast-webhook] signature mismatch");
+      console.warn("[payfast-webhook] signature mismatch (tenant=", tenantCompanyIdFromIpn || "n/a", ")");
       return res.status(400).json({ error: "Invalid signature" });
     }
 

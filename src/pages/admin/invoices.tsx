@@ -168,28 +168,39 @@ export default function InvoicesPage() {
   const runBulkMarkPaid = async () => {
     if (bulkMarkPaidIds.size === 0) return;
     if (typeof window !== "undefined" && !window.confirm(
-      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This sets balance_due to 0 and amount_paid to total_amount on each.`,
+      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance, and closes the linked order.`,
     )) return;
     setBulkMarkPaidBusy(true);
     try {
       const ids = Array.from(bulkMarkPaidIds);
-      const targets = invoices.filter((inv) => ids.includes(inv.id));
-      const updates = targets.map((inv) => (supabase as any)
-        .from("invoices")
-        .update({
-          status: "paid",
-          amount_paid: Number(inv.total_amount || 0),
-          balance_due: 0,
-          paid_at: new Date().toISOString(),
-        })
-        .eq("id", inv.id));
-      const results = await Promise.all(updates);
-      const failed = results.filter((r: any) => r.error).length;
-      if (failed > 0) throw new Error(`${failed} update${failed === 1 ? "" : "s"} failed`);
-      toast({
-        title: "Marked as paid",
-        description: `${ids.length} invoice${ids.length === 1 ? "" : "s"} updated. Reload to refresh totals.`,
+      // Flow audit Leg C P0-1: route through the canonical
+      // record_invoice_payment RPC server-side so the payments
+      // ledger, orders.payment_status, and invoices.status all stay
+      // coherent. The naked invoices.update() this used to do skipped
+      // the ledger entirely and left the finance dashboard wrong.
+      const resp = await fetch("/api/admin/invoices/bulk-mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceIds: ids }),
       });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error((json as any)?.error || `Request failed (${resp.status})`);
+      }
+      const { paid = 0, skipped = 0, failed = 0, errors = [] } = json as any;
+      if (failed > 0) {
+        const first = (errors as any[])[0];
+        toast({
+          title: `Marked ${paid} paid, ${failed} failed`,
+          description: first ? `First error: ${first.reason}` : "Some invoices could not be marked paid",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Marked as paid",
+          description: `${paid} settled${skipped > 0 ? `, ${skipped} skipped (already paid or zero balance)` : ""}.`,
+        });
+      }
       clearBulkMarkPaid();
       loadInvoices();
     } catch (e: any) {
