@@ -441,10 +441,15 @@ export default function AdminQuoteDetail() {
       </Head>
       <NoIndexMeta />
 
-      <div className="min-h-screen bg-slate-50">
-        <AdminNav />
+      {/* Wave 14 follow-up: page used to render edge-to-edge so the
+          fixed AdminNav sidebar overlapped the content card on
+          desktop. Match the lg:pl-72 / xl:pl-80 pattern every other
+          /admin/* page uses, plus the pt-20/lg:pt-6 mobile spacing
+          for the floating nav button. */}
+      <AdminNav />
+      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
 
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 pt-20 lg:pt-6 pb-12">
           <div className="mb-6">
             <Link href="/admin/quotes">
               <Button variant="ghost" size="sm">
