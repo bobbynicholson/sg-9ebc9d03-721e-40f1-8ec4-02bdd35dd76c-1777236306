@@ -166,43 +166,38 @@ export async function getOrderPayments(orderId: string) {
   }
 }
 
+/**
+ * Audit (May 2026, Wave 5): the previous implementation here was a
+ * footgun -- it wrote an invoice row without company_id (breaking
+ * RLS scoping) and synthesised invoice_number from
+ * `INV-YYYY-<4-digit random>`, with a ~0.5 collision probability
+ * after ~80 invoices per year per tenant. The canonical path is
+ * ensureInvoiceForOrder (invoiceGenerationService) which uses
+ * tenant-scoped sequence numbers + the full invoice payload
+ * (subtotal, VAT, line items). Delegating here so any straggling
+ * caller (none in current code) lands on the safe path.
+ */
 export async function generateInvoice(orderId: string) {
   try {
-    // Get order with all details
     const { data: order, error } = await supabase
       .from("orders")
-      .select(`
-        *,
-        client:clients(*),
-        order_items(*),
-        company:companies(*)
-      `)
+      .select("id, company_id")
       .eq("id", orderId)
-      .single();
-
-    if (error) throw error;
-
-    // Generate invoice number
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-
-    // Create invoice record
-    const { data: invoice, error: invoiceError } = await supabase
-      .from("invoices")
-      .insert({
-        order_id: orderId,
-        client_id: order.client_id,
-        invoice_number: invoiceNumber,
-        issue_date: new Date().toISOString(),
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        balance_due: order.total_amount - (order.amount_paid || 0),
-        status: "sent" as any,
-      } as any)
-      .select()
-      .single();
-
-    if (invoiceError) throw invoiceError;
-
-    return { success: true, invoice };
+      .maybeSingle();
+    if (error || !order) {
+      return { success: false, error: error?.message || "Order not found" };
+    }
+    const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+    const res = await ensureInvoiceForOrder(
+      orderId,
+      (order as any).company_id,
+      supabase as any,
+      {},
+    );
+    if (!res.success) {
+      return { success: false, error: (res as any).error || "Invoice generation failed" };
+    }
+    return { success: true, invoice: { id: (res as any).invoiceId } };
   } catch (error: any) {
     console.error("Error generating invoice:", error);
     return { success: false, error: error.message };

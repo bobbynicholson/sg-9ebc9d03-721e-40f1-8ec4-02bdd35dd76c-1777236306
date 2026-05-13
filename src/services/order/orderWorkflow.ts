@@ -100,10 +100,13 @@ export async function updateOrderStatus(
       }
     }
 
-    // Stamp confirmed_at the first time an order moves to (or past)
-    // 'confirmed'. The dashboard's Booked Revenue gate keys on this
-    // column, so it has to be written even when the operator skips
-    // straight from pending to preparing/ready/etc.
+    // Stamp every lifecycle moment the first time an order reaches
+    // it. Audit (May 2026, Wave 5): the previous block only wrote
+    // confirmed_at. Downstream KPIs key off picked_up_at and (more
+    // critically) delivered_at -- driver on-time rate, dispatch
+    // KPI tile, and the orders timeline all read NULL today because
+    // nothing ever stamped it. Now writes every <status>_at the
+    // first time the order transitions into that status.
     const advancedStatuses = new Set([
       "confirmed", "preparing", "ready", "in_transit",
       "out_for_delivery", "delivered", "completed",
@@ -112,15 +115,30 @@ export async function updateOrderStatus(
       status: newStatus as any,
       updated_at: new Date().toISOString(),
     };
+    const nowIso = new Date().toISOString();
     if (advancedStatuses.has(newStatus)) {
-      // Only set if NULL -- never clobber an existing stamp.
       const { data: prior } = await supabase
         .from("orders")
-        .select("confirmed_at")
+        .select("confirmed_at, ready_at, picked_up_at, delivered_at, completed_at")
         .eq("id", orderId)
         .maybeSingle();
-      if (!prior?.confirmed_at) {
-        updates.confirmed_at = new Date().toISOString();
+      // confirmed_at -- any advanced status counts as "past confirmed"
+      if (!(prior as any)?.confirmed_at) updates.confirmed_at = nowIso;
+      // Per-status stamps -- never clobber an existing value. The
+      // orders table has ready_at / picked_up_at / delivered_at /
+      // completed_at columns (preparing_at does not exist, so
+      // preparing status doesn't stamp a per-state column).
+      if (newStatus === "ready" && !(prior as any)?.ready_at) {
+        updates.ready_at = nowIso;
+      }
+      if ((newStatus === "in_transit" || newStatus === "out_for_delivery") && !(prior as any)?.picked_up_at) {
+        updates.picked_up_at = nowIso;
+      }
+      if (newStatus === "delivered" && !(prior as any)?.delivered_at) {
+        updates.delivered_at = nowIso;
+      }
+      if (newStatus === "completed" && !(prior as any)?.completed_at) {
+        updates.completed_at = nowIso;
       }
     }
 

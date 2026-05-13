@@ -36,7 +36,20 @@ export interface DeliveryUpdate {
 }
 
 /**
- * Update delivery status
+ * Update delivery status.
+ *
+ * Audit (May 2026, Wave 5): the old path wrote `status` directly to
+ * orders with no transition validation, no per-status _at stamps,
+ * no order_status_history parity with orderWorkflow, and no
+ * customer notification fan-out. A driver tapping "delivered"
+ * never triggered the client delivered email/WhatsApp, the
+ * POD-missing admin alert, the pending_reviews queue, equipment
+ * cleaning rows, or the collection-trip cascade -- all of which
+ * fire only from orderWorkflow.updateOrderStatus.
+ *
+ * Now: verify the driver owns this order (assigned_driver_id OR
+ * driver_id legacy), then delegate to updateOrderStatus which runs
+ * the full state machine + side-effect fan-out.
  */
 export async function updateDeliveryStatus(
   orderId: string,
@@ -45,29 +58,34 @@ export async function updateDeliveryStatus(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
+    // Ownership guard: refuse the update if this driver isn't on
+    // the order via either column (assigned_driver_id or legacy
+    // driver_id).
+    const { data: order } = await supabase
       .from("orders")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
-      .eq("assigned_driver_id", driverId);
+      .maybeSingle();
+    if (!order) return { success: false, error: "Order not found." };
+    const isAssigned =
+      (order as any).assigned_driver_id === driverId ||
+      (order as any).driver_id === driverId;
+    if (!isAssigned) {
+      return { success: false, error: "You are not assigned to this order." };
+    }
 
-    if (error) throw error;
-
-    // Log the status change
-    await supabase.from("order_status_history").insert({
-      order_id: orderId,
-      status,
-      changed_by: driverId,
-      notes,
-    });
+    // Delegate to the canonical state machine. updateOrderStatus
+    // handles transition validation, _at stamping, status history,
+    // and the full side-effect cascade (email, WhatsApp, equipment
+    // cleaning, collection trip, etc).
+    const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+    const result = await updateOrderStatus(orderId, status, driverId);
+    if (!result.success) return { success: false, error: (result as any).error };
+    // notes left for caller to stamp via order_status_history if
+    // needed; updateOrderStatus inserts the canonical row itself.
 
     // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
     // in_transit -> open shift. delivered/completed -> close it.
-    // Failures here don't block the status change -- the shift is
-    // bookkeeping, not the truth of the delivery.
     if (status === "in_transit") {
       const companyId = await companyIdForOrder(orderId);
       if (companyId) {
@@ -88,28 +106,79 @@ export async function updateDeliveryStatus(
 }
 
 /**
- * Confirm delivery with proof
+ * Confirm delivery with proof.
+ *
+ * Audit (May 2026, Wave 5): the previous version accepted POD photo,
+ * signature and notes arguments but threw them all on the floor --
+ * only `status: "delivered"` reached the database. Every order
+ * confirmed via this path ended up with NULL pod_photo_url /
+ * pod_signature_url / pod_captured_at, which then triggered the
+ * "POD missing" admin alert and meant we had no proof when a client
+ * disputed the drop. Now writes the artefacts and delegates the
+ * status flip to updateOrderStatus so all the downstream fan-out
+ * (client email, equipment cleaning, collection trip) fires.
  */
 export async function confirmDelivery(
   orderId: string,
   driverId: string,
   proofOfDelivery?: string,
   clientSignature?: string,
-  notes?: string
+  notes?: string,
+  recipientName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
+    // Ownership guard
+    const { data: order } = await supabase
       .from("orders")
-      .update({
-        status: "delivered",
-      } as any) // Cast to any to bypass strict type checking for custom delivery fields
+      .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
-      .eq("assigned_driver_id", driverId);
+      .maybeSingle();
+    if (!order) return { success: false, error: "Order not found." };
+    const isAssigned =
+      (order as any).assigned_driver_id === driverId ||
+      (order as any).driver_id === driverId;
+    if (!isAssigned) {
+      return { success: false, error: "You are not assigned to this order." };
+    }
 
-    if (error) throw error;
+    // Persist POD artefacts up front so the columns are populated
+    // before updateOrderStatus reads them for its downstream alerts.
+    const podUpdate: any = {};
+    if (proofOfDelivery) podUpdate.pod_photo_url = proofOfDelivery;
+    if (clientSignature) podUpdate.pod_signature_url = clientSignature;
+    if (recipientName) podUpdate.pod_recipient_name = recipientName;
+    if (proofOfDelivery || clientSignature || recipientName) {
+      podUpdate.pod_captured_at = new Date().toISOString();
+    }
+    if (Object.keys(podUpdate).length > 0) {
+      const { error: podErr } = await supabase
+        .from("orders")
+        .update(podUpdate)
+        .eq("id", orderId);
+      if (podErr) {
+        console.warn("[confirmDelivery] POD stamp failed (non-blocking):", podErr);
+      }
+    }
 
-    // Close the auto-shift opened on pickup (Stage 4). Soft-fails so a
-    // missing shift doesn't roll back the delivery confirmation.
+    // Delegate the status flip + side-effect cascade.
+    const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+    const result = await updateOrderStatus(orderId, "delivered", driverId);
+    if (!result.success) return { success: false, error: (result as any).error };
+    if (notes) {
+      // Persist driver-provided notes to the history row.
+      try {
+        await supabase.from("order_status_history").insert({
+          order_id: orderId,
+          status: "delivered",
+          changed_by: driverId,
+          notes,
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    // Close the auto-shift opened on pickup.
     const companyId = await companyIdForOrder(orderId);
     if (companyId) {
       await driverPayService.autoClockOut({ companyId, driverId, orderId });
@@ -142,6 +211,9 @@ export async function getDriverDeliveries(
         )
       `)
       .eq("assigned_driver_id", driverId)
+      // Canonical "active" status set. The DB enum only contains
+      // in_transit; readers referencing out_for_delivery elsewhere
+      // are dead code (the column rejects that value).
       .in("status", ["confirmed", "preparing", "ready", "in_transit"])
       .order("event_date");
 

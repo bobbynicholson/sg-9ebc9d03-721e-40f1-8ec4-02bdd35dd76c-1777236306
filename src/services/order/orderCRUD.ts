@@ -139,9 +139,21 @@ export async function createOrder(orderData: any) {
   }
 }
 
-export async function getOrderById(orderId: string) {
+/**
+ * Audit (May 2026, Wave 5): companyId is now required. The previous
+ * version hydrated an order by id alone, trusting RLS as the only
+ * tenant boundary -- meaning webhook callers (payment-confirmation,
+ * stripe-confirmation, yoco-confirmation) that use the service role
+ * could load any tenant's order with one untrusted id. companyId
+ * verification here makes the contract explicit at the call site.
+ *
+ * For migration: the parameter is still optional but logs a warning
+ * when omitted so legacy callers surface in console. Strict mode
+ * coming in a follow-up.
+ */
+export async function getOrderById(orderId: string, companyId?: string) {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("orders")
       .select(`
         *,
@@ -151,8 +163,13 @@ export async function getOrderById(orderId: string) {
         assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
       `)
       .eq("id", orderId)
-      .is("deleted_at", null)
-      .single();
+      .is("deleted_at", null);
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    } else {
+      console.warn("[getOrderById] called without companyId -- relying on RLS only. Pass companyId from a verified context.");
+    }
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return { success: true, data };
