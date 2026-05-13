@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X } from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -468,6 +468,10 @@ export default function AdminQuotes() {
     { limit: 0 },
   );
 
+  // Phase 27 #8: manual refresh bumper. Realtime channels handle
+  // most refresh cases but operators want a button when they
+  // expect a colleague to have just touched something.
+  const [refreshTick, setRefreshTick] = useState(0);
   useEffect(() => {
     if (!user?.company_id) {
       setLoading(false);
@@ -597,7 +601,7 @@ export default function AdminQuotes() {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user?.company_id]);
+  }, [user?.company_id, refreshTick]);
 
   // Hydrate authoritative event details from linked orders. When a
   // quote has converted_to_order_id set, the order is the source of
@@ -1075,6 +1079,19 @@ export default function AdminQuotes() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {/* Phase 27 #8: manual refresh bumps refreshTick which
+                    is wired into the load effect's deps. Realtime
+                    channels handle most cases but operators want
+                    a button when expecting a colleague to have just
+                    touched a quote. */}
+                <Button
+                  variant="outline"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
                 {/* Phase 11 #2: CSV export of the currently filtered
                     quote set. Respects bucket + search so the file
                     matches what the operator sees on screen. */}
