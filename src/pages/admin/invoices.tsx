@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -49,6 +49,24 @@ export default function InvoicesPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  // Phase 26 #3: "/" or Cmd-F focuses the search input.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [statusFilter, setStatusFilter] = useState("all");
   // Phase 15 #2: saved-view chips on /admin/invoices. Mirrors the
   // /admin/orders + /admin/quotes pattern -- snapshot search +
@@ -870,7 +888,8 @@ export default function InvoicesPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search by invoice number or client email..."
+                  ref={searchRef}
+                  placeholder="Search by invoice number or client email... (press /)"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-10"
