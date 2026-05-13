@@ -231,7 +231,7 @@ export const whatsappIntegrationService = {
                 `Event Date: ${order.event_date}\n` +
                 `Location: ${(order as any).event_location || "TBD"}\n\n` +
                 `Thank you for your order! We'll send you updates as your delivery progresses.\n\n` +
-                `Track your order: ${process.env.NEXT_PUBLIC_APP_URL}/tracking/client?order=${order.id}`
+                `Track your order: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/tracking?orderId=${order.id}`
         }
       };
 
@@ -284,7 +284,7 @@ export const whatsappIntegrationService = {
         text: {
           body: `${statusMessages[status] || "📦 Order Update"}\n\n` +
                 `Order #${order.id.substring(0, 8).toUpperCase()}\n\n` +
-                `Track live: ${process.env.NEXT_PUBLIC_APP_URL}/tracking/client?order=${order.id}`
+                `Track live: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/tracking?orderId=${order.id}`
         }
       };
 

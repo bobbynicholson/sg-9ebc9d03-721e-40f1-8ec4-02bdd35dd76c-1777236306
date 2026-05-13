@@ -11,9 +11,28 @@
  * what import-batch state their record is in. blocked_contacts still
  * applies (a deliberately blocked contact stays blocked).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+
+// Wave 17 audit: these helpers fire from server-side API routes
+// (cancellation-review, refundService etc.) where the imported
+// browser supabase client has no session and RLS rejects the orders /
+// companies SELECTs -- the helpers silently no-op and the client
+// never gets their cancellation / refund / postponement email.
+// Resolve a service-role client at call time when we're on the
+// server. On the browser we keep the imported anon client (these
+// helpers are also called from a few admin pages).
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
 import {
   formatCancellationSubject,
   formatPostponementSubject,
@@ -74,7 +93,8 @@ interface CompanyForEmailExt extends CompanyForEmail {
 }
 
 async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmailExt | null }> {
-  const { data: order } = await supabase
+  const sb = resolveServerClient();
+  const { data: order } = await sb
     .from("orders")
     .select("id, company_id, client_email, client_name, order_number, event_date, event_name")
     .eq("id", orderId)
@@ -82,7 +102,7 @@ async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForE
   if (!order) return { order: null, company: null };
   // refund_process_days landed in the companies_financial_settings_columns
   // migration; cast keeps us off the still-stale Supabase Database types.
-  const { data: company } = await (supabase as any)
+  const { data: company } = await (sb as any)
     .from("companies")
     .select("id, company_name, refund_process_days")
     .eq("id", (order as any).company_id)
@@ -159,7 +179,12 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
       subject: resolved.subject,
       body: resolved.bodyHtml,
       bypassQuarantine: true,
-    });
+      // Wave 17 audit: server-side caller; pass the resolved client
+      // so getEmailConfig can read email_provider_settings under
+      // service-role -- otherwise RLS hides the row and sendEmail
+      // returns "no_provider" silently.
+      _client: resolveServerClient(),
+    } as any);
   } catch (e) {
     console.warn("[sendCancellationEmail] failed:", e);
   }
@@ -195,7 +220,12 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       subject: resolved.subject,
       body: resolved.bodyHtml,
       bypassQuarantine: true,
-    });
+      // Wave 17 audit: server-side caller; pass the resolved client
+      // so getEmailConfig can read email_provider_settings under
+      // service-role -- otherwise RLS hides the row and sendEmail
+      // returns "no_provider" silently.
+      _client: resolveServerClient(),
+    } as any);
   } catch (e) {
     console.warn("[sendRefundPaidEmail] failed:", e);
   }
@@ -235,7 +265,12 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
       subject: resolved.subject,
       body: resolved.bodyHtml,
       bypassQuarantine: true,
-    });
+      // Wave 17 audit: server-side caller; pass the resolved client
+      // so getEmailConfig can read email_provider_settings under
+      // service-role -- otherwise RLS hides the row and sendEmail
+      // returns "no_provider" silently.
+      _client: resolveServerClient(),
+    } as any);
   } catch (e) {
     console.warn("[sendPostponementApprovedEmail] failed:", e);
   }

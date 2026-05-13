@@ -31,21 +31,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Wave 17 audit: the email-delivered pay link points at
+    // /pay/i/{public_token}, where the client is unauthenticated.
+    // The previous "Sign in first" gate broke that flow: the client
+    // clicked Pay, hit a 401, never paid. Accept either:
+    //   - signed-in client (logged into /client-portal), OR
+    //   - unauth visitor with a matching public_token in the body.
+    // Token-bearer access is invoice-scoped (the token IS the
+    // capability) so we don't need a separate auth check beyond
+    // matching the token to the invoice row.
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Sign in first" });
 
-    const { invoice_id } = req.body || {};
+    const body = (req.body || {}) as any;
+    const invoice_id = body.invoice_id as string | undefined;
+    const public_token = typeof body.public_token === "string" ? body.public_token.trim() : "";
     if (typeof invoice_id !== "string" || !/^[0-9a-f-]{36}$/i.test(invoice_id)) {
       return res.status(400).json({ error: "Invalid invoice" });
+    }
+    if (!user && !public_token) {
+      return res.status(401).json({ error: "Sign in or use the pay link from your email" });
     }
 
     const admin = getServiceSupabase();
 
-    // Resolve invoice + tenant + buyer.
+    // Resolve invoice + tenant + buyer. Pull public_token so we can
+    // verify it matches when used as the auth gate.
     const { data: invoice, error: invErr } = await admin
       .from("invoices")
-      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, deleted_at, status")
+      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, deleted_at, status, public_token")
       .eq("id", invoice_id)
       .maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
@@ -55,14 +69,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: "Invoice is already paid" });
     }
 
-    // Verify the caller is the linked client under this tenant.
-    const { data: ownership } = await admin
-      .from("clients")
-      .select("id, email, client_name")
-      .eq("id", invoice.client_id)
-      .eq("user_id", user.id)
-      .eq("company_id", invoice.company_id)
-      .maybeSingle();
+    // Authorise. Either the public token matches the invoice OR the
+    // signed-in client owns the invoice via clients.user_id linkage.
+    let ownership: { id: string; email: string | null; client_name: string | null } | null = null;
+    if (public_token && (invoice as any).public_token && public_token === (invoice as any).public_token) {
+      // Token-bearer path: capability granted by holding the token.
+      // Resolve the linked client for personalisation only.
+      const { data: clientRow } = await admin
+        .from("clients")
+        .select("id, email, client_name")
+        .eq("id", invoice.client_id)
+        .eq("company_id", invoice.company_id)
+        .maybeSingle();
+      ownership = clientRow ? {
+        id: (clientRow as any).id,
+        email: (clientRow as any).email,
+        client_name: (clientRow as any).client_name,
+      } : { id: invoice.client_id, email: null, client_name: null };
+    } else if (user) {
+      const { data: row } = await admin
+        .from("clients")
+        .select("id, email, client_name")
+        .eq("id", invoice.client_id)
+        .eq("user_id", user.id)
+        .eq("company_id", invoice.company_id)
+        .maybeSingle();
+      if (row) ownership = {
+        id: (row as any).id,
+        email: (row as any).email,
+        client_name: (row as any).client_name,
+      };
+    }
     if (!ownership) {
       return res.status(403).json({ error: "Not your invoice" });
     }

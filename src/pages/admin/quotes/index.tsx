@@ -268,7 +268,13 @@ export default function AdminQuotes() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const [bucket, setBucket] = useState<QuoteBucket>("all");
+  // Wave 17 audit: default landing was "all" which mixed accepted /
+  // expired / lost rows in with active selling work. Operators land
+  // on /admin/quotes to see what they need to PUSH today, not what
+  // they already closed. "in_play" excludes won/lost/expired and
+  // surfaces the pipeline. Won is one click away via the bucket
+  // chips. The "all" bucket stays available for audit / search.
+  const [bucket, setBucket] = useState<QuoteBucket>("in_play");
   // Phase 8 #8: list (default) vs pipeline kanban view. The kanban
   // groups by intelligence bucket (action_needed / in_play / stale /
   // won / lost / expired) so the sales lead can see where every

@@ -104,12 +104,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Resolve quote + stamp acceptance.
+  // Wave 17 audit: previously the existence check + the UPDATE were
+  // two separate round-trips. Two simultaneous client clicks (or a
+  // double-tap on a slow connection) both passed the existence
+  // check, both ran the UPDATE, both fired convertQuoteToOrder --
+  // duplicate orders + duplicate deposit invoices + duplicate
+  // kitchen prep tasks landed for the same quote. Make the UPDATE
+  // atomic by gating on status (only matches a non-accepted row);
+  // the second call lands an empty .single() which we treat as
+  // "someone else already accepted, return 409".
   const nowIso = new Date().toISOString();
   const { data: updated, error } = await (supabase as any)
     .from("quotes")
     .update({ accepted_at: nowIso, status: "accepted" })
     .eq("public_token", token)
     .is("deleted_at", null)
+    .in("status", ["draft", "sent", "viewed"])
     // Wave 12 follow-up: `currency` lives on companies, not quotes --
     // selecting it from quotes returns "column quotes.currency does not
     // exist" and 500s the accept flow. Pull currency from companies
@@ -117,8 +127,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name")
     .maybeSingle();
 
-  if (error) return res.status(500).json({ ok: false, error: error.message });
-  if (!updated) return res.status(404).json({ ok: false, error: "Quote not found." });
+  // Wave 17 audit: don't leak raw Postgres errors to the public client.
+  // Log the real cause server-side, surface a friendly message.
+  if (error) {
+    console.error("[public/quotes/accept] update failed", { token, error });
+    return res.status(500).json({ ok: false, error: "Couldn't accept this quote right now. Please try again or contact the caterer." });
+  }
+  if (!updated) {
+    // No row matched -- either the token is wrong (404) OR another
+    // request just accepted this one (race -- treat as 409 idempotent).
+    const { data: existsCheck } = await (supabase as any)
+      .from("quotes")
+      .select("id, status")
+      .eq("public_token", token)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existsCheck?.status === "accepted") {
+      return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existsCheck.id });
+    }
+    return res.status(404).json({ ok: false, error: "Quote not found." });
+  }
 
   // Audit (May 2026, Wave 3): public acceptance now fires the same
   // convert-to-order cascade the admin "Mark accepted" path uses --
@@ -312,6 +340,12 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "";
       const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
       const { emailService } = await import("@/services/emailService");
+      // Wave 17 audit: this is an unauthenticated public route, so the
+      // anon supabase client passed in here can't read
+      // email_provider_settings under RLS -- getEmailConfig returned
+      // null, sendEmail logged "no provider configured", owner never
+      // got their "quote accepted" email. Pass the service-role
+      // client so the gates + provider lookup actually run.
       await (emailService as any).sendEmail({
         companyId: quote.company_id,
         to: profile.email,
@@ -324,6 +358,7 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
           companyName,
           totalAmount: totalLabel,
         },
+        _client: supabase,
       });
     }
   } catch (err) {

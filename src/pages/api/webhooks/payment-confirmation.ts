@@ -97,6 +97,46 @@ function clientIpFromRequest(req: NextApiRequest): string | null {
   return req.socket?.remoteAddress || null;
 }
 
+/**
+ * Parse a single IPv4 entry -- either a literal "1.2.3.4" or a CIDR
+ * range "1.2.3.0/24" -- and return a matcher function. Returns null
+ * for unparseable entries (skipped silently so a single typo doesn't
+ * disable the whole allowlist).
+ */
+function ipMatcher(entry: string): ((ip: string) => boolean) | null {
+  const trimmed = entry.trim();
+  if (!trimmed) return null;
+  const slash = trimmed.indexOf("/");
+  if (slash === -1) {
+    return (ip) => ip === trimmed;
+  }
+  const base = trimmed.slice(0, slash);
+  const bits = parseInt(trimmed.slice(slash + 1), 10);
+  if (!Number.isFinite(bits) || bits < 0 || bits > 32) return null;
+  const baseInt = ipv4ToInt(base);
+  if (baseInt === null) return null;
+  if (bits === 0) return () => true;
+  const mask = bits === 32 ? 0xffffffff : (~0 << (32 - bits)) >>> 0;
+  const network = (baseInt & mask) >>> 0;
+  return (ip) => {
+    const candidate = ipv4ToInt(ip);
+    if (candidate === null) return false;
+    return ((candidate & mask) >>> 0) === network;
+  };
+}
+
+function ipv4ToInt(ip: string): number | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  let acc = 0;
+  for (const p of parts) {
+    const n = Number(p);
+    if (!Number.isInteger(n) || n < 0 || n > 255) return null;
+    acc = ((acc << 8) | n) >>> 0;
+  }
+  return acc;
+}
+
 function isAllowedPayFastIp(ip: string | null): boolean {
   const raw = (process.env.PAYFAST_ALLOWED_IPS || "").trim();
   if (!raw) {
@@ -110,8 +150,20 @@ function isAllowedPayFastIp(ip: string | null): boolean {
     return process.env.NODE_ENV !== "production";
   }
   if (!ip) return false;
-  const list = raw.split(",").map(s => s.trim()).filter(Boolean);
-  return list.includes(ip);
+  // Wave 17 audit: this used to do simple string equality on
+  // PAYFAST_ALLOWED_IPS, but the env var typically lists CIDR ranges
+  // (PayFast publishes 197.97.145.144/29, 41.74.179.192/27, etc.) --
+  // every live IPN was being rejected because the literal IP never
+  // string-matched the CIDR entry. Build matchers per entry so both
+  // literals and CIDR ranges work.
+  // Strip a leading IPv6-mapped prefix (::ffff:) that some proxies
+  // attach to IPv4 sources.
+  const cleanIp = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+  for (const entry of raw.split(",")) {
+    const matcher = ipMatcher(entry);
+    if (matcher && matcher(cleanIp)) return true;
+  }
+  return false;
 }
 
 export default async function handler(
