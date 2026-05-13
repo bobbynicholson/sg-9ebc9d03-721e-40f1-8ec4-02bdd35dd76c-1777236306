@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
+import { driverPayService, resolveEffectiveRates, type DriverPayRates } from "@/services/driverPayService";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -58,6 +59,7 @@ interface Job {
   status: string;
   event_date: string;
   pickup_time?: string;
+  delivery_distance_km?: number | null;
 }
 
 export default function DriverDashboard() {
@@ -68,6 +70,24 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  // Real pay rates for the signed-in driver (per-driver override
+  // falling back to companies.default_*). Loaded once on mount; used
+  // to compute "Today's Potential Earnings" from callout + round-trip
+  // distance * rate instead of the previous hardcoded R250 per stop.
+  const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
+
+  useEffect(() => {
+    if (!user?.id || !user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const [defaults, profile] = await Promise.all([
+        driverPayService.getCompanyDefaults(user.company_id),
+        driverPayService.getDriverProfile(user.id),
+      ]);
+      if (!cancelled) setPayRates(resolveEffectiveRates(profile, defaults));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, user?.company_id]);
 
   // Phase 5: POD capture + decline dialogs
   const [podJob, setPodJob] = useState<Job | null>(null);
@@ -114,7 +134,8 @@ export default function DriverDashboard() {
             event_time,
             event_date,
             status,
-            pickup_time
+            pickup_time,
+            delivery_distance_km
           )
         `)
         .eq("driver_id", user.id)
@@ -166,6 +187,7 @@ export default function DriverDashboard() {
           status: a.status,
           event_date: a.orders.event_date,
           pickup_time: a.orders.pickup_time,
+          delivery_distance_km: a.orders.delivery_distance_km ?? null,
         }));
 
       const directJobs: Job[] = (directOrders || []).map((o: any) => ({
@@ -180,6 +202,7 @@ export default function DriverDashboard() {
         status: o.status || "pending",
         event_date: o.event_date,
         pickup_time: o.pickup_time,
+        delivery_distance_km: o.delivery_distance_km ?? null,
       }));
 
       // Deduplicate by order ID
@@ -327,6 +350,17 @@ export default function DriverDashboard() {
     (j) => j.event_date === new Date().toISOString().split("T")[0]
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
+  // Potential earnings = sum over today's jobs of (callout + round-trip
+  // distance pay). Mirrors driverPayService.calculateDeliveryPay so the
+  // figure on the dashboard matches what actually lands on the payslip.
+  const todaysPotentialEarnings = (() => {
+    if (!payRates) return 0;
+    return todaysJobs.reduce((sum, j) => {
+      const oneWay = Number(j.delivery_distance_km || 0);
+      const distancePay = oneWay * 2 * payRates.distance_rate_per_km;
+      return sum + payRates.base_callout_fee + distancePay;
+    }, 0);
+  })();
 
   /**
    * Open Google Maps with kitchen as origin and the venue as destination.
@@ -490,7 +524,7 @@ export default function DriverDashboard() {
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-slate-600 mb-1">Today's Potential Earnings</p>
                     <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">
-                      R{(todaysJobs.length * 250).toFixed(0)}
+                      R{todaysPotentialEarnings.toFixed(0)}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-600 mt-2">
                       {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled •{" "}
