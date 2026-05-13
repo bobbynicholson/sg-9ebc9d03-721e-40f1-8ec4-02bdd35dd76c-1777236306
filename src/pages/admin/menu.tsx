@@ -23,7 +23,7 @@ import {
 import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
-  Upload, X, ShoppingBag, Download,
+  Upload, X, ShoppingBag, Download, RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -659,6 +659,18 @@ function MenuPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              {/* Phase 28 #2: manual refresh. The catalogue loads
+                  once on mount; the kitchen lead who has just
+                  added an item from another tab needs to pull
+                  the new row without a hard reload. */}
+              <Button
+                variant="outline"
+                onClick={load}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {/* Phase 19 #9: menu CSV export. Kitchen leads and
                   costing reviewers regularly want a flat snapshot of
                   the price list + cost + margin to bring into pricing
