@@ -283,17 +283,28 @@ export function calculateBceaShiftPay(
  * Compute the pay line for a single delivery. Reads
  * delivery_distance_km off the order (already snapshot at quote /
  * order time) and adds the flat callout fee on top.
+ *
+ * delivery_distance_km is stored as the ONE-WAY kitchen-to-venue
+ * distance (matches what the operator sees on Google Maps). The
+ * Phase 29 client-billing change moved the customer-side fee to
+ * round-trip (distance * 2 * rate). Driver pay needs the same ×2
+ * because the driver actually drives both legs -- otherwise the
+ * tenant silently underpays half the kilometres while billing
+ * the customer for the lot. distance_km on the receipt also
+ * reflects the round-trip total so payslip arithmetic is
+ * obvious.
  */
 export function calculateDeliveryPay(
   order: { id: string; delivery_distance_km?: number | null },
   rates: DriverPayRates,
 ): DeliveryPayLine {
-  const distance = Number(order.delivery_distance_km || 0);
-  const distancePay = +(distance * rates.distance_rate_per_km).toFixed(2);
+  const oneWay = Number(order.delivery_distance_km || 0);
+  const billable = oneWay * 2;
+  const distancePay = +(billable * rates.distance_rate_per_km).toFixed(2);
   const callout = +rates.base_callout_fee.toFixed(2);
   return {
     order_id: order.id,
-    distance_km: +distance.toFixed(2),
+    distance_km: +billable.toFixed(2),
     distance_rate: rates.distance_rate_per_km,
     distance_pay: distancePay,
     callout_fee: callout,
