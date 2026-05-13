@@ -96,7 +96,10 @@ export const quoteService = {
     return data;
   },
 
-  async createQuote(quote: Quote): Promise<Quote | null> {
+  async createQuote(
+    quote: Quote,
+    options?: { skipClientNotification?: boolean; skipLeadAdvance?: boolean },
+  ): Promise<Quote | null> {
     // Per-tenant numbering. Skip the RPC if the caller already supplied
     // a quote_number (e.g. legacy QT-YYYYMMDD-XXXXXX from admin/quotes/
     // new.tsx, or REQ- from the client portal rebook flow). Otherwise
@@ -139,7 +142,12 @@ export const quoteService = {
     // (admin/quotes/new.tsx:946) already does this -- mirror it here
     // so API-driven quote creation doesn't leave leads stuck at "new"
     // until they convert to "won".
-    if (data && (quote as any).lead_id) {
+    //
+    // Wave 11 #8: admin builder autosaves on empty / R0 quotes used
+    // to push leads to 'quoted' on every keystroke. Caller can pass
+    // skipLeadAdvance=true to keep the linkage stamped without
+    // claiming the lead is qualified yet.
+    if (data && (quote as any).lead_id && !options?.skipLeadAdvance) {
       // Atomic advance: a single UPDATE...WHERE status IN (...) avoids the
       // read-then-write race the previous two-query pattern allowed and
       // fails LOUD rather than silently if the policy or constraint
@@ -168,7 +176,12 @@ export const quoteService = {
     }
 
     // ✅ FIX BUG #16.1: Send quote request confirmation to client
-    if (data && quote.client_email) {
+    // Wave 11 #9: admin-builder callers (admin/quotes/new persistQuote)
+    // route through this path now too. They don't want the
+    // "we received your request" email firing on every draft save --
+    // that email belongs to the client-initiated flow only. Pass
+    // skipClientNotification when the create came from the admin builder.
+    if (data && quote.client_email && !options?.skipClientNotification) {
       try {
         // Get company name from user profile
         const { data: profile } = await supabase

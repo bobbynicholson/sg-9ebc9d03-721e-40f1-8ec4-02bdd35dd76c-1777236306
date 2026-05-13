@@ -137,12 +137,19 @@ export const leadService = {
 
         // 2. Email notification to admin
         if (adminProfile?.email) {
-          const subject = `New Lead Captured: ${lead.client_name}`;
+          // Wave 11 #5: lead.event_date can be null (form doesn't
+          // require it). new Date(null).toLocaleDateString() renders
+          // "Invalid Date" in the operator's email -- looks broken.
+          // Surface "TBD" instead, matching the WhatsApp body below.
+          const eventDateLabel = lead.event_date
+            ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
+            : "TBD";
+          const subject = `New Lead Captured: ${lead.client_name || lead.client_email}`;
           const body = `A new lead has been captured:
-Name: ${lead.client_name}
+Name: ${lead.client_name || lead.client_email}
 Email: ${lead.client_email}
-Event Date: ${new Date(lead.event_date).toLocaleDateString()}
-Guests: ${lead.guest_count}`;
+Event Date: ${eventDateLabel}
+Guests: ${lead.guest_count ?? "TBD"}`;
 
           await sendEmailViaAPI({
             companyId: lead.user_id,
@@ -241,12 +248,21 @@ Guests: ${lead.guest_count}`;
     // ✅ FIX BUG #19.4: Send notifications for status changes
     if (originalLead && data && originalLead.status !== updates.status && updates.status) {
       try {
+        // Wave 11 #2: 'won' is the canonical terminal value in the
+        // lead_status enum. The 'converted' string used to live in
+        // legacy CHECK-constraint days; the enum doesn't include it,
+        // so writing 'converted' silently failed against RLS or
+        // bounced an enum violation. Map the user-friendly copy to
+        // the real enum value.
         const statusMessages: Record<string, string> = {
           new: "New inquiry received",
           contacted: "Initial contact made",
+          qualified: "Lead qualified",
           quoted: "Quote sent to client",
-          converted: "Lead converted to order!",
-          lost: "Lead marked as lost"
+          negotiating: "Negotiating with client",
+          won: "Lead converted to order!",
+          lost: "Lead marked as lost",
+          manual_add: "Lead added manually",
         };
 
         const statusMessage = statusMessages[updates.status] || `Status updated to ${updates.status}`;
@@ -260,7 +276,7 @@ Guests: ${lead.guest_count}`;
           notification_type: "lead_status_updated",
           title: "Lead Status Updated",
           message: `${data.client_name || data.client_email}: ${statusMessage}`,
-          priority: updates.status === "converted" ? "high" : "medium",
+          priority: updates.status === "won" ? "high" : "medium",
           link: `/admin/leads?leadId=${id}`,
           related_entity_type: "lead",
           related_entity_id: id,
@@ -298,13 +314,55 @@ Guests: ${lead.guest_count}`;
     const lead = await this.getLeadById(leadId);
 
     // Create the draft quote up front. Previously this function only
-    // flipped lead.status to 'converted' and the operator was left to
+    // flipped lead.status to 'quoted' and the operator was left to
     // build the quote manually from the lead detail accordion --
     // running-todo Phase 2E-1 flagged this as "Convert button calls
     // nothing useful". Now the conversion produces a real quotes row
     // pre-populated from the lead so the operator lands on a draft
     // they can edit [P1-17].
     const { quoteService } = await import("./quoteService");
+
+    // Flow audit Wave 11 #1: lead's notes, special_requests, budget,
+    // budget_range and requested_items used to be dropped on the
+    // floor at Convert time. The operator opened the new quote, saw
+    // a blank Notes field, and re-typed everything from the lead
+    // detail accordion. Now flow them through:
+    //   - special_requests -> quotes.special_instructions (client-
+    //     facing line, surfaces on the quote PDF)
+    //   - notes + budget + budget_range -> quotes.internal_notes
+    //     (operator-only, never goes to the client)
+    //   - requested_items (jsonb from rebook / portal lead flows) ->
+    //     quotes.menu_items as zero-priced lines so the operator just
+    //     prices each row instead of re-picking them
+    const internalNoteParts: string[] = [];
+    if ((lead as any).notes) {
+      internalNoteParts.push(`Original lead notes:\n${(lead as any).notes}`);
+    }
+    if ((lead as any).budget_range) {
+      internalNoteParts.push(`Stated budget range: ${(lead as any).budget_range}`);
+    }
+    if ((lead as any).budget) {
+      internalNoteParts.push(`Stated budget: R${Number((lead as any).budget).toLocaleString("en-ZA")}`);
+    }
+    if ((lead as any).source) {
+      internalNoteParts.push(`Lead source: ${(lead as any).source}`);
+    }
+    const requestedItems = Array.isArray((lead as any).requested_items)
+      ? (lead as any).requested_items
+      : [];
+    const menuItemsFromLead = requestedItems
+      .filter((r: any) => r && (r.item_name || r.name))
+      .map((r: any) => ({
+        menu_item_id: r.menu_item_id || null,
+        item_name: r.item_name || r.name,
+        name: r.item_name || r.name,
+        category: r.category || null,
+        dietary_tags: r.dietary_tags || null,
+        quantity: Number(r.quantity ?? 1) || 1,
+        unit_price: 0,
+        line_total: 0,
+      }));
+
     const draftPayload: any = {
       company_id: (lead as any).company_id,
       user_id: (lead as any).user_id,
@@ -327,9 +385,10 @@ Guests: ${lead.guest_count}`;
       tax_amount: 0,
       total: 0,
       total_amount: 0,
-      notes: (lead as any).notes
-        ? `Converted from lead. Original notes:\n${(lead as any).notes}`
-        : "Converted from lead.",
+      menu_items: menuItemsFromLead.length > 0 ? menuItemsFromLead : null,
+      special_instructions: (lead as any).special_requests || null,
+      internal_notes: internalNoteParts.length > 0 ? internalNoteParts.join("\n\n") : null,
+      notes: "Converted from lead.",
     };
 
     let createdQuoteId: string | null = null;
@@ -346,8 +405,11 @@ Guests: ${lead.guest_count}`;
     // Flip the lead status only after we have (or fail to have) a
     // quote. quoteService.createQuote also advances lead.status to
     // 'quoted' atomically (P1-02), so this is partially redundant but
-    // belt-and-braces for the failure case.
-    await this.updateLead(leadId, { status: "converted" });
+    // belt-and-braces for the failure case. We stop at 'quoted' here
+    // (not 'won'); the lead only becomes 'won' once an order actually
+    // lands -- lifecycleService.promoteLeadToClient handles that
+    // terminal transition.
+    await this.updateLead(leadId, { status: "quoted" });
 
     try {
       await notificationService.createNotification({
@@ -387,8 +449,13 @@ Guests: ${lead.guest_count}`;
       total: data?.length || 0,
       new: data?.filter(l => l.status === "new").length || 0,
       contacted: data?.filter(l => l.status === "contacted").length || 0,
+      qualified: data?.filter(l => l.status === "qualified").length || 0,
       quoted: data?.filter(l => l.status === "quoted").length || 0,
-      converted: data?.filter(l => l.status === "converted").length || 0,
+      negotiating: data?.filter(l => l.status === "negotiating").length || 0,
+      // Wave 11 #2: 'won' is the canonical terminal value. Old data
+      // may still carry 'converted'; count it here so legacy rows
+      // don't silently fall out of the funnel total.
+      won: data?.filter(l => l.status === "won" || l.status === "converted").length || 0,
       lost: data?.filter(l => l.status === "lost").length || 0,
     };
 

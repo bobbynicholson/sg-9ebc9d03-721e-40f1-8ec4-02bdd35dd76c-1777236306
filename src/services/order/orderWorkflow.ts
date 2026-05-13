@@ -162,6 +162,31 @@ export async function updateOrderStatus(
       notes: `Status changed to ${newStatus}`,
     });
 
+    // Wave 11 #12: cross-cutting audit_logs row for the transition.
+    // order_status_history is the domain table (one row per status
+    // change); audit_logs is the platform-wide trail used for the
+    // "show me everything that happened on this entity" view.
+    // Best-effort -- a failed audit insert never rolls back a real
+    // status flip.
+    if (order.company_id) {
+      try {
+        await (supabase as any).from("audit_logs").insert({
+          company_id: order.company_id,
+          user_id: updatedBy || null,
+          action: `order_status_${newStatus}`,
+          entity_type: "order",
+          entity_id: orderId,
+          details: {
+            order_number: (order as any).order_number,
+            from_status: (order as any).status,
+            to_status: newStatus,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[orderWorkflow] audit_logs insert failed (non-blocking):", auditErr);
+      }
+    }
+
     // Send notifications based on status
     await sendStatusNotifications(order);
 
@@ -922,6 +947,23 @@ export async function cancelOrder(
           ? `Cancelled: ${opts.reason_category || "other"} -- ${opts.reason}`
           : `Cancelled: ${opts.reason_category || "other"}`,
       } as any);
+      // Wave 11 #12: cross-cutting audit row so cancellations show up
+      // in the platform-wide audit feed alongside everything else
+      // touching this order.
+      if (orderCompanyId) {
+        await (sb as any).from("audit_logs").insert({
+          company_id: orderCompanyId,
+          user_id: opts.cancelled_by_user_id || null,
+          action: "order_cancelled",
+          entity_type: "order",
+          entity_id: orderId,
+          details: {
+            from_status: currentStatus,
+            reason_category: opts.reason_category || null,
+            reason: opts.reason || null,
+          },
+        });
+      }
     } catch (e) {
       console.warn("[cancelOrder] status history insert failed:", e);
     }

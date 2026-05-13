@@ -315,7 +315,13 @@ function NewQuotePage() {
   const [availability, setAvailability] = useState<AvailabilityMap>({});
 
   const [deliveryDistance, setDeliveryDistance] = useState(0);
-  const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(8.5);
+  // Wave 11 #7: this used to default to 8.5 (ZAR-flavoured magic
+  // number). UK / US / non-ZA tenants got a R8.50/km auto-fee
+  // injected before the branch resolver ran, then the resolver
+  // overwrote it -- but the visible-on-screen flicker showed the
+  // wrong number. Default to 0; resolveBranchSettings populates
+  // the real rate per tenant + region a tick later.
+  const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(0);
   const [minDeliveryFee, setMinDeliveryFee] = useState(0);
   /** Effective VAT rate, resolved from region override or company
    *  default. Held in state because it changes when the operator
@@ -460,22 +466,29 @@ function NewQuotePage() {
     };
   }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate, pricingIncludesVat]);
 
-  // ── Pre-fill: load company default delivery rate + buffer ─────────
+  // ── Pre-fill: load company default delivery buffer ─────────────────
+  // Wave 11 #7: this used to also pull deliveryCostPerKm from a global
+  // localStorage key 'admin_settings'. That key was unscoped, so a
+  // platform user who switched tenants saw the previous tenant's rate
+  // bleed in. The branch resolver above (resolveBranchSettings) is
+  // the canonical source for delivery rate per tenant + region.
+  // Buffer minutes stays for now -- it's a per-operator UX preference
+  // (when does the driver leave the kitchen relative to start time)
+  // rather than tenant data. Scope by companyId so the buffer doesn't
+  // bleed across tenants either.
   useEffect(() => {
+    if (typeof window === "undefined" || !companyId) return;
     try {
-      const raw = localStorage.getItem("admin_settings");
+      const raw = localStorage.getItem(`admin_settings.${companyId}`);
       if (!raw) return;
       const s = JSON.parse(raw);
-      if (s?.operations?.deliveryCostPerKm) {
-        setDeliveryCostPerKm(s.operations.deliveryCostPerKm);
-      }
       if (typeof s?.operations?.deliveryBufferMinutes === "number") {
         setDeliveryBufferMins(s.operations.deliveryBufferMinutes);
       }
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [companyId]);
 
   /** Suggested setup time = event_time - delivery buffer, formatted
    *  HH:MM. Returns null when there's no event time yet. The operator
@@ -1091,7 +1104,15 @@ function NewQuotePage() {
       // here with both null when the source quote was a legacy row
       // without proper lifecycle linkage. Find-or-create a lead by
       // email so the constraint always passes.
-      if (!payload.lead_id && !payload.client_id && email) {
+      //
+      // Wave 11 #4: this find-or-create used to run on every save,
+      // including UPDATEs. The autosave debounce + email field edits
+      // meant a tenant could end up with N orphan lead rows for the
+      // same quote -- "Jane wedding" lead, "Jane wedding " (typo
+      // recovered) lead, etc. Restrict to the INSERT branch only;
+      // once the quote has a row, the constraint is already satisfied
+      // and the linkage is fixed for the lifetime of the quote.
+      if (!quoteId && !payload.lead_id && !payload.client_id && email) {
         try {
           const { data: existingLead } = await supabase
             .from("leads")
@@ -1149,68 +1170,56 @@ function NewQuotePage() {
         }
         return quoteId;
       } else {
-        // Per-tenant numbering. Pull from consume_next_document_number
-        // so the QUO- counter matches what the operator configured on
-        // /admin/company-profile. Falls back to the legacy date+random
-        // pattern only if the RPC fails outright.
-        let number: string = "";
-        try {
-          const { data: numData, error: numErr } = await (supabase as any).rpc(
-            "consume_next_document_number",
-            { p_company_id: companyId, p_document_type: "quote" },
-          );
-          if (!numErr && numData) {
-            number = numData as string;
-          }
-        } catch {
-          // fall through
-        }
-        if (!number) {
-          number = newQuoteNumber();
-        }
-        const insert = {
+        // Wave 11 #9: route the INSERT through quoteService.createQuote
+        // so per-tenant numbering, lead-status atomic advance and any
+        // future logic added to createQuote benefit this builder
+        // automatically. skipClientNotification keeps the
+        // "we received your request" template (intended for the
+        // client-initiated flow) from firing on every admin draft.
+        // Lead-status guard for empty / R0 saves stays here -- the
+        // builder has more context about whether the operator has
+        // actually priced something.
+        const insert: any = {
           ...payload,
-          quote_number: number,
           status: override.status || "draft",
           prepared_by: user.id,
           user_id: user.id,
         };
-        const { data, error } = await supabase
-          .from("quotes")
-          .insert(insert as any)
-          .select("id, quote_number, status")
-          .single();
-        if (error) throw error;
-        setQuoteId(data.id);
-        setQuoteNumber(data.quote_number);
-        setStatus(data.status as any);
+        const computedTotal = Number(insert.total || insert.total_amount || 0);
+        const hasPricedContent =
+          computedTotal > 0 ||
+          (Array.isArray(insert.menu_items) && insert.menu_items.length > 0);
+        const operatorPressedSend = override.status === "sent";
+        const created: any = await quoteService.createQuote(insert, {
+          skipClientNotification: true,
+          // Don't auto-advance the lead to 'quoted' on an empty / R0
+          // autosave -- linkage stays, status doesn't move until the
+          // operator has actually priced something OR hit Send.
+          skipLeadAdvance: !hasPricedContent && !operatorPressedSend,
+        });
+        if (!created?.id) throw new Error("Quote create returned no id");
+        setQuoteId(created.id);
+        setQuoteNumber(created.quote_number);
+        setStatus(created.status as any);
         setSavedAt(new Date());
         // First save with status='sent' (Save & Send on a brand-new
-        // quote) -- fire the client email. NULL prev-status acts like
-        // a transition from draft.
-        if (override.status === "sent") {
-          void quoteService._fireQuoteSentEmail(data.id).catch((e) =>
+        // quote) -- fire the client email through the existing
+        // _fireQuoteSentEmail path. NULL prev-status acts like a
+        // transition from draft.
+        if (operatorPressedSend) {
+          void quoteService._fireQuoteSentEmail(created.id).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
-        }
-        // Lead linkage: flip the lead to 'quoted' on first save.
-        if (typeof leadId === "string" && leadId) {
-          try {
-            await supabase
-              .from("leads")
-              .update({ status: "quoted" })
-              .eq("id", leadId);
-          } catch { /* non-fatal */ }
         }
         // Update the URL silently so a refresh doesn't create a duplicate.
         try {
           router.replace(
-            { pathname: "/admin/quotes/new", query: { fromQuoteId: data.id } },
+            { pathname: "/admin/quotes/new", query: { fromQuoteId: created.id } },
             undefined,
             { shallow: true },
           );
         } catch { /* ignore router edge cases */ }
-        return data.id;
+        return created.id;
       }
     } catch (e: any) {
       toast({

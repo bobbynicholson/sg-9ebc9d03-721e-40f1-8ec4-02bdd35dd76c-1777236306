@@ -29,6 +29,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -103,6 +104,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
     return res.status(codeMap[result?.code] ?? 400).json({ error: result?.code || "unknown_error" });
   }
+
+  // Wave 11 #3: leads.created webhook trigger fires automatically when
+  // api_create_lead inserts the row, but the operator-facing fan-out
+  // (in-portal toast, admin email, WhatsApp, region-manager push) used
+  // to live in the embed-form path only. Inbound integration leads
+  // (Zapier, Make, Facebook Lead Ads) sat silently in the table; the
+  // operator only saw them by manually opening /admin/leads. Mirror
+  // the embed-form fan-out via notifyAdminOfEmbedLead so every lead
+  // entry point gets the same alert chain.
+  void (async () => {
+    try {
+      const svc = getServiceSupabase();
+      const [{ data: leadRow }, { data: company }] = await Promise.all([
+        svc.from("leads").select("*").eq("id", result.lead_id).maybeSingle(),
+        svc.from("companies").select("owner_id").eq("id", result.company_id).maybeSingle(),
+      ]);
+      const proto = (req.headers["x-forwarded-proto"] || "https") as string;
+      const host = (req.headers["x-forwarded-host"] || req.headers.host || "") as string;
+      const appOrigin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : "") ||
+        (host ? `${proto}://${host}` : "");
+      await notifyAdminOfEmbedLead(svc, {
+        companyId: result.company_id,
+        ownerUserId: ((company as any)?.owner_id as string | null) ?? null,
+        regionId: ((leadRow as any)?.region_id as string | null) ?? null,
+        leadId: result.lead_id,
+        leadInsert: (leadRow as any) ?? body,
+        formName: typeof body?.source === "string" ? `Inbound integration (${body.source})` : "Inbound integration",
+        formId: null,
+        formNotifyAdminEmail: true,
+        appOrigin,
+      });
+    } catch (e) {
+      console.warn("[api/integrations/leads] notification fan-out failed (non-blocking):", e);
+    }
+  })();
 
   return res.status(201).json({
     ok: true,

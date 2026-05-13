@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, CheckCircle, Clock, Truck, MapPinned } from "lucide-react";
+import { MapPin, CheckCircle, Clock, Truck, MapPinned, Package } from "lucide-react";
 import { driverConfirmationService } from "@/services/driverConfirmationService";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,11 +21,35 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   const [confirmations, setConfirmations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [geoLocation, setGeoLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Wave 11 #11: collection trip is a separate driver_assignment row
+  // scheduled at event end. Surface it here as a third stage block
+  // so the driver has one button to start the collection (autoClockIn
+  // + flips assignment to in_progress) and one to mark it complete
+  // (returns equipment + autoClockOut). Only renders when there's an
+  // active collection assignment for this driver on this order.
+  const [collectionAssignment, setCollectionAssignment] = useState<any | null>(null);
 
   useEffect(() => {
     loadConfirmations();
     getCurrentLocation();
+    loadCollectionAssignment();
   }, [orderId]);
+
+  const loadCollectionAssignment = async () => {
+    if (!user?.id) return;
+    try {
+      const { data } = await (supabase as any)
+        .from("driver_assignments")
+        .select("id, status, scheduled_for, driver_id, en_route_at, completed_at")
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .eq("driver_id", user.id)
+        .maybeSingle();
+      setCollectionAssignment(data || null);
+    } catch (e) {
+      console.warn("[DriverConfirmationPanel] collection assignment lookup failed:", e);
+    }
+  };
 
   const loadConfirmations = async () => {
     try {
@@ -217,6 +242,96 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </Button>
           )}
         </div>
+
+        {/* Collection trip controls. Only render when this driver has
+            a collection assignment for the order. The two buttons
+            mirror the delivery-leg pattern so the UX is familiar.
+            Wave 11 #11. */}
+        {collectionAssignment && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-amber-600" />
+              <p className="font-semibold text-slate-900">Collection trip</p>
+              {collectionAssignment.scheduled_for && (
+                <span className="text-xs text-slate-500">
+                  Scheduled: {new Date(collectionAssignment.scheduled_for).toLocaleString("en-ZA")}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">On my way to collect</p>
+                {collectionAssignment.en_route_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Started: {new Date(collectionAssignment.en_route_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.en_route_at || collectionAssignment.status === "in_progress" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-amber-500">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Started
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).startCollection(orderId, user.id);
+                      toast({ title: "Clock-in recorded", description: "Drive safely. We'll close the shift when you mark it done." });
+                      await loadCollectionAssignment();
+                    } catch (e: any) {
+                      toast({ title: "Could not start collection", description: e?.message || "Try again", variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Start
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Equipment back at base</p>
+                {collectionAssignment.completed_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Done: {new Date(collectionAssignment.completed_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-emerald-500">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Done
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading || (!collectionAssignment.en_route_at && collectionAssignment.status !== "in_progress")}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).completeCollection(orderId, user.id);
+                      toast({ title: "Collection complete", description: "Equipment returned. Cleaning queue updated." });
+                      await loadCollectionAssignment();
+                    } catch (e: any) {
+                      toast({ title: "Could not complete collection", description: e?.message || "Try again", variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Mark complete
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {geoLocation && (
           <p className="text-xs text-muted-foreground text-center">

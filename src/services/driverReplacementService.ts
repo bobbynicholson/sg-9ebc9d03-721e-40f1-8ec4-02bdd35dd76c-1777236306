@@ -57,6 +57,48 @@ export const driverReplacementService = {
    * Driver accepts a replacement request
    */
   async acceptReplacementRequest(requestId: string, driverId: string) {
+    // Wave 11 #10: capacity check. Two drivers used to be able to
+    // accept the same request milliseconds apart, but more importantly
+    // a single driver could accept a replacement that overlapped with
+    // an event they were already on -- nothing in the path looked at
+    // the accepting driver's other runs that day. Refuse to accept
+    // when the driver already has another order on the same date that
+    // overlaps this one's event window. Atomic UPDATE...WHERE
+    // status='pending' below still handles the race between two drivers.
+    const { data: targetReq } = await supabase
+      .from('driver_replacement_requests')
+      .select('order_id, status')
+      .eq('id', requestId)
+      .maybeSingle();
+    if (!targetReq || (targetReq as any).status !== 'pending') {
+      throw new Error('Replacement request is no longer available');
+    }
+    const { data: targetOrder } = await supabase
+      .from('orders')
+      .select('id, event_date, event_time, company_id')
+      .eq('id', (targetReq as any).order_id)
+      .maybeSingle();
+    if ((targetOrder as any)?.event_date) {
+      const { data: conflicts } = await supabase
+        .from('orders')
+        .select('id, order_number, event_time')
+        .eq('company_id', (targetOrder as any).company_id)
+        .eq('event_date', (targetOrder as any).event_date)
+        .eq('assigned_driver_id', driverId)
+        .neq('id', (targetOrder as any).id)
+        .is('deleted_at', null)
+        .not('status', 'in', '("cancelled","rejected")');
+      if (conflicts && (conflicts as any[]).length > 0) {
+        const first = (conflicts as any[])[0];
+        const err: any = new Error(
+          `You're already on order ${first.order_number || first.id} that day` +
+          ((targetOrder as any).event_time ? ` -- accepting this would clash at ${(targetOrder as any).event_time}.` : '.'),
+        );
+        err.code = 'driver_capacity_conflict';
+        throw err;
+      }
+    }
+
     // Update replacement request
     const { data, error } = await supabase
       .from('driver_replacement_requests')

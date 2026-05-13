@@ -868,7 +868,7 @@ export default function AdminLeads() {
                       esc(l.event_date || ""),
                       esc(l.guest_count ?? ""),
                       esc(l.budget_range || ""),
-                      esc(l.venue || ""),
+                      esc(l.venue_address || ""),
                       esc(l.source || ""),
                       esc(l.notes || ""),
                     ].join(","));
