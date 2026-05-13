@@ -18,7 +18,7 @@ export const paymentLedgerService = {
     try {
       let query = supabase
         .from("staff_work_sessions")
-        .select("*, staff:profiles!staff_work_sessions_staff_id_fkey(id, full_name, role)")
+        .select("*, staff:profiles!staff_work_sessions_staff_id_fkey(id, full_name, role, created_at)")
         .eq("payment_status", "unpaid");
 
       if (companyId) {
@@ -32,14 +32,36 @@ export const paymentLedgerService = {
         return { totalOwed: 0, unpaidSessions: [], staffCount: 0 };
       }
 
-      const totalOwed = (unpaidSessions || []).reduce((sum, session) => {
+      // Defence against seed / phantom rows. A legitimate work session
+      // cannot predate its staff member's profile.created_at. Spit Braai
+      // Delivery had 20 fixture rows clocked in days before the matching
+      // profile was created, which surfaced as R11280 of phantom wages
+      // owed on a brand-new tenant. Anything that fails the sanity
+      // check is dropped from the rollup AND logged so a real data
+      // inconsistency still shows up in the console.
+      const sane = (unpaidSessions || []).filter((s: any) => {
+        const profileCreated = s.staff?.created_at ? new Date(s.staff.created_at).getTime() : null;
+        const clockIn = s.clock_in ? new Date(s.clock_in).getTime() : null;
+        if (profileCreated == null || clockIn == null) return true;
+        // Allow a 1-hour grace window in case the staff was added the
+        // same minute they clocked in via a same-touch flow.
+        const ok = clockIn >= profileCreated - 60 * 60 * 1000;
+        if (!ok) {
+          console.warn(
+            `[paymentLedger] dropping session ${s.id}: clock_in ${s.clock_in} predates staff ${s.staff_id} created_at ${s.staff?.created_at}`,
+          );
+        }
+        return ok;
+      });
+
+      const totalOwed = sane.reduce((sum: number, session: any) => {
         return sum + Number(session.total_earnings || 0);
       }, 0);
 
       return {
         totalOwed: Math.round(totalOwed * 100) / 100,
-        unpaidSessions: unpaidSessions || [],
-        staffCount: new Set((unpaidSessions || []).map(s => s.staff_id)).size,
+        unpaidSessions: sane,
+        staffCount: new Set(sane.map((s: any) => s.staff_id)).size,
       };
     } catch (error) {
       console.error("Error getting payment ledger:", error);
