@@ -362,6 +362,7 @@ export default function AdminLeads() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #4: "/" or Cmd-F focuses the search input.
+  // Phase 29 #3: "n" jumps to /admin/leads/new.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -375,9 +376,14 @@ export default function AdminLeads() {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        router.push("/admin/leads/new");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Default to "active" -- the pipeline view. Leads that have already
   // won/converted are clients now, and lost leads are archived. Hiding
