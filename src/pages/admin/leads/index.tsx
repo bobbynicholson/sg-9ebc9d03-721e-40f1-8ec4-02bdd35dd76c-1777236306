@@ -881,6 +881,17 @@ export default function AdminLeads() {
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>
+              {/* Phase 27 #6: manual refresh. Inbound enquiry channel
+                  is real-time; sales reps want to pick up overnight
+                  leads without hard-reloading. */}
+              <Button
+                variant="outline"
+                onClick={loadLeads}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Link href="/admin/leads/new">
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
