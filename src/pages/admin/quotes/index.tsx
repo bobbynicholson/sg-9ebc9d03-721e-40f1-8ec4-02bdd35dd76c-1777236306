@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw } from "lucide-react";
+import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -55,6 +55,8 @@ import {
 } from "@/services/accountingExportService";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   deriveQuoteIntelligence,
@@ -1792,12 +1794,19 @@ export default function AdminQuotes() {
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-2 ml-4 items-end">
-                          {/* Primary CTA -- tone-driven so the urgency
-                              colour matches Contacts and Leads. For
-                              drafts the action is Send (fires the
-                              email); for everything else it's Compose
-                              (opens the drawer). */}
+                        {/* Action panel. Audit (May 2026) collapsed 11
+                            stacked buttons into 3 inline + a More menu:
+                            keeps the row compact so more quotes fit per
+                            screen, and gives a clear primary / secondary
+                            / overflow hierarchy. Two PDF buttons (one
+                            branded server-render, one ?print=1 fallback)
+                            were redundant -- only Download PDF remains.
+                            Lifecycle moves (Mark sent, Mark lost) and
+                            CRUD (Edit, Duplicate, Delete) live in the
+                            menu since they're not row-level urgent. */}
+                        <div className="flex flex-col gap-2 ml-4 items-stretch w-44 shrink-0">
+                          {/* Primary CTA -- tone-coloured. Draft -> Send,
+                              everything else -> Compose. */}
                           {quote.status === "draft" ? (
                             <RowPrimaryAction
                               tone={intel.tone}
@@ -1820,11 +1829,25 @@ export default function AdminQuotes() {
                               }}
                             />
                           )}
-                          {/* Send next follow-up -- visible only when
-                              the sequence has a position ready or
-                              overdue. Opens the compose drawer; the
-                              log row is inserted only when the
-                              operator actually picks a send channel. */}
+                          {/* Mark accepted -- single highest-value
+                              follow-on action. Converts to a live order
+                              + fires deposit invoice. Hidden once
+                              accepted / rejected. */}
+                          {quote.status !== "accepted" && quote.status !== "rejected" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAcceptPreflight(quote)}
+                              disabled={acceptingId === quote.id}
+                              title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
+                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
+                            </Button>
+                          )}
+                          {/* Send next follow-up -- only visible when
+                              amber or rose, otherwise we'd be nagging. */}
                           {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
                             <Button
                               size="sm"
@@ -1841,250 +1864,179 @@ export default function AdminQuotes() {
                               Send FU {followup.nextPosition}
                             </Button>
                           )}
-                          {/* Manual accept -- for when the client confirms
-                              over the phone or WhatsApp. Same downstream
-                              effect as the public Accept button: creates
-                              the order, fires the deposit invoice, locks
-                              the diary. Hidden once accepted/rejected. */}
-                          {quote.status !== "accepted" && quote.status !== "rejected" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setAcceptPreflight(quote)}
-                              disabled={acceptingId === quote.id}
-                              title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
-                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
-                            </Button>
-                          )}
-                          {/* Phase 11 #6: mark-as-lost. Symmetric to
-                              the mark-accepted action above. Records
-                              an optional reason in audit_logs so the
-                              sales lead can later review why deals
-                              fell through. No downstream side-effects. */}
-                          {quote.status !== "accepted" && quote.status !== "rejected" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkAsLost(quote)}
-                              title="Client said no? Mark the quote as lost and capture a reason for sales analytics."
-                              className="border-rose-200 text-rose-700 hover:bg-rose-50"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              Mark lost
-                            </Button>
-                          )}
-                          {/* Mark-as-sent / Reset timestamp. Anchors
-                              the follow-up timing baseline so the
-                              suggester knows when to nudge. Use this
-                              when you sent the quote outside the
-                              system (PDF / WhatsApp / over a call). */}
-                          {quote.status !== "accepted" && quote.status !== "rejected" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkAsSent(quote)}
-                              title={(quote as any).sent_at
-                                ? "Reset the sent timestamp to right now"
-                                : "Mark this quote as sent (without firing an email)"}
-                            >
-                              <Clock className="w-4 h-4 mr-2" />
-                              {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
-                            </Button>
-                          )}
-                          <Link href={`/admin/quotes/new?fromQuoteId=${quote.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </Button>
-                          </Link>
-                          {/* Phase 16 #3: download the quote as a
-                              branded PDF. Hits the new /api/admin/
-                              quote-pdf route which streams the same
-                              renderQuotePdf output used by the email
-                              attachment flow. */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const r = await fetch(`/api/admin/quote-pdf?id=${quote.id}`);
-                                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                                const blob = await r.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `Quote-${quote.quote_number || quote.id}.pdf`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              } catch (e: any) {
-                                toast({
-                                  title: "Could not download PDF",
-                                  description: e?.message || "Try again",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                            title="Download a branded PDF of this quote"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            PDF
-                          </Button>
-                          {/* Phase 15 #3: duplicate quote. Mints a
-                              fresh quote_number with a -COPY suffix,
-                              resets all lifecycle stamps (sent_at,
-                              viewed_at, accepted_at, public_token,
-                              converted_to_order_id), drops it as a
-                              new draft. Useful for repeat clients. */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (typeof window === "undefined") return;
-                              const todayPlus7 = (() => {
-                                const d = new Date();
-                                d.setDate(d.getDate() + 7);
-                                return d.toISOString().slice(0, 10);
-                              })();
-                              const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
-                              if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
-                              const res = await quoteService.duplicateQuote(quote.id, newDate);
-                              if (!res.success) {
-                                toast({
-                                  title: "Could not duplicate",
-                                  description: (res as { success: false; error: string }).error,
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
-                              toast({
-                                title: "Quote duplicated",
-                                description: `New quote ${(res.data as any).quote_number} created on ${newDate}.`,
-                              });
-                              // Reload via the existing helper.
-                              const fresh = await quoteService.getQuotes(user.company_id!);
-                              setQuotes(fresh);
-                            }}
-                            title="Clone this quote as a new draft for a repeat booking"
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicate
-                          </Button>
-                          {/* Public share link. Copies a /q/[token]
-                              URL the client opens with no login. The
-                              row keeps a per-quote token (uuid) on
-                              quotes.public_token. Page tracks viewed
-                              and accepted timestamps. */}
-                          {(quote as any).public_token && (
-                            <>
+                          {/* Overflow menu. Holds every secondary
+                              action -- lifecycle tweaks, share /
+                              export, CRUD, accounting push, delete. */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
-                                variant="outline"
                                 size="sm"
-                                title="Copy public quote link to clipboard"
+                                variant="outline"
+                                title="More actions for this quote"
+                              >
+                                <MoreHorizontal className="w-4 h-4 mr-2" />
+                                More
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">Manage</DropdownMenuLabel>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/quotes/new?fromQuoteId=${quote.id}`}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={async () => {
-                                  const url = buildPublicQuoteUrl((quote as any).public_token);
-                                  if (!url) return;
+                                  if (typeof window === "undefined") return;
+                                  const todayPlus7 = (() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + 7);
+                                    return d.toISOString().slice(0, 10);
+                                  })();
+                                  const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
+                                  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
+                                  const res = await quoteService.duplicateQuote(quote.id, newDate);
+                                  if (!res.success) {
+                                    toast({
+                                      title: "Could not duplicate",
+                                      description: (res as { success: false; error: string }).error,
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  toast({
+                                    title: "Quote duplicated",
+                                    description: `New quote ${(res.data as any).quote_number} created on ${newDate}.`,
+                                  });
+                                  const fresh = await quoteService.getQuotes(user.company_id!);
+                                  setQuotes(fresh);
+                                }}
+                              >
+                                <Copy className="w-4 h-4 mr-2" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">Share</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={async () => {
                                   try {
-                                    await navigator.clipboard.writeText(url);
-                                    toast({ title: "Link copied", description: "Paste it into an email or WhatsApp." });
-                                  } catch {
-                                    toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                                    const r = await fetch(`/api/admin/quote-pdf?id=${quote.id}`);
+                                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                                    const blob = await r.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `Quote-${quote.quote_number || quote.id}.pdf`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  } catch (e: any) {
+                                    toast({
+                                      title: "Could not download PDF",
+                                      description: e?.message || "Try again",
+                                      variant: "destructive",
+                                    });
                                   }
                                 }}
                               >
-                                <ExternalLink className="w-4 h-4 mr-2" />
-                                Copy link
-                              </Button>
-                              {/* PDF -- opens the public quote page
-                                  with ?print=1 which auto-fires the
-                                  print dialog. Save as PDF from there
-                                  and attach to email / WhatsApp. */}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                title="Open the printable view, save as PDF, attach to email or WhatsApp"
-                                onClick={() => {
-                                  const url = buildPublicQuoteUrl((quote as any).public_token);
-                                  if (!url) return;
-                                  window.open(`${url}?print=1`, "_blank", "noopener");
-                                }}
-                              >
-                                <FileText className="w-4 h-4 mr-2" />
-                                PDF
-                              </Button>
-                              {/* Push to accounting. Three providers
-                                  share one canonical payload; the
-                                  per-provider API route adapter shapes
-                                  it for Xero / QuickBooks / Sage.
-                                  Until OAuth + endpoint are deployed
-                                  per provider, the click falls back
-                                  to copying the JSON to the clipboard
-                                  so the operator can paste into the
-                                  package manually as a stop-gap. */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    title="Push this quote to your accounting package"
-                                  >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download PDF
+                              </DropdownMenuItem>
+                              {(quote as any).public_token && (
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    const url = buildPublicQuoteUrl((quote as any).public_token);
+                                    if (!url) return;
+                                    try {
+                                      await navigator.clipboard.writeText(url);
+                                      toast({ title: "Link copied", description: "Paste it into an email or WhatsApp." });
+                                    } catch {
+                                      toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                                    }
+                                  }}
+                                >
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Copy public link
+                                </DropdownMenuItem>
+                              )}
+                              {(quote as any).public_token && (
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
                                     <ExternalLink className="w-4 h-4 mr-2" />
                                     Push to accounting
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {(["xero", "quickbooks", "sage"] as AccountingProvider[]).map((p) => (
-                                    <DropdownMenuItem
-                                      key={p}
-                                      onClick={async () => {
-                                        const res: PushResult = await pushQuoteToAccounting({ quoteId: quote.id, provider: p });
-                                        const label = accountingProviderLabel(p);
-                                        if (res.ok) {
-                                          toast({ title: `Synced to ${label}`, description: `Quote ${quote.quote_number} pushed as a draft.` });
-                                          return;
-                                        }
-                                        if (res.reason === "not_connected") {
-                                          toast({
-                                            title: `Connect ${label} first`,
-                                            description: "Open Integrations to link the account, then try again.",
-                                            variant: "destructive",
-                                          });
-                                          return;
-                                        }
-                                        if (res.reason === "no_endpoint" && res.payload && typeof window !== "undefined") {
-                                          try {
-                                            await navigator.clipboard.writeText(JSON.stringify(res.payload, null, 2));
-                                            toast({
-                                              title: `${label} endpoint not deployed yet`,
-                                              description: `Copied the prepared payload to your clipboard so you can paste into ${label} manually for now.`,
-                                            });
-                                          } catch {
-                                            toast({ title: "Couldn't copy payload", variant: "destructive" });
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    {(["xero", "quickbooks", "sage"] as AccountingProvider[]).map((p) => (
+                                      <DropdownMenuItem
+                                        key={p}
+                                        onClick={async () => {
+                                          const res: PushResult = await pushQuoteToAccounting({ quoteId: quote.id, provider: p });
+                                          const label = accountingProviderLabel(p);
+                                          if (res.ok) {
+                                            toast({ title: `Synced to ${label}`, description: `Quote ${quote.quote_number} pushed as a draft.` });
+                                            return;
                                           }
-                                          return;
-                                        }
-                                        toast({ title: `Couldn't sync to ${label}`, description: res.error, variant: "destructive" });
-                                      }}
-                                    >
-                                      {accountingProviderLabel(p)}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Delete quote"
-                            onClick={() => setDeleteTarget(quote)}
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
+                                          if (res.reason === "not_connected") {
+                                            toast({
+                                              title: `Connect ${label} first`,
+                                              description: "Open Integrations to link the account, then try again.",
+                                              variant: "destructive",
+                                            });
+                                            return;
+                                          }
+                                          if (res.reason === "no_endpoint" && res.payload && typeof window !== "undefined") {
+                                            try {
+                                              await navigator.clipboard.writeText(JSON.stringify(res.payload, null, 2));
+                                              toast({
+                                                title: `${label} endpoint not deployed yet`,
+                                                description: `Copied the prepared payload to your clipboard so you can paste into ${label} manually for now.`,
+                                              });
+                                            } catch {
+                                              toast({ title: "Couldn't copy payload", variant: "destructive" });
+                                            }
+                                            return;
+                                          }
+                                          toast({ title: `Couldn't sync to ${label}`, description: res.error, variant: "destructive" });
+                                        }}
+                                      >
+                                        {accountingProviderLabel(p)}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              )}
+                              {quote.status !== "accepted" && quote.status !== "rejected" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">Lifecycle</DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => handleMarkAsSent(quote)}
+                                    title={(quote as any).sent_at
+                                      ? "Reset the sent timestamp to right now"
+                                      : "Mark this quote as sent (without firing an email)"}
+                                  >
+                                    <Clock className="w-4 h-4 mr-2" />
+                                    {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleMarkAsLost(quote)}
+                                    className="text-rose-700 focus:text-rose-700 focus:bg-rose-50"
+                                  >
+                                    <X className="w-4 h-4 mr-2" />
+                                    Mark lost
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(quote)}
+                                className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete quote
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </CardContent>
