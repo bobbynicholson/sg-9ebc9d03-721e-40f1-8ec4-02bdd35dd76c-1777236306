@@ -964,21 +964,60 @@ export default function AdminQuotes() {
   const [depositAmount, setDepositAmount] = useState<string>("");
   const [depositMethod, setDepositMethod] = useState<"cash" | "eft" | "card" | "other">("eft");
   const [depositReference, setDepositReference] = useState<string>("");
+  // Company-level deposit_percent fallback. Older quotes were created
+  // before Settings -> Financial persisted the company default, so
+  // quote.deposit_percentage on those rows is still 30 (the original
+  // hardcoded constant) or null. Resolving the canonical company value
+  // here lets the dialog show the current setting rather than the
+  // stale stamp from the quote.
+  const [companyDepositPct, setCompanyDepositPct] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("deposit_percent")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (!cancelled) {
+        const v = Number((data as any)?.deposit_percent);
+        setCompanyDepositPct(Number.isFinite(v) && v > 0 ? v : null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
+
+  // Resolve the percentage to display + prefill against. Priority is
+  // company default first, quote stamp as fallback, literal 30 last.
+  // Why company default first: older quotes were created with the
+  // builder's hardcoded 30 stamp regardless of company setting, so
+  // those stamps don't represent an explicit operator decision -- the
+  // current Settings -> Financial value is the canonical intent. If
+  // an operator wants a different deposit on this specific accept,
+  // they can edit the amount field directly.
+  const resolveDepositPct = (q: Quote | null): number => {
+    if (companyDepositPct != null) return companyDepositPct;
+    const fromQuote = Number((q as any)?.deposit_percentage);
+    if (Number.isFinite(fromQuote) && fromQuote > 0) return fromQuote;
+    return 30;
+  };
 
   // When the pre-flight opens, prefill the deposit amount with the
-  // expected deposit (companies.deposit_percentage of total, default
-  // 30%) so the operator just toggles paid + tweaks if needed.
+  // expected deposit (resolveDepositPct of total) so the operator
+  // just toggles paid + tweaks if needed.
   useEffect(() => {
     if (acceptPreflight) {
       const total = Number((acceptPreflight as any).total ?? (acceptPreflight as any).total_amount ?? 0);
-      const pct = Number((acceptPreflight as any).deposit_percentage ?? 30);
+      const pct = resolveDepositPct(acceptPreflight);
       const expected = total > 0 ? Math.round((total * pct / 100) * 100) / 100 : 0;
       setDepositPaid(false);
       setDepositAmount(expected ? expected.toFixed(2) : "");
       setDepositMethod("eft");
       setDepositReference("");
     }
-  }, [acceptPreflight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acceptPreflight, companyDepositPct]);
 
   const runAcceptOnBehalf = async (quote: Quote) => {
     setAcceptingId(quote.id);
@@ -2247,12 +2286,20 @@ export default function AdminQuotes() {
                   <div className="flex items-start gap-2">
                     <span className="text-emerald-600 shrink-0">•</span>
                     <span>Deposit invoice generated{(() => {
-                      const total = Number(acceptPreflight?.total ?? 0);
+                      const total = Number(
+                        (acceptPreflight as any)?.total
+                        ?? (acceptPreflight as any)?.total_amount
+                        ?? 0,
+                      );
                       if (!total) return "";
-                      // Honour the deposit_percentage stamped on the
-                      // quote; previously hardcoded 30% even when the
-                      // company / quote was set to 50%.
-                      const pct = Number((acceptPreflight as any)?.deposit_percentage ?? 30);
+                      // Same fallback chain as the prefill: quote ->
+                      // company default -> 30. Older quotes have
+                      // deposit_percentage = 30 stamped from when the
+                      // builder defaulted to 30; in that case the
+                      // company default takes precedence so the label
+                      // reflects the current Settings -> Financial
+                      // value rather than a stale stamp.
+                      const pct = resolveDepositPct(acceptPreflight);
                       const expected = Math.round((total * pct / 100) * 100) / 100;
                       return ` (~${fmtMoney.format(expected)} at ${pct}%)`;
                     })()}</span>
