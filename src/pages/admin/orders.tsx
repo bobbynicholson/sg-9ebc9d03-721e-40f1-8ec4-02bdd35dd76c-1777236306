@@ -175,6 +175,8 @@ function OrderProcessDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #1: "/" or Cmd-F focuses the search box. Matches the
   // pattern already shipped on /admin/contacts and /admin/inventory.
+  // Phase 29 #1: "n" jumps to the new-order surface so power users
+  // can chain triage with creation without reaching for the mouse.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -188,9 +190,14 @@ function OrderProcessDashboard() {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        router.push("/admin/order-assignments");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
