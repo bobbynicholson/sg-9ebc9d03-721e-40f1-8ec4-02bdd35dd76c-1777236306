@@ -52,7 +52,7 @@ function resolveLoaderHost(loaderHost: string | undefined): string {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin.replace(/\/$/, "");
   }
-  return "https://cateringms.com";
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
 }
 
 function buildSnippet(token: string, slug: string, host: string, integrity: string | null) {
