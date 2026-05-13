@@ -854,6 +854,33 @@ export default function AdminQuoteDetail() {
                     </Button>
                   </Link>
                 ) : null}
+                {/* Wave 14 audit: when a client requests changes after
+                    the quote has left draft (sent / viewed / accepted),
+                    the operator had no way to actually re-price or
+                    tweak it -- only Mark addressed / Reply / Dismiss
+                    which close the conversation without touching the
+                    quote. The richer editor at /admin/quotes/new
+                    already supports loading an existing quote via
+                    fromQuoteId and writing back to the same row; we
+                    just need a visible affordance to get there.
+                    On Save & Send the editor clears accepted_at +
+                    viewed_at so the public view resets to "awaiting
+                    your response", and marks pending change requests
+                    as 'addressed'. */}
+                {!isDraft && (
+                  <Link
+                    href={`/admin/quotes/new?fromQuoteId=${quote.id}`}
+                    className="flex-1 min-w-[180px]"
+                  >
+                    <Button
+                      variant="outline"
+                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Revise &amp; resend
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               {/* Send-flow shortcuts. Same set as the row buttons on

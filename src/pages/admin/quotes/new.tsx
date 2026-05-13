@@ -399,6 +399,12 @@ function NewQuotePage() {
   // /q/[token] view reads the persisted columns; until the operator
   // hits Save, the public view shows stale numbers.
   const [persistedTotalAtLoad, setPersistedTotalAtLoad] = useState<number | null>(null);
+  // Wave 14 audit: track whether we arrived via "Revise & resend" so
+  // the banner copy and the save side-effects know to reset the
+  // public lifecycle (clear accepted_at / viewed_at, auto-address
+  // pending change requests). True when the source quote (fromQuoteId)
+  // was past 'draft' status at hydrate time.
+  const [isRevisingNonDraft, setIsRevisingNonDraft] = useState<boolean>(false);
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -588,6 +594,7 @@ function NewQuotePage() {
       setQuoteId(data.id);
       setQuoteNumber(data.quote_number);
       setStatus(data.status as any);
+      setIsRevisingNonDraft((data as any).status && (data as any).status !== "draft");
       setPersistedTotalAtLoad(
         typeof data.total === "number"
           ? data.total
@@ -1174,6 +1181,18 @@ function NewQuotePage() {
             .maybeSingle();
           prevStatus = (cur as any)?.status ?? null;
         }
+        // Wave 14 audit: when the operator hits Save & Send on an
+        // already-sent / viewed / accepted quote (the "Revise &
+        // resend" flow off /admin/quotes/[id]), the public view
+        // needs to reset to "awaiting your response" -- otherwise
+        // the client opens the link and still sees the old
+        // "accepted" / "viewed" state on a quote that has new
+        // numbers. Clear the lifecycle stamps so the public page
+        // re-runs the same lifecycle.
+        if (override.status === "sent" && quoteId) {
+          payload.accepted_at = null;
+          payload.viewed_at = null;
+        }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
         setSavedAt(new Date());
@@ -1185,6 +1204,28 @@ function NewQuotePage() {
           void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
+        }
+        // Wave 14 audit: when the operator resends a quote that
+        // had pending change requests, the requests are implicitly
+        // addressed -- the new quote IS the response. Sweep any
+        // pending requests for this quote into 'addressed' so the
+        // notification chip clears on /admin/quotes/[id] and the
+        // sticky panel collapses to history.
+        if (override.status === "sent") {
+          void (async () => {
+            try {
+              await (supabase as any)
+                .from("quote_change_requests")
+                .update({
+                  status: "addressed",
+                  addressed_at: new Date().toISOString(),
+                })
+                .eq("quote_id", quoteId)
+                .eq("status", "pending");
+            } catch (crErr) {
+              console.warn("[quotes/new] change-request auto-address failed:", crErr);
+            }
+          })();
         }
         return quoteId;
       } else {
@@ -1393,6 +1434,17 @@ function NewQuotePage() {
                     <span className="text-xs text-amber-600">Unsaved changes</span>
                   )}
                 </p>
+                {/* Wave 14 audit: revising-an-already-sent-quote banner.
+                    Reminds the operator that this isn't a new quote
+                    creation -- Save & Send will overwrite the live
+                    public link, clear the previous acceptance, and
+                    close out any pending change requests. */}
+                {isRevisingNonDraft && (
+                  <div className="mt-2 p-2.5 rounded-md border border-blue-200 bg-blue-50 text-xs text-blue-900 max-w-xl">
+                    <strong className="font-semibold">Revising a {status === "accepted" ? "previously-accepted" : "sent"} quote.</strong>{" "}
+                    Save &amp; Send will email the updated version to {email || "the client"}, reset the public link to "awaiting your response", and mark any pending change requests as addressed.
+                  </div>
+                )}
                 {/* Wave 12 audit: stale-totals warning. Customer-facing
                     /q/[token] reads quote.subtotal / tax_amount / total
                     directly from the row. If the live recompute drifts

@@ -54,6 +54,14 @@
     {
       "path": "/api/cron/auto-complete-delivered",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/update-overdue-invoices",
+      "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/archive-old-gps-logs",
+      "schedule": "0 3 * * 0"
     }
   ]
 }
