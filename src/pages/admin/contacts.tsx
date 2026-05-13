@@ -658,7 +658,8 @@ function ClientsCRM() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.clientId, loading, contacts]);
 
-  // "/" or Cmd+F focuses the search box -- a tiny SV touch
+  // "/" or Cmd+F focuses the search box -- a tiny SV touch.
+  // Phase 29 #8: "n" opens the Add contact dialog.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -670,6 +671,11 @@ function ClientsCRM() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         searchRef.current?.focus();
+      }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setEditing(null);
+        setFormOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
