@@ -837,19 +837,22 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Paid <InfoTooltip content={"Invoices the client has settled in full."} />
+                Collected <InfoTooltip content={"Total value across invoices the client has settled in full. Money actually in the bank."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {invoices.filter(i => i.status === "paid").length}
+                {tenantMoney.format(invoices.filter(i => i.status === "paid").reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                {invoices.filter(i => i.status === "paid").length} paid
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total Revenue <InfoTooltip content={"Total value invoiced across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid."} />
+                Total Invoiced <InfoTooltip content={"Total value across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid. See the Collected tile for paid value."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
