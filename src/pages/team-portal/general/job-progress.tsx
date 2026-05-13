@@ -12,6 +12,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
+import { supabase } from "@/integrations/supabase/client";
 
 interface JobProgress {
   id: string;
@@ -23,46 +24,81 @@ interface JobProgress {
   overallProgress: number;
 }
 
+// Map orders.status -> per-team status surfaces. Kitchen marches
+// pending -> preparing -> ready (matches orderWorkflow). Driver
+// stays pending until assigned, flips to completed on delivery.
+function deriveStatuses(orderStatus: string, hasDriver: boolean): {
+  kitchenStatus: JobProgress["kitchenStatus"];
+  driverStatus: JobProgress["driverStatus"];
+  overallProgress: number;
+} {
+  switch (orderStatus) {
+    case "confirmed":
+      return { kitchenStatus: "pending", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: hasDriver ? 25 : 15 };
+    case "preparing":
+      return { kitchenStatus: "preparing", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: 50 };
+    case "ready":
+      return { kitchenStatus: "ready", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: 70 };
+    case "in_transit":
+    case "out_for_delivery":
+      return { kitchenStatus: "ready", driverStatus: "assigned", overallProgress: 85 };
+    case "delivered":
+    case "completed":
+      return { kitchenStatus: "ready", driverStatus: "completed", overallProgress: 100 };
+    default:
+      return { kitchenStatus: "pending", driverStatus: "pending", overallProgress: 0 };
+  }
+}
+
 export default function StaffJobProgress() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<JobProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock job data
-    const mockJobs: JobProgress[] = [
-      {
-        id: "JOB-001",
-        orderName: "Sarah Johnson Event",
-        eventDate: new Date().toISOString().split("T")[0],
-        guestCount: 150,
-        kitchenStatus: "preparing",
-        driverStatus: "assigned",
-        overallProgress: 60,
-      },
-      {
-        id: "JOB-002",
-        orderName: "Corporate Event",
-        eventDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        guestCount: 200,
-        kitchenStatus: "ready",
-        driverStatus: "pending",
-        overallProgress: 75,
-      },
-      {
-        id: "JOB-003",
-        orderName: "Wedding Reception",
-        eventDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-        guestCount: 180,
-        kitchenStatus: "pending",
-        driverStatus: "pending",
-        overallProgress: 25,
-      },
-    ];
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const weekAhead = new Date(today);
+      weekAhead.setDate(today.getDate() + 7);
+      const fromISO = today.toISOString().split("T")[0];
+      const toISO = weekAhead.toISOString().split("T")[0];
 
-    setJobs(mockJobs);
-    setLoading(false);
-  }, []);
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, order_number, client_name, event_date, guest_count, status, assigned_driver_id, driver_id")
+        .eq("company_id", user.company_id)
+        .gte("event_date", fromISO)
+        .lte("event_date", toISO)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+        .order("event_date", { ascending: true });
+
+      if (cancelled) return;
+      if (error) {
+        console.error("[job-progress] load failed", error);
+        setJobs([]);
+      } else {
+        setJobs((data || []).map((o: any) => {
+          const hasDriver = !!(o.assigned_driver_id || o.driver_id);
+          const { kitchenStatus, driverStatus, overallProgress } = deriveStatuses(o.status, hasDriver);
+          return {
+            id: o.id,
+            orderName: o.client_name || o.order_number || "Order",
+            eventDate: o.event_date,
+            guestCount: Number(o.guest_count || 0),
+            kitchenStatus,
+            driverStatus,
+            overallProgress,
+          };
+        }));
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -100,7 +136,7 @@ export default function StaffJobProgress() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
                 Job Progress Overview
-                <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place.\n\nThis page is showing sample data for now while we finish wiring it up." />
+                <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place. Pulls every order in the next seven days that is confirmed or further along." />
               </h1>
               <p className="text-slate-600">Monitor all active jobs and their progress in real-time</p>
             </div>
