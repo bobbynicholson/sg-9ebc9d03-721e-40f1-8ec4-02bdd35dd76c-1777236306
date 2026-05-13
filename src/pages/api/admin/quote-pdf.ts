@@ -36,13 +36,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: q } = await ssr
+    const { data: q, error: readErr } = await ssr
       .from("quotes")
       .select(`
         id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
         subtotal, tax_amount, discount_amount, total, total_amount, status,
-        delivery_fee, delivery_distance_km,
+        delivery_fee, delivery_distance_km, delivery_rate_per_km,
         valid_until, accepted_at, updated_at,
         company:company_id (
           company_name, legal_name, logo_url, email, phone, website,
@@ -56,7 +56,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .is("deleted_at", null)
       .maybeSingle();
 
+    if (readErr) {
+      console.error("[quote-pdf] quote read failed:", readErr);
+      return res.status(500).json({ error: `Quote read failed: ${readErr.message}`, code: readErr.code });
+    }
     if (!q) return res.status(404).json({ error: "Quote not found" });
+
+    // Pre-resolve the company logo to a data URI so @react-pdf's
+    // <Image> doesn't do its own outbound fetch from inside the PDF
+    // renderer. The renderer fetch goes through Node's https without
+    // a timeout, and a slow / 404 logo can take the entire route
+    // down with a generic 500. Best-effort -- if the fetch fails,
+    // we strip the logo and render the PDF without it rather than
+    // crashing the whole download.
+    let logoUrl: string | null = (q.company as any)?.logo_url ?? null;
+    if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
+      try {
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 4000);
+        const resp = await fetch(logoUrl, { signal: ctl.signal });
+        clearTimeout(t);
+        if (resp.ok) {
+          const ct = resp.headers.get("content-type") || "image/png";
+          const buf = Buffer.from(await resp.arrayBuffer());
+          logoUrl = `data:${ct};base64,${buf.toString("base64")}`;
+        } else {
+          logoUrl = null;
+        }
+      } catch (logoErr) {
+        console.warn("[quote-pdf] logo pre-fetch failed, rendering without:", logoErr);
+        logoUrl = null;
+      }
+    } else if (logoUrl && !/^data:/i.test(logoUrl)) {
+      // Not http(s) and not a data URI -- drop it.
+      logoUrl = null;
+    }
 
     const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
     const pdfBuffer = await renderQuotePdf(
@@ -83,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         notes: q.notes,
         status: q.status,
         accepted_at: q.accepted_at,
-        company: q.company || {},
+        company: { ...(q.company || {}), logo_url: logoUrl },
       },
       {
         cacheKey: {
@@ -102,6 +136,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).send(pdfBuffer);
   } catch (err: any) {
     console.error("[quote-pdf] crashed:", err);
-    return res.status(500).json({ error: err?.message || "PDF render failed" });
+    // Surface the actual error message + name so the operator (or
+    // future support) can spot the real cause instead of staring at
+    // a generic "HTTP 500" toast. Stack only in non-prod to avoid
+    // leaking internals.
+    const payload: any = {
+      error: err?.message || "PDF render failed",
+      name: err?.name || undefined,
+    };
+    if (process.env.NODE_ENV !== "production") {
+      payload.stack = err?.stack;
+    }
+    return res.status(500).json(payload);
   }
 }

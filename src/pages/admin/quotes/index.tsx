@@ -1924,7 +1924,17 @@ export default function AdminQuotes() {
                                 onClick={async () => {
                                   try {
                                     const r = await fetch(`/api/admin/quote-pdf?id=${quote.id}`);
-                                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                                    if (!r.ok) {
+                                      // Server returns JSON on error; surface its message
+                                      // instead of the generic HTTP status so the toast
+                                      // tells the operator what actually broke.
+                                      let serverMsg = `HTTP ${r.status}`;
+                                      try {
+                                        const errBody = await r.json();
+                                        if (errBody?.error) serverMsg = errBody.error;
+                                      } catch { /* not JSON, keep generic */ }
+                                      throw new Error(serverMsg);
+                                    }
                                     const blob = await r.blob();
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement("a");
