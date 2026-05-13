@@ -371,6 +371,19 @@ export const quoteService = {
       .single();
     const companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
+    // Currency lives on companies, not quotes. Resolve via the
+    // tenant's company row with a ZAR fallback.
+    let currencyCode = "ZAR";
+    if ((quote as any).company_id) {
+      try {
+        const { data: companyRow } = await supabase
+          .from("companies")
+          .select("currency")
+          .eq("id", (quote as any).company_id)
+          .maybeSingle();
+        if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+      } catch { /* fall back to ZAR */ }
+    }
 
     const subject = formatQuoteSubject({
       eventName: (quote as any).event_name ?? (quote as any).quote_name ?? null,
@@ -398,7 +411,7 @@ export const quoteService = {
           clientName: quote.client_name,
           companyName: companyName,
           quoteNumber: quoteId,
-          totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+          totalAmount: `${currencyCode} ${(quote.total || 0).toFixed(2)}`,
         },
       }),
     });
@@ -541,6 +554,20 @@ export const quoteService = {
     // the columns explicitly here = no surprises when quotes gains a
     // new column the orders table doesn't have.
     const q = quote as any;
+    // Wave 12 follow-up: currency lives on companies, not quotes.
+    // The previous `q.currency ?? "ZAR"` always wrote ZAR for non-ZA
+    // tenants because q.currency is undefined. Resolve from the
+    // company row up front so orders.currency reflects the tenant's
+    // actual setting.
+    let resolvedCurrency = "ZAR";
+    try {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", q.company_id)
+        .maybeSingle();
+      if ((companyRow as any)?.currency) resolvedCurrency = (companyRow as any).currency;
+    } catch { /* fall back to ZAR */ }
     const orderData: any = {
       // Identity / scoping
       quote_id: quote.id,
@@ -570,7 +597,7 @@ export const quoteService = {
       tax_amount: q.tax_amount ?? q.tax ?? null,
       tax: q.tax ?? q.tax_amount ?? null,
       total_amount: q.total ?? q.total_amount ?? null,
-      currency: q.currency ?? "ZAR",
+      currency: resolvedCurrency,
       deposit_percentage: q.deposit_percentage ?? null,
       // Delivery -- carried forward so the agreed breakdown survives
       delivery_fee: q.delivery_fee ?? null,

@@ -378,7 +378,9 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       venue_lng: (lead as any).venue_lng,
       region_id: (lead as any).region_id,
       status: "draft",
-      currency: (lead as any).currency || "ZAR",
+      // currency intentionally omitted -- quotes table has no currency
+      // column; the tenant's currency lives on companies and is read
+      // from there at display time.
       // Money fields start at zero -- the operator builds these out
       // in /admin/quotes/[id]. We're just kickstarting the row.
       subtotal: 0,

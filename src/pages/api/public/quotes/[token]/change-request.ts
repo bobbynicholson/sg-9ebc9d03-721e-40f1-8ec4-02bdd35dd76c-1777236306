@@ -130,7 +130,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Resolve quote.
   const { data: quote } = await (supabase as any)
     .from("quotes")
-    .select("id, company_id, user_id, lead_id, client_name, total, currency, event_date, deleted_at")
+    // Wave 12 follow-up: currency lives on companies, not quotes.
+    // Selecting it here used to throw "column quotes.currency does
+    // not exist" and 500 every public change-request submission.
+    .select("id, company_id, user_id, lead_id, client_name, total, event_date, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
 
@@ -178,7 +181,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // the right card on /admin/quotes/{id}.
   void (async () => {
     try {
-      const totalLabel = `${quote.currency || "ZAR"} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
+      // Resolve currency from the company; quotes table doesn't carry it.
+      let currencyCode = "ZAR";
+      try {
+        const { data: companyRow } = await (supabase as any)
+          .from("companies")
+          .select("currency")
+          .eq("id", quote.company_id)
+          .maybeSingle();
+        if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+      } catch { /* fall back to ZAR */ }
+      const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
       const eventLabel = quote.event_date
         ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
         : "TBD";

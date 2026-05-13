@@ -51,9 +51,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Resolve + stamp in one round trip. Returning the row gives us
   // enough to fire the notification.
+  // Wave 12 follow-up: currency lives on companies, not quotes.
+  // Selecting it here used to throw "column quotes.currency does
+  // not exist" and 500 the view-tracking endpoint, which silently
+  // swallowed every viewed-at stamp + the admin "client viewed"
+  // notification.
   const { data: row } = await (supabase as any)
     .from("quotes")
-    .select("id, company_id, user_id, client_name, total, currency, event_date, viewed_at, deleted_at")
+    .select("id, company_id, user_id, client_name, total, event_date, viewed_at, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
 
@@ -71,7 +76,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Best-effort notification. Service role bypasses the
   // tenant_create_notifications RLS so it actually lands.
   try {
-    const totalLabel = `${row.currency || "ZAR"} ${Number(row.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
+    // Resolve currency from the company; quotes table doesn't carry it.
+    let currencyCode = "ZAR";
+    try {
+      const { data: companyRow } = await (supabase as any)
+        .from("companies")
+        .select("currency")
+        .eq("id", row.company_id)
+        .maybeSingle();
+      if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+    } catch { /* fall back to ZAR */ }
+    const totalLabel = `${currencyCode} ${Number(row.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
     const eventLabel = row.event_date
       ? new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
       : "TBD";

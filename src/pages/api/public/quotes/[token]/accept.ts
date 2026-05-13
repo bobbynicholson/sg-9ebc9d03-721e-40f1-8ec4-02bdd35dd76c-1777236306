@@ -110,7 +110,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .update({ accepted_at: nowIso, status: "accepted" })
     .eq("public_token", token)
     .is("deleted_at", null)
-    .select("id, company_id, user_id, client_id, client_name, client_email, total, currency, event_date, guest_count, quote_name")
+    // Wave 12 follow-up: `currency` lives on companies, not quotes --
+    // selecting it from quotes returns "column quotes.currency does not
+    // exist" and 500s the accept flow. Pull currency from companies
+    // below where we already fetch tenant context for the email.
+    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name")
     .maybeSingle();
 
   if (error) return res.status(500).json({ ok: false, error: error.message });
@@ -268,7 +272,18 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
     .eq("id", quote.user_id)
     .maybeSingle();
 
-  const totalLabel = `${quote.currency || "ZAR"} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  // Currency lives on companies, not quotes. Resolve from the
+  // tenant's company row with a ZAR fallback for legacy rows.
+  let currencyCode = "ZAR";
+  try {
+    const { data: companyRow } = await supabase
+      .from("companies")
+      .select("currency")
+      .eq("id", quote.company_id)
+      .maybeSingle();
+    if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+  } catch { /* fall back to ZAR */ }
+  const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
   const eventLabel = quote.event_date
     ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : "TBD";
