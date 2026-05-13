@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
@@ -719,6 +719,19 @@ function DriverManagementPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Phase 28 #4: manual refresh. Drivers are added
+                  from multiple surfaces (this page, mobile sign-up,
+                  dispatch creating an account) -- dispatch leads
+                  need to pull fresh state without a hard reload. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadDrivers}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {/* Phase 14 #4: driver roster CSV export. Bookkeeping
                   + payroll teams need an offline copy of the team
                   list for monthly run reconciliation. Exports the
