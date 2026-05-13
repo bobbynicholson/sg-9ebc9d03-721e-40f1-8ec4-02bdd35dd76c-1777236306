@@ -139,7 +139,7 @@ function SettingsPage() {
 
       const { data: company } = await supabase
         .from("companies")
-        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng")
+        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent")
         .eq("id", profile.company_id)
         .single();
       if (!company || cancelled) return;
@@ -157,6 +157,16 @@ function SettingsPage() {
             kitchenAddress: company.address_line1 ?? prev.company.kitchenAddress,
             kitchenLat: company.headquarters_lat ?? prev.company.kitchenLat,
             kitchenLng: company.headquarters_lng ?? prev.company.kitchenLng,
+          },
+          financial: {
+            ...prev.financial,
+            // companies.deposit_percent is the canonical source -- we
+            // override the localStorage / user_metadata copy so a
+            // colleague who set the value on another machine doesn't
+            // get stale local state.
+            depositPercent: company.deposit_percent != null
+              ? Number(company.deposit_percent)
+              : prev.financial.depositPercent,
           },
         };
         // Take the snapshot AFTER the company fields land so the
@@ -204,6 +214,13 @@ function SettingsPage() {
               logo_url: settings.company.logo || null,
               headquarters_lat: settings.company.kitchenLat || null,
               headquarters_lng: settings.company.kitchenLng || null,
+              // Persist the financial deposit % to the canonical
+              // companies column so resolveBranchSettings + the new-
+              // quote builder pick it up. Was previously lost to
+              // user_metadata only -- the quote acceptance flow read
+              // companies.deposit_percent directly and silently
+              // showed the stale 30% default.
+              deposit_percent: Number(settings.financial.depositPercent) || 30,
             })
             .eq("id", profile.company_id);
         }

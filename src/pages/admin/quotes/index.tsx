@@ -2246,7 +2246,16 @@ export default function AdminQuotes() {
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-emerald-600 shrink-0">•</span>
-                    <span>Deposit invoice generated{acceptPreflight?.total ? ` (~${fmtMoney.format(Number(acceptPreflight.total) * 0.3)} at 30%)` : ""}</span>
+                    <span>Deposit invoice generated{(() => {
+                      const total = Number(acceptPreflight?.total ?? 0);
+                      if (!total) return "";
+                      // Honour the deposit_percentage stamped on the
+                      // quote; previously hardcoded 30% even when the
+                      // company / quote was set to 50%.
+                      const pct = Number((acceptPreflight as any)?.deposit_percentage ?? 30);
+                      const expected = Math.round((total * pct / 100) * 100) / 100;
+                      return ` (~${fmtMoney.format(expected)} at ${pct}%)`;
+                    })()}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className={acceptPreflight?.client_email ? "text-emerald-600 shrink-0" : "text-amber-600 shrink-0"}>•</span>
