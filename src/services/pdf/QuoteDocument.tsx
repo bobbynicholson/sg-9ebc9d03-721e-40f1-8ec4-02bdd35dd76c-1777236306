@@ -84,6 +84,10 @@ export interface QuotePdfData {
     vat_registered?: boolean | null;
     vat_number?: string | null;
     vat_rate?: number | null;
+    /** Wave 12: when true, the line item unit_prices are gross (incl
+     *  VAT) and the totals card displays gross items + a "VAT incl"
+     *  hint. When false / absent (legacy), VAT is shown added on top. */
+    pricing_includes_vat?: boolean | null;
     /** Phase 8 #2: surfaced on the PDF footer when set, so the
      *  client can verify the legal entity behind the quote. */
     registration_number?: string | null;
@@ -521,62 +525,86 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* TOTALS */}
+        {/* TOTALS.
+
+            Wave 12 audit: under inc-VAT mode the line item unit_prices
+            in menu_items / equipment_items are gross. The "Items" line
+            on the totals card therefore needs to be the gross figure
+            too so it reconciles with the line items above. ex-VAT
+            tenants keep the legacy "items net + delivery + VAT on top"
+            layout. */}
         <View style={styles.card} wrap={false}>
-          {deliveryFee > 0 ? (
-            <>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Items</Text>
-                <Text style={styles.totalsValue}>{fmtZAR(itemsNet)}</Text>
-              </View>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>
-                  {(() => {
-                    // Show the km hint only when the saved fee matches
-                    // the canonical round-trip auto-calc (distance * 2
-                    // * rate). When it's a flat-fee override, collapse
-                    // to plain "Delivery" so the PDF matches the
-                    // public quote and the invoice.
-                    const dist = Number(data.delivery_distance_km) || 0;
-                    const rate = Number(data.delivery_rate_per_km) || 0;
-                    const roundTrip = dist * 2 * rate;
-                    const isFlat = !dist || Math.abs(deliveryFee - roundTrip) > 0.01;
-                    return isFlat ? "Delivery" : `Delivery (${dist.toFixed(1)} km × 2)`;
-                  })()}
-                </Text>
-                <Text style={styles.totalsValue}>{fmtZAR(deliveryFee)}</Text>
-              </View>
-            </>
-          ) : null}
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Subtotal</Text>
-            <Text style={styles.totalsValue}>{fmtZAR(subtotal)}</Text>
-          </View>
-          {discount > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabel}>Discount</Text>
-              <Text style={[styles.totalsValue, { color: "#047857" }]}>
-                -{fmtZAR(discount)}
-              </Text>
-            </View>
-          ) : null}
-          {tax > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabel}>
-                VAT
-                {company.vat_rate
-                  ? ` (${Number(company.vat_rate).toFixed(0)}%)`
-                  : ""}
-              </Text>
-              <Text style={styles.totalsValue}>{fmtZAR(tax)}</Text>
-            </View>
-          ) : null}
-          <View style={styles.grandTotalRow}>
-            <Text style={styles.grandTotalLabel}>
-              Total{vatRegistered ? " incl. VAT" : ""}
-            </Text>
-            <Text style={styles.grandTotalValue}>{fmtZAR(total)}</Text>
-          </View>
+          {(() => {
+            const incVat = company.pricing_includes_vat === true;
+            const itemsLine = incVat
+              ? Math.max(0, total - deliveryFee)
+              : itemsNet;
+            return (
+              <>
+                {deliveryFee > 0 ? (
+                  <>
+                    <View style={styles.totalsRow}>
+                      <Text style={styles.totalsLabel}>Items</Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(itemsLine)}</Text>
+                    </View>
+                    <View style={styles.totalsRow}>
+                      <Text style={styles.totalsLabel}>
+                        {(() => {
+                          // Show the km hint only when the saved fee matches
+                          // the canonical round-trip auto-calc (distance * 2
+                          // * rate). When it's a flat-fee override, collapse
+                          // to plain "Delivery" so the PDF matches the
+                          // public quote and the invoice.
+                          const dist = Number(data.delivery_distance_km) || 0;
+                          const rate = Number(data.delivery_rate_per_km) || 0;
+                          const roundTrip = dist * 2 * rate;
+                          const isFlat = !dist || Math.abs(deliveryFee - roundTrip) > 0.01;
+                          return isFlat ? "Delivery" : `Delivery (${dist.toFixed(1)} km × 2)`;
+                        })()}
+                      </Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(deliveryFee)}</Text>
+                    </View>
+                  </>
+                ) : null}
+                {!incVat ? (
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>Subtotal</Text>
+                    <Text style={styles.totalsValue}>{fmtZAR(subtotal)}</Text>
+                  </View>
+                ) : null}
+                {discount > 0 ? (
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>Discount</Text>
+                    <Text style={[styles.totalsValue, { color: "#047857" }]}>
+                      -{fmtZAR(discount)}
+                    </Text>
+                  </View>
+                ) : null}
+                {!incVat && tax > 0 ? (
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>
+                      VAT
+                      {company.vat_rate
+                        ? ` (${Number(company.vat_rate).toFixed(0)}%)`
+                        : ""}
+                    </Text>
+                    <Text style={styles.totalsValue}>{fmtZAR(tax)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.grandTotalRow}>
+                  <Text style={styles.grandTotalLabel}>
+                    Total{vatRegistered ? " incl. VAT" : ""}
+                  </Text>
+                  <Text style={styles.grandTotalValue}>{fmtZAR(total)}</Text>
+                </View>
+                {incVat && tax > 0 ? (
+                  <Text style={{ fontSize: 8, color: "#78716c", textAlign: "right", marginTop: 4 }}>
+                    Includes VAT{company.vat_rate ? ` (${Number(company.vat_rate).toFixed(0)}%)` : ""} of {fmtZAR(tax)}
+                  </Text>
+                ) : null}
+              </>
+            );
+          })()}
         </View>
 
         {/* TERMS + valid until */}

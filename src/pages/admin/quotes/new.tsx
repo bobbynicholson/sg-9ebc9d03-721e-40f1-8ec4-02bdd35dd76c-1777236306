@@ -391,6 +391,14 @@ function NewQuotePage() {
   /** The id of the row in `quotes` once it's been saved. Null until then. */
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
+  // Wave 12 audit: capture the persisted total at hydrate time so we
+  // can warn when the live recompute drifts away from it -- happens
+  // when the operator opens an old quote whose persisted columns
+  // were calculated under different VAT math (e.g. before the
+  // pricing_includes_vat flag was flipped). The customer-facing
+  // /q/[token] view reads the persisted columns; until the operator
+  // hits Save, the public view shows stale numbers.
+  const [persistedTotalAtLoad, setPersistedTotalAtLoad] = useState<number | null>(null);
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -580,6 +588,13 @@ function NewQuotePage() {
       setQuoteId(data.id);
       setQuoteNumber(data.quote_number);
       setStatus(data.status as any);
+      setPersistedTotalAtLoad(
+        typeof data.total === "number"
+          ? data.total
+          : typeof data.total_amount === "number"
+            ? data.total_amount
+            : 0,
+      );
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1162,6 +1177,9 @@ function NewQuotePage() {
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
         setSavedAt(new Date());
+        // Refresh the persisted-total snapshot so the stale-totals
+        // banner clears now that the public view is back in sync.
+        setPersistedTotalAtLoad(Number(payload.total ?? payload.total_amount ?? 0));
         if (override.status) setStatus(override.status as any);
         if (override.status === "sent" && prevStatus !== "sent") {
           void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
@@ -1375,6 +1393,22 @@ function NewQuotePage() {
                     <span className="text-xs text-amber-600">Unsaved changes</span>
                   )}
                 </p>
+                {/* Wave 12 audit: stale-totals warning. Customer-facing
+                    /q/[token] reads quote.subtotal / tax_amount / total
+                    directly from the row. If the live recompute drifts
+                    away from the persisted figure (e.g. the items were
+                    edited under a different VAT mode, or pricing
+                    convention flipped on the company), the public view
+                    keeps showing the stale number until the operator
+                    saves. Surface it inline so the operator knows. */}
+                {quoteId && persistedTotalAtLoad !== null && Math.abs((computed.total || 0) - persistedTotalAtLoad) > 0.01 && (
+                  <div className="mt-2 p-2.5 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 max-w-xl">
+                    <strong className="font-semibold">Totals out of sync.</strong>{" "}
+                    The live total is <span className="font-mono">{tenantCurrency.symbol}{computed.total.toFixed(2)}</span>,
+                    but the customer-facing quote still shows the saved <span className="font-mono">{tenantCurrency.symbol}{persistedTotalAtLoad.toFixed(2)}</span>.
+                    Hit <em>Save draft</em> to refresh the public view.
+                  </div>
+                )}
               </div>
             </div>
 

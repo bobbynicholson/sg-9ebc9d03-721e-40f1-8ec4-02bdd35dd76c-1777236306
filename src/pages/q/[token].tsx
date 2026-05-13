@@ -545,76 +545,108 @@ export default function PublicQuotePage() {
             </Card>
           )}
 
-          {/* TOTALS -- spit-braai accent bar */}
-          <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
-            <CardContent className="py-5 px-5 space-y-2">
-              {/* Show items + delivery as separate lines when there's
-                  a delivery fee, so the client sees how the subtotal
-                  breaks down. quote.subtotal is items_net + delivery,
-                  so items_net = subtotal - delivery_fee. */}
-              {Number((quote as any).delivery_fee || 0) > 0 ? (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">Items</span>
-                    <span className="text-stone-900 tabular-nums">
-                      {fmtMoney(Number(quote.subtotal || 0) - Number((quote as any).delivery_fee || 0))}
+          {/* TOTALS -- spit-braai accent bar.
+
+              Wave 12 audit: the totals card needs to AGREE with the
+              line items shown above it. For inc-VAT tenants the
+              line item unit_prices are gross (what the client pays
+              per item), so the "Items" line on the totals card has
+              to be the gross sum too -- not subtotal-minus-delivery,
+              which is the ex-VAT extraction and reads ~15% lower.
+
+              Switch by tenant pricing convention:
+                - inc-VAT: Items = total - delivery (gross), Delivery,
+                  Total (gross) shown. VAT is shown as a small "(VAT
+                  included)" hint, not added on top.
+                - ex-VAT: legacy display kept -- Items = subtotal -
+                  delivery (net), Delivery, Subtotal (ex-VAT), VAT
+                  added on top, Total. */}
+          {(() => {
+            const incVat = (company as any)?.pricing_includes_vat === true;
+            const deliveryFee = Number((quote as any).delivery_fee || 0);
+            const persistedSubtotal = Number(quote.subtotal || 0);
+            const persistedTax = Number(quote.tax_amount || 0);
+            const persistedTotal = total;
+            const discount = Number(quote.discount_amount || 0);
+            // Items figure for the totals card. Under inc-VAT we show
+            // gross (= total - delivery); under ex-VAT we show net
+            // (= subtotal - delivery).
+            const itemsLine = incVat
+              ? Math.max(0, persistedTotal - deliveryFee)
+              : Math.max(0, persistedSubtotal - deliveryFee);
+            return (
+              <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+                <CardContent className="py-5 px-5 space-y-2">
+                  {deliveryFee > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600">Items</span>
+                        <span className="text-stone-900 tabular-nums">
+                          {fmtMoney(itemsLine)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600">Delivery</span>
+                        <span className="text-stone-900 tabular-nums">
+                          {fmtMoney(deliveryFee)}
+                        </span>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {discount > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600">Subtotal</span>
+                        <span className="text-stone-900 tabular-nums">
+                          {fmtMoney(
+                            (incVat ? persistedTotal : persistedSubtotal) + discount,
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600">Discount</span>
+                        <span className="text-emerald-700 tabular-nums">
+                          -{fmtMoney(discount)}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    !incVat && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-stone-600">Subtotal</span>
+                        <span className="text-stone-900 tabular-nums">
+                          {fmtMoney(persistedSubtotal)}
+                        </span>
+                      </div>
+                    )
+                  )}
+
+                  {!incVat && persistedTax > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-600">
+                        VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""}
+                      </span>
+                      <span className="text-stone-900 tabular-nums">{fmtMoney(persistedTax)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-brand-primary">
+                    <span className="text-stone-900 font-serif">
+                      Total{vatRegistered ? " incl. VAT" : ""}
                     </span>
+                    <span className="text-brand-primary tabular-nums">{fmtMoney(persistedTotal)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    {/* Distance intentionally omitted from the
-                        client-facing line. It's internal context the
-                        operator uses to sanity-check the fee, not
-                        something the client needs to see. */}
-                    <span className="text-stone-600">Delivery</span>
-                    <span className="text-stone-900 tabular-nums">
-                      {fmtMoney(Number((quote as any).delivery_fee))}
-                    </span>
-                  </div>
-                </>
-              ) : null}
-              {/* Audit (May 2026, Wave 3): public view used to show
-                  Subtotal (the saved post-discount figure) and then a
-                  separate "- discount" line, double-counting the
-                  discount visually. The quote builder already folds
-                  discount into the stored `subtotal`, so we either
-                  hide the discount line OR show pre-discount subtotal
-                  with discount as a real deduction. Pre-discount is
-                  the more transparent option. */}
-              {!!quote.discount_amount && quote.discount_amount > 0 ? (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">Subtotal</span>
-                    <span className="text-stone-900 tabular-nums">
-                      {fmtMoney(Number(quote.subtotal || 0) + Number(quote.discount_amount || 0))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">Discount</span>
-                    <span className="text-emerald-700 tabular-nums">-{fmtMoney(quote.discount_amount)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-sm">
-                  <span className="text-stone-600">Subtotal</span>
-                  <span className="text-stone-900 tabular-nums">{fmtMoney(quote.subtotal || 0)}</span>
-                </div>
-              )}
-              {!!quote.tax_amount && quote.tax_amount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-stone-600">
-                    VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""}
-                  </span>
-                  <span className="text-stone-900 tabular-nums">{fmtMoney(quote.tax_amount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-brand-primary">
-                <span className="text-stone-900 font-serif">
-                  Total{vatRegistered ? " incl. VAT" : ""}
-                </span>
-                <span className="text-brand-primary tabular-nums">{fmtMoney(total)}</span>
-              </div>
-            </CardContent>
-          </Card>
+
+                  {incVat && persistedTax > 0 && (
+                    <p className="text-[11px] text-stone-500 text-right pt-1">
+                      Includes VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""} of {fmtMoney(persistedTax)}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* TERMS + valid-until -- kept above the accept block so the
               client reads the legal context before signing. The free-form

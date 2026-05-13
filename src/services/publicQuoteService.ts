@@ -98,7 +98,7 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
       company:company_id (
         id, company_name, legal_name, logo_url, email, phone, website,
         address_line1, address_line2, city,
-        vat_registered, vat_number, vat_rate,
+        vat_registered, vat_number, vat_rate, pricing_includes_vat,
         registration_number, tax_number,
         primary_color, secondary_color, accent_color,
         currency

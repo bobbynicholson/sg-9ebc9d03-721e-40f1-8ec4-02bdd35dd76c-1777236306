@@ -710,50 +710,75 @@ export default function AdminQuoteDetail() {
                       </div>
                     </div>
                   )}
-                  <div className="space-y-2 pt-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Items subtotal</span>
-                      <span className="font-medium">{fmtMoney(computed.itemsSubtotal)}</span>
-                    </div>
-                    {(isDraft ? deliveryFee : safeNum((quote as any).delivery_fee)) > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Delivery fee</span>
-                        <span className="font-medium">
-                          {fmtMoney(isDraft ? deliveryFee : safeNum((quote as any).delivery_fee))}
-                        </span>
+                  {/* Wave 12 audit: align the running-total panel with
+                      what the customer sees on /q/[token] and the PDF.
+                      Under inc-VAT mode the line items above are
+                      gross, so the Subtotal line is gross too and VAT
+                      is shown as a "incl" footnote. The legacy ex-VAT
+                      layout (items net + delivery + Subtotal +
+                      VAT-on-top + Total) stays for ex-VAT tenants. */}
+                  {(() => {
+                    const incVat = pricingMode.mode === "inc";
+                    const liveDelivery = isDraft ? deliveryFee : safeNum((quote as any).delivery_fee);
+                    const liveDiscount = isDraft ? discount : safeNum((quote as any).discount_amount);
+                    const liveTotal = isDraft
+                      ? computed.total
+                      : safeNum((quote as any).total ?? (quote as any).total_amount);
+                    const liveTax = isDraft
+                      ? computed.tax
+                      : safeNum((quote as any).tax ?? (quote as any).tax_amount);
+                    // For inc-VAT the displayed Subtotal IS the gross
+                    // (items + delivery, post-discount). For ex-VAT
+                    // the displayed Subtotal stays the ex-VAT net
+                    // (legacy convention).
+                    const liveSubtotalEx = isDraft ? computed.subtotal : safeNum((quote as any).subtotal);
+                    const liveSubtotalGross = liveTotal;
+                    return (
+                      <div className="space-y-2 pt-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Items{incVat ? " (incl VAT)" : ""}</span>
+                          <span className="font-medium">{fmtMoney(computed.itemsSubtotal)}</span>
+                        </div>
+                        {liveDelivery > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Delivery fee</span>
+                            <span className="font-medium">{fmtMoney(liveDelivery)}</span>
+                          </div>
+                        )}
+                        {liveDiscount > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Discount</span>
+                            <span className="font-medium text-rose-600">- {fmtMoney(liveDiscount)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Subtotal{incVat && vatRegistered ? " (incl VAT)" : ""}</span>
+                          <span className="font-medium">
+                            {fmtMoney(incVat ? liveSubtotalGross : liveSubtotalEx)}
+                          </span>
+                        </div>
+                        {vatRegistered && !incVat && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">VAT ({(taxRate * 100).toFixed(taxRate * 100 < 10 ? 1 : 0)}%)</span>
+                            <span className="font-medium">{fmtMoney(liveTax)}</span>
+                          </div>
+                        )}
+                        <div className="h-px bg-slate-200" />
+                        <div className="flex justify-between text-lg">
+                          <span className="font-semibold">Total{vatRegistered ? " incl. VAT" : ""}</span>
+                          <span className="font-bold text-green-600 flex items-center gap-1">
+                            <DollarSign className="w-5 h-5" />
+                            {fmtMoney(liveTotal)}
+                          </span>
+                        </div>
+                        {vatRegistered && incVat && liveTax > 0 && (
+                          <p className="text-[11px] text-slate-500 text-right">
+                            Includes VAT ({(taxRate * 100).toFixed(taxRate * 100 < 10 ? 1 : 0)}%) of {fmtMoney(liveTax)}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {(isDraft ? discount : safeNum((quote as any).discount_amount)) > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Discount</span>
-                        <span className="font-medium text-rose-600">
-                          - {fmtMoney(isDraft ? discount : safeNum((quote as any).discount_amount))}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Subtotal</span>
-                      <span className="font-medium">
-                        {fmtMoney(isDraft ? computed.subtotal : safeNum((quote as any).subtotal))}
-                      </span>
-                    </div>
-                    {vatRegistered && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">VAT ({(taxRate * 100).toFixed(taxRate * 100 < 10 ? 1 : 0)}%)</span>
-                        <span className="font-medium">
-                          {fmtMoney(isDraft ? computed.tax : safeNum((quote as any).tax ?? (quote as any).tax_amount))}
-                        </span>
-                      </div>
-                    )}
-                    <div className="h-px bg-slate-200" />
-                    <div className="flex justify-between text-lg">
-                      <span className="font-semibold">Total</span>
-                      <span className="font-bold text-green-600 flex items-center gap-1">
-                        <DollarSign className="w-5 h-5" />
-                        {fmtMoney(isDraft ? computed.total : safeNum((quote as any).total ?? (quote as any).total_amount))}
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
