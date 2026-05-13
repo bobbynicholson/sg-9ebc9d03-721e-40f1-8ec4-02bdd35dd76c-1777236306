@@ -323,6 +323,17 @@ function DriverSettlementPage() {
                 </select>
               </div>
               <div className="ml-auto flex gap-2">
+                {/* Phase 28 #9: manual refresh. Bumps refreshTick
+                    which the inner per-driver compute effect
+                    already listens for; picks up shifts logged
+                    or edited in another tab without changing
+                    the period chips. */}
+                <Button
+                  variant="outline"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                </Button>
                 <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="w-4 h-4 mr-2" /> Export CSV
                 </Button>
