@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle, ArrowLeft,
-  AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download,
+  AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -461,6 +461,18 @@ function RegionsPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              {/* Phase 28 #6: manual refresh. Region stats roll up
+                  from MTD orders and open quote counts; a refresh
+                  re-pulls the join after a quote or order changes
+                  in another tab. */}
+              <Button
+                variant="outline"
+                onClick={() => void loadRegions()}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {/* Phase 21 #4: per-branch performance CSV. Multi-
                   branch operators run quarterly reviews comparing
                   regions on revenue + order count + open quote
