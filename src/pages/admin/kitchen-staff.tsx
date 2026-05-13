@@ -96,6 +96,7 @@ function KitchenStaffPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   // Phase 26 #9: "/" or Cmd-F focuses the search input.
+  // Phase 29 #5: "n" opens the Add staff dialog.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -109,9 +110,14 @@ function KitchenStaffPage() {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openAdd();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Department filter -- 'all' shows the company-wide hub view, picking
   // a department narrows to people whose departments[] includes it.
