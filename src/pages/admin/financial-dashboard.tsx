@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download } from "lucide-react";
+import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
@@ -230,16 +230,30 @@ export default function FinancialDashboardPage() {
                 <p className="text-slate-600">
                   Revenue, profitability, and cashflow at a glance. Daily, weekly, and monthly views with profit margin and outstanding balances per period.
                 </p>
-                {/* Phase 20 #6: financial snapshot CSV export. The
-                    owner runs this page weekly for the team meeting
-                    and monthly for the bookkeeper. Until now they
-                    were copying numbers by hand. */}
-                {metrics && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {/* Phase 27 #4: manual refresh. The page only
+                      auto-loads on mount; a bookkeeper running
+                      reconciliation throughout the day previously
+                      had to hard-reload to pick up fresh payment
+                      data. */}
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-3"
-                    onClick={() => {
+                    onClick={loadFinancialData}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                  {/* Phase 20 #6: financial snapshot CSV export. The
+                      owner runs this page weekly for the team meeting
+                      and monthly for the bookkeeper. Until now they
+                      were copying numbers by hand. */}
+                  {metrics && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
                       const esc = (v: any) => {
                         if (v == null) return "";
                         const s = String(v).replace(/"/g, '""');
@@ -271,10 +285,11 @@ export default function FinancialDashboardPage() {
                       URL.revokeObjectURL(url);
                     }}
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export snapshot CSV
-                  </Button>
-                )}
+                      <Download className="w-4 h-4 mr-2" />
+                      Export snapshot CSV
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="mt-4 md:mt-0">
                 <Card className={`border-2 ${
