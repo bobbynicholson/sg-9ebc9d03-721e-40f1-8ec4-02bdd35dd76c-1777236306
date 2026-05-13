@@ -430,13 +430,13 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 {company.company_name || "Your caterer"}
               </Text>
               <Text style={styles.title}>{heading}</Text>
-              {vatRegistered && vatNumber ? (
-                <Text style={styles.vatLine}>VAT Reg No: {vatNumber}</Text>
-              ) : null}
               {company.registration_number ? (
                 <Text style={styles.vatLine}>
                   Reg No: {company.registration_number}
                 </Text>
+              ) : null}
+              {vatRegistered && vatNumber ? (
+                <Text style={styles.vatLine}>VAT Reg No: {vatNumber}</Text>
               ) : null}
               <View style={styles.metaRow}>
                 <View style={styles.metaCell}>

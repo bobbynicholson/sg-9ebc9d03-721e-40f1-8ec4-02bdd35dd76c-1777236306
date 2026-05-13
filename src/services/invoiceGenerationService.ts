@@ -41,6 +41,9 @@ interface InvoiceData {
    *  read 'incl. VAT'. SARS rule: only VAT-registered businesses
    *  may issue Tax Invoices. */
   companyVatRegistered?: boolean;
+  /** CIPC / company registration number. Surfaces in both the
+   *  on-screen preview header and the HTML render alongside VAT. */
+  companyRegistration?: string;
   
   // Client Details
   clientName: string;
@@ -338,6 +341,7 @@ export async function generateInvoiceData(
       companyEmail: companyData.email || "",
       companyVAT: companyData.vat_number || companyData.tax_number || "",
       companyVatRegistered: !!companyData.vat_registered,
+      companyRegistration: companyData.registration_number || "",
       
       clientName,
       clientEmail: client.email,
@@ -1048,6 +1052,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         <div>${data.companyAddress}</div>
         <div>Tel: ${data.companyPhone}</div>
         <div>Email: ${data.companyEmail}</div>
+        ${data.companyRegistration ? `<div>Reg No: ${data.companyRegistration}</div>` : ""}
         ${data.companyVAT ? `<div>VAT: ${data.companyVAT}</div>` : ""}
       </div>
     </div>

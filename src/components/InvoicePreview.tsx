@@ -31,6 +31,7 @@ interface InvoicePreviewProps {
   companyEmail: string;
   companyVAT?: string;
   companyVatRegistered?: boolean;
+  companyRegistration?: string;
   companyLogo?: string;
   clientName: string;
   clientEmail: string;
@@ -120,8 +121,13 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             <p className="text-sm text-stone-600 mt-2">
               Issued {safeDate(props.invoiceDate, today)} · due {safeDate(props.dueDate)}
             </p>
-            {props.companyVatRegistered && props.companyVAT && (
+            {props.companyRegistration && (
               <p className="text-xs text-stone-500 mt-1">
+                Reg No: <span className="font-mono">{props.companyRegistration}</span>
+              </p>
+            )}
+            {props.companyVatRegistered && props.companyVAT && (
+              <p className="text-xs text-stone-500 mt-0.5">
                 VAT Reg No: <span className="font-mono">{props.companyVAT}</span>
               </p>
             )}
