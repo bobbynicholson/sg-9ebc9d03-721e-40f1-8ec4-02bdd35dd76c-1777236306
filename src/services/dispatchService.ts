@@ -1045,7 +1045,12 @@ export const dispatchService = {
     for (const o of orders || []) {
       if ((o as any).status !== "delivered" && (o as any).status !== "completed") continue;
       completedJobs += 1;
-      totalKm += Number((o as any).delivery_distance_km || 0);
+      // delivery_distance_km is stored one-way (kitchen -> venue,
+      // matches Google Maps). The driver actually drove both legs,
+      // so the performance + earnings tiles need round-trip to
+      // stay consistent with the round-trip client billing + driver
+      // pay introduced in Phase 29 / Phase 30 #4.
+      totalKm += Number((o as any).delivery_distance_km || 0) * 2;
       if ((o as any).event_date && (o as any).event_time && (o as any).delivered_at) {
         const eventDt = new Date(`${(o as any).event_date}T${(o as any).event_time}`);
         const deadline = eventDt.getTime() + settings.arrivalBufferMinutes * 60_000;
