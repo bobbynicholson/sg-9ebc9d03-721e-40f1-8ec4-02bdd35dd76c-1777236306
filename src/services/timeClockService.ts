@@ -15,6 +15,26 @@ export const timeClockService = {
       .select("company_id")
       .eq("id", staffId)
       .maybeSingle();
+    const companyId = staffProfile?.company_id ?? null;
+    if (!companyId) {
+      throw new Error("Cannot clock in: profile has no company_id. Set the staff member's company before clocking in.");
+    }
+
+    // Guard: refuse a second clock-in while an open session exists.
+    // Audit (May 2026) found that double-tap or stale-tab clock-in
+    // bloated unpaid-hour totals because the next clockOut only
+    // closed the latest session, orphaning prior ones.
+    const { data: existingOpen } = await supabase
+      .from("staff_work_sessions")
+      .select("id")
+      .eq("staff_id", staffId)
+      .eq("company_id", companyId)
+      .is("clock_out", null)
+      .limit(1)
+      .maybeSingle();
+    if (existingOpen) {
+      throw new Error("This staff member already has an open session. Clock out first before clocking in again.");
+    }
 
     const { data: entry, error: entryError } = await supabase
       .from("time_clock_entries")
@@ -36,7 +56,7 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .insert({
         staff_id: staffId,
-        company_id: staffProfile?.company_id ?? null,
+        company_id: companyId,
         clock_in: now.toISOString(),
         session_date: now.toISOString().slice(0, 10),
         payment_status: "unpaid",
@@ -50,6 +70,21 @@ export const timeClockService = {
   },
 
   async clockOut(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
+    // Resolve the staff's company up front so we can scope every read
+    // and write. Audit (May 2026) found that clockOut was matching the
+    // first open session by staff_id alone -- if a staff record existed
+    // across tenants (super-admin, re-invited user) it could close the
+    // wrong tenant's session and stamp earnings on the wrong tenant.
+    const { data: staffProfile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", staffId)
+      .maybeSingle();
+    const companyId = staffProfile?.company_id ?? null;
+    if (!companyId) {
+      throw new Error("Cannot clock out: profile has no company_id.");
+    }
+
     const { data: entry, error: entryError } = await supabase
       .from("time_clock_entries")
       .insert({
@@ -69,10 +104,11 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .select("*")
       .eq("staff_id", staffId)
+      .eq("company_id", companyId)
       .is("clock_out", null)
       .order("clock_in", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (sessionError || !openSession) {
       throw new Error("No open work session found");

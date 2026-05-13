@@ -146,8 +146,13 @@ export default function MyOrders() {
   }, [user, company?.id]);
 
   const filteredOrders = orders.filter((o) => {
-    if (filter === "active") return o.status !== "completed" && o.status !== "cancelled";
-    if (filter === "completed") return o.status === "completed";
+    // "Completed" tab covers both `delivered` (driver dropped off,
+    // pre-completion) and `completed` (closed out) so a client's past
+    // events don't disappear from their list just because the team
+    // hasn't ticked completed yet.
+    const isDone = o.status === "completed" || o.status === "delivered";
+    if (filter === "active") return !isDone && o.status !== "cancelled";
+    if (filter === "completed") return isDone;
     return true;
   });
 
@@ -258,7 +263,7 @@ export default function MyOrders() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <Link href={`/tracking/client?orderId=${order.id}`}>
+                          <Link href={`/client-portal/tracking?orderId=${order.id}`}>
                             <Button size="sm" variant="outline" className="w-full sm:w-auto">
                               <Truck className="w-4 h-4 mr-2" />
                               Track
@@ -302,9 +307,11 @@ export default function MyOrders() {
                               </Button>
                             </>
                           )}
-                          <Button size="sm" variant="outline">
-                            View Details
-                          </Button>
+                          <Link href={`/c/order/${order.id}`}>
+                            <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                              View Details
+                            </Button>
+                          </Link>
                           {/* Book again -- only on completed orders. Opens
                               the same RebookDialog the dashboard uses;
                               prefills via sourceOrder on the dialog side. */}

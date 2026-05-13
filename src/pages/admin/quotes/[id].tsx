@@ -36,6 +36,8 @@ import { quoteService } from "@/services/quoteService";
 import { Quote } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
 
@@ -50,7 +52,10 @@ const STATUS_COLOURS: Record<string, string> = {
   revised: "bg-orange-100 text-orange-700",
 };
 
-const TAX_RATE = 0.15; // 15% VAT in ZA
+// VAT rate now resolves per-tenant (regions override -> companies
+// default -> 15% hard fallback) -- see resolveBranchSettings. The
+// previous `const TAX_RATE = 0.15` was hardcoded and silently applied
+// 15% to every UK / US / non-VAT-registered quote saved from this page.
 
 interface MenuItemRow {
   // Stable id -- menu_item_id when carried in from menu_items, else
@@ -92,6 +97,31 @@ export default function AdminQuoteDetail() {
     ((user as any)?.user_metadata?.company_id as string | undefined) ||
     ((user as any)?.company_id as string | undefined) ||
     null;
+
+  // Tenant-aware currency + VAT rate. Audit (May 2026) found this page
+  // was hardcoded to "R" + 15% VAT, silently corrupting totals on UK /
+  // US tenants and on non-VAT-registered ZA tenants every time a draft
+  // saved from here was reopened.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const fmtMoney = tenantCurrency.format;
+  const [taxRate, setTaxRate] = useState(0.15);
+  const [vatRegistered, setVatRegistered] = useState(true);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const branch = await resolveBranchSettings(companyId, null);
+        if (!cancelled) {
+          setVatRegistered(branch.vatRegistered);
+          setTaxRate(branch.vatRegistered ? Number(branch.vatRate) : 0);
+        }
+      } catch (e) {
+        console.warn("[quotes/[id]] branch settings load failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   // Pricing editor state -- only used when the quote is in 'draft'.
   const [items, setItems] = useState<MenuItemRow[]>([]);
@@ -281,10 +311,10 @@ export default function AdminQuoteDetail() {
       0,
     );
     const subtotal = itemsSubtotal + deliveryFee - discount;
-    const tax = subtotal * TAX_RATE;
+    const tax = subtotal * taxRate;
     const total = subtotal + tax;
     return { itemsSubtotal, subtotal, tax, total };
-  }, [items, deliveryFee, discount]);
+  }, [items, deliveryFee, discount, taxRate]);
 
   const updateItem = (key: string, patch: Partial<MenuItemRow>) =>
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -602,11 +632,11 @@ export default function AdminQuoteDetail() {
                                     />
                                   </div>
                                 ) : (
-                                  <span>R {it.unit_price.toFixed(2)}</span>
+                                  <span>{fmtMoney(it.unit_price)}</span>
                                 )}
                               </td>
                               <td className="py-3 px-3 text-right font-medium text-slate-900 w-[140px]">
-                                R {(it.quantity * it.unit_price).toFixed(2)}
+                                {fmtMoney(it.quantity * it.unit_price)}
                               </td>
                               {isDraft && (
                                 <td className="py-3 pl-3 w-[64px] text-right">
@@ -639,7 +669,7 @@ export default function AdminQuoteDetail() {
                       <div>
                         <label className="text-xs text-slate-600 block mb-1">Delivery fee</label>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">R</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
                           <Input
                             type="number"
                             min={0}
@@ -653,7 +683,7 @@ export default function AdminQuoteDetail() {
                       <div>
                         <label className="text-xs text-slate-600 block mb-1">Discount (subtracted before VAT)</label>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">R</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
                           <Input
                             type="number"
                             min={0}
@@ -669,13 +699,13 @@ export default function AdminQuoteDetail() {
                   <div className="space-y-2 pt-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Items subtotal</span>
-                      <span className="font-medium">R {computed.itemsSubtotal.toFixed(2)}</span>
+                      <span className="font-medium">{fmtMoney(computed.itemsSubtotal)}</span>
                     </div>
                     {(isDraft ? deliveryFee : safeNum((quote as any).delivery_fee)) > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Delivery fee</span>
                         <span className="font-medium">
-                          R {(isDraft ? deliveryFee : safeNum((quote as any).delivery_fee)).toFixed(2)}
+                          {fmtMoney(isDraft ? deliveryFee : safeNum((quote as any).delivery_fee))}
                         </span>
                       </div>
                     )}
@@ -683,28 +713,30 @@ export default function AdminQuoteDetail() {
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Discount</span>
                         <span className="font-medium text-rose-600">
-                          - R {(isDraft ? discount : safeNum((quote as any).discount_amount)).toFixed(2)}
+                          - {fmtMoney(isDraft ? discount : safeNum((quote as any).discount_amount))}
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Subtotal</span>
                       <span className="font-medium">
-                        R {(isDraft ? computed.subtotal : safeNum((quote as any).subtotal)).toFixed(2)}
+                        {fmtMoney(isDraft ? computed.subtotal : safeNum((quote as any).subtotal))}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">VAT (15%)</span>
-                      <span className="font-medium">
-                        R {(isDraft ? computed.tax : safeNum((quote as any).tax ?? (quote as any).tax_amount)).toFixed(2)}
-                      </span>
-                    </div>
+                    {vatRegistered && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">VAT ({(taxRate * 100).toFixed(taxRate * 100 < 10 ? 1 : 0)}%)</span>
+                        <span className="font-medium">
+                          {fmtMoney(isDraft ? computed.tax : safeNum((quote as any).tax ?? (quote as any).tax_amount))}
+                        </span>
+                      </div>
+                    )}
                     <div className="h-px bg-slate-200" />
                     <div className="flex justify-between text-lg">
                       <span className="font-semibold">Total</span>
                       <span className="font-bold text-green-600 flex items-center gap-1">
                         <DollarSign className="w-5 h-5" />
-                        R {(isDraft ? computed.total : safeNum((quote as any).total ?? (quote as any).total_amount)).toFixed(2)}
+                        {fmtMoney(isDraft ? computed.total : safeNum((quote as any).total ?? (quote as any).total_amount))}
                       </span>
                     </div>
                   </div>

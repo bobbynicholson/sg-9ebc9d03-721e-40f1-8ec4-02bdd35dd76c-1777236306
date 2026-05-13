@@ -32,8 +32,12 @@ interface FinancialMetrics {
   unpaidSessionsCount: number;
   /** Distinct staff with at least one unpaid session. */
   unpaidStaffCount: number;
-  inventoryCosts: number;
-  profitMargin: number;
+  // null until a real COGS pipeline is wired (inventory_transactions
+  // + supplier invoices + payroll). Previous fixed-multiplier maths
+  // was removed in the May 2026 audit because it produced a constant
+  // 35% margin and a health-score celebration off invented numbers.
+  inventoryCosts: number | null;
+  profitMargin: number | null;
   healthScore: number;
 }
 
@@ -111,15 +115,13 @@ export default function FinancialDashboardPage() {
       const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(ordersData, {
         currentCashFlow,
         projectedRevenue30Days,
-        upcomingExpenses: staffPaymentsOwed + inventoryCosts,
+        upcomingExpenses: staffPaymentsOwed + (inventoryCosts ?? 0),
       });
       setAlerts(generatedAlerts);
 
-      // Show celebration if health score is high
-      if (healthScore >= 85) {
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 5000);
-      }
+      // Celebration disabled: the old gate (healthScore >= 85) fired
+      // off a hardcoded 35% profit margin and rewarded every paid
+      // tenant with confetti. Honest signal requires real COGS first.
     } catch (error) {
       console.error("Error loading financial data:", error);
     } finally {
@@ -162,33 +164,30 @@ export default function FinancialDashboardPage() {
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
 
-  const calculateInventoryCosts = (orders: Order[]) => {
-    return orders
-      .filter(o => o.status === "confirmed" || o.status === "preparing" || o.status === "ready")
-      .reduce((sum, o) => sum + ((Number(o.total_amount) || 0) * 0.35), 0);
-  };
+  // Audit (May 2026): the previous version of these helpers fabricated
+  // COGS as a flat 35% of revenue and locked profit margin to exactly
+  // 35%, then drove a confetti celebration animation off the resulting
+  // score. The owner was being congratulated on an imaginary number.
+  //
+  // COGS and margin can only honestly come from real cost data --
+  // inventory_transactions, payroll, supplier invoices. Until that
+  // pipeline lands, return null so the UI can show a "data source not
+  // connected" tile instead of a lie. Cash flow + receivable signals
+  // continue to use real numbers (paid invoices, pending payments,
+  // staff payments owed) so the rest of the dashboard stays useful.
+  const calculateInventoryCosts = (_orders: Order[]): number | null => null;
 
-  const calculateProfitMargin = (orders: Order[]) => {
-    const totalRevenue = orders
-      .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-    
-    const totalCosts = totalRevenue * 0.65;
-    const profit = totalRevenue - totalCosts;
-    
-    return totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
-  };
+  const calculateProfitMargin = (_orders: Order[]): number | null => null;
 
   const calculateHealthScore = (data: any) => {
-    let score = 50;
-    
+    // Cash-flow-only health score (margin removed). Scoring caps at 80
+    // until a real COGS pipeline lands; that signals to the owner the
+    // score is partial.
+    let score = 40;
     if (data.currentCashFlow > 0) score += 20;
-    if (data.projectedRevenue30Days > data.pendingPayments) score += 15;
-    if (data.currentCashFlow > data.staffPaymentsOwed * 2) score += 15;
-    if (data.profitMargin > 25) score += 10;
-    if (data.profitMargin > 35) score += 10;
-    
-    return Math.min(100, score);
+    if (data.projectedRevenue30Days > data.pendingPayments) score += 10;
+    if (data.currentCashFlow > data.staffPaymentsOwed * 2) score += 10;
+    return Math.min(80, score);
   };
 
   const formatCurrency = (amount: number) => {
@@ -270,8 +269,8 @@ export default function FinancialDashboardPage() {
                         ["Staff payments owed", metrics.staffPaymentsOwed.toFixed(2)],
                         ["Unpaid sessions count", metrics.unpaidSessionsCount],
                         ["Unpaid staff count", metrics.unpaidStaffCount],
-                        ["Inventory costs", metrics.inventoryCosts.toFixed(2)],
-                        ["Profit margin", `${metrics.profitMargin.toFixed(1)}%`],
+                        ["Inventory costs", metrics.inventoryCosts != null ? metrics.inventoryCosts.toFixed(2) : "not connected"],
+                        ["Profit margin", metrics.profitMargin != null ? `${metrics.profitMargin.toFixed(1)}%` : "not connected"],
                       ];
                       const lines = rows.map((r) => r.map(esc).join(","));
                       const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -457,17 +456,17 @@ export default function FinancialDashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
-                    <InfoTooltip content={"Rough profit estimate on paid orders, assuming costs sit around 65% of revenue.\n\nThis is a placeholder until real cost-of-sales data is wired in."} />
+                    <InfoTooltip content={"Real profit margin needs cost-of-sales data: ingredient costs from inventory_transactions, payroll, supplier invoices.\n\nUntil that pipeline is wired in, this tile shows 'not connected' rather than a fabricated number."} />
                   </CardTitle>
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
+                  <TrendingUp className="w-5 h-5 text-slate-400" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900">
-                  {(metrics?.profitMargin || 0).toFixed(1)}%
+                <div className="text-2xl font-bold text-slate-400">
+                  Not connected
                 </div>
-                <p className="text-sm text-slate-600 mt-2">
-                  Overall profitability
+                <p className="text-sm text-slate-500 mt-2">
+                  Needs real COGS data
                 </p>
               </CardContent>
             </Card>
@@ -510,9 +509,9 @@ export default function FinancialDashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Estimated Inventory Costs <InfoTooltip content={"Rough placeholder at 35% of the value of orders currently in progress.\n\nThis is a rule-of-thumb estimate until real ingredient costs feed into the system."} /></span>
-                      <span className="font-semibold">
-                        {formatCurrency(metrics?.inventoryCosts || 0)}
+                      <span className="text-slate-600 flex items-center gap-1">Inventory Costs <InfoTooltip content={"Real ingredient + supplier costs need to flow in from inventory_transactions / supplier invoices.\n\nUntil that pipeline is wired in, this row reads 'not connected' rather than guessing a percentage of revenue."} /></span>
+                      <span className="font-semibold text-slate-400">
+                        Not connected
                       </span>
                     </div>
                     <div className="border-t pt-4 flex justify-between items-center">
@@ -642,11 +641,11 @@ export default function FinancialDashboardPage() {
                       <div>
                         <h4 className="font-semibold">Inventory Costs</h4>
                         <p className="text-sm text-slate-600">
-                          Estimated for upcoming orders
+                          Wire up inventory_transactions / supplier invoices to show real COGS here.
                         </p>
                       </div>
-                      <span className="font-bold text-lg">
-                        {formatCurrency(metrics?.inventoryCosts || 0)}
+                      <span className="font-bold text-lg text-slate-400">
+                        Not connected
                       </span>
                     </div>
 
@@ -661,16 +660,12 @@ export default function FinancialDashboardPage() {
             <TabsContent value="orders">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Order Profitability Analysis <InfoTooltip content={"Revenue per order with a flat 65% cost assumption stripped off.\n\nUseful as a rough comparison only until real cost-of-sales lands."} /></CardTitle>
+                  <CardTitle className="flex items-center gap-2">Order Revenue <InfoTooltip content={"Revenue per recent order. Profit margin column removed in the May 2026 audit -- it was driven by a flat 65% cost assumption, not real costs."} /></CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {orders.slice(0, 5).map((order) => {
                       const revenue = Number(order.total_amount) || 0;
-                      const estimatedCost = revenue * 0.65;
-                      const estimatedProfit = revenue - estimatedCost;
-                      const profitMargin = ((estimatedProfit / (revenue || 1)) * 100);
-
                       return (
                         <div key={order.id} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start mb-2">
@@ -680,33 +675,12 @@ export default function FinancialDashboardPage() {
                                 {new Date(order.event_date).toLocaleDateString()}
                               </p>
                             </div>
-                            <Badge className={
-                              profitMargin > 35 ? "bg-green-100 text-green-700" :
-                              profitMargin > 25 ? "bg-yellow-100 text-yellow-700" :
-                              "bg-red-100 text-red-700"
-                            }>
-                              {profitMargin.toFixed(0)}% margin
-                            </Badge>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div>
-                              <span className="text-slate-600">Revenue:</span>
-                              <div className="font-semibold">
-                                {formatCurrency(revenue)}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="text-slate-600">Est. Cost:</span>
-                              <div className="font-semibold">
-                                {formatCurrency(estimatedCost)}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="text-slate-600">Est. Profit:</span>
-                              <div className="font-semibold text-green-600">
-                                {formatCurrency(estimatedProfit)}
-                              </div>
-                            </div>
+                          <div className="text-sm">
+                            <span className="text-slate-600">Revenue:</span>
+                            <span className="font-semibold ml-2">
+                              {formatCurrency(revenue)}
+                            </span>
                           </div>
                         </div>
                       );

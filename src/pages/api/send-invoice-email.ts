@@ -33,12 +33,16 @@ export default async function handler(
         .json({ error: "Missing required fields: to, subject, html" });
     }
 
-    // TODO: Replace with real provider (Resend / SES / Postmark).
-    console.log("[send-invoice-email] queued ->", { to, subject, invoiceNumber });
-
-    return res.status(200).json({
-      success: true,
-      message: "Invoice email queued",
+    // Audit (May 2026): this endpoint was returning success: true after
+    // a console.log without sending. The modern path goes through
+    // /api/send-email (which uses emailService + per-tenant SMTP /
+    // Resend creds). Until callers are migrated, refuse to lie about
+    // sending and tell the caller where the real path lives.
+    return res.status(501).json({
+      success: false,
+      error: "send-invoice-email is deprecated. Use /api/send-email with attachInvoicePdf=true + invoiceId.",
+      error_code: "endpoint_deprecated",
+      received: { to, subject, invoiceNumber },
     });
   } catch (error: any) {
     console.error("Error sending invoice email:", error);

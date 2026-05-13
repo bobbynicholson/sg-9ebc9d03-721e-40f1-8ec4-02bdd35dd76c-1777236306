@@ -1204,12 +1204,18 @@ function NewQuotePage() {
     }
   }, [buildPayload, clientName, companyId, leadId, quoteId, router, toast, user?.id]);
 
-  // Auto-save: 1.5s debounced, only for active drafts with a name.
+  // Auto-save: 1.5s debounced, only for active drafts with a name AND
+  // an email. Audit (May 2026): the email check was on handleSaveDraft
+  // only, so autosave silently created quote rows without an email
+  // that then failed convertQuoteToOrder's gate later. Mirror the same
+  // "no deal without email" rule here so we never persist a row the
+  // pipeline can't process.
   const dirtyRef = useRef(false);
   useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, clientName, email]);
   useEffect(() => {
     if (status !== "draft") return;
     if (!clientName) return;
+    if (!email || !email.trim()) return;
     if (!dirtyRef.current) return;
     const handle = setTimeout(() => {
       dirtyRef.current = false;

@@ -184,45 +184,24 @@ export function ChatBot({ userRole = "admin", companyId }: ChatBotProps) {
     handleSendMessage(example);
   };
 
-  const getPlaceholderResponse = (question: string, role: string): string => {
-    // Placeholder responses - will be replaced with actual LLM integration
-    const responses: Record<string, Record<string, string>> = {
-      admin: {
-        default: "I'm analyzing your company data... This feature will be fully powered by AI soon! For now, check your dashboard for detailed insights."
-      },
-      driver: {
-        "next collection": "Your next collection is at **2:30 PM** from Sandton City for Order #3245 (150 guests). The pickup address is: 83 Rivonia Rd, Sandhurst.",
-        default: "I'm checking your delivery schedule... Full AI integration coming soon! Check your driver dashboard for current assignments."
-      },
-      kitchen: {
-        "order #3216": "For Order #3216 (180 guests), you should start prepping the chicken **2.5 hours before** the 6:00 PM event time. Start at **3:30 PM** to ensure proper marinating and cooking time.",
-        "low": "Currently running low on: **Chicken** (8kg remaining), **Olive Oil** (2L remaining), **Rice** (15kg remaining). Consider restocking soon!",
-        default: "I'm analyzing your kitchen operations... Full AI-powered prep scheduling coming soon!"
-      },
-      shopping: {
-        "restocking": "**Urgent restocking needed:** Chicken (5kg left, min 25kg), Olive Oil (2L left, min 10L), Plates (50 units left, min 100). Estimated cost: R3,850",
-        default: "I'm checking your inventory levels... AI-powered procurement recommendations coming soon!"
-      },
-      cleaning: {
-        "inspection": "**Equipment needing inspection today:** Gas Burners (last cleaned 5 days ago), Table Linens (in cleaning queue), Chafing Dishes (due for inspection).",
-        default: "I'm reviewing equipment status... Full AI-powered maintenance scheduling coming soon!"
-      },
-      client: {
-        "next event": "Your next event is on **Friday, April 25th** at Sandton Convention Centre for 200 guests. Everything is on track!",
-        default: "I'm checking your event details... Full AI assistance coming soon! Visit your client portal for complete information."
-      }
+  const getPlaceholderResponse = (_question: string, role: string): string => {
+    // Audit (May 2026) removed every canned answer that fabricated
+    // order numbers, addresses, stock levels and event dates. A driver
+    // following a fake "next collection is at 2:30 PM from Sandton City"
+    // would have driven to a venue that didn't exist; a chef seeing
+    // "low on chicken (8kg)" might have skipped a real reorder. Until
+    // the chat surface is wired to a real backend, return one honest
+    // not-connected message regardless of role / question.
+    const dashboardHint: Record<string, string> = {
+      admin: "Open your dashboard for live numbers.",
+      driver: "Open your driver dashboard for today's deliveries.",
+      kitchen: "Open the kitchen portal for the prep list and stock.",
+      shopping: "Open the shopping portal for the reorder list.",
+      cleaning: "Open the cleaning portal for equipment status.",
+      client: "Open your client portal for your booking details.",
     };
-
-    const roleResponses = responses[role] || responses.admin;
-    const lowerQuestion = question.toLowerCase();
-    
-    for (const [key, response] of Object.entries(roleResponses)) {
-      if (lowerQuestion.includes(key)) {
-        return response;
-      }
-    }
-    
-    return roleResponses.default || "I'm here to help! This feature will be fully AI-powered soon.";
+    const hint = dashboardHint[role] || dashboardHint.admin;
+    return `The chat assistant isn't connected yet. ${hint}`;
   };
 
   return (

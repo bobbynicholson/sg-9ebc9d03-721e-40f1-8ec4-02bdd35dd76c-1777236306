@@ -193,30 +193,18 @@ class ChatBotService {
    * Process AI query (placeholder for future OpenAI/Claude integration)
    */
   async processAIQuery(
-    query: string,
-    companyId: string,
-    userRole: string,
-    context: Record<string, any>
+    _query: string,
+    _companyId: string,
+    _userRole: string,
+    _context: Record<string, any>
   ): Promise<string> {
-    // Placeholder for future LLM integration
-    // This will call OpenAI/Claude API with company-specific context
-    
-    // For now, return intelligent placeholder responses
-    const responses: Record<string, string> = {
-      revenue: `Based on your recent orders, your company is performing well. Would you like a detailed breakdown?`,
-      orders: `You have ${context.recentOrders?.length || 0} recent orders. ${context.recentOrders?.filter((o: any) => o.status === 'pending')?.length || 0} need attention.`,
-      inventory: `I'm analyzing your inventory levels... Full AI integration coming soon!`,
-      schedule: `Checking your schedule... This will be powered by AI soon!`
-    };
-
-    // Simple keyword matching for demo
-    for (const [key, response] of Object.entries(responses)) {
-      if (query.toLowerCase().includes(key)) {
-        return response;
-      }
-    }
-
-    return "I'm here to help! This feature will be fully AI-powered soon. For now, check your dashboard for detailed information.";
+    // Audit (May 2026): every "placeholder response" here was a
+    // fabricated answer ("you have N recent orders" pulled from a
+    // partial context object, "your company is performing well"
+    // unconditional, etc). Until a real LLM is wired in, return one
+    // honest not-connected message rather than inventing operational
+    // facts a chef or driver might act on.
+    return "The chat assistant isn't connected yet. Open the relevant dashboard for live numbers.";
   }
 }
 
