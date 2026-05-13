@@ -29,9 +29,13 @@ const FALLBACK_BODIES = {
     "{{refund_paragraph}}" +
     "If this wasn't expected, please reply to this email and we'll sort it out straight away.\n\n" +
     "Thanks,\n{{company_name}}",
+  // {{refund_sla_phrase}} carries the per-tenant refund timeline that
+  // the Settings -> Financial card now drives (companies.refund_process_days).
+  // Defaults to "within the next few business days" when the days
+  // value is missing so a legacy template doesn't suddenly read "0".
   cancellation_with_refund_paragraph:
     "Per our cancellation policy, a refund of {{refund_amount}} is due. " +
-    "We'll process the EFT within the next few business days and send confirmation when it's gone out.\n\n",
+    "We'll process the EFT {{refund_sla_phrase}} and send confirmation when it's gone out.\n\n",
   cancellation_no_refund_paragraph:
     "Per our cancellation policy (sent on quote acceptance), no refund is due for this cancellation.\n\n",
   refund_paid:
@@ -65,19 +69,35 @@ interface CompanyForEmail {
   company_name: string | null;
 }
 
-async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmail | null }> {
+interface CompanyForEmailExt extends CompanyForEmail {
+  refund_process_days: number | null;
+}
+
+async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmailExt | null }> {
   const { data: order } = await supabase
     .from("orders")
     .select("id, company_id, client_email, client_name, order_number, event_date, event_name")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { order: null, company: null };
-  const { data: company } = await supabase
+  // refund_process_days landed in the companies_financial_settings_columns
+  // migration; cast keeps us off the still-stale Supabase Database types.
+  const { data: company } = await (supabase as any)
     .from("companies")
-    .select("id, company_name" as any)
+    .select("id, company_name, refund_process_days")
     .eq("id", (order as any).company_id)
     .maybeSingle();
   return { order: order as any, company: (company as any) || null };
+}
+
+/** Per-tenant refund SLA phrase from companies.refund_process_days.
+ *  Falls back to the previous "within the next few business days"
+ *  copy when nothing is configured so a tenant who never opens
+ *  Settings -> Financial doesn't get an awkward "0 business days". */
+function refundSlaPhrase(company: CompanyForEmailExt | null): string {
+  const days = Number(company?.refund_process_days);
+  if (!Number.isFinite(days) || days <= 0) return "within the next few business days";
+  return `within ${days} business day${days === 1 ? "" : "s"}`;
 }
 
 function commonVars(order: OrderForEmail, company: CompanyForEmail | null): Record<string, string> {
@@ -102,10 +122,13 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
     if (!order?.client_email) return;
 
     const baseVars = commonVars(order, company);
+    const slaPhrase = refundSlaPhrase(company);
     const refundParagraph = refundAmount > 0
       ? FALLBACK_BODIES.cancellation_with_refund_paragraph
           .split("{{refund_amount}}")
           .join(fmtZAR(refundAmount))
+          .split("{{refund_sla_phrase}}")
+          .join(slaPhrase)
       : FALLBACK_BODIES.cancellation_no_refund_paragraph;
 
     const fallbackSubject = formatCancellationSubject({
@@ -121,6 +144,8 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
         ...baseVars,
         refund_paragraph: refundParagraph,
         refund_amount: fmtZAR(refundAmount),
+        refund_sla_phrase: slaPhrase,
+        refund_process_days: String(company?.refund_process_days ?? ""),
       },
       fallback: {
         subject: fallbackSubject,

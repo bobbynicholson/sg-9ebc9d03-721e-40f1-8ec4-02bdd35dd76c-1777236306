@@ -23,6 +23,10 @@ interface RefundSnapshot {
   requires_owner_override: boolean;
   late_cancel_override_days: number;
   policy_snapshot?: any;
+  /** New in get_refund_for_order_honour_cancellation_fee migration --
+   *  the company's flat cancellation fee, used as fallback when no
+   *  deposit_refund_tiers are configured. */
+  cancellation_fee_percent?: number;
 }
 
 interface Props {
@@ -164,6 +168,16 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
                 <div className="text-sm flex-1">
                   Refund due: <strong className="text-rose-700">{fmt.format(snap.refund_amount)}</strong>
                   {" "}({snap.refund_pct}%)
+                  {/* When no deposit_refund_tiers are configured the
+                      RPC falls back to (100 - cancellation_fee_percent).
+                      Surface that source so the operator knows the
+                      number isn't coming from a tier walk. */}
+                  {!Array.isArray(snap.policy_snapshot?.deposit_refund_tiers)
+                    || snap.policy_snapshot.deposit_refund_tiers.length === 0 ? (
+                    <span className="block text-[11px] text-slate-500 mt-0.5">
+                      Based on company cancellation fee {snap.cancellation_fee_percent ?? 25}%. Set tiered tiers under Policy if you want it to scale with notice.
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
