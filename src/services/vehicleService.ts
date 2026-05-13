@@ -417,7 +417,10 @@ export const vehicleService = {
 
       const ord = (b as any).order;
       if (ord) {
-        slot.distanceKm += Number(ord.delivery_distance_km || 0);
+        // delivery_distance_km is stored one-way (kitchen -> venue).
+        // Vehicle actually drives both legs, so utilisation reporting
+        // doubles to match round-trip billing/pay (Phase 29 / 30 #4,7).
+        slot.distanceKm += Number(ord.delivery_distance_km || 0) * 2;
         if (ord.status !== "cancelled") {
           slot.revenueCarried += Number(ord.total_amount || 0);
         }

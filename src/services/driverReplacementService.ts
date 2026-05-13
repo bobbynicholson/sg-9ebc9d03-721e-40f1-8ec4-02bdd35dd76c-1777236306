@@ -439,7 +439,7 @@ Order Number: ${request.orders?.order_number}
 Event Date: ${request.orders?.event_date}
 Event Time: ${request.orders?.event_time || "TBD"}
 Venue: ${request.orders?.venue_address || "TBD"}
-${request.orders?.delivery_distance_km ? `Distance: ${request.orders.delivery_distance_km} km\n` : ""}
+${request.orders?.delivery_distance_km ? `Distance: ${(Number(request.orders.delivery_distance_km) * 2).toFixed(1)} km (round-trip)\n` : ""}
 Original Driver: ${request.profiles?.full_name}
 Reason: ${request.reason}
 
