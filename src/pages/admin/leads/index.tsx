@@ -399,6 +399,29 @@ export default function AdminLeads() {
   // CTAs on each row open this drawer rather than skipping straight
   // to Gmail.
   const [composeLead, setComposeLead] = useState<any | null>(null);
+  // Phase 27 #2: ?leadId scrolls to and highlights the matching row.
+  // Used by the dashboard's LeadAging + NewLeadsToday widgets so
+  // the sales lead lands exactly on the row they were chasing.
+  const [focusedLeadId, setFocusedLeadId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+    const target = typeof router.query.leadId === "string" ? router.query.leadId : null;
+    if (!target) return;
+    setStatusFilter("all");
+    setSearchTerm("");
+    setFocusedLeadId(target);
+    const t = setTimeout(() => {
+      const el = typeof document !== "undefined"
+        ? document.getElementById(`lead-row-${target}`)
+        : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    const clearT = setTimeout(() => setFocusedLeadId(null), 4000);
+    const { leadId: _drop, ...rest } = router.query;
+    router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    return () => { clearTimeout(t); clearTimeout(clearT); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.leadId, loading]);
   const [composeKind, setComposeKind] = useState<LeadActionKind>("reply_email");
 
   // Convert-to-order confirmation modal. Replaces the legacy
@@ -1065,8 +1088,11 @@ export default function AdminLeads() {
                     return (
                     <div
                       key={lead.id}
+                      id={`lead-row-${lead.id}`}
                       className={`p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors ${
                         suggestion.tone === "urgent" ? "ring-2 ring-rose-200" : ""
+                      } ${
+                        focusedLeadId === lead.id ? "ring-2 ring-amber-400 ring-inset bg-amber-50 animate-pulse" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between flex-wrap gap-3">
