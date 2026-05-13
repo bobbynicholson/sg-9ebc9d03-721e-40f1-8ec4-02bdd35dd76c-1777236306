@@ -49,6 +49,22 @@ export default function InvoicesPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  // Phase 27 #1: ?invoiceId auto-opens the preview drawer once
+  // invoices have loaded. Used by OverdueInvoicesWidget (Phase
+  // 22 #8) deep-link so the bookkeeper lands inside the invoice
+  // rather than on the list. Guards against re-opening on the
+  // same id with an autoOpenedRef so a manual close stays closed.
+  const autoOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+    const target = typeof router.query.invoiceId === "string" ? router.query.invoiceId : null;
+    if (!target || autoOpenedRef.current === target) return;
+    const found = invoices.find((inv) => inv.id === target);
+    if (!found) return;
+    autoOpenedRef.current = target;
+    void handlePreviewInvoice(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.invoiceId, invoices, loading]);
   // Phase 26 #3: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
