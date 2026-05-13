@@ -316,8 +316,20 @@ export const invoiceService = {
       total: (item.quantity || 1) * (item.pricePerPerson || item.rentalPrice || 0)
     }));
 
+    // Honour the tenant's VAT registration + rate instead of always
+    // applying 15%. Non-VAT-registered tenants must not see a VAT
+    // line on their invoices (SARS rule); VAT-registered tenants in
+    // other regions may have a non-15% rate (UK 20%, etc).
+    const { data: companyRow } = await (supabase as any)
+      .from("companies")
+      .select("vat_registered, tax_rate")
+      .eq("id", (order as any).company_id)
+      .maybeSingle();
+    const vatRegistered = !!(companyRow as any)?.vat_registered;
+    const vatRatePct = Number((companyRow as any)?.tax_rate ?? 15);
+    const vatRate = vatRegistered ? vatRatePct / 100 : 0;
     const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-    const vatAmount = subtotal * 0.15;
+    const vatAmount = subtotal * vatRate;
     const total = subtotal + vatAmount;
 
     // Prefer an explicit override, then any existing invoice_number on

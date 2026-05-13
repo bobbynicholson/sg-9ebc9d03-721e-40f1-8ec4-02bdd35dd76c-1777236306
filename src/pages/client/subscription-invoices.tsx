@@ -203,8 +203,19 @@ function SubscriptionInvoicesPage() {
 }
 
 export default function ClientSubscriptionInvoicesPage() {
+  // This page is CateringMS billing the catering company (SaaS
+  // subscription invoices), so the audience is the tenant owner /
+  // company admin -- not the catering company's end-clients. Old
+  // guard was UserRole.CLIENT which exposed CateringMS's own billing
+  // history to every client of every tenant.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <SubscriptionInvoicesPage />
     </ProtectedRoute>
   );
