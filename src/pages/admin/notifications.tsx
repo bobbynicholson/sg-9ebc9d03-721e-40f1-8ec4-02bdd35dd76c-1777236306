@@ -19,7 +19,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download } from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download, RefreshCw } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedNotificationsPage() {
@@ -271,6 +271,18 @@ function NotificationsPage() {
               <InfoTooltip content={"All shows every notification for your role. Unread narrows it down to the ones you have not read yet."} className="ml-2" />
             </TabsList>
             <div className="flex gap-2">
+              {/* Phase 27 #7: manual refresh. Background subscriptions
+                  miss in-flight system events occasionally; one-click
+                  reload keeps the operator current. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadNotifications}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
