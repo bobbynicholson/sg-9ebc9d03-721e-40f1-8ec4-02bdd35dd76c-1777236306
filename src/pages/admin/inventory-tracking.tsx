@@ -24,6 +24,7 @@ import {
   CheckCircle,
   XCircle,
   X,
+  RefreshCw,
   Clock,
   Download,
 } from "lucide-react";
@@ -468,6 +469,17 @@ export default function InventoryTracking() {
             <p className="text-slate-600 mt-1">Live stock levels with low-stock alerts. Generate a shopping list from the gap between what you have and what upcoming events will need.</p>
           </div>
           <div className="flex gap-2">
+            {/* Phase 28 #5: manual refresh. Stock counts change
+                constantly via clock-outs, deliveries, manual
+                edits from other tabs. */}
+            <Button
+              variant="outline"
+              onClick={() => { loadInventory(); loadStockMovements(); }}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
             {/* Phase 19 #7: inventory CSV export. The shopping
                 list generator covers what to buy, but suppliers
                 and bookkeepers regularly want a flat snapshot of
