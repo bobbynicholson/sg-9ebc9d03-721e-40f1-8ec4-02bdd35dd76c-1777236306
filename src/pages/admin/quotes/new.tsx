@@ -1167,19 +1167,23 @@ function NewQuotePage() {
         }
       }
       if (quoteId) {
-        // Read current status BEFORE the update so we can detect the
-        // draft -> sent transition. Lifecycle audit (May 2026) found
-        // this page used to write status='sent' directly without ever
-        // firing the client email; now we route the side-effect
-        // through quoteService._fireQuoteSentEmail.
+        // Read current status + converted_to_order_id BEFORE the
+        // update so we can detect the draft -> sent transition AND
+        // the cancel-order cascade for revised-after-acceptance.
+        // Lifecycle audit (May 2026) found this page used to write
+        // status='sent' directly without ever firing the client
+        // email; now we route the side-effect through
+        // quoteService._fireQuoteSentEmail.
         let prevStatus: string | null = null;
+        let prevConvertedOrderId: string | null = null;
         if (override.status === "sent") {
           const { data: cur } = await supabase
             .from("quotes")
-            .select("status")
+            .select("status, converted_to_order_id")
             .eq("id", quoteId)
             .maybeSingle();
           prevStatus = (cur as any)?.status ?? null;
+          prevConvertedOrderId = (cur as any)?.converted_to_order_id ?? null;
         }
         // Wave 14 audit: when the operator hits Save & Send on an
         // already-sent / viewed / accepted quote (the "Revise &
@@ -1192,6 +1196,17 @@ function NewQuotePage() {
         if (override.status === "sent" && quoteId) {
           payload.accepted_at = null;
           payload.viewed_at = null;
+          // Wave 15 audit: if the quote had already been accepted
+          // (so the public accept handler created an order via
+          // convert_quote_to_order and stamped converted_to_order_id),
+          // we must clear that link too. The convert RPC raises
+          // 'quote_already_converted' on a non-NULL link, so the
+          // next client re-accept would silently fail. The cascade
+          // cancel of the linked order happens just after the row
+          // update so we have the prevConvertedOrderId in scope.
+          if (prevConvertedOrderId) {
+            payload.converted_to_order_id = null;
+          }
         }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
@@ -1224,6 +1239,29 @@ function NewQuotePage() {
                 .eq("status", "pending");
             } catch (crErr) {
               console.warn("[quotes/new] change-request auto-address failed:", crErr);
+            }
+          })();
+        }
+        // Wave 15 audit: cascade-cancel the previously-converted
+        // order on revise-send. Without this the order row keeps
+        // its old totals, the kitchen prep + invoice + equipment
+        // bookings still reference the pre-revision spec, and the
+        // next time the client accepts via /q/[token] the convert
+        // RPC blows up with quote_already_converted. Cancelling
+        // releases driver/vehicle assignments + reverses inventory
+        // (cancelOrder runs the full cascade), and the next accept
+        // creates a fresh order with the new spec.
+        if (override.status === "sent" && prevConvertedOrderId) {
+          void (async () => {
+            try {
+              const { cancelOrder } = await import("@/services/order/orderWorkflow");
+              await cancelOrder(prevConvertedOrderId, {
+                reason: "Quote revised after client requested changes",
+                reason_category: "client_cancelled",
+                cancelled_by_user_id: user?.id ?? null as any,
+              });
+            } catch (cancelErr) {
+              console.warn("[quotes/new] linked-order cancel failed:", cancelErr);
             }
           })();
         }
@@ -1458,7 +1496,15 @@ function NewQuotePage() {
                     <strong className="font-semibold">Totals out of sync.</strong>{" "}
                     The live total is <span className="font-mono">{tenantCurrency.symbol}{computed.total.toFixed(2)}</span>,
                     but the customer-facing quote still shows the saved <span className="font-mono">{tenantCurrency.symbol}{persistedTotalAtLoad.toFixed(2)}</span>.
-                    Hit <em>Save draft</em> to refresh the public view.
+                    {/* Wave 15 audit: when revising a non-draft quote,
+                        Save draft alone leaves accepted_at intact and
+                        the customer would see "accepted" with new
+                        higher numbers -- broken state. Steer the
+                        operator to Save & Send so the public
+                        lifecycle resets in step with the totals. */}
+                    {isRevisingNonDraft
+                      ? <> Hit <em>Save &amp; Send</em> to push the new numbers and email the client.</>
+                      : <> Hit <em>Save draft</em> to refresh the public view.</>}
                   </div>
                 )}
               </div>
@@ -2173,35 +2219,74 @@ function NewQuotePage() {
                   <CardHeader>
                     <CardTitle className="text-base">Running total</CardTitle>
                   </CardHeader>
+                  {/* Wave 15 audit: under inc-VAT mode the previous layout
+                      ("Items net" + "Subtotal" + "VAT" + "Total") buried
+                      a confusing ex-VAT extraction line between the line
+                      items and the gross total -- e.g. Items 2100 +
+                      Delivery 99.71 = 2199.71, but Subtotal showed
+                      1912.79. Align with the public quote view + the
+                      [id] editor: under inc-VAT show gross items +
+                      delivery + Subtotal (incl VAT) + Total with a
+                      "Includes VAT of R X" footnote. ex-VAT keeps the
+                      legacy "Items net + Delivery + Subtotal + VAT
+                      added on top + Total" layout. Also collapse the
+                      "Items (gross)" + "Items net" duplicate row into
+                      one "Items" line when there are no per-line
+                      discounts (the typical case) -- two identical
+                      R-figures one under the other was visual noise. */}
                   <CardContent className="space-y-1.5 text-sm">
-                    <Row label="Items (gross)" value={fmtR(computed.itemsGross)} />
-                    {computed.lineDiscounts > 0 && (
-                      <Row label="Line discounts" value={`- ${fmtR(computed.lineDiscounts)}`} tone="discount" />
-                    )}
-                    <Row label="Items net" value={fmtR(computed.itemsNet)} muted />
-                    {computed.surge !== 0 && (
-                      <Row label={`Surge (+${surgePct}%)`} value={`+ ${fmtR(computed.surge)}`} tone="warm" />
-                    )}
-                    {computed.pctDiscount > 0 && (
-                      <Row label={`Discount (-${discountPct}%)`} value={`- ${fmtR(computed.pctDiscount)}`} tone="discount" />
-                    )}
-                    {computed.flatDiscount > 0 && (
-                      <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
-                    )}
-                    <Row
-                      label={
-                        deliveryFeeOverridden || deliveryDistance === 0
-                          ? "Delivery"
-                          : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
-                      }
-                      value={fmtR(deliveryFee)}
-                      muted
-                    />
-                    <div className="my-1 border-t border-slate-200" />
-                    <Row label="Subtotal" value={fmtR(computed.subtotal)} />
-                    <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
-                    <div className="my-1 border-t border-slate-200" />
-                    <Row label="Total" value={fmtR(computed.total)} tone="bold" />
+                    {(() => {
+                      const incVat = pricingIncludesVat;
+                      const hasLineDiscounts = computed.lineDiscounts > 0;
+                      const itemsLabel = incVat ? "Items (incl VAT)" : "Items";
+                      return (
+                        <>
+                          {hasLineDiscounts ? (
+                            <>
+                              <Row label={`${itemsLabel} (gross)`} value={fmtR(computed.itemsGross)} />
+                              <Row label="Line discounts" value={`- ${fmtR(computed.lineDiscounts)}`} tone="discount" />
+                              <Row label={`${itemsLabel} (net of line discount)`} value={fmtR(computed.itemsNet)} muted />
+                            </>
+                          ) : (
+                            <Row label={itemsLabel} value={fmtR(computed.itemsNet)} />
+                          )}
+                          {computed.surge !== 0 && (
+                            <Row label={`Surge (+${surgePct}%)`} value={`+ ${fmtR(computed.surge)}`} tone="warm" />
+                          )}
+                          {computed.pctDiscount > 0 && (
+                            <Row label={`Discount (-${discountPct}%)`} value={`- ${fmtR(computed.pctDiscount)}`} tone="discount" />
+                          )}
+                          {computed.flatDiscount > 0 && (
+                            <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
+                          )}
+                          <Row
+                            label={
+                              deliveryFeeOverridden || deliveryDistance === 0
+                                ? "Delivery"
+                                : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
+                            }
+                            value={fmtR(deliveryFee)}
+                            muted
+                          />
+                          <div className="my-1 border-t border-slate-200" />
+                          {incVat ? (
+                            <Row label="Subtotal (incl VAT)" value={fmtR(computed.total)} />
+                          ) : (
+                            <>
+                              <Row label="Subtotal" value={fmtR(computed.subtotal)} />
+                              <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
+                            </>
+                          )}
+                          <div className="my-1 border-t border-slate-200" />
+                          <Row label={`Total${pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""}`} value={fmtR(computed.total)} tone="bold" />
+                          {incVat && computed.tax > 0 && (
+                            <p className="text-[11px] text-slate-500 text-right pt-1">
+                              Includes VAT ({(taxRate * 100).toFixed(0)}%) of {fmtR(computed.tax)}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
 
