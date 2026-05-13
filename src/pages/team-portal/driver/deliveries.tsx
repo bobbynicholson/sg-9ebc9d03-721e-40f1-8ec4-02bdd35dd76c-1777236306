@@ -14,7 +14,6 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 
@@ -26,7 +25,6 @@ interface DriverOrder {
   guest_count: number;
   status: string;
   delivery_status?: string | null;
-  total_amount: number | null;
   client_name?: string | null;
   /** Client contact details for the driver-to-client comms bridge.
    *  These are surfaced as call / WhatsApp links inline on each
@@ -55,9 +53,6 @@ const statusBadge = (status: string) => {
 
 export default function DriverDeliveriesPage() {
   const { user } = useAuth();
-  // Phase 10 #3: tenant currency for the per-job total chip.
-  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
-  const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<DriverOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -83,7 +78,7 @@ export default function DriverDeliveriesPage() {
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
-        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, total_amount, client_name, client_phone, client_email, equipment_items, menu_items")
+        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -288,9 +283,10 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
               </div>
               <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
                 <span className="text-sm text-slate-500">{o.guest_count} pax</span>
-                <span className="font-semibold text-slate-900">
-                  {C}{Number(o.total_amount || 0).toLocaleString()}
-                </span>
+                {/* Order total intentionally hidden -- drivers should see
+                    their own payout, not what the catering company charged
+                    the client. Driver earnings live on /team-portal/driver/
+                    earnings + /dashboard. */}
               </div>
             </div>
 

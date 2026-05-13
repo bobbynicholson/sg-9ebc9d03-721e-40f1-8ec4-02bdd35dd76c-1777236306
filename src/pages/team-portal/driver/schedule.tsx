@@ -10,7 +10,6 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -21,7 +20,6 @@ interface ScheduleOrder {
   venue_address: string;
   guest_count: number;
   status: string;
-  total_amount: number | null;
   client_name?: string | null;
 }
 
@@ -37,9 +35,6 @@ const dayBucket = (d: Date, today: Date) => {
 
 export default function DriverSchedulePage() {
   const { user } = useAuth();
-  // Phase 10 #3: tenant currency for the per-job total chip.
-  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
-  const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<ScheduleOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +47,7 @@ export default function DriverSchedulePage() {
       today.setHours(0, 0, 0, 0);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, event_date, event_time, venue_address, guest_count, status, total_amount, client_name")
+        .select("id, event_date, event_time, venue_address, guest_count, status, client_name")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .gte("event_date", toLocalISO(today))
         .neq("status", "cancelled")
@@ -171,13 +166,12 @@ export default function DriverSchedulePage() {
                               )}
                             </div>
                           </div>
-                          <div className="md:text-right">
-                            <p className="font-semibold text-slate-900 flex items-center gap-1 md:justify-end">
-                              {C}{Number(o.total_amount || 0).toLocaleString()}
-                              <InfoTooltip content="The total bill the customer is paying for the event.\n\nThis isn't your delivery fee." />
-                            </p>
-                            <p className="text-xs text-slate-500">order value</p>
-                          </div>
+                          {/* Order value was previously shown here. Removed
+                              to stop leaking the catering company's revenue
+                              to drivers -- drivers should see their own
+                              payout, not the client's invoice. Driver-side
+                              earnings live on /team-portal/driver/earnings
+                              and /dashboard. */}
                         </div>
                       ))}
                     </CardContent>
