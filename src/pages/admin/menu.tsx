@@ -118,6 +118,7 @@ function MenuPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   // Phase 26 #7: "/" or Cmd-F focuses the search input.
+  // Phase 29 #4: "n" opens the Add menu item dialog.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -131,9 +132,14 @@ function MenuPage() {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openAdd();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Phase 24 #4: seed the search box from ?q so the dashboard's
   // MenuTopSellers widget can deep-link a pre-filtered menu view.
