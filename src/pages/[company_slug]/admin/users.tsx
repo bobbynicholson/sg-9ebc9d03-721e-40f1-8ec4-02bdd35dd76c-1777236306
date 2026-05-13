@@ -123,7 +123,11 @@ export default function StaffManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newStaff.email.toLowerCase(),
-          password: "BYPASS_2026",
+          // password omitted: server generates a per-user random
+          // password and returns it once in `tempPassword`. Audit
+          // (May 2026, Wave 6) removed the shared "BYPASS_2026"
+          // default that gave anyone with the source the ability
+          // to log in as any newly-created user.
           full_name: newStaff.full_name,
           role: newStaff.role,
           company_id: user.company_id,
@@ -136,9 +140,23 @@ export default function StaffManagementPage() {
         throw new Error(payload?.error || "Failed to create staff");
       }
 
+      const tempPassword = (payload as any)?.tempPassword;
+      if (tempPassword && typeof window !== "undefined") {
+        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
+        // Surface ONCE in a window.prompt so the admin can copy + send
+        // it via their own secure channel. The server never stores or
+        // logs the plaintext.
+        window.prompt(
+          `Temporary password for ${newStaff.full_name} (copied to clipboard).\nShare it via WhatsApp / in person -- staff must change it on first login.`,
+          tempPassword,
+        );
+      }
+
       toast({
         title: "Staff Added!",
-        description: `${newStaff.full_name} has been added to your team`,
+        description: tempPassword
+          ? `${newStaff.full_name} added. Temporary password shown once -- share it now.`
+          : `${newStaff.full_name} has been added to your team`,
       });
 
       // Reset form
@@ -341,7 +359,7 @@ export default function StaffManagementPage() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Password: <code className="font-mono text-sm">BYPASS_2026</code> (temporary)
+                    A unique temporary password will be generated on save. We'll show it once -- copy it and share it with the new staff member via WhatsApp or in person. They should change it on first login.
                   </AlertDescription>
                 </Alert>
 
@@ -483,7 +501,7 @@ export default function StaffManagementPage() {
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <p><strong>Step 4:</strong> They can login at <code className="bg-purple-100 px-2 py-1 rounded">/{company_slug}/login</code> with password: <code className="bg-purple-100 px-2 py-1 rounded">BYPASS_2026</code></p>
+              <p><strong>Step 4:</strong> They can log in at <code className="bg-purple-100 px-2 py-1 rounded">/{company_slug}/login</code> using the temporary password shown once on save. Remind them to change it after their first login.</p>
             </div>
           </CardContent>
         </Card>

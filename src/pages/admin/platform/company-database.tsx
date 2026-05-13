@@ -90,7 +90,7 @@ export default function CompanyDatabasePage() {
     billing_currency: "ZAR",
     admin_name: "",
     admin_email: "",
-    admin_password: "BYPASS_2026",
+    admin_password: "", // generated server-side, returned once
   });
 
   // Company details modal
@@ -404,7 +404,7 @@ export default function CompanyDatabasePage() {
       billing_currency: "ZAR",
       admin_name: "",
       admin_email: "",
-      admin_password: "BYPASS_2026",
+      admin_password: "", // generated server-side, returned once
     });
   };
 
@@ -424,7 +424,7 @@ export default function CompanyDatabasePage() {
       billing_currency: "ZAR",
       admin_name: "",
       admin_email: "",
-      admin_password: "BYPASS_2026",
+      admin_password: "", // generated server-side, returned once
     });
     setIsAddModalOpen(true);
   };
@@ -683,16 +683,8 @@ export default function CompanyDatabasePage() {
                       </div>
 
                       <div className="col-span-2">
-                        <Label>Password</Label>
-                        <Input
-                          value={formData.admin_password}
-                          onChange={(e) =>
-                            setFormData({ ...formData, admin_password: e.target.value })
-                          }
-                          placeholder="Default: BYPASS_2026"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                          Default bypass password for easy testing
+                        <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-2">
+                          A unique temporary password is generated on save and shown once. Copy it and pass it to the new owner via a secure channel; they must change it on first login.
                         </p>
                       </div>
                     </div>

@@ -395,25 +395,35 @@ export const companyService = {
     admin_password?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
-      // 1. Create the admin user
-      const password = data.admin_password || "BYPASS_2026";
-      
-      // Use the API route to create the user securely via admin API
+      // 1. Create the admin user. Audit (May 2026, Wave 6): the
+      // previous code defaulted to the literal shared password
+      // "BYPASS_2026" if the caller didn't supply one. /api/admin/
+      // create-user now generates the password server-side and
+      // returns it once in tempPassword.
       const userRes = await fetch('/api/admin/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: data.admin_email,
-          password: password,
           full_name: data.admin_name,
           role: 'company_admin'
         })
       });
-      
+
       const userData = await userRes.json();
       if (!userRes.ok) throw new Error(userData.error || "Failed to create user");
-      
+
       const userId = userData.user.id;
+      const tempPassword: string | null = (userData as any)?.tempPassword || null;
+      // Surface the password once -- the super admin needs to hand
+      // it to the new tenant owner via a secure channel.
+      if (tempPassword && typeof window !== "undefined") {
+        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
+        window.prompt(
+          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel -- the owner must change it on first login.`,
+          tempPassword,
+        );
+      }
 
       // 2. Create the company (30-day trial, matches platform policy)
       const trialEndsAt = new Date();

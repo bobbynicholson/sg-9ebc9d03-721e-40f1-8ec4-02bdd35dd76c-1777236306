@@ -84,7 +84,6 @@ export default async function handler(
 
     const {
       email,
-      password,
       full_name,
       phone,
       role,
@@ -104,11 +103,46 @@ export default async function handler(
     const safeRegionId: string | null =
       typeof region_id === "string" && region_id.length === 36 ? region_id : null;
 
-    if (!email || !password || !full_name || !role || !company_id) {
+    if (!email || !full_name || !role || !company_id) {
       return res.status(400).json({
-        error: "Missing required fields: email, password, full_name, role, company_id",
+        error: "Missing required fields: email, full_name, role, company_id",
       });
     }
+
+    // Audit (May 2026, Wave 6): the previous endpoint accepted a
+    // password from the caller, and every UI surface passed the
+    // literal "BYPASS_2026". Anyone who had ever read the source or
+    // the inline UI hint could log in as any newly-created user
+    // across every tenant. Now: server generates a per-user random
+    // password, returns it once in the response so the admin can
+    // share it via their own channel (WhatsApp / in person /
+    // password manager), and the password is never stored or logged
+    // anywhere except the auth.users row.
+    function generatePassword(): string {
+      const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // skipped I O
+      const lower = "abcdefghijkmnpqrstuvwxyz"; // skipped l o
+      const digits = "23456789"; // skipped 0 1
+      const punct = "!@#$%&*";
+      const all = upper + lower + digits + punct;
+      const len = 14;
+      const bytes = new Uint8Array(len);
+      // crypto is available in node 18+ runtime; use globalThis
+      // for both edge + node compatibility.
+      (globalThis as any).crypto.getRandomValues(bytes);
+      // Guarantee one of each class so the result passes Supabase's
+      // default password complexity rule.
+      const guaranteed = [
+        upper[bytes[0] % upper.length],
+        lower[bytes[1] % lower.length],
+        digits[bytes[2] % digits.length],
+        punct[bytes[3] % punct.length],
+      ];
+      const rest = Array.from({ length: len - 4 }, (_, i) => all[bytes[4 + i] % all.length]);
+      return [...guaranteed, ...rest]
+        .sort(() => 0.5 - ((bytes[0] % 100) / 100))
+        .join("");
+    }
+    const password = generatePassword();
 
     if (callerRole !== "super_admin") {
       if ((callerProfile as any).company_id !== company_id) {
@@ -183,6 +217,7 @@ export default async function handler(
           return res.status(201).json({
             message: "User restored",
             user: { id: match.id, email },
+            tempPassword: password,
             recovered: true,
           });
         }
@@ -256,9 +291,15 @@ export default async function handler(
       });
     }
 
+    // Surface the password ONCE in the response so the admin can
+    // hand it to the new staff member via their own secure channel
+    // (WhatsApp, password manager). It is never logged or stored
+    // anywhere except auth.users (hashed). The UI must prompt the
+    // new staff member to change it on first login.
     return res.status(201).json({
       message: "User created successfully",
       user: { id: newUserId, email },
+      tempPassword: password,
     });
   } catch (outer: any) {
     // Unhandled error -- without this catch, Next.js returns an HTML 500

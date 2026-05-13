@@ -90,10 +90,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const webhookSecret = active.credentials.webhookSecret || "";
 
-    // Signature header is required only when a secret is configured.
-    // Yoco lets you skip webhook signing for sandbox; we tolerate that
-    // by accepting the body when no secret is set, but log a warning so
-    // the operator knows to lock it down before going live.
+    // Signature gate. Audit (May 2026, Wave 6): the previous code
+    // accepted unsigned bodies when no secret was configured, with
+    // only a console.warn. Any attacker who knew the public webhook
+    // URL could mark orders paid by POSTing fabricated metadata.
+    // Now: fail closed in production. Sandbox / dev (NODE_ENV !==
+    // 'production') still tolerates missing secrets so test events
+    // can flow, but production refuses unsigned requests outright.
     if (webhookSecret) {
       const sigHeader =
         (req.headers["webhook-signature"] as string | undefined) ||
@@ -101,8 +104,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!verifyYocoSignature(raw, sigHeader, webhookSecret)) {
         return res.status(401).json({ error: "Invalid Yoco signature" });
       }
+    } else if (process.env.NODE_ENV === "production") {
+      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} -- REJECTING (production)`);
+      return res.status(401).json({
+        error: "Yoco webhook secret is not configured for this tenant. Set it in Settings -> Payment Gateways before going live.",
+      });
     } else {
-      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} -- accepting unsigned`);
+      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} -- accepting unsigned (non-prod)`);
     }
 
     // We only act on succeeded payments. Anything else is a 200 noop so

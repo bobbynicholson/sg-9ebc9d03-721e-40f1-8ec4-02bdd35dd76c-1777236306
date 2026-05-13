@@ -99,7 +99,16 @@ function clientIpFromRequest(req: NextApiRequest): string | null {
 
 function isAllowedPayFastIp(ip: string | null): boolean {
   const raw = (process.env.PAYFAST_ALLOWED_IPS || "").trim();
-  if (!raw) return true; // not configured -> allow (dev / fresh-install)
+  if (!raw) {
+    // Audit (May 2026, Wave 6): used to return true here (allow when
+    // not configured) which meant a production deployment that
+    // forgot the env var silently lost IP gating, with only a
+    // platform-wide passphrase as the fallback verification. Now
+    // fail closed in production -- the operator must populate the
+    // allowlist before going live. Non-prod environments still allow
+    // for local testing.
+    return process.env.NODE_ENV !== "production";
+  }
   if (!ip) return false;
   const list = raw.split(",").map(s => s.trim()).filter(Boolean);
   return list.includes(ip);
