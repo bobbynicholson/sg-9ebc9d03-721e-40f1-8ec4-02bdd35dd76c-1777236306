@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChefHat, UserPlus, Pencil, Archive, ArchiveRestore, Search, Phone, Mail,
-  DollarSign, Clock, AlertTriangle, ExternalLink, Download, X,
+  DollarSign, Clock, AlertTriangle, ExternalLink, Download, X, RefreshCw,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -400,6 +400,18 @@ function KitchenStaffPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              {/* Phase 28 #1: manual refresh. The roster loads once
+                  on mount; a manager who has just added or
+                  archived a staff member from another tab needs
+                  to pick up the change. */}
+              <Button
+                variant="outline"
+                onClick={load}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               {/* Phase 20 #3: kitchen-staff CSV export. Owners and
                   payroll regularly need a flat roster (name +
                   contact + role + pay type + rate + departments)
