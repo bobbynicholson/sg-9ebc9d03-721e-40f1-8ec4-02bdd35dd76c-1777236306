@@ -107,11 +107,18 @@ export default function PlatformCurrencyMonitoringPage() {
 
   const calculateFluctuation = () => {
     if (historicalRates.length < 2) return { percentage: 0, trend: "stable" };
-    
-    const oldestRate = historicalRates[0].usd_to_zar_rate;
-    const latestRate = historicalRates[historicalRates.length - 1].usd_to_zar_rate;
+
+    // Don't trust the input array's order -- the service currently
+    // returns ascending by date but a future caller (or a stale
+    // cache) could pass an unsorted list and flip the sign of the
+    // trend. Sort defensively by date before reading the endpoints.
+    const sorted = [...historicalRates].sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)),
+    );
+    const oldestRate = sorted[0].usd_to_zar_rate;
+    const latestRate = sorted[sorted.length - 1].usd_to_zar_rate;
     const percentage = ((latestRate - oldestRate) / oldestRate) * 100;
-    
+
     return {
       percentage,
       trend: percentage > 0 ? "weakening" : "strengthening"
