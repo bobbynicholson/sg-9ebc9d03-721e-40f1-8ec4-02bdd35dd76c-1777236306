@@ -74,6 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         subtotal: q.subtotal,
         delivery_fee: q.delivery_fee,
         delivery_distance_km: q.delivery_distance_km,
+        delivery_rate_per_km: q.delivery_rate_per_km,
         discount_amount: q.discount_amount,
         tax_amount: q.tax_amount,
         total: Number(q.total ?? q.total_amount ?? 0),

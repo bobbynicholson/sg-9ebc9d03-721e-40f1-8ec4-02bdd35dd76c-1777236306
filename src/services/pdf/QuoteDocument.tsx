@@ -59,6 +59,7 @@ export interface QuotePdfData {
   subtotal?: number | null;
   delivery_fee?: number | null;
   delivery_distance_km?: number | null;
+  delivery_rate_per_km?: number | null;
   discount_amount?: number | null;
   tax_amount?: number | null;
   total: number;
@@ -530,10 +531,18 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               </View>
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>
-                  Delivery
-                  {data.delivery_distance_km
-                    ? ` (${Number(data.delivery_distance_km).toFixed(1)} km)`
-                    : ""}
+                  {(() => {
+                    // Show the km hint only when the saved fee matches
+                    // the canonical round-trip auto-calc (distance * 2
+                    // * rate). When it's a flat-fee override, collapse
+                    // to plain "Delivery" so the PDF matches the
+                    // public quote and the invoice.
+                    const dist = Number(data.delivery_distance_km) || 0;
+                    const rate = Number(data.delivery_rate_per_km) || 0;
+                    const roundTrip = dist * 2 * rate;
+                    const isFlat = !dist || Math.abs(deliveryFee - roundTrip) > 0.01;
+                    return isFlat ? "Delivery" : `Delivery (${dist.toFixed(1)} km × 2)`;
+                  })()}
                 </Text>
                 <Text style={styles.totalsValue}>{fmtZAR(deliveryFee)}</Text>
               </View>
