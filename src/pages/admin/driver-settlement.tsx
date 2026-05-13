@@ -405,7 +405,12 @@ function DriverSettlementPage() {
                         <th className="text-left px-4 py-2 font-medium">Driver</th>
                         <th className="text-right px-4 py-2 font-medium">Hours</th>
                         <th className="text-right px-4 py-2 font-medium">Hourly pay</th>
-                        <th className="text-right px-4 py-2 font-medium">Distance</th>
+                        <th
+                          className="text-right px-4 py-2 font-medium"
+                          title="Round-trip kilometres (kitchen to venue and back). Matches the round-trip math used to bill the client for delivery."
+                        >
+                          Distance
+                        </th>
                         <th className="text-right px-4 py-2 font-medium">Distance pay</th>
                         <th className="text-right px-4 py-2 font-medium">Callouts</th>
                         <th className="text-right px-4 py-2 font-medium">Callout pay</th>

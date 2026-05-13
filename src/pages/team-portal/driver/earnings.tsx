@@ -224,7 +224,7 @@ export default function DriverEarningsPage() {
                   value={formatR(stats.distancePay)}
                   icon={Route}
                   accent="from-amber-500 to-orange-600"
-                  sublabel={`${stats.distanceKm.toFixed(1)} km @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
+                  sublabel={`${stats.distanceKm.toFixed(1)} km (round-trip) @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
                 />
                 <StatCard
                   label="Callout pay"
