@@ -275,9 +275,14 @@ export default function CleaningEquipmentPage() {
               <Textarea id="dnotes" rows={3} value={damageNotes} onChange={(e) => setDamageNotes(e.target.value)} placeholder="e.g. 2 chafing dishes dented, 1 ladle missing" />
             </div>
             {Number(missingQty) > 0 && verifyItem?.replacement_cost && (
-              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-                <span>Auto-bill: <span className="font-semibold tabular-nums">R {(Number(missingQty) * Number(verifyItem.replacement_cost)).toFixed(2)}</span></span>
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <span>Replacement value: <span className="font-semibold tabular-nums">R {(Number(missingQty) * Number(verifyItem.replacement_cost)).toFixed(2)}</span></span>
+                </div>
+                <p className="text-[11px] text-amber-700 mt-1.5 ml-6">
+                  Recorded on the damage log. Admin reviews and adds it to the client's invoice manually -- it does not auto-bill yet.
+                </p>
               </div>
             )}
           </div>
