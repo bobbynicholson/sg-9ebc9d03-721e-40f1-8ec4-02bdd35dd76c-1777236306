@@ -173,7 +173,12 @@ function ClientsCRM() {
     if (q) setSearch(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
-  const [filter, setFilter] = useState<"all" | ClientStatus>("all");
+  // Default to Hot leads instead of All so the first paint isn't
+  // blocked rendering thousands of cold/lost rows the operator
+  // rarely needs first thing. The All chip stays one click away.
+  // ?clientId / ?q deep-links flip back to "all" inside their own
+  // effects so a row jump still finds the target.
+  const [filter, setFilter] = useState<"all" | ClientStatus>("hot_lead");
   // Phase 9 #4: tag filter. Multi-select set of tag strings; a
   // contact passes if it has at least one of the selected tags.
   // Empty set means no tag filter is active.
