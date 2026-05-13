@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
@@ -87,14 +88,20 @@ export default function FinancialDashboardPage() {
       const pendingPayments = calculatePendingPayments(ordersData);
       const unpaidSessionsCount = (ledgerData.unpaidSessions || []).length;
       const unpaidStaffCount = ledgerData.staffCount || 0;
-      const inventoryCosts = calculateInventoryCosts(ordersData);
-      const profitMargin = calculateProfitMargin(ordersData);
+      // 90-day lookback for COGS so the tile aggregates enough usage
+      // transactions to be meaningful. Synced with the projected-
+      // revenue horizon below.
+      const cogsSince = new Date();
+      cogsSince.setDate(cogsSince.getDate() - 90);
+      const inventoryCosts = (user as any)?.company_id
+        ? await fetchRealCogs((user as any).company_id as string, cogsSince.toISOString())
+        : null;
+      const profitMargin = calculateProfitMargin(ordersData, inventoryCosts);
       const healthScore = calculateHealthScore({
         currentCashFlow,
         projectedRevenue30Days,
         pendingPayments,
         staffPaymentsOwed,
-        profitMargin
       });
 
       setMetrics({
@@ -164,20 +171,42 @@ export default function FinancialDashboardPage() {
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
 
-  // Audit (May 2026): the previous version of these helpers fabricated
-  // COGS as a flat 35% of revenue and locked profit margin to exactly
-  // 35%, then drove a confetti celebration animation off the resulting
-  // score. The owner was being congratulated on an imaginary number.
+  // Audit (May 2026, Wave 9 Item 3): real COGS pipeline. The deduction
+  // service now stamps unit_cost + order_id on every 'usage'
+  // inventory_transactions row. Sum (quantity * unit_cost) over usage
+  // rows joined to PAID orders in the period to get real cost-of-
+  // sales. When no rows exist (tenant hasn't billed paid orders yet
+  // or hasn't enabled recipe deductions), returns null and the UI
+  // shows "No usage data yet" honestly.
   //
-  // COGS and margin can only honestly come from real cost data --
-  // inventory_transactions, payroll, supplier invoices. Until that
-  // pipeline lands, return null so the UI can show a "data source not
-  // connected" tile instead of a lie. Cash flow + receivable signals
-  // continue to use real numbers (paid invoices, pending payments,
-  // staff payments owed) so the rest of the dashboard stays useful.
-  const calculateInventoryCosts = (_orders: Order[]): number | null => null;
+  // Helpers are now closures so we can read companyId + the period
+  // bound (current run defaults to "last 90 days").
+  const fetchRealCogs = async (companyId: string, sinceIso: string): Promise<number | null> => {
+    if (!companyId) return null;
+    const { data, error } = await (supabase as any)
+      .from("inventory_transactions")
+      .select("quantity, unit_cost, order_id, orders!inner(payment_status, company_id)")
+      .eq("company_id", companyId)
+      .eq("transaction_type", "usage")
+      .gte("created_at", sinceIso);
+    if (error || !data) return null;
+    const rows = (data as any[]).filter((r) => (r as any).orders?.payment_status === "paid");
+    if (rows.length === 0) return null;
+    return rows.reduce(
+      (sum, r) => sum + Number((r as any).quantity || 0) * Number((r as any).unit_cost || 0),
+      0,
+    );
+  };
 
-  const calculateProfitMargin = (_orders: Order[]): number | null => null;
+  const calculateProfitMargin = (orders: Order[], inventoryCost: number | null): number | null => {
+    if (inventoryCost == null) return null;
+    const totalRevenue = orders
+      .filter((o) => o.payment_status === "paid")
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+    if (totalRevenue <= 0) return null;
+    const profit = totalRevenue - inventoryCost;
+    return (profit / totalRevenue) * 100;
+  };
 
   const calculateHealthScore = (data: any) => {
     // Cash-flow-only health score (margin removed). Scoring caps at 80
@@ -456,18 +485,31 @@ export default function FinancialDashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
-                    <InfoTooltip content={"Real profit margin needs cost-of-sales data: ingredient costs from inventory_transactions, payroll, supplier invoices.\n\nUntil that pipeline is wired in, this tile shows 'not connected' rather than a fabricated number."} />
+                    <InfoTooltip content={"(Revenue - real ingredient COGS) / revenue, on PAID orders in the last 90 days.\n\nIngredient cost comes from inventory_transactions where transaction_type='usage' joined to the order's unit_cost. Payroll, supplier invoices and other operating costs are NOT yet folded in -- the figure here is a top-line gross margin, not net."} />
                   </CardTitle>
-                  <TrendingUp className="w-5 h-5 text-slate-400" />
+                  <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-purple-600" : "text-slate-400"}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-400">
-                  Not connected
-                </div>
-                <p className="text-sm text-slate-500 mt-2">
-                  Needs real COGS data
-                </p>
+                {metrics?.profitMargin != null ? (
+                  <>
+                    <div className="text-2xl font-bold text-slate-900">
+                      {metrics.profitMargin.toFixed(1)}%
+                    </div>
+                    <p className="text-sm text-slate-600 mt-2">
+                      Gross margin (90 days)
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-slate-400">
+                      No data yet
+                    </div>
+                    <p className="text-sm text-slate-500 mt-2">
+                      No paid orders with recipe deductions in the last 90 days.
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -509,10 +551,16 @@ export default function FinancialDashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Inventory Costs <InfoTooltip content={"Real ingredient + supplier costs need to flow in from inventory_transactions / supplier invoices.\n\nUntil that pipeline is wired in, this row reads 'not connected' rather than guessing a percentage of revenue."} /></span>
-                      <span className="font-semibold text-slate-400">
-                        Not connected
-                      </span>
+                      <span className="text-slate-600 flex items-center gap-1">Inventory Costs <InfoTooltip content={"Sum of ingredient cost on PAID orders in the last 90 days (quantity * unit_cost on usage transactions). Supplier invoices / payroll not yet folded in."} /></span>
+                      {metrics?.inventoryCosts != null ? (
+                        <span className="font-semibold">
+                          {formatCurrency(metrics.inventoryCosts)}
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-slate-400">
+                          No usage data yet
+                        </span>
+                      )}
                     </div>
                     <div className="border-t pt-4 flex justify-between items-center">
                       <span className="font-semibold flex items-center gap-1">Net Cash Flow <InfoTooltip content={"Money in from paid orders less wages still owed.\n\nMatches the Current Cash Flow figure shown above."} /></span>
@@ -639,14 +687,20 @@ export default function FinancialDashboardPage() {
 
                     <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
                       <div>
-                        <h4 className="font-semibold">Inventory Costs</h4>
+                        <h4 className="font-semibold">Inventory Costs (90 days)</h4>
                         <p className="text-sm text-slate-600">
-                          Wire up inventory_transactions / supplier invoices to show real COGS here.
+                          Real ingredient cost on paid orders. Supplier + payroll feeds still pending.
                         </p>
                       </div>
-                      <span className="font-bold text-lg text-slate-400">
-                        Not connected
-                      </span>
+                      {metrics?.inventoryCosts != null ? (
+                        <span className="font-bold text-lg">
+                          {formatCurrency(metrics.inventoryCosts)}
+                        </span>
+                      ) : (
+                        <span className="font-bold text-lg text-slate-400">
+                          No usage data yet
+                        </span>
+                      )}
                     </div>
 
                     <Button className="w-full">

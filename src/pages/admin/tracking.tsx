@@ -89,7 +89,7 @@ export default function AdminTracking() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const activeStatuses = ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit", "delivered"];
+      const activeStatuses = ["confirmed", "preparing", "ready", "in_transit", "delivered"];
       const activeOrders = allOrders.filter((order: any) => {
         if (!activeStatuses.includes(order.status || "")) return false;
         // event_date may be null on some legacy rows -- include them so
@@ -371,7 +371,6 @@ export default function AdminTracking() {
       confirmed: "bg-blue-100 text-blue-800",
       preparing: "bg-yellow-100 text-yellow-800",
       ready: "bg-purple-100 text-purple-800",
-      out_for_delivery: "bg-orange-100 text-orange-800",
       in_transit: "bg-orange-100 text-orange-800",
       delivered: "bg-green-100 text-green-800",
       cancelled: "bg-red-100 text-red-800",
@@ -384,7 +383,6 @@ export default function AdminTracking() {
       case "confirmed": return <Clock className="w-4 h-4" />;
       case "preparing": return <Package className="w-4 h-4" />;
       case "ready": return <TrendingUp className="w-4 h-4" />;
-      case "out_for_delivery":
       case "in_transit": return <Navigation className="w-4 h-4" />;
       case "delivered": return <Package className="w-4 h-4" />;
       default: return <AlertCircle className="w-4 h-4" />;
@@ -396,7 +394,7 @@ export default function AdminTracking() {
       o.delivery_status !== "arrived" &&
       (o.risk_tier === "high" || o.risk_tier === "critical")
     ).length,
-    active: orders.filter((o) => o.status === "out_for_delivery" || o.status === "in_transit").length,
+    active: orders.filter((o) => o.status === "in_transit").length,
     preparing: orders.filter((o) => o.status === "preparing").length,
     ready: orders.filter((o) => o.status === "ready").length,
     total: orders.length,
@@ -497,7 +495,7 @@ export default function AdminTracking() {
                     <SelectItem value="confirmed">Confirmed</SelectItem>
                     <SelectItem value="preparing">Preparing</SelectItem>
                     <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
+                    <SelectItem value="in_transit">On the way</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
                   </SelectContent>
                 </Select>

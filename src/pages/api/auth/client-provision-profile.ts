@@ -73,12 +73,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // was still null.
     const runEmailRelink = async () => {
       try {
-        await admin
+        // Audit (May 2026, Item 5): ambiguity guard. If more than
+        // one clients row matches this email under the tenant, do
+        // NOT auto-relink -- a shared corporate inbox or two people
+        // legitimately using the same email could end up with the
+        // wrong person's quotes attached. Surface it for admin
+        // review rather than guessing.
+        const { data: candidates } = await admin
           .from("clients")
-          .update({ user_id: user.id })
+          .select("id")
           .eq("company_id", company.id)
           .ilike("email", user.email || "")
           .is("user_id", null);
+        const candidateCount = Array.isArray(candidates) ? candidates.length : 0;
+        if (candidateCount > 1) {
+          console.warn("[client-provision-profile] ambiguous email relink", {
+            companyId: company.id,
+            email: user.email,
+            candidateCount,
+          });
+          return; // bail out of relink + subsequent quote attach
+        }
+        if (candidateCount === 1) {
+          await admin
+            .from("clients")
+            .update({ user_id: user.id })
+            .eq("id", (candidates as any[])[0].id);
+        }
       } catch {
         /* non-fatal */
       }

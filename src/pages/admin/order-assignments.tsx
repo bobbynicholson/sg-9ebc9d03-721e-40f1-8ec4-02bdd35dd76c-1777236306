@@ -153,7 +153,7 @@ function DispatchQueuePage() {
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("event_date", todayISO)
-        .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"])
+        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true, nullsFirst: false });
 

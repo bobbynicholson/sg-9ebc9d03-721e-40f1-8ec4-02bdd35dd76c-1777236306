@@ -335,7 +335,7 @@ export const routeOptimizationService = {
       .from("orders")
       .select("*")
       .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery"])
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
       .not("venue_lat", "is", null)
       .not("venue_lng", "is", null);
 

@@ -408,41 +408,11 @@ export const invoiceService = {
     return await this.generateInvoicePDF(invoiceData);
   },
 
-  async emailInvoice(
-    recipientEmail: string,
-    invoiceBlob: Blob,
-    invoiceNumber: string,
-    subject?: string
-  ): Promise<boolean> {
-    try {
-      const formData = new FormData();
-      formData.append("to", recipientEmail);
-      formData.append("subject", subject || `Tax Invoice ${invoiceNumber}`);
-      formData.append(
-        "html",
-        `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #9333ea;">Tax Invoice</h2>
-          <p>Dear Valued Customer,</p>
-          <p>Please find attached your tax invoice <strong>${invoiceNumber}</strong>.</p>
-          <p>If you have any questions, please don't hesitate to contact us.</p>
-          <p>Best regards,<br/>CateringMS Team</p>
-        </div>
-        `
-      );
-      formData.append("invoice", invoiceBlob, `invoice-${invoiceNumber}.pdf`);
-
-      const response = await fetch("/api/send-invoice-email", {
-        method: "POST",
-        body: formData
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error("Error sending invoice email:", error);
-      return false;
-    }
-  },
+  // Audit (May 2026): emailInvoice + the /api/send-invoice-email
+  // endpoint were both removed. Canonical send path is
+  // /api/send-email with attachInvoicePdf=true + invoiceId, wired
+  // through invoiceGenerationService.sendInvoiceEmail. There were
+  // zero remaining callers.
 
   downloadInvoice(blob: Blob, filename: string) {
     const url = window.URL.createObjectURL(blob);

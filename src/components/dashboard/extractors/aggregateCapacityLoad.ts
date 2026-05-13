@@ -42,7 +42,7 @@ export interface CapacityLoadResult {
 }
 
 const ACTIVE_ORDER_STATUSES = new Set([
-  "confirmed", "preparing", "ready", "in_transit", "out_for_delivery",
+  "confirmed", "preparing", "ready", "in_transit",
 ]);
 const OPEN_QUOTE_STATUSES = new Set(["sent", "viewed", "revised"]);
 

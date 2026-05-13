@@ -233,7 +233,7 @@ export async function updateOrder(orderId: string, updates: any) {
     if (updates && typeof updates.status === "string" && updates.confirmed_at === undefined) {
       const advancedStatuses = new Set([
         "confirmed", "preparing", "ready", "in_transit",
-        "out_for_delivery", "delivered", "completed",
+        "delivered", "completed",
       ]);
       if (advancedStatuses.has(String(updates.status).toLowerCase())) {
         const { data: existing } = await supabase

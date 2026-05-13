@@ -133,7 +133,7 @@ export default function ClientTracking() {
       // can look up the driver's GPS row -- the join produces
       // `assigned_driver.id` but the rest of this page reads `driver_id`.
       const activeOrders = (fetchedOrders || []).filter((o: any) =>
-        ["preparing", "ready", "out_for_delivery", "delivered"].includes(o.status)
+        ["preparing", "ready", "in_transit", "delivered"].includes(o.status)
       ).map((o: any) => ({
         ...o,
         driver_id: o.driver_id || o.assigned_driver_id || o.assigned_driver?.id,
@@ -229,7 +229,7 @@ export default function ClientTracking() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "out_for_delivery": return "bg-emerald-500";
+      case "in_transit": return "bg-emerald-500";
       case "ready": return "bg-blue-500";
       case "preparing": return "bg-amber-500";
       case "delivered": return "bg-slate-500";
@@ -239,7 +239,7 @@ export default function ClientTracking() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "out_for_delivery": return "On the way!";
+      case "in_transit": return "On the way!";
       case "ready": return "Ready for pickup";
       case "preparing": return "Being prepared";
       case "delivered": return "Delivered";
@@ -411,7 +411,7 @@ export default function ClientTracking() {
                       />
                       
                       {/* Live indicator */}
-                      {selectedOrder.status === "out_for_delivery" && driverLocation && (
+                      {selectedOrder.status === "in_transit" && driverLocation && (
                         <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -526,7 +526,7 @@ export default function ClientTracking() {
                           <Clock className="w-4 h-4" />
                           <span>{new Date(order.delivery_time).toLocaleTimeString()}</span>
                         </div>
-                        {order.status === "out_for_delivery" && (
+                        {order.status === "in_transit" && (
                           <div className="flex items-center gap-1 text-emerald-600 font-medium">
                             <Navigation className="w-4 h-4" />
                             <span>En route</span>

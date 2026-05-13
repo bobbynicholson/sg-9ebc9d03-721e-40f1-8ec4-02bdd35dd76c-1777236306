@@ -272,7 +272,7 @@ export function ClientTrackingMap({
 
   const getRouteColor = () => {
     switch (orderStatus) {
-      case "out_for_delivery": return "#10b981";
+      case "in_transit": return "#10b981";
       case "preparing": return "#f59e0b";
       case "ready": return "#3b82f6";
       default: return "#6b7280";

@@ -40,7 +40,6 @@ function deriveStatuses(orderStatus: string, hasDriver: boolean): {
     case "ready":
       return { kitchenStatus: "ready", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: 70 };
     case "in_transit":
-    case "out_for_delivery":
       return { kitchenStatus: "ready", driverStatus: "assigned", overallProgress: 85 };
     case "delivered":
     case "completed":

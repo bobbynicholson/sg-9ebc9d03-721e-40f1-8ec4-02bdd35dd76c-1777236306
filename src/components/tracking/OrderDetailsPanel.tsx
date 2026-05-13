@@ -101,12 +101,14 @@ interface Props {
   onClose: () => void;
 }
 
+// Audit (May 2026): canonical "truck rolling" status is in_transit
+// across DB enum + every workflow writer. out_for_delivery removed.
 const STATUS_FLOW = [
   { key: "pending", label: "Pending" },
   { key: "confirmed", label: "Confirmed" },
   { key: "preparing", label: "Preparing" },
   { key: "ready", label: "Ready" },
-  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "in_transit", label: "On the way" },
   { key: "delivered", label: "Delivered" },
 ];
 
@@ -115,17 +117,13 @@ const STATUS_TONE: Record<string, string> = {
   confirmed: "bg-blue-100 text-blue-800",
   preparing: "bg-yellow-100 text-yellow-800",
   ready: "bg-purple-100 text-purple-800",
-  out_for_delivery: "bg-orange-100 text-orange-800",
   in_transit: "bg-orange-100 text-orange-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
 };
 
 function statusIndex(status: string) {
-  // Treat in_transit as out_for_delivery for the timeline (status drift
-  // tracked in the audit -- different surfaces use different labels).
-  const normalised = status === "in_transit" ? "out_for_delivery" : status;
-  return STATUS_FLOW.findIndex((s) => s.key === normalised);
+  return STATUS_FLOW.findIndex((s) => s.key === status);
 }
 
 export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
@@ -786,7 +784,6 @@ function ComposeDrawer({
         subject = `Ready to dispatch, ${eventLine.replace(/^your /, "")}`;
         body = `Hi ${first},\n\nEverything is packed and ready for ${eventLine}. The driver will leave shortly. I'll send a tracking link once they're on the road.${sig}`;
         break;
-      case "out_for_delivery":
       case "in_transit":
         subject = `Driver on the way`;
         body = `Hi ${first},\n\nThe driver is on the way to you for ${eventLine}. I'll let you know if anything changes.${sig}`;

@@ -236,7 +236,7 @@ export const dispatchService = {
       .select("id", { count: "exact" })
       .eq("assigned_driver_id", driverId)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
     if (error) {
       console.warn("Error counting driver load:", error);
       return 0;
@@ -251,7 +251,7 @@ export const dispatchService = {
       .select("assigned_driver_id")
       .in("assigned_driver_id", driverIds)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
     if (error) return {};
     const map: Record<string, number> = {};
     for (const id of driverIds) map[id] = 0;
@@ -402,7 +402,7 @@ export const dispatchService = {
       .select("id, order_number, event_time")
       .eq("assigned_driver_id", driverId)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
     if (ignoreOrderId) q = q.neq("id", ignoreOrderId);
     const { data, error } = await q;
     if (error) {
@@ -1145,8 +1145,8 @@ export function computeRiskScore(input: RiskInputs): RiskResult {
     }
   }
 
-  // Out-for-delivery with no driver pin at all = blind spot
-  const inMotion = input.status === "out_for_delivery" || input.status === "in_transit";
+  // In-transit with no driver pin at all = blind spot
+  const inMotion = input.status === "in_transit";
   if (inMotion && !input.hasDriverPin) {
     score += 25;
     reasons.push("No driver location");

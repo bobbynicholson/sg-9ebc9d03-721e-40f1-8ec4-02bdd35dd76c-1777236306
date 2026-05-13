@@ -281,7 +281,72 @@ export const RECIPE_MAPPINGS: Recipe[] = [
 ];
 
 /**
- * Get recipe for a menu item
+ * Get recipe for a menu item.
+ *
+ * Audit (May 2026): RECIPE_MAPPINGS used to be the SOLE source. Every
+ * tenant except Spit Braai got zero matches and silently deducted
+ * nothing. Now: query the recipes table by company_id, falling back
+ * to the hardcoded constant only when the tenant has no DB recipe.
+ *
+ * Lookup order:
+ *   1. recipes WHERE company_id + menu_item_id (exact match)
+ *   2. recipes WHERE company_id + recipe_name (case-insensitive)
+ *   3. RECIPE_MAPPINGS constant (Spit Braai fallback, name-matched)
+ */
+export async function getRecipeFromDb(
+  companyId: string,
+  menuItemNameOrId: { name?: string | null; menu_item_id?: string | null },
+): Promise<Recipe | undefined> {
+  if (!companyId) return undefined;
+  const { name, menu_item_id } = menuItemNameOrId;
+
+  // Build a single SELECT joining recipe_ingredients so we don't
+  // round-trip twice per menu item. Use `or` only on the conditions
+  // we actually have so we don't accidentally hit unrelated rows.
+  const orClauses: string[] = [];
+  if (menu_item_id) orClauses.push(`menu_item_id.eq.${menu_item_id}`);
+  if (name) {
+    // Postgres .or() inside Supabase ilike needs quoting around the
+    // pattern argument; escape any commas just in case.
+    const safeName = String(name).replace(/[(),]/g, "");
+    orClauses.push(`recipe_name.ilike.${safeName}`);
+  }
+  if (orClauses.length === 0) return undefined;
+
+  const { data } = await (supabase as any)
+    .from("recipes")
+    .select("recipe_name, menu_item_id, recipe_ingredients(ingredient_name, quantity, unit, inventory_item_id)")
+    .eq("company_id", companyId)
+    .or(orClauses.join(","))
+    .limit(1)
+    .maybeSingle();
+
+  if (data && Array.isArray((data as any).recipe_ingredients) && (data as any).recipe_ingredients.length > 0) {
+    return {
+      menu_item_name: (data as any).recipe_name,
+      ingredients: ((data as any).recipe_ingredients as any[]).map((ri) => ({
+        inventory_item_name: ri.ingredient_name,
+        quantity_per_serving: Number(ri.quantity || 0),
+        unit: ri.unit || "units",
+      })),
+    };
+  }
+
+  // Fallback: legacy hardcoded constant (Spit Braai's seed recipes).
+  // Tenants without a DB recipe still get deductions if their menu
+  // names match the seed; new tenants land here too until they
+  // populate /admin/inventory-recipes properly.
+  if (name) {
+    return RECIPE_MAPPINGS.find(
+      (r) => r.menu_item_name.toLowerCase() === String(name).toLowerCase(),
+    );
+  }
+  return undefined;
+}
+
+/**
+ * Legacy synchronous accessor -- kept for callers that already had
+ * the constant in hand. Prefer `getRecipeFromDb` for new code.
  */
 export function getRecipe(menuItemName: string): Recipe | undefined {
   return RECIPE_MAPPINGS.find(
@@ -290,40 +355,46 @@ export function getRecipe(menuItemName: string): Recipe | undefined {
 }
 
 /**
- * Calculate total ingredient needs for an order
+ * Calculate total ingredient needs for an order.
+ *
+ * Async now -- walks the menu items, resolves each recipe via
+ * getRecipeFromDb, and aggregates the totals. Caller passes
+ * companyId so the per-tenant recipes are honoured.
  */
-export function calculateIngredientNeeds(
-  menuItems: Array<{ name: string; quantity?: number }>,
-  guestCount: number
-): Map<string, { quantity: number; unit: string }> {
-  
+export async function calculateIngredientNeeds(
+  menuItems: Array<{ name: string; quantity?: number; menu_item_id?: string | null }>,
+  guestCount: number,
+  companyId: string,
+): Promise<Map<string, { quantity: number; unit: string }>> {
   const totalNeeds = new Map<string, { quantity: number; unit: string }>();
-  
+
   for (const item of menuItems) {
-    const recipe = getRecipe(item.name);
+    const recipe = await getRecipeFromDb(companyId, {
+      name: item.name,
+      menu_item_id: item.menu_item_id || null,
+    });
     if (!recipe) {
-      console.warn(`No recipe found for menu item: ${item.name}`);
+      console.warn(`[inventoryDeductionService] no recipe for menu item: ${item.name}`);
       continue;
     }
-    
+
     const itemQuantity = item.quantity || 1;
     const servings = guestCount * itemQuantity;
-    
+
     for (const ingredient of recipe.ingredients) {
       const needed = ingredient.quantity_per_serving * servings;
-      
-      if (totalNeeds.has(ingredient.inventory_item_name)) {
-        const existing = totalNeeds.get(ingredient.inventory_item_name)!;
+      const existing = totalNeeds.get(ingredient.inventory_item_name);
+      if (existing) {
         existing.quantity += needed;
       } else {
         totalNeeds.set(ingredient.inventory_item_name, {
           quantity: needed,
-          unit: ingredient.unit
+          unit: ingredient.unit,
         });
       }
     }
   }
-  
+
   return totalNeeds;
 }
 
@@ -374,14 +445,29 @@ export async function deductInventoryForOrder(
     }
 
     const guestCount = order.final_guest_count || order.guest_count || order.number_of_guests || 0;
-    
-    if (!order.menu_items || !Array.isArray(order.menu_items)) {
-      warnings.push({ item: "Order", message: "No menu items found" });
+
+    // Audit (May 2026, Item 1 follow-up): orders has NO menu_items
+    // column. The previous read returned undefined and the function
+    // bailed with "No menu items found" for every order. After Wave
+    // 3, line items live in `order_items` (populated by
+    // postOrderCreationCascade.step0). Read from there.
+    const { data: itemRows } = await (supabase as any)
+      .from("order_items")
+      .select("item_name, menu_item_id, quantity")
+      .eq("order_id", orderId);
+    const menuLines = (itemRows || []).map((r: any) => ({
+      name: r.item_name,
+      menu_item_id: r.menu_item_id,
+      quantity: 1, // per-line guest scaling happens below; quantity here is the line multiplier
+    }));
+
+    if (menuLines.length === 0) {
+      warnings.push({ item: "Order", message: "No order_items found for this order" });
       return { success: true, deducted, warnings, errors };
     }
-    
-    // 2. Calculate what needs to be deducted
-    const ingredientNeeds = calculateIngredientNeeds(order.menu_items, guestCount);
+
+    // 2. Calculate what needs to be deducted (async DB recipe lookup)
+    const ingredientNeeds = await calculateIngredientNeeds(menuLines, guestCount, companyId);
     
     if (ingredientNeeds.size === 0) {
       warnings.push({ item: "Order", message: "No inventory mappings found for menu items" });
@@ -438,7 +524,11 @@ export async function deductInventoryForOrder(
         continue;
       }
       
-      // 6. Create transaction record
+      // 6. Create transaction record. Stamp unit_cost + order_id so
+      // the financial dashboard's COGS pipeline can sum
+      // (quantity * unit_cost) over usage transactions joined to
+      // paid orders. Audit (May 2026, Item 3): without unit_cost
+      // the COGS sum was always 0.
       const { error: transactionError } = await supabase
         .from("inventory_transactions")
         .insert({
@@ -446,6 +536,8 @@ export async function deductInventoryForOrder(
           inventory_item_id: inventoryItem.id,
           transaction_type: 'usage',
           quantity: deductAmount,
+          unit_cost: Number((inventoryItem as any).cost_per_unit) || 0,
+          order_id: orderId,
           notes: `Auto-deducted for order #${orderId.slice(-8)}`,
           performed_by: performedBy
         });
@@ -740,8 +832,8 @@ export async function previewInventoryDeduction(
   allSufficient: boolean;
 }> {
   
-  const ingredientNeeds = calculateIngredientNeeds(menuItems, guestCount);
-  const ingredientNames = Array.from(ingredientNeeds.keys());
+  const ingredientNeeds = await calculateIngredientNeeds(menuItems, guestCount, companyId);
+  const ingredientNames: string[] = Array.from(ingredientNeeds.keys());
   
   const { data: inventoryItems } = await supabase
     .from("inventory_items")

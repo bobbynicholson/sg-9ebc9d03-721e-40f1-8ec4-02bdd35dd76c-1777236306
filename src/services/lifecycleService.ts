@@ -378,7 +378,7 @@ export const lifecycleService = {
     //    service so we re-export the work here as a best-effort hop.
     let invoiceId: string | null = null;
     const status = String((order as any).status || "").toLowerCase();
-    if (["confirmed", "preparing", "ready", "in_transit", "out_for_delivery", "delivered", "completed"].includes(status)) {
+    if (["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"].includes(status)) {
       try {
         const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
         const result = await ensureInvoiceForOrder(orderId, companyId);

@@ -17,14 +17,17 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
 // through a different code path, not this function). Pre-event
 // keeps the existing flexibility (pending can go back to draft for
 // quote rebuild). [P0-12]
+// Audit (May 2026): out_for_delivery removed -- the DB enum has no
+// such value, every write that tried it was silently rejected, and
+// readers across 21 files were filtering for a status that could
+// never exist. Canonical "truck is rolling" status is in_transit.
 const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
   draft: ["pending", "confirmed", "cancelled"],
   pending: ["confirmed", "cancelled"],
-  confirmed: ["preparing", "cancelled", "in_transit", "ready", "out_for_delivery"],
-  preparing: ["ready", "cancelled", "out_for_delivery", "in_transit"],
-  ready: ["out_for_delivery", "in_transit", "cancelled"],
-  out_for_delivery: ["delivered", "in_transit", "cancelled"],
-  in_transit: ["delivered", "out_for_delivery", "cancelled"],
+  confirmed: ["preparing", "cancelled", "in_transit", "ready"],
+  preparing: ["ready", "cancelled", "in_transit"],
+  ready: ["in_transit", "cancelled"],
+  in_transit: ["delivered", "cancelled"],
   delivered: ["completed", "cancelled"],
   completed: [], // terminal
   cancelled: [], // terminal
@@ -53,7 +56,7 @@ const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
 //     Trivially {paused}. Kept here for symmetry.
 const ALLOWED_CANCEL_FROM = new Set<string>([
   "draft", "pending", "confirmed", "preparing", "ready",
-  "out_for_delivery", "in_transit", "paused",
+  "in_transit", "paused",
 ]);
 const ALLOWED_PAUSE_FROM = new Set<string>([
   "draft", "pending", "confirmed", "preparing", "ready",
@@ -109,7 +112,7 @@ export async function updateOrderStatus(
     // first time the order transitions into that status.
     const advancedStatuses = new Set([
       "confirmed", "preparing", "ready", "in_transit",
-      "out_for_delivery", "delivered", "completed",
+      "delivered", "completed",
     ]);
     const updates: any = {
       status: newStatus as any,
@@ -131,7 +134,7 @@ export async function updateOrderStatus(
       if (newStatus === "ready" && !(prior as any)?.ready_at) {
         updates.ready_at = nowIso;
       }
-      if ((newStatus === "in_transit" || newStatus === "out_for_delivery") && !(prior as any)?.picked_up_at) {
+      if (newStatus === "in_transit" && !(prior as any)?.picked_up_at) {
         updates.picked_up_at = nowIso;
       }
       if (newStatus === "delivered" && !(prior as any)?.delivered_at) {
@@ -675,7 +678,10 @@ export async function markOrderReady(orderId: string) {
 }
 
 export async function startDelivery(orderId: string) {
-  return updateOrderStatus(orderId, "out_for_delivery");
+  // Canonical "truck rolling" status is in_transit. Audit (May 2026)
+  // removed the parallel out_for_delivery branch -- the DB enum has
+  // no such value and every prior write was silently rejected.
+  return updateOrderStatus(orderId, "in_transit");
 }
 
 export async function completeOrder(orderId: string) {
@@ -1025,7 +1031,7 @@ export async function resumeOrder(
     // clobber an existing timestamp.
     const advancedStatuses = new Set([
       "confirmed", "preparing", "ready", "in_transit",
-      "out_for_delivery", "delivered", "completed",
+      "delivered", "completed",
     ]);
     const updates: any = {
       status: restoreTo,

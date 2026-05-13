@@ -106,7 +106,6 @@ const STATUS_TONES: Record<string, string> = {
   preparing:  "bg-purple-100 text-purple-800 border-purple-200",
   ready:      "bg-green-100 text-green-800 border-green-200",
   in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  out_for_delivery: "bg-indigo-100 text-indigo-800 border-indigo-200",
   delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
@@ -135,7 +134,7 @@ function greetingFor(date: Date): string {
  */
 function pickHeadlineEvent(orders: Order[]): Order | null {
   const live = orders.find((o) =>
-    ["in_transit", "out_for_delivery", "ready", "preparing"].includes(o.status),
+    ["in_transit", "ready", "preparing"].includes(o.status),
   );
   if (live) return live;
   const todayISO = toLocalISO(new Date());
@@ -181,7 +180,7 @@ function timeUntil(eventDate: string, eventTime?: string | null): { days: number
  */
 function smartStatusCopy(order: Order): { headline: string; sub: string } {
   const t = timeUntil(order.event_date, order.event_time);
-  if (order.status === "in_transit" || order.status === "out_for_delivery") {
+  if (order.status === "in_transit") {
     return { headline: "On the way!", sub: "Track your driver live below." };
   }
   if (order.status === "ready") {
@@ -439,14 +438,23 @@ export default function ClientPortalDashboard() {
 
     load();
 
-    // Realtime subscription: refresh when any of the client's orders
-    // changes. We re-run the full load so the headline event gets
-    // recomputed correctly when statuses transition.
+    // Realtime subscription scoped to THIS tenant only. Audit (May
+    // 2026, Item 5): the previous version subscribed to every
+    // orders INSERT/UPDATE/DELETE platform-wide. Every order edit
+    // on any tenant fired this callback in every client's browser,
+    // and the payload includes the full row of every order change
+    // depending on REPLICA IDENTITY -- a real leak vector if RLS
+    // ever wavers on the realtime channel. Filter by company_id.
     const channel = supabase
-      .channel(`client-orders-${user.id}`)
+      .channel(`client-orders-${user.id}-${tenantCompanyId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
         () => {
           if (!cancelled) load();
         },
@@ -467,7 +475,7 @@ export default function ClientPortalDashboard() {
   // pulling the same gps_tracking row server-side.
   const headline = useMemo(() => pickHeadlineEvent(orders), [orders]);
   const headlineIsLive =
-    headline && (headline.status === "in_transit" || headline.status === "out_for_delivery");
+    headline && headline.status === "in_transit";
 
   useEffect(() => {
     if (!headline || !headlineIsLive || !headline.driver_id) {
@@ -985,7 +993,7 @@ function HeroCard({
 }) {
   const copy = smartStatusCopy(order);
   const tone = STATUS_TONES[order.status] || STATUS_TONES.pending;
-  const isLive = order.status === "in_transit" || order.status === "out_for_delivery";
+  const isLive = order.status === "in_transit";
   const t = timeUntil(order.event_date, order.event_time);
 
   // Live tracking variant: map takes the spotlight, summary below.

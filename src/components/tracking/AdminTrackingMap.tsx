@@ -262,7 +262,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       case "confirmed": return "#3b82f6";
       case "preparing": return "#f59e0b";
       case "ready": return "#10b981";
-      case "out_for_delivery": return "#8b5cf6";
+      case "in_transit": return "#8b5cf6";
       case "delivered": return "#6b7280";
       default: return "#3b82f6";
     }
@@ -356,7 +356,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       {/* Routes from drivers to active deliveries. Both ends must have
           valid coords or Leaflet's projection crashes the whole map. */}
       {mappableOrders
-        .filter(o => o.driver_id && o.status === "out_for_delivery")
+        .filter(o => o.driver_id && o.status === "in_transit")
         .map(order => {
           const driver = mappableDrivers.find(d => d.id === order.driver_id);
           if (!driver) return null;
