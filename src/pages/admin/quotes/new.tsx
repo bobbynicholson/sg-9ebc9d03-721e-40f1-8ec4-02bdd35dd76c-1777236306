@@ -918,18 +918,26 @@ function NewQuotePage() {
   // Fetch live availability whenever an equipment line gets linked to
   // the catalog AND we have an event date. Stays cheap because we only
   // hit Supabase on (equipment_id, eventDate, quoteId) changes.
+  //
+  // Wave 16 audit: cache key was line.id alone, so when the operator
+  // swapped the linked catalog item on a row (typeahead pick) the
+  // line.id stayed the same and the previous equipment's availability
+  // (often "0 free" with a hire-in implied) hung around. Combine
+  // line.id + equipment_id in the cache key so the swap forces a fresh
+  // fetch -- and so the rendering code can detect a stale snapshot
+  // even when the join in the dependency array misses an edit.
+  const availKey = (line: { id: string; equipment_id: string | null }) =>
+    `${line.id}::${line.equipment_id || "none"}`;
   useEffect(() => {
     if (!companyId || !eventDate) return;
     let cancelled = false;
     (async () => {
       for (const line of equipment) {
         if (!line.equipment_id) continue;
-        const cached = availability[line.id];
-        // Skip if we already have a snapshot for this line at this
-        // date (event date is part of the dependency, so a date
-        // change forces re-fetch).
+        const key = availKey(line);
+        const cached = availability[key];
         if (cached && cached !== "loading") continue;
-        setAvailability((prev) => ({ ...prev, [line.id]: "loading" }));
+        setAvailability((prev) => ({ ...prev, [key]: "loading" }));
         try {
           const av = await getEquipmentAvailability(
             companyId,
@@ -938,17 +946,17 @@ function NewQuotePage() {
             { excludeOrderId: quoteId },
           );
           if (cancelled) return;
-          setAvailability((prev) => ({ ...prev, [line.id]: av }));
+          setAvailability((prev) => ({ ...prev, [key]: av }));
         } catch {
           if (!cancelled) {
-            setAvailability((prev) => ({ ...prev, [line.id]: undefined }));
+            setAvailability((prev) => ({ ...prev, [key]: undefined }));
           }
         }
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, eventDate, equipment.map((e) => e.equipment_id).join("|"), quoteId]);
+  }, [companyId, eventDate, equipment.map((e) => `${e.id}:${e.equipment_id}`).join("|"), quoteId]);
 
   // Refresh hire_in_cost from the live catalog. The stored quote's
   // equipment_items JSON includes a hire_in_cost_per_unit snapshot from
@@ -1034,7 +1042,7 @@ function NewQuotePage() {
         // the live availability snapshot if we have one. Persisting
         // the split means kitchen + driver views can render the
         // OWNED / HIRE-IN badges without recomputing availability.
-        const av = e.equipment_id ? availability[e.id] : undefined;
+        const av = e.equipment_id ? availability[availKey(e)] : undefined;
         const liveAv = av && av !== "loading" ? av : null;
         const split = liveAv
           ? splitQuantity(e.quantity, liveAv.available)
@@ -1984,7 +1992,7 @@ function NewQuotePage() {
                     // event date. "loading" while we're fetching;
                     // undefined if the line isn't linked to the catalog
                     // OR there's no event date yet.
-                    const liveAvail = e.equipment_id ? availability[e.id] : undefined;
+                    const liveAvail = e.equipment_id ? availability[availKey(e)] : undefined;
                     const av =
                       liveAvail && liveAvail !== "loading" ? liveAvail : null;
                     const split = av
@@ -2076,29 +2084,46 @@ function NewQuotePage() {
                                       <span className="font-semibold">{av.available}</span> free
                                     </span>
                                   </div>
-                                  {/* Split display when we have a quantity */}
+                                  {/* Split display when we have a quantity.
+                                      Wave 16 audit: Bobby's brief --
+                                      "if I have 200 and need 8 it should
+                                      say 'you have enough', not push
+                                      hire-in messaging". When the requested
+                                      qty fits in stock with room to spare,
+                                      collapse to a clear green confirmation
+                                      and skip the noise. Hire-in only
+                                      surfaces when actually needed. */}
                                   {e.quantity > 0 && (
                                     <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-                                      {split.fromStock > 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                                          {split.fromStock} from stock
-                                        </Badge>
-                                      )}
-                                      {split.fromHire > 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">
-                                          {split.fromHire} hire-in
-                                        </Badge>
-                                      )}
-                                      {split.fromHire > 0 && (e.hireInCost ?? 0) > 0 && (
-                                        <span className="text-[11px] text-amber-700">
-                                          Extra cost to you: {fmtR(hireCost)}
-                                          <span className="text-slate-400 ml-1">(R{(e.hireInCost ?? 0).toFixed(2)} × {split.fromHire})</span>
+                                      {split.fromHire === 0 && split.fromStock > 0 ? (
+                                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                                          <span aria-hidden>✓</span>
+                                          You have enough — {split.fromStock} from stock ({av.available - split.fromStock} still free after this run)
                                         </span>
-                                      )}
-                                      {split.fromHire > 0 && (e.hireInCost ?? 0) === 0 && (
-                                        <span className="text-[11px] text-amber-700">
-                                          Set hire-in cost on this catalog item to track the margin hit.
-                                        </span>
+                                      ) : (
+                                        <>
+                                          {split.fromStock > 0 && (
+                                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                              {split.fromStock} from stock
+                                            </Badge>
+                                          )}
+                                          {split.fromHire > 0 && (
+                                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">
+                                              {split.fromHire} hire-in
+                                            </Badge>
+                                          )}
+                                          {split.fromHire > 0 && (e.hireInCost ?? 0) > 0 && (
+                                            <span className="text-[11px] text-amber-700">
+                                              Extra cost to you: {fmtR(hireCost)}
+                                              <span className="text-slate-400 ml-1">(R{(e.hireInCost ?? 0).toFixed(2)} × {split.fromHire})</span>
+                                            </span>
+                                          )}
+                                          {split.fromHire > 0 && (e.hireInCost ?? 0) === 0 && (
+                                            <span className="text-[11px] text-amber-700">
+                                              Set hire-in cost on this catalog item to track the margin hit.
+                                            </span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   )}
