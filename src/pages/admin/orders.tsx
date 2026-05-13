@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -2877,6 +2877,20 @@ function OrderProcessDashboard() {
                     Timeline
                   </Button>
                 </div>
+                {/* Phase 27 #9: manual refresh. Realtime channels
+                    cover most order updates but the operator wants
+                    a button when expecting a colleague to have
+                    just touched a row (status change, dispatch
+                    assignment). */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadOrders}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
                 {/* Phase 13 #1: today's delivery sheet. Opens a
                     print-friendly single-page summary of every
                     confirmed-and-onwards order with event_date =
