@@ -18,7 +18,7 @@
  * Nothing on this page is client-facing -- vehicles are an internal
  * dispatch concern and never show up in the client portal.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -84,6 +84,31 @@ function VehiclesPage() {
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // Phase 29 #7: "/" or Cmd-F focuses search; "n" opens the
+  // Add vehicle dialog. Same keyboard pattern as the other admin
+  // list pages.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openNew();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [filter, setFilter] = useState<"all" | "company" | "driver" | "fridge" | "warmer">("all");
   const [editTarget, setEditTarget] = useState<Vehicle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
@@ -513,8 +538,9 @@ function VehiclesPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
+                ref={searchRef}
                 type="text"
-                placeholder="Search by plate, nickname, make or model"
+                placeholder="Search by plate, nickname, make or model (press /)"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
