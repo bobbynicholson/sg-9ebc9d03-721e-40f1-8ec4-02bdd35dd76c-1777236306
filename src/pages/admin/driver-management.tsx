@@ -90,7 +90,9 @@ function DriverManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   // Phase 26 #10: "/" or Cmd-F focuses the search input.
+  // Phase 29 #10: "n" opens the Add New Driver dialog.
   const searchRef = useRef<HTMLInputElement>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -103,11 +105,14 @@ function DriverManagementPage() {
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setIsAddDialogOpen(true);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [addDriverLoading, setAddDriverLoading] = useState(false);
   // The Add-Driver dialog is now a single scrollable form covering driver
   // basics, operational details and the vehicle in one go. See the
