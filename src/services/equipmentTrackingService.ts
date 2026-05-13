@@ -231,7 +231,7 @@ Action Required:
 3. Update equipment inventory
 4. Contact ${params.responsibleName || "responsible party"} if needed
 
-View Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/admin/equipment-management
+View Details: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/admin/equipment-management
 
 This equipment has been removed from available inventory until resolved.
 
@@ -645,7 +645,7 @@ Status: Cleaned, Dried, and Ready for Use
 
 This equipment is now available for your next booking!
 
-View Inventory: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/inventory
+View Inventory: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/inventory
 
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;

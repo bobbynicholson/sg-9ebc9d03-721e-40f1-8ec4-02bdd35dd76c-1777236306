@@ -447,7 +447,7 @@ Reason: ${request.reason}
 
 This is an emergency replacement request. If you're available, please accept immediately in your driver portal.
 
-Accept Job: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/drivers?requestId=${requestId}
+Accept Job: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/drivers?requestId=${requestId}
 
 The client is counting on us - let's not let them down!
 

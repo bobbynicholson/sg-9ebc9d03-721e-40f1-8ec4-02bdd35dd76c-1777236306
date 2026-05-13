@@ -113,7 +113,7 @@ export const userManagementService = {
       }
 
       // 5. Generate invitation URL
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://cateringms.com";
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
       const invitationUrl = `${baseUrl}/auth/register?invitation=${invitationToken}&email=${encodeURIComponent(email)}`;
 
       // 6. Send invitation email

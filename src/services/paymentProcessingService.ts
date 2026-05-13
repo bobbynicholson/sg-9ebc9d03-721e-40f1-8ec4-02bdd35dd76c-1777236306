@@ -500,7 +500,7 @@ Due Date: ${new Date(orderData.balance_due_date).toLocaleDateString()}
 ${daysUntilDue <= 1 ? "\n⚠️ THIS PAYMENT IS DUE TOMORROW!\n" : ""}
 To ensure your event proceeds smoothly, please complete your payment by the due date.
 
-Pay Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${reminder.order_id}&type=balance
+Pay Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/checkout?orderId=${reminder.order_id}&type=balance
 
 Questions? Contact us immediately.
 
@@ -628,7 +628,7 @@ ${status.daysRemaining <= 1 ? "\n⚠️ THIS IS YOUR FINAL NOTICE - Changes MUST
 Why the deadline? 
 We begin preparations ${status.daysRemaining + 2} days before your event to ensure everything is perfect.
 
-Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderData.id}
+Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/client-portal?orderId=${orderData.id}
 
 Questions? Contact us immediately.
 
