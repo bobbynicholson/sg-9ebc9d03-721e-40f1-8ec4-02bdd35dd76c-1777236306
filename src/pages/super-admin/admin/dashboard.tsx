@@ -193,29 +193,29 @@ export default function SuperAdminManagementDashboard() {
               <CardDescription>Common platform management tasks</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
-                onClick={() => router.push("/super-admin/admin/companies")}
+                onClick={() => router.push("/admin/platform/company-database")}
               >
                 <Building2 className="w-4 h-4 mr-2" />
                 Manage Companies
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
-                onClick={() => router.push("/super-admin/admin/subscriptions")}
+                onClick={() => router.push("/admin/platform/subscription-management")}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
                 Manage Subscriptions
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
-                onClick={() => router.push("/super-admin/admin/analytics")}
+                onClick={() => router.push("/admin/platform/financial-dashboard")}
               >
                 <TrendingUp className="w-4 h-4 mr-2" />
-                View Analytics
+                Platform Financials
               </Button>
             </CardContent>
           </Card>
@@ -227,8 +227,8 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-sm text-slate-500 py-6 text-center">
-                Activity feed not wired yet. Open /super-admin/admin/companies or
-                /super-admin/admin/subscriptions for the canonical lists.
+                Activity feed not wired yet. Open /admin/platform/company-database
+                or /admin/platform/subscription-management for the canonical lists.
               </div>
             </CardContent>
           </Card>
