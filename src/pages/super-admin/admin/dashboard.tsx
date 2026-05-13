@@ -5,12 +5,14 @@ import { Building2, Users, CreditCard, TrendingUp, AlertCircle, CheckCircle, Clo
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardStats {
   totalCompanies: number;
   activeSubscriptions: number;
   monthlyRevenue: number;
   trialCompanies: number;
+  loaded: boolean;
 }
 
 export default function SuperAdminManagementDashboard() {
@@ -21,6 +23,7 @@ export default function SuperAdminManagementDashboard() {
     activeSubscriptions: 0,
     monthlyRevenue: 0,
     trialCompanies: 0,
+    loaded: false,
   });
 
   useEffect(() => {
@@ -41,12 +44,47 @@ export default function SuperAdminManagementDashboard() {
   }, [user, loading, router]);
 
   const loadPlatformStats = async () => {
-    // TODO: Fetch real stats from database
+    // Three parallel head-only counts off companies, plus a sum over
+    // this month's paid subscription invoices. Falls back to 0 on any
+    // individual failure so a broken slice doesn't black out the
+    // whole dashboard.
+    const firstOfMonth = new Date();
+    firstOfMonth.setDate(1);
+    firstOfMonth.setHours(0, 0, 0, 0);
+
+    const [totalRes, activeRes, trialRes, subInvRes] = await Promise.all([
+      (supabase as any)
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null),
+      (supabase as any)
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .eq("subscription_status", "active"),
+      (supabase as any)
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .in("subscription_status", ["trial", "trialing"]),
+      (supabase as any)
+        .from("subscription_invoices")
+        .select("amount, paid_at")
+        .eq("status", "paid")
+        .gte("paid_at", firstOfMonth.toISOString()),
+    ]);
+
+    const monthlyRevenue = ((subInvRes as any)?.data || []).reduce(
+      (sum: number, row: any) => sum + Number(row.amount || 0),
+      0,
+    );
+
     setStats({
-      totalCompanies: 12,
-      activeSubscriptions: 8,
-      monthlyRevenue: 15600,
-      trialCompanies: 4,
+      totalCompanies: Number((totalRes as any)?.count || 0),
+      activeSubscriptions: Number((activeRes as any)?.count || 0),
+      trialCompanies: Number((trialRes as any)?.count || 0),
+      monthlyRevenue: Math.round(monthlyRevenue),
+      loaded: true,
     });
   };
 
@@ -93,12 +131,8 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.totalCompanies}
+                {stats.loaded ? stats.totalCompanies : "—"}
               </div>
-              <p className="text-xs text-green-600 flex items-center mt-1">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                +3 this month
-              </p>
             </CardContent>
           </Card>
 
@@ -111,10 +145,10 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.activeSubscriptions}
+                {stats.loaded ? stats.activeSubscriptions : "—"}
               </div>
               <p className="text-xs text-slate-600 mt-1">
-                {stats.trialCompanies} on trial
+                {stats.loaded ? `${stats.trialCompanies} on trial` : ""}
               </p>
             </CardContent>
           </Card>
@@ -128,11 +162,10 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                R{stats.monthlyRevenue.toLocaleString()}
+                {stats.loaded ? `R${stats.monthlyRevenue.toLocaleString()}` : "—"}
               </div>
-              <p className="text-xs text-green-600 flex items-center mt-1">
-                <ArrowUpRight className="w-3 h-3 mr-1" />
-                +12% vs last month
+              <p className="text-xs text-slate-600 mt-1">
+                Paid subscription invoices, this calendar month
               </p>
             </CardContent>
           </Card>
@@ -146,12 +179,8 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.trialCompanies}
+                {stats.loaded ? stats.trialCompanies : "—"}
               </div>
-              <p className="text-xs text-orange-600 flex items-center mt-1">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                2 expiring soon
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -197,28 +226,9 @@ export default function SuperAdminManagementDashboard() {
               <CardDescription>Latest platform events</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">New company signup</p>
-                    <p className="text-xs text-slate-600">The BBQ Shack - 2 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <DollarSign className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Subscription payment received</p>
-                    <p className="text-xs text-slate-600">Spit Braai Delivery - R1,300 - 5 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Trial expiring soon</p>
-                    <p className="text-xs text-slate-600">Elegant Events - 3 days remaining</p>
-                  </div>
-                </div>
+              <div className="text-sm text-slate-500 py-6 text-center">
+                Activity feed not wired yet. Open /super-admin/admin/companies or
+                /super-admin/admin/subscriptions for the canonical lists.
               </div>
             </CardContent>
           </Card>
