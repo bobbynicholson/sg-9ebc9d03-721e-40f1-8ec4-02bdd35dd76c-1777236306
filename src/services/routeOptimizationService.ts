@@ -564,7 +564,10 @@ export const routeOptimizationService = {
   /**
    * Calculate route statistics
    */
-  calculateRouteStats(route: OptimizedRoute): {
+  calculateRouteStats(
+    route: OptimizedRoute,
+    opts?: { fuelCostPerLiter?: number; consumptionPer100km?: number },
+  ): {
     totalStops: number;
     avgDistanceBetweenStops: number;
     estimatedFuelCost: number;
@@ -572,10 +575,13 @@ export const routeOptimizationService = {
   } {
     const totalStops = route.stops.length;
     const avgDistance = route.total_distance / Math.max(totalStops - 1, 1);
-    
-    // Rough estimates
-    const fuelConsumptionPer100km = 8; // liters
-    const fuelCostPerLiter = 1.5; // currency units
+
+    // Defaults reflect ZA market reality (May 2026): inland petrol
+    // ~R23/L, light commercial vehicle averaging 8 L/100km. Pass
+    // overrides via opts when the tenant currency is not ZAR or the
+    // fleet has known consumption figures.
+    const fuelConsumptionPer100km = opts?.consumptionPer100km ?? 8;
+    const fuelCostPerLiter = opts?.fuelCostPerLiter ?? 23;
     const estimatedFuelCost = (route.total_distance / 100) * fuelConsumptionPer100km * fuelCostPerLiter;
     
     // Carbon footprint (kg CO2)
