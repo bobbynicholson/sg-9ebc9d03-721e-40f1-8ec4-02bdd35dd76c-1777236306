@@ -242,6 +242,7 @@ export default function AdminQuotes() {
   const [search, setSearch] = useState("");
   // Phase 26 #2: "/" or Cmd-F focuses the search input. Same
   // pattern as /admin/orders + /admin/contacts.
+  // Phase 29 #2: "n" jumps to the new-quote builder.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -254,6 +255,10 @@ export default function AdminQuotes() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         searchRef.current?.focus();
+      }
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        router.push("/admin/quotes/new");
       }
     };
     window.addEventListener("keydown", onKey);
