@@ -1,18 +1,25 @@
 /**
- * /admin/refunds
+ * /admin/refunds (renamed to "Refunds & Credits" in Wave 29.3).
  *
- * Pending + completed refunds list. Each row shows the original
- * payment method so finance knows whether the refund was auto-routed
- * through PayFast or whether they still owe an EFT.
+ * Pending + completed refunds list, plus -- since Wave 29.3 -- store
+ * credit issuances and redemptions on the same timeline so finance
+ * has one place to reconcile every "money out" or "credit in/out"
+ * movement against the bank statement.
+ *
+ * Three row kinds:
+ *   - refund        (payment_type='refund', original behaviour)
+ *   - credit_issue  (payment_type='credit_issue', from cancellation
+ *                   wizard with payout_choice='credit')
+ *   - credit_redeem (payment_type='credit_redeem', applied to an
+ *                   invoice via redeem_client_credit RPC)
  *
  * Actions:
- *   - "Mark refund paid" -- only on EFT/cash/manual pending rows.
- *     Calls /api/refunds/[id]/mark-paid.
- *   - "Retry refund" -- only on PayFast pending rows that auto-failed
- *     the first time. Calls /api/refunds/[id]/retry.
+ *   - "Mark refund paid" -- refund kind only, EFT/cash/manual pending.
+ *   - "Retry refund" -- refund kind only, PayFast pending auto-failed.
+ *   - Credit rows are display-only (no further action; they auto-
+ *     completed at issue / redeem time).
  *
- * Filter chips: All / Auto-processed (PayFast) / Pending (manual EFT)
- * / Rejected.
+ * Filter chips: All / Refunds / Credits / Pending / Rejected.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -30,13 +37,18 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types/app";
 import {
   Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
-  ExternalLink, User as UserIcon,
+  ExternalLink, User as UserIcon, Wallet, ArrowRightLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface RefundRow {
   id: string;
+  // Wave 29.3: row kind. 'refund' rows preserve every existing UI
+  // behaviour; credit_issue + credit_redeem render display-only on
+  // the same timeline so finance reconciles all money/credit moves
+  // in one place.
+  kind: "refund" | "credit_issue" | "credit_redeem";
   amount: number;
   status: string;
   reason: string | null;
@@ -57,7 +69,10 @@ interface RefundRow {
   parent_method: string | null;
 }
 
-type FilterKey = "all" | "auto" | "pending" | "rejected";
+// Wave 29.3: 'credits' chip rolls credit_issue + credit_redeem
+// together (finance usually wants both halves of the credit ledger
+// in one view).
+type FilterKey = "all" | "auto" | "credits" | "pending" | "rejected";
 
 /**
  * Phase 15 #10: tenant-currency-aware formatter. Same locale-
@@ -215,14 +230,18 @@ function RefundsPage() {
     if (!companyId) return;
     setLoading(true);
     try {
+      // Wave 29.3: pull credit_issue + credit_redeem alongside refunds
+      // so the page is a unified "money out / credit in / credit
+      // applied" timeline. payment_type stays in the SELECT so the
+      // mapper below can branch on it.
       // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
       const { data: refundRows, error } = await supabase
         .from("payments")
         .select(
-          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
+          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, payment_type, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
         )
         .eq("company_id", companyId)
-        .eq("payment_type", "refund")
+        .in("payment_type", ["refund", "credit_issue", "credit_redeem"])
         .order("created_at", { ascending: false });
       if (error) throw error;
 
@@ -264,8 +283,16 @@ function RefundsPage() {
       const flat: RefundRow[] = refunds.map((r) => {
         const parents = (r.order_id && parentsByOrder.get(r.order_id)) || [];
         const cls = classifyParent(parents as any);
+        const kind = (
+          r.payment_type === "credit_issue"
+            ? "credit_issue"
+            : r.payment_type === "credit_redeem"
+              ? "credit_redeem"
+              : "refund"
+        ) as RefundRow["kind"];
         return {
           id: r.id,
+          kind,
           amount: Number(r.amount) || 0,
           // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
           status: String(r.payment_status || "pending"),
@@ -280,8 +307,11 @@ function RefundsPage() {
           client_id: r.order?.client_id || null,
           event_date: r.order?.event_date || null,
           invoice_id: r.invoice_id || null,
-          parent_gateway: cls.gateway,
-          parent_method: cls.method,
+          // Credit rows have no parent payment to classify (the
+          // catering company keeps the original cash). Leave the
+          // parent fields null so the row renderer skips that chip.
+          parent_gateway: kind === "refund" ? cls.gateway : null,
+          parent_method: kind === "refund" ? cls.method : null,
         };
       });
 
@@ -388,27 +418,43 @@ function RefundsPage() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
-    if (filter === "rejected") return rows.filter((r) => r.status === "failed" || r.status === "rejected");
-    if (filter === "auto") {
+    // Wave 29.3: 'credits' chip = both halves of the credit ledger.
+    if (filter === "credits") {
       return rows.filter(
+        (r) => r.kind === "credit_issue" || r.kind === "credit_redeem",
+      );
+    }
+    // Refund-only filters below (auto / pending / rejected) -- credit
+    // rows are excluded because they auto-complete and have no
+    // gateway / pending state.
+    const refundsOnly = rows.filter((r) => r.kind === "refund");
+    if (filter === "rejected") return refundsOnly.filter((r) => r.status === "failed" || r.status === "rejected");
+    if (filter === "auto") {
+      return refundsOnly.filter(
         (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
       );
     }
     // pending = anything not completed and not failed/rejected
-    return rows.filter(
+    return refundsOnly.filter(
       (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
     );
   }, [rows, filter]);
 
   const counts = useMemo(() => {
-    const auto = rows.filter(
+    // Wave 29.3: refund-only buckets exclude credit rows so the
+    // pending / auto / rejected counts mean what they say.
+    const refundsOnly = rows.filter((r) => r.kind === "refund");
+    const auto = refundsOnly.filter(
       (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
     ).length;
-    const pending = rows.filter(
+    const pending = refundsOnly.filter(
       (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
     ).length;
-    const rejected = rows.filter((r) => r.status === "failed" || r.status === "rejected").length;
-    return { all: rows.length, auto, pending, rejected };
+    const rejected = refundsOnly.filter((r) => r.status === "failed" || r.status === "rejected").length;
+    const credits = rows.filter(
+      (r) => r.kind === "credit_issue" || r.kind === "credit_redeem",
+    ).length;
+    return { all: rows.length, auto, credits, pending, rejected };
   }, [rows]);
 
   // Phase 19 #1: amount totals per filter so finance sees the
@@ -416,15 +462,20 @@ function RefundsPage() {
   // source array as counts so the two always agree.
   const totals = useMemo(() => {
     const sum = (xs: RefundRow[]) => xs.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const refundsOnly = rows.filter((r) => r.kind === "refund");
     return {
       all: sum(rows),
-      auto: sum(rows.filter(
+      auto: sum(refundsOnly.filter(
         (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
       )),
-      pending: sum(rows.filter(
+      // Wave 29.3: credits total = issued minus redeemed, so the
+      // chip reads "outstanding credit owed across all clients".
+      credits: sum(rows.filter((r) => r.kind === "credit_issue"))
+        - sum(rows.filter((r) => r.kind === "credit_redeem")),
+      pending: sum(refundsOnly.filter(
         (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
       )),
-      rejected: sum(rows.filter(
+      rejected: sum(refundsOnly.filter(
         (r) => r.status === "failed" || r.status === "rejected",
       )),
     };
@@ -439,15 +490,43 @@ function RefundsPage() {
     const isCompleted = r.status === "completed";
     const isRejected = r.status === "failed" || r.status === "rejected";
     const parentIsPayFast = (r.parent_gateway || "").toLowerCase() === "payfast";
-    const showMarkPaid = !isCompleted && !isRejected && !parentIsPayFast;
-    const showRetry = !isCompleted && !isRejected && parentIsPayFast;
+    // Wave 29.3: refund-only actions. Credit rows auto-complete and
+    // have nothing the operator needs to mark paid or retry.
+    const isRefund = r.kind === "refund";
+    const isCreditIssue = r.kind === "credit_issue";
+    const isCreditRedeem = r.kind === "credit_redeem";
+    const showMarkPaid = isRefund && !isCompleted && !isRejected && !parentIsPayFast;
+    const showRetry = isRefund && !isCompleted && !isRejected && parentIsPayFast;
 
-    const iconBg = isCompleted
-      ? "bg-emerald-100 text-emerald-700"
-      : isRejected
-        ? "bg-rose-100 text-rose-700"
-        : "bg-amber-100 text-amber-700";
-    const Icon = isCompleted ? CheckCircle2 : isRejected ? XCircle : Clock;
+    // Icon + tone vary by kind so the row is identifiable at a glance.
+    let iconBg: string;
+    let Icon: typeof CheckCircle2;
+    if (isCreditIssue) {
+      iconBg = "bg-emerald-100 text-emerald-700";
+      Icon = Wallet;
+    } else if (isCreditRedeem) {
+      iconBg = "bg-blue-100 text-blue-700";
+      Icon = ArrowRightLeft;
+    } else {
+      iconBg = isCompleted
+        ? "bg-emerald-100 text-emerald-700"
+        : isRejected
+          ? "bg-rose-100 text-rose-700"
+          : "bg-amber-100 text-amber-700";
+      Icon = isCompleted ? CheckCircle2 : isRejected ? XCircle : Clock;
+    }
+
+    // Headline copy varies per kind.
+    const amountColor = isCreditIssue
+      ? "text-emerald-700"
+      : isCreditRedeem
+        ? "text-blue-700"
+        : "text-rose-700";
+    const kindLabel = isCreditIssue
+      ? "store credit issued"
+      : isCreditRedeem
+        ? "credit applied to invoice"
+        : "refund";
 
     return (
       <div
@@ -463,8 +542,8 @@ function RefundsPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <strong className="text-rose-700">{fmt.format(r.amount)}</strong>
-            <span className="text-sm text-slate-700">refund</span>
+            <strong className={amountColor}>{fmt.format(r.amount)}</strong>
+            <span className="text-sm text-slate-700">{kindLabel}</span>
             {r.order_number ? (
               <Link
                 href={withSlug(`/admin/orders?orderId=${r.order_id || ""}`)}
@@ -474,18 +553,32 @@ function RefundsPage() {
               </Link>
             ) : null}
             {r.client_name ? <span className="text-xs text-slate-500">- {r.client_name}</span> : null}
-            <Badge
-              variant="outline"
-              className={`text-xs ${parentIsPayFast ? "border-indigo-300 text-indigo-800 bg-indigo-50" : "border-slate-300 text-slate-700 bg-slate-50"}`}
-            >
-              {parentIsPayFast ? <Zap className="w-3 h-3 mr-1" /> : null}
-              Paid by {methodLabel(r.parent_gateway, r.parent_method)}
-            </Badge>
-            {isCompleted && (r.refund_gateway || "").toLowerCase() === "payfast" ? (
+            {/* Wave 29.3: refund-only "paid by" classification.
+                Credit rows have no parent payment to chip. */}
+            {isRefund && (
+              <Badge
+                variant="outline"
+                className={`text-xs ${parentIsPayFast ? "border-indigo-300 text-indigo-800 bg-indigo-50" : "border-slate-300 text-slate-700 bg-slate-50"}`}
+              >
+                {parentIsPayFast ? <Zap className="w-3 h-3 mr-1" /> : null}
+                Paid by {methodLabel(r.parent_gateway, r.parent_method)}
+              </Badge>
+            )}
+            {isRefund && isCompleted && (r.refund_gateway || "").toLowerCase() === "payfast" ? (
               <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">
                 Auto-processed
               </Badge>
             ) : null}
+            {isCreditIssue && (
+              <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">
+                Cancellation credit
+              </Badge>
+            )}
+            {isCreditRedeem && (
+              <Badge className="text-xs bg-blue-600 hover:bg-blue-600">
+                Applied to invoice
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
             Raised {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
@@ -578,7 +671,7 @@ function RefundsPage() {
   return (
     <>
       <Head>
-        <title>Refunds | CateringMS</title>
+        <title>Refunds & Credits | CateringMS</title>
         <NoIndexMeta />
       </Head>
       <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
@@ -588,10 +681,10 @@ function RefundsPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 <Receipt className="w-7 h-7 text-rose-600" />
-                Refunds
+                Refunds &amp; Credits
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                Cancellation refunds. PayFast pushes automatically; EFT and cash need a manual mark as paid once the money has actually moved.
+                Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only -- they auto-completed at issue or redeem time.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -606,8 +699,11 @@ function RefundsPage() {
                     toast({ title: "Nothing to export", description: "Adjust filters until at least one refund is visible." });
                     return;
                   }
+                  // Wave 29.3: 'Kind' column lets finance pivot the
+                  // exported sheet by refund / credit_issue /
+                  // credit_redeem when reconciling against the bank.
                   const headers = [
-                    "Created", "Processed", "Order number", "Client", "Event date",
+                    "Created", "Processed", "Kind", "Order number", "Client", "Event date",
                     "Amount", "Status", "Refund gateway", "Parent gateway", "Parent method", "Reason",
                   ];
                   const esc = (v: any) => {
@@ -619,6 +715,7 @@ function RefundsPage() {
                   for (const r of filtered) {
                     lines.push([
                       esc(r.created_at), esc(r.processed_at),
+                      esc(r.kind),
                       esc(r.order_number), esc(r.client_name), esc(r.event_date),
                       esc(r.amount), esc(r.status),
                       esc(r.refund_gateway), esc(r.parent_gateway), esc(r.parent_method),
@@ -649,6 +746,7 @@ function RefundsPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
+            <FilterChip k="credits" label="Store credits" count={counts.credits} total={totals.credits} />
             <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} total={totals.pending} />
             <FilterChip k="rejected" label="Rejected" count={counts.rejected} total={totals.rejected} />
           </div>
@@ -690,12 +788,14 @@ function RefundsPage() {
             <CardHeader>
               <CardTitle className="text-base">
                 {filter === "all"
-                  ? "All refunds"
+                  ? "All refunds & credits"
                   : filter === "auto"
                     ? "Auto-processed (PayFast)"
-                    : filter === "pending"
-                      ? "Pending refunds"
-                      : "Rejected refunds"}
+                    : filter === "credits"
+                      ? "Store credit movements"
+                      : filter === "pending"
+                        ? "Pending refunds"
+                        : "Rejected refunds"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
