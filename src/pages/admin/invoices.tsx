@@ -1053,7 +1053,14 @@ export default function InvoicesPage() {
                     {/* Phase 14 #10: row checkbox. Only renders for
                         invoices that aren't already paid -- a paid
                         row has nothing to bulk-action. */}
-                    {invoice.status !== "paid" && invoice.status !== "cancelled" && (
+                    {/* Wave 30.6: invoice_status enum is
+                        {draft|sent|paid|partially_paid|overdue|written_off}.
+                        'cancelled' never matches a real row -- the
+                        actual void value is 'written_off'. Kept the
+                        legacy literal for back-compat just in case
+                        any historical row carried it before the enum
+                        was tightened. */}
+                    {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
                       <input
                         type="checkbox"
                         className="mr-3 h-4 w-4 cursor-pointer accent-emerald-600 shrink-0"
