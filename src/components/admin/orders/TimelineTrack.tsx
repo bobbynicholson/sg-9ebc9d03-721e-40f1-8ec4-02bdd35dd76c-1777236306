@@ -68,16 +68,26 @@ function StageDot({
   const isBlocked = stage.status === "blocked";
   const isUpcoming = stage.status === "upcoming";
 
-  const baseSize = size === "small" ? "w-2 h-2" : "w-3 h-3";
-  const currentSize = size === "small" ? "w-4 h-4" : "w-6 h-6";
+  // Wave 25.1 polish: bumped completed dots up so the "done" track is
+  // legible at glance distance (4px was barely a pixel cluster).
+  // Current/blocked dots stay larger and pulse so they're the
+  // unambiguous focus of the eye.
+  const baseSize = size === "small" ? "w-2.5 h-2.5" : "w-4 h-4";
+  const currentSize = size === "small" ? "w-4 h-4" : "w-7 h-7";
 
+  // Logistics-spec colour rules: green = done, orange = next to do,
+  // red = problem. green-500 (not emerald-500) is the unambiguous
+  // hospital-cross green; emerald reads as teal which muddied the
+  // signal in the live spit-braai walkthrough.
   const dotClasses = (() => {
-    if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 animate-pulse`;
-    if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse`;
-    if (isCompleted) return `${baseSize} bg-emerald-500`;
+    if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 animate-pulse shadow-md shadow-orange-200`;
+    if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
+    if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
-    // skipped or n/a: faint dashed
-    return `${baseSize} border border-dashed border-slate-300 bg-transparent opacity-40`;
+    // skipped or n/a: rendered as a 0-size element so the layout
+    // stays tight without faint visual noise. n/a stages are filtered
+    // out at the cluster level too.
+    return "w-0 h-0 hidden";
   })();
 
   const Icon = isCompleted ? CheckCircle2 : isBlocked ? AlertCircle : isCurrent ? Clock : null;
@@ -164,7 +174,7 @@ function ClusterBand({
   const hasBlocked = visible.some((s) => s.status === "blocked");
 
   const headerColor =
-    allCompleted ? "text-emerald-600" :
+    allCompleted ? "text-green-600" :
     hasBlocked ? "text-red-600" :
     hasCurrent ? "text-orange-600" :
     "text-slate-500";
@@ -174,17 +184,34 @@ function ClusterBand({
       <div className={`text-[9px] font-semibold uppercase tracking-wide ${headerColor}`}>
         {STAGE_GROUP_LABELS[group]}
       </div>
-      <div className="flex items-center gap-1.5">
-        {visible.map((s, idx) => (
-          <div key={s.key} className="flex items-center gap-1.5">
-            <StageDot stage={s} onStageClick={onStageClick} />
-            {idx < visible.length - 1 && (
-              <div className={`h-px w-3 ${
-                s.status === "completed" ? "bg-emerald-300" : "bg-slate-200"
-              }`} />
-            )}
-          </div>
-        ))}
+      <div className="flex items-center gap-2">
+        {visible.map((s, idx) => {
+          // Wave 25.1: connector colour follows the stage transition.
+          // Green when the previous stage is done (it's a finished leg
+          // of the track); orange when the previous stage is current
+          // (the pipe leading INTO the next dot, hinting at "what's
+          // up next"); red when blocked; otherwise neutral grey.
+          const next = visible[idx + 1];
+          const connectorClass = !next
+            ? ""
+            : s.status === "completed" && next.status === "completed"
+              ? "bg-green-500"
+              : s.status === "completed" && (next.status === "current" || next.status === "blocked")
+                ? "bg-gradient-to-r from-green-500 to-orange-400"
+                : s.status === "current"
+                  ? "bg-gradient-to-r from-orange-400 to-slate-200"
+                  : s.status === "blocked"
+                    ? "bg-red-300"
+                    : "bg-slate-200";
+          return (
+            <div key={s.key} className="flex items-center gap-2">
+              <StageDot stage={s} onStageClick={onStageClick} />
+              {next && (
+                <div className={`h-0.5 w-4 rounded-full ${connectorClass}`} />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -208,7 +235,7 @@ function ClusterPill({
   const tone = (() => {
     if (hasBlocked) return "bg-red-100 text-red-700 border-red-300";
     if (hasCurrent) return "bg-orange-100 text-orange-700 border-orange-300";
-    if (total > 0 && done === total) return "bg-emerald-100 text-emerald-700 border-emerald-300";
+    if (total > 0 && done === total) return "bg-green-100 text-green-700 border-green-300";
     return "bg-slate-100 text-slate-500 border-slate-200";
   })();
 
@@ -233,14 +260,14 @@ function NowCard({ stage }: { stage: OrderTimelineStage | null }) {
         : "border-slate-200 bg-slate-50 text-slate-700";
 
   return (
-    <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${tone}`}>
+    <div className={`flex items-center justify-between gap-2 rounded-md border-l-4 border-y border-r px-3 py-2 ${tone}`}>
       <div className="min-w-0">
-        <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-          {stage.status === "blocked" ? "Blocked" : "Now"}
+        <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+          {stage.status === "blocked" ? "Blocked" : "Next to do"}
         </div>
         <div className="text-sm font-semibold truncate">{stage.label}</div>
         {stage.blockedReason && (
-          <div className="text-xs">{stage.blockedReason}</div>
+          <div className="text-xs font-medium">{stage.blockedReason}</div>
         )}
         {!stage.blockedReason && stage.meta?.progress && (
           <div className="text-xs">
@@ -255,9 +282,9 @@ function NowCard({ stage }: { stage: OrderTimelineStage | null }) {
         <Link
           href={stage.sourceLink}
           onClick={(e) => e.stopPropagation()}
-          className="text-xs font-medium underline decoration-dotted hover:decoration-solid flex-shrink-0"
+          className="text-xs font-semibold underline decoration-dotted hover:decoration-solid flex-shrink-0"
         >
-          Open
+          Open →
         </Link>
       )}
     </div>
@@ -315,7 +342,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
                   <div className="flex items-center gap-2">
                     <StageDot stage={s} size="small" onStageClick={onStageClick} />
                     <span className={
-                      s.status === "completed" ? "text-emerald-700 line-through opacity-70" :
+                      s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
                       s.status === "blocked" ? "text-red-700 font-semibold" :
                       "text-slate-500"
@@ -335,8 +362,68 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
   }
 
   // --- Full desktop view ---
+  // Wave 25.1 polish: promoted the "what's the next action" question
+  // out of an inline text label into a prominent banner at the top of
+  // the timeline. The operator sees the actionable signal in one
+  // glance instead of having to scan dots first. Banner colour reads
+  // by status: orange = next to do, red = blocked.
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
+      {/* Now / Blocked banner -- the single most important question */}
+      {currentStage && (
+        <div
+          className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+            currentStage.status === "blocked"
+              ? "bg-red-50 border-red-200"
+              : "bg-orange-50 border-orange-200"
+          }`}
+        >
+          <div className={`w-2 h-2 rounded-full animate-pulse flex-shrink-0 ${
+            currentStage.status === "blocked" ? "bg-red-500" : "bg-orange-500"
+          }`} />
+          <div className="flex-1 min-w-0">
+            <div className={`text-[10px] font-bold uppercase tracking-wider ${
+              currentStage.status === "blocked" ? "text-red-700" : "text-orange-700"
+            }`}>
+              {currentStage.status === "blocked" ? "Blocked" : "Next to do"}
+            </div>
+            <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+              <span>{currentStage.label}</span>
+              {currentStage.meta?.progress && (
+                <span className="text-xs font-normal text-slate-600">
+                  ({currentStage.meta.progress.done}/{currentStage.meta.progress.total})
+                </span>
+              )}
+              {currentStage.meta?.actor && (
+                <span className="text-xs font-normal text-slate-600">· {currentStage.meta.actor}</span>
+              )}
+              {currentStage.meta?.expectedAt && (
+                <span className="text-xs font-normal text-slate-600">
+                  · expected {new Date(currentStage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+            </div>
+            {currentStage.blockedReason && (
+              <div className="text-xs text-red-700 font-medium mt-0.5">
+                {currentStage.blockedReason}
+              </div>
+            )}
+          </div>
+          {currentStage.sourceLink && (
+            <Link
+              href={currentStage.sourceLink}
+              onClick={(e) => e.stopPropagation()}
+              className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${
+                currentStage.status === "blocked"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-orange-600 hover:bg-orange-700"
+              }`}
+            >
+              Open →
+            </Link>
+          )}
+        </div>
+      )}
       {/* Cluster band */}
       <div className="flex items-start gap-2 overflow-x-auto pb-1">
         {CLUSTER_ORDER.map((g, idx) => (
@@ -352,39 +439,6 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
           </div>
         ))}
       </div>
-      {/* Inline current-stage label */}
-      {currentStage && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className={`font-medium ${
-            currentStage.status === "blocked" ? "text-red-600" : "text-orange-600"
-          }`}>
-            {currentStage.status === "blocked" ? "Blocked:" : "Now:"}
-          </span>
-          <span className="text-slate-700 font-medium">{currentStage.label}</span>
-          {currentStage.blockedReason && (
-            <span className="text-red-600">— {currentStage.blockedReason}</span>
-          )}
-          {!currentStage.blockedReason && currentStage.meta?.progress && (
-            <span className="text-slate-500">
-              ({currentStage.meta.progress.done}/{currentStage.meta.progress.total})
-            </span>
-          )}
-          {!currentStage.blockedReason && !currentStage.meta?.progress && currentStage.meta?.expectedAt && (
-            <span className="text-slate-500">
-              · expected {new Date(currentStage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-            </span>
-          )}
-          {currentStage.sourceLink && (
-            <Link
-              href={currentStage.sourceLink}
-              onClick={(e) => e.stopPropagation()}
-              className="ml-auto text-blue-600 hover:underline"
-            >
-              Open →
-            </Link>
-          )}
-        </div>
-      )}
       {/* Bottom progress count */}
       <div className="text-[10px] text-slate-500 text-right">
         {timeline.completedCount} of {timeline.applicableCount} stages complete

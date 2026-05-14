@@ -1118,10 +1118,22 @@ function OrderProcessDashboard() {
     // the new TimelineTrack surfaces the current + next stage inline
     // with full label + timestamp + click-through.
     const isSelected = selectedIds.has((order as any).id);
+    // Wave 25.1 polish: row-level signal for blocked orders. The
+    // operator scanning the list should spot a blocked card from
+    // 6 ft away without having to read the timeline. A 4px red left
+    // border + faint red wash on the card gives the unmistakable
+    // "this needs attention" cue, mirroring the red dot inside the
+    // timeline. Healthy orders keep their default styling.
+    const tl = timelinesById.get((order as any).id);
+    const isBlocked = !!tl?.blocked;
 
     return (
       <Card
-        className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-blue-400" : ""}`}
+        className={`hover:shadow-md transition-shadow cursor-pointer ${
+          isSelected ? "ring-2 ring-blue-400" : ""
+        } ${
+          isBlocked ? "border-l-4 border-l-red-500 bg-red-50/30" : ""
+        }`}
         onClick={() => {
           setSelectedOrder(order);
           setIsModalOpen(true);
