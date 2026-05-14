@@ -1747,6 +1747,21 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
   try {
     const { defaultAfterSalesTemplates, interpolateEmailTemplate, getEmailVariables } =
       await import("@/lib/afterSalesTemplates");
+    // Wave 23.5: per-tenant cadence control. Pull the company's
+    // aftersales_max_months + aftersales_skip_template_ids so the
+    // scheduler honours the operator's preference. Defaults
+    // (max=12, skip=[]) preserve the existing 6-email cadence so
+    // tenants who never touch the new columns see no change.
+    const { data: companyCadence } = await (supabase as any)
+      .from("companies")
+      .select("aftersales_max_months, aftersales_skip_template_ids")
+      .eq("id", order.company_id)
+      .maybeSingle();
+    const maxMonths = Number((companyCadence as any)?.aftersales_max_months ?? 12);
+    const skipIds = new Set<string>(
+      ((companyCadence as any)?.aftersales_skip_template_ids as string[] | null) ?? [],
+    );
+
     const eventDate = order.event_date ? new Date(order.event_date) : new Date();
     const variables = getEmailVariables(
       order.id,
@@ -1758,6 +1773,12 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
     const rows: any[] = [];
     for (const template of defaultAfterSalesTemplates) {
       if (!template.isActive) continue;
+      // Per-tenant skip controls. max-months ceiling AND explicit
+      // template-id list both honoured -- a row that hits either
+      // gets skipped.
+      if ((template.monthsAfterEvent || 0) > maxMonths) continue;
+      if (skipIds.has(template.id)) continue;
+
       const sendAt = new Date(eventDate);
       sendAt.setMonth(sendAt.getMonth() + (template.monthsAfterEvent || 0));
       // Don't schedule rows whose send-time is already in the past
@@ -1825,28 +1846,48 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   const eventLabel = eventDate.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
   const firstName = String(order.client_name || "there").trim().split(" ")[0] || "there";
 
+  // Wave 23.5: pre-event reminder bodies used to sign off as a
+  // generic "Looking forward to it" / "See you tomorrow" with no
+  // sender attribution. Personalise by pulling the tenant name and
+  // surface the event_name so the recipient knows which event the
+  // reminder is for (a client with two bookings could otherwise
+  // confuse them). Best-effort lookup -- the cron worker will still
+  // send a generic body if the lookup fails.
+  let tenantNameForReminders = "the team";
+  try {
+    const { data: companyRow } = await (supabase as any)
+      .from("companies")
+      .select("company_name")
+      .eq("id", order.company_id)
+      .maybeSingle();
+    if ((companyRow as any)?.company_name) tenantNameForReminders = (companyRow as any).company_name;
+  } catch {
+    // fall through
+  }
+  const eventNameLabel = order.event_name || "your event";
+
   const reminders = [
     {
       offsetMs: -7 * 24 * 3600 * 1000,
       key: "week_before",
-      subject: `One week to go -- your event on ${eventLabel}`,
+      subject: `One week to go -- ${eventNameLabel} on ${eventLabel}`,
       body:
         `Hi ${firstName},\n\n` +
-        `Just a friendly reminder that your event is one week away (${eventLabel}). ` +
+        `Just a friendly reminder that ${eventNameLabel} is one week away (${eventLabel}). ` +
         `If anything has changed -- final headcount, menu tweaks, drop-off time -- now is the perfect time to let us know.\n\n` +
         `Reply to this email or open your client portal to request a change.\n\n` +
-        `Looking forward to it.`,
+        `Looking forward to it.\n\n${tenantNameForReminders}`,
     },
     {
       offsetMs: -1 * 24 * 3600 * 1000,
       key: "day_before",
-      subject: `Tomorrow's the day -- ${eventLabel}`,
+      subject: `Tomorrow's the day -- ${eventNameLabel}`,
       body:
         `Hi ${firstName},\n\n` +
-        `Quick check-in -- everything is locked in for tomorrow. ` +
+        `Quick check-in -- everything is locked in for ${eventNameLabel} tomorrow. ` +
         `Final guest count + venue address are confirmed on our side. ` +
         `If anything urgent comes up between now and then, give us a ring.\n\n` +
-        `See you tomorrow!`,
+        `See you tomorrow.\n\n${tenantNameForReminders}`,
     },
   ];
 

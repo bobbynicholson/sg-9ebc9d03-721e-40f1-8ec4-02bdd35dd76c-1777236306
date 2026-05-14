@@ -236,6 +236,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[amend-order:token] ack email failed:", e);
     }
 
+    // Wave 23.5: cross-cutting audit_logs row.
+    void (async () => {
+      try {
+        await (sb as any).from("audit_logs").insert({
+          company_id: order.company_id,
+          user_id: null,
+          action: "amendment_requested_magic",
+          entity_type: "order",
+          entity_id: order_id,
+          details: {
+            request_id: (inserted as any).id,
+            order_number: order.order_number,
+            client_email: order.client_email,
+            applied_keys: Object.keys(sanitized),
+            has_notes: notesProvided,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[amend-order:token] audit_logs insert failed:", auditErr);
+      }
+    })();
+
     return res.status(201).json({
       ok: true,
       request_id: (inserted as any).id,

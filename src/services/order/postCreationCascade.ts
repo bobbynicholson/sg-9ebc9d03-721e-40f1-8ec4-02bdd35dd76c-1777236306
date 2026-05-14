@@ -242,10 +242,17 @@ export async function postOrderCreationCascade(
         // operator sees the real cause -- "Resend domain not verified",
         // "from_email_domain_mismatch", "blocked_recipient" etc. --
         // in the accept-on-behalf toast and the email-failures dashboard.
+        // Wave 23.5: subject-line tone polish. "Order Confirmed -
+        // #ORD-003827" reads templated; the operator's own copy
+        // would say "Your {event} booking is confirmed -- {company}".
+        // Build a more personable line that still surfaces the order
+        // number for inbox search.
+        const orderNumberLabel = (order as any).order_number || orderId;
+        const eventNameForSubject = (order as any).event_name || "your event";
         const detailed = await (emailService as any).sendEmailDetailed({
           companyId,
           to: (order as any).client_email,
-          subject: `Order Confirmed - #${(order as any).order_number || orderId}`,
+          subject: `${eventNameForSubject} confirmed -- ${companyName} (${orderNumberLabel})`,
           // Template type aligns with the seed [P0-14]. Was
           // "order-confirmation" which has no row in email_templates.
           template: "order_confirmed",

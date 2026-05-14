@@ -227,17 +227,23 @@ export const deliveryService = {
     try {
       if (!order.client_email) return;
 
+      // Wave 23.5: subject-line tone polish. "Delivery Completed -
+      // Bobby Nicholson" reads templated. The recipient is the client
+      // -- they don't need to see their own name in the subject;
+      // they need to know the catering company finished the delivery.
+      // Body now also drops the client-name echo for the same reason.
+      const firstName = (order.client_name || "").split(" ")[0] || "there";
       await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: order.client_email,
-          subject: status === "delivered" 
-            ? `Delivery Completed - ${order.client_name}`
-            : `Delivery Status Update - ${order.client_name}`,
+          subject: status === "delivered"
+            ? "Your delivery is done -- enjoy the event"
+            : `Delivery update -- ${status.replace(/_/g, " ")}`,
           text: status === "delivered"
-            ? `Your delivery has been completed successfully!\n\nClient: ${order.client_name}\nTime: ${new Date().toLocaleString()}`
-            : `Delivery Status Update\n\nClient: ${order.client_name}\nStatus: ${status}\n${notes ? `Notes: ${notes}` : ""}`,
+            ? `Hi ${firstName},\n\nYour delivery is on-site as of ${new Date().toLocaleString("en-ZA")}. Enjoy the event!\n\nReply to this email if anything's not as expected.`
+            : `Hi ${firstName},\n\nQuick status update on your delivery: ${status.replace(/_/g, " ")}.\n${notes ? `\nNote from the team: ${notes}\n` : ""}`,
         }),
       });
     } catch (error) {

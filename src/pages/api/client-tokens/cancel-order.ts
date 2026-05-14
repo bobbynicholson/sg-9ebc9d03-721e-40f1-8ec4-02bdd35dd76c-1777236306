@@ -208,6 +208,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[cancel-order:token] ack email failed:", e);
     }
 
+    // Wave 23.5: cross-cutting audit_logs row so the platform-wide
+    // audit feed has the request alongside everything else touching
+    // this order. cancellation_requests is the domain table; this is
+    // the cross-entity trail.
+    void (async () => {
+      try {
+        await (sb as any).from("audit_logs").insert({
+          company_id: order.company_id,
+          user_id: null, // public token-bearer flow -- no auth user
+          action: request_type === "cancel" ? "cancellation_requested_magic" : "postponement_requested_magic",
+          entity_type: "order",
+          entity_id: order_id,
+          details: {
+            request_id: (inserted as any).id,
+            order_number: order.order_number,
+            client_email: order.client_email,
+            request_type,
+            requested_postpone_date,
+            refund_preview: Number(snap.refund_amount) || 0,
+            reason: reason || null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[cancel-order:token] audit_logs insert failed:", auditErr);
+      }
+    })();
+
     return res.status(201).json({
       ok: true,
       request_id: (inserted as any).id,
