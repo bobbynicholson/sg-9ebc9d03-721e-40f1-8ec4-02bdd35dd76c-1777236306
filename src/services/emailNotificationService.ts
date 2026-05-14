@@ -1,5 +1,24 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { sendEmailViaAPI } from "@/lib/emailClient";
+
+// Wave 24: emailNotificationService.processPendingEmails is the entry
+// point that /api/process-email-notifications calls. Server context,
+// no auth session, so the imported browser anon supabase fails RLS on
+// the email_notifications queue read and every queued notification
+// stays pending forever. Same resolveServerClient pattern as
+// orderWorkflow / paymentProcessingService: pick service-role on the
+// server, browser anon in the browser.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 /**
  * Email Notification Service

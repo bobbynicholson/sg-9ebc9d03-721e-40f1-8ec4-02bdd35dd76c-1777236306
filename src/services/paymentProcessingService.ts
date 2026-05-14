@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  calculateDepositAndBalance, 
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
+import {
+  calculateDepositAndBalance,
   calculateBalanceDueDate,
   calculateFinalOrderChangeDate,
   canModifyOrder,
@@ -12,6 +12,27 @@ import { notificationService } from "./notificationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { updateOrderStatus } from "./order/orderWorkflow";
+
+// Wave 24: paymentProcessingService is the entry point that the
+// PayFast / Stripe / Yoco webhooks call to flip an order's
+// deposit_paid / balance_paid columns and write the matching payment
+// rows. Webhooks have no auth session, so the imported browser anon
+// supabase fails RLS on orders / payments / orders.deposit_paid
+// updates -- the deposit lands on the gateway side but the order
+// never flips to "deposit paid" on our side. Same resolveServerClient
+// pattern as orderWorkflow / cancellationEmails: pick service-role
+// on the server, browser anon in the browser.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 export interface PaymentSchedule {
   orderId: string;
