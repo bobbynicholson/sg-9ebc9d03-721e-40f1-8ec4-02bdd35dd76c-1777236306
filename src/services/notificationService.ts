@@ -49,6 +49,15 @@ interface CreateNotificationParams {
   // to the generic `link` button.
   related_entity_type?: string;
   related_entity_id?: string;
+  // Wave 24: optional soft-dedup. When set, the service checks for
+  // an existing notification with the same recipient_id +
+  // notification_type + related_entity_id (when present) created
+  // within the last `dedupWindowMinutes` (default 60) and skips the
+  // insert if found. Use when the same trigger can legitimately fire
+  // twice in quick succession (status flip flip-back, debounced UI
+  // submission, cron re-tick). Omit and behaviour is unchanged.
+  dedup?: boolean;
+  dedupWindowMinutes?: number;
 }
 
 interface BroadcastNotificationParams {
@@ -84,6 +93,18 @@ interface BroadcastNotificationParams {
    */
   relatedEntityType?: string;
   relatedEntityId?: string;
+  /**
+   * Wave 24: optional soft-dedup, mirrors createNotification's gate.
+   * When true, the broadcaster checks for an existing notification of
+   * the same type pointing at the same relatedEntityId within the
+   * dedupWindowMinutes (default 60). When found, the whole broadcast
+   * is skipped -- existing recipients keep their original row instead
+   * of getting a duplicate. Use when the same trigger can legitimately
+   * fire twice (review approve flicker, status retick, double-submit).
+   * Omit and behaviour is unchanged.
+   */
+  dedup?: boolean;
+  dedupWindowMinutes?: number;
 }
 
 interface CleanupOptions {
@@ -268,6 +289,39 @@ export const notificationService = {
     }
 
     const resolvedType = notification.type || notification.notification_type || "system_alert";
+
+    // Wave 24: optional soft-dedup. The same trigger can legitimately
+    // fire twice in quick succession (status flip then flip-back,
+    // debounced UI submission landing twice, cron retick crossing a
+    // status update). Without this guard two identical rows land and
+    // the recipient sees the same message twice. Opt-in via dedup=true
+    // so existing callers behave unchanged.
+    if (notification.dedup === true) {
+      try {
+        const windowMin = Math.max(1, notification.dedupWindowMinutes ?? 60);
+        const sinceIso = new Date(Date.now() - windowMin * 60 * 1000).toISOString();
+        let probe = sb
+          .from("notifications")
+          .select("id")
+          .eq("recipient_id", notification.recipient_id)
+          .eq("notification_type", resolvedType)
+          .gte("created_at", sinceIso)
+          .limit(1);
+        if (notification.related_entity_id) {
+          probe = probe.eq("related_entity_id", notification.related_entity_id);
+        }
+        const { data: existing } = await probe.maybeSingle();
+        if (existing) {
+          // Match -- skip the insert. Returning null mirrors the
+          // "soft no-op" shape callers already handle for RLS rejects.
+          return null;
+        }
+      } catch (dedupErr) {
+        // Probe failure shouldn't block the legitimate insert. Worst
+        // case the row is duplicated, which the recipient can dismiss.
+        console.warn("[createNotification] dedup probe failed; inserting anyway:", dedupErr);
+      }
+    }
     const insertRow: Record<string, any> = {
       company_id: companyId,
       recipient_id: notification.recipient_id,
@@ -394,6 +448,37 @@ export const notificationService = {
     client?: any,
   ): Promise<number> {
     const sb = client || supabase;
+
+    // Wave 24: optional soft-dedup. Mirrors createNotification's gate
+    // but at broadcast scope: if ANY notification of the same type
+    // pointing at the same relatedEntityId exists for this company
+    // within the dedup window, skip the whole broadcast. The same
+    // amendment_requested event firing twice from the React Query
+    // refetch + the manual review wouldn't otherwise be de-duped
+    // before fanning out to every admin profile.
+    if (params.dedup === true && params.relatedEntityId) {
+      try {
+        const windowMin = Math.max(1, params.dedupWindowMinutes ?? 60);
+        const sinceIso = new Date(Date.now() - windowMin * 60 * 1000).toISOString();
+        const { data: existing } = await sb
+          .from("notifications")
+          .select("id")
+          .eq("company_id", params.companyId)
+          .eq("notification_type", params.type)
+          .eq("related_entity_id", params.relatedEntityId)
+          .gte("created_at", sinceIso)
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          // Match -- skip the entire fan-out.
+          return 0;
+        }
+      } catch (dedupErr) {
+        // Probe failure shouldn't block legitimate broadcasts.
+        console.warn("[broadcastNotification] dedup probe failed; inserting anyway:", dedupErr);
+      }
+    }
+
     try {
       const { data: profiles, error: profileError } = await sb
         .from("profiles")
