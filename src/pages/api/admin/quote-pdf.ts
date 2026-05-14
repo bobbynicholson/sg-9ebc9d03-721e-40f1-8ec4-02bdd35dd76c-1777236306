@@ -7,14 +7,21 @@
  * the PDF inline as an attachment; this route exposes the same
  * pipeline as a direct download.
  *
- * Auth: any signed-in user belonging to the quote's tenant. RLS
- * on quotes already enforces the company scope; we just verify
- * the caller has a session.
+ * Auth (Wave 24): admin / owner / super_admin role only. The previous
+ * "any signed-in user" gate leaned on RLS to scope per-tenant, which
+ * is correct for cross-tenant isolation, but a signed-in kitchen /
+ * driver / cleaning staffer still belongs to the tenant and the RLS
+ * policy on quotes lets any company member read. They shouldn't be
+ * downloading quote PDFs (which include client contact + pricing
+ * detail not relevant to their role). Belt-and-braces role check
+ * here mirrors the gate pattern the other admin/* routes use.
  */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+
+const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 export const config = {
   api: {
@@ -35,6 +42,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
+
+    // Wave 24: role gate (see header). RLS continues to scope the
+    // quote read per-tenant; this rejects in-tenant non-admin staff
+    // before they reach the read.
+    const { data: profile } = await ssr
+      .from("profiles")
+      .select("role, active_role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
+    if (!ALLOWED_ROLES.has(role)) {
+      return res.status(403).json({ error: "Owner or admin only" });
+    }
 
     const { data: q, error: readErr } = await ssr
       .from("quotes")
