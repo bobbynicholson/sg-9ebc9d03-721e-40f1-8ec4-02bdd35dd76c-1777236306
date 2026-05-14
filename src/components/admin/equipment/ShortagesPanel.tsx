@@ -29,6 +29,7 @@ import {
 import { equipmentShortageService } from "@/services/equipmentShortageService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShortageFlag {
@@ -69,6 +70,9 @@ interface ShortageFlag {
 export function ShortagesPanel() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  // Wave 24: tenant currency on the Impact tile so a UK / US tenant
+  // doesn't see "R" on a £ / $ shortage value.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [shortages, setShortages] = useState<ShortageFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedShortage, setSelectedShortage] = useState<ShortageFlag | null>(null);
@@ -248,8 +252,8 @@ export function ShortagesPanel() {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Impact <InfoTooltip content={"Total rand value tied up in shortages that are still pending."} /></p>
-                <p className="text-xl md:text-2xl font-bold text-red-600">R{totalFinancialImpact.toFixed(0)}</p>
+                <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Impact <InfoTooltip content={"Total value tied up in shortages that are still pending."} /></p>
+                <p className="text-xl md:text-2xl font-bold text-red-600">{tenantCurrency.format(totalFinancialImpact, 0)}</p>
               </div>
               <DollarSign className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
             </div>

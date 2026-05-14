@@ -33,6 +33,7 @@ import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -54,6 +55,9 @@ export default function DriverRoutes() {
   // Per-driver pay rates (override falling back to companies.default_*)
   // -- used so the earnings tiles show the real number, not R250.
   const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
+  // Wave 24: tenant-currency aware so non-ZAR tenants don't see "R"
+  // hardcoded on the route stop callout/distance summary.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
 
   useEffect(() => {
     if (user?.id) {
@@ -478,7 +482,7 @@ export default function DriverRoutes() {
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4" />
-                          <span>Callout: R{calloutFee.toFixed(0)} + R{distanceRate.toFixed(2)}/km</span>
+                          <span>Callout: {tenantCurrency.format(calloutFee, 0)} + {tenantCurrency.format(distanceRate)}/km</span>
                         </div>
                       </div>
 
@@ -652,7 +656,7 @@ export default function DriverRoutes() {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <DollarSign className="w-3 h-3" />
-                                  R{calloutFee.toFixed(0)} callout
+                                  {tenantCurrency.format(calloutFee, 0)} callout
                                 </span>
                               </div>
                             </div>

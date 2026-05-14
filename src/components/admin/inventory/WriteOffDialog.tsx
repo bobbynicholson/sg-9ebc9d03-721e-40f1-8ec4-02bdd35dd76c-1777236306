@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, AlertCircle } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 export interface WriteOffItem {
   id: string;
@@ -21,6 +22,9 @@ interface Props {
   items: WriteOffItem[];
   /** If set, the dialog opens with this item pre-selected and the picker hidden. */
   preSelectedItemId?: string | null;
+  /** Wave 24: tenant company id so cost-per-unit + cost-impact render
+   *  in the tenant's currency. Falls back to "R" when omitted. */
+  companyId?: string | null;
   onSaved: (itemName: string, qty: number, costImpact: number) => void;
 }
 
@@ -33,7 +37,8 @@ const REASONS = [
   { key: "Other",          helper: "Anything else. Use the note field." },
 ];
 
-export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSelectedItemId, onSaved }: Props) {
+export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSelectedItemId, companyId, onSaved }: Props) {
+  const tenantCurrency = useTenantCurrency(companyId ?? null);
   const [itemId, setItemId] = useState<string>("");
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState<string>(REASONS[0].key);
@@ -121,7 +126,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
               <p className="font-medium text-slate-900">{selectedItem.name}</p>
               <p className="text-xs text-slate-500">
                 On hand: {selectedItem.currentStock} {selectedItem.unit}
-                {selectedItem.costPerUnit > 0 && <> · R{selectedItem.costPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{selectedItem.unit}</>}
+                {selectedItem.costPerUnit > 0 && <> · {tenantCurrency.format(selectedItem.costPerUnit)}/{selectedItem.unit}</>}
               </p>
             </div>
           )}
@@ -190,7 +195,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
             <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 flex items-center justify-between">
               <span className="text-sm text-red-700">Cost impact</span>
               <span className="text-base font-semibold text-red-800">
-                R{costImpact.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {tenantCurrency.format(costImpact)}
               </span>
             </div>
           )}

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 export interface ReceiveLine {
   id: string;
@@ -46,6 +47,8 @@ const newLine = (): ReceiveLine => ({
 });
 
 export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy, inventoryOptions, onSaved }: Props) {
+  // Wave 24: tenant currency on the line-total preview.
+  const tenantCurrency = useTenantCurrency(companyId);
   const [suppliers, setSuppliers] = useState<Array<{ id: string; supplier_name: string }>>([]);
   const [supplierId, setSupplierId] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -290,7 +293,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
                   <p className="text-sm">
                     <span className="text-slate-500">Total:</span>{" "}
                     <span className="font-semibold text-slate-900">
-                      R{subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {tenantCurrency.format(subtotal)}
                     </span>
                   </p>
                 )}

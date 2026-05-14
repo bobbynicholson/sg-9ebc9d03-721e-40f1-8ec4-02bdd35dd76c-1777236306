@@ -337,7 +337,7 @@ export default function ClientBillingPage() {
                     <div>
                       <p className="text-sm text-slate-600">Total Paid</p>
                       <p className="text-2xl font-bold text-green-600">
-                        R{totalPaid.toLocaleString()}
+                        {currencySymbolFor((company as any)?.currency || "ZAR")}{totalPaid.toLocaleString()}
                       </p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -353,7 +353,7 @@ export default function ClientBillingPage() {
                     <div>
                       <p className="text-sm text-slate-600">Outstanding</p>
                       <p className="text-2xl font-bold text-amber-600">
-                        R{totalOutstanding.toLocaleString()}
+                        {currencySymbolFor((company as any)?.currency || "ZAR")}{totalOutstanding.toLocaleString()}
                       </p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">

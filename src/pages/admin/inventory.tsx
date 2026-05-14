@@ -66,6 +66,7 @@ import { BulkActionsBar } from "@/components/admin/inventory/BulkActionsBar";
 import { BulkReassignDialog } from "@/components/admin/inventory/BulkReassignDialog";
 import { KeyboardShortcutsDialog } from "@/components/admin/inventory/KeyboardShortcutsDialog";
 import { useInventoryViews, type SavedView } from "@/hooks/useInventoryViews";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { Bookmark, BookmarkPlus, Keyboard } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -204,6 +205,9 @@ export default function AdminInventory() {
   const { toast } = useToast();
   const companyId = (user as any)?.company_id ?? null;
   const userId = user?.id ?? "";
+  // Wave 24: tenant-currency aware so "Stock on hand" tile + per-item
+  // last-cost sparkline render in the right symbol for non-ZAR tenants.
+  const tenantCurrency = useTenantCurrency(companyId);
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -984,7 +988,7 @@ export default function AdminInventory() {
                 <Package className="w-4 h-4 text-emerald-500" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">
-                R{stockOnHandValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {tenantCurrency.format(stockOnHandValue, 0)}
               </p>
               <p className="text-xs text-slate-500 mt-1">at last cost</p>
             </div>
@@ -1557,7 +1561,7 @@ export default function AdminInventory() {
                                       </svg>
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-slate-700 tabular-nums">
-                                          R{last.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                          {tenantCurrency.format(last)}
                                         </span>
                                         <span className={`tabular-nums font-medium ${changeTone}`}>
                                           {change > 0 ? "+" : ""}{change.toFixed(1)}%
@@ -1849,6 +1853,7 @@ export default function AdminInventory() {
         open={writeOffOpen}
         onOpenChange={setWriteOffOpen}
         performedBy={userId}
+        companyId={companyId}
         items={inventory.map(i => ({
           id: i.id,
           name: i.name,

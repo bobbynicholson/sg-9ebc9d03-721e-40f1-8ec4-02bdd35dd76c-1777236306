@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,8 @@ interface StockMovement {
 export default function InventoryTracking() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  // Wave 24: tenant currency on the Total Value tile.
+  const tenantCurrency = useTenantCurrency(profile?.company_id ?? null);
   const [loading, setLoading] = useState(true);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -698,7 +701,7 @@ export default function InventoryTracking() {
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of the stock you currently hold, across every item."} /></CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">R{totalValue.toFixed(2)}</div>
+              <div className="text-3xl font-bold">{tenantCurrency.format(totalValue)}</div>
             </CardContent>
           </Card>
         </div>

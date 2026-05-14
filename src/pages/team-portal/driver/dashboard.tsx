@@ -43,6 +43,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
 import { driverPayService, resolveEffectiveRates, type DriverPayRates } from "@/services/driverPayService";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -65,6 +66,10 @@ interface Job {
 export default function DriverDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Wave 24: tenant-currency aware so a UK / US driver doesn't see "R"
+  // on the earnings tile. The earnings page already had this; the
+  // dashboard tile was the last hardcoded "R" in the driver portal.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [showGame, setShowGame] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -524,7 +529,7 @@ export default function DriverDashboard() {
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-slate-600 mb-1">Today's Potential Earnings</p>
                     <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">
-                      R{todaysPotentialEarnings.toFixed(0)}
+                      {tenantCurrency.format(todaysPotentialEarnings, 0)}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-600 mt-2">
                       {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled •{" "}
@@ -537,7 +542,7 @@ export default function DriverDashboard() {
                     </div>
                     <p className="text-xs text-slate-600 text-center sm:text-right">Outstanding</p>
                     <p className="text-base sm:text-lg font-bold text-slate-900 text-center sm:text-right">
-                      R{totalEarnings.toFixed(0)}
+                      {tenantCurrency.format(totalEarnings, 0)}
                     </p>
                   </div>
                 </div>
@@ -626,7 +631,7 @@ export default function DriverDashboard() {
               icon={DollarSign}
               iconColor="text-green-600"
               label="Earnings"
-              value={`R${totalEarnings}`}
+              value={tenantCurrency.format(totalEarnings)}
               tooltip="What you've earned from finished deliveries that haven't been paid out yet."
             />
           </div>
