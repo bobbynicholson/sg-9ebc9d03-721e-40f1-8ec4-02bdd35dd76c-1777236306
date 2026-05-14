@@ -22,6 +22,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download, RefreshCw, Archive } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedNotificationsPage() {
   return (
@@ -33,6 +34,12 @@ export default function ProtectedNotificationsPage() {
 
 function NotificationsPage() {
   const { user, activeRole } = useAuth();
+  // Wave 26.1: tenant-slug wrapper. Every smart-CTA destination
+  // (notification.link OR the fallback paths the smart-CTA branches
+  // synthesise like /admin/leads?id=...) gets prefixed with the
+  // current tenant slug so a tenant on /spit-braai-delivery/admin/...
+  // stays inside that namespace when they click through.
+  const { withSlug } = useTenantHref();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -532,8 +539,9 @@ function NotificationsPage() {
                                           className="bg-orange-600 hover:bg-orange-700"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
-                                            window.location.href =
-                                              `/admin/quotes/new?fromQuoteId=${encodeURIComponent(notification.related_entity_id!)}`;
+                                            window.location.href = withSlug(
+                                              `/admin/quotes/new?fromQuoteId=${encodeURIComponent(notification.related_entity_id!)}`,
+                                            );
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -555,7 +563,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/orders?orderId=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/orders";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -578,7 +586,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/leads?id=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/leads";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -594,7 +602,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/invoices?id=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/invoices";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -613,7 +621,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/inventory?id=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/inventory";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -629,7 +637,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/equipment?id=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/equipment";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -647,7 +655,7 @@ function NotificationsPage() {
                                             const fallback = notification.related_entity_id
                                               ? `/admin/vehicles?id=${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/vehicles";
-                                            window.location.href = notification.link || fallback;
+                                            window.location.href = withSlug(notification.link || fallback);
                                           }}
                                         >
                                           <Edit3 className="h-4 w-4 mr-1" />
@@ -668,7 +676,7 @@ function NotificationsPage() {
                                           size="sm"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
-                                            window.location.href = notification.link!;
+                                            window.location.href = withSlug(notification.link!);
                                           }}
                                         >
                                           <ExternalLink className="h-4 w-4 mr-1" /> Open

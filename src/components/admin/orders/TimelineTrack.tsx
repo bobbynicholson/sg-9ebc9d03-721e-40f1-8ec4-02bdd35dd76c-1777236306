@@ -32,6 +32,7 @@ import {
   type StageGroup,
   STAGE_GROUP_LABELS,
 } from "@/services/order/orderTimeline";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface TimelineTrackProps {
   timeline: OrderTimeline;
@@ -58,10 +59,19 @@ function StageDot({
   stage,
   size = "default",
   onStageClick,
+  withSlug,
 }: {
   stage: OrderTimelineStage;
   size?: "default" | "small";
   onStageClick?: (stage: OrderTimelineStage) => void;
+  /** Wave 26.1: tenant-slug wrapper from useTenantHref(). When the
+   *  current user is on /spit-braai-delivery/admin/..., every Link
+   *  href stays inside that namespace -- a stage dot pointing at
+   *  /admin/orders?orderId=X gets rendered as
+   *  /spit-braai-delivery/admin/orders?orderId=X. Passed by the
+   *  parent because hooks can only run inside a React component, not
+   *  inside a render-helper sub-function. */
+  withSlug: (href: string) => string;
 }) {
   const isCompleted = stage.status === "completed";
   const isCurrent = stage.status === "current";
@@ -130,7 +140,7 @@ function StageDot({
   if (stage.sourceLink && (isCurrent || isBlocked || isCompleted)) {
     return (
       <Link
-        href={stage.sourceLink}
+        href={withSlug(stage.sourceLink)}
         onClick={(e) => {
           e.stopPropagation();
           onStageClick?.(stage);
@@ -150,10 +160,12 @@ function ClusterBand({
   group,
   stages,
   onStageClick,
+  withSlug,
 }: {
   group: StageGroup;
   stages: OrderTimelineStage[];
   onStageClick?: (stage: OrderTimelineStage) => void;
+  withSlug: (href: string) => string;
 }) {
   // Filter out n/a stages; if everything is n/a, render a faint placeholder
   // so the cluster keeps a stable column width.
@@ -205,7 +217,7 @@ function ClusterBand({
                     : "bg-slate-200";
           return (
             <div key={s.key} className="flex items-center gap-2">
-              <StageDot stage={s} onStageClick={onStageClick} />
+              <StageDot stage={s} onStageClick={onStageClick} withSlug={withSlug} />
               {next && (
                 <div className={`h-0.5 w-4 rounded-full ${connectorClass}`} />
               )}
@@ -250,7 +262,7 @@ function ClusterPill({
 
 // --- Now card --------------------------------------------------------------
 
-function NowCard({ stage }: { stage: OrderTimelineStage | null }) {
+function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSlug: (href: string) => string }) {
   if (!stage) return null;
   const tone =
     stage.status === "blocked"
@@ -280,7 +292,7 @@ function NowCard({ stage }: { stage: OrderTimelineStage | null }) {
       </div>
       {stage.sourceLink && (
         <Link
-          href={stage.sourceLink}
+          href={withSlug(stage.sourceLink)}
           onClick={(e) => e.stopPropagation()}
           className="text-xs font-semibold underline decoration-dotted hover:decoration-solid flex-shrink-0"
         >
@@ -295,6 +307,16 @@ function NowCard({ stage }: { stage: OrderTimelineStage | null }) {
 
 export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrackProps) {
   const [expanded, setExpanded] = useState(false);
+  // Wave 26.1: tenant-slug wrapper for every Link the timeline
+  // renders. The user on /spit-braai-delivery/admin/orders should
+  // click a stage dot and stay inside /spit-braai-delivery/admin/...
+  // -- without this, the previous build dropped the operator out to
+  // bare /admin/... which broke tenant isolation Bobby's been
+  // enforcing across the codebase. Single hook call here, threaded
+  // down to StageDot / ClusterBand / NowCard so the slug-prefix
+  // happens at render time without each sub-component needing its
+  // own router lookup.
+  const { withSlug } = useTenantHref();
 
   const stagesByCluster = useMemo(() => {
     const map = new Map<StageGroup, OrderTimelineStage[]>();
@@ -314,7 +336,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
   if (compact) {
     return (
       <div className="space-y-2">
-        <NowCard stage={currentStage} />
+        <NowCard stage={currentStage} withSlug={withSlug} />
         <div className="flex flex-wrap items-center gap-1.5">
           {CLUSTER_ORDER.map((g) => (
             <ClusterPill key={g} group={g} stages={stagesByCluster.get(g) || []} />
@@ -340,7 +362,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
               .map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <StageDot stage={s} size="small" onStageClick={onStageClick} />
+                    <StageDot stage={s} size="small" onStageClick={onStageClick} withSlug={withSlug} />
                     <span className={
                       s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
@@ -411,7 +433,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
           </div>
           {currentStage.sourceLink && (
             <Link
-              href={currentStage.sourceLink}
+              href={withSlug(currentStage.sourceLink)}
               onClick={(e) => e.stopPropagation()}
               className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${
                 currentStage.status === "blocked"
@@ -437,6 +459,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
                 group={g}
                 stages={stagesByCluster.get(g) || []}
                 onStageClick={onStageClick}
+                withSlug={withSlug}
               />
             </div>
             {idx < CLUSTER_ORDER.length - 1 && (

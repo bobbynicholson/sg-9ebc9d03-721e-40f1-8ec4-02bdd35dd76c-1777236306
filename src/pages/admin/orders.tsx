@@ -14,6 +14,7 @@ import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+import { useTenantHref } from "@/lib/tenantUrl";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -162,6 +163,12 @@ function OrderProcessDashboard() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
+  // Wave 26.1: tenant-slug wrapper for the toolbar Links + the
+  // router.push("/admin/order-assignments") in the Cmd+N shortcut.
+  // Without this, the operator on /spit-braai-delivery/admin/orders
+  // who hits "New Order" or opens the delivery sheet drops out of
+  // the tenant namespace into bare /admin/...
+  const { withSlug } = useTenantHref();
   // Phase 8 #4: tenant currency symbol. Drops the hard-coded R
   // throughout the page so a tenant trading in USD / GBP / NGN
   // sees its real currency on every order card, modal subtotal
@@ -200,7 +207,7 @@ function OrderProcessDashboard() {
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        router.push("/admin/order-assignments");
+        router.push(withSlug("/admin/order-assignments"));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1014,7 +1021,7 @@ function OrderProcessDashboard() {
                     a quote, not the rare manually-created ones). */}
                 {(order as any).quote_id && (
                   <Link
-                    href={`/admin/quotes/${(order as any).quote_id}`}
+                    href={withSlug(`/admin/quotes/${(order as any).quote_id}`)}
                     onClick={(e) => e.stopPropagation()}
                     className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
                     title="Open the quote this order was built from"
@@ -1194,7 +1201,7 @@ function OrderProcessDashboard() {
                   )}
                   {(order as any).quote_id && (
                     <Link
-                      href={`/admin/quotes/${(order as any).quote_id}`}
+                      href={withSlug(`/admin/quotes/${(order as any).quote_id}`)}
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
                       title="Open the quote this order was built from"
@@ -1882,7 +1889,7 @@ function OrderProcessDashboard() {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {(selectedOrder as any).quote_id && (
                     <Link
-                      href={`/admin/quotes/${(selectedOrder as any).quote_id}`}
+                      href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
                       onClick={() => setIsModalOpen(false)}
                       className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
                     >
@@ -1952,7 +1959,7 @@ function OrderProcessDashboard() {
                     Copy client link
                   </button>
                   <Link
-                    href={`/admin/invoices`}
+                    href={withSlug(`/admin/invoices`)}
                     onClick={() => setIsModalOpen(false)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100"
                   >
@@ -2059,7 +2066,7 @@ function OrderProcessDashboard() {
                       head chef gets a clean A5-ish layout with
                       menu items + allergens but no money. */}
                   {selectedOrder && (
-                    <Link href={`/admin/orders/${selectedOrder.id}/ticket`} target="_blank">
+                    <Link href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)} target="_blank">
                       <Button variant="outline" size="sm">
                         <FileText className="w-4 h-4 mr-2" />
                         Kitchen ticket
@@ -2661,7 +2668,7 @@ function OrderProcessDashboard() {
                   <div className="text-xs text-slate-500 pt-1">
                     Need to manage availability, returns or damages? Go to{" "}
                     <Link
-                      href="/admin/equipment"
+                      href={withSlug("/admin/equipment")}
                       onClick={() => setIsModalOpen(false)}
                       className="text-blue-700 hover:underline"
                     >
@@ -2895,7 +2902,7 @@ function OrderProcessDashboard() {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {pendingAmendmentCount > 0 && (
                         <Link
-                          href="/admin/orders?status=pending-amendments"
+                          href={withSlug("/admin/orders?status=pending-amendments")}
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5"
                           title="Client-requested order amendments awaiting review"
                         >
@@ -2905,7 +2912,7 @@ function OrderProcessDashboard() {
                       )}
                       {pendingCancellationCount > 0 && (
                         <Link
-                          href="/admin/orders?status=pending-cancellations"
+                          href={withSlug("/admin/orders?status=pending-cancellations")}
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-800 bg-rose-100 border border-rose-200 rounded-full px-2.5 py-0.5"
                           title="Client-requested cancellations awaiting decision"
                         >
@@ -2978,7 +2985,7 @@ function OrderProcessDashboard() {
                         tab and auto-prints. */}
                     <DropdownMenuItem asChild>
                       <Link
-                        href="/admin/orders/delivery-sheet"
+                        href={withSlug("/admin/orders/delivery-sheet")}
                         target="_blank"
                         className="flex items-center cursor-pointer"
                       >
@@ -3045,7 +3052,7 @@ function OrderProcessDashboard() {
                 </DropdownMenu>
                 {/* Primary CTA -- always last so the right edge stays
                     consistent. */}
-                <Link href="/admin/order-assignments">
+                <Link href={withSlug("/admin/order-assignments")}>
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
