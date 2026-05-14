@@ -607,9 +607,29 @@ export const driverConfirmationService = {
         message = message.replace(new RegExp(`{{${key}}}`, 'g'), value);
       });
 
-      // Send WhatsApp message (integrate with WhatsApp service)
-      console.log('WhatsApp Message:', message);
-      // TODO: Integrate with actual WhatsApp API
+      // Wave 19 audit: this used to console.log the rendered template
+      // and TODO the actual send -- so en-route / arrived / departed
+      // WhatsApp pings to the client never went out, even though the
+      // operator saw "WhatsApp queued" in the admin notification feed.
+      // Route through whatsappIntegrationService so the live WA API
+      // path actually fires; wrap in try/catch so a transient WA
+      // failure doesn't crash the driver-confirm cascade.
+      try {
+        const recipientPhone = (order as any).client_phone;
+        if (recipientPhone) {
+          const { whatsappIntegrationService } = await import("./whatsappIntegrationService");
+          await (whatsappIntegrationService as any).sendWhatsAppMessage(
+            {
+              to: recipientPhone,
+              type: "text",
+              text: { body: message },
+            },
+            { companyId: (order as any).company_id },
+          );
+        }
+      } catch (waErr) {
+        console.error('[driverConfirmation] WhatsApp send failed (non-blocking):', waErr);
+      }
 
     } catch (error) {
       console.error('Error sending WhatsApp notification:', error);

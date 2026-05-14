@@ -681,8 +681,28 @@ ${companyName}`;
         message = message.replace(new RegExp(`{{${key}}}`, 'g'), value);
       });
 
-      console.log('WhatsApp to driver:', message);
-      // TODO: Integrate with actual WhatsApp API
+      // Wave 19 audit: this used to console.log + TODO the actual send.
+      // Replacement-request WhatsApp pings to the volunteering driver
+      // never went out. Resolve the driver's phone and route through
+      // whatsappIntegrationService so the live WA API path actually
+      // fires. Best-effort -- a transient WA failure must not undo
+      // the auction broadcast.
+      try {
+        const { data: driver } = await supabase
+          .from('profiles')
+          .select('phone, phone_number, company_id')
+          .eq('id', driverId)
+          .maybeSingle();
+        const phone = (driver as any)?.phone || (driver as any)?.phone_number;
+        if (phone) {
+          await (whatsappIntegrationService as any).sendWhatsAppMessage(
+            { to: phone, type: "text", text: { body: message } },
+            { companyId: (driver as any)?.company_id },
+          );
+        }
+      } catch (waErr) {
+        console.error('[driverReplacement] WhatsApp send failed (non-blocking):', waErr);
+      }
 
     } catch (error) {
       console.error('Error sending WhatsApp:', error);
@@ -727,8 +747,46 @@ ${companyName}`;
         message = message.replace(new RegExp(`{{${key}}}`, 'g'), value);
       });
 
-      console.log('WhatsApp to admin:', message);
-      // TODO: Integrate with actual WhatsApp API
+      // Wave 19 audit: same console.log + TODO -- the admin's "your
+      // request was accepted" WhatsApp ping never went out. Resolve
+      // the admin / dispatcher phone and route through the live WA
+      // path. Pull the original driver's company so we know which
+      // tenant owns this run, then look up the tenant's owner phone.
+      try {
+        // Look up the original driver's company + the company owner's
+        // phone in one query so we know who to ping.
+        const { data: original } = await supabase
+          .from('orders')
+          .select('company_id')
+          .eq('id', orderId)
+          .maybeSingle();
+        if ((original as any)?.company_id) {
+          const { data: owner } = await supabase
+            .from('companies')
+            .select('owner_id, phone')
+            .eq('id', (original as any).company_id)
+            .maybeSingle();
+          // Prefer the company.phone (dispatcher line); fall back to
+          // the owner profile's phone if no company-level number is set.
+          let recipient = (owner as any)?.phone || null;
+          if (!recipient && (owner as any)?.owner_id) {
+            const { data: ownerProfile } = await supabase
+              .from('profiles')
+              .select('phone, phone_number')
+              .eq('id', (owner as any).owner_id)
+              .maybeSingle();
+            recipient = (ownerProfile as any)?.phone || (ownerProfile as any)?.phone_number || null;
+          }
+          if (recipient) {
+            await (whatsappIntegrationService as any).sendWhatsAppMessage(
+              { to: recipient, type: "text", text: { body: message } },
+              { companyId: (original as any).company_id },
+            );
+          }
+        }
+      } catch (waErr) {
+        console.error('[driverReplacement] admin WhatsApp send failed (non-blocking):', waErr);
+      }
 
     } catch (error) {
       console.error('Error sending WhatsApp:', error);

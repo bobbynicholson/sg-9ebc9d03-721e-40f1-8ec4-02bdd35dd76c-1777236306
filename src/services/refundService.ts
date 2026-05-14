@@ -387,6 +387,24 @@ export async function processRefund(
     },
   });
 
+  // Wave 19 audit: refund_paid email never fired on the auto-processed
+  // PayFast path. The /admin/refunds manual-mark-paid flow sends it
+  // (via sendRefundPaidEmail), but when PayFast settled the refund
+  // automatically the client got nothing -- they wondered for days
+  // whether the money was coming. Fire the email here so both paths
+  // produce the same client-facing outcome. Best-effort: a failed
+  // email never undoes a successful refund.
+  if (refundRow.order_id) {
+    void (async () => {
+      try {
+        const { sendRefundPaidEmail } = await import("@/services/email/cancellationEmails");
+        await sendRefundPaidEmail(refundRow.order_id, amountRand);
+      } catch (emailErr) {
+        console.warn("[refundService] sendRefundPaidEmail failed (non-blocking):", emailErr);
+      }
+    })();
+  }
+
   return {
     status: "auto_processed",
     refund_payment_id: refundPaymentId,

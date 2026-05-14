@@ -33,6 +33,19 @@ type OrderView = {
   order: any;
   items: any[];
   company: any;
+  // Wave 19: live unpaid invoice (if any) so the magic-link page
+  // can render Pay buttons. Null when the order has no outstanding
+  // invoice.
+  invoice?: {
+    id: string;
+    invoice_number: string;
+    public_token: string;
+    total_amount: number;
+    amount_paid: number;
+    balance_due: number;
+    status: string;
+    due_date: string | null;
+  } | null;
   token: { expires_at: string; scope: string };
 };
 
@@ -146,7 +159,7 @@ export default function ClientOrderPage() {
     );
   }
 
-  const { order, items, company } = view;
+  const { order, items, company, invoice } = view;
   const status = String(order.status || "").toLowerCase();
   const statusTone = STATUS_TONES[status] || STATUS_TONES.confirmed;
   const eventDate = new Date(order.event_date);
@@ -376,6 +389,64 @@ export default function ClientOrderPage() {
                 {order.balance_amount && (
                   <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(Number(order.balance_amount))} paid={order.balance_paid} />
                 )}
+                {/* Wave 19: Pay button when there's an outstanding invoice.
+                    Routes through the public /pay/i/{token} flow which is
+                    itself token-bearer auth -- no sign-in needed. Only
+                    renders when invoice.balance_due > 0 AND status is
+                    actionable (sent / partially_paid / overdue). */}
+                {invoice && Number(invoice.balance_due) > 0 && (
+                  <a
+                    href={`/pay/i/${invoice.public_token}`}
+                    className="mt-3 inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
+                    style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                  >
+                    <Receipt className="w-4 h-4" />
+                    Pay {fmtMoney.format(Number(invoice.balance_due))} now
+                  </a>
+                )}
+                {invoice && Number(invoice.balance_due) > 0 && (
+                  <p className="text-[11px] text-slate-500 text-center mt-1">
+                    Secure pay link for invoice {invoice.invoice_number}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Wave 19: live driver tracking. Token-bearer hint -- when
+              the order is in_transit AND we have venue coords, surface
+              the existing /client-portal/tracking page. The page itself
+              still requires sign-in for the live map (it's the existing
+              auth-gated experience), but the button + clear copy beats
+              "Sign in for free" buried at the top. */}
+          {status === "in_transit" && (
+            <Card className="border-0 shadow-lg" style={{ borderLeft: `4px solid ${primary}` }}>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                  >
+                    <Truck className="w-5 h-5 text-white animate-pulse" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                      Your driver is on the way
+                    </p>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                      Sign in to your portal for the live map + ETA + tap-to-call.
+                    </p>
+                  </div>
+                  {company.slug && (
+                    <Link
+                      href={`/${company.slug}/client/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex-shrink-0 w-full sm:w-auto text-center"
+                      style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                    >
+                      Track live
+                    </Link>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
