@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -205,7 +206,13 @@ function OrderProcessDashboard() {
   // Stored as YYYY-MM-DD so they round-trip through <input type="date" />.
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
+  // Wave 24: Timeline is the default. Most operators glance at the
+  // page to see "what's next + what's stuck" -- the kanban hides
+  // sequencing, the timeline puts every order's progress band right
+  // under the date so the daily briefing reads top-to-bottom. Saved-
+  // view + ?view= URL param still override (the previous loadSaved
+  // path below restores the user's last picked mode).
+  const [viewMode, setViewMode] = useState<"kanban" | "timeline">("timeline");
   // Phase 13 #8: 'My orders only' quick toggle. Restricts the
   // visible list to orders the current user is the chef or driver
   // on. Useful for kitchen leads + drivers who shouldn't be
@@ -2863,13 +2870,24 @@ function OrderProcessDashboard() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
+              {/* Wave 24: tightened toolbar. The previous layout had
+                  five equal-width buttons in a single flex row that
+                  wrapped at narrower viewports, dropping the primary
+                  "New Order" CTA onto a second line and burying it
+                  visually below the secondary actions.
+                  New layout, left-to-right:
+                    [view toggle] [refresh icon] [more menu] [New Order]
+                  Less-frequent actions (Delivery sheet, Export CSV)
+                  collapse into a "More" dropdown so the primary CTA
+                  always lands on the first row at any width. */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex border rounded-lg overflow-hidden">
                   <Button
                     variant={viewMode === "kanban" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("kanban")}
                     className="rounded-none"
+                    aria-pressed={viewMode === "kanban"}
                   >
                     <LayoutGrid className="w-4 h-4 mr-2" />
                     Kanban
@@ -2879,101 +2897,112 @@ function OrderProcessDashboard() {
                     size="sm"
                     onClick={() => setViewMode("timeline")}
                     className="rounded-none"
+                    aria-pressed={viewMode === "timeline"}
                   >
                     <List className="w-4 h-4 mr-2" />
                     Timeline
                   </Button>
                 </div>
                 {/* Phase 27 #9: manual refresh. Realtime channels
-                    cover most order updates but the operator wants
-                    a button when expecting a colleague to have
-                    just touched a row (status change, dispatch
-                    assignment). */}
+                    cover most updates but the operator wants a
+                    button when expecting a colleague's change to
+                    land. Now icon-only with a tooltip so it stops
+                    eating horizontal space on the toolbar. */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={loadOrders}
                   disabled={loading}
+                  title="Refresh orders"
+                  aria-label="Refresh orders"
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
+                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 </Button>
-                {/* Phase 13 #1: today's delivery sheet. Opens a
-                    print-friendly single-page summary of every
-                    confirmed-and-onwards order with event_date =
-                    today, ordered by event_time. Auto-fires
-                    window.print() so it's a one-click action. */}
-                <Link href="/admin/orders/delivery-sheet" target="_blank">
-                  <Button variant="outline" size="sm">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Delivery sheet
-                  </Button>
-                </Link>
-                {/* Phase 7 #3: CSV export of the currently filtered
-                    list. Operators wanting to take orders into
-                    Sheets / Excel for accounting reconciliation
-                    or board reports had no in-product path -- they
-                    were copy-pasting cells. The button respects
-                    every filter state (status, date, region,
-                    search) so the export always matches what the
-                    operator sees on screen. Header + escaping
-                    handled inline; no new dependency. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const rows = fuzzyOrders;
-                    if (rows.length === 0) {
-                      toast({
-                        title: "Nothing to export",
-                        description: "Adjust filters until you see at least one order.",
-                      });
-                      return;
-                    }
-                    const headers = [
-                      "Order number", "Status", "Client", "Email", "Phone",
-                      "Event date", "Event time", "Guests", "Venue",
-                      "Total", "Currency", "Payment status",
-                      "Created", "Confirmed",
-                    ];
-                    const esc = (v: any) => {
-                      if (v == null) return "";
-                      const s = String(v).replace(/"/g, '""');
-                      return /[",\n]/.test(s) ? `"${s}"` : s;
-                    };
-                    const lines = [headers.join(",")];
-                    for (const o of rows as any[]) {
-                      lines.push([
-                        esc(o.order_number),
-                        esc(o.status),
-                        esc(o.client_name),
-                        esc(o.client_email),
-                        esc(o.client_phone),
-                        esc(o.event_date),
-                        esc(o.event_time),
-                        esc(o.guest_count),
-                        esc(o.venue_address),
-                        esc(o.total_amount),
-                        esc(o.currency || "ZAR"),
-                        esc(o.payment_status),
-                        esc(o.created_at),
-                        esc(o.confirmed_at),
-                      ].join(","));
-                    }
-                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    const stamp = new Date().toISOString().slice(0, 10);
-                    a.download = `orders_${stamp}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  Export CSV
-                </Button>
+                {/* Wave 24: secondary-actions overflow menu. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" title="More actions" aria-label="More actions">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {/* Phase 13 #1: print-friendly today-only delivery
+                        sheet, target=_blank so it opens in its own
+                        tab and auto-prints. */}
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/admin/orders/delivery-sheet"
+                        target="_blank"
+                        className="flex items-center cursor-pointer"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Delivery sheet
+                      </Link>
+                    </DropdownMenuItem>
+                    {/* Phase 7 #3: CSV export of the filtered list. */}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const rows = fuzzyOrders;
+                        if (rows.length === 0) {
+                          toast({
+                            title: "Nothing to export",
+                            description: "Adjust filters until you see at least one order.",
+                          });
+                          return;
+                        }
+                        const headers = [
+                          "Order number", "Status", "Client", "Email", "Phone",
+                          "Event date", "Event time", "Guests", "Venue",
+                          "Total", "Currency", "Payment status",
+                          "Created", "Confirmed",
+                        ];
+                        const esc = (v: any) => {
+                          if (v == null) return "";
+                          const s = String(v).replace(/"/g, '""');
+                          return /[",\n]/.test(s) ? `"${s}"` : s;
+                        };
+                        const lines = [headers.join(",")];
+                        for (const o of rows as any[]) {
+                          lines.push([
+                            esc(o.order_number),
+                            esc(o.status),
+                            esc(o.client_name),
+                            esc(o.client_email),
+                            esc(o.client_phone),
+                            esc(o.event_date),
+                            esc(o.event_time),
+                            esc(o.guest_count),
+                            esc(o.venue_address),
+                            esc(o.total_amount),
+                            esc(o.currency || "ZAR"),
+                            esc(o.payment_status),
+                            esc(o.created_at),
+                            esc(o.confirmed_at),
+                          ].join(","));
+                        }
+                        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        const stamp = new Date().toISOString().slice(0, 10);
+                        a.download = `orders_${stamp}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {/* Primary CTA -- always last so the right edge stays
+                    consistent. */}
                 <Link href="/admin/order-assignments">
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     New Order
                   </Button>
