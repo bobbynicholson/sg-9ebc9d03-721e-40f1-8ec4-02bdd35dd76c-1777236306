@@ -1553,6 +1553,15 @@ async function sendStatusNotifications(order: any) {
       }
       break;
   }
+  // Wave 24: track whether the CLIENT in-app push was deduped. The
+  // email branch below fires once per status to the client; if the
+  // notification dedup hit, it means another invocation already
+  // fired (which would also have fired this email), so we skip the
+  // email too. Without this, in-app dedup catches the duplicate
+  // notification but the client still gets two identical emails.
+  let clientInAppDeduped = false;
+  let clientInAppFired = false;
+
   for (const n of inApp) {
     try {
       const link =
@@ -1575,7 +1584,7 @@ async function sendStatusNotifications(order: any) {
       // window (60min) used for review handlers because a double-
       // click there would otherwise duplicate, and review cycles
       // don't legitimately repeat that fast.
-      await notificationService.createNotification({
+      const created = await notificationService.createNotification({
         company_id: order.company_id,
         recipient_id: n.recipient_id,
         user_id: n.recipient_id,
@@ -1589,6 +1598,13 @@ async function sendStatusNotifications(order: any) {
         dedup: true,
         dedupWindowMinutes: 5,
       });
+      // createNotification returns null when the dedup probe hit.
+      // Track the client-recipient outcome so the email branch can
+      // mirror it.
+      if (n.notification_kind === "client") {
+        if (created === null) clientInAppDeduped = true;
+        else clientInAppFired = true;
+      }
     } catch (e) {
       console.warn("[sendStatusNotifications] in-app push failed:", e);
     }
@@ -1661,7 +1677,17 @@ async function sendStatusNotifications(order: any) {
       cancelled: null,
     };
     const tpl = customerEmailFor[status];
-    if (tpl) {
+    // Wave 24: skip the email when the in-app push for the client
+    // recipient was deduped. clientInAppDeduped flips to true when
+    // a prior call already pushed the same status notification at
+    // this client recently (5-min window). We mirror the outcome so
+    // the email branch doesn't double-fire when the in-app dedup
+    // would otherwise be the only signal of suppression. The
+    // clientInAppFired guard handles the case where there was no
+    // client in-app push to gate against (e.g. transitions where
+    // the inApp array doesn't include a client entry); in that case
+    // we let the email send through unconditionally.
+    if (tpl && !(clientInAppDeduped && !clientInAppFired)) {
       try {
         const variables: Record<string, string> = {
           first_name: clientFirstName,
