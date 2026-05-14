@@ -431,7 +431,12 @@ function NotificationsPage() {
                                 const isOrderType =
                                   orderType === "amendment_requested" ||
                                   orderType === "cancellation_requested" ||
-                                  orderType === "postponement_requested";
+                                  orderType === "postponement_requested" ||
+                                  orderType === "driver_assigned" ||
+                                  orderType === "out_for_delivery" ||
+                                  orderType === "delivered" ||
+                                  orderType === "order_confirmed" ||
+                                  orderType === "order_ready";
                                 const isOrder =
                                   (notification.related_entity_type === "order" &&
                                     !!notification.related_entity_id) ||
@@ -440,7 +445,37 @@ function NotificationsPage() {
                                   orderType === "amendment_requested" ? "Review change" :
                                   orderType === "cancellation_requested" ? "Review cancellation" :
                                   orderType === "postponement_requested" ? "Review postponement" :
+                                  orderType === "driver_replacement_needed" ? "Find replacement" :
                                   "Open order";
+                                // Wave 24: extend the smart-CTA pattern to
+                                // the other high-frequency notification
+                                // types. Falls back to the generic "Open"
+                                // button when nothing matches. Each branch
+                                // looks at related_entity_type first (the
+                                // canonical pointer set by the broadcaster),
+                                // then notification_type as a fallback for
+                                // older rows.
+                                const isLead =
+                                  notification.related_entity_type === "lead" ||
+                                  orderType === "lead_new" ||
+                                  orderType === "lead_status_updated" ||
+                                  orderType === "lead_converted";
+                                const isInvoice =
+                                  notification.related_entity_type === "invoice" ||
+                                  orderType === "invoice_issued" ||
+                                  orderType === "payment_received" ||
+                                  orderType === "payment_reminder" ||
+                                  orderType === "payment_claimed";
+                                const isInventory =
+                                  notification.related_entity_type === "inventory_item" ||
+                                  orderType === "stock_low";
+                                const isEquipment =
+                                  notification.related_entity_type === "equipment" ||
+                                  orderType === "equipment_service_due" ||
+                                  orderType === "equipment_shortage";
+                                const isVehicle =
+                                  notification.related_entity_type === "vehicle" ||
+                                  orderType === "vehicle_service_due";
                                 return (
                                   <>
                                     <div className="flex flex-wrap gap-2 mt-3">
@@ -498,7 +533,107 @@ function NotificationsPage() {
                                           {orderCtaLabel}
                                         </Button>
                                       )}
-                                      {notification.link && (
+                                      {/* Wave 24: smart CTAs for the other
+                                          high-frequency notification types.
+                                          Each prefers notification.link
+                                          (broadcaster sets it correctly)
+                                          and falls back to a sensible list
+                                          page when only the entity type is
+                                          known. */}
+                                      {!isQuote && !isOrder && isLead && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/leads?id=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/leads";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderType === "lead_new" ? "Review lead" : "Open lead"}
+                                        </Button>
+                                      )}
+                                      {!isQuote && !isOrder && !isLead && isInvoice && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/invoices?id=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/invoices";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderType === "payment_received" ? "View receipt" :
+                                           orderType === "payment_claimed" ? "Verify claim" :
+                                           orderType === "payment_reminder" ? "Send reminder" :
+                                           "Open invoice"}
+                                        </Button>
+                                      )}
+                                      {!isQuote && !isOrder && !isLead && !isInvoice && isInventory && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/inventory?id=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/inventory";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderType === "stock_low" ? "Reorder stock" : "Open inventory"}
+                                        </Button>
+                                      )}
+                                      {!isQuote && !isOrder && !isLead && !isInvoice && !isInventory && isEquipment && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/equipment?id=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/equipment";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderType === "equipment_service_due" ? "Schedule service" :
+                                           orderType === "equipment_shortage" ? "Resolve shortage" :
+                                           "Open equipment"}
+                                        </Button>
+                                      )}
+                                      {!isQuote && !isOrder && !isLead && !isInvoice && !isInventory && !isEquipment && isVehicle && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/vehicles?id=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/vehicles";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderType === "vehicle_service_due" ? "Schedule service" : "Open vehicle"}
+                                        </Button>
+                                      )}
+                                      {/* Wave 24: only show the generic
+                                          Open button when no smart CTA
+                                          claimed the row. Otherwise the
+                                          row had two buttons pointing at
+                                          (essentially) the same place. */}
+                                      {notification.link &&
+                                        !isQuote && !isOrder && !isLead &&
+                                        !isInvoice && !isInventory &&
+                                        !isEquipment && !isVehicle && (
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -507,13 +642,7 @@ function NotificationsPage() {
                                             window.location.href = notification.link!;
                                           }}
                                         >
-                                          {isQuote ? (
-                                            <><Eye className="h-4 w-4 mr-1" /> Open in list</>
-                                          ) : isOrder ? (
-                                            <><Eye className="h-4 w-4 mr-1" /> Open in list</>
-                                          ) : (
-                                            <><ExternalLink className="h-4 w-4 mr-1" /> Open</>
-                                          )}
+                                          <ExternalLink className="h-4 w-4 mr-1" /> Open
                                         </Button>
                                       )}
                                     </div>
