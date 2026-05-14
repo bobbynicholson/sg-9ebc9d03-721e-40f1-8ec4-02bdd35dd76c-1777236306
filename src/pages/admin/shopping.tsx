@@ -45,6 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { composeEmail } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -102,6 +103,8 @@ const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
 
 function SmartShoppingPage() {
   const { user, profile, company } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
   const { toast } = useToast();
   const router = useRouter();
@@ -520,7 +523,7 @@ function SmartShoppingPage() {
             <Card className="border-0 shadow"><CardContent className="py-16 text-center text-slate-500">
               <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <p className="font-semibold text-slate-700">No inventory configured yet</p>
-              <p className="text-sm">Add items in <Link href="/admin/inventory" className="text-emerald-600">Inventory</Link>, link them to recipes, and this page lights up.</p>
+              <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-emerald-600">Inventory</Link>, link them to recipes, and this page lights up.</p>
             </CardContent></Card>
           ) : (
             <Tabs defaultValue={initialTab} key={initialTab}>

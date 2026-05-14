@@ -33,6 +33,7 @@ import {
   type BrandingRow,
 } from "@/lib/branding/applyBranding";
 import { clearBrandingCache } from "@/lib/branding/store";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const LOGO_BUCKET = "branding-logos";
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -66,6 +67,8 @@ export default function ProtectedWhiteLabelPage() {
 
 function WhiteLabelPage() {
   const { user } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId: string | undefined = user?.company_id;
   const { toast } = useToast();
 
@@ -314,7 +317,7 @@ function WhiteLabelPage() {
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
-          <Link href="/admin/settings">
+          <Link href={withSlug("/admin/settings")}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Settings

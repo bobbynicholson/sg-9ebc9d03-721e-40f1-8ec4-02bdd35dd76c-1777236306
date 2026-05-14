@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Eye, CheckCircle, ArrowRight } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Row {
   sent_at: string | null;
@@ -43,6 +44,7 @@ const fmtHours = (h: number): string => {
 };
 
 export function QuoteResponseTimeWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -106,7 +108,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
               Median elapsed time from quote sent to first view + to acceptance.
             </CardDescription>
           </div>
-          <Link href="/admin/quotes">
+          <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" size="sm" className="text-indigo-700">
               All quotes <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>

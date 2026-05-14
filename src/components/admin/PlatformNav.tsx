@@ -53,6 +53,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 import { buildIsActive } from "@/lib/navActiveMatcher";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -359,6 +360,7 @@ interface PlatformNavProps {
 
 export function PlatformNav({ className }: PlatformNavProps) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const { profile } = useAuth() as any;
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
@@ -419,7 +421,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
     if (collapsed) {
       return (
         <Link
-          href="/admin/dashboard"
+          href={withSlug("/admin/dashboard")}
           title="Switch to tenant view"
           className={cn(
             "flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-all",
@@ -434,7 +436,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
     }
     return (
       <Link
-        href="/admin/dashboard"
+        href={withSlug("/admin/dashboard")}
         title="Switch to Tenant View, Browse as company admin"
         className={cn(
           "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
@@ -597,7 +599,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
               </SheetContent>
             </Sheet>
 
-            <Link href="/admin/platform/dashboard" className="flex items-center gap-2.5">
+            <Link href={withSlug("/admin/platform/dashboard")} className="flex items-center gap-2.5">
               <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-sm">
                 <Crown className="h-4 w-4 text-white" />
               </div>
@@ -647,7 +649,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
               </div>
             </div>
           ) : (
-            <Link href="/admin/platform/dashboard" className="flex items-center gap-3 group">
+            <Link href={withSlug("/admin/platform/dashboard")} className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shadow group-hover:bg-white/30 transition-colors">
                 <Crown className="h-5 w-5 text-white" />
               </div>

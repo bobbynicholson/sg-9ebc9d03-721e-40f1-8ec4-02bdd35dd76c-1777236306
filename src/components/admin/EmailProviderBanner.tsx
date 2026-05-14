@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Props {
   companyId: string;
@@ -85,7 +86,7 @@ export function EmailProviderBanner({ companyId }: Props) {
         </div>
       </div>
       <Link
-        href="/admin/email-settings"
+        href={withSlug("/admin/email-settings")}
         className="inline-flex items-center gap-1 self-start rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 sm:self-auto"
       >
         Configure now

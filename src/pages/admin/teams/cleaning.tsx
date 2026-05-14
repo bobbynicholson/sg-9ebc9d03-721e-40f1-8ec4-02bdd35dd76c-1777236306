@@ -14,13 +14,15 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   Sparkles, ArrowLeft, Users, ClipboardList, Loader2, Calendar,
 } from "lucide-react";
 
 function CleaningTeamPage() {
   const { user, profile } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, jobsToday: 0 });
@@ -72,7 +74,7 @@ function CleaningTeamPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
-          <Link href="/admin/teams" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
+          <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
             <ArrowLeft className="w-4 h-4" /> All teams
           </Link>
 

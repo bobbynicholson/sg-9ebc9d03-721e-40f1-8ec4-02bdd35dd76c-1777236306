@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, ArrowRight, Mail, Phone } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface FreshLead {
   id: string;
@@ -39,6 +40,7 @@ const hoursAgo = (iso: string | null): number => {
 };
 
 export function NewLeadsTodayWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<FreshLead[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +90,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
               Fresh enquiries waiting on first contact. First response wins -- the longer they sit the colder they go.
             </CardDescription>
           </div>
-          <Link href="/admin/leads">
+          <Link href={withSlug("/admin/leads")}>
             <Button variant="ghost" size="sm" className="text-emerald-700">
               All leads <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -109,7 +111,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
               return (
                 <li key={r.id}>
                   <Link
-                    href={`/admin/leads?leadId=${r.id}`}
+                    href={withSlug(`/admin/leads?leadId=${r.id}`)}
                     className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
                   >
                     <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-emerald-100 text-emerald-800 border-emerald-200">

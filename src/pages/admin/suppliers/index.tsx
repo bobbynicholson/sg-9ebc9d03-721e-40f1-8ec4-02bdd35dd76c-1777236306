@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { supplierService, type SupplierWithStats } from "@/services/supplierService";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const fmtR = (v: number | null | undefined) =>
   v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -49,6 +50,8 @@ function SuppliersList() {
   const { profile } = useAuth() as any;
   const companyId = profile?.company_id;
   const { toast } = useToast();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [suppliers, setSuppliers] = useState<SupplierWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -197,7 +200,7 @@ function SuppliersList() {
                       {visible.map((s) => (
                         <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${s.is_active === false ? "opacity-60" : ""}`}>
                           <td className="py-3 pl-4 pr-2">
-                            <Link href={`/admin/suppliers/${s.id}`} className="block group">
+                            <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
                               <div className="font-semibold text-slate-900 group-hover:text-amber-600 inline-flex items-center gap-1.5">
                                 {s.supplier_name}
                                 <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />

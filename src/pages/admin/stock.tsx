@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
   Boxes, ClipboardList, ArrowRight, Filter, MapPin, Download,
@@ -58,6 +58,8 @@ const dateFmt = (iso: string) => {
 
 function StockPage() {
   const { user, profile } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
   const { regionFilterId, options: regionOptions } = useRegionFilter();
   const { toast } = useToast();
@@ -306,7 +308,7 @@ function StockPage() {
                     })}
                   </ul>
                 )}
-                <Link href="/admin/inventory">
+                <Link href={withSlug("/admin/inventory")}>
                   <Button variant="ghost" size="sm" className="w-full mt-3 text-xs gap-1">
                     Manage inventory <ArrowRight className="w-3 h-3" />
                   </Button>
@@ -331,7 +333,7 @@ function StockPage() {
                     ? <>Peak day: <span className="font-semibold text-slate-900">{dateFmt(equipPressure.peakDate)}</span></>
                     : "No commitments in window"}
                 </p>
-                <Link href="/admin/equipment-shortages">
+                <Link href={withSlug("/admin/equipment-shortages")}>
                   <Button variant="ghost" size="sm" className="w-full mt-3 text-xs gap-1">
                     Equipment shortages <ArrowRight className="w-3 h-3" />
                   </Button>
@@ -356,7 +358,7 @@ function StockPage() {
                     ? <>Oldest: <span className="font-semibold text-slate-900">{dateFmt((hireIn.oldest || "").slice(0, 10))}</span></>
                     : "All caught up"}
                 </p>
-                <Link href="/admin/shopping">
+                <Link href={withSlug("/admin/shopping")}>
                   <Button variant="ghost" size="sm" className="w-full mt-3 text-xs gap-1">
                     Shopping <ArrowRight className="w-3 h-3" />
                   </Button>

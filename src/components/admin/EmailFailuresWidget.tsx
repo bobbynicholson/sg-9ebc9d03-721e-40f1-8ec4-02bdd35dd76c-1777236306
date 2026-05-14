@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface FailRow {
   id: string;
@@ -37,6 +38,7 @@ const fmtRelative = (iso: string) => {
 };
 
 export function EmailFailuresWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<FailRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,7 +82,7 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
               Sends that didn't reach the recipient in the last 24 hours.
             </CardDescription>
           </div>
-          <Link href="/admin/email-automation-dashboard">
+          <Link href={withSlug("/admin/email-automation-dashboard")}>
             <Button variant="ghost" size="sm" className="text-rose-700">
               Triage <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -97,7 +99,7 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
               // dashboard where retries + sender config live.
               <li key={r.id}>
                 <Link
-                  href="/admin/email-automation-dashboard"
+                  href={withSlug("/admin/email-automation-dashboard")}
                   className="py-2 flex items-start gap-3 hover:bg-rose-50/60 rounded transition"
                 >
                   <div className="w-8 h-8 rounded-md bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">

@@ -18,7 +18,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   UtensilsCrossed, Package, AlertTriangle, ImageOff, Tag,
   TrendingUp, Loader2, ArrowRight, Sparkles,
@@ -55,6 +55,8 @@ const dateFmt = (iso: string | null) => {
 
 function OfferingPage() {
   const { user, profile } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
   const { toast } = useToast();
 
@@ -242,7 +244,7 @@ function OfferingPage() {
                       <p className="text-xs text-slate-600">Active items in your catalogue</p>
                     </div>
                   </div>
-                  <Link href="/admin/menu">
+                  <Link href={withSlug("/admin/menu")}>
                     <Button size="sm" className="gap-1">
                       Manage menu <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
@@ -255,7 +257,7 @@ function OfferingPage() {
                     <UtensilsCrossed className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                     <p className="font-medium text-slate-700">No menu items yet</p>
                     <p className="text-sm mt-1">Build your offering so the quote builder has something to pull from.</p>
-                    <Link href="/admin/menu">
+                    <Link href={withSlug("/admin/menu")}>
                       <Button size="sm" className="mt-3">Add your first item</Button>
                     </Link>
                   </div>
@@ -301,7 +303,7 @@ function OfferingPage() {
                       <p className="text-xs text-slate-600">Hire stock available to clients</p>
                     </div>
                   </div>
-                  <Link href="/admin/equipment">
+                  <Link href={withSlug("/admin/equipment")}>
                     <Button size="sm" className="gap-1">
                       Manage equipment <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
@@ -314,7 +316,7 @@ function OfferingPage() {
                     <Package className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                     <p className="font-medium text-slate-700">No equipment yet</p>
                     <p className="text-sm mt-1">Add hire stock so it appears on quotes.</p>
-                    <Link href="/admin/equipment">
+                    <Link href={withSlug("/admin/equipment")}>
                       <Button size="sm" className="mt-3">Add equipment</Button>
                     </Link>
                   </div>

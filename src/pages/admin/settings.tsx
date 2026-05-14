@@ -42,6 +42,7 @@ import { InventorySettingsTab } from "@/components/admin/inventory/InventorySett
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
 import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedSettingsPage() {
   return (
@@ -52,6 +53,7 @@ export default function ProtectedSettingsPage() {
 }
 
 function SettingsPage() {
+  const { withSlug } = useTenantHref();
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   // Snapshot of the last persisted settings, used to derive a clean
@@ -447,7 +449,7 @@ function SettingsPage() {
                       side="left"
                       className="text-white hover:text-white/80"
                     />
-                    <Link href="/admin/white-label" className="w-full md:w-auto">
+                    <Link href={withSlug("/admin/white-label")} className="w-full md:w-auto">
                       <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
                         Customize Branding
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -493,14 +495,14 @@ function SettingsPage() {
                         side="left"
                         className="text-white hover:text-white/80"
                       />
-                      <Link href="/admin/regions" className="w-full">
+                      <Link href={withSlug("/admin/regions")} className="w-full">
                         <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
                           Manage Regions
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       </Link>
                     </div>
-                    <Link href="/admin/order-assignments" className="w-full">
+                    <Link href={withSlug("/admin/order-assignments")} className="w-full">
                       <Button size="sm" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
                         Assign Orders
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -541,7 +543,7 @@ function SettingsPage() {
                       side="left"
                       className="text-white hover:text-white/80"
                     />
-                    <Link href="/admin/payment-gateways">
+                    <Link href={withSlug("/admin/payment-gateways")}>
                       <Button size="sm" className="bg-white text-green-600 hover:bg-green-50 w-full md:w-auto">
                         Configure
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -1277,7 +1279,7 @@ function SettingsPage() {
                             <div className="text-xs text-slate-600">Fully Automated</div>
                           </div>
                         </div>
-                        <Link href="/admin/after-sales-emails">
+                        <Link href={withSlug("/admin/after-sales-emails")}>
                           <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
                             Manage Email Templates
                           </Button>

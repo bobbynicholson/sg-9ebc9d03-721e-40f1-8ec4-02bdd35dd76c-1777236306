@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, ArrowRight, AlertCircle } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface BatchRow {
   id: string;
@@ -44,6 +45,7 @@ interface Entry {
 const WINDOW_DAYS = 14;
 
 export function InventoryExpiryWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [items, setItems] = useState<Record<string, ItemLite>>({});
   const [loading, setLoading] = useState(true);
@@ -154,7 +156,7 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
               return (
                 <li key={e.id}>
                   <Link
-                    href="/admin/inventory"
+                    href={withSlug("/admin/inventory")}
                     className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
                   >
                     <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>

@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Receipt, ChevronDown, ChevronUp, ExternalLink, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface ReceiptLine {
   id: string;
@@ -50,6 +51,7 @@ const relativeTime = (iso: string | null) => {
 };
 
 export function RecentReceiptsPanel({ companyId }: { companyId: string | null | undefined }) {
+  const { withSlug } = useTenantHref();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<ReceiptRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,7 +150,7 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
                         </div>
                         {it.inventory_item_id && (
                           <Link
-                            href={`/admin/inventory?focus=${it.inventory_item_id}`}
+                            href={withSlug(`/admin/inventory?focus=${it.inventory_item_id}`)}
                             className="text-slate-400 hover:text-slate-700"
                             title="Jump to inventory item"
                           >
@@ -159,7 +161,7 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
                     ))}
                     <div className="pt-1.5 border-t border-slate-100">
                       <Link
-                        href="/admin/shopping?tab=receipts"
+                        href={withSlug("/admin/shopping?tab=receipts")}
                         className="text-[11px] text-purple-600 hover:underline inline-flex items-center gap-1"
                       >
                         Manage slips on Shopping <ExternalLink className="w-3 h-3" />

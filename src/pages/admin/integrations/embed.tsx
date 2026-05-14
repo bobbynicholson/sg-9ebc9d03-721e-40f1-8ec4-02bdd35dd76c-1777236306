@@ -54,6 +54,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 
 import { TemplateGalleryDialog } from "@/components/admin/embed/TemplateGalleryDialog";
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface EmbedFormRow {
   id: string;
@@ -78,6 +79,8 @@ const numberFmt = new Intl.NumberFormat("en-ZA");
 
 export default function AdminEmbedFormsPage() {
   const { user, company } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -183,7 +186,7 @@ export default function AdminEmbedFormsPage() {
     const created = await create.json();
     if (create.ok) {
       toast({ title: "Form duplicated" });
-      router.push(`/admin/integrations/embed/${created.form.id}`);
+      router.push(withSlug(`/admin/integrations/embed/${created.form.id}`));
     } else {
       toast({ title: "Duplicate failed", description: created.error, variant: "destructive" });
     }
@@ -360,7 +363,7 @@ export default function AdminEmbedFormsPage() {
         embedToken={company?.embed_token}
         onCreated={(formId) => {
           setGalleryOpen(false);
-          router.push(`/admin/integrations/embed/${formId}`);
+          router.push(withSlug(`/admin/integrations/embed/${formId}`));
         }}
       />
 
@@ -387,6 +390,7 @@ function FormCard({
   onDelete: (f: EmbedFormRow) => void;
   onGetSnippet: () => void;
 }) {
+  const { withSlug } = useTenantHref();
   const conversion = form.views_count > 0
     ? +(form.submissions_count / form.views_count * 100).toFixed(1)
     : 0;
@@ -434,7 +438,7 @@ function FormCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href={`/admin/integrations/embed/${form.id}`} className="gap-2 cursor-pointer">
+                  <Link href={withSlug(`/admin/integrations/embed/${form.id}`)} className="gap-2 cursor-pointer">
                     <Pencil className="w-4 h-4" /> Edit
                   </Link>
                 </DropdownMenuItem>
@@ -478,7 +482,7 @@ function FormCard({
 
           <div className="grid grid-cols-2 gap-2">
             <Button asChild size="sm" variant="outline" className="gap-2">
-              <Link href={`/admin/integrations/embed/${form.id}`}>
+              <Link href={withSlug(`/admin/integrations/embed/${form.id}`)}>
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </Link>
             </Button>

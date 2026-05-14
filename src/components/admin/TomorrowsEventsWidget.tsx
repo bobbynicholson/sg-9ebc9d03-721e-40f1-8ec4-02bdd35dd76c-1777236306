@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, ArrowRight, Users as UsersIcon, MapPin, Truck } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OrderRow {
   id: string;
@@ -34,6 +35,7 @@ interface OrderRow {
 const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
 
 export function TomorrowsEventsWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -86,7 +88,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
               Confirmed-and-onwards events on tomorrow's calendar. Earliest first.
             </CardDescription>
           </div>
-          <Link href="/admin/orders/delivery-sheet">
+          <Link href={withSlug("/admin/orders/delivery-sheet")}>
             <Button variant="ghost" size="sm" className="text-indigo-700">
               Print sheet <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -105,7 +107,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                 return (
                   <li key={o.id}>
                     <Link
-                      href={`/admin/orders?orderId=${o.id}`}
+                      href={withSlug(`/admin/orders?orderId=${o.id}`)}
                       className="py-2 flex items-baseline gap-3 hover:bg-indigo-50/60 rounded transition"
                     >
                       <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">

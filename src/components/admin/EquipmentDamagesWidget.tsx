@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wrench, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface DamageRow {
   id: string;
@@ -38,6 +39,7 @@ const fmtAge = (iso: string | null): string => {
 };
 
 export function EquipmentDamagesWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<DamageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -85,7 +87,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
               Damage reports without a resolution stamp. Newest first.
             </CardDescription>
           </div>
-          <Link href="/admin/equipment?tab=shortages">
+          <Link href={withSlug("/admin/equipment?tab=shortages")}>
             <Button variant="ghost" size="sm" className="text-rose-700">
               Equipment hub <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -104,7 +106,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
                 // damage in one click.
                 <li key={r.id}>
                   <Link
-                    href="/admin/equipment?tab=shortages"
+                    href={withSlug("/admin/equipment?tab=shortages")}
                     className="py-2 flex items-center gap-3 hover:bg-rose-50/60 rounded transition"
                   >
                     <Badge variant="outline" className="shrink-0 text-[10px] capitalize">

@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wrench, Truck, ArrowRight, AlertCircle } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface VehicleRow {
   id: string;
@@ -31,6 +32,7 @@ interface VehicleRow {
 const HORIZON_DAYS = 30;
 
 export function VehicleServiceDueWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<VehicleRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,7 +82,7 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
               Vehicles with a service date within {HORIZON_DAYS} days. Soonest first.
             </CardDescription>
           </div>
-          <Link href="/admin/vehicles">
+          <Link href={withSlug("/admin/vehicles")}>
             <Button variant="ghost" size="sm" className="text-blue-700">
               All vehicles <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -112,7 +114,7 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
               return (
                 <li key={v.id}>
                   <Link
-                    href="/admin/vehicles"
+                    href={withSlug("/admin/vehicles")}
                     className="py-2 flex items-center gap-3 hover:bg-blue-50/60 rounded transition"
                   >
                     <div className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone}`}>

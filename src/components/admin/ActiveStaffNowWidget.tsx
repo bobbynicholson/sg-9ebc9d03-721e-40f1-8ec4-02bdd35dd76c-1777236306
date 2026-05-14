@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface SessionRow {
   id: string;
@@ -39,6 +40,7 @@ const fmtElapsed = (iso: string): string => {
 };
 
 export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,7 +103,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
               Staff currently clocked in across kitchen, shopping and cleaning. Longest-running session first.
             </CardDescription>
           </div>
-          <Link href="/admin/staff-hours">
+          <Link href={withSlug("/admin/staff-hours")}>
             <Button variant="ghost" size="sm" className="text-emerald-700">
               Staff hours <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -122,7 +124,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
               return (
                 <li key={r.id}>
                   <Link
-                    href="/admin/staff-hours"
+                    href={withSlug("/admin/staff-hours")}
                     className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${

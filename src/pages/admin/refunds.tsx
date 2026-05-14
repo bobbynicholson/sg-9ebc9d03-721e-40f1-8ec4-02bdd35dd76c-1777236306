@@ -33,6 +33,7 @@ import {
   ExternalLink, User as UserIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface RefundRow {
   id: string;
@@ -133,6 +134,8 @@ function methodLabel(gateway: string | null, method: string | null): string {
 
 function RefundsPage() {
   const { toast } = useToast();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user } = useAuth() as any;
   const companyId = user?.company_id || null;
   // Phase 15 #10: tenant currency. Closure-bind a formatter
@@ -464,7 +467,7 @@ function RefundsPage() {
             <span className="text-sm text-slate-700">refund</span>
             {r.order_number ? (
               <Link
-                href={`/admin/orders?orderId=${r.order_id || ""}`}
+                href={withSlug(`/admin/orders?orderId=${r.order_id || ""}`)}
                 className="text-xs text-blue-700 hover:underline"
               >
                 #{r.order_number}
@@ -496,7 +499,7 @@ function RefundsPage() {
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
             {r.order_id ? (
               <Link
-                href={`/admin/orders?orderId=${r.order_id}`}
+                href={withSlug(`/admin/orders?orderId=${r.order_id}`)}
                 className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
               >
                 <ExternalLink className="w-3 h-3" />
@@ -505,7 +508,7 @@ function RefundsPage() {
             ) : null}
             {r.client_id ? (
               <Link
-                href={`/admin/contacts?clientId=${r.client_id}`}
+                href={withSlug(`/admin/contacts?clientId=${r.client_id}`)}
                 className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
               >
                 <UserIcon className="w-3 h-3" />
@@ -514,7 +517,7 @@ function RefundsPage() {
             ) : null}
             {r.invoice_id ? (
               <Link
-                href={`/admin/invoices?invoiceId=${r.invoice_id}`}
+                href={withSlug(`/admin/invoices?invoiceId=${r.invoice_id}`)}
                 className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
               >
                 <Receipt className="w-3 h-3" />

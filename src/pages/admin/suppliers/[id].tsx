@@ -33,7 +33,7 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/composeEmail";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   supplierService, type Supplier, type SupplierProduct,
   type SupplierPurchaseSummary, type SupplierReceiptRow,
@@ -55,6 +55,8 @@ function isoDaysAgo(d: number) {
 
 function SupplierDetail() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const supplierId = typeof router.query.id === "string" ? router.query.id : null;
   const { profile, user } = useAuth() as any;
   const companyId = profile?.company_id;
@@ -114,7 +116,7 @@ function SupplierDetail() {
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
           <Link
-            href="/admin/suppliers"
+            href={withSlug("/admin/suppliers")}
             className="text-sm text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 mb-3"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to suppliers
@@ -346,7 +348,7 @@ function SupplierDetail() {
                       {receipts.map((r) => (
                         <Link
                           key={r.id}
-                          href={`/admin/shopping?tab=receipts&receipt=${r.id}`}
+                          href={withSlug(`/admin/shopping?tab=receipts&receipt=${r.id}`)}
                           className="block px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
                         >
                           <div className="flex items-center justify-between gap-3">

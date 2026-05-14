@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { XCircle, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface CancelRow {
   id: string;
@@ -40,6 +41,7 @@ const fmtAge = (iso: string | null): string => {
 };
 
 export function CancelledOrdersWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<CancelRow[]>([]);
   const [totalLost, setTotalLost] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               Orders cancelled in the last 30 days, newest first. Watch for repeat reasons.
             </CardDescription>
           </div>
-          <Link href="/admin/orders">
+          <Link href={withSlug("/admin/orders")}>
             <Button variant="ghost" size="sm" className="text-slate-700">
               All orders <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -112,7 +114,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               // Phase 22.
               <li key={r.id}>
                 <Link
-                  href={`/admin/orders?orderId=${r.id}`}
+                  href={withSlug(`/admin/orders?orderId=${r.id}`)}
                   className="py-2 flex items-center gap-3 hover:bg-slate-100/60 rounded transition"
                 >
                   <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">

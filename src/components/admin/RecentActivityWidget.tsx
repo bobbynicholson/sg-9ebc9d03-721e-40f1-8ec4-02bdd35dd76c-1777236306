@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollText, ArrowRight } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface AuditRow {
   id: string;
@@ -55,6 +56,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
 };
 
 export function RecentActivityWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [profileMap, setProfileMap] = useState<Record<string, ProfileLite>>({});
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
               Last 8 audit_logs entries across the tenant. Newest first.
             </CardDescription>
           </div>
-          <Link href="/admin/audit-logs">
+          <Link href={withSlug("/admin/audit-logs")}>
             <Button variant="ghost" size="sm" className="text-slate-700">
               All audit logs <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>

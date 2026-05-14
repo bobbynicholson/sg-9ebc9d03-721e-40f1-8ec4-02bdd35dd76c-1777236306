@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 // Zod schema. Field-level rules:
 //   - name + email always required
@@ -95,6 +96,8 @@ const EVENT_TYPE_SUGGESTIONS = [
 
 export default function NewLead() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -189,7 +192,7 @@ export default function NewLead() {
         description: "Lead created successfully",
       });
 
-      router.push("/admin/leads");
+      router.push(withSlug("/admin/leads"));
     } catch (error) {
       console.error("Error creating lead:", error);
       toast({
@@ -213,7 +216,7 @@ export default function NewLead() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-full">
           <div className="mb-8">
-            <Link href="/admin/leads">
+            <Link href={withSlug("/admin/leads")}>
               <Button variant="ghost" className="mb-4">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Leads
@@ -438,7 +441,7 @@ export default function NewLead() {
                     <Save className="w-4 h-4 mr-2" />
                     {isSubmitting ? "Creating..." : "Create Lead"}
                   </Button>
-                  <Link href="/admin/leads">
+                  <Link href={withSlug("/admin/leads")}>
                     <Button type="button" variant="outline">
                       Cancel
                     </Button>

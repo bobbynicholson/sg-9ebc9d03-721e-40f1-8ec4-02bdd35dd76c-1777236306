@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface PaymentRow {
   id: string;
@@ -43,6 +44,7 @@ const fmtRelative = (iso: string | null): string => {
 };
 
 export function RecentPaymentsWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -93,7 +95,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
               Completed payments (deposits + balances) excluding refunds. Newest first.
             </CardDescription>
           </div>
-          <Link href="/admin/invoices">
+          <Link href={withSlug("/admin/invoices")}>
             <Button variant="ghost" size="sm" className="text-emerald-700">
               All invoices <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -136,7 +138,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                   <li key={r.id}>
                     {r.order_id ? (
                       <Link
-                        href={`/admin/orders?orderId=${r.order_id}`}
+                        href={withSlug(`/admin/orders?orderId=${r.order_id}`)}
                         className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
                       >
                         {Row}

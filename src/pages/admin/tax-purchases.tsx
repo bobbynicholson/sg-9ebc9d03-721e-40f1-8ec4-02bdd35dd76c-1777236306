@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   listForCompany,
   summarise,
@@ -57,6 +57,8 @@ function dateRangeFor(window: WindowKind): { from?: string; to?: string } {
 
 function TaxPurchasesPage() {
   const { user, profile } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const companyId = profile?.company_id ?? user?.company_id ?? null;
 
@@ -148,7 +150,7 @@ function TaxPurchasesPage() {
                     <Download className="w-4 h-4" />
                     Export CSV
                   </Button>
-                  <Link href="/admin/shopping?tab=receipts">
+                  <Link href={withSlug("/admin/shopping?tab=receipts")}>
                     <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
                       <ShoppingCart className="w-4 h-4" />
                       Manage receipts
@@ -168,7 +170,7 @@ function TaxPurchasesPage() {
                     Add slips, mark lines deductible, rescan with AI and intake stock all in one place. This page is read-only on purpose.
                   </p>
                 </div>
-                <Link href="/admin/shopping?tab=receipts" className="text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 text-xs font-semibold">
+                <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 text-xs font-semibold">
                   Go to receipts tab <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </CardContent>
@@ -294,7 +296,7 @@ function TaxPurchasesPage() {
                   <div className="text-center py-8 space-y-2">
                     <Receipt className="w-10 h-10 text-slate-300 mx-auto" />
                     <p className="text-sm text-slate-600">No slips in this window yet.</p>
-                    <Link href="/admin/shopping?tab=receipts">
+                    <Link href={withSlug("/admin/shopping?tab=receipts")}>
                       <Button size="sm" variant="outline" className="gap-1.5 mt-2">
                         <ShoppingCart className="w-4 h-4" />
                         Add one on Shopping
@@ -352,7 +354,7 @@ function TaxPurchasesPage() {
                       );
                     })}
                     <div className="pt-3 text-center">
-                      <Link href="/admin/shopping?tab=receipts" className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 font-semibold">
+                      <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 font-semibold">
                         Edit any of these on the Shopping dashboard <ExternalLink className="w-3 h-3" />
                       </Link>
                     </div>

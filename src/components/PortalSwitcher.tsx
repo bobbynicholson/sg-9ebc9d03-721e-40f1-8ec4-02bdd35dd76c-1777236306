@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Crown, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const PORTALS = [
   { name: "Admin", route: "/admin/dashboard", icon: LayoutDashboard, color: "text-blue-600" },
@@ -23,13 +24,15 @@ const PORTALS = [
 
 export function PortalSwitcher() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user, signOut } = useAuth();
 
   // Only show for super_admin users
   if (!user || user.role !== "super_admin") return null;
 
   const handleBackToDashboard = () => {
-    router.push("/admin/platform/dashboard");
+    router.push(withSlug("/admin/platform/dashboard"));
   };
 
   const handleSignOut = async () => {

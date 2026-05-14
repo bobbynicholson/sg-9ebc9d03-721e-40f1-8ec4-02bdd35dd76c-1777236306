@@ -17,8 +17,10 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowRight } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export function SentLogPanel() {
+  const { withSlug } = useTenantHref();
   return (
     <div className="flex items-center justify-center p-6">
       <Card className="border-0 shadow-lg max-w-md w-full">
@@ -31,12 +33,12 @@ export function SentLogPanel() {
             Post-event templates now live alongside lead and quote templates on the Templates tab next door, so company customisations stay in one place. The dedicated sent log for after-sales touchpoints has folded into the Automation tab's audit feed.
           </p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <Link href="/admin/email-templates?tab=templates">
+            <Link href={withSlug("/admin/email-templates?tab=templates")}>
               <Button variant="outline" className="gap-2 w-full sm:w-auto">
                 Open Templates tab <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link href="/admin/email-templates?tab=automation">
+            <Link href={withSlug("/admin/email-templates?tab=automation")}>
               <Button className="gap-2 w-full sm:w-auto">
                 Open Automation tab <ArrowRight className="w-4 h-4" />
               </Button>

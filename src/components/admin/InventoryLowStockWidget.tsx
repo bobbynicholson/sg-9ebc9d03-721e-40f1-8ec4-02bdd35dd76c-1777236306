@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowRight, Package } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface LowStockRow {
   id: string;
@@ -33,6 +34,7 @@ interface LowStockRow {
 const LIMIT = 5;
 
 export function InventoryLowStockWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<LowStockRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,7 +115,7 @@ export function InventoryLowStockWidget({ companyId }: { companyId: string | nul
               return (
                 <li key={r.id}>
                   <Link
-                    href="/admin/shopping"
+                    href={withSlug("/admin/shopping")}
                     className="py-2 flex items-center gap-3 hover:bg-orange-50/60 rounded transition"
                   >
                     <div className="w-8 h-8 rounded-md bg-orange-100 flex items-center justify-center shrink-0">

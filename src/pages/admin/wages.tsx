@@ -41,6 +41,7 @@ import {
 import { driverPayService, type DriverPayRates } from "@/services/driverPayService";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -147,6 +148,8 @@ interface PublicHolidayLine {
 function WageDashboardPage() {
   const { profile } = useAuth() as any;
   const { toast } = useToast();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = profile?.company_id as string | undefined;
   const { regionFilterId, options: regionOptions } = useRegionFilter();
   const activeRegion = regionOptions.find((r) => r.id === regionFilterId) || null;
@@ -513,7 +516,7 @@ function WageDashboardPage() {
                   Filtered by region {activeRegion.name}
                 </span>
               )}
-              <Link href="/admin/kitchen-staff">
+              <Link href={withSlug("/admin/kitchen-staff")}>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Users className="w-4 h-4" />Manage staff
                 </Button>

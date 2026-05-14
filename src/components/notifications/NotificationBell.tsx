@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 /** Phase 7 #5: short emoji-free chime so an urgent notification
  *  doesn't get lost while the operator is heads-down in another
@@ -45,6 +46,8 @@ function chime() {
 
 export function NotificationBell() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user, activeRole } = useAuth();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -187,7 +190,7 @@ export function NotificationBell() {
       "super_admin", "company_admin", "admin", "region_admin", "sales_admin",
     ]);
     if (role && ADMIN_ROLES.has(role)) {
-      router.push("/admin/notifications");
+      router.push(withSlug("/admin/notifications"));
     } else if (role === "driver") {
       router.push("/team-portal/driver/notifications");
     } else if (role === "kitchen_staff") {

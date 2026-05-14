@@ -31,7 +31,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";import { useTenantHref } from "@/lib/tenantUrl";
 import {
   kitchenStaffService,
   effectiveOvertimeRate,
@@ -88,6 +88,8 @@ const EMPTY_DRAFT: DraftStaff = {
 
 function KitchenStaffPage() {
   const { user, profile } = useAuth();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -508,7 +510,7 @@ function KitchenStaffPage() {
                   <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Wage dashboard</p>
                   <p className="text-sm font-medium text-slate-700">Hours x rates roll-up</p>
                 </div>
-                <Link href="/admin/wages" className="text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 text-sm font-medium">
+                <Link href={withSlug("/admin/wages")} className="text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 text-sm font-medium">
                   Open <ExternalLink className="w-3 h-3" />
                 </Link>
               </CardContent>
@@ -992,7 +994,7 @@ function KitchenStaffPage() {
               <p className="text-sm font-semibold text-emerald-800">Portal access linked</p>
               <p className="text-xs text-emerald-700 mt-0.5">
                 This staff member has a portal login. Manage roles + permissions on{" "}
-                <Link href="/admin/users" className="underline">Users</Link>.
+                <Link href={withSlug("/admin/users")} className="underline">Users</Link>.
               </p>
             </div>
           )}

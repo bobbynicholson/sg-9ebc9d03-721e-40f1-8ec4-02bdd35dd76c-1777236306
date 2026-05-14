@@ -17,6 +17,7 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Star, ArrowRight } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface RatingRow {
   entity_id: string;
@@ -40,6 +41,7 @@ const fmtAgo = (iso: string): string => {
 };
 
 export function RecentRatingsWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<RatingRow[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,7 +120,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
               Star ratings captured in the order drawer over the last 30 days. Latest per order.
             </CardDescription>
           </div>
-          <Link href="/admin/orders" className="text-xs text-yellow-700 hover:underline inline-flex items-center">
+          <Link href={withSlug("/admin/orders")} className="text-xs text-yellow-700 hover:underline inline-flex items-center">
             Open orders <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </Link>
         </div>
@@ -134,7 +136,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
               // rating or post-mortem.
               <li key={r.entity_id}>
                 <Link
-                  href={`/admin/orders?orderId=${r.entity_id}`}
+                  href={withSlug(`/admin/orders?orderId=${r.entity_id}`)}
                   className="py-2 flex items-center gap-3 hover:bg-yellow-50/60 rounded transition"
                 >
                   <div className="shrink-0 flex items-center">

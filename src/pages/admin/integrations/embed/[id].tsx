@@ -47,6 +47,7 @@ import type {
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
 import { getTemplateMeta } from "@/lib/embed/templateCatalog";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
@@ -82,6 +83,8 @@ const MAPPINGS: { value: typeof MAP_NONE | EmbedFieldMapping; label: string }[] 
 
 export default function EmbedFormCustomiser() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { id } = router.query;
   const { user, company } = useAuth() as any;
   const { toast } = useToast();
@@ -113,7 +116,7 @@ export default function EmbedFormCustomiser() {
         const found = (formsJson.forms || []).find((f: any) => f.id === id);
         if (!found) {
           toast({ title: "Form not found", variant: "destructive" });
-          router.push("/admin/integrations/embed");
+          router.push(withSlug("/admin/integrations/embed"));
           return;
         }
         if (!cancelled) {
@@ -274,7 +277,7 @@ export default function EmbedFormCustomiser() {
           <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <Button asChild variant="ghost" size="icon">
-                <Link href="/admin/integrations/embed">
+                <Link href={withSlug("/admin/integrations/embed")}>
                   <ArrowLeft className="w-5 h-5" />
                 </Link>
               </Button>

@@ -34,6 +34,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
 import { z } from "zod";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 /**
  * Phase 7 #9: zod-based pre-save validator. The original brief
@@ -114,6 +115,8 @@ function CompanyProfilePage() {
   const { profile, user, refreshProfile } = useAuth() as any;
   const companyId = profile?.company_id || user?.company_id;
   const { toast } = useToast();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
 
   const [row, setRow] = useState<CompanyRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -699,7 +702,7 @@ function CompanyProfilePage() {
                 <p className="text-xs uppercase tracking-wide opacity-80">Current branding</p>
                 <p className="text-lg font-bold">{row.company_name || "Your company"}</p>
               </div>
-              <Link href="/admin/white-label">
+              <Link href={withSlug("/admin/white-label")}>
                 <Button variant="outline" className="w-full gap-2">
                   Open White Label settings
                   <ArrowRight className="w-4 h-4" />

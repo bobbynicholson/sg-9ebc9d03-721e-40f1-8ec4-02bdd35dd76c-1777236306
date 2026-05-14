@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Mail, MessageSquare, ArrowRight, Filter } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface AuditRow {
   id: string;
@@ -36,6 +37,8 @@ interface AuditRow {
 
 export function AutomationDashboardPanel() {
   const { user } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +147,7 @@ export function AutomationDashboardPanel() {
           ) : (
             <div className="divide-y divide-slate-100">
               {filtered.map((r) => (
-                <Link key={r.id} href={`/admin/quotes?focus=${r.quote_id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                <Link key={r.id} href={withSlug(`/admin/quotes?focus=${r.quote_id}`)} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
                   <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
                     {r.channel === "whatsapp"
                       ? <MessageSquare className="w-4 h-4 text-emerald-600" />
@@ -182,7 +185,7 @@ export function AutomationDashboardPanel() {
 
       <p className="text-[11px] text-slate-500 text-center mt-6">
         Read-only. Send actions live on{" "}
-        <Link href="/admin/quotes" className="underline hover:text-slate-700">/admin/quotes</Link>.
+        <Link href={withSlug("/admin/quotes")} className="underline hover:text-slate-700">/admin/quotes</Link>.
         Templates live on the Templates tab.
       </p>
     </>

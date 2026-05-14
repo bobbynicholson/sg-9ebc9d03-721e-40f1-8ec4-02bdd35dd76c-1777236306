@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Receipt, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface InvoiceRow {
   id: string;
@@ -40,6 +41,7 @@ const daysPast = (iso: string | null): number => {
 };
 
 export function OverdueInvoicesWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -91,7 +93,7 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
               Invoices past their due date that haven't been paid or cancelled. Oldest first.
             </CardDescription>
           </div>
-          <Link href="/admin/invoices">
+          <Link href={withSlug("/admin/invoices")}>
             <Button variant="ghost" size="sm" className="text-rose-700">
               All invoices <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -116,7 +118,7 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
               return (
                 <li key={r.id}>
                   <Link
-                    href={`/admin/invoices?invoiceId=${r.id}`}
+                    href={withSlug(`/admin/invoices?invoiceId=${r.id}`)}
                     className="py-2 flex items-center gap-3 hover:bg-rose-50/60 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>

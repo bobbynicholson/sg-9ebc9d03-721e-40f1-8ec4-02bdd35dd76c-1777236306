@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Crown, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface TopClient {
   client_name: string;
@@ -29,6 +30,7 @@ interface TopClient {
 }
 
 export function TopClientsWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<TopClient[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -84,7 +86,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
               Biggest spenders by booked order value. Use this for thank-yous, loyalty perks and follow-up.
             </CardDescription>
           </div>
-          <Link href="/admin/contacts">
+          <Link href={withSlug("/admin/contacts")}>
             <Button variant="ghost" size="sm" className="text-amber-700">
               Contacts <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -102,7 +104,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
               // big spender uses this for thank-you outreach.
               <li key={r.client_name}>
                 <Link
-                  href={`/admin/contacts?q=${encodeURIComponent(r.client_name)}`}
+                  href={withSlug(`/admin/contacts?q=${encodeURIComponent(r.client_name)}`)}
                   className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
                 >
                   <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 border-amber-200">

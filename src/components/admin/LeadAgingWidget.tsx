@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Inbox, ArrowRight, Mail, Phone } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface LeadRow {
   id: string;
@@ -35,6 +36,7 @@ const daysAgo = (iso: string | null): number => {
 };
 
 export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,7 +85,7 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
               Active leads sitting more than 3 days without conversion. Oldest first.
             </CardDescription>
           </div>
-          <Link href="/admin/contacts">
+          <Link href={withSlug("/admin/contacts")}>
             <Button variant="ghost" size="sm" className="text-orange-700">
               All contacts <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -109,7 +111,7 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
               return (
                 <li key={l.id}>
                   <Link
-                    href={`/admin/leads?leadId=${l.id}`}
+                    href={withSlug(`/admin/leads?leadId=${l.id}`)}
                     className="py-2 flex items-center gap-3 hover:bg-orange-50/60 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>

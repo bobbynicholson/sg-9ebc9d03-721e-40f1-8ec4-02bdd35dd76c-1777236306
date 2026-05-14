@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CircleDollarSign, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface RefundRow {
   id: string;
@@ -37,6 +38,7 @@ const daysAgo = (iso: string | null): number => {
 };
 
 export function PendingRefundsWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -83,7 +85,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
               Refund rows on payments where payment_status hasn't reached completed.
             </CardDescription>
           </div>
-          <Link href="/admin/refunds">
+          <Link href={withSlug("/admin/refunds")}>
             <Button variant="ghost" size="sm" className="text-amber-700">
               All refunds <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -109,7 +111,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
               return (
                 <li key={r.id}>
                   <Link
-                    href={`/admin/refunds?paymentId=${r.id}`}
+                    href={withSlug(`/admin/refunds?paymentId=${r.id}`)}
                     className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${tone}`}>

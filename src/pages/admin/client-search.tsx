@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
 import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedClientSearchPage() {
   return (
@@ -42,6 +43,8 @@ interface ClientView {
 
 function ClientSearchPage() {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user } = useAuth() as any;
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState<ClientView[]>([]);
@@ -135,7 +138,7 @@ function ClientSearchPage() {
   };
 
   const handleCreateQuote = (clientId: string) => {
-    router.push(`/admin/quotes/new?clientId=${clientId}`);
+    router.push(withSlug(`/admin/quotes/new?clientId=${clientId}`));
   };
 
   // Standalone invoice creation doesn't exist -- invoices flow from
@@ -143,15 +146,15 @@ function ClientSearchPage() {
   // invoices list filtered to this client so they can review what's
   // outstanding / paid for them.
   const handleViewInvoices = (clientId: string) => {
-    router.push(`/admin/invoices?clientId=${clientId}`);
+    router.push(withSlug(`/admin/invoices?clientId=${clientId}`));
   };
 
   const handleViewOrders = (clientId: string) => {
-    router.push(`/admin/orders?clientId=${clientId}`);
+    router.push(withSlug(`/admin/orders?clientId=${clientId}`));
   };
 
   const handleViewProfile = (clientId: string) => {
-    router.push(`/admin/contacts?clientId=${clientId}`);
+    router.push(withSlug(`/admin/contacts?clientId=${clientId}`));
   };
 
   return (
@@ -166,7 +169,7 @@ function ClientSearchPage() {
       
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
-          <Link href="/admin/dashboard">
+          <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard

@@ -20,6 +20,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -51,6 +52,8 @@ interface CashFlowAlert {
 
 export default function FinancialDashboardPage() {
   const { user } = useAuth();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
@@ -581,25 +584,25 @@ export default function FinancialDashboardPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Link href="/admin/invoices?status=unpaid" className="block">
+                    <Link href={withSlug("/admin/invoices?status=unpaid")} className="block">
                       <Button className="w-full justify-start" variant="outline" title="Open the invoices page filtered to unpaid, where you can resend reminders to clients with overdue balances.">
                         <CreditCard className="w-4 h-4 mr-2" />
                         Send Payment Reminders
                       </Button>
                     </Link>
-                    <Link href="/admin/wages" className="block">
+                    <Link href={withSlug("/admin/wages")} className="block">
                       <Button className="w-full justify-start" variant="outline" title="Open the wages page to review staff hours and process the next pay run.">
                         <Users className="w-4 h-4 mr-2" />
                         Process Staff Payments
                       </Button>
                     </Link>
-                    <Link href="/admin/inventory" className="block">
+                    <Link href={withSlug("/admin/inventory")} className="block">
                       <Button className="w-full justify-start" variant="outline" title="Open the inventory page to review on-hand stock value and cost-per-unit, the biggest swing factor on margin.">
                         <Package className="w-4 h-4 mr-2" />
                         Review Inventory Costs
                       </Button>
                     </Link>
-                    <Link href="/admin/calendar" className="block">
+                    <Link href={withSlug("/admin/calendar")} className="block">
                       <Button className="w-full justify-start" variant="outline" title="Open the calendar to see upcoming events alongside their deposit / balance due dates: the next 30 days of cash inflow.">
                         <Calendar className="w-4 h-4 mr-2" />
                         View Payment Schedule

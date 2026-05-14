@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, FileText, AlertTriangle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface QuoteSummary {
   id: string;
@@ -73,6 +74,8 @@ function formatRand(n: number | null | undefined): string {
 
 export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Props) {
   const router = useRouter();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [mode, setMode] = useState<Mode>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -163,13 +166,13 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Pro
 
   const handleOpenQuote = (quoteId: string) => {
     onOpenChange(false);
-    router.push(`/admin/quotes/${quoteId}`);
+    router.push(withSlug(`/admin/quotes/${quoteId}`));
   };
 
   const handleNewQuote = () => {
     if (!lead) return;
     onOpenChange(false);
-    router.push(`/admin/quotes/new?leadId=${lead.id}`);
+    router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
   };
 
   return (

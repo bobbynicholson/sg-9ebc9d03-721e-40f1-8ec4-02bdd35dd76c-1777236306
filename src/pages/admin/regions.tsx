@@ -30,6 +30,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Region {
   id: string;
@@ -139,6 +140,8 @@ export default function ProtectedRegionsPage() {
 
 function RegionsPage() {
   const { user } = useAuth();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
@@ -711,7 +714,7 @@ function RegionsPage() {
           )}
 
           <div className="mt-12 text-sm">
-            <Link href="/admin/dashboard" className="text-purple-600 hover:underline inline-flex items-center gap-1">
+            <Link href={withSlug("/admin/dashboard")} className="text-purple-600 hover:underline inline-flex items-center gap-1">
               <ArrowLeft className="w-4 h-4" /> Back to dashboard
             </Link>
           </div>

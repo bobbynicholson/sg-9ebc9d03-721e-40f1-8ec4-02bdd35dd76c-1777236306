@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight, Mail } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface StaleQuote {
   id: string;
@@ -40,6 +41,7 @@ const daysAgo = (iso: string | null): number => {
 };
 
 export function QuoteFollowupWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [quotes, setQuotes] = useState<StaleQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -86,7 +88,7 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
               In-play quotes sent more than 3 days ago without a reply. Oldest first.
             </CardDescription>
           </div>
-          <Link href="/admin/quotes">
+          <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" size="sm" className="text-amber-700">
               All quotes <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -131,7 +133,7 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
                       )}
                     </div>
                   </div>
-                  <Link href={`/admin/quotes?quoteId=${q.id}`}>
+                  <Link href={withSlug(`/admin/quotes?quoteId=${q.id}`)}>
                     <Button size="sm" variant="outline" className="shrink-0">
                       Open
                     </Button>

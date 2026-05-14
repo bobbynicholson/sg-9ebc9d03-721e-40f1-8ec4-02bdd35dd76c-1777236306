@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Truck, ArrowRight, AlertCircle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OrderRow {
   id: string;
@@ -32,6 +33,7 @@ interface OrderRow {
 const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
 
 export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,7 +86,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
               Confirmed events in the next 7 days without a driver assigned. Soonest first.
             </CardDescription>
           </div>
-          <Link href="/admin/order-assignments">
+          <Link href={withSlug("/admin/order-assignments")}>
             <Button variant="ghost" size="sm" className="text-orange-700">
               Assign drivers <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -123,7 +125,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
                       {o.guest_count != null && ` · ${o.guest_count} guests`}
                     </p>
                   </div>
-                  <Link href={`/admin/orders?orderId=${o.id}`}>
+                  <Link href={withSlug(`/admin/orders?orderId=${o.id}`)}>
                     <Button size="sm" variant="outline" className="shrink-0">
                       Open
                     </Button>

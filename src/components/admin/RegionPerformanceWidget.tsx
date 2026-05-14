@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface RegionLite {
   id: string;
@@ -44,6 +45,7 @@ interface Entry {
 const UNASSIGNED_KEY = "__unassigned";
 
 export function RegionPerformanceWidget({ companyId }: { companyId: string | null }) {
+  const { withSlug } = useTenantHref();
   const [regions, setRegions] = useState<RegionLite[]>([]);
   const [orders, setOrders] = useState<OrderLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
               Booked-and-onwards revenue + order count per region. Sorted by revenue.
             </CardDescription>
           </div>
-          <Link href="/admin/regions">
+          <Link href={withSlug("/admin/regions")}>
             <Button variant="ghost" size="sm" className="text-purple-700">
               Manage regions <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>

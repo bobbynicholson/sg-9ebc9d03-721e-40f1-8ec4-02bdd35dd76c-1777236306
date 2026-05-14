@@ -51,6 +51,7 @@ import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -128,6 +129,8 @@ function statusIndex(status: string) {
 
 export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
   const { toast } = useToast();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { user, profile } = useAuth() as any;
   const companyId = profile?.company_id ?? user?.company_id ?? null;
   const userId = user?.id ?? "";
@@ -430,12 +433,12 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             <ArrowRight className="h-3 w-3" /> Quick actions
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Link href={`/admin/orders?orderId=${order.id}`} legacyBehavior>
+            <Link href={withSlug(`/admin/orders?orderId=${order.id}`)} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <FileText className="h-3 w-3" /> Full order
               </Button></a>
             </Link>
-            <Link href={`/admin/invoices?orderId=${order.id}`} legacyBehavior>
+            <Link href={withSlug(`/admin/invoices?orderId=${order.id}`)} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <Receipt className="h-3 w-3" /> Invoice
               </Button></a>
@@ -488,7 +491,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               <div className="text-xs text-slate-600">Balance: <span className="font-semibold text-slate-900">{fmtMoney.format(balance)}</span></div>
             )}
             {hasOutstanding && (
-              <Link href={`/admin/invoices?orderId=${order.id}&action=balance`} legacyBehavior>
+              <Link href={withSlug(`/admin/invoices?orderId=${order.id}&action=balance`)} legacyBehavior>
                 <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs w-full mt-1">
                   <Receipt className="h-3 w-3" /> Generate balance invoice
                 </Button></a>
@@ -533,7 +536,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               <span className="text-slate-500"> item{equipmentCount === 1 ? "" : "s"} on this order</span>
             </p>
             {equipmentFlagged > 0 && (
-              <Link href="/admin/equipment?tab=shortages" legacyBehavior>
+              <Link href={withSlug("/admin/equipment?tab=shortages")} legacyBehavior>
                 <a className="text-xs text-amber-700 hover:underline flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   {equipmentFlagged} flagged, open in Equipment Shortages

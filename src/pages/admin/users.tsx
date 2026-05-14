@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
@@ -67,6 +68,8 @@ function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Partial<Record<UserRole, number>> | null>(null);
   const { user } = useAuth();
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
 
   const roleConfig = [
@@ -296,7 +299,7 @@ function AdminUsersPage() {
       
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 md:py-8 max-w-full">
-          <Link href="/admin/dashboard">
+          <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Admin Dashboard
