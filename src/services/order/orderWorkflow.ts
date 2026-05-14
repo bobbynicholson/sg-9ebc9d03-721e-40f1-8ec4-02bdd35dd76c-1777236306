@@ -1,10 +1,30 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+
+// Wave 24: orderWorkflow is called from BOTH the browser (admin pages
+// updating order status) AND the server (cron jobs, payment webhooks,
+// auto-completion workers). The imported browser anon supabase has no
+// session on the server, so RLS hides company / template / contact
+// rows and silently breaks the customer-facing email + notification
+// fan-out. resolveServerClient picks service-role on the server,
+// browser anon in the browser, so the rest of the module can keep
+// reading `supabase` as before. Pattern lifted from cancellationEmails.ts.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 /**
  * Order Workflow Management
@@ -1645,12 +1665,17 @@ async function sendStatusNotifications(order: any) {
           variables,
           fallback: { subject: tpl.subject, bodyHtml: tpl.body },
         });
+        // Wave 24: pass the resolved client so emailService can read
+        // email_provider_settings under the right auth context (the
+        // module-level `supabase` is service-role on the server,
+        // browser anon in the browser).
         await emailService.sendEmail({
           companyId: order.user_id,
           to: order.client_email,
           subject: resolved.subject,
           body: resolved.bodyHtml,
-        });
+          _client: supabase,
+        } as any);
       } catch (e) {
         console.warn("[sendStatusNotifications] customer email failed:", e);
       }
