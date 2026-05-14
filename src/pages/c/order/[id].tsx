@@ -27,6 +27,8 @@ import {
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
+import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
+import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 
 type OrderView = {
   ok: true;
@@ -363,39 +365,33 @@ export default function ClientOrderPage() {
             </CardContent>
           </Card>
 
-          {/* Status timeline */}
+          {/* Status timeline -- Wave 26: replaced the legacy 5-step
+              row with the same TimelineTrack the admin sees, projected
+              down to ~9 client-friendly stages via toClientTimeline().
+              The client now sees the full lifecycle the operator
+              tracks (deposit received, preparing, on the way,
+              delivered, equipment collected if applicable, balance
+              received, all wrapped up) instead of just the 5 status
+              dots that didn't tell them whether their deposit had
+              landed or what was happening between confirmed and
+              in-transit. */}
           {status !== "cancelled" && (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Where we're at</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between gap-2">
-                  {STATUS_TIMELINE.map((step, i) => {
-                    const idx = STATUS_TIMELINE.findIndex((s) => s.id === status);
-                    const reached = idx >= i;
-                    const isCurrent = idx === i;
-                    const Icon = step.icon;
-                    return (
-                      <div key={step.id} className="flex-1 flex flex-col items-center text-center">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all ${
-                            isCurrent ? "ring-4 ring-offset-2" : ""
-                          }`}
-                          style={{
-                            background: reached ? primary : "#e2e8f0",
-                            color: reached ? "white" : "#64748b",
-                          }}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <span className={`text-[11px] font-medium ${reached ? "text-slate-900" : "text-slate-400"}`}>
-                          {step.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                {(() => {
+                  // Compute from the order row alone -- the magic-link
+                  // RPC doesn't return joined related rows, so the
+                  // client timeline can only derive what the order
+                  // columns expose (status, deposit_paid, balance_paid,
+                  // delivered_at, completed_at, equipment_return_method).
+                  // That's enough for every client-visible stage.
+                  const operatorTl = computeOrderTimeline({ order });
+                  const clientTl = toClientTimeline(operatorTl);
+                  return <TimelineTrack timeline={clientTl} />;
+                })()}
               </CardContent>
             </Card>
           )}

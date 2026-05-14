@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
+import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -106,9 +108,16 @@ export default function MyOrders() {
           .eq("company_id", tenantCompanyId);
         const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
 
+        // Wave 26: extended SELECT to include the columns the client
+        // OrderTimeline derives from (deposit_paid, balance_paid,
+        // delivered_at, completed_at, equipment_return_method,
+        // confirmed_at, deposit_amount, balance_amount). Without
+        // these, the per-row compact TimelineTrack would render every
+        // post-confirmation stage as upcoming regardless of actual
+        // payment / delivery state.
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status")
+          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at")
           .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
@@ -219,10 +228,25 @@ export default function MyOrders() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredOrders.map((order) => (
+                  {filteredOrders.map((order) => {
+                    // Wave 26: client-projected timeline per row.
+                    // Computed from the order columns alone (no
+                    // related-row fetch on this list page) so the
+                    // client sees deposit / delivery / balance state
+                    // at a glance without opening the detail view.
+                    // Cancelled orders skip the timeline -- the badge
+                    // already says everything.
+                    const clientTl = order.status !== "cancelled"
+                      ? toClientTimeline(computeOrderTimeline({ order }))
+                      : null;
+                    return (
                     <div
                       key={order.id}
-                      className="p-4 md:p-6 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
+                      className={`p-4 md:p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${
+                        clientTl?.blocked
+                          ? "border-l-4 border-l-red-500 border-y-slate-200 border-r-slate-200 bg-red-50/30"
+                          : "border-slate-200"
+                      }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
@@ -327,8 +351,20 @@ export default function MyOrders() {
                           )}
                         </div>
                       </div>
+                      {/* Wave 26: per-row client timeline -- compact
+                          variant so it fits inside the row card
+                          without stealing layout space. Renders the
+                          "Next to do" banner + cluster pills + a
+                          "Show all" chevron. Skipped on cancelled
+                          orders (the badge already says it). */}
+                      {clientTl && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <TimelineTrack timeline={clientTl} compact />
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

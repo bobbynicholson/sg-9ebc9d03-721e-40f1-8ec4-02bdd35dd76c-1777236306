@@ -744,3 +744,125 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     applicableCount: applicableStages.length,
   };
 }
+
+// --- Client projection ----------------------------------------------------
+//
+// Wave 26: clients (the people booking the catering) don't need the
+// 22-stage operator view. They care about a much shorter story:
+//   "Did you confirm? Did you take my deposit? Are you cooking? Is
+//    the driver coming? Did it arrive? Did you collect the gear? Am
+//    I done paying? Are we wrapped up?"
+//
+// toClientTimeline() projects the operator OrderTimeline down to a
+// client-friendly subset, hiding the operational stages (hire flow,
+// pre/post cleaning, ready-for-dispatch, driver assignment, invoice
+// issued/sent mechanics, receipt, thank-you). The remaining stages
+// keep their status values from the operator timeline so the client
+// view stays in sync with the operator view automatically.
+
+const CLIENT_VISIBLE_STAGES: StageKey[] = [
+  "order_created",
+  "deposit_paid",
+  "confirmed",
+  "kitchen_prep_in_progress",
+  "in_transit",
+  "delivered",
+  "collection_done",
+  "balance_paid",
+  "completed",
+];
+
+const CLIENT_LABELS: Partial<Record<StageKey, { label: string; group: StageGroup }>> = {
+  order_created:            { label: "Order received",     group: "booking" },
+  deposit_paid:             { label: "Deposit received",   group: "booking" },
+  confirmed:                { label: "Booking confirmed",  group: "booking" },
+  kitchen_prep_in_progress: { label: "Preparing your food", group: "logistics" },
+  in_transit:               { label: "On the way",          group: "dispatch" },
+  delivered:                { label: "Delivered",           group: "dispatch" },
+  collection_done:          { label: "Equipment collected", group: "post_event" },
+  balance_paid:             { label: "Final payment received", group: "closure" },
+  completed:                { label: "All wrapped up",      group: "closure" },
+};
+
+/**
+ * Project the operator timeline down to the ~9 stages a client
+ * actually needs to see. Hides operational details (hire flow,
+ * pre/post cleaning, dispatch internals, receipt mechanics, etc).
+ *
+ * Re-runs the "exactly one current" walker against the projected
+ * stage list so the client current dot lands on the next visible
+ * client-meaningful action even when the operator's current stage
+ * is something internal like 'final_invoice_sent'. Stages stripped
+ * from the client view are absorbed into the surrounding visible
+ * stages -- a client whose order is currently mid-prep sees
+ * 'Preparing your food' regardless of whether the operator dot is
+ * on prep or already on ready_for_dispatch.
+ */
+export function toClientTimeline(operator: OrderTimeline): OrderTimeline {
+  const visibleSet = new Set<StageKey>(CLIENT_VISIBLE_STAGES);
+
+  // Map the operator stages to a client list, stripping non-visible
+  // stages and relabeling. Order is preserved from the operator
+  // timeline so the cluster band still reads booking -> logistics ->
+  // dispatch -> post-event -> closure.
+  const clientStages: OrderTimelineStage[] = operator.stages
+    .filter((s) => visibleSet.has(s.key))
+    .map((s) => {
+      const override = CLIENT_LABELS[s.key];
+      return {
+        ...s,
+        label: override?.label || s.label,
+        group: override?.group || s.group,
+        // Strip internal blockedReason text -- show a generic
+        // "waiting for the team" instead of e.g. "Deposit not paid"
+        // which the client themselves caused.
+        blockedReason: s.blockedReason ? "Waiting on the team" : null,
+        // Drop internal meta (prep progress 5/8, hire supplier name,
+        // etc) -- the client doesn't need to see operational detail.
+        meta: undefined,
+        // Strip admin source links. Client-facing pages route their
+        // own click handlers (e.g. magic-link page opens a deposit
+        // payment dialog rather than /admin/invoices).
+        sourceLink: null,
+      };
+    });
+
+  // Re-run the "exactly one current" walker over the projected list.
+  // Reset every visible stage's status by recomputing from operator
+  // status mappings:
+  //   completed in operator -> completed
+  //   current/blocked in operator -> current/blocked
+  //   upcoming in operator -> upcoming
+  //   not_applicable / skipped in operator -> not_applicable
+  // Then enforce one-current.
+  let foundCurrent = false;
+  for (const stage of clientStages) {
+    if (stage.status === "not_applicable" || stage.status === "skipped") continue;
+    if (stage.status === "completed") continue;
+    if (!foundCurrent) {
+      if (stage.status === "upcoming") stage.status = "current";
+      foundCurrent = true;
+    } else {
+      if (stage.status === "current" || stage.status === "blocked") {
+        stage.status = "upcoming";
+      }
+    }
+  }
+
+  const currentStage = clientStages.find((s) => s.status === "current" || s.status === "blocked") || null;
+  const applicable = clientStages.filter((s) => s.status !== "not_applicable" && s.status !== "skipped");
+  const completed = clientStages.filter((s) => s.status === "completed");
+  const blockedAny = clientStages.some((s) => s.status === "blocked");
+
+  return {
+    ...operator,
+    stages: clientStages,
+    currentStageKey: currentStage ? currentStage.key : null,
+    currentClusterKey: currentStage ? currentStage.group : null,
+    blocked: blockedAny,
+    blockedReason: blockedAny ? "Waiting on the team" : null,
+    completedCount: completed.length,
+    applicableCount: applicable.length,
+  };
+}
+
