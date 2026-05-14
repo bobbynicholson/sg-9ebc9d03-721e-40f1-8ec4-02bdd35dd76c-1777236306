@@ -475,16 +475,70 @@ export async function ensureInvoiceForOrder(
 ): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
   const supabase = resolveClient(client);
   try {
-    // 1. Skip if there's already a live invoice for this order.
-    const { data: existing } = await supabase
+    // 1. Look for live invoices for this order. Wave 28.9: was
+    // .maybeSingle() which throws on duplicates -- when finance ended
+    // up with two drafts for the same order (cause: race / dual-path
+    // entry), every subsequent call here would crash silently.
+    // Switched to a multi-row read so we can heal corrupted state in
+    // place: keep the newest, void the rest, recalc the survivor.
+    const { data: existingRows } = await (supabase as any)
       .from("invoices")
-      .select("id")
+      .select("id, status, created_at, total_amount")
       .eq("order_id", orderId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .maybeSingle();
-    if (existing?.id) {
-      return { success: true, invoiceId: (existing as any).id, alreadyExisted: true };
+      .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
+      .order("created_at", { ascending: false });
+    const liveInvoices: any[] = Array.isArray(existingRows) ? existingRows : [];
+
+    if (liveInvoices.length > 0) {
+      const survivor = liveInvoices[0];
+      const olderDuplicates = liveInvoices.slice(1);
+      // Void every older duplicate. Status = 'written_off' (the
+      // closest enum value -- the invoice_status enum doesn't have
+      // 'cancelled'), balance = 0 so they drop off the receivables
+      // aging report, deleted_at set so they disappear from active
+      // queries while the audit history is preserved.
+      if (olderDuplicates.length > 0) {
+        const nowIso = new Date().toISOString();
+        for (const dup of olderDuplicates) {
+          try {
+            await (supabase as any)
+              .from("invoices")
+              .update({
+                status: "written_off",
+                balance_due: 0,
+                deleted_at: nowIso,
+                updated_at: nowIso,
+              })
+              .eq("id", dup.id);
+          } catch (e) {
+            console.warn(
+              "[ensureInvoiceForOrder] could not void duplicate draft:",
+              dup.id,
+              e,
+            );
+          }
+        }
+      }
+      // Recalc the survivor so the price reflects the order's current
+      // total. Skipped when survivor is already paid -- mutating a
+      // paid invoice would re-open finance reconciliation.
+      if (survivor.status !== "paid") {
+        try {
+          await recalcInvoiceForOrder(orderId, companyId, supabase);
+        } catch (e) {
+          console.warn(
+            "[ensureInvoiceForOrder] recalc on existing survivor failed:",
+            e,
+          );
+        }
+      }
+      return {
+        success: true,
+        invoiceId: survivor.id,
+        alreadyExisted: true,
+      };
     }
 
     // 2. Skip imported / quarantined orders -- their financials are
@@ -587,13 +641,22 @@ export async function recalcInvoiceForOrder(
 ): Promise<{ success: boolean; updated?: boolean; reason?: string; invoiceId?: string; error?: string }> {
   const supabase = resolveClient(client);
   try {
-    const { data: existing } = await supabase
+    // Wave 28.9: tolerate duplicate live invoices. Was .maybeSingle()
+    // which throws on >1 row; if the order somehow ended up with two
+    // drafts, recalc would error out and the caller would either
+    // fall back to ensureInvoiceForOrder (creating a third) or just
+    // give up. Pull the newest live invoice instead.
+    const { data: existingRows } = await (supabase as any)
       .from("invoices")
-      .select("id, amount_paid, status, invoice_number")
+      .select("id, amount_paid, status, invoice_number, created_at")
       .eq("order_id", orderId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .maybeSingle();
+      .in("status", ["draft", "sent", "overdue", "partially_paid"])
+      .order("created_at", { ascending: false });
+    const existing = Array.isArray(existingRows) && existingRows.length > 0
+      ? existingRows[0]
+      : null;
     if (!existing?.id) {
       return { success: true, updated: false, reason: "no_invoice" };
     }

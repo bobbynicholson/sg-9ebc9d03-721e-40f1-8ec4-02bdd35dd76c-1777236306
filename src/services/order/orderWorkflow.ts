@@ -919,13 +919,22 @@ export async function cancelOrder(
     // until somebody manually voided it. Void any unpaid invoices for
     // the cancelled order. Anything already paid stays as-is so the
     // refund cascade in cancellation-review.ts can record the credit.
+    //
+    // Wave 28.9: was status:'cancelled' which doesn't exist in the
+    // invoice_status enum (allowed: draft|sent|paid|partially_paid|
+    // overdue|written_off). Every previous cancellation since this
+    // shipped silently 22P02-errored on the void, leaving live
+    // invoices on the receivables report. Switched to 'written_off'
+    // -- the closest existing enum value -- and added deleted_at so
+    // the row drops off active queries entirely.
     void (async () => {
       try {
         await sb
           .from("invoices")
           .update({
-            status: "cancelled",
+            status: "written_off",
             balance_due: 0,
+            deleted_at: nowIso,
             updated_at: nowIso,
           } as any)
           .eq("order_id", orderId)
