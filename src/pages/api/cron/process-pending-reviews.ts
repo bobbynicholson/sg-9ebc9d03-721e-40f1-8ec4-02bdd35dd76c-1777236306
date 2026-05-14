@@ -169,7 +169,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             subject,
             body,
             orderId: row.order_id,
-          });
+            // Wave 24: cron worker -- pass service-role client so
+            // getEmailConfig can read email_provider_settings under
+            // RLS. Without this the helper falls back to browser anon
+            // and the SELECT silently returns nothing, so the email
+            // never sends and we mark sent_at anyway.
+            _client: supabase,
+          } as any);
         } catch (e) {
           // A blocked / quarantined recipient is not a failure of the
           // worker -- emailService logs it. We still mark sent_at so

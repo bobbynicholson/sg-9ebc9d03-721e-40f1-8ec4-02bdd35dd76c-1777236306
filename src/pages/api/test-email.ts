@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
  * Test Email API Endpoint
@@ -45,8 +46,14 @@ export default async function handler(
       return res.status(403).json({ error: "Cannot test email for another company" });
     }
 
+    // Wave 24: pass service-role client through getEmailConfig +
+    // sendEmail. Without it the helpers fall back to the imported
+    // browser anon supabase, which has no session on the server, so
+    // the email_provider_settings SELECT returns nothing and the
+    // test silently no-ops.
+    const admin = getServiceSupabase();
     // Check email configuration
-    const config = await emailService.getEmailConfig(companyId);
+    const config = await emailService.getEmailConfig(companyId, admin);
     
     if (!config) {
       return res.status(400).json({
@@ -78,7 +85,8 @@ export default async function handler(
           <p style="color: #6B7280; font-size: 14px;">This is a test email sent from CateringMS.</p>
         </div>
       `,
-    });
+      _client: admin,
+    } as any);
 
     if (result) {
       return res.status(200).json({

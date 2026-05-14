@@ -264,12 +264,18 @@ async function sendConfirmationEmails(args: {
       `<p>-- CateringMS</p>`;
 
     try {
+      // Wave 24: pass service-role client so getEmailConfig can read
+      // email_provider_settings under RLS. Without _client the helper
+      // falls back to the imported browser anon supabase, which has
+      // no session on the server, so the SELECT silently returns
+      // nothing and the round-trip confirmation never lands.
       const result = await emailService.sendEmailDetailed({
         companyId,
         to: r.email,
         subject,
         body: bodyHtml || bodyText,
-      });
+        _client: admin,
+      } as any);
       if (!result?.success) {
         console.warn(
           `[verify-domain] confirmation email to ${r.email} failed:`,

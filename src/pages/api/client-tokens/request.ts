@@ -109,6 +109,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       const { emailService } = await import("@/services/emailService");
+      // Wave 24: pass the service-role client so getEmailConfig can
+      // read email_provider_settings under RLS. Without this the
+      // helper falls back to the browser anon supabase (which has no
+      // session on the server), the SELECT returns nothing, and
+      // sendEmail silently no-ops -- the user never gets their link.
       await (emailService as any).sendEmail({
         companyId: company.id,
         to: cleanEmail,
@@ -117,6 +122,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 <p>Here's a fresh link to your ${company.company_name} client portal -- valid for ${MAGIC_LINK_TTL_DAYS} days.</p>
 <p><a href="${accountUrl}" style="display:inline-block;padding:10px 18px;background:#111;color:#fff;text-decoration:none;border-radius:6px">Open my account</a></p>
 <p style="color:#666;font-size:12px">If you didn't request this, ignore the email -- the link will expire on its own.</p>`,
+        bypassQuarantine: true,
+        _client: sb,
       });
     } catch (e: any) {
       console.warn("[client-tokens/request] email send failed:", e?.message);
