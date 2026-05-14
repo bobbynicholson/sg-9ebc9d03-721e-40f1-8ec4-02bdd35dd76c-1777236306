@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2, CreditCard, CheckCircle2, AlertCircle, FileText,
-  Calendar, Printer,
+  Calendar, Printer, Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PayFastService } from "@/lib/payfastService";
@@ -86,6 +86,14 @@ export default function InvoicePaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // Wave 29.2: store-credit support on the public magic-link pay
+  // page. Mirrors PaymentModal -- fetch balance via the
+  // credit-balance endpoint (token-bearer auth), default the toggle
+  // on when there's any to apply.
+  const [creditAvailable, setCreditAvailable] = useState<number>(0);
+  const [creditMaxApplicable, setCreditMaxApplicable] = useState<number>(0);
+  const [applyCredit, setApplyCredit] = useState<boolean>(false);
+  const [settledByCredit, setSettledByCredit] = useState<boolean>(false);
 
   // Apply per-tenant brand colours once the invoice + company resolve.
   // Same pattern as /q/[token] -- public route, no auth context, so we
@@ -134,6 +142,28 @@ export default function InvoicePaymentPage() {
       }
       setInvoice(data as InvoiceView);
       setLoading(false);
+
+      // Wave 29.2: probe store-credit balance for this client.
+      // Token-bearer auth via the same public_token used for the
+      // pay session -- no Supabase session required.
+      try {
+        const cb = await fetch("/api/payments/credit-balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoice_id: (data as any).id,
+            public_token: (data as any).public_token,
+          }),
+        });
+        const cbJson = await cb.json().catch(() => ({}));
+        if (cb.ok && cbJson?.ok) {
+          setCreditAvailable(Number(cbJson.available) || 0);
+          setCreditMaxApplicable(Number(cbJson.maxApplicable) || 0);
+          if (Number(cbJson.maxApplicable) > 0) setApplyCredit(true);
+        }
+      } catch {
+        // Credit lookup is soft -- failure shouldn't block the pay flow.
+      }
     })();
     return () => { cancelled = true; };
   }, [token]);
@@ -160,9 +190,23 @@ export default function InvoicePaymentPage() {
         body: JSON.stringify({
           invoice_id: invoice.id,
           public_token: invoice.public_token,
+          // Wave 29.2: pass the toggle state through so the server
+          // nets credit before the gateway charge. apply_credit_amount
+          // explicitly carries the cap we computed up-front; the RPC
+          // will further cap by available balance under its lock.
+          apply_credit: applyCredit,
+          apply_credit_amount: applyCredit ? creditMaxApplicable : undefined,
         }),
       });
       const json = await resp.json();
+
+      // Wave 29.2: full credit cover -- no gateway hop. Render a
+      // settled state in place rather than sending the client off.
+      if (json?.settled === true) {
+        setSettledByCredit(true);
+        setProcessing(false);
+        return;
+      }
       if (!resp.ok || !json?.ok) {
         // Surface a fix-path the client can act on. Previously the
         // operator's invoice link landed on a dead-end "contact the
@@ -449,24 +493,74 @@ export default function InvoicePaymentPage() {
                     </p>
                   </div>
 
-                  <Button
-                    onClick={initiatePayment}
-                    disabled={processing}
-                    size="lg"
-                    className="w-full bg-brand-primary hover:opacity-90 gap-2"
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Redirecting to payment...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="w-5 h-5" />
-                        Pay {fmtMoney.format(invoice.balance_due)} now
-                      </>
-                    )}
-                  </Button>
+                  {/* Wave 29.2: store-credit toggle for the magic-link
+                      pay flow. Only shown when the client holds credit
+                      with this catering company. Default-on for the
+                      cashflow win; clients can untick. */}
+                  {creditAvailable > 0 && !settledByCredit && (
+                    <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={applyCredit}
+                          onChange={(e) => setApplyCredit(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-emerald-600" />
+                            <span className="font-semibold text-emerald-900">
+                              Apply your store credit
+                            </span>
+                          </div>
+                          <p className="text-sm text-emerald-800 mt-1">
+                            You have <strong>{fmtMoney.format(creditAvailable)}</strong> in credit on file with {invoice.companies.company_name || "the caterer"}.
+                            {creditMaxApplicable >= invoice.balance_due
+                              ? " That covers this whole invoice -- nothing left to charge."
+                              : ` We'll apply ${fmtMoney.format(creditMaxApplicable)} and you'll only pay ${fmtMoney.format(invoice.balance_due - creditMaxApplicable)} for the rest.`}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+
+                  {settledByCredit ? (
+                    <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-5 text-center">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+                      <p className="font-bold text-emerald-900 text-lg">Invoice settled</p>
+                      <p className="text-sm text-emerald-800 mt-1">
+                        We applied {fmtMoney.format(creditMaxApplicable)} of your store credit -- nothing further to pay.
+                      </p>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={initiatePayment}
+                      disabled={processing}
+                      size="lg"
+                      className="w-full bg-brand-primary hover:opacity-90 gap-2"
+                    >
+                      {processing ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Redirecting to payment...
+                        </>
+                      ) : applyCredit && creditMaxApplicable >= invoice.balance_due ? (
+                        <>
+                          <Wallet className="w-5 h-5" />
+                          Settle with {fmtMoney.format(creditMaxApplicable)} credit
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5" />
+                          Pay {fmtMoney.format(
+                            applyCredit
+                              ? Math.max(0, invoice.balance_due - creditMaxApplicable)
+                              : invoice.balance_due,
+                          )} now
+                        </>
+                      )}
+                    </Button>
+                  )}
 
                   {/* Bank transfer alternative */}
                   {invoice.invoice_data?.bankDetails && (

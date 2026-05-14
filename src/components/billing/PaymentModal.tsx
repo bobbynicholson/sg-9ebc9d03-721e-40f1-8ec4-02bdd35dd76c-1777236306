@@ -23,7 +23,7 @@
  * EFTs. The whole point of this modal is to make using the right one
  * easier than not.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -31,7 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   CreditCard, Loader2, Lock, CheckCircle,
-  Copy, ClipboardCheck, AlertCircle, Landmark, Calendar,
+  Copy, ClipboardCheck, AlertCircle, Landmark, Calendar, Wallet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,11 +57,17 @@ interface PaymentModalProps {
    *  ReceiptDialog scoped to this invoice. We hand off rather than
    *  embedding so there's never two dialogs stacked. */
   onShowReceipt?: (invoiceId: string) => void;
+  /** Wave 29.2: optional public token. When the modal is rendered
+   *  from a magic-link surface (/c/order/[id], /pay/i/[token]) we
+   *  pass the token through so the credit-balance lookup and
+   *  redeem call both authenticate via token-bearer rather than
+   *  Supabase auth. */
+  publicToken?: string;
 }
 
 type Method = "online" | "eft";
 
-export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowReceipt }: PaymentModalProps) {
+export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowReceipt, publicToken }: PaymentModalProps) {
   const { toast } = useToast();
   const { company } = useAuth() as any;
 
@@ -94,16 +100,90 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
   const [eftNotes, setEftNotes] = useState("");
   const [confirmingClaim, setConfirmingClaim] = useState(false);
 
+  // Wave 29.2: store-credit balance + apply toggle. Fetched on open
+  // via /api/payments/credit-balance which mirrors create-session's
+  // auth gate. When available > 0, the modal renders a green panel
+  // above the method picker offering to net the credit.
+  const [creditAvailable, setCreditAvailable] = useState<number>(0);
+  const [creditMaxApplicable, setCreditMaxApplicable] = useState<number>(0);
+  const [applyCredit, setApplyCredit] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!open || !invoice?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/payments/credit-balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoice_id: invoice.id,
+            public_token: publicToken || undefined,
+          }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled || !r.ok || !j?.ok) return;
+        setCreditAvailable(Number(j.available) || 0);
+        setCreditMaxApplicable(Number(j.maxApplicable) || 0);
+        // Default the toggle on when there's any credit -- catering
+        // cashflow win, and the client can untick if they prefer to
+        // keep the credit for later.
+        if (Number(j.maxApplicable) > 0) setApplyCredit(true);
+      } catch {
+        // Silent -- credit is a soft feature; the pay flow still
+        // works without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, invoice?.id, publicToken]);
+
+  const fmtCurrency = (n: number) =>
+    `${invoice.currency}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const netAmount = applyCredit
+    ? Math.max(0, invoice.amount - creditMaxApplicable)
+    : invoice.amount;
+
   const startOnlinePayment = async () => {
+    // Wave 29.2: pass the apply-credit toggle through. The endpoint
+    // calls the redeem_client_credit RPC under a per-wallet advisory
+    // lock so a mash-click can't double-spend. When credit covers
+    // the full bill, the response carries {settled:true} and we
+    // skip the gateway hop entirely.
     const r = await fetch("/api/payments/create-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invoice_id: invoice.id }),
+      body: JSON.stringify({
+        invoice_id: invoice.id,
+        public_token: publicToken || undefined,
+        apply_credit: applyCredit,
+        apply_credit_amount: applyCredit ? creditMaxApplicable : undefined,
+      }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j?.ok) {
       throw new Error(j?.error || "Could not start the payment");
     }
+
+    if (j.settled === true) {
+      // Credit covered the whole invoice -- no gateway needed.
+      toast({
+        title: "Paid with store credit",
+        description: `Applied ${fmtCurrency(j.creditApplied || creditMaxApplicable)}; nothing left to charge.`,
+      });
+      setPaymentComplete(true);
+      onPaymentSuccess();
+      return;
+    }
+
+    if (j.creditApplied > 0) {
+      toast({
+        title: "Credit applied",
+        description: `Applied ${fmtCurrency(j.creditApplied)} -- redirecting you to pay the remaining ${fmtCurrency(netAmount)}.`,
+      });
+    }
+
     const paymentUrl: string = j.paymentUrl;
     const isHtmlForm: boolean = !!j.isHtmlForm;
     if (!paymentUrl) {
@@ -336,10 +416,58 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             <div className="flex justify-between items-center">
               <span className="font-semibold text-slate-900">Amount due</span>
               <span className="text-2xl font-bold text-blue-600">
-                {invoice.currency}{invoice.amount.toLocaleString()}
+                {fmtCurrency(invoice.amount)}
               </span>
             </div>
+            {applyCredit && creditMaxApplicable > 0 && netAmount !== invoice.amount && (
+              <div className="mt-3 pt-3 border-t border-blue-200 space-y-1.5 text-sm">
+                <div className="flex justify-between text-emerald-700">
+                  <span>Store credit applied</span>
+                  <span className="font-semibold tabular-nums">
+                    -{fmtCurrency(creditMaxApplicable)}
+                  </span>
+                </div>
+                <div className="flex justify-between font-semibold text-slate-900">
+                  <span>Remaining to pay</span>
+                  <span className="tabular-nums">{fmtCurrency(netAmount)}</span>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Wave 29.2: store-credit toggle. Only shown when the
+              client actually has credit on file. Default-on (cashflow
+              win for the catering company); the client can untick if
+              they'd rather hold the credit for a future booking. */}
+          {creditAvailable > 0 && (
+            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyCredit}
+                  onChange={(e) => setApplyCredit(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-600" />
+                    <span className="font-semibold text-emerald-900">
+                      Apply your store credit
+                    </span>
+                  </div>
+                  <p className="text-sm text-emerald-800 mt-1">
+                    You have <strong>{fmtCurrency(creditAvailable)}</strong> in
+                    credit on file.
+                    {creditMaxApplicable < creditAvailable
+                      ? ` We'll apply ${fmtCurrency(creditMaxApplicable)} to this invoice and keep the rest on your account.`
+                      : creditMaxApplicable >= invoice.amount
+                        ? " That covers this whole invoice -- nothing left to charge."
+                        : ` We'll apply it all and you'll only pay ${fmtCurrency(netAmount)} for the rest.`}
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
 
           {/* Method picker */}
           <div>
@@ -408,9 +536,17 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               >
                 {processing ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing</>
+                ) : netAmount <= 0 ? (
+                  // Wave 29.2: full credit cover -- the gateway hop
+                  // is skipped server-side. Surface that to the
+                  // client up-front rather than redirecting them
+                  // somewhere they don't need to go.
+                  <><Wallet className="w-4 h-4 mr-2" />
+                    Settle with {fmtCurrency(creditMaxApplicable)} credit
+                  </>
                 ) : (
                   <><CreditCard className="w-4 h-4 mr-2" />
-                    Pay {invoice.currency}{invoice.amount.toLocaleString()}
+                    Pay {fmtCurrency(netAmount)}
                   </>
                 )}
               </Button>
