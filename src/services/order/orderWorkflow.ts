@@ -1561,6 +1561,20 @@ async function sendStatusNotifications(order: any) {
           : n.notification_kind === "client"
           ? clientLink
           : adminLink;
+      // Wave 24: dedup with a SHORT 5-min window. Status flips have
+      // a real misfire surface: the auto-complete cron, the dispatch
+      // service, the kitchen-task completion handler, and a manual
+      // operator status update can race within seconds of each other.
+      // Each path independently calls updateOrderStatus -> this
+      // function -> creates a notification per recipient. Without
+      // dedup the client sees "Order ready" three times in 30s.
+      // 5-min window catches the retry storm cleanly while letting a
+      // legitimate "preparing -> ready -> preparing -> ready" cycle
+      // (rare but real -- chef pulled meat early, sent it back) ping
+      // the recipient again on the second arrival at ready. Longer
+      // window (60min) used for review handlers because a double-
+      // click there would otherwise duplicate, and review cycles
+      // don't legitimately repeat that fast.
       await notificationService.createNotification({
         company_id: order.company_id,
         recipient_id: n.recipient_id,
@@ -1572,6 +1586,8 @@ async function sendStatusNotifications(order: any) {
         link,
         related_entity_type: "order",
         related_entity_id: order.id,
+        dedup: true,
+        dedupWindowMinutes: 5,
       });
     } catch (e) {
       console.warn("[sendStatusNotifications] in-app push failed:", e);
