@@ -48,6 +48,7 @@ import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWid
 import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Stats {
   bookedRevenue: number;
@@ -101,6 +102,8 @@ const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
 
   const [range, setRange] = useState<DateRange>(() => resolvePreset("this_month"));
   const [stats, setStats] = useState<Stats>(EMPTY);
@@ -830,7 +833,7 @@ function AdminDashboardPage() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <Link
-                  href="/admin/orders"
+                  href={withSlug("/admin/orders")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
                 >
                   <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary flex-shrink-0" />
@@ -840,7 +843,7 @@ function AdminDashboardPage() {
                   </div>
                 </Link>
                 <Link
-                  href="/admin/users"
+                  href={withSlug("/admin/users")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg hover:shadow-md transition-all"
                 >
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" />
@@ -850,7 +853,7 @@ function AdminDashboardPage() {
                   </div>
                 </Link>
                 <Link
-                  href="/admin/financial-dashboard"
+                  href={withSlug("/admin/financial-dashboard")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg hover:shadow-md transition-all"
                 >
                   <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
@@ -860,7 +863,7 @@ function AdminDashboardPage() {
                   </div>
                 </Link>
                 <Link
-                  href="/admin/inventory"
+                  href={withSlug("/admin/inventory")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg hover:shadow-md transition-all"
                 >
                   <div className="relative flex-shrink-0">

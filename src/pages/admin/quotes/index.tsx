@@ -45,6 +45,7 @@ import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import {
@@ -213,6 +214,8 @@ function PipelineBoard({
 
 export default function AdminQuotes() {
   const { user, profile } = useAuth() as any;
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   // Phase 9 #1: tenant currency. Replaces the hardcoded R prefix
   // throughout the quotes list, totals card and detail panes.
   const tenantCurrency = useTenantCurrency(user?.company_id);
@@ -262,7 +265,7 @@ export default function AdminQuotes() {
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        router.push("/admin/quotes/new");
+        router.push(withSlug("/admin/quotes/new"));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1219,7 +1222,7 @@ export default function AdminQuotes() {
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
-                <Link href="/admin/quotes/new">
+                <Link href={withSlug("/admin/quotes/new")}>
                   <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                     <Plus className="w-5 h-5 mr-2" />
                     New Quote
@@ -1509,7 +1512,7 @@ export default function AdminQuotes() {
                   <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-slate-900 mb-2">No quotes yet</h3>
                   <p className="text-slate-600 mb-6">Create your first quote from a lead</p>
-                  <Link href="/admin/leads">
+                  <Link href={withSlug("/admin/leads")}>
                     <Button>View Leads</Button>
                   </Link>
                 </CardContent>
@@ -1906,7 +1909,7 @@ export default function AdminQuotes() {
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">Manage</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
-                                <Link href={`/admin/quotes/new?fromQuoteId=${quote.id}`}>
+                                <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit
                                 </Link>

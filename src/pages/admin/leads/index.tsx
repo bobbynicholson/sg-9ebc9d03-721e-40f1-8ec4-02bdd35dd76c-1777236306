@@ -41,6 +41,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 // Per-lead provenance summary -- which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -357,6 +358,12 @@ export default function AdminLeads() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
+  // Wave 27: tenant-slug wrapper for every internal navigation. Keeps
+  // the operator inside /spit-braai-delivery/admin/... when they
+  // jump from a lead row to the linked quote / order / contact, or
+  // when they convert a lead into a quote / order via the action
+  // buttons. See src/lib/tenantUrl.ts.
+  const { withSlug } = useTenantHref();
   const [leads, setLeads] = useState<any[]>([]);
   const [linksByLeadId, setLinksByLeadId] = useState<Map<string, LeadLinks>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -378,7 +385,7 @@ export default function AdminLeads() {
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        router.push("/admin/leads/new");
+        router.push(withSlug("/admin/leads/new"));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -440,7 +447,7 @@ export default function AdminLeads() {
 
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
     if (kind === "view_order" && links.orderId) {
-      router.push(`/admin/orders?orderId=${links.orderId}`);
+      router.push(withSlug(`/admin/orders?orderId=${links.orderId}`));
       return;
     }
     if (kind === "convert_to_order") {
@@ -455,11 +462,11 @@ export default function AdminLeads() {
       return;
     }
     if (kind === "open_quote_draft" && links.latestQuoteId) {
-      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
+      router.push(withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`));
       return;
     }
     if (kind === "send_quote") {
-      router.push(`/admin/quotes/new?leadId=${lead.id}`);
+      router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
       return;
     }
     // Email-driven kinds open the rich compose drawer, same UX as the
@@ -815,7 +822,7 @@ export default function AdminLeads() {
                 <h1 className="text-3xl font-bold text-slate-900">Leads</h1>
                 <p className="text-slate-600">
                   Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details (type, guest count, budget, venue, source) before quoting. Leads also appear in your{" "}
-                  <Link href="/admin/contacts" className="text-indigo-600 hover:underline font-medium">
+                  <Link href={withSlug("/admin/contacts")} className="text-indigo-600 hover:underline font-medium">
                     Contacts inbox
                   </Link>
                   {" "}automatically.
@@ -898,7 +905,7 @@ export default function AdminLeads() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Link href="/admin/leads/new">
+              <Link href={withSlug("/admin/leads/new")}>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Lead
@@ -919,10 +926,10 @@ export default function AdminLeads() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-amber-900">Email notifications are off</p>
                 <p className="text-xs text-amber-800 mt-0.5">
-                  No email provider is configured for your company. New embed-form leads, quote acceptances and lead alerts won't reach your inbox until you set this up. Configure Resend or your own SMTP in <Link href="/admin/email-settings" className="font-medium underline underline-offset-2">Email settings</Link>.
+                  No email provider is configured for your company. New embed-form leads, quote acceptances and lead alerts won't reach your inbox until you set this up. Configure Resend or your own SMTP in <Link href={withSlug("/admin/email-settings")} className="font-medium underline underline-offset-2">Email settings</Link>.
                 </p>
               </div>
-              <Link href="/admin/email-settings">
+              <Link href={withSlug("/admin/email-settings")}>
                 <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100 flex-shrink-0">
                   Set up
                 </Button>
@@ -1128,7 +1135,7 @@ export default function AdminLeads() {
                                 lead -- buffet vs plated, 100 vs 150 pax). */}
                             {links.quoteCount === 1 && links.latestQuoteId && (
                               <Link
-                                href={`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`}
+                                href={withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
                               >
                                 <FileText className="w-3 h-3" />
@@ -1151,7 +1158,7 @@ export default function AdminLeads() {
                                   {links.quotes.map((q) => (
                                     <DropdownMenuItem
                                       key={q.id}
-                                      onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${q.id}`)}
+                                      onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${q.id}`))}
                                       className="flex flex-col items-start gap-0.5"
                                     >
                                       <span className="text-sm font-medium text-slate-900">
@@ -1169,7 +1176,7 @@ export default function AdminLeads() {
                             )}
                             {links.orderId && (
                               <Link
-                                href={`/admin/orders?orderId=${links.orderId}`}
+                                href={withSlug(`/admin/orders?orderId=${links.orderId}`)}
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-100"
                               >
                                 <ShoppingCart className="w-3 h-3" />
@@ -1281,7 +1288,7 @@ export default function AdminLeads() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                                    onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
                                     className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
                                     title={`Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`}
                                   >
@@ -1295,7 +1302,7 @@ export default function AdminLeads() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
+                                    onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`))}
                                     className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
                                     title="Open the existing quote in the editable builder for a quick edit"
                                   >
@@ -1322,7 +1329,7 @@ export default function AdminLeads() {
                                     {links.quotes.map((q) => (
                                       <DropdownMenuItem
                                         key={q.id}
-                                        onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${q.id}`)}
+                                        onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${q.id}`))}
                                         className="flex flex-col items-start gap-0.5"
                                       >
                                         <span className="text-sm font-medium text-slate-900">
@@ -1336,7 +1343,7 @@ export default function AdminLeads() {
                                       </DropdownMenuItem>
                                     ))}
                                     <DropdownMenuItem
-                                      onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                                      onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
                                       className="border-t border-slate-200 mt-1 pt-2 text-blue-700 font-medium"
                                     >
                                       <Plus className="w-3.5 h-3.5 mr-1" />
@@ -1468,7 +1475,7 @@ export default function AdminLeads() {
                               <p className="text-[11px] text-slate-500">
                                 Rebooked from past order
                                 <Link
-                                  href={`/admin/orders?orderId=${lead.source_order_id}`}
+                                  href={withSlug(`/admin/orders?orderId=${lead.source_order_id}`)}
                                   className="ml-1.5 text-purple-600 hover:underline font-medium"
                                 >
                                   view original
@@ -1591,7 +1598,7 @@ export default function AdminLeads() {
           // up the new "booked" pill on return, and deep-link straight
           // into the new orders dashboard with the order pre-selected.
           void loadLeads();
-          router.push(`/admin/orders?orderId=${orderId}`);
+          router.push(withSlug(`/admin/orders?orderId=${orderId}`));
         }}
       />
     </>

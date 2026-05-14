@@ -106,6 +106,7 @@ import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 import { toLocalISO } from "@/lib/localDate";
@@ -256,6 +257,8 @@ function NewQuotePage() {
   const router = useRouter();
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const { leadId, fromQuoteId } = router.query;
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
 
@@ -1413,7 +1416,7 @@ function NewQuotePage() {
           title: "Quote sent",
           description: `Email queued to ${email}.`,
         });
-        router.push("/admin/quotes");
+        router.push(withSlug("/admin/quotes"));
       }
     } finally {
       setSending(false);
@@ -1441,7 +1444,7 @@ function NewQuotePage() {
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl mx-auto">
-          <Link href="/admin/quotes">
+          <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" className="mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Quotes
@@ -2426,7 +2429,7 @@ function NewQuotePage() {
           </ul>
           <p className="text-xs text-slate-500">
             Sending now puts the client and kitchen on the hook without a signed allergen statement. Open each item on{" "}
-            <Link href="/admin/menu" className="underline" target="_blank">/admin/menu</Link>{" "}
+            <Link href={withSlug("/admin/menu")} className="underline" target="_blank">/admin/menu</Link>{" "}
             and save it to mark it reviewed, or send anyway if the risk is accepted.
           </p>
           <AlertDialogFooter>

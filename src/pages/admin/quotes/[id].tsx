@@ -35,6 +35,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { quoteService } from "@/services/quoteService";
 import { Quote } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
@@ -81,6 +82,8 @@ export default function AdminQuoteDetail() {
   const { id } = router.query;
   const { user } = useAuth();
   const { toast } = useToast();
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -451,7 +454,7 @@ export default function AdminQuoteDetail() {
 
         <div className="max-w-7xl mx-auto px-4 pt-20 lg:pt-6 pb-12">
           <div className="mb-6">
-            <Link href="/admin/quotes">
+            <Link href={withSlug("/admin/quotes")}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Quotes
@@ -472,7 +475,7 @@ export default function AdminQuoteDetail() {
                 <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h2 className="text-xl font-semibold text-slate-900 mb-2">Quote not found</h2>
                 <p className="text-slate-600 mb-6">This quote may have been deleted or never existed.</p>
-                <Link href="/admin/quotes">
+                <Link href={withSlug("/admin/quotes")}>
                   <Button>Back to Quotes</Button>
                 </Link>
               </CardContent>
@@ -810,7 +813,7 @@ export default function AdminQuoteDetail() {
 
               {/* Action bar */}
               <div className="flex flex-wrap gap-3">
-                <Link href="/admin/quotes" className="flex-1 min-w-[120px]">
+                <Link href={withSlug("/admin/quotes")} className="flex-1 min-w-[120px]">
                   <Button variant="outline" className="w-full">Back to list</Button>
                 </Link>
                 {isDraft ? (
@@ -852,7 +855,7 @@ export default function AdminQuoteDetail() {
                     </Button>
                   </>
                 ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
-                  <Link href={`/admin/orders/new?quoteId=${quote.id}`} className="flex-1 min-w-[180px]">
+                  <Link href={withSlug(`/admin/orders/new?quoteId=${quote.id}`)} className="flex-1 min-w-[180px]">
                     <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600">
                       <Sparkles className="w-4 h-4 mr-2" />
                       Convert to order
@@ -874,7 +877,7 @@ export default function AdminQuoteDetail() {
                     as 'addressed'. */}
                 {!isDraft && (
                   <Link
-                    href={`/admin/quotes/new?fromQuoteId=${quote.id}`}
+                    href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}
                     className="flex-1 min-w-[180px]"
                   >
                     <Button

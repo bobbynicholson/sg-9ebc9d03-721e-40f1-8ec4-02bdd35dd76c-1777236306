@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedCalendarPage() {
@@ -76,6 +77,8 @@ interface OpenQuote {
 function AdminCalendar() {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -393,7 +396,7 @@ function AdminCalendar() {
               >
                 <Download className="w-3.5 h-3.5" /> Export month
               </Button>
-              <Link href="/admin/order-assignments">
+              <Link href={withSlug("/admin/order-assignments")}>
                 <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2">
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
@@ -593,7 +596,7 @@ function AdminCalendar() {
                       {upcoming.map((e: any) => (
                         <Link
                           key={e.id}
-                          href={`/admin/orders?id=${e.id}`}
+                          href={withSlug(`/admin/orders?id=${e.id}`)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex flex-col items-center justify-center flex-shrink-0">
@@ -669,7 +672,7 @@ function AdminCalendar() {
                               {quotes.slice(0, 3).map((q) => (
                                 <Link
                                   key={q.id}
-                                  href={`/admin/quotes?focus=${q.id}`}
+                                  href={withSlug(`/admin/quotes?focus=${q.id}`)}
                                   className="flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-amber-50 -mx-1 px-1 py-0.5 rounded"
                                 >
                                   <span className="truncate">{q.client_name || "Quote"}</span>
@@ -746,7 +749,7 @@ function AdminCalendar() {
                       Quotes pending for this date
                     </h4>
                     {dayQuotes.map((q) => (
-                      <Link key={q.id} href={`/admin/quotes?focus=${q.id}`} className="block">
+                      <Link key={q.id} href={withSlug(`/admin/quotes?focus=${q.id}`)} className="block">
                         <Card className="border border-amber-200 bg-amber-50/50 hover:bg-amber-50 transition-colors">
                           <CardContent className="py-3 px-4">
                             <div className="flex items-center justify-between gap-2">
@@ -775,7 +778,7 @@ function AdminCalendar() {
                 )}
 
                 {dayEvents.length === 0 && dayQuotes.length === 0 ? (
-                  <Link href="/admin/order-assignments" className="block">
+                  <Link href={withSlug("/admin/order-assignments")} className="block">
                     <Card className="border-2 border-dashed border-slate-200 hover:border-purple-300 transition-colors">
                       <CardContent className="py-8 text-center">
                         <Plus className="w-8 h-8 mx-auto text-slate-400 mb-2" />
@@ -790,7 +793,7 @@ function AdminCalendar() {
                     return (
                       <Link
                         key={e.id}
-                        href={`/admin/orders?id=${e.id}`}
+                        href={withSlug(`/admin/orders?id=${e.id}`)}
                         className="block"
                       >
                         <Card className="border-0 shadow hover:shadow-lg transition-all hover:-translate-y-0.5">

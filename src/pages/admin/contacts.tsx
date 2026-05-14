@@ -53,6 +53,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -160,6 +161,8 @@ function ClientsCRM() {
     null;
   const { toast } = useToast();
   const router = useRouter();
+  // Wave 27: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
@@ -1368,9 +1371,9 @@ function ClientsCRM() {
                                     size="sm"
                                     onClick={() => {
                                       if (c.quoteIds.length > 0) {
-                                        router.push(`/admin/quotes/new?fromQuoteId=${c.quoteIds[0]}`);
+                                        router.push(withSlug(`/admin/quotes/new?fromQuoteId=${c.quoteIds[0]}`));
                                       } else {
-                                        router.push(`/admin/quotes/new?leadId=${c.leadIds[0]}`);
+                                        router.push(withSlug(`/admin/quotes/new?leadId=${c.leadIds[0]}`));
                                       }
                                     }}
                                     className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
