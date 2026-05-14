@@ -359,6 +359,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       void sendCancellationEmail(orderId, refund_final);
     }
 
+    // Wave 28.6: rich admin notification. Single card with payout +
+    // committed cost + freed slot, dedup'd within 60min.
+    void (async () => {
+      try {
+        const { data: orderRow } = await ssr
+          .from("orders")
+          .select("order_number, client_name, event_date, currency")
+          .eq("id", orderId)
+          .maybeSingle();
+        const { fireRichCancellationNotification } = await import(
+          "@/services/cancellation/fireCancellationNotification"
+        );
+        await fireRichCancellationNotification({
+          supabase: ssr,
+          orderId,
+          companyId: (order as any).company_id,
+          orderNumber: (orderRow as any)?.order_number || null,
+          clientName: (orderRow as any)?.client_name || null,
+          eventDate: (orderRow as any)?.event_date || null,
+          daysToEvent: Number(snap.days_to_event) || 0,
+          payoutChoice: payout_choice,
+          refundAmount: payout_choice === "refund" ? refund_final : 0,
+          creditAmount: payout_choice === "credit" ? credit_final : 0,
+          committedCostNote: committed_cost_note,
+          requestedBy: requested_by,
+          currencyCode: (orderRow as any)?.currency || null,
+          reason,
+        });
+      } catch (e) {
+        console.warn("[orders/cancel] rich notification failed:", e);
+      }
+    })();
+
     return res.status(200).json({
       ok: true,
       payout_choice,

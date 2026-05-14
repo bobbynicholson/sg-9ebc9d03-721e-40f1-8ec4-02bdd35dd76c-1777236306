@@ -238,6 +238,39 @@ export async function runAutoCancel(
     console.warn("[runAutoCancel] email failed:", e);
   }
 
+  // 5. Wave 28.6: single rich admin notification. Replaces the
+  // generic status-change broadcast. Carries payout amount,
+  // committed-cost note, freed-slot line, and a deep link to the
+  // order so admins read the consequence in one card.
+  try {
+    const { data: orderRow } = await sb
+      .from("orders")
+      .select("order_number, client_name, event_date, currency")
+      .eq("id", input.orderId)
+      .maybeSingle();
+    const { fireRichCancellationNotification } = await import(
+      "./fireCancellationNotification"
+    );
+    await fireRichCancellationNotification({
+      supabase: input.supabase,
+      orderId: input.orderId,
+      companyId: input.companyId,
+      orderNumber: orderRow?.order_number || null,
+      clientName: orderRow?.client_name || null,
+      eventDate: orderRow?.event_date || null,
+      daysToEvent: Number(snap.days_to_event) || 0,
+      payoutChoice: input.payoutChoice,
+      refundAmount: refund_final,
+      creditAmount: credit_final,
+      committedCostNote: input.committedCostNote,
+      requestedBy: input.requestedBy,
+      currencyCode: orderRow?.currency || null,
+      reason: input.reason,
+    });
+  } catch (e) {
+    console.warn("[runAutoCancel] rich notification failed:", e);
+  }
+
   return {
     ok: true,
     auto_processed: true,

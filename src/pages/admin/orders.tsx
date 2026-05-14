@@ -991,8 +991,14 @@ function OrderProcessDashboard() {
     // both so the catering team sees, at a glance, what's at risk.
     const intel = deriveOrderIntelligence(order);
     const auto = autoEmailMap.get((order as any).id) || { sent: 0, latest: null, postEventSent: false } as OrderAutoEmailSummary;
-    const ringClass =
-      intel.tone === "urgent"
+    // Wave 28.6: cancelled orders get a thicker red top strip + faint
+    // wash so they're unmissable in the kanban / list. The left
+    // border alone wasn't enough -- a cancelled card sat among
+    // confirmed ones and read as just another tone of red.
+    const isCancelled = order.status === "cancelled";
+    const ringClass = isCancelled
+      ? "ring-2 ring-rose-400 bg-rose-50/40"
+      : intel.tone === "urgent"
         ? "ring-2 ring-rose-300"
         : intel.bucket === "today"
           ? "ring-2 ring-blue-200"
@@ -1000,8 +1006,14 @@ function OrderProcessDashboard() {
 
     return (
       <Card
-        className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${ringClass}`}
-        style={{ borderLeftColor: config.dotColor.replace('bg-', '#') }}
+        className={`hover:shadow-md transition-shadow cursor-pointer ${
+          isCancelled ? "border-t-4 border-t-rose-500" : "border-l-4"
+        } ${ringClass}`}
+        style={
+          isCancelled
+            ? undefined
+            : { borderLeftColor: config.dotColor.replace('bg-', '#') }
+        }
       >
         <CardContent className="p-4">
           <div className="space-y-3">
@@ -1145,13 +1157,20 @@ function OrderProcessDashboard() {
     // timeline. Healthy orders keep their default styling.
     const tl = timelinesById.get((order as any).id);
     const isBlocked = !!tl?.blocked;
+    // Wave 28.6: cancelled rows get a thicker red top strip + wash
+    // so they're visually unmistakable in the timeline view too.
+    const isCancelled = order.status === "cancelled";
 
     return (
       <Card
         className={`hover:shadow-md transition-shadow cursor-pointer ${
           isSelected ? "ring-2 ring-blue-400" : ""
         } ${
-          isBlocked ? "border-l-4 border-l-red-500 bg-red-50/30" : ""
+          isCancelled
+            ? "border-t-4 border-t-rose-500 bg-rose-50/40"
+            : isBlocked
+              ? "border-l-4 border-l-red-500 bg-red-50/30"
+              : ""
         }`}
         onClick={() => {
           setSelectedOrder(order);
