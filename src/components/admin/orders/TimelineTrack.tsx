@@ -294,6 +294,10 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
         <Link
           href={withSlug(stage.sourceLink)}
           onClick={(e) => e.stopPropagation()}
+          // Wave 28.8: query-only nav was scrolling to top because
+          // next/link defaults scroll:true. The /admin/orders page
+          // adopts the orderId query param to open the drawer in-place.
+          scroll={false}
           className="text-xs font-semibold underline decoration-dotted hover:decoration-solid flex-shrink-0"
         >
           Open →
@@ -435,6 +439,9 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
             <Link
               href={withSlug(currentStage.sourceLink)}
               onClick={(e) => e.stopPropagation()}
+              // Wave 28.8: see StageDot above -- scroll:false so the
+              // page doesn't jump to top when the URL flips ?orderId.
+              scroll={false}
               className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${
                 currentStage.status === "blocked"
                   ? "bg-red-600 hover:bg-red-700"

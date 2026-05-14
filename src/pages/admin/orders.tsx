@@ -563,6 +563,38 @@ function OrderProcessDashboard() {
     }
   }, [router.isReady, router.query.orderId, router.query.amendment, router.query.cancellation]);
 
+  // Wave 28.8: when the URL carries a bare ?orderId=... (no amendment
+  // / cancellation params), open the order detail drawer for that
+  // order. Used by the timeline "Open →" links in the row banner --
+  // they navigate to ?orderId so a refresh / direct paste lands on
+  // the same drawer state. Waits for the orders list to load before
+  // it can match by id; otherwise the click would race the fetch.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const orderId =
+      typeof router.query.orderId === "string" ? router.query.orderId : null;
+    if (!orderId) return;
+    // Skip when a review drawer is already adopting this orderId so
+    // we don't double-open both surfaces on the same click.
+    if (router.query.amendment || router.query.cancellation) return;
+    if (orders.length === 0) return; // wait for fetch
+    if (selectedOrder?.id === orderId && isModalOpen) return; // already open
+    const found = orders.find((o) => o.id === orderId);
+    if (found) {
+      setSelectedOrder(found);
+      setIsModalOpen(true);
+    }
+    // selectedOrder + isModalOpen intentionally omitted -- including
+    // them would re-fire on every drawer change and bounce the modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    router.isReady,
+    router.query.orderId,
+    router.query.amendment,
+    router.query.cancellation,
+    orders,
+  ]);
+
   // Adopt ?clientId from the URL as a filter. Kept separate from the
   // review-drawer effect so they don't fight each other when both
   // params are present. We resolve the client name from the loaded
@@ -1886,7 +1918,23 @@ function OrderProcessDashboard() {
     };
 
     return (
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(o) => {
+          setIsModalOpen(o);
+          // Wave 28.8: when the drawer closes, strip ?orderId from the
+          // URL so a refresh doesn't bounce it open again. Keeps any
+          // unrelated query params intact (filter, sort, etc.).
+          if (!o && router.isReady && router.query.orderId) {
+            const { orderId: _drop, ...rest } = router.query;
+            router.replace(
+              { pathname: router.pathname, query: rest },
+              undefined,
+              { shallow: true, scroll: false },
+            );
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
