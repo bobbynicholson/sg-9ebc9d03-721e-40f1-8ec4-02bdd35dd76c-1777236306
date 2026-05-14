@@ -66,6 +66,10 @@
     {
       "path": "/api/cron/archive-old-notifications",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/cron/archive-old-email-rows",
+      "schedule": "30 3 * * 0"
     }
   ]
 }
