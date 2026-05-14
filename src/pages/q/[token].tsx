@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
-  Printer, MessageSquare,
+  Printer, MessageSquare, ArrowRight, Pencil, X,
 } from "lucide-react";
 import {
   fetchByToken, recordView, recordAccept, submitChangeRequest,
@@ -459,9 +459,26 @@ export default function PublicQuotePage() {
                   Accepted
                 </Badge>
               ) : (
-                <Badge className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
+                /* Wave 26.2: clicking the status pill anchor-scrolls
+                   the client down to the bottom action panel where
+                   they can accept / tweak / decline. Most quotes are
+                   long enough that the action buttons are below the
+                   fold, and the previous static badge gave no hint
+                   that there was anything to do. Smooth scroll to
+                   #quote-actions so the client lands on the buttons
+                   instead of being dropped to the page bottom. */
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("quote-actions");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm rounded-full font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 cursor-pointer"
+                  aria-label="Jump to response options"
+                >
                   Awaiting your response
-                </Badge>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           </div>
@@ -817,7 +834,17 @@ export default function PublicQuotePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center space-y-3">
+                    // Wave 26.2: anchor target for the "Awaiting your
+                    // response" pill at the top + restructured action
+                    // row. Three buttons of equal weight, Accept first
+                    // + green so the eye lands on the commitment
+                    // action immediately. The previous layout buried
+                    // Tweak + Decline as plain text links underneath,
+                    // which felt invisible (clients didn't know they
+                    // could decline) or sketchy ("am I sure I'm
+                    // allowed to push back?"). Three buttons give
+                    // every client a clear choice.
+                    <div id="quote-actions" className="text-center space-y-4 scroll-mt-24">
                       {validUntil && (
                         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5 inline-block">
                           This quote is valid until <strong>{validUntil}</strong>.
@@ -826,45 +853,50 @@ export default function PublicQuotePage() {
                       <p className="text-sm text-stone-700">
                         Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
                       </p>
-                      <Button
-                        onClick={() => setAcceptOpen(true)}
-                        className="bg-brand-primary hover:opacity-90 gap-1.5 px-6"
-                        size="lg"
-                      >
-                        <CheckCircle2 className="w-5 h-5" />
-                        Accept this quote
-                      </Button>
-                      {/* Tertiary trigger -- not-yet-accepted clients
-                          who want a tweak before committing. Plain
-                          text-link so it can't compete with Accept. */}
-                      {!changesSent && !changesOpen && (
-                        <div className="flex items-center justify-center gap-3 flex-wrap">
-                          <button
-                            type="button"
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
+                        {/* Primary -- Accept. Green so it reads as
+                            "go" without depending on the tenant's
+                            brand colour (which can be anything). */}
+                        <Button
+                          onClick={() => setAcceptOpen(true)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 shadow-sm"
+                          size="lg"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                          Accept this quote
+                        </Button>
+                        {/* Secondary -- Tweak. Neutral outline. Hidden
+                            once the inline change-request form is
+                            already open or a request has been sent
+                            (don't double-prompt). */}
+                        {!changesSent && !changesOpen && (
+                          <Button
+                            variant="outline"
                             onClick={() => { setChangesOpen(true); setChangesError(null); }}
-                            className="text-xs text-stone-600 underline-offset-2 hover:text-stone-900 hover:underline"
+                            className="gap-1.5 px-6 border-stone-300 hover:bg-stone-50"
+                            size="lg"
                           >
-                            Need a tweak first? Send us a message
-                          </button>
-                          {/* Wave 21 audit: Decline link. Closes the
-                              loop for clients who don't want to go
-                              ahead -- prevents the quote sitting in
-                              the operator's pipeline forever. Plain
-                              text link, never compete with Accept. */}
-                          {!justDeclined && quote.status !== "rejected" && (
-                            <>
-                              <span className="text-stone-300" aria-hidden>·</span>
-                              <button
-                                type="button"
-                                onClick={() => { setDeclineOpen(true); setDeclineError(null); }}
-                                className="text-xs text-stone-500 underline-offset-2 hover:text-rose-700 hover:underline"
-                              >
-                                Decline this quote
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                            <Pencil className="w-4 h-4" />
+                            Need a tweak
+                          </Button>
+                        )}
+                        {/* Tertiary -- Decline. Rose-tinted outline so
+                            it's clearly a refusal action without
+                            shouting. Hidden once already declined
+                            (justDeclined) or the quote was already
+                            rejected server-side. */}
+                        {!justDeclined && quote.status !== "rejected" && (
+                          <Button
+                            variant="outline"
+                            onClick={() => { setDeclineOpen(true); setDeclineError(null); }}
+                            className="gap-1.5 px-6 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            size="lg"
+                          >
+                            <X className="w-4 h-4" />
+                            Decline
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
