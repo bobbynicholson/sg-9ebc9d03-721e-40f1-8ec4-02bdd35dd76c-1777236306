@@ -424,17 +424,23 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
           )}
         </div>
       )}
-      {/* Cluster band */}
-      <div className="flex items-start gap-2 overflow-x-auto pb-1">
+      {/* Cluster band -- Wave 25.1 polish: flex-1 per cluster wrapper
+          stretches the 5 clusters across the full width of the parent
+          card. Without this the cluster band sized to its natural dot
+          width and left a wide whitespace strip on the right at
+          desktop widths. */}
+      <div className="flex items-stretch gap-1 w-full overflow-x-auto pb-1">
         {CLUSTER_ORDER.map((g, idx) => (
-          <div key={g} className="flex items-start">
-            <ClusterBand
-              group={g}
-              stages={stagesByCluster.get(g) || []}
-              onStageClick={onStageClick}
-            />
+          <div key={g} className="flex items-stretch flex-1 min-w-0">
+            <div className="flex-1 flex justify-center min-w-0">
+              <ClusterBand
+                group={g}
+                stages={stagesByCluster.get(g) || []}
+                onStageClick={onStageClick}
+              />
+            </div>
             {idx < CLUSTER_ORDER.length - 1 && (
-              <div className="h-8 w-px bg-slate-200 self-center mx-1" />
+              <div className="w-px bg-slate-200 self-stretch mx-1" />
             )}
           </div>
         ))}

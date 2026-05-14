@@ -404,7 +404,12 @@ function resolveStage(
           startedAt: null,
           completedAt: null,
           blockedReason: null,
-          sourceLink: `/admin/kitchen-staff?orderId=${orderId}`,
+          // Wave 25.1 polish: deep-link to the order drawer (NOT
+        // /admin/kitchen-staff which is the chef-CRUD page). The
+        // drawer exposes prep tasks within the order context, which
+        // is the operator's natural "open this order's kitchen state"
+        // surface.
+        sourceLink: `/admin/orders?orderId=${orderId}`,
         };
       }
       const totalActive = tasks.filter((t) => String(t?.status || "") !== "skipped").length;
@@ -423,7 +428,12 @@ function resolveStage(
           ? tasks.map((t) => t?.completed_at).filter(Boolean).sort().reverse()[0] || null
           : null,
         blockedReason: null,
-        sourceLink: `/admin/kitchen-staff?orderId=${orderId}`,
+        // Wave 25.1 polish: deep-link to the order drawer (NOT
+        // /admin/kitchen-staff which is the chef-CRUD page). The
+        // drawer exposes prep tasks within the order context, which
+        // is the operator's natural "open this order's kitchen state"
+        // surface.
+        sourceLink: `/admin/orders?orderId=${orderId}`,
         meta: { progress: { done, total: totalActive } },
       };
     }
