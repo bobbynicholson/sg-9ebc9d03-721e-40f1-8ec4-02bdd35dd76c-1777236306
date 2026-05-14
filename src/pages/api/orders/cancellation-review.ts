@@ -45,6 +45,12 @@ async function notifyClient(
       params.requestedByUserId || (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
     if (!recipientId) return;
     const { notificationService } = await import("@/services/notificationService");
+    // Wave 24: dedup so a double-click on Approve / Reject doesn't
+    // fire two identical client-side notifications. The window is
+    // 60min by default which is plenty wider than any realistic UI
+    // misfire and shorter than the gap between distinct legitimate
+    // reviews on the same order (e.g. operator approves cancel,
+    // changes mind, re-opens, re-cancels -- they want the new row).
     await notificationService.createNotification({
       company_id: params.companyId,
       recipient_id: recipientId,
@@ -56,6 +62,7 @@ async function notifyClient(
       link: `/client-portal/my-orders?orderId=${params.orderId}`,
       related_entity_type: "order",
       related_entity_id: params.orderId,
+      dedup: true,
     });
   } catch (e) {
     console.warn("[cancellation-review] notify failed:", e);

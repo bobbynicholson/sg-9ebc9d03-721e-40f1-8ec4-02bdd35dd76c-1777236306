@@ -119,6 +119,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
         if (recipientId) {
           const { notificationService } = await import("@/services/notificationService");
+          // Wave 24: dedup so a double-click on Reject doesn't double-
+          // notify the client.
           await notificationService.createNotification({
             company_id: (request as any).company_id,
             recipient_id: recipientId,
@@ -132,6 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             link: `/client-portal/my-orders?orderId=${(request as any).order_id}`,
             related_entity_type: "order",
             related_entity_id: (request as any).order_id,
+            dedup: true,
           });
         }
       } catch (e) {
@@ -366,6 +369,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .map((k) => k.replace(/_/g, " "))
           .join(", ");
         const { notificationService } = await import("@/services/notificationService");
+        // Wave 24: dedup so a double-click on Approve doesn't double-
+        // notify the client.
         await notificationService.createNotification({
           company_id: (request as any).company_id,
           recipient_id: recipientId,
@@ -379,6 +384,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           link: `/client-portal/my-orders?orderId=${(request as any).order_id}`,
           related_entity_type: "order",
           related_entity_id: (request as any).order_id,
+          dedup: true,
         });
       }
     } catch (e) {
