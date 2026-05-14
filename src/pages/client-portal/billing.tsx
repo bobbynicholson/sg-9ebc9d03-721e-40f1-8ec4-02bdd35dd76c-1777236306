@@ -39,6 +39,23 @@ interface Invoice {
   has_completed_payment: boolean;
 }
 
+// Wave 23: tenant-aware currency symbol. The billing list renders
+// {currency}{amount} so we ship a SYMBOL not a code -- "£5,000" reads
+// right; "GBP5,000" doesn't. Falls back to "R" on bad / unknown codes
+// so a misconfigured tenant still renders something readable.
+function currencySymbolFor(code: string): string {
+  switch ((code || "").toUpperCase()) {
+    case "GBP": return "£";
+    case "USD": return "$";
+    case "EUR": return "€";
+    case "AUD": return "A$";
+    case "NZD": return "NZ$";
+    case "CAD": return "C$";
+    case "ZAR":
+    default:    return "R";
+  }
+}
+
 export default function ClientBillingPage() {
   const { user, company } = useAuth() as any;
   const { toast } = useToast();
@@ -206,7 +223,10 @@ export default function ClientBillingPage() {
           invoice_date: r.invoice_date,
           due_date: r.due_date,
           amount: displayAmount,
-          currency: "R",
+          // Wave 23 audit: hardcoded "R" rendered "R5,000" for UK / US / EU
+          // tenants on the billing list. Resolve from the loaded company
+          // currency with currency-symbol fallback.
+          currency: currencySymbolFor((company as any)?.currency || "ZAR"),
           status,
           paid_at: r.paid_at || undefined,
           event_date: orderEmbed.event_date || r.invoice_date,

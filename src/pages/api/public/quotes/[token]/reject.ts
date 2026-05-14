@@ -195,5 +195,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })();
   }
 
+  // Wave 23: cross-cutting audit_logs row so the platform-wide audit
+  // feed has the rejection alongside everything else touching this
+  // quote / lead / company. Best-effort -- the status flip is the
+  // primary record; a failed audit insert never undoes it.
+  void (async () => {
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: updated.company_id,
+        user_id: null, // public token-bearer flow -- no auth user
+        action: "quote_rejected",
+        entity_type: "quote",
+        entity_id: updated.id,
+        details: {
+          quote_number: updated.quote_number,
+          client_email: updated.client_email,
+          lead_id: updated.lead_id,
+          reason: reason || null,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[public/quotes/reject] audit log insert failed:", auditErr);
+    }
+  })();
+
   return res.status(200).json({ ok: true, quoteId: updated.id });
 }

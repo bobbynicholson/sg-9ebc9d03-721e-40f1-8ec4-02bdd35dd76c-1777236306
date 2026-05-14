@@ -124,7 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // selecting it from quotes returns "column quotes.currency does not
     // exist" and 500s the accept flow. Pull currency from companies
     // below where we already fetch tenant context for the email.
-    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name")
+    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name, quote_number")
     .maybeSingle();
 
   // Wave 17 audit: don't leak raw Postgres errors to the public client.
@@ -177,6 +177,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (err) {
     console.warn("[public/quotes/accept] audit insert failed", err);
   }
+
+  // Wave 23: cross-cutting audit_logs row mirroring the quote_acceptances
+  // domain insert above. quote_acceptances is the rich record (acceptor
+  // name, IP hash, UA); audit_logs is the cross-entity feed the
+  // platform-wide audit views read from.
+  void (async () => {
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: updated.company_id,
+        user_id: null, // public token-bearer flow -- no auth user
+        action: "quote_accepted",
+        entity_type: "quote",
+        entity_id: updated.id,
+        details: {
+          quote_number: (updated as any).quote_number,
+          client_email: updated.client_email,
+          acceptor_name: acceptorName,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[public/quotes/accept] audit_logs insert failed:", auditErr);
+    }
+  })();
 
   // Fire notifications fully async so the client gets a fast response.
   // Each channel is best-effort, wrapped in its own try/catch.
