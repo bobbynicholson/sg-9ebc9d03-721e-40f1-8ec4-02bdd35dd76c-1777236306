@@ -52,7 +52,12 @@ export async function syncOrderArtifacts(
         .eq("order_id", orderId)
         .order("created_at", { ascending: true }),
       sb.from("equipment_bookings")
-        .select("id, equipment_id, quantity, booked_from, booked_until, equipment:equipment(name, daily_rate)")
+        // Wave 30.2: equipment.daily_rate is the wrong column name --
+        // the actual price column is rental_price. Same wrong name was
+        // breaking the admin order drawer's Equipment tab; fixing here
+        // means equipment subtotals on the quote sync now compute
+        // correctly instead of always falling back to 0.
+        .select("id, equipment_id, quantity, booked_from, booked_until, equipment:equipment(name, rental_price)")
         .eq("order_id", orderId),
     ]);
 
@@ -70,7 +75,7 @@ export async function syncOrderArtifacts(
 
     const equipmentSubtotal = (bookings || []).reduce((sum: number, b: any) => {
       const eq = Array.isArray(b.equipment) ? b.equipment[0] : b.equipment;
-      const dailyRate = Number(eq?.daily_rate || 0);
+      const dailyRate = Number(eq?.rental_price || 0);
       const days = b.booked_from && b.booked_until
         ? Math.max(1, Math.round(
             (new Date(b.booked_until).getTime() - new Date(b.booked_from).getTime()) /
@@ -165,7 +170,7 @@ export async function syncOrderArtifacts(
           id: b.equipment_id,
           name: eq?.name || "(equipment)",
           quantity: Number(b.quantity || 0),
-          rentalPrice: Number(eq?.daily_rate || 0),
+          rentalPrice: Number(eq?.rental_price || 0),
           booked_from: b.booked_from,
           booked_until: b.booked_until,
         };

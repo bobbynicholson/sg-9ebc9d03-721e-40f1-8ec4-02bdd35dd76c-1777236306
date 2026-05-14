@@ -1581,9 +1581,14 @@ function OrderProcessDashboard() {
 
     const reloadEquipment = async () => {
       if (!selectedOrder?.id) return;
+      // Wave 30.2 part 2: was asking for equipment(name, daily_rate)
+      // but equipment has no daily_rate column (it's rental_price).
+      // PostgREST returned 400 on the embed and the whole booking
+      // list silently came back null. Same fix on the on-mount fetch
+      // below.
       const { data } = await supabase
         .from("equipment_bookings")
-        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, daily_rate)")
+        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
         .eq("order_id", selectedOrder.id);
       setEquipmentBookings(data || []);
     };
@@ -1785,7 +1790,7 @@ function OrderProcessDashboard() {
         try {
           const { data } = await supabase
             .from("equipment_bookings")
-            .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, daily_rate)")
+            .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
             .eq("order_id", selectedOrder.id);
           if (!cancelled) setEquipmentBookings(data || []);
         } catch (err) {
