@@ -13,6 +13,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import { getServiceSupabase } from "@/lib/supabase/service";
+import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -26,6 +28,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const rawToken = String(body.token    || "").trim();
   if (!orderId || !rawToken) {
     return res.status(400).json({ error: "order_id and token required" });
+  }
+
+  // Wave 24: rate-limit per (IP, order_id) to slow brute-force token
+  // enumeration. Tokens are 256-bit so the search space is huge, but
+  // an unlimited endpoint still lets an attacker probe at line rate
+  // for free. 30 attempts/min/IP/order is generous for the legitimate
+  // "click email link, page mounts, calls validate" flow (which fires
+  // once per visit). Falls back to in-memory limiter on RPC error.
+  const rlIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (req.socket as any)?.remoteAddress ||
+    "unknown";
+  const rlKey = sha256Hex(`client-token-validate:${rlIp}:${orderId}`);
+  try {
+    const rl = await consumeApiKeyRateLimitDb(getServiceSupabase(), rlKey, {
+      maxPerMinute: 30,
+    });
+    if (!rl.allowed) {
+      return res.status(429).json({ error: "Too many attempts, please slow down" });
+    }
+  } catch {
+    // Limiter init failure shouldn't block legitimate traffic --
+    // consumeApiKeyRateLimitDb already has its own in-memory fallback.
   }
 
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;

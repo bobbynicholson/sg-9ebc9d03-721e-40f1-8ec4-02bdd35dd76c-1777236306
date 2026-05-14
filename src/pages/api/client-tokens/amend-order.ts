@@ -28,6 +28,8 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
+import crypto from "node:crypto";
 
 const ALLOWED_FIELDS = new Set([
   "guest_count",
@@ -119,6 +121,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const sb = getServiceSupabase();
+
+    // Wave 24: rate-limit per (IP, order_id). Mirrors cancel-order's
+    // gate. Stops a stolen-cookie spam scenario from bloating
+    // order_amendment_requests + the operator notification queue. 5
+    // requests/min/(IP, order) is plenty for legitimate "tweak guest
+    // count" use.
+    const ipForRl =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      (req.socket as any)?.remoteAddress ||
+      "unknown";
+    const rlKey = crypto
+      .createHash("sha256")
+      .update(`amend-order:${ipForRl}:${order_id}`)
+      .digest("hex");
+    try {
+      const rl = await consumeApiKeyRateLimitDb(sb, rlKey, { maxPerMinute: 5 });
+      if (!rl.allowed) {
+        return res.status(429).json({ error: "Too many requests, please wait a moment" });
+      }
+    } catch {
+      // Limiter init failure shouldn't block legitimate traffic.
+    }
     const ip =
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
       (req.socket as any)?.remoteAddress ||

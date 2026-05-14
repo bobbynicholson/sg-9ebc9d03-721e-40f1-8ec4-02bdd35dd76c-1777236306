@@ -20,6 +20,8 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
+import crypto from "node:crypto";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -61,6 +63,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const sb = getServiceSupabase();
+
+    // Wave 24: rate-limit per (IP, order_id). Token is verified per-
+    // call below, but a stolen cookie + order_id pair could otherwise
+    // be used to spam cancellation/postponement requests, bloating
+    // the operator notification queue + audit_logs table. 5 / min /
+    // (IP, order) is plenty for real "I changed my mind, request a
+    // postpone" use.
+    const ipForRl =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      (req.socket as any)?.remoteAddress ||
+      "unknown";
+    const rlKey = crypto
+      .createHash("sha256")
+      .update(`cancel-order:${ipForRl}:${order_id}`)
+      .digest("hex");
+    try {
+      const rl = await consumeApiKeyRateLimitDb(sb, rlKey, { maxPerMinute: 5 });
+      if (!rl.allowed) {
+        return res.status(429).json({ error: "Too many requests, please wait a moment" });
+      }
+    } catch {
+      // Limiter init failure shouldn't block legitimate traffic.
+    }
     const ip =
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
       (req.socket as any)?.remoteAddress ||

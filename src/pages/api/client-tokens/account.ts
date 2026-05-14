@@ -8,6 +8,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import { getServiceSupabase } from "@/lib/supabase/service";
+import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -23,6 +25,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     tokenHash = (req.cookies?.cms_client_account_token || "").trim();
   }
   if (!tokenHash) return res.status(401).json({ error: "no_token" });
+
+  // Wave 24: rate-limit per IP to slow brute-force token enumeration
+  // against the account-scope magic-link surface. 30 attempts/min/IP
+  // is generous for legitimate "open email link" flows (which fire
+  // once per visit). The cookie-only path still hits the limiter so
+  // a stolen cookie can't be used as a probe oracle either.
+  const rlIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (req.socket as any)?.remoteAddress ||
+    "unknown";
+  const rlKey = sha256Hex(`client-account-token:${rlIp}`);
+  try {
+    const rl = await consumeApiKeyRateLimitDb(getServiceSupabase(), rlKey, {
+      maxPerMinute: 30,
+    });
+    if (!rl.allowed) {
+      return res.status(429).json({ error: "Too many attempts, please slow down" });
+    }
+  } catch {
+    // Limiter init failure shouldn't block legitimate traffic.
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
