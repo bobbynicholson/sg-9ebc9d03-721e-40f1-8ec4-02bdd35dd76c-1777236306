@@ -382,7 +382,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Monthly MRR
-                <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter R499, Growth R1499, Scale R3999, Enterprise R9999) until proper billing is wired up." />
+                <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter ZAR 499, Growth ZAR 1499, Scale ZAR 3999, Enterprise ZAR 9999) until proper billing is wired up." />
               </CardTitle>
               <DollarSign className="h-4 w-4 text-purple-500" />
             </CardHeader>

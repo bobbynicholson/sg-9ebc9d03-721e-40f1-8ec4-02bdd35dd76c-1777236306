@@ -526,10 +526,10 @@ function TechCostsDashboard() {
                   Monthly platform cost
                 </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">
-                  R {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  US${total_usd.toFixed(2)} at R{usdToZar.toFixed(2)}/USD
+                  US${total_usd.toFixed(2)} at ZAR {usdToZar.toFixed(2)}/USD
                 </p>
               </CardContent>
             </Card>
@@ -539,7 +539,7 @@ function TechCostsDashboard() {
                   Cost per tenant
                 </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">
-                  R {cost_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {cost_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
                   At {assumptions.tenants.toLocaleString()} tenants
@@ -563,10 +563,10 @@ function TechCostsDashboard() {
                   Margin per tenant
                 </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">
-                  R {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  {margin_pct.toFixed(0)}% of R{assumptions.subscription_zar_per_tenant.toLocaleString()} sub
+                  {margin_pct.toFixed(0)}% of ZAR {assumptions.subscription_zar_per_tenant.toLocaleString()} sub
                 </p>
               </CardContent>
             </Card>
@@ -582,19 +582,19 @@ function TechCostsDashboard() {
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly revenue</p>
                 <p className="text-xl font-bold text-slate-900">
-                  R{platform_revenue_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {platform_revenue_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly costs</p>
                 <p className="text-xl font-bold text-slate-900">
-                  R{total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Platform margin</p>
                 <p className={`text-xl font-bold ${platform_margin_zar > 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                  R{platform_margin_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  ZAR {platform_margin_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
             </CardContent>
@@ -771,7 +771,7 @@ function TechCostsDashboard() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-bold text-slate-900">
-                              R{(cat.subtotal_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                              ZAR {(cat.subtotal_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                             </p>
                             <p className="text-[10px] text-slate-500">{pct.toFixed(0)}%</p>
                           </div>
@@ -784,7 +784,7 @@ function TechCostsDashboard() {
                                 <p className="text-[11px] text-slate-500 mt-0.5">{line.formula}</p>
                               </div>
                               <p className="font-mono text-slate-900 font-semibold flex-shrink-0">
-                                R{(line.usd_per_mo * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                                ZAR {(line.usd_per_mo * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                               </p>
                             </div>
                           ))}
@@ -826,7 +826,7 @@ function TechCostsDashboard() {
                       <th className="py-2">Tenants</th>
                       <th className="py-2">Monthly platform cost</th>
                       <th className="py-2">Per-tenant cost</th>
-                      <th className="py-2">Per-tenant margin (at R{assumptions.subscription_zar_per_tenant})</th>
+                      <th className="py-2">Per-tenant margin (at ZAR {assumptions.subscription_zar_per_tenant})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -841,13 +841,13 @@ function TechCostsDashboard() {
                             )}
                           </td>
                           <td className="py-2 font-mono text-slate-700">
-                            R{s.monthly_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                            ZAR {s.monthly_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
                           <td className="py-2 font-mono text-slate-700">
-                            R{s.per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                            ZAR {s.per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
                           <td className={`py-2 font-mono font-semibold ${margin > 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                            R{margin.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                            ZAR {margin.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
                         </tr>
                       );

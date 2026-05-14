@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 interface RowShape {
   id: string;
@@ -40,10 +41,25 @@ interface RowShape {
 
 const MAX_FILES = 20;
 
-const fmtR = (v: any) =>
-  v == null
-    ? "—"
-    : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Wave 24: tenant-aware money formatter. The receipt scanner is used
+// in admin-onboarding-receipts and shopping; both have a tenant in
+// scope, but the scanner shows extracted supplier-receipt totals which
+// are denominated in whatever currency the supplier billed in. Default
+// formatter takes a code so the call site can pass either the tenant
+// currency or the receipt's own currency once OCR pulls one out.
+const buildFmt = (code: string) => (v: any) => {
+  if (v == null) return "—";
+  const locale = code === "ZAR" ? "en-ZA"
+    : code === "USD" ? "en-US"
+    : code === "GBP" ? "en-GB"
+    : code === "EUR" ? "en-IE"
+    : "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v));
+  } catch {
+    return `${code} ${Number(v).toFixed(2)}`;
+  }
+};
 
 interface ReceiptScannerProps {
   /** Where the imports-history link points. Defaults to the admin
@@ -62,6 +78,11 @@ export function ReceiptScanner({
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
   const companyId = profile?.company_id || user?.company_id;
+  // Wave 24: tenant-currency aware. Receipts are denominated in the
+  // tenant's currency (a UK caterer's slips come in GBP) so we format
+  // extracted amounts in that currency.
+  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const fmtR = useMemo(() => buildFmt(tenantCurrency.code), [tenantCurrency.code]);
   const [picked, setPicked] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -229,7 +250,7 @@ export function ReceiptScanner({
               </Button>
             )}
             <p className="text-[11px] text-slate-500 ml-2">
-              Sequential extraction, around 3 s per slip, around R0.05 per batch
+              Sequential extraction, around 3 s per slip, around ZAR 0.05 per batch
             </p>
           </div>
         </CardContent>

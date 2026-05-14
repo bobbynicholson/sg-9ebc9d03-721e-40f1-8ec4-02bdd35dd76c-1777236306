@@ -236,7 +236,7 @@ function TaxRulesAdmin() {
                             <td className="py-3 px-2 text-xs text-slate-700">
                               {r.treatment}
                               {r.capital_threshold_rand != null && (
-                                <div className="text-[10px] text-slate-500">@ R{r.capital_threshold_rand}</div>
+                                <div className="text-[10px] text-slate-500">@ ZAR {r.capital_threshold_rand}</div>
                               )}
                             </td>
                             <td className="py-3 px-2 text-xs text-slate-500">

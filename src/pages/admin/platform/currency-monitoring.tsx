@@ -205,7 +205,12 @@ export default function PlatformCurrencyMonitoringPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                    R{currentRate.toFixed(2)}
+                    {/* Wave 24: prefix with the explicit code so the
+                        platform-internal forex view is unambiguous --
+                        "R 18.45" looked like a tenant-side amount.
+                        These rows ARE always ZAR (USD->ZAR rate
+                        tracking) so we hardcode the code. */}
+                    ZAR {currentRate.toFixed(2)}
                   </div>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     per USD
@@ -316,7 +321,7 @@ export default function PlatformCurrencyMonitoringPage() {
                           </span>
                         </div>
                         <span className="font-bold text-slate-900 dark:text-white">
-                          R{rate.usd_to_zar_rate.toFixed(2)}
+                          ZAR {rate.usd_to_zar_rate.toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -365,10 +370,10 @@ export default function PlatformCurrencyMonitoringPage() {
                         </div>
                         <div className="space-y-1 text-sm">
                           <p>
-                            <span className="font-medium">Start Rate:</span> R{alert.start_rate.toFixed(2)}
+                            <span className="font-medium">Start Rate:</span> ZAR {alert.start_rate.toFixed(2)}
                           </p>
                           <p>
-                            <span className="font-medium">End Rate:</span> R{alert.end_rate.toFixed(2)}
+                            <span className="font-medium">End Rate:</span> ZAR {alert.end_rate.toFixed(2)}
                           </p>
                           <p className="text-slate-500 dark:text-slate-400">
                             Detected on {new Date(alert.created_at).toLocaleDateString()}

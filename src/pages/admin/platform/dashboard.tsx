@@ -241,7 +241,7 @@ export default function PlatformDashboard() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <StatCard
               title="Total Revenue"
-              value="R 0.00"
+              value="ZAR 0.00"
               subtitle="No real data in DEV MODE"
               icon={DollarSign}
             />
@@ -253,7 +253,7 @@ export default function PlatformDashboard() {
             />
             <StatCard
               title="Monthly Recurring Revenue"
-              value="R 0.00"
+              value="ZAR 0.00"
               subtitle="MRR"
               icon={TrendingUp}
             />

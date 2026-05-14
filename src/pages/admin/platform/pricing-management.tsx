@@ -374,7 +374,7 @@ export default function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)}
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)}
                     </p>
                   </div>
 
@@ -401,7 +401,7 @@ export default function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)}
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)}
                     </p>
                   </div>
 
@@ -428,7 +428,7 @@ export default function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)}
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)}
                     </p>
                   </div>
                 </div>
