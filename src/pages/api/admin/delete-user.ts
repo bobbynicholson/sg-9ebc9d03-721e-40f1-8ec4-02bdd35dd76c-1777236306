@@ -112,6 +112,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("Auth user ban failed (profile already soft-deleted):", banErr?.message);
     }
 
+    // Wave 24: cross-cutting audit_logs entry. User soft-delete is a
+    // compliance-class event -- "who removed Jane on the 12th of May"
+    // needs to be answerable for HR + dispute resolution + GDPR
+    // accountability. The platform-wide audit feed had no record
+    // before; restore is one click but proving the original delete
+    // was authorised needs the trail. Best-effort -- a failed log
+    // doesn't roll back the soft-delete.
+    try {
+      await (admin as any).from("audit_logs").insert({
+        company_id: (target as any).company_id,
+        user_id: callerAuth.id,
+        action: "user_soft_deleted",
+        entity_type: "user",
+        entity_id: target.id,
+        details: {
+          target_email: target.email,
+          target_full_name: target.full_name,
+          target_role: target.role,
+          caller_role: callerRole,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[delete-user] audit_logs insert failed:", auditErr);
+    }
+
     return res.status(200).json({
       message: "User removed",
       user: { id: target.id, email: target.email, full_name: target.full_name },

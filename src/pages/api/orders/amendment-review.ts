@@ -81,6 +81,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         review_notes: review_notes || null,
       } as any).eq("id", request_id);
 
+      // Wave 24: cross-cutting audit_logs entry. Without this the
+      // platform-wide audit feed had no record of WHO declined the
+      // change request -- problematic for compliance, dispute
+      // resolution ("we never agreed to that price change"), and
+      // operator hand-off across shifts. Best-effort -- a failed log
+      // never rolls back the review.
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (request as any).company_id,
+          user_id: user.id,
+          action: "amendment_rejected",
+          entity_type: "order",
+          entity_id: (request as any).order_id,
+          details: {
+            request_id,
+            review_notes: review_notes || null,
+            requested_by_user_id: (request as any).requested_by_user_id || null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[amendment-review] audit_logs insert failed:", auditErr);
+      }
+
       // Notify the client that their change request was declined.
       // Best-effort -- a notification failure must not roll back the
       // review. requested_by_user_id is the client's auth uid, fall
@@ -360,6 +383,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } catch (e) {
       console.warn("[amendment-review] approve notify failed:", e);
+    }
+
+    // Wave 24: audit_logs entry for the approve path. Captures WHO
+    // applied the change + WHAT changed (before snapshot, applied
+    // keys, cascade outcome). Critical for compliance + dispute
+    // resolution -- the operator can prove "guest count moved from
+    // 80 to 120 at 10:45 by jane@spitco.test" and the cascade
+    // outcomes show whether kitchen prep + invoice + inventory all
+    // re-sync'd successfully.
+    try {
+      await (ssr as any).from("audit_logs").insert({
+        company_id: (request as any).company_id,
+        user_id: user.id,
+        action: action === "approve_partial" ? "amendment_partial_approved" : "amendment_approved",
+        entity_type: "order",
+        entity_id: (request as any).order_id,
+        details: {
+          request_id,
+          applied_keys: Object.keys(toApply),
+          before: snapshot,
+          cascade,
+          review_notes: review_notes || null,
+          requested_by_user_id: (request as any).requested_by_user_id || null,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[amendment-review] audit_logs insert failed:", auditErr);
     }
 
     return res.status(200).json({

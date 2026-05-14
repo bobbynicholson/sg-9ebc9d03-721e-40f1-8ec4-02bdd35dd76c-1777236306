@@ -120,6 +120,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } as any).eq("id", request_id);
 
       const isPostpone = (request as any).request_type === "postpone";
+
+      // Wave 24: cross-cutting audit_logs entry. Mirrors the amendment-
+      // review pattern. Without this the platform-wide audit feed had
+      // no record of WHO declined a cancellation / postponement --
+      // problematic for compliance + dispute resolution. Best-effort.
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (request as any).company_id,
+          user_id: user.id,
+          action: isPostpone ? "postponement_rejected" : "cancellation_rejected",
+          entity_type: "order",
+          entity_id: (request as any).order_id,
+          details: {
+            request_id,
+            request_type: (request as any).request_type,
+            review_notes: review_notes || null,
+            requested_by_user_id: (request as any).requested_by_user_id || null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[cancellation-review] audit_logs reject insert failed:", auditErr);
+      }
+
       await notifyClient(ssr, {
         companyId: (request as any).company_id,
         orderId: (request as any).order_id,
@@ -287,6 +310,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       void sendPostponementApprovedEmail((request as any).order_id, updates.event_date || null);
 
+      // Wave 24: audit_logs entry for postponement approval. Captures
+      // who approved + the new event date so disputes about "we never
+      // moved the event" have a clear trail.
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (request as any).company_id,
+          user_id: user.id,
+          action: "postponement_approved",
+          entity_type: "order",
+          entity_id: (request as any).order_id,
+          details: {
+            request_id,
+            new_event_date: updates.event_date || null,
+            skip_date_change: skipDateChange,
+            review_notes: review_notes || null,
+            requested_by_user_id: (request as any).requested_by_user_id || null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[cancellation-review] audit_logs postpone insert failed:", auditErr);
+      }
+
       await notifyClient(ssr, {
         companyId: (request as any).company_id,
         orderId: (request as any).order_id,
@@ -416,6 +461,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     void sendCancellationEmail((request as any).order_id, refund_final);
+
+    // Wave 24: audit_logs entry for the cancellation approval. The
+    // most money-critical decision in this whole flow -- captures
+    // who approved + the refund snapshot (calculated, override,
+    // final, payment_id, status). Disputes about "we never agreed
+    // to that refund amount" or "PayFast says the refund failed but
+    // your system shows refunded" need this trail to resolve.
+    try {
+      await (ssr as any).from("audit_logs").insert({
+        company_id: (request as any).company_id,
+        user_id: user.id,
+        action: "cancellation_approved",
+        entity_type: "order",
+        entity_id: (request as any).order_id,
+        details: {
+          request_id,
+          refund_calculated: refund_calc,
+          refund_override: refund_override,
+          refund_final,
+          total_amount_paid: totalPaid,
+          refund_payment_id: refundPaymentId,
+          refund_status: refundStatus,
+          review_notes: review_notes || null,
+          requested_by_user_id: (request as any).requested_by_user_id || null,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[cancellation-review] audit_logs cancel insert failed:", auditErr);
+    }
 
     await notifyClient(ssr, {
       companyId: (request as any).company_id,
