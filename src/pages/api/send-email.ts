@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
  * API Route for sending emails
@@ -158,12 +159,17 @@ export default async function handler(
         <p>The CateringMS Team</p>
       `;
 
+      // Wave 24: signup flow has no user session yet, so the
+      // emailService internal anon-supabase fallback fails RLS on
+      // email_provider_settings and the welcome mail silently no-ops.
+      // Pass service-role here.
       result = await emailService.sendEmailDetailed({
         companyId,
         to,
         subject: welcomeSubject,
         body: welcomeBody,
-      });
+        _client: getServiceSupabase(),
+      } as any);
 
     } else {
       // Handle generic email requests
@@ -409,6 +415,9 @@ export default async function handler(
         }
       }
 
+      // Wave 24: pass service-role so getEmailConfig reads
+      // email_provider_settings under RLS. The auth gate above has
+      // already validated the caller can act for this companyId.
       result = await emailService.sendEmailDetailed({
         companyId,
         to,
@@ -419,7 +428,8 @@ export default async function handler(
         orderId,
         quoteId,
         ...(attachments.length > 0 ? { attachments } : {}),
-      });
+        _client: getServiceSupabase(),
+      } as any);
     }
 
     if (result?.success) {

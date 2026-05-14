@@ -384,6 +384,11 @@ export default async function handler(
             // supabase/migrations/20260506130000_seed_email_templates.sql.
             // Previously we passed "invoice-payment-received" which has
             // no row in email_templates and quietly fell through [P0-07].
+            // Wave 24: pass the service-role client so getEmailConfig
+            // reads email_provider_settings under RLS. PayFast IPN
+            // hits this with no session, so without _client the helper
+            // falls back to browser anon supabase and the SELECT
+            // returns nothing -- the receipt never lands.
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
@@ -396,7 +401,8 @@ export default async function handler(
                 amount: `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
                 companyName: companyData?.company_name || "Your caterer",
               },
-            });
+              _client: supabase,
+            } as any);
           }
         } catch (emailErr) {
           // Non-blocking -- the invoice is already marked paid;
@@ -643,7 +649,9 @@ export default async function handler(
           subject,
           body: html,
           orderId: order.id,
-        });
+          // Wave 24: webhook context -- pass service-role client.
+          _client: supabase,
+        } as any);
       }
     } catch (ownerEmailErr) {
       console.warn("[payment-webhook] owner notification email failed (non-blocking):", ownerEmailErr);
@@ -787,7 +795,9 @@ async function sendClientPaymentConfirmation(
         venue: order.venue_address || "TBD",
       },
       orderId: order.id,
-    });
+      // Wave 24: webhook context -- pass service-role client.
+      _client: supabase,
+    } as any);
   } catch (e) {
     console.warn("Client payment confirmation email failed:", e);
   }

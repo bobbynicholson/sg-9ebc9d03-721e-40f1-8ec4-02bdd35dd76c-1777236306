@@ -97,6 +97,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let dispatchOk = false;
     let errorMessage: string | null = null;
     try {
+      // Wave 24: pass the service-role client so getEmailConfig can
+      // read email_provider_settings under RLS. Without _client the
+      // helper falls back to browser anon supabase (no session on the
+      // server) -- the SELECT silently returns nothing, the dispatch
+      // returns false, every queued email gets retried until it hits
+      // MAX_ATTEMPTS and lands in 'failed'. The bug was hiding behind
+      // the legitimate "transient outage" retry loop.
       dispatchOk = await emailService.sendEmail({
         companyId: row.company_id,
         to: row.to_email,
@@ -106,7 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Quote / order tags help the dashboard group sends.
         orderId: row.trigger_event === "order" ? row.trigger_ref_id : undefined,
         quoteId: row.trigger_event === "quote" ? row.trigger_ref_id : undefined,
-      });
+        _client: supabase,
+      } as any);
     } catch (e: any) {
       errorMessage = e?.message || String(e);
     }

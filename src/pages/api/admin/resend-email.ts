@@ -54,6 +54,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Cannot resend an email for another company" });
     }
 
+    // Wave 24: pass the SSR client so getEmailConfig reads
+    // email_provider_settings under the caller's session. Without
+    // _client the helper falls back to the imported browser anon
+    // supabase, which has no session here, so the SELECT returns
+    // nothing and resend silently no-ops.
     const sent = await emailService.sendEmail({
       companyId: log.user_id,
       to: log.recipient_email,
@@ -61,7 +66,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       template: log.template_type === "custom" ? undefined : log.template_type,
       variables: { clientName: log.recipient_name },
       orderId: log.order_id || undefined,
-    });
+      _client: ssr,
+    } as any);
 
     return res.status(200).json({ ok: sent, retriggered: true });
   } catch (err: any) {
