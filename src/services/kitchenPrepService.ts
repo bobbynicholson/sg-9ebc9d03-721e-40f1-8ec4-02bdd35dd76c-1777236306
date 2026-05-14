@@ -553,7 +553,7 @@ export const kitchenPrepService = {
   },
 
   async completeTask(taskId: string, performedBy: string, notes?: string): Promise<boolean> {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("kitchen_prep_tasks")
       .update({
         status: "done",
@@ -561,9 +561,70 @@ export const kitchenPrepService = {
         completed_by: performedBy,
         ...(notes ? { notes } : {}),
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .select("order_id")
+      .single();
     if (error) throw error;
+
+    // Wave 25: chain reaction. When this task completion brings the
+    // order to "all prep tasks done", auto-flip orders.status to
+    // 'ready' so the dispatch dashboard sees the order without the
+    // chef having to also tap an "all done" button. Best-effort -- a
+    // failure to compute or flip never undoes the task completion
+    // itself, the operator can still flip status manually from
+    // /admin/orders.
+    const orderId = (updated as any)?.order_id as string | undefined;
+    if (orderId) {
+      try {
+        await this.checkPrepCompleteForOrder(orderId, performedBy);
+      } catch (e) {
+        console.warn("[kitchenPrepService] checkPrepCompleteForOrder failed:", e);
+      }
+    }
     return true;
+  },
+
+  /**
+   * Wave 25: when ALL non-skipped kitchen_prep_tasks for an order are
+   * status='done', auto-promote the order to status='ready' (and
+   * stamp ready_at). Idempotent -- if the order is already past
+   * 'ready' (in_transit / delivered / completed) we no-op so a late
+   * task completion doesn't drag the status backwards.
+   */
+  async checkPrepCompleteForOrder(orderId: string, _performedBy: string): Promise<{ promoted: boolean }> {
+    const { data: tasks } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("status")
+      .eq("order_id", orderId);
+    if (!tasks || tasks.length === 0) return { promoted: false };
+    const active = tasks.filter((t: any) => String(t?.status || "") !== "skipped");
+    const allDone = active.length > 0 && active.every((t: any) => String(t?.status || "") === "done");
+    if (!allDone) return { promoted: false };
+
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id, status, ready_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!order) return { promoted: false };
+    const currentStatus = String((order as any).status || "").toLowerCase();
+    // Statuses already past 'ready' -- don't drag the order backwards.
+    if (["ready", "in_transit", "delivered", "completed", "cancelled"].includes(currentStatus)) {
+      return { promoted: false };
+    }
+    // Use the canonical updateOrderStatus path so notifications +
+    // audit_logs + downstream hooks fire consistently with manual
+    // status flips. Lazy import to avoid a circular dep at module
+    // load (orderWorkflow imports kitchenPrepService for the
+    // ensurePrepTasksForOrder reverse direction).
+    try {
+      const { updateOrderStatus } = await import("./order/orderWorkflow");
+      await (updateOrderStatus as any)(orderId, "ready");
+      return { promoted: true };
+    } catch (e) {
+      console.warn("[kitchenPrepService] auto-promote to ready failed:", e);
+      return { promoted: false };
+    }
   },
 
   async skipTask(taskId: string, performedBy: string, reason?: string): Promise<boolean> {

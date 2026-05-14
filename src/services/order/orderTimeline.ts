@@ -1,0 +1,736 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Order Timeline -- derives a richer 22-stage view of an order's
+ * progress from the joined data (orders + payments + equipment + prep
+ * tasks + driver assignments + invoices + email log).
+ *
+ * Wave 25 architecture: the previous /admin/orders timeline was 7
+ * binary stages mapped 1:1 to orders.status. The catering operator
+ * could not see deposit status, hire flow, post-event collection,
+ * cleaning, final invoice, balance paid, or thank-you sent. This
+ * function exposes ALL of those as derived stages without changing
+ * the orders.status enum.
+ *
+ * The function is PURE -- it takes a `joined` payload of related
+ * rows and returns the derived timeline. No DB calls inside, so the
+ * /admin/orders list page can batch-fetch all related tables once and
+ * call computeOrderTimeline() per row without N+1 fan-out. The order
+ * detail drawer re-runs it with a richer per-row fetch to populate
+ * tooltip meta.
+ *
+ * Each stage has:
+ *   - status: completed | current | blocked | upcoming | skipped | not_applicable
+ *   - startedAt / completedAt timestamps where derivable
+ *   - blockedReason (e.g. "deposit not paid" when the next gate hasn't passed)
+ *   - sourceLink: deep-link to the artifact for click-through
+ *   - meta: optional payload for richer tooltips (prep progress, supplier,
+ *     assigned driver, etc.)
+ *
+ * Always exactly one stage per order has status='current'. The function
+ * walks the stage list, skipping not_applicable, and assigns 'current'
+ * to the first not-yet-completed stage. Earlier completed stages stay
+ * green; later upcoming stages stay grey. A blocked dependency
+ * (e.g. deposit unpaid blocking kitchen prep) flips the current stage
+ * red with a blockedReason.
+ *
+ * Stage list deliberately stays full (22 entries) regardless of which
+ * branches apply to this order -- the UI hides not_applicable entries
+ * behind a cluster chevron, but the upstream array is stable so the
+ * cluster band has a consistent layout no matter which conditional
+ * features the tenant uses.
+ */
+
+// --- Types -----------------------------------------------------------------
+
+export type StageStatus =
+  | "completed"
+  | "current"
+  | "blocked"
+  | "upcoming"
+  | "skipped"
+  | "not_applicable";
+
+export type StageGroup =
+  | "booking"
+  | "logistics"
+  | "dispatch"
+  | "post_event"
+  | "closure";
+
+export type StageKey =
+  | "quote_accepted"
+  | "order_created"
+  | "deposit_invoice_issued"
+  | "deposit_paid"
+  | "confirmed"
+  | "equipment_hire_booked"
+  | "equipment_hire_collected"
+  | "pre_event_cleaning"
+  | "kitchen_prep_in_progress"
+  | "ready_for_dispatch"
+  | "driver_assigned_delivery"
+  | "in_transit"
+  | "delivered"
+  | "collection_scheduled"
+  | "collection_done"
+  | "post_event_cleaning"
+  | "final_invoice_issued"
+  | "final_invoice_sent"
+  | "balance_paid"
+  | "receipt_issued"
+  | "completed"
+  | "thank_you_sent";
+
+export interface OrderTimelineStage {
+  key: StageKey;
+  label: string;
+  group: StageGroup;
+  status: StageStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  blockedReason: string | null;
+  sourceLink: string | null;
+  meta?: {
+    progress?: { done: number; total: number };
+    expectedAt?: string | null;
+    actor?: string | null;
+    note?: string | null;
+  };
+}
+
+export interface OrderTimelineFlags {
+  hasDeposit: boolean;
+  hasBalance: boolean;
+  hasExternalHire: boolean;
+  hasOwnedEquipment: boolean;
+  isDeliverAndCollect: boolean;
+  hasCleaningWork: boolean;
+  hasPrepTasks: boolean;
+}
+
+export interface OrderTimeline {
+  orderId: string;
+  computedAt: string;
+  currentStageKey: StageKey | null;
+  currentClusterKey: StageGroup | null;
+  blocked: boolean;
+  blockedReason: string | null;
+  stages: OrderTimelineStage[];
+  flags: OrderTimelineFlags;
+  /** Number of applicable (non n/a non skipped) stages completed. */
+  completedCount: number;
+  /** Number of applicable stages total. */
+  applicableCount: number;
+}
+
+/**
+ * Joined payload the compute function expects. All arrays default to
+ * empty so callers that haven't joined a particular table get a
+ * sensible "branch not applicable" result instead of crashing.
+ *
+ * The `order` field is the only required one. Everything else is the
+ * row-set scoped to that single order.
+ */
+export interface OrderTimelineInput {
+  order: any;
+  payments?: any[];
+  equipmentBookings?: any[];
+  equipmentHireOrders?: any[];
+  equipmentCleaningStatus?: any[];
+  kitchenPrepTasks?: any[];
+  driverAssignments?: any[];
+  invoices?: any[];
+  emailLog?: any[];
+  /** Truthy when the linked quote has status='accepted'. Optional --
+   *  if missing, falls back to inferring from order existence. */
+  quoteAccepted?: boolean;
+}
+
+// --- Cluster + label table -------------------------------------------------
+
+const STAGE_DEFS: Array<{
+  key: StageKey;
+  label: string;
+  group: StageGroup;
+}> = [
+  { key: "quote_accepted",            label: "Quote accepted",     group: "booking" },
+  { key: "order_created",             label: "Order created",      group: "booking" },
+  { key: "deposit_invoice_issued",    label: "Deposit invoice",    group: "booking" },
+  { key: "deposit_paid",              label: "Deposit paid",       group: "booking" },
+  { key: "confirmed",                 label: "Confirmed",          group: "booking" },
+  { key: "equipment_hire_booked",     label: "Hire booked",        group: "logistics" },
+  { key: "equipment_hire_collected",  label: "Hire collected",     group: "logistics" },
+  { key: "pre_event_cleaning",        label: "Pre-event cleaning", group: "logistics" },
+  { key: "kitchen_prep_in_progress",  label: "Kitchen prep",       group: "logistics" },
+  { key: "ready_for_dispatch",        label: "Ready",              group: "logistics" },
+  { key: "driver_assigned_delivery",  label: "Driver assigned",    group: "dispatch" },
+  { key: "in_transit",                label: "On the road",        group: "dispatch" },
+  { key: "delivered",                 label: "Delivered",          group: "dispatch" },
+  { key: "collection_scheduled",      label: "Collection scheduled", group: "post_event" },
+  { key: "collection_done",           label: "Equipment back",     group: "post_event" },
+  { key: "post_event_cleaning",       label: "Post-event cleaning", group: "post_event" },
+  { key: "final_invoice_issued",      label: "Final invoice",      group: "closure" },
+  { key: "final_invoice_sent",        label: "Invoice sent",       group: "closure" },
+  { key: "balance_paid",              label: "Balance paid",       group: "closure" },
+  { key: "receipt_issued",            label: "Receipt issued",     group: "closure" },
+  { key: "completed",                 label: "Completed",          group: "closure" },
+  { key: "thank_you_sent",            label: "Thank-you sent",     group: "closure" },
+];
+
+export const STAGE_GROUP_LABELS: Record<StageGroup, string> = {
+  booking:    "Booking",
+  logistics:  "Logistics",
+  dispatch:   "Dispatch",
+  post_event: "Post-event",
+  closure:    "Closure",
+};
+
+// --- Flag detection --------------------------------------------------------
+
+function deriveFlags(input: OrderTimelineInput): OrderTimelineFlags {
+  const o = input.order || {};
+  const hasDeposit = Number(o.deposit_amount || 0) > 0;
+  const hasBalance = Number(o.balance_amount || 0) > 0;
+  const hasExternalHire =
+    (input.equipmentHireOrders || []).length > 0;
+  // Owned equipment = an equipment_bookings row pointing to a real
+  // equipment_id (vs a hire-only booking). When the joined payload
+  // doesn't carry the `equipment` join we fall back to "any booking".
+  const hasOwnedEquipment =
+    (input.equipmentBookings || []).some((b) => !!b?.equipment_id);
+  // Deliver-and-collect logic. Use the explicit column when set; if
+  // null, default to "true if the order has any equipment at all" so
+  // we don't miss collection on a real event. Reverse this default
+  // once the column is reliably populated by the order builder.
+  const returnMethod = String(o.equipment_return_method || "").toLowerCase();
+  const isDeliverAndCollect = returnMethod
+    ? returnMethod === "deliver_and_collect" || returnMethod === "collect"
+    : (input.equipmentBookings || []).length > 0;
+  const hasCleaningWork =
+    (input.equipmentCleaningStatus || []).length > 0 || hasOwnedEquipment;
+  const hasPrepTasks = (input.kitchenPrepTasks || []).length > 0;
+
+  return {
+    hasDeposit,
+    hasBalance,
+    hasExternalHire,
+    hasOwnedEquipment,
+    isDeliverAndCollect,
+    hasCleaningWork,
+    hasPrepTasks,
+  };
+}
+
+// --- Per-stage resolvers ---------------------------------------------------
+//
+// Each resolver returns { status, startedAt, completedAt, blockedReason,
+// sourceLink, meta }. The walker calls them in declaration order, then
+// applies the "exactly one current" rule on top of the raw outputs.
+
+type Resolved = Omit<OrderTimelineStage, "key" | "label" | "group">;
+
+function resolveStage(
+  key: StageKey,
+  input: OrderTimelineInput,
+  flags: OrderTimelineFlags,
+): Resolved {
+  const o = input.order || {};
+  const orderId = String(o.id || "");
+  const adminLink = `/admin/orders?orderId=${orderId}`;
+
+  // Helper: most-recent timestamp from a candidate list.
+  const firstTs = (...cs: Array<string | null | undefined>): string | null => {
+    for (const c of cs) if (c) return String(c);
+    return null;
+  };
+
+  switch (key) {
+    case "quote_accepted": {
+      const completedAt = input.quoteAccepted
+        ? firstTs(o.created_at)
+        : o.created_at && o.quote_id
+          ? firstTs(o.created_at)
+          : null;
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: o.quote_id ? `/admin/quotes/${o.quote_id}` : null,
+      };
+    }
+
+    case "order_created": {
+      const completedAt = firstTs(o.created_at);
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: adminLink,
+      };
+    }
+
+    case "deposit_invoice_issued": {
+      if (!flags.hasDeposit) {
+        return notApplicable();
+      }
+      const depositInvoice = (input.invoices || []).find(
+        (inv) => Number(inv?.total_amount || 0) > 0 && inv?.created_at,
+      );
+      const completedAt = depositInvoice ? firstTs(depositInvoice.created_at) : null;
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: depositInvoice
+          ? `/admin/invoices?id=${depositInvoice.id}`
+          : `/admin/invoices?orderId=${orderId}`,
+      };
+    }
+
+    case "deposit_paid": {
+      if (!flags.hasDeposit) {
+        return notApplicable();
+      }
+      const paid = !!o.deposit_paid;
+      const completedAt = paid ? firstTs(o.deposit_paid_at) : null;
+      const depositPayment = (input.payments || []).find(
+        (p) =>
+          String(p?.payment_type || "").toLowerCase() === "deposit" &&
+          String(p?.status || "").toLowerCase() === "completed",
+      );
+      return {
+        status: paid ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: completedAt || (depositPayment ? firstTs(depositPayment.processed_at) : null),
+        blockedReason: null,
+        sourceLink: `/admin/invoices?orderId=${orderId}`,
+        meta: depositPayment
+          ? {
+              note: `${depositPayment.payment_method || "Payment"} • ${depositPayment.amount}`,
+            }
+          : undefined,
+      };
+    }
+
+    case "confirmed": {
+      const completedAt = firstTs(o.confirmed_at);
+      const isConfirmed = completedAt || (o.status && o.status !== "pending" && o.status !== "draft");
+      // Block if deposit required but unpaid -- operator should see why
+      // confirmation hasn't happened.
+      const blocked = !isConfirmed && flags.hasDeposit && !o.deposit_paid;
+      return {
+        status: isConfirmed ? "completed" : blocked ? "blocked" : "upcoming",
+        startedAt: null,
+        completedAt: isConfirmed ? (completedAt || firstTs(o.created_at)) : null,
+        blockedReason: blocked ? "Deposit not paid" : null,
+        sourceLink: adminLink,
+      };
+    }
+
+    case "equipment_hire_booked": {
+      if (!flags.hasExternalHire) return notApplicable();
+      const hires = input.equipmentHireOrders || [];
+      const allBooked = hires.every((h) => !!h?.expected_pickup_date);
+      const earliest = hires
+        .map((h) => h?.created_at)
+        .filter(Boolean)
+        .sort()[0] || null;
+      return {
+        status: allBooked ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: allBooked ? earliest : null,
+        blockedReason: null,
+        sourceLink: `/admin/suppliers?orderId=${orderId}`,
+        meta: {
+          actor: hires[0]?.supplier_name || null,
+          expectedAt: hires[0]?.expected_pickup_date || null,
+        },
+      };
+    }
+
+    case "equipment_hire_collected": {
+      if (!flags.hasExternalHire) return notApplicable();
+      const hires = input.equipmentHireOrders || [];
+      const allCollected = hires.length > 0 && hires.every((h) => !!h?.actual_pickup_date);
+      const latest = hires
+        .map((h) => h?.actual_pickup_date)
+        .filter(Boolean)
+        .sort()
+        .reverse()[0] || null;
+      return {
+        status: allCollected ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: allCollected ? latest : null,
+        blockedReason: null,
+        sourceLink: `/admin/suppliers?orderId=${orderId}`,
+        meta: {
+          expectedAt: hires.find((h) => !h.actual_pickup_date)?.expected_pickup_date || null,
+        },
+      };
+    }
+
+    case "pre_event_cleaning": {
+      if (!flags.hasOwnedEquipment) return notApplicable();
+      // No column today. Render not_applicable until the migration in
+      // Wave 25.4 ships pre_event_cleaning_done_at on equipment_bookings.
+      const bookings = input.equipmentBookings || [];
+      const allCleaned = bookings.length > 0 && bookings.every(
+        (b) => !!b?.pre_event_cleaning_done_at,
+      );
+      const anyHas = bookings.some((b) => "pre_event_cleaning_done_at" in (b || {}));
+      if (!anyHas) {
+        return notApplicable();
+      }
+      return {
+        status: allCleaned ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: allCleaned
+          ? bookings.map((b) => b.pre_event_cleaning_done_at).filter(Boolean).sort().reverse()[0]
+          : null,
+        blockedReason: null,
+        sourceLink: `/admin/equipment?orderId=${orderId}`,
+      };
+    }
+
+    case "kitchen_prep_in_progress": {
+      const tasks = input.kitchenPrepTasks || [];
+      if (tasks.length === 0) {
+        // No tasks generated yet -- upcoming until they are.
+        return {
+          status: "upcoming",
+          startedAt: null,
+          completedAt: null,
+          blockedReason: null,
+          sourceLink: `/admin/kitchen-staff?orderId=${orderId}`,
+        };
+      }
+      const totalActive = tasks.filter((t) => String(t?.status || "") !== "skipped").length;
+      const done = tasks.filter((t) => String(t?.status || "") === "done").length;
+      const inProgress = tasks.some((t) => String(t?.status || "") === "in_progress" || !!t?.started_at);
+      const allDone = totalActive > 0 && done >= totalActive;
+      let status: StageStatus = "upcoming";
+      if (allDone) status = "completed";
+      else if (inProgress || o.prep_started_at) status = "current";
+      const startedAt = firstTs(o.prep_started_at,
+        tasks.map((t) => t?.started_at).filter(Boolean).sort()[0] || null);
+      return {
+        status,
+        startedAt,
+        completedAt: allDone
+          ? tasks.map((t) => t?.completed_at).filter(Boolean).sort().reverse()[0] || null
+          : null,
+        blockedReason: null,
+        sourceLink: `/admin/kitchen-staff?orderId=${orderId}`,
+        meta: { progress: { done, total: totalActive } },
+      };
+    }
+
+    case "ready_for_dispatch": {
+      const tasks = input.kitchenPrepTasks || [];
+      const totalActive = tasks.filter((t) => String(t?.status || "") !== "skipped").length;
+      const done = tasks.filter((t) => String(t?.status || "") === "done").length;
+      const allPrepDone = totalActive > 0 && done >= totalActive;
+      const explicit = !!o.ready_at || o.status === "ready" || o.status === "in_transit" || o.status === "delivered" || o.status === "completed";
+      const completed = explicit || allPrepDone;
+      return {
+        status: completed ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: completed ? firstTs(o.ready_at, o.picked_up_at, o.delivered_at) : null,
+        blockedReason: null,
+        sourceLink: adminLink,
+      };
+    }
+
+    case "driver_assigned_delivery": {
+      const assigned = !!o.assigned_driver_id || (input.driverAssignments || []).some(
+        (a) => ["delivery", "both"].includes(String(a?.assignment_type || "")),
+      );
+      return {
+        status: assigned ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: assigned ? firstTs(o.updated_at) : null,
+        blockedReason: null,
+        sourceLink: `/admin/order-assignments?orderId=${orderId}`,
+        meta: { actor: o.driver_name || null },
+      };
+    }
+
+    case "in_transit": {
+      const inTransit = o.status === "in_transit" || !!o.picked_up_at;
+      const past = ["delivered", "completed"].includes(String(o.status || ""));
+      const status: StageStatus = past ? "completed" : inTransit ? "current" : "upcoming";
+      return {
+        status,
+        startedAt: firstTs(o.picked_up_at),
+        completedAt: past ? firstTs(o.delivered_at) : null,
+        blockedReason: null,
+        sourceLink: `/admin/tracking?orderId=${orderId}`,
+      };
+    }
+
+    case "delivered": {
+      const delivered = !!o.delivered_at || ["delivered", "completed"].includes(String(o.status || ""));
+      return {
+        status: delivered ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: delivered ? firstTs(o.delivered_at) : null,
+        blockedReason: null,
+        sourceLink: o.pod_photo_url ? `/admin/orders?orderId=${orderId}&pod=1` : adminLink,
+        meta: o.pod_recipient_name ? { actor: o.pod_recipient_name } : undefined,
+      };
+    }
+
+    case "collection_scheduled": {
+      if (!flags.isDeliverAndCollect) return notApplicable();
+      const collection = (input.driverAssignments || []).find(
+        (a) => String(a?.assignment_type || "") === "collection",
+      );
+      const scheduled = !!collection;
+      return {
+        status: scheduled ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: scheduled ? firstTs(collection.created_at) : null,
+        blockedReason: null,
+        sourceLink: `/admin/driver-schedule?orderId=${orderId}&type=collection`,
+      };
+    }
+
+    case "collection_done": {
+      if (!flags.isDeliverAndCollect) return notApplicable();
+      const collection = (input.driverAssignments || []).find(
+        (a) => String(a?.assignment_type || "") === "collection",
+      );
+      const done = collection && String(collection.status || "") === "completed";
+      return {
+        status: done ? "completed" : "upcoming",
+        startedAt: collection ? firstTs(collection.started_at) : null,
+        completedAt: done ? firstTs(collection.completed_at) : null,
+        blockedReason: null,
+        sourceLink: `/admin/driver-schedule?orderId=${orderId}&type=collection`,
+      };
+    }
+
+    case "post_event_cleaning": {
+      if (!flags.hasCleaningWork) return notApplicable();
+      const rows = input.equipmentCleaningStatus || [];
+      if (rows.length === 0) {
+        return {
+          status: "upcoming",
+          startedAt: null,
+          completedAt: null,
+          blockedReason: null,
+          sourceLink: `/admin/equipment?cleaningOrderId=${orderId}`,
+        };
+      }
+      const allReady = rows.every((r) =>
+        ["ready", "stored", "available"].includes(String(r?.current_status || "")),
+      );
+      const inProgress = rows.some((r) =>
+        ["cleaning", "drying"].includes(String(r?.current_status || "")),
+      );
+      const status: StageStatus = allReady ? "completed" : inProgress ? "current" : "upcoming";
+      const completedAt = allReady
+        ? rows.map((r) => r?.cleaning_completed_at || r?.ready_for_use_at).filter(Boolean).sort().reverse()[0] || null
+        : null;
+      const startedAt = inProgress
+        ? rows.map((r) => r?.cleaning_started_at).filter(Boolean).sort()[0] || null
+        : null;
+      return {
+        status,
+        startedAt,
+        completedAt,
+        blockedReason: null,
+        sourceLink: `/admin/equipment?cleaningOrderId=${orderId}`,
+        meta: {
+          progress: {
+            done: rows.filter((r) => ["ready", "stored", "available"].includes(String(r?.current_status || ""))).length,
+            total: rows.length,
+          },
+        },
+      };
+    }
+
+    case "final_invoice_issued": {
+      // Heuristic: any invoice with total_amount close to order.total_amount.
+      const orderTotal = Number(o.total_amount || 0);
+      const finalInv = (input.invoices || []).find((inv) => {
+        const t = Number(inv?.total_amount || 0);
+        return orderTotal === 0 ? t > 0 : Math.abs(t - orderTotal) <= Math.max(1, orderTotal * 0.05);
+      }) || (input.invoices || [])[0];
+      const completedAt = finalInv ? firstTs(finalInv.created_at, finalInv.invoice_date) : null;
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: finalInv
+          ? `/admin/invoices?id=${finalInv.id}`
+          : `/admin/invoices?orderId=${orderId}`,
+      };
+    }
+
+    case "final_invoice_sent": {
+      const finalInv = (input.invoices || []).find((inv) => !!inv?.sent_at);
+      const completedAt = finalInv ? firstTs(finalInv.sent_at) : null;
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: finalInv
+          ? `/admin/invoices?id=${finalInv.id}`
+          : `/admin/invoices?orderId=${orderId}`,
+      };
+    }
+
+    case "balance_paid": {
+      if (!flags.hasBalance) return notApplicable();
+      const paid = !!o.balance_paid;
+      const completedAt = paid ? firstTs(o.balance_paid_at) : null;
+      const balancePayment = (input.payments || []).find(
+        (p) =>
+          ["order", "balance"].includes(String(p?.payment_type || "").toLowerCase()) &&
+          String(p?.status || "").toLowerCase() === "completed",
+      );
+      // Block when balance is past due.
+      let blocked = false;
+      let blockedReason: string | null = null;
+      if (!paid && o.balance_due_date) {
+        try {
+          const due = new Date(o.balance_due_date);
+          if (due.getTime() < Date.now()) {
+            blocked = true;
+            blockedReason = "Balance overdue";
+          }
+        } catch { /* ignore */ }
+      }
+      return {
+        status: paid ? "completed" : blocked ? "blocked" : "upcoming",
+        startedAt: null,
+        completedAt: completedAt || (balancePayment ? firstTs(balancePayment.processed_at) : null),
+        blockedReason,
+        sourceLink: `/admin/invoices?orderId=${orderId}`,
+      };
+    }
+
+    case "receipt_issued": {
+      if (!flags.hasBalance) return notApplicable();
+      // Two signals: payments.receipt_sent_at (Wave 25.4 column) OR an
+      // email_automation_log row of receipt template type. Until the
+      // column ships, fall back to the email log heuristic.
+      const balancePayment = (input.payments || []).find(
+        (p) => String(p?.payment_type || "").toLowerCase() !== "deposit",
+      );
+      const colTs = balancePayment?.receipt_sent_at || null;
+      const emailReceipt = (input.emailLog || []).find((e) =>
+        /receipt/i.test(String(e?.template_type || "")),
+      );
+      const completedAt = colTs || (emailReceipt ? firstTs(emailReceipt.sent_at, emailReceipt.created_at) : null);
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: `/admin/invoices?orderId=${orderId}`,
+      };
+    }
+
+    case "completed": {
+      const completed = o.status === "completed" || !!o.completed_at;
+      return {
+        status: completed ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: completed ? firstTs(o.completed_at) : null,
+        blockedReason: null,
+        sourceLink: adminLink,
+      };
+    }
+
+    case "thank_you_sent": {
+      const ty = (input.emailLog || []).find((e) => {
+        const t = String(e?.template_type || "");
+        return /thank|order_completed|review_request/i.test(t);
+      });
+      const completedAt = ty ? firstTs(ty.sent_at, ty.created_at) : null;
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: adminLink,
+      };
+    }
+
+    default:
+      return notApplicable();
+  }
+}
+
+function notApplicable(): Resolved {
+  return {
+    status: "not_applicable",
+    startedAt: null,
+    completedAt: null,
+    blockedReason: null,
+    sourceLink: null,
+  };
+}
+
+// --- Public API ------------------------------------------------------------
+
+export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
+  const flags = deriveFlags(input);
+
+  // Resolve every stage independently.
+  const resolved: OrderTimelineStage[] = STAGE_DEFS.map((def) => {
+    const r = resolveStage(def.key, input, flags);
+    return { ...def, ...r };
+  });
+
+  // Apply the "exactly one current" rule. Walk in order; the first
+  // stage that isn't completed/skipped/not_applicable becomes current
+  // (unless it's already blocked, in which case its own resolver set
+  // status='blocked' and we leave that). Stages after the current one
+  // stay upcoming.
+  let foundCurrent = false;
+  for (const stage of resolved) {
+    if (stage.status === "not_applicable" || stage.status === "skipped") continue;
+    if (stage.status === "completed") continue;
+    if (!foundCurrent) {
+      // First non-completed stage becomes the current focus. Preserve
+      // 'blocked' and 'current' statuses set by the resolver, otherwise
+      // promote 'upcoming' to 'current'.
+      if (stage.status === "upcoming") stage.status = "current";
+      foundCurrent = true;
+    } else {
+      // Subsequent non-completed stages stay upcoming -- never two
+      // currents in a row.
+      if (stage.status === "current" || stage.status === "blocked") {
+        stage.status = "upcoming";
+      }
+    }
+  }
+
+  const currentStage = resolved.find((s) => s.status === "current" || s.status === "blocked") || null;
+  const blockedStages = resolved.filter((s) => s.status === "blocked");
+  const applicableStages = resolved.filter(
+    (s) => s.status !== "not_applicable" && s.status !== "skipped",
+  );
+  const completedStages = resolved.filter((s) => s.status === "completed");
+
+  return {
+    orderId: String(input.order?.id || ""),
+    computedAt: new Date().toISOString(),
+    currentStageKey: currentStage ? currentStage.key : null,
+    currentClusterKey: currentStage ? currentStage.group : null,
+    blocked: blockedStages.length > 0,
+    blockedReason: blockedStages[0]?.blockedReason || null,
+    stages: resolved,
+    flags,
+    completedCount: completedStages.length,
+    applicableCount: applicableStages.length,
+  };
+}

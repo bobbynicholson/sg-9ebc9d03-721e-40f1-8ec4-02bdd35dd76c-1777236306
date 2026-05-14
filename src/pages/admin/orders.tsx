@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
+import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -172,6 +174,11 @@ function OrderProcessDashboard() {
   // already fired" flag. Surfaced on each OrderCard so the team sees
   // which automations have / haven't gone out.
   const [autoEmailMap, setAutoEmailMap] = useState<Map<string, OrderAutoEmailSummary>>(new Map());
+  // Wave 25: per-order derived timeline. Computed once per loadOrders
+  // pass from a batch-fetch of related rows (payments, equipment
+  // bookings, hire orders, cleaning status, prep tasks, driver
+  // assignments, invoices). Empty map until first load.
+  const [timelinesById, setTimelinesById] = useState<Map<string, OrderTimeline>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #1: "/" or Cmd-F focuses the search box. Matches the
@@ -647,6 +654,84 @@ function OrderProcessDashboard() {
         // status, just without the extra chips.
         console.warn("[orders] email_automation_log fetch failed", err);
       }
+
+      // Wave 25: batch-fetch the related rows that drive the new
+      // 22-stage timeline (payments, equipment bookings, hire orders,
+      // cleaning status, prep tasks, driver assignments, invoices).
+      // Each query is filtered by .in("order_id", ...) so we only
+      // pull rows for orders currently visible. Failures degrade
+      // gracefully -- the missing slice means stages that depend on
+      // that table render as 'upcoming' (worst case) rather than
+      // crashing the page.
+      try {
+        const orderIds = allOrders.map((o: any) => o.id).filter(Boolean);
+        if (orderIds.length > 0) {
+          const [
+            paymentsRes,
+            bookingsRes,
+            hireRes,
+            cleaningRes,
+            prepRes,
+            assignmentsRes,
+            invoicesRes,
+            emailLogRes,
+          ] = await Promise.all([
+            supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
+            supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
+            supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
+            supabase.from("equipment_cleaning_status").select("order_id, equipment_id, current_status, cleaning_started_at, cleaning_completed_at, ready_for_use_at").in("order_id", orderIds),
+            supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
+            supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
+            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds),
+            supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
+          ]);
+
+          // Bucket each row-set by order_id once, then compute
+          // timeline per order with O(1) lookup. Avoids N filter
+          // passes through the same array.
+          const bucket = <T extends { order_id?: string | null }>(rows: T[] | null) => {
+            const m = new Map<string, T[]>();
+            for (const r of rows || []) {
+              const key = String(r.order_id || "");
+              if (!key) continue;
+              const arr = m.get(key);
+              if (arr) arr.push(r); else m.set(key, [r]);
+            }
+            return m;
+          };
+          const paymentsByOrder = bucket(paymentsRes.data as any[] | null);
+          const bookingsByOrder = bucket(bookingsRes.data as any[] | null);
+          const hireByOrder = bucket(hireRes.data as any[] | null);
+          const cleaningByOrder = bucket(cleaningRes.data as any[] | null);
+          const prepByOrder = bucket(prepRes.data as any[] | null);
+          const assignmentsByOrder = bucket(assignmentsRes.data as any[] | null);
+          const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
+          const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
+
+          const timelines = new Map<string, OrderTimeline>();
+          for (const o of allOrders as any[]) {
+            const tl = computeOrderTimeline({
+              order: o,
+              payments: paymentsByOrder.get(o.id) || [],
+              equipmentBookings: bookingsByOrder.get(o.id) || [],
+              equipmentHireOrders: hireByOrder.get(o.id) || [],
+              equipmentCleaningStatus: cleaningByOrder.get(o.id) || [],
+              kitchenPrepTasks: prepByOrder.get(o.id) || [],
+              driverAssignments: assignmentsByOrder.get(o.id) || [],
+              invoices: invoicesByOrder.get(o.id) || [],
+              emailLog: emailLogByOrder.get(o.id) || [],
+            });
+            timelines.set(o.id, tl);
+          }
+          setTimelinesById(timelines);
+        } else {
+          setTimelinesById(new Map());
+        }
+      } catch (err) {
+        // Non-fatal -- the timeline component handles a missing entry
+        // by falling back to the legacy WORKFLOW_STAGES rendering.
+        console.warn("[orders] timeline batch fetch failed", err);
+      }
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -1029,7 +1114,9 @@ function OrderProcessDashboard() {
     const eventDate = new Date(order.event_date);
     const isToday = eventDate.toDateString() === new Date().toDateString();
     const isPast = eventDate < new Date();
-    const nextStage = getNextStage(order);
+    // Wave 25: nextStage / getNextStage are no longer used here --
+    // the new TimelineTrack surfaces the current + next stage inline
+    // with full label + timestamp + click-through.
     const isSelected = selectedIds.has((order as any).id);
 
     return (
@@ -1126,78 +1213,26 @@ function OrderProcessDashboard() {
               </div>
             </div>
 
-            {/* Timeline Progress */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Progress</span>
-                {nextStage && (
-                  <div className="flex items-center gap-1 text-orange-600 font-medium">
-                    <ArrowRight className="w-3 h-3" />
-                    Next: {nextStage}
+            {/* Wave 25: replaces the legacy 7-dot WORKFLOW_STAGES row
+                with the 22-stage / 5-cluster TimelineTrack derived
+                from the batch-fetched related rows. Falls back to a
+                compact loading placeholder when the timeline batch
+                fetch hasn't returned yet for this order (rare -- the
+                batch fires immediately after the orders list loads).
+                The legacy nextStage label above is no longer needed
+                because the TimelineTrack surfaces the current stage
+                inline with richer detail. */}
+            {(() => {
+              const tl = timelinesById.get((order as any).id);
+              if (!tl) {
+                return (
+                  <div className="text-xs text-slate-400 italic">
+                    Loading timeline...
                   </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {WORKFLOW_STAGES.map((stage, index) => {
-                  const status = getStageStatus(order, stage.key);
-                  const isLast = index === WORKFLOW_STAGES.length - 1;
-
-                  return (
-                    <div key={stage.key} className="flex items-center flex-1">
-                      {/* Stage Dot */}
-                      <div className="relative group">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                            status === "completed"
-                              ? "bg-green-500 text-white scale-100"
-                              : status === "current"
-                              ? "bg-orange-500 text-white scale-110 ring-4 ring-orange-100 animate-pulse"
-                              : status === "critical"
-                              ? "bg-red-500 text-white scale-110 ring-4 ring-red-100 animate-pulse"
-                              : "bg-slate-200 text-slate-400 scale-90"
-                          }`}
-                        >
-                          {status === "completed" && <CheckCircle2 className="w-4 h-4" />}
-                          {status === "current" && <Clock className="w-4 h-4" />}
-                          {status === "critical" && <AlertCircle className="w-4 h-4" />}
-                          {status === "upcoming" && <div className="w-2 h-2 rounded-full bg-slate-400" />}
-                        </div>
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                          {stage.label}
-                        </div>
-                      </div>
-
-                      {/* Connector Line */}
-                      {!isLast && (
-                        <div className="flex-1 h-1 mx-1">
-                          <div
-                            className={`h-full rounded transition-all ${
-                              status === "completed"
-                                ? "bg-green-500"
-                                : status === "current"
-                                ? "bg-gradient-to-r from-orange-500 to-slate-200"
-                                : status === "critical"
-                                ? "bg-gradient-to-r from-red-500 to-slate-200"
-                                : "bg-slate-200"
-                            }`}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Stage Labels */}
-              <div className="flex items-center gap-2 text-[10px]">
-                {WORKFLOW_STAGES.map((stage) => (
-                  <div key={stage.key} className="flex-1 text-center text-slate-500 truncate">
-                    {stage.label}
-                  </div>
-                ))}
-              </div>
-            </div>
+                );
+              }
+              return <TimelineTrack timeline={tl} />;
+            })()}
           </div>
         </CardContent>
       </Card>
