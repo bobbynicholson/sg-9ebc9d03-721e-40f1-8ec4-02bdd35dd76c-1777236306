@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           company_name, legal_name, logo_url, email, phone, website,
           address_line1, address_line2, city,
           primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
-          registration_number, tax_number,
+          registration_number, tax_number, currency,
           updated_at
         )
       `)

@@ -1405,6 +1405,7 @@ export default function AdminQuotes() {
                   total: rs.quote.total ?? rs.quote.subtotal ?? 0,
                   quoteRef: (rs.quote as any).quote_number || rs.quote.id?.slice(0, 8),
                   companyId: profile?.company_id ?? null,
+                  currencyCode: tenantCurrency.code,
                 });
                 const url = composeEmail.gmailUrl({
                   to: rs.quote.client_email!,
@@ -2098,6 +2099,7 @@ export default function AdminQuotes() {
             fromName={profile?.full_name || companyName}
             companyName={companyName}
             companyId={profile?.company_id ?? null}
+            currencyCode={tenantCurrency.code}
             mode={composeMode}
             diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
             onSweetenerApplied={async (offer) => {
@@ -2458,12 +2460,15 @@ export default function AdminQuotes() {
    quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, companyId, mode, diary, onSent, onSweetenerApplied, onClose,
+  quote, fromName, companyName, companyId, currencyCode, mode, diary, onSent, onSweetenerApplied, onClose,
 }: {
   quote: Quote;
   fromName?: string;
   companyName?: string;
   companyId?: string | null;
+  /** Wave 24: tenant currency for the {total} interpolation in
+   *  templateForQuote / templateSweetener. */
+  currencyCode?: string | null;
   mode: "status" | "sweetener";
   diary: DiarySignal;
   onSent?: (channel: string) => void;
@@ -2497,6 +2502,7 @@ function QuoteComposeDrawer({
     fromName,
     companyName,
     companyId: companyId ?? null,
+    currencyCode: currencyCode ?? null,
   };
 
   // Sweetener controls. Default to a 10% nudge with a 7-day expiry --

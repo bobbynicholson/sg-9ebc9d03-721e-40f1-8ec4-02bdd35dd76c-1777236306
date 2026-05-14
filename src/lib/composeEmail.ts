@@ -220,10 +220,34 @@ export interface QuoteTemplateContext {
   /** When provided, the renderer first checks the company's
    *  customised template. See note on TemplateContext. */
   companyId?: string | null;
+  /** Wave 24: tenant currency code so the {total} interpolation
+   *  renders in the right symbol for non-ZAR tenants. Defaults to
+   *  ZAR for back-compat. */
+  currencyCode?: string | null;
 }
 
-const fmtRand = (v?: number) =>
-  v == null ? "" : `R${Number(v).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`;
+// Wave 24: tenant-aware money formatter, mirrors subjectFormatters +
+// whatsappTemplates. Defaults to ZAR for back-compat. Email body /
+// subject density is fine with no decimal places ("R 12 345" reads
+// cleaner than "R 12 345,00" in body copy).
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+};
+const fmtMoney = (v: number | null | undefined, code?: string | null): string => {
+  if (v == null || !Number.isFinite(v)) return "";
+  const c = (code || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[c] || "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: c,
+      maximumFractionDigits: 0,
+    }).format(v);
+  } catch {
+    return `${c} ${v.toFixed(0)}`;
+  }
+};
 
 const QUOTE_STATUS_TO_REGISTRY: Partial<Record<QuoteStatus, string>> = {
   sent:     "email_lead_quoted",     // operator chasing a sent quote
@@ -245,7 +269,7 @@ function buildQuoteCtx(ctx: QuoteTemplateContext): Record<string, string | numbe
     event_date:   ctx.eventDate || "",
     guest_count:  ctx.guestCount ?? "",
     quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
-    total:        ctx.total ? fmtRand(ctx.total) : "",
+    total:        fmtMoney(ctx.total, ctx.currencyCode),
   };
 }
 
@@ -270,7 +294,7 @@ export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext)
     ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
     : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your upcoming event`;
   const ref = ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "";
-  const totalLine = ctx.total ? ` The quote sits at ${fmtRand(ctx.total)} including VAT.` : "";
+  const totalLine = ctx.total ? ` The quote sits at ${fmtMoney(ctx.total, ctx.currencyCode)} including VAT.` : "";
 
   switch (status) {
     case "draft":
@@ -343,13 +367,13 @@ export function templateSweetener(ctx: SweetenerContext): { subject: string; bod
   if (ctx.discountPercent && ctx.discountPercent > 0) {
     const newTotal = ctx.total ? ctx.total * (1 - ctx.discountPercent / 100) : null;
     offerLine = newTotal
-      ? `we'd like to take ${ctx.discountPercent}% off the original quote, so ${fmtRand(ctx.total)} drops to ${fmtRand(Math.round(newTotal))}.`
+      ? `we'd like to take ${ctx.discountPercent}% off the original quote, so ${fmtMoney(ctx.total, ctx.currencyCode)} drops to ${fmtMoney(Math.round(newTotal), ctx.currencyCode)}.`
       : `we'd like to take ${ctx.discountPercent}% off the original quote.`;
   } else if (ctx.discountAmount && ctx.discountAmount > 0) {
     const newTotal = ctx.total ? ctx.total - ctx.discountAmount : null;
     offerLine = newTotal
-      ? `we'd like to take ${fmtRand(ctx.discountAmount)} off the original quote, bringing it from ${fmtRand(ctx.total)} to ${fmtRand(newTotal)}.`
-      : `we'd like to take ${fmtRand(ctx.discountAmount)} off the original quote.`;
+      ? `we'd like to take ${fmtMoney(ctx.discountAmount, ctx.currencyCode)} off the original quote, bringing it from ${fmtMoney(ctx.total, ctx.currencyCode)} to ${fmtMoney(newTotal, ctx.currencyCode)}.`
+      : `we'd like to take ${fmtMoney(ctx.discountAmount, ctx.currencyCode)} off the original quote.`;
   } else if (ctx.perk) {
     offerLine = `we'd like to throw in ${ctx.perk} on the house if you confirm with us.`;
   } else {

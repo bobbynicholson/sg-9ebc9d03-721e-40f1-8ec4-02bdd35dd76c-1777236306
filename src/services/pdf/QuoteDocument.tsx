@@ -92,21 +92,37 @@ export interface QuotePdfData {
      *  client can verify the legal entity behind the quote. */
     registration_number?: string | null;
     tax_number?: string | null;
+    /** Wave 24: tenant currency code so the totals + line items
+     *  render in the right symbol for non-ZAR tenants. Defaults to
+     *  ZAR. Caller hydrates from companies.currency. */
+    currency?: string | null;
   };
 }
 
 // --- Helpers ---------------------------------------------------------------
 
-const fmtZAR = (n: number | null | undefined): string => {
+// Wave 24: tenant-currency aware money formatter. Mirrors the pattern
+// already in InvoiceDocument.tsx (Phase 9 #2). Falls back to ZAR / R
+// when the company doesn't declare a currency so existing quotes keep
+// rendering identically. Pass the company.currency string ("USD",
+// "GBP", "ZAR") -- the closure binds it once per render so every
+// totals + line-item call site picks up the right symbol.
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+};
+const buildFmtMoney = (currency?: string | null) => (n: number | null | undefined): string => {
   const v = Number(n || 0);
+  const code = (currency || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
-    return new Intl.NumberFormat("en-ZA", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: "ZAR",
+      currency: code,
       maximumFractionDigits: 0,
     }).format(v);
   } catch {
-    return `R ${Math.round(v)}`;
+    return `${code} ${Math.round(v)}`;
   }
 };
 
@@ -349,6 +365,10 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const company = data.company || ({} as QuotePdfData["company"]);
   const primary = safePrimary(company.primary_color);
   const styles = buildStyles(primary);
+  // Wave 24: bind the money formatter to the tenant currency once
+  // per render so every line-item + totals call below renders in the
+  // right symbol. Defaults to ZAR when company.currency is unset.
+  const fmtZAR = buildFmtMoney(company.currency);
 
   const accepted = !!data.accepted_at;
   const eventDate = fmtDateZA(data.event_date);
