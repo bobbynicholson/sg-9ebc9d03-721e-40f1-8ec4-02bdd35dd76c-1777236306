@@ -351,6 +351,12 @@ export interface SweetenerContext extends QuoteTemplateContext {
   validUntil?: string;
   /** Optional alternative perk if no money-off, e.g. "complimentary dessert station". */
   perk?: string;
+  /** Wave 27.2: absolute URL to the polished /q/{token} client view.
+   *  When present, the body includes a "View & accept the quote" line
+   *  pointing at this link so the client can act on the discount in
+   *  one click instead of having to reply to the email. Built from
+   *  buildPublicQuoteUrl(quote.public_token) at the call site. */
+  quoteUrl?: string;
 }
 
 export function templateSweetener(ctx: SweetenerContext): { subject: string; body: string } {
@@ -384,13 +390,22 @@ export function templateSweetener(ctx: SweetenerContext): { subject: string; bod
     ? `\n\nThis offer holds until ${ctx.validUntil}, after that we'll likely be locked in elsewhere.`
     : "";
 
+  // Wave 27.2: include the polished /q/{token} link when the caller
+  // passed it. Lets the client act on the sweetener in one click
+  // (open quote -> Accept) instead of having to reply, wait, get
+  // updated paperwork, then respond again. Falls back to the old
+  // "Reply here" close when no link is available.
+  const actionLine = ctx.quoteUrl
+    ? `\n\nView & accept the updated quote here:\n${ctx.quoteUrl}\n\nOr reply to this email if you'd like to chat through it first.`
+    : `\n\nReply here and I'll send through the updated paperwork the same day.`;
+
   return {
     subject: `A small thank-you to lock in ${eventLine.replace(/^your /, "")}${ref}`,
     body:
       `Hi ${first},\n\n` +
       `Quick one. I had a look at our diary for ${eventLine} and we have a clear window to give your event our full attention.\n\n` +
       `Because of that, ${offerLine}` +
-      `${expiryLine}\n\n` +
-      `Reply here and I'll send through the updated paperwork the same day.${sig}`,
+      `${expiryLine}` +
+      `${actionLine}${sig}`,
   };
 }

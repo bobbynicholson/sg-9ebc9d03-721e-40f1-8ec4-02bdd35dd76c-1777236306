@@ -2527,12 +2527,18 @@ function QuoteComposeDrawer({
   // Pick the right template based on mode + the live sweetener controls.
   const initial = useMemo(() => {
     if (mode === "sweetener") {
+      // Wave 27.2: pass the polished /q/{token} URL so the email
+      // body includes a one-click "View & accept" CTA. Client opens
+      // the quote, hits Accept (the green primary button from Wave
+      // 26.2's three-button row), done -- no email round-trip needed.
+      const tok = (quote as any).public_token as string | null | undefined;
       return templateSweetener({
         ...baseCtx,
         discountPercent: discountKind === "percent" ? discountPercent : undefined,
         discountAmount: discountKind === "amount" ? discountAmount : undefined,
         perk: discountKind === "perk" ? perk : undefined,
         validUntil: validUntilLabel,
+        quoteUrl: tok ? buildPublicQuoteUrl(tok) : undefined,
       });
     }
     return templateForQuote(derivedStatus, baseCtx);
