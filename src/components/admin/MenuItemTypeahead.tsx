@@ -30,8 +30,22 @@ type SearchHit = Awaited<ReturnType<typeof menuService.searchForQuote>>[number];
 export interface MenuItemPick {
   id: string;
   name: string;
-  /** Already mapped to the quote form's lower-case enum */
-  category: "appetizer" | "main" | "side" | "dessert" | "beverage";
+  /** Already mapped to the quote form's lower-case enum.
+   *  Wave 30.3: widened to include 'starter' and 'salad' so picking
+   *  a salad item from the typeahead no longer collapses to
+   *  'appetizer' -- the quote line was being persisted with the
+   *  wrong category and the order viewer displayed salads grouped
+   *  under Appetizers. Mirrors the LINE_CATEGORIES list on the
+   *  quote builder. */
+  category:
+    | "starter"
+    | "appetizer"
+    | "main"
+    | "side"
+    | "salad"
+    | "dessert"
+    | "beverage"
+    | "other";
   pricePerPerson: number;
   description: string | null;
   imageUrl: string | null;
@@ -54,18 +68,28 @@ export interface MenuItemTypeaheadProps {
 
 /**
  * The DB stores categories in their pretty form ("Mains", "Sides",
- * "Desserts"). The quote form's MenuItem type was built earlier with
- * a tighter enum ("main" | "side" | "dessert" | ...). We map forgivingly
- * so a future custom category like "Cocktails" doesn't crash the form --
- * it just falls back to "main".
+ * "Desserts", "Salads", "Starters"). The quote form's MenuItem type
+ * was built earlier with a tighter enum that lacked 'salad' and
+ * 'starter' -- so picking a salad item from the typeahead used to
+ * collapse it into 'appetizer' and the wrong category got persisted
+ * on the quote line + the order viewer rendered salads under
+ * Appetizers (Wave 30.3 bug Callum reported).
+ *
+ * Now we map forgivingly AND preserve the meaningful buckets the DB
+ * actually carries. Unknown future categories like "Cocktails" still
+ * fall back to "other" so the form doesn't crash.
  */
 function mapCategory(raw: string | null | undefined): MenuItemPick["category"] {
-  const c = (raw || "").toLowerCase();
-  if (c.startsWith("starter") || c.startsWith("appet") || c.startsWith("salad")) return "appetizer";
+  const c = (raw || "").toLowerCase().trim();
+  if (!c) return "main";
+  if (c.startsWith("salad")) return "salad";
+  if (c.startsWith("starter")) return "starter";
+  if (c.startsWith("appet")) return "appetizer";
   if (c.startsWith("side")) return "side";
   if (c.startsWith("dessert")) return "dessert";
   if (c.startsWith("drink") || c.startsWith("bever")) return "beverage";
-  return "main";
+  if (c.startsWith("main")) return "main";
+  return "other";
 }
 
 export function MenuItemTypeahead({

@@ -167,8 +167,13 @@ export default function InvoicesPage() {
   const clearBulkMarkPaid = () => setBulkMarkPaidIds(new Set());
   const runBulkMarkPaid = async () => {
     if (bulkMarkPaidIds.size === 0) return;
+    // Wave 30.4: copy was wrong (and the underlying RPC behaviour
+    // it described was wrong too). Marking an invoice paid no longer
+    // touches the order's status -- the order continues through its
+    // lifecycle (kitchen prep, dispatch, delivery, completion) like
+    // it should. Only the order's payment_status is updated here.
     if (typeof window !== "undefined" && !window.confirm(
-      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance, and closes the linked order.`,
+      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance and updates the order's payment status. The order stays active for kitchen prep, dispatch, and delivery -- completion happens after the event.`,
     )) return;
     setBulkMarkPaidBusy(true);
     try {

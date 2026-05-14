@@ -22,7 +22,19 @@ export interface DisplayLead extends Tables<'leads'> {
 export interface MenuItem {
   id: string;
   name: string;
-  category: "appetizer" | "main" | "side" | "dessert" | "beverage";
+  // Wave 30.3: widened to mirror the quote builder's LINE_CATEGORIES
+  // and the typeahead's MenuItemPick. Salads + starters were folding
+  // into 'appetizer' and the wrong category was being persisted on
+  // every quote line picked via the typeahead.
+  category:
+    | "starter"
+    | "appetizer"
+    | "main"
+    | "side"
+    | "salad"
+    | "dessert"
+    | "beverage"
+    | "other";
   pricePerPerson: number;
   quantity: number;
   ingredients: Ingredient[];
@@ -68,7 +80,19 @@ export interface InventoryItem {
 export interface MenuItemRequest {
   id: string;
   name: string;
-  category: "appetizer" | "main" | "side" | "dessert" | "beverage";
+  // Wave 30.3: widened to mirror the quote builder's LINE_CATEGORIES
+  // and the typeahead's MenuItemPick. Salads + starters were folding
+  // into 'appetizer' and the wrong category was being persisted on
+  // every quote line picked via the typeahead.
+  category:
+    | "starter"
+    | "appetizer"
+    | "main"
+    | "side"
+    | "salad"
+    | "dessert"
+    | "beverage"
+    | "other";
   pricePerPerson: number;
   quantity: number;
   ingredients: Ingredient[];
