@@ -18,6 +18,14 @@
  * Returns:
  *   { ok: true, provider, paymentUrl, isHtmlForm, sessionId }
  *   { ok: false, error }
+ *
+ * Wave 29.1 add: optional store-credit redemption before the gateway
+ * call. Body field `apply_credit: true` (or `apply_credit_amount: number`)
+ * triggers an atomic redeem via the redeem_client_credit RPC --
+ * credit is netted off the invoice balance and the gateway is
+ * charged for the remainder. When credit covers the full amount,
+ * the invoice is marked paid in-place and a settled response is
+ * returned without a gateway hop.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -117,12 +125,111 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const isDeposit = orderRow ? !orderRow.deposit_paid : false;
-    const amount =
+    const grossAmount =
       orderRow && isDeposit
         ? Number(orderRow.deposit_amount) || Number(invoice.balance_due) || 0
         : Number(invoice.balance_due) || Number(invoice.total_amount) || 0;
-    if (!amount || amount <= 0) {
+    if (!grossAmount || grossAmount <= 0) {
       return res.status(400).json({ error: "Nothing to pay" });
+    }
+
+    // Wave 29.1: optional credit redemption. Caller passes
+    // `apply_credit: true` (use full available, capped at invoice
+    // balance) or `apply_credit_amount: <number>` (use up to N).
+    // We call the SECURITY DEFINER RPC -- it serialises concurrent
+    // redeems for the same wallet behind a per-(company, client)
+    // advisory lock so a mash-click can't double-spend.
+    const wantsApplyCredit = body.apply_credit === true || body.apply_credit_amount;
+    let creditApplied = 0;
+    let creditPaymentId: string | null = null;
+    if (wantsApplyCredit && invoice.client_id) {
+      const requested = body.apply_credit_amount
+        ? Math.max(0, Number(body.apply_credit_amount))
+        : grossAmount; // RPC caps at min(available, balance, requested)
+      try {
+        const { data: redeemResult, error: redeemErr } = await (admin as any).rpc(
+          "redeem_client_credit",
+          {
+            p_company_id: invoice.company_id,
+            p_client_id: invoice.client_id,
+            p_invoice_id: invoice.id,
+            p_order_id: invoice.order_id,
+            p_requested_amount: requested,
+            p_created_by_user_id: user?.id || null,
+          },
+        );
+        if (redeemErr) {
+          console.warn("[create-session] redeem RPC failed:", redeemErr);
+        } else if (redeemResult && (redeemResult as any).redeemed_amount > 0) {
+          creditApplied = Number((redeemResult as any).redeemed_amount) || 0;
+          creditPaymentId = (redeemResult as any).payment_id || null;
+        }
+      } catch (e) {
+        console.warn("[create-session] redeem crashed (non-blocking):", e);
+      }
+    }
+
+    const amount = Math.max(0, Math.round((grossAmount - creditApplied) * 100) / 100);
+
+    // Update the invoice with the credit payment so the invoice
+    // balance reflects what credit just paid down. We do this even
+    // when credit doesn't cover everything -- the gateway flow
+    // will record its own payment row + the invoice gets stamped
+    // again on webhook confirmation. Status flips to 'paid' only
+    // when balance hits 0 (otherwise stays at draft/sent/etc.).
+    if (creditApplied > 0) {
+      const newBalance = Math.max(
+        0,
+        Math.round((Number(invoice.balance_due || 0) - creditApplied) * 100) / 100,
+      );
+      const newAmountPaid =
+        Math.round(
+          ((Number(invoice.total_amount || 0) - newBalance)) * 100,
+        ) / 100;
+      const updates: any = {
+        balance_due: newBalance,
+        amount_paid: newAmountPaid,
+        updated_at: new Date().toISOString(),
+      };
+      if (newBalance < 0.01) updates.status = "paid";
+      else if (newAmountPaid > 0) updates.status = "partially_paid";
+      try {
+        await admin.from("invoices").update(updates).eq("id", invoice.id);
+      } catch (e) {
+        console.warn("[create-session] invoice balance update failed:", e);
+      }
+      try {
+        await (admin as any).from("audit_logs").insert({
+          company_id: invoice.company_id,
+          order_id: invoice.order_id,
+          user_id: user?.id || null,
+          action: "credit_redeemed",
+          entity_type: "invoices",
+          entity_id: invoice.id,
+          metadata: {
+            credit_applied: creditApplied,
+            invoice_number: invoice.invoice_number,
+            new_balance: newBalance,
+            credit_payment_id: creditPaymentId,
+            requested_via: user ? "auth_portal" : "magic_link",
+          },
+        });
+      } catch (e) {
+        console.warn("[create-session] credit_redeemed audit failed:", e);
+      }
+    }
+
+    // Credit covered the whole bill -- short-circuit. No gateway
+    // call needed; the invoice is paid.
+    if (amount <= 0) {
+      return res.status(200).json({
+        ok: true,
+        provider: "store_credit",
+        settled: true,
+        creditApplied,
+        creditPaymentId,
+        message: "Invoice settled with store credit -- no card payment needed.",
+      });
     }
 
     const baseUrl =
@@ -131,9 +238,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "https://cateringms.com";
 
     const orderIdForSession = orderRow?.id || invoice.order_id || invoice.id;
-    const description = orderRow?.order_number
+    const baseDescription = orderRow?.order_number
       ? `Order ${orderRow.order_number} -- ${isDeposit ? "Deposit" : "Balance"} payment`
       : `Invoice ${invoice.invoice_number}`;
+    // Wave 29.1: when partial credit was applied, prepend a short
+    // note so the gateway transcript and the client's bank
+    // statement reflect the netting.
+    const description = creditApplied > 0
+      ? `${baseDescription} (after R${creditApplied.toFixed(2)} credit)`
+      : baseDescription;
 
     const result = await createPaymentSession({
       companyId: invoice.company_id,
@@ -166,6 +279,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       paymentUrl: result.paymentUrl,
       isHtmlForm: !!result.isHtmlForm,
       sessionId: result.sessionId,
+      // Wave 29.1: echo any credit that was applied so the client
+      // UI can render "We applied R485 of your store credit; you're
+      // being redirected to pay R515 for the remainder."
+      creditApplied,
+      creditPaymentId,
     });
   } catch (e: any) {
     console.error("/api/payments/create-session crashed:", e);
