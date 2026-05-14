@@ -55,40 +55,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   let alerted = 0;
   let skipped = 0;
+  // Wave 24: collect per-row errors instead of letting one bad row
+  // (RLS quirk, FK violation, transient connection blip) crash the
+  // whole loop. The previous pattern was bare awaits with no
+  // error check on the insert -- a failed insert silently bumped
+  // `alerted` and the operator never saw the alert.
+  const errors: string[] = [];
 
   for (const order of late || []) {
-    // Idempotency: did we already alert in the last 24h?
-    const { count: recentAlerts } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", order.company_id)
-      .eq("notification_type", ALERT_TYPE)
-      .ilike("message", `%${order.order_number || order.id}%`)
-      .gte("created_at", dayAgo);
-    if (typeof recentAlerts === "number" && recentAlerts > 0) {
-      skipped += 1;
-      continue;
+    try {
+      // Idempotency: did we already alert in the last 24h?
+      const { count: recentAlerts, error: countErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", order.company_id)
+        .eq("notification_type", ALERT_TYPE)
+        .ilike("message", `%${order.order_number || order.id}%`)
+        .gte("created_at", dayAgo);
+      if (countErr) {
+        errors.push(`${order.id}: dedupe check failed: ${countErr.message}`);
+        continue;
+      }
+      if (typeof recentAlerts === "number" && recentAlerts > 0) {
+        skipped += 1;
+        continue;
+      }
+
+      const eventLabel = order.event_date
+        ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+        : "";
+      const venue = order.venue_address ? String(order.venue_address).split(",")[0] : "";
+
+      const { error: insertErr } = await supabase.from("notifications").insert({
+        company_id: order.company_id,
+        user_id: order.user_id,
+        recipient_id: order.user_id,
+        notification_type: ALERT_TYPE,
+        title: `⚠️ Order past event date: ${order.order_number || order.id.slice(0, 8)}`,
+        message:
+          `Event was ${eventLabel}${venue ? ` at ${venue}` : ""}. ` +
+          `Status is still "${order.status}" -- check with the team and update or cancel.`,
+        priority: "urgent",
+        link: `/admin/orders?orderId=${order.id}`,
+      } as any);
+      if (insertErr) {
+        errors.push(`${order.id}: insert failed: ${insertErr.message}`);
+        continue;
+      }
+
+      alerted += 1;
+    } catch (e: any) {
+      // Belt-and-braces: covers rare cases where the supabase client
+      // throws (network unreachable, parse failure on response body).
+      errors.push(`${order.id}: ${e?.message || String(e)}`);
     }
+  }
 
-    const eventLabel = order.event_date
-      ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
-      : "";
-    const venue = order.venue_address ? String(order.venue_address).split(",")[0] : "";
-
-    await supabase.from("notifications").insert({
-      company_id: order.company_id,
-      user_id: order.user_id,
-      recipient_id: order.user_id,
-      notification_type: ALERT_TYPE,
-      title: `⚠️ Order past event date: ${order.order_number || order.id.slice(0, 8)}`,
-      message:
-        `Event was ${eventLabel}${venue ? ` at ${venue}` : ""}. ` +
-        `Status is still "${order.status}" -- check with the team and update or cancel.`,
-      priority: "urgent",
-      link: `/admin/orders?orderId=${order.id}`,
-    } as any);
-
-    alerted += 1;
+  if (errors.length > 0) {
+    console.warn("[cron/late-event-check] per-row errors:", errors);
   }
 
   return res.status(200).json({
@@ -96,5 +120,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     checked: (late || []).length,
     alerted,
     skipped,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }
