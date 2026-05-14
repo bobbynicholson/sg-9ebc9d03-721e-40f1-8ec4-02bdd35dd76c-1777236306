@@ -139,10 +139,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ---- Approve path -----------------------------------------------------
 
     if ((request as any).request_type === "postpone") {
-      // Stamp the postponement onto the order. We don't actually move
-      // event_date here, the admin/client will agree on a new date and
-      // it gets set via the existing amendment flow. We just record
-      // that the postpone was approved + the original date.
+      // Wave 21 audit: postpone-approve used to silently skip the
+      // event_date update if requested_postpone_date was null --
+      // operator clicked Approve, the cancellation_request flipped to
+      // approved + the client got a "your postponement is confirmed"
+      // notification, but the order date didn't move. Chef + driver
+      // showed up at the original date. Make the date a hard
+      // requirement on approve unless the operator explicitly opts
+      // out via skip_date_change=true (admin override -- e.g. they're
+      // approving conceptually and will follow up by phone with a
+      // date later).
+      const skipDateChange = body.skip_date_change === true;
+      const requestedDate = (request as any).requested_postpone_date as string | null;
+      if (!requestedDate && !skipDateChange) {
+        return res.status(400).json({
+          error: "This postpone request has no proposed new date. Either ask the client for a date, set one in the dialog, or pass skip_date_change=true to approve without moving the event.",
+        });
+      }
+      // Stamp the postponement onto the order. The agreed new date
+      // moves event_date when present; the original date is captured
+      // for audit so a "we postponed FROM X TO Y" trail survives.
       const { data: order } = await ssr
         .from("orders")
         .select("event_date")
@@ -154,8 +170,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         postponed_at: nowIso,
         postponed_from_date: originalDate,
       };
-      if ((request as any).requested_postpone_date) {
-        updates.event_date = (request as any).requested_postpone_date;
+      if (requestedDate) {
+        updates.event_date = requestedDate;
       }
 
       const { error: orderErr } = await ssr.from("orders").update(updates).eq("id", (request as any).order_id);
@@ -299,8 +315,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (snapErr) return res.status(500).json({ error: snapErr.message });
     const snap = (snapshot as any) || {};
     const refund_calc = Number(snap.refund_amount) || 0;
-    const refund_final =
-      refund_override !== null && refund_override >= 0 ? Number(refund_override) : refund_calc;
+    // Wave 21 audit: refund_override used to accept any non-negative
+    // number, including amounts larger than what the client actually
+    // paid. An admin slip-up (or a copy-paste of the order total
+    // instead of the deposit) could refund more than the company
+    // had collected -- a real loss given PayFast/Yoco fire the gateway
+    // refund as soon as the row hits the ledger. Cap at total_amount_paid
+    // from the snapshot so the override can only ever DECREASE the
+    // calculated refund (never inflate it). Negative inputs still rejected.
+    const totalPaid = Number(snap.total_amount_paid || 0);
+    const refund_final = (() => {
+      if (refund_override === null) return refund_calc;
+      if (!Number.isFinite(refund_override) || refund_override < 0) return refund_calc;
+      const capped = Math.min(refund_override, totalPaid);
+      return Number(capped.toFixed(2));
+    })();
+    if (refund_override !== null && refund_override > totalPaid + 0.01) {
+      console.warn(
+        "[cancellation-review] refund_override exceeded total_paid; capped",
+        { request_id, override: refund_override, total_paid: totalPaid, capped_to: refund_final },
+      );
+    }
 
     const cancelResult = await cancelOrder((request as any).order_id, {
       reason: (request as any).reason || review_notes || "Client-requested cancellation",

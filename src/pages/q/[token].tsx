@@ -107,6 +107,41 @@ export default function PublicQuotePage() {
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
 
+  // Wave 21 audit: Decline flow. Used to be missing entirely -- the
+  // client could only Accept or Request changes; saying "no thanks"
+  // meant emailing the caterer. Quotes sat in the operator's
+  // In-play bucket until they expired, masking conversion stats.
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declining, setDeclining] = useState(false);
+  const [declineError, setDeclineError] = useState<string | null>(null);
+  const [justDeclined, setJustDeclined] = useState(false);
+
+  const handleDecline = async () => {
+    if (!token) return;
+    setDeclining(true);
+    setDeclineError(null);
+    try {
+      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: declineReason.trim() || null }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setDeclineError(data?.error || "Could not decline the quote right now.");
+        return;
+      }
+      setJustDeclined(true);
+      setDeclineOpen(false);
+      if (quote) setQuote({ ...quote, status: "rejected" });
+    } catch (e: any) {
+      setDeclineError(e?.message || "Try again");
+    } finally {
+      setDeclining(false);
+    }
+  };
+
   // Request-changes flow. Inline expansion (matches accept-flow
   // precedent + plays nicely with mobile keyboards) rather than a
   // Dialog. Caterers commonly receive 1-3 requests per quote --
@@ -803,7 +838,7 @@ export default function PublicQuotePage() {
                           who want a tweak before committing. Plain
                           text-link so it can't compete with Accept. */}
                       {!changesSent && !changesOpen && (
-                        <div>
+                        <div className="flex items-center justify-center gap-3 flex-wrap">
                           <button
                             type="button"
                             onClick={() => { setChangesOpen(true); setChangesError(null); }}
@@ -811,6 +846,23 @@ export default function PublicQuotePage() {
                           >
                             Need a tweak first? Send us a message
                           </button>
+                          {/* Wave 21 audit: Decline link. Closes the
+                              loop for clients who don't want to go
+                              ahead -- prevents the quote sitting in
+                              the operator's pipeline forever. Plain
+                              text link, never compete with Accept. */}
+                          {!justDeclined && quote.status !== "rejected" && (
+                            <>
+                              <span className="text-stone-300" aria-hidden>·</span>
+                              <button
+                                type="button"
+                                onClick={() => { setDeclineOpen(true); setDeclineError(null); }}
+                                className="text-xs text-stone-500 underline-offset-2 hover:text-rose-700 hover:underline"
+                              >
+                                Decline this quote
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -819,6 +871,64 @@ export default function PublicQuotePage() {
               </Card>
             )}
           </div>
+
+          {/* DECLINE inline form -- screen only. Mirrors the request-
+              changes block's inline-expansion pattern. */}
+          {(declineOpen || justDeclined) && (
+            <div className="no-print mt-4">
+              {justDeclined ? (
+                <Card className="border-0 bg-stone-50 shadow-sm">
+                  <CardContent className="py-6 px-5 text-center space-y-2">
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-stone-700">
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold text-stone-900">
+                      Thanks for letting {companyName} know
+                    </h3>
+                    <p className="text-sm text-stone-600">
+                      We've closed this quote on our side. If anything changes, just reply to the original email.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-5 px-5 space-y-3">
+                    <p className="text-sm font-semibold text-stone-900">Decline this quote</p>
+                    <p className="text-sm text-stone-600">
+                      No need to give a reason if you'd rather not. A quick line just helps {companyName} learn what didn't fit.
+                    </p>
+                    <textarea
+                      rows={3}
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value)}
+                      placeholder="Optional -- e.g. went with another option, budget didn't work, postponing..."
+                      className="w-full px-3 py-2 rounded-md border border-stone-300 text-sm"
+                      autoFocus
+                    />
+                    {declineError && (
+                      <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
+                        <p className="text-xs text-rose-700 font-medium">{declineError}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => { setDeclineOpen(false); setDeclineError(null); }} disabled={declining}>
+                        Back
+                      </Button>
+                      <Button
+                        onClick={handleDecline}
+                        disabled={declining}
+                        variant="outline"
+                        className="text-rose-700 border-rose-200 hover:bg-rose-50 gap-1.5"
+                      >
+                        {declining ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {declining ? "Sending..." : "Send decline"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* REQUEST-CHANGES inline form -- screen only.
               Sits below the accept block so it's reachable both pre-

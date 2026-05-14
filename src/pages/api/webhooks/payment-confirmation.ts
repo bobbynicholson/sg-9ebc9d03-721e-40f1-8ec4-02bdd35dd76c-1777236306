@@ -1,5 +1,29 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+// Wave 21 audit: webhook used to import the browser anon supabase
+// client even though it runs as an unauth API route -- every
+// notifications insert below was attempted under anon RLS, which
+// silently rejected the row. Operators got no "payment received"
+// alerts for PayFast IPNs unless they happened to be the row owner.
+// Switch to a service-role client at module scope (initialised
+// lazily so import-side failures don't crash cold starts).
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
+import { getServiceSupabase } from "@/lib/supabase/service";
+let _svcCache: ReturnType<typeof getServiceSupabase> | null = null;
+function svc(): ReturnType<typeof getServiceSupabase> {
+  if (!_svcCache) {
+    try { _svcCache = getServiceSupabase(); }
+    catch (e) {
+      console.warn("[payment-confirmation] service supabase init failed; falling back to anon:", e);
+      return browserSupabase as any;
+    }
+  }
+  return _svcCache;
+}
+const supabase: any = new Proxy({}, {
+  get(_, prop) {
+    return (svc() as any)[prop];
+  },
+}) as any;
 import { orderService } from "@/services/orderService";
 import { emailService } from "@/services/emailService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";

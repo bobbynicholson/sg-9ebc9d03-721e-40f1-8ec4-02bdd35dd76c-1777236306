@@ -157,6 +157,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", (request as any).order_id);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
 
+    // Wave 21 audit: amendment-review applied the diff (guest_count,
+    // menu_items, equipment_items) but never recomputed orders.subtotal /
+    // tax_amount / total_amount. recalcInvoiceForOrder below pulls the
+    // GROSS from orders.total_amount when the tenant is inc-VAT (Wave
+    // 17 fix), so a stale orders.total_amount produced an invoice that
+    // didn't match the new spec. Recompute order totals from the live
+    // order_items + delivery + waiter rows BEFORE the invoice cascade
+    // so both sides agree.
+    if (Object.keys(toApply).some((k) => ["guest_count", "menu_items", "equipment_items"].includes(k))) {
+      try {
+        const { data: items } = await ssr
+          .from("order_items")
+          .select("unit_price, quantity")
+          .eq("order_id", (request as any).order_id);
+        const { data: orderRow } = await ssr
+          .from("orders")
+          .select("delivery_fee, waiter_total_fee, region_id, company_id")
+          .eq("id", (request as any).order_id)
+          .maybeSingle();
+        const lineSum = ((items || []) as any[]).reduce(
+          (s, it) => s + Number(it.quantity ?? 1) * Number(it.unit_price ?? 0),
+          0,
+        );
+        const deliveryFee = Number((orderRow as any)?.delivery_fee || 0);
+        const waiterFee = Number((orderRow as any)?.waiter_total_fee || 0);
+        const lineSumPlus = lineSum + deliveryFee + waiterFee;
+        // Resolve the per-tenant VAT rate + pricing convention from
+        // the branch settings. Same source the invoice generator uses.
+        const { resolveBranchSettings } = await import("@/services/branchSettingsService");
+        const branch = await resolveBranchSettings(
+          (orderRow as any)?.company_id,
+          ((orderRow as any)?.region_id as string | null) ?? null,
+        );
+        const taxRate = branch.vatRegistered ? Number(branch.vatRate) : 0;
+        const { data: companyVat } = await ssr
+          .from("companies")
+          .select("pricing_includes_vat")
+          .eq("id", (orderRow as any)?.company_id)
+          .maybeSingle();
+        const incVat = (companyVat as any)?.pricing_includes_vat === true;
+        const { calculateOrderTotal } = await import("@/services/order/orderFinancials");
+        const totals = await calculateOrderTotal(
+          [{ unit_price: lineSumPlus, quantity: 1 }],
+          taxRate,
+          incVat ? "inc" : "ex",
+        );
+        await ssr
+          .from("orders")
+          .update({
+            subtotal: totals.subtotal,
+            tax_amount: totals.tax,
+            total_amount: totals.total,
+            updated_at: nowIso,
+          } as any)
+          .eq("id", (request as any).order_id);
+      } catch (e) {
+        console.warn("[amendment-review] order total recompute failed (non-blocking):", e);
+      }
+    }
+
     // Stamp the request as approved + capture snapshot.
     await ssr.from("order_amendment_requests").update({
       status: action === "approve_partial" && Object.keys(toApply).length < Object.keys(proposed).length
