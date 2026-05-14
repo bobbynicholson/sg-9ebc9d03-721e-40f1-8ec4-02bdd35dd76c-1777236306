@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ExchangeRate {
@@ -39,7 +41,21 @@ interface FluctuationAlert {
   created_at: string;
 }
 
-export default function PlatformCurrencyMonitoringPage() {
+// Wave 24: super_admin gate. The page reads exchange_rates +
+// currency_fluctuation_alerts (platform-level forex tables) and
+// surfaces a "Run Check Now" trigger that fires the daily cron via
+// the currency-check.ts route. Both are super-admin surfaces; the
+// route already requires super_admin or CRON_SECRET, but the UI
+// shouldn't be reachable by tenant admins either way.
+export default function ProtectedPlatformCurrencyMonitoringPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <PlatformCurrencyMonitoringPage />
+    </ProtectedRoute>
+  );
+}
+
+function PlatformCurrencyMonitoringPage() {
   const { user, loading: authLoading } = useAuth() as any;
   const router = useRouter();
   const [loading, setLoading] = useState(true);

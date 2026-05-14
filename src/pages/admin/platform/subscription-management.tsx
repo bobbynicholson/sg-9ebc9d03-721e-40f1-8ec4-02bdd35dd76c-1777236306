@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 // We treat every company row as a subscription record. This works whether the
 // company is on a free trial, an active paid plan, or cancelled — the source
@@ -50,7 +52,18 @@ type CompanySubscription = {
   trial_ends_at: string | null;
 };
 
-export default function PlatformSubscriptionManagement() {
+// Wave 24: super_admin gate. Surfaces every tenant's subscription
+// row + can suspend / re-enable accounts. Tenant admins MUST NOT
+// reach this view.
+export default function ProtectedPlatformSubscriptionManagement() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <PlatformSubscriptionManagement />
+    </ProtectedRoute>
+  );
+}
+
+function PlatformSubscriptionManagement() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);

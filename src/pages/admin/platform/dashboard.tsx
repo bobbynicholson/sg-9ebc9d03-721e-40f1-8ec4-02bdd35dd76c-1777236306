@@ -31,6 +31,8 @@ import { analyticsService } from "@/services/analyticsService";
 import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
 import { AuditLogsViewer } from "@/components/admin/platform/AuditLogsViewer";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 const StatCard = ({
   title,
@@ -76,7 +78,22 @@ const StatCard = ({
   </Card>
 );
 
-export default function PlatformDashboard() {
+// Wave 24: super_admin gate. The platform dashboard reads tenant-
+// wide aggregates (companies, MRR, plan distribution, geo). RLS on
+// companies + platform_pricing_plans should restrict per-tenant
+// reads, but the page also embeds CompanySwitcher + AuditLogsViewer
+// which are super-admin-only surfaces. Wrapping at the page level
+// matches the pattern used by audit-logs.tsx, financial-dashboard.tsx
+// and the rest of the platform/* tree.
+export default function ProtectedPlatformDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <PlatformDashboard />
+    </ProtectedRoute>
+  );
+}
+
+function PlatformDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);

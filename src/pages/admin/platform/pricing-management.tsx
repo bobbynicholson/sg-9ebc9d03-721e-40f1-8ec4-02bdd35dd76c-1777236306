@@ -20,6 +20,8 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface PricingTier {
   slug: string;
@@ -44,7 +46,18 @@ const FALLBACK_TIERS: PricingTier[] = [
   { slug: "enterprise", name: "Enterprise", zarPrice: 2999, usdPrice: 486, gbpPrice: 383, eurPrice: 450 },
 ];
 
-export default function PricingManagementPage() {
+// Wave 24: super_admin gate. The page sets the platform-wide
+// subscription pricing list (ZAR + USD/GBP/EUR). Tenant admins
+// MUST NOT be able to mutate platform pricing.
+export default function ProtectedPricingManagementPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <PricingManagementPage />
+    </ProtectedRoute>
+  );
+}
+
+function PricingManagementPage() {
   const [pricing, setPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [editedPricing, setEditedPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [hasChanges, setHasChanges] = useState(false);

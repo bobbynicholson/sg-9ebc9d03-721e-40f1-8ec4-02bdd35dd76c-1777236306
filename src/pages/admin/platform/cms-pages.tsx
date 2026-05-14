@@ -34,6 +34,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface DraftRequest {
   topic: string;
@@ -54,7 +56,20 @@ const EMPTY_FORM = {
   is_published: true,
 };
 
-export default function CMSPageManagement() {
+// Wave 24: super_admin gate. The header comment already notes "NOT
+// a tenant feature -- this is super-admin scope" but the page had no
+// runtime gate, so a tenant admin who guessed the URL could load
+// (and via the underlying cmsService, mutate) public marketing
+// pages. ProtectedRoute hides the page entirely below super_admin.
+export default function ProtectedCMSPageManagement() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <CMSPageManagement />
+    </ProtectedRoute>
+  );
+}
+
+function CMSPageManagement() {
   const { toast } = useToast();
   const [pages, setPages] = useState<CMSPage[]>([]);
   const [loading, setLoading] = useState(true);
