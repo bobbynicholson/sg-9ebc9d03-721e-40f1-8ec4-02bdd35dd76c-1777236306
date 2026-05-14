@@ -99,10 +99,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Stripe session missing orderId/payment_intent" });
     }
 
-    // Idempotency.
-    const dup = await isDuplicateStripePayment(sb, stripeTxId);
-    if (dup) {
+    // Idempotency. Wave 24: tri-state -- duplicate (200), unique
+    // (proceed), or check failed (500 so Stripe retries instead of
+    // double-processing on a transient DB blip).
+    const dupCheck = await isDuplicateStripePayment(sb, stripeTxId);
+    if (dupCheck === "duplicate") {
       return res.status(200).json({ message: "Already processed", orderId });
+    }
+    if (dupCheck === "error") {
+      console.error("[stripe-webhook] dedup check failed for txId", stripeTxId);
+      return res.status(500).json({ error: "Dedup check failed, retry the event" });
     }
 
     const amountInRands =
@@ -159,12 +165,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<boolean> {
+// Wave 24: returns tri-state instead of boolean. The previous
+// boolean variant treated DB errors as "not duplicate", which means a
+// flaky RLS / network blip would silently double-process the payment
+// (the client gets charged once, our system records the deposit
+// twice, the operator chases a phantom credit). Returning "error"
+// lets the caller fail closed -- Stripe + Yoco both retry on 5xx.
+async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<"duplicate" | "unique" | "error"> {
   const { data, error } = await sb
     .from("payments")
     .select("id")
     .or(`gateway_transaction_id.eq.${stripeTxId},transaction_id.eq.${stripeTxId}`)
     .limit(1);
-  if (error) return false;
-  return Array.isArray(data) && data.length > 0;
+  if (error) return "error";
+  return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
 }

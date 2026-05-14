@@ -124,10 +124,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Idempotency on the Yoco transaction id. Mirrors the PayFast IPN
-    // pattern in /api/webhooks/payment-confirmation.ts.
-    const dup = await isDuplicateYocoPayment(sb, yocoTxId);
-    if (dup) {
+    // pattern in /api/webhooks/payment-confirmation.ts. Wave 24:
+    // tri-state -- duplicate (200), unique (proceed), or check failed
+    // (500 so Yoco retries instead of double-processing on a transient
+    // DB blip).
+    const dupCheck = await isDuplicateYocoPayment(sb, yocoTxId);
+    if (dupCheck === "duplicate") {
       return res.status(200).json({ message: "Already processed", orderId });
+    }
+    if (dupCheck === "error") {
+      console.error("[yoco-webhook] dedup check failed for txId", yocoTxId);
+      return res.status(500).json({ error: "Dedup check failed, retry the event" });
     }
 
     const amountInRands =
@@ -184,15 +191,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<boolean> {
+// Wave 24: returns tri-state instead of boolean. The previous boolean
+// variant logged the error then processed anyway -- a flaky RLS /
+// network blip would silently double-process the payment. Returning
+// "error" lets the caller fail closed; Yoco retries on 5xx.
+async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<"duplicate" | "unique" | "error"> {
   const { data, error } = await sb
     .from("payments")
     .select("id")
     .or(`gateway_transaction_id.eq.${yocoTxId},transaction_id.eq.${yocoTxId}`)
     .limit(1);
   if (error) {
-    console.warn("[yoco-webhook] dedup check failed, processing anyway:", error.message);
-    return false;
+    console.warn("[yoco-webhook] dedup check failed:", error.message);
+    return "error";
   }
-  return Array.isArray(data) && data.length > 0;
+  return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
 }
