@@ -1015,21 +1015,33 @@ function OrderProcessDashboard() {
                 <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
                   {order.venue_address}
                 </p>
-                {/* Quote backlink -- so the team can jump back to the
-                    accepted quote that spawned this order. Only renders
-                    when the order has a quote_id (orders converted from
-                    a quote, not the rare manually-created ones). */}
-                {(order as any).quote_id && (
-                  <Link
-                    href={withSlug(`/admin/quotes/${(order as any).quote_id}`)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
-                    title="Open the quote this order was built from"
-                  >
-                    <FileText className="w-3 h-3" />
-                    from quote
-                  </Link>
-                )}
+                {/* Quote backlink -- Wave 27.1: routes to the polished
+                    public /q/{public_token} client view (the same
+                    branded surface the client sees) instead of the
+                    bare /admin/quotes/{id} editor screen. Operator
+                    gets a one-click window into "what does the client
+                    actually see for this order". Falls back to the
+                    admin editor when the linked quote has no
+                    public_token (legacy quotes pre-token migration).
+                    Opens in a new tab so the operator doesn't lose
+                    their place in /admin/orders. */}
+                {(order as any).quote_id && (() => {
+                  const tok = (order as any).quote?.public_token;
+                  const href = tok ? `/q/${tok}` : withSlug(`/admin/quotes/${(order as any).quote_id}`);
+                  return (
+                    <Link
+                      href={href}
+                      target={tok ? "_blank" : undefined}
+                      rel={tok ? "noopener noreferrer" : undefined}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                      title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
+                    >
+                      <FileText className="w-3 h-3" />
+                      from quote
+                    </Link>
+                  );
+                })()}
               </div>
               <Badge
                 variant="outline"
@@ -1199,17 +1211,26 @@ function OrderProcessDashboard() {
                       Overdue
                     </Badge>
                   )}
-                  {(order as any).quote_id && (
-                    <Link
-                      href={withSlug(`/admin/quotes/${(order as any).quote_id}`)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
-                      title="Open the quote this order was built from"
-                    >
-                      <FileText className="w-3 h-3" />
-                      from quote
-                    </Link>
-                  )}
+                  {(order as any).quote_id && (() => {
+                    // Wave 27.1: routes to /q/{public_token} -- the
+                    // polished client view -- instead of the admin
+                    // editor screen.
+                    const tok = (order as any).quote?.public_token;
+                    const href = tok ? `/q/${tok}` : withSlug(`/admin/quotes/${(order as any).quote_id}`);
+                    return (
+                      <Link
+                        href={href}
+                        target={tok ? "_blank" : undefined}
+                        rel={tok ? "noopener noreferrer" : undefined}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                        title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
+                      >
+                        <FileText className="w-3 h-3" />
+                        from quote
+                      </Link>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-slate-600">
                   <div className="flex items-center gap-1">
@@ -1887,17 +1908,29 @@ function OrderProcessDashboard() {
                     edited (items, totals, venue, date) propagated
                     through. */}
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {(selectedOrder as any).quote_id && (
-                    <Link
-                      href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
-                      onClick={() => setIsModalOpen(false)}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
-                    >
-                      <FileText className="w-3 h-3" />
-                      Source quote
-                      <ChevronRight className="w-3 h-3" />
-                    </Link>
-                  )}
+                  {(selectedOrder as any).quote_id && (() => {
+                    // Wave 27.1: route to /q/{public_token} (polished
+                    // client view) when available; fall back to the
+                    // admin editor for legacy quotes without a token.
+                    const tok = (selectedOrder as any).quote?.public_token;
+                    const href = tok
+                      ? `/q/${tok}`
+                      : withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`);
+                    return (
+                      <Link
+                        href={href}
+                        target={tok ? "_blank" : undefined}
+                        rel={tok ? "noopener noreferrer" : undefined}
+                        onClick={() => setIsModalOpen(false)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
+                        title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
+                      >
+                        <FileText className="w-3 h-3" />
+                        Source quote
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={async () => {
@@ -2781,7 +2814,7 @@ function OrderProcessDashboard() {
                       onClick={() => {
                         setPriceAdjustOpen(false);
                         setIsModalOpen(false);
-                        window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
+                        window.location.href = withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`);
                       }}
                       disabled={saving}
                     >
@@ -2797,7 +2830,7 @@ function OrderProcessDashboard() {
                       onClick={() => {
                         setPriceAdjustOpen(false);
                         setIsModalOpen(false);
-                        window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
+                        window.location.href = withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`);
                       }}
                       disabled={saving}
                     >

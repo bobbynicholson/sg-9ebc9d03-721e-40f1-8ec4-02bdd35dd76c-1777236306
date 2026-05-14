@@ -181,12 +181,18 @@ export async function getOrderById(orderId: string, companyId?: string) {
 
 export async function getAllOrders(companyId: string) {
   try {
+    // Wave 27.1: pulled the linked quote's public_token + quote_number
+    // so the /admin/orders "from quote" badge can deep-link to the
+    // polished branded /q/{public_token} client view, not the bare
+    // /admin/quotes/{id} editor screen. Operator gets a one-click
+    // window into "what does the client actually see for this order".
     const { data, error } = await supabase
       .from("orders")
       .select(`
         *,
         client:clients(*),
         order_items(*),
+        quote:quotes!orders_quote_id_fkey(public_token, quote_number),
         assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
         assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email),
         assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey(id, plate, nickname, refrigerated, has_warmer, max_pax_served, capacity_kg, owner_kind, requires_two_people)
