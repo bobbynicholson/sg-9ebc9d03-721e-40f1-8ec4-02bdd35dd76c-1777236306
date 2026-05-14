@@ -57,6 +57,12 @@ const FALLBACK_BODIES = {
     "We'll process the EFT {{refund_sla_phrase}} and send confirmation when it's gone out.\n\n",
   cancellation_no_refund_paragraph:
     "Per our cancellation policy (sent on quote acceptance), no refund is due for this cancellation.\n\n",
+  // Wave 28.2: parallel paragraph for the credit-payout choice. The
+  // bonus pp wording is omitted when there's no bonus so plain-credit
+  // tenants don't read awkwardly.
+  cancellation_with_credit_paragraph:
+    "You chose to keep your {{credit_amount}} as store credit instead of a refund. " +
+    "It's already on your account -- use it any time on a future booking, never expires.\n\n",
   refund_paid:
     "Hi {{client_first_name}},\n\n" +
     "Confirming that the refund of {{refund_amount}} for the cancelled order {{order_number}} has been processed. " +
@@ -164,21 +170,40 @@ function commonVars(order: OrderForEmail, company: CompanyForEmailExt | null): R
   };
 }
 
-export async function sendCancellationEmail(orderId: string, refundAmount: number): Promise<void> {
+/**
+ * Wave 28.2: third arg lets callers pick the payout variant.
+ * Back-compat: existing callers pass just `(orderId, refundAmount)` and
+ * get the refund paragraph as before. New callers pass
+ * `(orderId, 0, { creditAmount: 485 })` for the credit variant.
+ */
+export async function sendCancellationEmail(
+  orderId: string,
+  refundAmount: number,
+  opts?: { creditAmount?: number },
+): Promise<void> {
   try {
     const { order, company } = await fetchOrderAndCompany(orderId);
     if (!order?.client_email) return;
 
+    const creditAmount = Number(opts?.creditAmount) || 0;
     const baseVars = commonVars(order, company);
     const slaPhrase = refundSlaPhrase(company);
     const currencyCode = company?.currency ?? null;
-    const refundParagraph = refundAmount > 0
-      ? FALLBACK_BODIES.cancellation_with_refund_paragraph
-          .split("{{refund_amount}}")
-          .join(fmtMoney(refundAmount, currencyCode))
-          .split("{{refund_sla_phrase}}")
-          .join(slaPhrase)
-      : FALLBACK_BODIES.cancellation_no_refund_paragraph;
+
+    let payoutParagraph: string;
+    if (creditAmount > 0) {
+      payoutParagraph = FALLBACK_BODIES.cancellation_with_credit_paragraph
+        .split("{{credit_amount}}")
+        .join(fmtMoney(creditAmount, currencyCode));
+    } else if (refundAmount > 0) {
+      payoutParagraph = FALLBACK_BODIES.cancellation_with_refund_paragraph
+        .split("{{refund_amount}}")
+        .join(fmtMoney(refundAmount, currencyCode))
+        .split("{{refund_sla_phrase}}")
+        .join(slaPhrase);
+    } else {
+      payoutParagraph = FALLBACK_BODIES.cancellation_no_refund_paragraph;
+    }
 
     const fallbackSubject = formatCancellationSubject({
       eventName: order.event_name,
@@ -192,8 +217,12 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
       templateType: "cancellation_approved",
       variables: {
         ...baseVars,
-        refund_paragraph: refundParagraph,
+        // Wave 28.2: refund_paragraph stays the variable name for
+        // back-compat with tenant template overrides; the value now
+        // carries either the refund OR credit copy depending on choice.
+        refund_paragraph: payoutParagraph,
         refund_amount: fmtMoney(refundAmount, currencyCode),
+        credit_amount: fmtMoney(creditAmount, currencyCode),
         refund_sla_phrase: slaPhrase,
         refund_process_days: String(company?.refund_process_days ?? ""),
       },

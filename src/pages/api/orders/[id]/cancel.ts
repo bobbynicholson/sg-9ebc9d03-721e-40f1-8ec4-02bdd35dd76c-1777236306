@@ -22,7 +22,20 @@
  *                       'weather'|'force_majeure'|'other',
  *     reason?: string,
  *     refund_override?: number,    // owner can override the calc (uses calc if omitted)
- *     bypass_late_guard?: boolean  // owner-only escape hatch
+ *     bypass_late_guard?: boolean, // owner-only escape hatch
+ *     // Wave 28.2: payout choice. 'refund' (default) preserves legacy
+ *     // behaviour -- inserts a payments{type:refund,pending} row and
+ *     // calls refundService.processRefund. 'credit' instead inserts a
+ *     // payments{type:credit_issue,completed} row, no Xero credit-note
+ *     // is pushed, and the client confirmation email switches to the
+ *     // store-credit copy. credit_amount lets the caller carry over
+ *     // the +bonus_pp goodwill amount computed by the wizard --
+ *     // server falls back to refund_calc * (creditPct/refundPct) when
+ *     // omitted so admin-side cancels with no wizard still work.
+ *     payout_choice?: 'refund' | 'credit',
+ *     credit_amount?: number,
+ *     committed_cost_note?: string,
+ *     requested_by?: 'admin' | 'client'
  *   }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -67,15 +80,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const reason = body.reason ? String(body.reason) : null;
     const refund_override = body.refund_override !== undefined ? Number(body.refund_override) : null;
     const bypass_late_guard = !!body.bypass_late_guard;
+    // Wave 28.2: payout selection. Defaults to 'refund' so legacy
+    // callers (admin one-click cancel before the wizard ships) keep
+    // their existing behaviour.
+    const payout_choice: "refund" | "credit" =
+      body.payout_choice === "credit" ? "credit" : "refund";
+    const credit_amount_in =
+      body.credit_amount !== undefined ? Number(body.credit_amount) : null;
+    const committed_cost_note = body.committed_cost_note
+      ? String(body.committed_cost_note)
+      : null;
+    const requested_by: "admin" | "client" =
+      body.requested_by === "client" ? "client" : "admin";
 
     if (!VALID_CATEGORIES.has(reason_category)) {
       return res.status(400).json({ error: "Invalid reason_category" });
     }
 
     // Read the order + tenant scope check.
+    // Wave 28.2: also pull client_id so credit-payout rows attach to
+    // the right client wallet (read via getClientCreditBalance).
     const { data: order } = await ssr
       .from("orders")
-      .select("id, company_id, status, deleted_at, event_date")
+      .select("id, company_id, status, deleted_at, event_date, client_id")
       .eq("id", orderId)
       .maybeSingle();
     if (!order || (order as any).deleted_at) {
@@ -118,6 +145,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const refund_final =
       refund_override !== null && refund_override >= 0 ? Number(refund_override) : refund_calc;
 
+    // Wave 28.2: derive credit_final. The wizard sends credit_amount
+    // already inflated by the goodwill bonus; admin-side cancels may
+    // omit it, in which case we re-derive from policy.credit_bonus_pct
+    // so the credit row never lands at 0 when refund_final > 0.
+    const policy_obj = (snap.policy_snapshot as any) || {};
+    const bonus_pp = Math.max(0, Math.min(100, Number(policy_obj.credit_bonus_pct ?? 10)));
+    const refund_pct = Number(snap.refund_pct) || 0;
+    const credit_pct = Math.min(100, refund_pct + bonus_pp);
+    const base_paid = Math.max(
+      Number(snap.deposit_paid_amount) || 0,
+      Number(snap.total_amount_paid) || 0,
+    );
+    const derived_credit = Math.round(base_paid * (credit_pct / 100) * 100) / 100;
+    const credit_final =
+      credit_amount_in !== null && credit_amount_in >= 0
+        ? Number(credit_amount_in)
+        : derived_credit;
+
     // Run the cancelOrder workflow (status, cascades, audit, notifications).
     // Pass the ssr client so the UPDATE runs as the authenticated user
     // -- the imported browser supabase has no session in this context
@@ -133,6 +178,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Insert the cancellation_requests row (the audit + policy snapshot).
+    // Wave 28.2: payout_choice + committed_cost_note ride along in the
+    // policy_snapshot.* sidecar so the audit row carries the full
+    // wizard context without a schema change.
+    const enriched_snapshot = {
+      ...(snap.policy_snapshot ?? snap),
+      _payout_choice: payout_choice,
+      _committed_cost_note: committed_cost_note,
+      _requested_by: requested_by,
+      _credit_amount: payout_choice === "credit" ? credit_final : 0,
+      _refund_amount: payout_choice === "refund" ? refund_final : 0,
+    };
     const { data: requestRow, error: reqErr } = await ssr
       .from("cancellation_requests")
       .insert({
@@ -140,14 +196,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         order_id: orderId,
         request_type: "cancel",
         cancellation_type: "immediate",
-        status: refund_final > 0 ? "approved" : "completed",
+        status:
+          payout_choice === "credit"
+            ? "completed"
+            : refund_final > 0
+              ? "approved"
+              : "completed",
         reason,
         requested_by_user_id: user.id,
         reviewed_by_user_id: user.id,
         reviewed_at: new Date().toISOString(),
-        policy_snapshot: snap.policy_snapshot ?? snap,
+        policy_snapshot: enriched_snapshot,
         refund_amount_calculated: refund_calc,
-        refund_amount_approved: refund_final,
+        refund_amount_approved: payout_choice === "refund" ? refund_final : 0,
         applied_at: new Date().toISOString(),
       } as any)
       .select("id")
@@ -157,10 +218,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[orders/cancel] cancellation_requests insert failed:", reqErr);
     }
 
-    // Refund record. Only inserted when there's something to refund.
-    // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
+    // ============================================================
+    // Wave 28.2: branch on payout_choice
+    // ============================================================
     let refundPaymentId: string | null = null;
-    if (refund_final > 0) {
+    let creditPaymentId: string | null = null;
+
+    if (payout_choice === "credit" && credit_final > 0) {
+      // Issue store credit -- single payments row, no external gateway,
+      // no Xero credit-note (the catering company keeps the cash;
+      // the client gets a future-dated voucher).
+      const { data: credRow, error: credErr } = await ssr
+        .from("payments")
+        .insert({
+          company_id: (order as any).company_id,
+          order_id: orderId,
+          client_id: (order as any).client_id || null,
+          payment_type: "credit_issue",
+          amount: credit_final,
+          payment_status: "completed",
+          reason: `Cancellation credit (${snap.tier_label || "tier"}, ${credit_pct}% of paid${
+            bonus_pp > 0 ? ` -- includes ${bonus_pp}pp goodwill bonus` : ""
+          })`,
+          created_by_user_id: user.id,
+          cancellation_request_id: (requestRow as any)?.id || null,
+        } as any)
+        .select("id")
+        .single();
+      if (credErr) {
+        console.warn("[orders/cancel] credit_issue payments row failed:", credErr);
+      } else {
+        creditPaymentId = (credRow as any)?.id || null;
+        // Mark the order as fully reconciled via credit -- nothing
+        // further is owed either way. Reuses the existing 'refunded'
+        // status so reporting stays consistent (a credit issue is
+        // economically equivalent to a refund the client immediately
+        // re-spent on a future booking).
+        await ssr.from("orders").update({
+          payment_status: "refunded",
+        } as any).eq("id", orderId);
+      }
+
+      // Audit row -- separate from cancellation_requests so the
+      // credit issuance shows up in the order's audit_logs timeline.
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (order as any).company_id,
+          order_id: orderId,
+          user_id: user.id,
+          action: "cancellation_credit_issued",
+          entity_type: "payments",
+          entity_id: creditPaymentId,
+          metadata: {
+            credit_amount: credit_final,
+            credit_pct,
+            bonus_pp,
+            tier_label: snap.tier_label,
+            requested_by,
+          },
+        });
+      } catch (e) {
+        console.warn("[orders/cancel] audit_logs insert (credit) failed:", e);
+      }
+    } else if (payout_choice === "refund" && refund_final > 0) {
       const { data: payRow, error: payErr } = await ssr
         .from("payments")
         .insert({
@@ -229,15 +349,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Templated cancellation email with the refund amount and timeline.
+    // Templated cancellation email -- swap to credit-paragraph variant
+    // when the client picked credit, otherwise keep the refund copy.
     // bypassQuarantine=true so a quarantined client still hears about
     // their cancelled order. blocked_contacts still blocks (deliberate).
-    void sendCancellationEmail(orderId, refund_final);
+    if (payout_choice === "credit" && credit_final > 0) {
+      void sendCancellationEmail(orderId, 0, { creditAmount: credit_final });
+    } else {
+      void sendCancellationEmail(orderId, refund_final);
+    }
 
     return res.status(200).json({
       ok: true,
-      refund_amount: refund_final,
+      payout_choice,
+      refund_amount: payout_choice === "refund" ? refund_final : 0,
+      credit_amount: payout_choice === "credit" ? credit_final : 0,
       refund_payment_id: refundPaymentId,
+      credit_payment_id: creditPaymentId,
       cancellation_request_id: (requestRow as any)?.id || null,
       snapshot: snap,
     });
