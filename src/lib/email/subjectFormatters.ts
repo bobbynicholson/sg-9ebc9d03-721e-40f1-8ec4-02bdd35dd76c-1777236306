@@ -47,12 +47,18 @@ function fmtMoney(amount: number | null | undefined, currencyCode?: string | nul
   }
 }
 
-/** "5 May 2026" en-ZA long form, or empty string when missing/invalid. */
-function fmtDate(date: string | Date | null | undefined): string {
+/** "5 May 2026" long form, locale-aware. Wave 24: takes a currency
+ *  code so a US tenant reads "May 5, 2026" and a UK tenant reads
+ *  "5 May 2026" instead of always en-ZA. Long-form months stay
+ *  unambiguous; this fixes word order + comma differences across
+ *  English locales. Defaults to en-ZA when no code passed. */
+function fmtDate(date: string | Date | null | undefined, currencyCode?: string | null): string {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-ZA", {
+  const code = (currencyCode || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[code] || "en-ZA";
+  return d.toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -266,6 +272,7 @@ export function formatCancellationSubject(input: CancellationSubjectInput): stri
 export interface PostponementSubjectInput {
   eventName?: string | null;
   newDate?: string | Date | null;
+  currencyCode?: string | null;
 }
 
 /**
@@ -283,7 +290,7 @@ export interface PostponementSubjectInput {
  */
 export function formatPostponementSubject(input: PostponementSubjectInput): string {
   const eventName = clean(input.eventName);
-  const dateLabel = fmtDate(input.newDate);
+  const dateLabel = fmtDate(input.newDate, input.currencyCode);
 
   if (eventName && dateLabel) return `${eventName} moved to ${dateLabel}`;
   if (eventName) return `${eventName} postponed`;

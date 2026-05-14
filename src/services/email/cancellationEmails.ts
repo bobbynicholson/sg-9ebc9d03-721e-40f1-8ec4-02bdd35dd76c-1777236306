@@ -137,11 +137,22 @@ function refundSlaPhrase(company: CompanyForEmailExt | null): string {
   return `within ${days} business day${days === 1 ? "" : "s"}`;
 }
 
-function commonVars(order: OrderForEmail, company: CompanyForEmail | null): Record<string, string> {
+function commonVars(order: OrderForEmail, company: CompanyForEmailExt | null): Record<string, string> {
   const firstName = String(order.client_name || "").trim().split(" ")[0] || "there";
   const orderNumber = order.order_number || `#${String(order.id).slice(0, 8)}`;
+  // Wave 24: locale for the long-form event date follows the tenant
+  // currency so a UK tenant reads "12 May 2026" (en-GB) and a US one
+  // reads "May 12, 2026" (en-US) instead of always en-ZA. Long-form
+  // months stay unambiguous either way; this fixes the comma + word
+  // order that gives away "this email was templated for SA".
+  const code = (company?.currency || "ZAR").toUpperCase();
+  const localeFor: Record<string, string> = {
+    ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+    AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+  };
+  const locale = localeFor[code] || "en-ZA";
   const eventDateLabel = order.event_date
-    ? ` for ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
+    ? ` for ${new Date(order.event_date).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}`
     : "";
   return {
     client_first_name: firstName,
@@ -257,9 +268,22 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
     const { order, company } = await fetchOrderAndCompany(orderId);
     if (!order?.client_email) return;
 
+    const currencyCode = company?.currency ?? null;
+    // Wave 24: locale follows tenant currency so a UK / US tenant
+    // reads dates in their region's word order, not en-ZA.
+    const localeFor: Record<string, string> = {
+      ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+      AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+    };
+    const locale = localeFor[(currencyCode || "ZAR").toUpperCase()] || "en-ZA";
+    const newDateLabel = newEventDate
+      ? new Date(newEventDate).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })
+      : "to be confirmed";
+
     const fallbackSubject = formatPostponementSubject({
       eventName: order.event_name,
       newDate: newEventDate,
+      currencyCode,
     });
 
     const resolved = await resolveEmailTemplate({
@@ -267,12 +291,8 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
       templateType: "postponement_approved",
       variables: {
         ...commonVars(order, company),
-        new_event_date: newEventDate
-          ? new Date(newEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
-          : "to be confirmed",
-        new_date: newEventDate
-          ? new Date(newEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
-          : "to be confirmed",
+        new_event_date: newDateLabel,
+        new_date: newDateLabel,
       },
       fallback: {
         subject: fallbackSubject,
