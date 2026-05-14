@@ -56,10 +56,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "proposed_changes must be an object" });
     }
 
-    // Strip anything the client isn't allowed to amend.
+    // Strip anything the client isn't allowed to amend, AND validate
+    // each value's shape + range. Without this a malicious / sloppy
+    // client could submit guest_count: 999999, special_instructions:
+    // a 50KB string, or a menu_items array with thousands of bogus
+    // entries -- all of which would land on the order row + propagate
+    // through the kitchen prep + invoice cascade. Wave 22.
     const sanitized: Record<string, any> = {};
+    const validationErrors: string[] = [];
     for (const [k, v] of Object.entries(proposed_changes)) {
-      if (ALLOWED_FIELDS.has(k)) sanitized[k] = v;
+      if (!ALLOWED_FIELDS.has(k)) continue;
+      if (k === "guest_count") {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0 || n > 5000 || !Number.isInteger(n)) {
+          validationErrors.push("guest_count must be a whole number between 1 and 5000");
+          continue;
+        }
+        sanitized[k] = n;
+      } else if (k === "special_instructions" || k === "venue_address" || k === "delivery_time") {
+        if (typeof v !== "string") {
+          validationErrors.push(`${k} must be a string`);
+          continue;
+        }
+        // Cap each free-text field at 2KB so a runaway client can't
+        // bloat the request row.
+        sanitized[k] = v.slice(0, 2000);
+      } else if (k === "menu_items" || k === "equipment_items") {
+        if (!Array.isArray(v)) {
+          validationErrors.push(`${k} must be an array`);
+          continue;
+        }
+        if (v.length > 100) {
+          validationErrors.push(`${k} can have at most 100 entries`);
+          continue;
+        }
+        sanitized[k] = v;
+      } else {
+        sanitized[k] = v;
+      }
+    }
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: validationErrors.join("; "),
+      });
     }
     const notesProvided = !!client_notes && client_notes.trim().length > 0;
     if (Object.keys(sanitized).length === 0 && !notesProvided) {
@@ -163,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           UserRole.ADMIN,
           "owner" as any,
         ],
-      });
+      }, sb);
     } catch (e) {
       console.warn("[amend-order:token] notify failed:", e);
     }

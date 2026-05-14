@@ -170,7 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           UserRole.ADMIN,
           "owner" as any,
         ],
-      });
+      }, sb);
     } catch (e) {
       console.warn("[cancel-order:token] notify failed:", e);
     }

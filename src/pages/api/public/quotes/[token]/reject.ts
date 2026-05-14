@@ -37,6 +37,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Atomic flip -- only matches a non-terminal row, so a second click
   // (or a race with the operator manually marking it accepted) returns
   // 200 idempotent without firing the side-effects again.
+  // Wave 22: also pull client_email + lead_id so we can send the
+  // client a "got it" confirmation and flip the linked lead to 'lost'
+  // (so the funnel reflects reality instead of leaving the lead at
+  // 'quoted' forever).
   const { data: updated, error } = await (supabase as any)
     .from("quotes")
     .update({
@@ -48,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .eq("public_token", token)
     .is("deleted_at", null)
     .in("status", ["draft", "sent", "viewed"])
-    .select("id, company_id, user_id, client_name, quote_number, event_date")
+    .select("id, company_id, user_id, client_name, client_email, quote_number, event_date, lead_id")
     .maybeSingle();
 
   if (error) {
@@ -110,6 +114,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const reasonSnippet = reason
         ? ` Reason: "${reason.slice(0, 140)}${reason.length > 140 ? "..." : ""}"`
         : "";
+      // Wave 22: pass the service-role client so the broadcast lands
+      // even from this unauth public route. Without it, anon RLS hides
+      // the operator profiles + rejects the notifications insert.
       await (notificationService as any).broadcastNotification({
         companyId: updated.company_id,
         type: "quote_rejected",
@@ -125,11 +132,68 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           UserRole.ADMIN,
           "owner" as any,
         ],
-      });
+      }, supabase);
     } catch (e) {
       console.warn("[public/quotes/reject] notify failed:", e);
     }
   })();
+
+  // Wave 22: lifecycle -- when the client declines a quote that was
+  // linked to a lead, flip the lead to 'lost' so the lead-source
+  // funnel + conversion-rate stats reflect reality instead of
+  // leaving the lead at 'quoted' indefinitely. Belt-and-braces:
+  // only advance from non-terminal lead statuses so a manually-won
+  // lead doesn't get yanked back to lost.
+  if (updated.lead_id) {
+    void (async () => {
+      try {
+        await (supabase as any)
+          .from("leads")
+          .update({ status: "lost", updated_at: nowIso })
+          .eq("id", updated.lead_id)
+          .in("status", ["new", "contacted", "qualified", "quoted", "negotiating"]);
+      } catch (e) {
+        console.warn("[public/quotes/reject] lead status flip failed:", e);
+      }
+    })();
+  }
+
+  // Wave 22: confirmation email back to the client. Decline used to
+  // be silent on the client side -- the inline "Thanks for letting
+  // {company} know" only showed if they stayed on the page. An email
+  // closes the loop in their inbox so they don't wonder whether the
+  // request landed. Best-effort: a failed email never undoes the
+  // status flip.
+  if (updated.client_email) {
+    void (async () => {
+      try {
+        const { data: companyRow } = await (supabase as any)
+          .from("companies")
+          .select("company_name")
+          .eq("id", updated.company_id)
+          .maybeSingle();
+        const companyName = (companyRow as any)?.company_name || "the team";
+        const firstName = String(updated.client_name || "").trim().split(" ")[0] || "there";
+        const reasonLine = reason ? `Your note: "${reason}"\n\n` : "";
+        const { emailService } = await import("@/services/emailService");
+        await (emailService as any).sendEmail({
+          companyId: updated.company_id,
+          to: updated.client_email,
+          subject: `Quote ${updated.quote_number} -- declined`,
+          body:
+            `Hi ${firstName},\n\n` +
+            `This confirms that you've declined quote ${updated.quote_number}. We've closed it on our side -- no follow-ups coming.\n\n` +
+            reasonLine +
+            `If your plans change, just reply to this email and we'll work out a fresh quote.\n\n` +
+            `Thanks,\n${companyName}`,
+          bypassQuarantine: true,
+          _client: supabase,
+        });
+      } catch (e) {
+        console.warn("[public/quotes/reject] confirmation email failed:", e);
+      }
+    })();
+  }
 
   return res.status(200).json({ ok: true, quoteId: updated.id });
 }
