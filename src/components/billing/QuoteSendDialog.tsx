@@ -91,6 +91,7 @@ export function QuoteSendDialog({
               tenantName: tn,
               total: total,
               quoteNumber: quote.quote_number || quote.id,
+              currencyCode: currency,
             }),
             bodyHtml:
               `Hi {{first_name}},\n\n` +
@@ -113,6 +114,7 @@ export function QuoteSendDialog({
               tenantName: tn,
               total,
               quoteNumber: quote.quote_number || quote.id,
+              currencyCode: currency,
             }),
             body: `Hi ${firstName},\n\nYour quote is ready. Total: ${totalLabel}.\n\nThanks,\n${tn}`,
           });

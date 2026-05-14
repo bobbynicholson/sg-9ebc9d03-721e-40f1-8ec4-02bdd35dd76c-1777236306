@@ -16,22 +16,35 @@
  *   - never uses em dashes (we use double-hyphen)
  *   - South African English ("organise", not "organize")
  *
- * ZAR formatting uses no decimal places -- inbox subjects look cleaner
- * at "R 12 345" than at "R 12 345,00".
+ * Wave 24: currency formatting is tenant-aware. Each input takes an
+ * optional `currencyCode` (ZAR / GBP / USD / EUR / ...). Defaults to
+ * ZAR so existing call sites that don't pass it render unchanged.
+ * No decimal places -- inbox subjects look cleaner at "R 12 345" than
+ * at "R 12 345.00".
  */
 
 // ── Internal formatting helpers ─────────────────────────────────────
 
-const zarFormatter = new Intl.NumberFormat("en-ZA", {
-  style: "currency",
-  currency: "ZAR",
-  maximumFractionDigits: 0,
-});
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+};
 
-/** "R 12 345" or empty string when amount is missing/zero. */
-function fmtZAR(amount: number | null | undefined): string {
+/** "R 12 345" / "£12,345" / "$12,345" -- empty when amount is
+ *  missing / zero. Currency code defaults to ZAR for back-compat. */
+function fmtMoney(amount: number | null | undefined, currencyCode?: string | null): string {
   if (amount == null || !Number.isFinite(amount)) return "";
-  return zarFormatter.format(amount);
+  const code = (currencyCode || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[code] || "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(0)}`;
+  }
 }
 
 /** "5 May 2026" en-ZA long form, or empty string when missing/invalid. */
@@ -57,6 +70,7 @@ export interface QuoteSubjectInput {
   tenantName?: string | null;
   total?: number | null;
   quoteNumber?: string | null;
+  currencyCode?: string | null;
 }
 
 /**
@@ -73,7 +87,7 @@ export interface QuoteSubjectInput {
 export function formatQuoteSubject(input: QuoteSubjectInput): string {
   const eventName = clean(input.eventName);
   const tenantName = clean(input.tenantName) || "your caterer";
-  const totalLabel = fmtZAR(input.total ?? null);
+  const totalLabel = fmtMoney(input.total ?? null, input.currencyCode);
   const quoteNumber = clean(input.quoteNumber);
 
   if (eventName) {
@@ -136,6 +150,7 @@ export interface InvoiceSubjectInput {
   tenantName?: string | null;
   total?: number | null;
   type: InvoiceSubjectType;
+  currencyCode?: string | null;
 }
 
 /**
@@ -154,7 +169,7 @@ export interface InvoiceSubjectInput {
 export function formatInvoiceSubject(input: InvoiceSubjectInput): string {
   const eventName = clean(input.eventName);
   const invoiceNumber = clean(input.invoiceNumber);
-  const totalLabel = fmtZAR(input.total ?? null);
+  const totalLabel = fmtMoney(input.total ?? null, input.currencyCode);
 
   const labelMap: Record<InvoiceSubjectType, string> = {
     deposit: "Deposit invoice",
@@ -216,6 +231,7 @@ export interface CancellationSubjectInput {
   eventName?: string | null;
   tenantName?: string | null;
   refundAmount?: number | null;
+  currencyCode?: string | null;
 }
 
 /**
@@ -237,7 +253,7 @@ export interface CancellationSubjectInput {
 export function formatCancellationSubject(input: CancellationSubjectInput): string {
   const eventName = clean(input.eventName) || "Booking";
   const refund = input.refundAmount ?? 0;
-  const refundLabel = refund > 0 ? fmtZAR(refund) : "";
+  const refundLabel = refund > 0 ? fmtMoney(refund, input.currencyCode) : "";
 
   if (refundLabel) {
     return `${eventName} cancelled -- ${refundLabel} refund coming`;
@@ -280,6 +296,7 @@ export function formatPostponementSubject(input: PostponementSubjectInput): stri
 export interface RefundPaidSubjectInput {
   amount?: number | null;
   eventName?: string | null;
+  currencyCode?: string | null;
 }
 
 /**
@@ -297,7 +314,7 @@ export interface RefundPaidSubjectInput {
  */
 export function formatRefundPaidSubject(input: RefundPaidSubjectInput): string {
   const eventName = clean(input.eventName);
-  const amountLabel = fmtZAR(input.amount ?? null);
+  const amountLabel = fmtMoney(input.amount ?? null, input.currencyCode);
 
   if (amountLabel && eventName) return `Refund paid -- ${amountLabel} for ${eventName}`;
   if (amountLabel) return `Refund paid -- ${amountLabel}`;

@@ -70,8 +70,22 @@ const FALLBACK_BODIES = {
     "Thanks,\n{{company_name}}",
 } as const;
 
-const fmtZAR = (n: number) =>
-  new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" }).format(n || 0);
+// Wave 24: tenant-aware money formatter. Falls back to ZAR for back-
+// compat. The locale follows the currency code so a UK refund
+// confirmation reads "£250" not "R 250" or "ZAR 250".
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+};
+const fmtMoney = (n: number, code?: string | null) => {
+  const c = (code || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[c] || "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: c }).format(n || 0);
+  } catch {
+    return `${c} ${(n || 0).toFixed(2)}`;
+  }
+};
 
 interface OrderForEmail {
   id: string;
@@ -90,6 +104,9 @@ interface CompanyForEmail {
 
 interface CompanyForEmailExt extends CompanyForEmail {
   refund_process_days: number | null;
+  // Wave 24: pulled so refund / cancellation emails format amounts
+  // in the tenant's currency rather than always ZAR.
+  currency: string | null;
 }
 
 async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmailExt | null }> {
@@ -104,7 +121,7 @@ async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForE
   // migration; cast keeps us off the still-stale Supabase Database types.
   const { data: company } = await (sb as any)
     .from("companies")
-    .select("id, company_name, refund_process_days")
+    .select("id, company_name, refund_process_days, currency")
     .eq("id", (order as any).company_id)
     .maybeSingle();
   return { order: order as any, company: (company as any) || null };
@@ -143,10 +160,11 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
 
     const baseVars = commonVars(order, company);
     const slaPhrase = refundSlaPhrase(company);
+    const currencyCode = company?.currency ?? null;
     const refundParagraph = refundAmount > 0
       ? FALLBACK_BODIES.cancellation_with_refund_paragraph
           .split("{{refund_amount}}")
-          .join(fmtZAR(refundAmount))
+          .join(fmtMoney(refundAmount, currencyCode))
           .split("{{refund_sla_phrase}}")
           .join(slaPhrase)
       : FALLBACK_BODIES.cancellation_no_refund_paragraph;
@@ -155,6 +173,7 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
       eventName: order.event_name,
       tenantName: company?.company_name ?? null,
       refundAmount,
+      currencyCode,
     });
 
     const resolved = await resolveEmailTemplate({
@@ -163,7 +182,7 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
       variables: {
         ...baseVars,
         refund_paragraph: refundParagraph,
-        refund_amount: fmtZAR(refundAmount),
+        refund_amount: fmtMoney(refundAmount, currencyCode),
         refund_sla_phrase: slaPhrase,
         refund_process_days: String(company?.refund_process_days ?? ""),
       },
@@ -195,9 +214,11 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
     const { order, company } = await fetchOrderAndCompany(orderId);
     if (!order?.client_email) return;
 
+    const currencyCode = company?.currency ?? null;
     const fallbackSubject = formatRefundPaidSubject({
       amount: refundAmount,
       eventName: order.event_name,
+      currencyCode,
     });
 
     const resolved = await resolveEmailTemplate({
@@ -205,8 +226,8 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       templateType: "refund_paid",
       variables: {
         ...commonVars(order, company),
-        refund_amount: fmtZAR(refundAmount),
-        amount: fmtZAR(refundAmount),
+        refund_amount: fmtMoney(refundAmount, currencyCode),
+        amount: fmtMoney(refundAmount, currencyCode),
       },
       fallback: {
         subject: fallbackSubject,

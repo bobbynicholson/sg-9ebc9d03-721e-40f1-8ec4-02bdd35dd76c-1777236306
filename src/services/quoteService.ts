@@ -390,6 +390,7 @@ export const quoteService = {
       tenantName: companyName,
       total: typeof quote.total === "number" ? quote.total : null,
       quoteNumber: (quote as any).quote_number ?? quoteId,
+      currencyCode,
     });
 
     await fetch("/api/send-email", {
