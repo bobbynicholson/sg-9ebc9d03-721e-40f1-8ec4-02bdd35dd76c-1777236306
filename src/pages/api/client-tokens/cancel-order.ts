@@ -16,7 +16,14 @@
  * acknowledgement email.
  *
  * Body:
- *   { order_id, request_type, requested_postpone_date?, reason?, client_notes? }
+ *   { order_id, request_type, requested_postpone_date?, reason?, client_notes?,
+ *     // Wave 28.4/28.5: wizard payload. When present + outside the
+ *     // owner-override window, runs the cancel cascade immediately
+ *     // (auto-processed) instead of queueing a pending row.
+ *     payout_choice?: 'refund'|'credit',
+ *     credit_amount?: number,
+ *     committed_cost_note?: string,
+ *     reason_category?: string }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -144,6 +151,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         error: "There's already a pending request on this order. We'll come back to you shortly.",
         request_id: (existing[0] as any).id,
       });
+    }
+
+    // ============================================================
+    // Wave 28.5: AUTO-PROCESS branch.
+    // When the policy says we're outside the owner-override window
+    // AND the wizard sent a payout choice, run the full cancel
+    // cascade right now instead of queueing a pending row. This is
+    // Bobby's "first line of defence" -- the system handles cancels
+    // before the catering company is on the phone.
+    // ============================================================
+    const payout_choice_raw = body.payout_choice;
+    const payout_choice: "refund" | "credit" =
+      payout_choice_raw === "credit" ? "credit" : "refund";
+    const credit_amount_in =
+      body.credit_amount !== undefined ? Number(body.credit_amount) : null;
+    const committed_cost_note = body.committed_cost_note
+      ? String(body.committed_cost_note)
+      : null;
+    const reason_category = body.reason_category
+      ? String(body.reason_category)
+      : "client_cancelled";
+
+    const canAutoProcess =
+      request_type === "cancel" &&
+      !snap.requires_owner_override &&
+      payout_choice_raw !== undefined; // wizard sent a choice
+
+    if (canAutoProcess) {
+      try {
+        const { runAutoCancel } = await import(
+          "@/services/cancellation/runAutoCancel"
+        );
+        const result = await runAutoCancel({
+          supabase: sb,
+          orderId: order_id,
+          companyId: order.company_id,
+          cancelledByUserId: null, // magic-link flow has no auth.users.id
+          clientId: order.client_id || null,
+          snap,
+          reason,
+          reasonCategory: reason_category,
+          payoutChoice: payout_choice,
+          creditAmountIn: credit_amount_in,
+          committedCostNote: committed_cost_note,
+          requestedBy: "client",
+        });
+        return res.status(200).json({ ...result, currency: order.currency || "ZAR" });
+      } catch (e: any) {
+        console.error("[cancel-order:token] auto-process failed:", e);
+        // Fall through to the pending queue path below so the request
+        // doesn't disappear -- the admin can still pick it up.
+      }
     }
 
     const { data: inserted, error: insertErr } = await sb

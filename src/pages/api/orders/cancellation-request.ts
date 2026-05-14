@@ -11,7 +11,13 @@
  *     request_type: 'cancel' | 'postpone',
  *     requested_postpone_date?: string,  // YYYY-MM-DD, required for postpone
  *     reason?: string,
- *     client_notes?: string
+ *     client_notes?: string,
+ *     // Wave 28.5: when wizard payload present + outside the
+ *     // owner-override window, auto-processes instead of queueing.
+ *     payout_choice?: 'refund' | 'credit',
+ *     credit_amount?: number,
+ *     committed_cost_note?: string,
+ *     reason_category?: string
  *   }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -125,6 +131,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         error: "There's already a pending request on this order. Wait for the team to review it.",
         request_id: (existing[0] as any).id,
       });
+    }
+
+    // ============================================================
+    // Wave 28.5: AUTO-PROCESS branch (auth client portal flavour).
+    // Same shape as the magic-link endpoint -- when the policy says
+    // we're outside the owner-override window AND the wizard sent a
+    // payout_choice, run the cancel cascade now.
+    // ============================================================
+    const payout_choice_raw = body.payout_choice;
+    const payout_choice: "refund" | "credit" =
+      payout_choice_raw === "credit" ? "credit" : "refund";
+    const credit_amount_in =
+      body.credit_amount !== undefined ? Number(body.credit_amount) : null;
+    const committed_cost_note = body.committed_cost_note
+      ? String(body.committed_cost_note)
+      : null;
+    const reason_category = body.reason_category
+      ? String(body.reason_category)
+      : "client_cancelled";
+
+    const canAutoProcess =
+      request_type === "cancel" &&
+      !snap.requires_owner_override &&
+      payout_choice_raw !== undefined;
+
+    if (canAutoProcess) {
+      try {
+        const { runAutoCancel } = await import(
+          "@/services/cancellation/runAutoCancel"
+        );
+        const result = await runAutoCancel({
+          supabase: ssr,
+          orderId: order_id,
+          companyId: (order as any).company_id,
+          cancelledByUserId: user.id,
+          clientId: (order as any).client_id || null,
+          snap,
+          reason,
+          reasonCategory: reason_category,
+          payoutChoice: payout_choice,
+          creditAmountIn: credit_amount_in,
+          committedCostNote: committed_cost_note,
+          requestedBy: "client",
+        });
+        return res.status(200).json(result);
+      } catch (e: any) {
+        console.error("[cancellation-request] auto-process failed:", e);
+        // Fall through to pending queue so the request isn't lost.
+      }
     }
 
     const { data: inserted, error } = await ssr
