@@ -19,8 +19,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download, RefreshCw } from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download, RefreshCw, Archive } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 
 export default function ProtectedNotificationsPage() {
   return (
@@ -109,6 +110,20 @@ function NotificationsPage() {
       await notificationService.deleteNotification(notification.id);
     }
     setNotifications((prev) => prev.filter((n) => !n.is_read));
+  };
+
+  // Wave 24: bulk-clear notifications older than the shared stale
+  // threshold. Mirrors the team-portal pattern. Distinct from "Delete
+  // Read" -- this catches anything 14d+ regardless of read status, so
+  // an old urgent that was never opened still gets swept up.
+  const handleClearStale = async () => {
+    const stale = notifications.filter((n) => isStaleNotification(n.created_at));
+    if (stale.length === 0) return;
+    if (!window.confirm(`Delete ${stale.length} notification${stale.length === 1 ? "" : "s"} older than ${STALE_NOTIFICATION_DAYS} days?`)) return;
+    for (const n of stale) {
+      try { await notificationService.deleteNotification(n.id); } catch { /* keep going */ }
+    }
+    setNotifications((prev) => prev.filter((n) => !isStaleNotification(n.created_at)));
   };
 
   const getPriorityIcon = (priority: string | null) => {
@@ -310,6 +325,20 @@ function NotificationsPage() {
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Read
+              </Button>
+              {/* Wave 24: clear stale rows older than 14 days. Catches
+                  the unread-and-old case "Delete Read" misses -- e.g.
+                  the spit-braai-delivery 19-day-old "Order Ready for
+                  Pickup!" that was urgent + unread for weeks. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearStale}
+                disabled={notifications.filter((n) => isStaleNotification(n.created_at)).length === 0}
+                title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days, regardless of read status`}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Clear Stale
               </Button>
             </div>
           </div>

@@ -3,7 +3,7 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 
 interface Notification {
   id: string; user_id: string | null; recipient_id: string | null; target_role: string | null;
@@ -81,6 +82,27 @@ export default function ShoppingNotificationsPage() {
 
   const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
 
+  // Wave 24: stale notification cleanup -- mirrors the driver,
+  // kitchen and cleaning portals.
+  const staleCount = useMemo(
+    () => notifs.filter((n) => isStaleNotification(n.created_at)).length,
+    [notifs],
+  );
+  const onClearStale = async () => {
+    if (staleCount === 0) return;
+    if (!window.confirm(`Delete ${staleCount} notification${staleCount === 1 ? "" : "s"} older than ${STALE_NOTIFICATION_DAYS} days?`)) return;
+    const stale = notifs.filter((n) => isStaleNotification(n.created_at));
+    try {
+      const ids = stale.map((n) => n.id);
+      if (ids.length === 0) return;
+      await supabase.from("notifications").delete().in("id", ids);
+      setNotifs((p) => p.filter((n) => !isStaleNotification(n.created_at)));
+      toast({ title: `${stale.length} stale notification${stale.length === 1 ? "" : "s"} cleared` });
+    } catch {
+      toast({ title: "Could not clear stale notifications", variant: "destructive" });
+    }
+  };
+
   return (
     <>
       <Head><title>Shopping Notifications - CateringMS</title></Head>
@@ -97,11 +119,19 @@ export default function ShoppingNotificationsPage() {
               </h1>
               <p className="text-sm text-slate-600 mt-1">Stock alerts, supplier updates, purchase requests</p>
             </div>
-            {unread > 0 && (
-              <Button variant="outline" size="sm" onClick={markAllRead}>
-                <Check className="h-4 w-4 mr-2" />Mark all read
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {staleCount > 0 && (
+                <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Clear stale ({staleCount})
+                </Button>
+              )}
+              {unread > 0 && (
+                <Button variant="outline" size="sm" onClick={markAllRead}>
+                  <Check className="h-4 w-4 mr-2" />Mark all read
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2 mb-4">
@@ -123,8 +153,10 @@ export default function ShoppingNotificationsPage() {
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {notifs.map((n) => {
-                    const Icon = priorityIcon(n.priority);
-                    const tone = priorityTone(n.priority);
+                    // Wave 24: degrade displayed priority on stale rows.
+                    const displayedPriority = effectivePriority(n.priority, n.created_at);
+                    const Icon = priorityIcon(displayedPriority);
+                    const tone = priorityTone(displayedPriority);
                     return (
                       <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white" : "bg-emerald-50/50"}`}>
                         <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />

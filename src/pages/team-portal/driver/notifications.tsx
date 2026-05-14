@@ -17,27 +17,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2, ExternalLink, Archive } from "lucide-react";
-import { formatDistanceToNow, differenceInDays } from "date-fns";
-
-// Wave 24: stale-priority degradation. A notification fired 19 days
-// ago shouldn't still wear the "URGENT" badge -- it muddies the
-// driver's signal. The badge auto-degrades by age:
-//   urgent / high  -> normal after 3 days
-//   normal         -> low    after 14 days
-// The underlying DB row is unchanged; this is purely display logic
-// so reports + audit_logs still see the original priority. The
-// Urgent icon also drops at 3 days for the same reason.
-function effectivePriority(rawPriority: string | null | undefined, createdAt: string | null): string {
-  const raw = (rawPriority || "normal").toLowerCase();
-  if (!createdAt) return raw;
-  const age = differenceInDays(new Date(), new Date(createdAt));
-  if (raw === "urgent" || raw === "high") {
-    if (age >= 3) return "normal";
-    return raw;
-  }
-  if (raw === "normal" && age >= 14) return "low";
-  return raw;
-}
+import { formatDistanceToNow } from "date-fns";
+import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -137,35 +118,26 @@ export default function DriverNotificationsPage() {
     }
   };
 
-  // Wave 24: bulk-clear stale notifications (>14 days old). Live
-  // tenants accumulate test / one-off rows that never get triaged --
-  // the inbox fills with months-old urgents that the driver
-  // ignores, which trains them to ignore real ones too. One-tap
-  // archive of anything older than 14 days keeps the bell honest.
+  // Wave 24: bulk-clear stale notifications (older than the shared
+  // STALE_NOTIFICATION_DAYS threshold). Live tenants accumulate test /
+  // one-off rows that never get triaged -- the inbox fills with
+  // months-old urgents that the driver ignores, which trains them to
+  // ignore real ones too. One-tap archive keeps the bell honest.
   const staleCount = useMemo(
-    () => notifications.filter((n) => {
-      if (!n.created_at) return false;
-      return differenceInDays(new Date(), new Date(n.created_at)) >= 14;
-    }).length,
+    () => notifications.filter((n) => isStaleNotification(n.created_at)).length,
     [notifications],
   );
 
   const onClearStale = async () => {
     if (staleCount === 0) return;
-    if (!window.confirm(`Delete ${staleCount} notification${staleCount === 1 ? "" : "s"} older than 14 days?`)) return;
-    const stale = notifications.filter((n) => {
-      if (!n.created_at) return false;
-      return differenceInDays(new Date(), new Date(n.created_at)) >= 14;
-    });
+    if (!window.confirm(`Delete ${staleCount} notification${staleCount === 1 ? "" : "s"} older than ${STALE_NOTIFICATION_DAYS} days?`)) return;
+    const stale = notifications.filter((n) => isStaleNotification(n.created_at));
     setActingId("__bulk__");
     try {
       for (const n of stale) {
         try { await notificationService.deleteNotification(n.id); } catch { /* keep going */ }
       }
-      setNotifications((prev) => prev.filter((n) => {
-        if (!n.created_at) return true;
-        return differenceInDays(new Date(), new Date(n.created_at)) < 14;
-      }));
+      setNotifications((prev) => prev.filter((n) => !isStaleNotification(n.created_at)));
       toast({ title: `${stale.length} stale notification${stale.length === 1 ? "" : "s"} cleared` });
     } finally {
       setActingId(null);
