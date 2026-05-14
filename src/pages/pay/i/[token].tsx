@@ -144,18 +144,30 @@ export default function InvoicePaymentPage() {
       setProcessing(true);
       setError(null);
 
-      const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-      const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-      const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
-      const testMode = process.env.NODE_ENV !== "production";
-
-      if (!merchantId || !merchantKey) {
+      // Wave 20 audit: this used to inline-build a PayFast HTML form
+      // from NEXT_PUBLIC_PAYFAST_* env vars, hardcoded to PayFast,
+      // ignoring whichever gateway the tenant actually configured in
+      // /admin/payment-gateways. Tenants who switched to Yoco or
+      // Stripe still saw "Pay via PayFast" on their public invoice
+      // link -- and platform-level PayFast credentials had to be set
+      // OR the page died. Route through the existing
+      // /api/payments/create-session dispatcher (made unauth-safe in
+      // wave 17 via public_token) which picks the active tenant
+      // gateway and returns the right payment surface.
+      const resp = await fetch("/api/payments/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_id: invoice.id,
+          public_token: invoice.public_token,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json?.ok) {
         // Surface a fix-path the client can act on. Previously the
         // operator's invoice link landed on a dead-end "contact the
-        // company" message [P1-39]. Now the link is actionable: a
-        // mailto: with the operator's email + the invoice number
-        // pre-filled. The operator's email comes off the invoice's
-        // company row.
+        // company" message; now it's a mailto: with the operator's
+        // email + the invoice number pre-filled.
         const company = (invoice as any)?.companies || {};
         const tenantEmail = company.email || company.contact_email || null;
         const invNumber = (invoice as any)?.invoice_number || "your invoice";
@@ -166,70 +178,39 @@ export default function InvoicePaymentPage() {
           `Please send me alternative payment instructions (EFT, etc.).\n\nThanks.`
         );
         const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
+        const serverMsg = json?.error || `Could not start payment (${resp.status})`;
         setError(
           link
-            ? `Online payment isn't available right now. Tap to email ${company.company_name || "the company"}: ${tenantEmail}`
-            : "Online payment isn't available right now. Please contact the company to arrange payment."
+            ? `${serverMsg}. Tap to email ${company.company_name || "the company"}: ${tenantEmail}`
+            : `${serverMsg}. Please contact the company to arrange payment.`
         );
-        if (link) {
-          // Persist the mailto on the page state so the existing
-          // error renderer can promote it to a clickable link.
-          (window as any).__payFixLink = link;
-        }
+        if (link) (window as any).__payFixLink = link;
+        setProcessing(false);
         return;
       }
 
-      const payFastService = new PayFastService({
-        merchantId,
-        merchantKey,
-        passphrase: passphrase || "",
-        testMode,
-      });
-
-      const invoiceData = invoice.invoice_data || {};
-      const clientName = invoiceData.clientName || "Customer";
-      const [firstName, ...lastNameParts] = clientName.split(" ");
-      const lastName = lastNameParts.join(" ") || "Customer";
-
-      // Token URLs for return / cancel; invoice.id stays in custom_str1
-      // so the IPN webhook (api/webhooks/payment-confirmation) keeps
-      // resolving by id without changes.
-      const paymentParams = {
-        merchant_id: merchantId,
-        merchant_key: merchantKey,
-        return_url: `${window.location.origin}/pay/i/${invoice.public_token}/success`,
-        cancel_url: `${window.location.origin}/pay/i/${invoice.public_token}`,
-        notify_url: `${window.location.origin}/api/webhooks/payment-confirmation`,
-        name_first: firstName,
-        name_last: lastName,
-        email_address: invoiceData.clientEmail || "customer@email.com",
-        amount: invoice.balance_due.toFixed(2),
-        item_name: `Invoice ${invoice.invoice_number}`,
-        item_description: `Payment for ${invoice.companies.company_name} - Invoice ${invoice.invoice_number}`,
-        custom_str1: invoice.id,
-        custom_str2: "invoice",
-        custom_str3: invoice.companies.id,
-        custom_str4: "invoice",
-        email_confirmation: "1",
-        confirmation_address: invoiceData.clientEmail || "",
-      };
-
-      const signature = payFastService.generateSignature(paymentParams);
-
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = payFastService.getPaymentFormUrl();
-
-      Object.entries({ ...paymentParams, signature }).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = String(value);
-        form.appendChild(input);
-      });
-
-      document.body.appendChild(form);
-      form.submit();
+      // PayFast returns isHtmlForm=true with the rendered <form> HTML.
+      // Yoco / Stripe return isHtmlForm=false with a redirect URL.
+      // Branch on the flag and either inject + submit or window.location.
+      if (json.isHtmlForm && typeof json.paymentUrl === "string") {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = json.paymentUrl;
+        const form = wrapper.querySelector("form");
+        if (form) {
+          document.body.appendChild(form);
+          form.submit();
+          return;
+        }
+        setError("Could not render payment form. Please try again or contact support.");
+        setProcessing(false);
+        return;
+      }
+      if (typeof json.paymentUrl === "string") {
+        window.location.href = json.paymentUrl;
+        return;
+      }
+      setError("Payment session returned an unexpected response. Please try again.");
+      setProcessing(false);
     } catch (err) {
       console.error("Payment initiation error:", err);
       setError("Failed to initiate payment. Please try again or contact support.");
@@ -464,7 +445,7 @@ export default function InvoicePaymentPage() {
                   <div>
                     <p className="text-sm font-semibold text-stone-900">Pay this invoice</p>
                     <p className="text-xs text-stone-600 mt-0.5">
-                      Secure payment via PayFast -- card, EFT, instant EFT, SnapScan, Zapper.
+                      Secure card / EFT payment. The provider depends on what {invoice.companies.company_name || "the caterer"} has set up.
                     </p>
                   </div>
 
@@ -477,7 +458,7 @@ export default function InvoicePaymentPage() {
                     {processing ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Redirecting to PayFast...
+                        Redirecting to payment...
                       </>
                     ) : (
                       <>

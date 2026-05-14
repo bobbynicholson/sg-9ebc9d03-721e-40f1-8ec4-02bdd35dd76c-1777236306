@@ -124,6 +124,87 @@ export default function ClientOrderPage() {
   const primary   = view?.company?.primary_color   || "#9333ea";
   const secondary = view?.company?.secondary_color || "#ec4899";
 
+  // Wave 20 audit: lightweight Cancel + Amend dialogs so the magic-link
+  // client can act on their order without signing in. Both go through
+  // token-bearer API endpoints (cookie set by /api/client-tokens/validate
+  // is the auth surface). Local UI state only -- the request body is
+  // hand-built per dialog rather than dragging in a heavier form lib.
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelType, setCancelType] = useState<"cancel" | "postpone">("cancel");
+  const [cancelReason, setCancelReason] = useState("");
+  const [postponeDate, setPostponeDate] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+
+  const [amendOpen, setAmendOpen] = useState(false);
+  const [amendGuestCount, setAmendGuestCount] = useState<string>("");
+  const [amendNotes, setAmendNotes] = useState("");
+  const [amendBusy, setAmendBusy] = useState(false);
+  const [amendMsg, setAmendMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+
+  async function submitCancel() {
+    if (!view?.order?.id) return;
+    setCancelBusy(true);
+    setCancelMsg(null);
+    try {
+      const r = await fetch("/api/client-tokens/cancel-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: view.order.id,
+          request_type: cancelType,
+          reason: cancelReason.trim() || null,
+          requested_postpone_date: cancelType === "postpone" ? postponeDate : null,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setCancelMsg({ tone: "err", text: data?.error || `Request failed (${r.status})` });
+        return;
+      }
+      setCancelMsg({
+        tone: "ok",
+        text: cancelType === "cancel"
+          ? `We've received your cancellation. The team will email shortly.${data.refund_preview ? ` Refund preview: ${data.currency || "ZAR"} ${Number(data.refund_preview).toFixed(2)}.` : ""}`
+          : "We've received your postponement request. The team will confirm shortly.",
+      });
+    } catch (e: any) {
+      setCancelMsg({ tone: "err", text: e?.message || "Try again" });
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
+  async function submitAmend() {
+    if (!view?.order?.id) return;
+    setAmendBusy(true);
+    setAmendMsg(null);
+    try {
+      const proposed: Record<string, any> = {};
+      const newGuests = Number(amendGuestCount);
+      if (Number.isFinite(newGuests) && newGuests > 0) proposed.guest_count = newGuests;
+      const r = await fetch("/api/client-tokens/amend-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: view.order.id,
+          proposed_changes: proposed,
+          client_notes: amendNotes.trim() || null,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setAmendMsg({ tone: "err", text: data?.error || `Request failed (${r.status})` });
+        return;
+      }
+      setAmendMsg({ tone: "ok", text: "We've received your change request. The team will email shortly." });
+    } catch (e: any) {
+      setAmendMsg({ tone: "err", text: e?.message || "Try again" });
+    } finally {
+      setAmendBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -468,6 +549,158 @@ export default function ClientOrderPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Dietary</p>
                     <p className="whitespace-pre-line">{order.dietary_requirements}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Wave 20 audit: Need to change something? card. Lightweight
+              token-bearer Cancel + Amend so the magic-link client can
+              act without signing in. Hidden when the order is in a
+              terminal state since neither action makes sense then. */}
+          {!["cancelled", "completed", "delivered"].includes(status) && (
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Need to change something?</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setAmendOpen((v) => !v);
+                      setCancelOpen(false);
+                    }}
+                    className="w-full"
+                  >
+                    Request a change
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCancelOpen((v) => !v);
+                      setAmendOpen(false);
+                    }}
+                    className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
+                  >
+                    Cancel or postpone
+                  </Button>
+                </div>
+
+                {amendOpen && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+                    <p className="text-sm font-semibold text-slate-900">Request a change</p>
+                    <p className="text-xs text-slate-600">
+                      Use this to bump the headcount or send a note. Bigger changes (date, menu, venue) -- write the detail in notes and the team will follow up.
+                    </p>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 block mb-1">New guest count (optional)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={amendGuestCount}
+                        onChange={(e) => setAmendGuestCount(e.target.value)}
+                        placeholder={`${order.guest_count}`}
+                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 block mb-1">Notes for the team</label>
+                      <textarea
+                        rows={3}
+                        value={amendNotes}
+                        onChange={(e) => setAmendNotes(e.target.value)}
+                        placeholder="e.g. add 5 vegetarian mains, swap the dessert..."
+                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                      />
+                    </div>
+                    {amendMsg && (
+                      <p className={`text-xs ${amendMsg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>
+                        {amendMsg.text}
+                      </p>
+                    )}
+                    <Button
+                      onClick={submitAmend}
+                      disabled={amendBusy || (amendMsg?.tone === "ok")}
+                      className="w-full text-white"
+                      style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                    >
+                      {amendBusy ? "Sending..." : amendMsg?.tone === "ok" ? "Sent" : "Send change request"}
+                    </Button>
+                  </div>
+                )}
+
+                {cancelOpen && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 space-y-3">
+                    <p className="text-sm font-semibold text-slate-900">Cancel or postpone</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setCancelType("cancel")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                          cancelType === "cancel"
+                            ? "bg-rose-600 text-white border-rose-600"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCancelType("postpone")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                          cancelType === "postpone"
+                            ? "bg-amber-600 text-white border-amber-600"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        Postpone
+                      </button>
+                    </div>
+                    {cancelType === "postpone" && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
+                        <input
+                          type="date"
+                          value={postponeDate}
+                          min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                          onChange={(e) => setPostponeDate(e.target.value)}
+                          className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 block mb-1">Reason (optional)</label>
+                      <textarea
+                        rows={2}
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Anything the team should know..."
+                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      {cancelType === "cancel"
+                        ? "The catering team reviews your request, then refunds per their cancellation policy. They'll email you with the outcome."
+                        : "Tell us your preferred new date. The team will confirm by email."}
+                    </p>
+                    {cancelMsg && (
+                      <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>
+                        {cancelMsg.text}
+                      </p>
+                    )}
+                    <Button
+                      onClick={submitCancel}
+                      disabled={
+                        cancelBusy ||
+                        (cancelMsg?.tone === "ok") ||
+                        (cancelType === "postpone" && !postponeDate)
+                      }
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white"
+                    >
+                      {cancelBusy ? "Sending..." : cancelMsg?.tone === "ok" ? "Sent" : `Send ${cancelType === "cancel" ? "cancellation" : "postponement"} request`}
+                    </Button>
                   </div>
                 )}
               </CardContent>
