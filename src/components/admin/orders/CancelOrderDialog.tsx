@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Receipt, Calendar, ShieldAlert } from "lucide-react";
+import { AlertCircle, Receipt, Calendar, ShieldAlert, Wallet, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+// Wave 28.7: read existing credit balance for the client so the
+// operator sees their full exposure before issuing more credit.
+import { getClientCreditBalance } from "@/services/cancellation/clientCreditBalance";
 
 interface RefundSnapshot {
   order_id: string;
@@ -59,6 +62,10 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
   const [reason, setReason] = useState("");
   const [refundOverride, setRefundOverride] = useState<string>("");
   const [bypassLateGuard, setBypassLateGuard] = useState(false);
+  // Wave 28.7: payout toggle + supporting state.
+  const [payoutChoice, setPayoutChoice] = useState<"refund" | "credit">("refund");
+  const [committedCostNote, setCommittedCostNote] = useState("");
+  const [existingCredit, setExistingCredit] = useState<number>(0);
 
   useEffect(() => {
     if (!open || !orderId) {
@@ -67,6 +74,9 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
       setRefundOverride("");
       setBypassLateGuard(false);
       setError("");
+      setCommittedCostNote("");
+      setPayoutChoice("refund");
+      setExistingCredit(0);
       return;
     }
     setLoading(true);
@@ -75,6 +85,25 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
         const { data, error } = await supabase.rpc("get_refund_for_order", { p_order_id: orderId });
         if (error) throw error;
         setSnap(data as unknown as RefundSnapshot);
+
+        // Wave 28.7: read existing credit balance for this client
+        // so the operator can see total exposure before issuing more.
+        try {
+          const { data: orderRow } = await (supabase as any)
+            .from("orders")
+            .select("client_id, company_id")
+            .eq("id", orderId)
+            .maybeSingle();
+          if (orderRow?.client_id && orderRow?.company_id) {
+            const bal = await getClientCreditBalance(supabase, {
+              companyId: orderRow.company_id,
+              clientId: orderRow.client_id,
+            });
+            setExistingCredit(bal.available);
+          }
+        } catch (e) {
+          console.warn("[CancelOrderDialog] credit balance read failed:", e);
+        }
       } catch (e: any) {
         setError(e?.message || "Could not load refund preview");
       } finally {
@@ -82,6 +111,27 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
       }
     })();
   }, [open, orderId]);
+
+  // Wave 28.7: derive credit amount = refund + bonus_pp (capped 100%).
+  // Mirrors what /api/orders/[id]/cancel computes server-side so the
+  // preview matches the row that lands.
+  const derivedCredit = useMemo(() => {
+    if (!snap) return 0;
+    const policy = (snap.policy_snapshot || {}) as any;
+    const bonusPp = Math.max(
+      0,
+      Math.min(100, Number(policy.credit_bonus_pct ?? 10)),
+    );
+    const creditPct = Math.min(100, Number(snap.refund_pct || 0) + bonusPp);
+    const base = Math.max(snap.deposit_paid_amount || 0, snap.total_amount_paid || 0);
+    return Math.round(base * (creditPct / 100) * 100) / 100;
+  }, [snap]);
+
+  const bonusPp = useMemo(() => {
+    if (!snap) return 10;
+    const policy = (snap.policy_snapshot || {}) as any;
+    return Math.max(0, Math.min(100, Number(policy.credit_bonus_pct ?? 10)));
+  }, [snap]);
 
   const handleSubmit = async () => {
     if (!orderId || !snap) return;
@@ -91,7 +141,15 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
       const body: any = {
         reason_category: reasonCategory,
         reason: reason || undefined,
+        // Wave 28.7: pass the payout choice + supporting fields so
+        // the API uses the credit-issue path when chosen.
+        payout_choice: payoutChoice,
+        committed_cost_note: committedCostNote.trim() || undefined,
+        requested_by: "admin",
       };
+      if (payoutChoice === "credit" && derivedCredit > 0) {
+        body.credit_amount = derivedCredit;
+      }
       if (refundOverride !== "" && !Number.isNaN(Number(refundOverride))) {
         body.refund_override = Number(refundOverride);
       }
@@ -116,9 +174,11 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
       toast({
         title: "Order cancelled",
         description:
-          json.refund_amount > 0
-            ? `Refund of ${fmt.format(json.refund_amount)} pending. Mark it paid once the EFT is sent.`
-            : "No refund due (forfeit tier).",
+          json.payout_choice === "credit" && json.credit_amount > 0
+            ? `${fmt.format(json.credit_amount)} added to client store credit.`
+            : json.refund_amount > 0
+              ? `Refund of ${fmt.format(json.refund_amount)} pending. Mark it paid once the EFT is sent.`
+              : "No payout due (forfeit tier).",
       });
       onCancelled?.({
         refund_amount: json.refund_amount,
@@ -182,6 +242,82 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
               </div>
             </div>
 
+            {/* Wave 28.7: existing-credit panel. Surfaces what this
+                client already has on their wallet so the operator
+                doesn't accidentally over-issue credit. */}
+            {existingCredit > 0 ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm flex items-start gap-2">
+                <Wallet className="w-4 h-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-emerald-900">
+                    Client already holds {fmt.format(existingCredit)} in store credit.
+                  </p>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    {payoutChoice === "credit" && derivedCredit > 0
+                      ? `New balance after this credit: ${fmt.format(existingCredit + derivedCredit)}.`
+                      : "Visible so you can decide whether refund or credit makes sense."}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Wave 28.7: payout choice toggle. Refund (default) keeps
+                the legacy gateway flow; Credit issues a wallet entry
+                via payments{type:credit_issue}. The catering company
+                keeps the cash; the client gets a future-dated voucher
+                worth refund_pct + bonus_pp. */}
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              <Label className="text-xs text-slate-600">Payout method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPayoutChoice("refund")}
+                  className={`text-left rounded-lg border-2 p-3 transition-all ${
+                    payoutChoice === "refund"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-slate-200 hover:border-blue-300"
+                  } ${snap.refund_amount === 0 ? "opacity-60" : ""}`}
+                  disabled={snap.refund_amount === 0}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 tabular-nums">
+                    {fmt.format(snap.refund_amount)}
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium">Refund</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    To client's original payment method.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayoutChoice("credit")}
+                  className={`text-left rounded-lg border-2 p-3 transition-all ${
+                    payoutChoice === "credit"
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-slate-200 hover:border-emerald-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Wallet className="w-4 h-4 text-emerald-600" />
+                    {bonusPp > 0 && derivedCredit > snap.refund_amount && (
+                      <span className="text-[10px] font-medium uppercase text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">
+                        +{bonusPp}pp bonus
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 tabular-nums">
+                    {fmt.format(derivedCredit)}
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium">Store credit</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Cash stays in. Client uses it on a future booking.
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {/* Owner-override warning */}
             {snap.requires_owner_override ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-2">
@@ -228,18 +364,39 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
               />
             </div>
 
-            {/* Refund override */}
+            {/* Refund override -- only shown for the refund payout
+                path. The credit path uses the derived amount which the
+                wizard has already shown the client. */}
+            {payoutChoice === "refund" && (
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-600">Override refund amount (optional)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder={String(snap.refund_amount)}
+                  value={refundOverride}
+                  onChange={(e) => setRefundOverride(e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Leave blank to use the policy refund of {fmt.format(snap.refund_amount)}.</p>
+              </div>
+            )}
+
+            {/* Wave 28.7: committed-cost note. Optional free text the
+                operator can flag (e.g. "shopped 12kg lamb already").
+                Lands in cancellation_requests.policy_snapshot._committed_cost_note
+                and renders inside the rich admin notification. */}
             <div className="space-y-2">
-              <Label className="text-xs text-slate-600">Override refund amount (optional)</Label>
-              <Input
-                type="number"
-                min={0}
-                step={0.01}
-                placeholder={String(snap.refund_amount)}
-                value={refundOverride}
-                onChange={(e) => setRefundOverride(e.target.value)}
+              <Label className="text-xs text-slate-600">Committed cost note (optional)</Label>
+              <Textarea
+                rows={2}
+                placeholder="e.g. shopped 12kg lamb, paid driver standby, hire deposit forfeited"
+                value={committedCostNote}
+                onChange={(e) => setCommittedCostNote(e.target.value)}
               />
-              <p className="text-xs text-slate-500">Leave blank to use the policy refund of {fmt.format(snap.refund_amount)}.</p>
+              <p className="text-xs text-slate-500">
+                Helps your team and your own audit trail track what spend doesn't come back.
+              </p>
             </div>
 
             {error ? (
@@ -260,7 +417,15 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
             onClick={handleSubmit}
             disabled={submitting || loading || !snap || (snap.requires_owner_override && !bypassLateGuard)}
           >
-            {submitting ? "Cancelling..." : `Confirm cancel${snap && snap.refund_amount > 0 ? ` + ${fmt.format(snap.refund_amount)} refund` : ""}`}
+            {submitting
+              ? "Cancelling..."
+              : `Confirm cancel${
+                  snap && payoutChoice === "credit" && derivedCredit > 0
+                    ? ` + ${fmt.format(derivedCredit)} credit`
+                    : snap && snap.refund_amount > 0
+                      ? ` + ${fmt.format(snap.refund_amount)} refund`
+                      : ""
+                }`}
           </Button>
         </DialogFooter>
       </DialogContent>
