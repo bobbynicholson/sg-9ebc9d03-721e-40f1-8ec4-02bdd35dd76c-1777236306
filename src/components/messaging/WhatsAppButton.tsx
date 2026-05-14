@@ -35,6 +35,7 @@ import { MessageCircle, Send } from "lucide-react";
 import { isLikelyMobile, openWhatsApp } from "@/lib/whatsapp";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTemplateOverrides } from "@/hooks/useTemplateOverrides";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CLIENT_WHATSAPP_LABELS,
@@ -169,6 +170,9 @@ export function WhatsAppButton(props: Props) {
     || profile?.companies?.slug
     || null;
   const { version: overridesVersion } = useTemplateOverrides(companyId);
+  // Wave 24: tenant-currency aware so the {total} interpolation in
+  // client templates renders in the right symbol for non-ZAR tenants.
+  const tenantCurrency = useTenantCurrency(companyId);
 
   const templateKeys = useMemo<string[]>(() => {
     if (props.kind === "client") {
@@ -192,11 +196,16 @@ export function WhatsAppButton(props: Props) {
   // in another tab takes effect on the next render.
   const renderedTemplate = useMemo(() => {
     if (props.kind === "client") {
-      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, { ...props.ctx, companyId, companySlug });
+      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, {
+        ...props.ctx,
+        companyId,
+        companySlug,
+        currencyCode: tenantCurrency.code,
+      });
     }
     return renderStaffWhatsApp(pickedKey as StaffWhatsAppKind, { ...props.ctx, companyId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.kind, props.ctx, pickedKey, companyId, companySlug, overridesVersion]);
+  }, [props.kind, props.ctx, pickedKey, companyId, companySlug, overridesVersion, tenantCurrency.code]);
 
   // Sync template -> textarea while the operator has not edited it.
   // Effect runs whenever the picked template, the rendered string or

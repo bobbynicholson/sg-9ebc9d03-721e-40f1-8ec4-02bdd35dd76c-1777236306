@@ -29,8 +29,29 @@
  */
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 
-const fmtRand = (v?: number | null) =>
-  v == null ? "" : `R${Number(v).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`;
+// Wave 24: tenant-aware money formatter, mirrors subjectFormatters.ts.
+// Falls back to ZAR when no currency is passed so existing call sites
+// render unchanged. WhatsApp messages don't have inbox-list density
+// concerns so we use the full localised currency format (with locale-
+// specific thousand separator + the right symbol).
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
+};
+const fmtMoney = (v: number | null | undefined, code?: string | null): string => {
+  if (v == null || !Number.isFinite(v)) return "";
+  const c = (code || "ZAR").toUpperCase();
+  const locale = CURRENCY_LOCALE[c] || "en-ZA";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: c,
+      maximumFractionDigits: 0,
+    }).format(v);
+  } catch {
+    return `${c} ${v.toFixed(0)}`;
+  }
+};
 
 const firstName = (name: string | null | undefined): string =>
   (name || "there").split(" ")[0];
@@ -69,6 +90,10 @@ export interface ClientWhatsAppContext {
   /** When set, the per-company customisation is consulted first.
    *  Cache must be prewarmed via the useTemplateOverrides hook. */
   companyId?: string | null;
+  /** Wave 24: tenant currency code so the {total} interpolation
+   *  renders in the right symbol for non-ZAR tenants. Defaults to
+   *  ZAR for back-compat. */
+  currencyCode?: string | null;
 }
 
 /** Build the public origin for portal links. Configurable via env so
@@ -106,7 +131,7 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
     event_date:   ctx.eventDate || "",
     guest_count:  ctx.guestCount ?? "",
     quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
-    total:        ctx.total ? `R${Number(ctx.total).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}` : "",
+    total:        fmtMoney(ctx.total, ctx.currencyCode),
     portal_link:  ctx.companySlug ? `${PUBLIC_ORIGIN}/p/${ctx.companySlug}` : "",
     portal_line:  portalLinkLine(ctx.companySlug).trimStart(),
   };
@@ -161,7 +186,7 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
     ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
     : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your event`;
   const ref = ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "";
-  const totalLine = ctx.total ? ` Sitting at ${fmtRand(ctx.total)} including VAT.` : "";
+  const totalLine = ctx.total ? ` Sitting at ${fmtMoney(ctx.total, ctx.currencyCode)} including VAT.` : "";
 
   switch (kind) {
     case "touch_base":
