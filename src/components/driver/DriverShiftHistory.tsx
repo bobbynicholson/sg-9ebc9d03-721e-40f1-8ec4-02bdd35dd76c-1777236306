@@ -50,6 +50,10 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
     let cancelled = false;
     (async () => {
       try {
+        // Wave 24: pull a few extra rows so the micro-shift filter
+        // below still leaves us with ~5 real shifts to render. The
+        // earnings page is the authoritative breakdown; this is the
+        // dashboard sanity-check, so we want signal not test data.
         const { data } = await (supabase as any)
           .from("driver_shifts")
           .select("id, actual_start, actual_end, status, rate_multiplier")
@@ -57,8 +61,17 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
           .is("deleted_at", null)
           .not("actual_start", "is", null)
           .order("actual_start", { ascending: false })
-          .limit(5);
-        if (!cancelled) setRows((data || []) as ShiftRow[]);
+          .limit(15);
+        // Hide micro-shifts (< 5 minutes between clock-in + clock-out)
+        // -- almost always accidental tap-then-tap. They polluted the
+        // live driver dashboard with rows like "13:54 -> 14:03 / 0.2h"
+        // that nobody actually worked. Open shifts stay regardless.
+        const filtered = ((data || []) as ShiftRow[]).filter((s) => {
+          if (!s.actual_end) return true; // open shift -- keep
+          const mins = (new Date(s.actual_end).getTime() - new Date(s.actual_start || "").getTime()) / 60000;
+          return mins >= 5;
+        }).slice(0, 5);
+        if (!cancelled) setRows(filtered);
       } catch {
         if (!cancelled) setRows([]);
       } finally {

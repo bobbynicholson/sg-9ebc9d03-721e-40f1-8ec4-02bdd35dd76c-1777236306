@@ -218,6 +218,27 @@ export default function DriverRoutes() {
     }
   };
 
+  // Wave 24: standard header on every state (loading, empty, populated)
+  // so the page header matches every other driver portal screen
+  // (deliveries, tracking, notifications). Previously the empty +
+  // loading branches rendered without a header at all -- a driver
+  // landing on Today's Routes for the first time saw a bare card with
+  // no orientation, while every other tab had the title-tile +
+  // subtitle pattern.
+  const PageHeader = () => (
+    <div className="mb-6 lg:mb-8">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
+          <RouteIcon className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Today&apos;s Routes</h1>
+          <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <>
@@ -227,11 +248,14 @@ export default function DriverRoutes() {
         </Head>
         <DriverNav />
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-          <div className="px-4 py-12 max-w-6xl">
-            <div className="text-center">
-              <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
-              <p className="text-slate-600">Loading your optimized route...</p>
-            </div>
+          <div className="px-4 py-6 lg:py-12 max-w-6xl">
+            <PageHeader />
+            <Card className="border-0 shadow-lg">
+              <CardContent className="py-12 text-center">
+                <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
+                <p className="text-slate-600">Loading your optimized route...</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </>
@@ -247,13 +271,14 @@ export default function DriverRoutes() {
         </Head>
         <DriverNav />
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-          <div className="px-4 py-12 max-w-6xl">
+          <div className="px-4 py-6 lg:py-12 max-w-6xl">
+            <PageHeader />
             <Card className="border-0 shadow-lg">
               <CardContent className="py-12 text-center">
                 <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-xl font-semibold text-slate-900 mb-2">No Route Assigned</h3>
                 <p className="text-slate-600 mb-6">
-                  You don't have any optimized routes at the moment. Check back later or contact dispatch.
+                  You don&apos;t have any optimized routes at the moment. Check back later or contact dispatch.
                 </p>
               </CardContent>
             </Card>
@@ -296,7 +321,7 @@ export default function DriverRoutes() {
                   <RouteIcon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Optimized Route</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Today&apos;s Routes</h1>
                   <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
                 </div>
               </div>

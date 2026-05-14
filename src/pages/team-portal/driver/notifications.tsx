@@ -16,8 +16,28 @@ import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2, ExternalLink, Archive } from "lucide-react";
+import { formatDistanceToNow, differenceInDays } from "date-fns";
+
+// Wave 24: stale-priority degradation. A notification fired 19 days
+// ago shouldn't still wear the "URGENT" badge -- it muddies the
+// driver's signal. The badge auto-degrades by age:
+//   urgent / high  -> normal after 3 days
+//   normal         -> low    after 14 days
+// The underlying DB row is unchanged; this is purely display logic
+// so reports + audit_logs still see the original priority. The
+// Urgent icon also drops at 3 days for the same reason.
+function effectivePriority(rawPriority: string | null | undefined, createdAt: string | null): string {
+  const raw = (rawPriority || "normal").toLowerCase();
+  if (!createdAt) return raw;
+  const age = differenceInDays(new Date(), new Date(createdAt));
+  if (raw === "urgent" || raw === "high") {
+    if (age >= 3) return "normal";
+    return raw;
+  }
+  if (raw === "normal" && age >= 14) return "low";
+  return raw;
+}
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -117,6 +137,41 @@ export default function DriverNotificationsPage() {
     }
   };
 
+  // Wave 24: bulk-clear stale notifications (>14 days old). Live
+  // tenants accumulate test / one-off rows that never get triaged --
+  // the inbox fills with months-old urgents that the driver
+  // ignores, which trains them to ignore real ones too. One-tap
+  // archive of anything older than 14 days keeps the bell honest.
+  const staleCount = useMemo(
+    () => notifications.filter((n) => {
+      if (!n.created_at) return false;
+      return differenceInDays(new Date(), new Date(n.created_at)) >= 14;
+    }).length,
+    [notifications],
+  );
+
+  const onClearStale = async () => {
+    if (staleCount === 0) return;
+    if (!window.confirm(`Delete ${staleCount} notification${staleCount === 1 ? "" : "s"} older than 14 days?`)) return;
+    const stale = notifications.filter((n) => {
+      if (!n.created_at) return false;
+      return differenceInDays(new Date(), new Date(n.created_at)) >= 14;
+    });
+    setActingId("__bulk__");
+    try {
+      for (const n of stale) {
+        try { await notificationService.deleteNotification(n.id); } catch { /* keep going */ }
+      }
+      setNotifications((prev) => prev.filter((n) => {
+        if (!n.created_at) return true;
+        return differenceInDays(new Date(), new Date(n.created_at)) < 14;
+      }));
+      toast({ title: `${stale.length} stale notification${stale.length === 1 ? "" : "s"} cleared` });
+    } finally {
+      setActingId(null);
+    }
+  };
+
   return (
     <>
       <NoIndexMeta />
@@ -137,12 +192,26 @@ export default function DriverNotificationsPage() {
                 </p>
               </div>
             </div>
-            {unreadCount > 0 && (
-              <Button variant="outline" onClick={onMarkAllRead} size="sm">
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Mark all read
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {staleCount > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={onClearStale}
+                  size="sm"
+                  disabled={actingId === "__bulk__"}
+                  title="Delete notifications older than 14 days"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Clear stale ({staleCount})
+                </Button>
+              )}
+              {unreadCount > 0 && (
+                <Button variant="outline" onClick={onMarkAllRead} size="sm">
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Mark all read
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
@@ -197,8 +266,11 @@ export default function DriverNotificationsPage() {
               {notifications.map((n) => {
                 const created = n.created_at ? new Date(n.created_at) : null;
                 const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
-                const tone = PRIORITY_TONE[(n.priority as string) || "normal"] || PRIORITY_TONE.normal;
-                const isUrgent = n.priority === "urgent" || n.priority === "high";
+                // Wave 24: degrade displayed priority on stale rows so
+                // a 19-day-old "URGENT" doesn't keep shouting.
+                const displayedPriority = effectivePriority(n.priority as string | null, n.created_at);
+                const tone = PRIORITY_TONE[displayedPriority] || PRIORITY_TONE.normal;
+                const isUrgent = displayedPriority === "urgent" || displayedPriority === "high";
                 return (
                   <li key={n.id}>
                     <Card className={`w-full border ${
@@ -219,11 +291,19 @@ export default function DriverNotificationsPage() {
                                 n.is_read ? "font-medium" : "font-semibold"
                               }`}>{n.title}</h3>
                               <Badge variant="outline" className={`text-[10px] capitalize ${tone}`}>
-                                {n.priority || "normal"}
+                                {displayedPriority}
                               </Badge>
                             </div>
                             <p className="text-sm text-slate-600 mt-1">{n.message}</p>
-                            <p className="text-xs text-slate-400 mt-2">{ago}</p>
+                            <div className="flex items-center justify-between gap-2 mt-2">
+                              <p className="text-xs text-slate-400">{ago}</p>
+                              {n.link && (
+                                <span className="text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                                  <ExternalLink className="w-3 h-3" />
+                                  Tap to open
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0">
                             {!n.is_read && (
