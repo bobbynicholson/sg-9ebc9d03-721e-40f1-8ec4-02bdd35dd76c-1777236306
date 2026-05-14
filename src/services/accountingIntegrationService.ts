@@ -1,5 +1,31 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import crypto from "crypto";
+
+// Wave 24: accountingIntegrationService is the OAuth bridge between
+// our app and Xero / QuickBooks. The OAuth callback handlers
+// (/api/accounting/{xero,quickbooks}/callback.ts) intentionally don't
+// require a Supabase auth session -- they're protected by the
+// HttpOnly oauth_state + oauth_company_id cookies set at flow start.
+// That means the browser anon supabase imported here has no session
+// on the server, so RLS hides accounting_integrations writes and the
+// token storage silently fails -- the OAuth dance succeeds, the user
+// gets redirected back to /admin/integrations, and the integration is
+// reported as connected when it never landed.
+//
+// resolveServerClient picks the service-role client when running on
+// the server (require'd lazily so the browser bundle never tries to
+// pull in service env vars), browser anon in the browser.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 /**
  * ACCOUNTING INTEGRATION SERVICE

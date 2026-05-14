@@ -449,7 +449,10 @@ export const emailService = {
       // now goes through resolveEmailTemplate so this branch is dead
       // weight, but fixing the columns means it'll work if anything
       // ever calls sendEmail with a template name directly.
-      const { data: templateData, error: templateError } = await (supabase
+      // Wave 24: use the same resolved `sb` as the rest of this method
+      // so server callers reading email_templates under RLS hit the
+      // service-role path the caller passed in via _client.
+      const { data: templateData, error: templateError } = await (sb
         .from("email_templates") as any)
         .select("body, body_html, body_text")
         .eq("company_id", payload.companyId)
