@@ -14,6 +14,7 @@ import { notificationService, Notification } from "@/services/notificationServic
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { effectivePriority } from "@/lib/notificationDisplay";
 
 /** Phase 7 #5: short emoji-free chime so an urgent notification
  *  doesn't get lost while the operator is heads-down in another
@@ -302,7 +303,16 @@ export function NotificationBell() {
             </div>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
-              {notifications.map((notification) => (
+              {notifications.map((notification) => {
+                // Wave 24: degrade displayed priority on stale rows so a
+                // 19-day-old "URGENT" doesn't keep glowing red in the
+                // dropdown header. Same shared helper the per-portal
+                // notification pages use.
+                const displayedPriority = effectivePriority(
+                  notification.priority,
+                  notification.created_at,
+                );
+                return (
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
@@ -311,12 +321,12 @@ export function NotificationBell() {
                     !notification.is_read
                       ? "bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800",
-                    getPriorityColor(notification.priority)
+                    getPriorityColor(displayedPriority)
                   )}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex-shrink-0">
-                      {getPriorityIcon(notification.priority)}
+                      {getPriorityIcon(displayedPriority)}
                     </div>
                     
                     <div className="flex-1 min-w-0">
@@ -380,7 +390,8 @@ export function NotificationBell() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
