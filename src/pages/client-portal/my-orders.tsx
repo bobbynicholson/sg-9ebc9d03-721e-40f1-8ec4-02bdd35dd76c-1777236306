@@ -16,6 +16,10 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+// Wave 28.4: same wizard the magic-link surfaces use. Auth client
+// portal users get the identical 3-step flow so the catering company
+// only ever has to support one cancellation UX in the wild.
+import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -32,6 +36,13 @@ interface Order {
   status: string;
   total_amount: number;
   payment_status?: string;
+  // Wave 28.4: extra fields the cancellation wizard needs to compute
+  // refund/credit terms locally without an extra DB roundtrip.
+  amount_paid?: number;
+  deposit_amount?: number;
+  deposit_paid?: boolean;
+  kitchen_prep_started_at?: string | null;
+  shopping_completed_at?: string | null;
 }
 
 export default function MyOrders() {
@@ -56,12 +67,19 @@ export default function MyOrders() {
   const [amendNotes, setAmendNotes] = useState<string>("");
   const [amendSubmitting, setAmendSubmitting] = useState(false);
   // Cancel/postpone request dialog state.
+  // Wave 28.4: cancellation now lives in CancellationWizard (mounted
+  // at the bottom of this file). The Dialog below is locked to
+  // postpone-only -- the type selector is dropped.
   const [cancelRequestOrder, setCancelRequestOrder] = useState<Order | null>(null);
-  const [cancelRequestType, setCancelRequestType] = useState<"cancel" | "postpone">("cancel");
+  const cancelRequestType = "postpone" as const;
   const [cancelPostponeDate, setCancelPostponeDate] = useState<string>("");
   const [cancelReason, setCancelReason] = useState<string>("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelPreview, setCancelPreview] = useState<any | null>(null);
+  // Wave 28.4: holds the row whose Cancel button was clicked.
+  // Setting it opens the wizard; null closes.
+  const [wizardOrder, setWizardOrder] = useState<Order | null>(null);
+  const [wizardCompanyPolicy, setWizardCompanyPolicy] = useState<any>(null);
   // Rebook dialog state. Same component as the dashboard surfaces -- a
   // single instance reused across rows. Setting the source order opens
   // it; clearing it on close.
@@ -85,6 +103,26 @@ export default function MyOrders() {
       }
     })();
   }, [cancelRequestOrder]);
+
+  // Wave 28.4: load this tenant's cancellation_policy once -- the
+  // wizard reads it locally to render every step's preview without
+  // a per-step DB roundtrip. Refreshes only when the company changes
+  // (effectively never within a session).
+  useEffect(() => {
+    if (!company?.id) return;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("companies")
+          .select("cancellation_policy, cancellation_fee_percent, phone")
+          .eq("id", company.id)
+          .maybeSingle();
+        setWizardCompanyPolicy(data || null);
+      } catch (e) {
+        console.warn("[my-orders] policy load failed", e);
+      }
+    })();
+  }, [company?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -117,7 +155,7 @@ export default function MyOrders() {
         // payment / delivery state.
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at")
+          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at, shopping_completed_at")
           .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
@@ -318,16 +356,27 @@ export default function MyOrders() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="w-full sm:w-auto text-rose-700 border-rose-200 hover:bg-rose-50"
+                                className="w-full sm:w-auto text-amber-700 border-amber-200 hover:bg-amber-50"
                                 onClick={() => {
                                   setCancelRequestOrder(order);
-                                  setCancelRequestType("cancel");
                                   setCancelPostponeDate("");
                                   setCancelReason("");
                                 }}
                               >
                                 <CalendarX className="w-4 h-4 mr-2" />
-                                Cancel or postpone
+                                Postpone
+                              </Button>
+                              {/* Wave 28.4: dedicated Cancel button --
+                                  opens the wizard with the rules-engine
+                                  preview + payout choice. */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full sm:w-auto text-rose-700 border-rose-200 hover:bg-rose-50"
+                                onClick={() => setWizardOrder(order)}
+                              >
+                                <CalendarX className="w-4 h-4 mr-2" />
+                                Cancel
                               </Button>
                             </>
                           )}
@@ -534,60 +583,27 @@ export default function MyOrders() {
           {cancelRequestOrder && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-rose-700 flex items-center gap-2">
+                <DialogTitle className="text-amber-700 flex items-center gap-2">
                   <CalendarX className="w-5 h-5" />
-                  Cancel or postpone your booking
+                  Postpone your booking
                 </DialogTitle>
                 <DialogDescription>
-                  Tell us what you'd like to do and the team will confirm by email. Postponing is often a softer landing than cancelling.
+                  Pick a new date and the team will confirm by email. Your deposit travels with you to the new date -- nothing is lost.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs text-slate-600">What do you want to do?</Label>
-                  <Select value={cancelRequestType} onValueChange={(v) => setCancelRequestType(v as any)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="postpone">Postpone to another date</SelectItem>
-                      <SelectItem value="cancel">Cancel the booking</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs text-slate-600">New event date</Label>
+                  <Input
+                    type="date"
+                    value={cancelPostponeDate}
+                    onChange={(e) => setCancelPostponeDate(e.target.value)}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Postponements need at least {cancelPreview?.postponement_notice_days || 14} days' notice. We'll confirm the new date with you.
+                  </p>
                 </div>
-
-                {cancelRequestType === "postpone" ? (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-slate-600">New event date</Label>
-                    <Input
-                      type="date"
-                      value={cancelPostponeDate}
-                      onChange={(e) => setCancelPostponeDate(e.target.value)}
-                    />
-                    <p className="text-xs text-slate-500">
-                      Postponements need at least {cancelPreview?.postponement_notice_days || 14} days' notice. We'll confirm the new date with you.
-                    </p>
-                  </div>
-                ) : null}
-
-                {cancelRequestType === "cancel" && cancelPreview ? (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm space-y-1">
-                    <div className="flex items-start gap-2">
-                      <Receipt className="w-4 h-4 mt-0.5 flex-shrink-0 text-rose-600" />
-                      <div>
-                        Cancellation policy: event is in <strong>{cancelPreview.days_to_event} day{cancelPreview.days_to_event === 1 ? "" : "s"}</strong>.
-                        {" "}Refund: <strong>R{Number(cancelPreview.refund_amount || 0).toFixed(2)}</strong> ({cancelPreview.refund_pct || 0}% of paid).
-                      </div>
-                    </div>
-                    {cancelPreview.requires_owner_override ? (
-                      <div className="flex items-start gap-2 text-rose-800 text-xs">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        Late cancellations need owner-level approval. Submit anyway and we'll come back to you.
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-600">Reason / notes (optional)</Label>
@@ -606,11 +622,11 @@ export default function MyOrders() {
                   onClick={() => setCancelRequestOrder(null)}
                   disabled={cancelSubmitting}
                 >
-                  Keep the booking
+                  Keep the date
                 </Button>
                 <Button
-                  variant="destructive"
-                  disabled={cancelSubmitting || (cancelRequestType === "postpone" && !cancelPostponeDate)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  disabled={cancelSubmitting || !cancelPostponeDate}
                   onClick={async () => {
                     if (!cancelRequestOrder) return;
                     setCancelSubmitting(true);
@@ -620,15 +636,15 @@ export default function MyOrders() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           order_id: cancelRequestOrder.id,
-                          request_type: cancelRequestType,
-                          requested_postpone_date: cancelRequestType === "postpone" ? cancelPostponeDate : undefined,
+                          request_type: "postpone",
+                          requested_postpone_date: cancelPostponeDate,
                           reason: cancelReason.trim() || undefined,
                         }),
                       });
                       const j = await resp.json().catch(() => ({}));
                       if (!resp.ok) throw new Error(j?.error || "Could not submit");
                       toast({
-                        title: cancelRequestType === "cancel" ? "Cancellation request submitted" : "Postponement request submitted",
+                        title: "Postponement request submitted",
                         description: "The catering team will confirm by email shortly.",
                       });
                       setCancelRequestOrder(null);
@@ -650,6 +666,63 @@ export default function MyOrders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Wave 28.4: CancellationWizard for the Cancel button. Posts
+          to /api/orders/cancellation-request -- the auth-portal API
+          path. Wave 28.5 makes that endpoint auto-process when the
+          policy says so, otherwise it queues for admin review. */}
+      {wizardOrder && (
+        <CancellationWizard
+          open={!!wizardOrder}
+          onOpenChange={(o) => {
+            if (!o) setWizardOrder(null);
+          }}
+          mode="order"
+          companyName={company?.company_name || "the catering team"}
+          companyPhone={wizardCompanyPolicy?.phone || null}
+          termsInput={{
+            amountPaid: Number(wizardOrder.amount_paid) || 0,
+            depositAmount: Number(wizardOrder.deposit_amount) || 0,
+            depositPaid: !!wizardOrder.deposit_paid,
+            eventDate: wizardOrder.event_date,
+            status: wizardOrder.status,
+            kitchenPrepStarted: !!wizardOrder.kitchen_prep_started_at,
+            shoppingDone: !!wizardOrder.shopping_completed_at,
+            dispatched: ["out_for_delivery", "in_transit", "delivered"].includes(
+              wizardOrder.status,
+            ),
+            policy: (wizardCompanyPolicy?.cancellation_policy as any) || {},
+            legacyCancelFeePct:
+              Number(wizardCompanyPolicy?.cancellation_fee_percent) || undefined,
+          }}
+          onSubmit={async (payload) => {
+            const r = await fetch("/api/orders/cancellation-request", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                order_id: wizardOrder.id,
+                request_type: "cancel",
+                reason: payload.reason || payload.reason_category,
+                payout_choice: payload.payout_choice,
+                credit_amount: payload.credit_amount,
+                committed_cost_note: payload.committed_cost_note,
+              }),
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(j?.error || "Could not submit");
+            toast({
+              title: j.auto_processed
+                ? "Order cancelled"
+                : "Cancellation request submitted",
+              description: j.auto_processed
+                ? "All done -- the catering team has been notified and your payout has been processed."
+                : "The catering team will review and confirm by email shortly.",
+            });
+            // Reload the list so status flips and the row hides.
+            window.location.reload();
+          }}
+        />
+      )}
     </>
   );
 }

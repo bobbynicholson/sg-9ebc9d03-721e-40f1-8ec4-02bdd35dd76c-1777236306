@@ -21,13 +21,19 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileText, ExternalLink, Calendar, Clock } from "lucide-react";
+import { Loader2, FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+// Wave 28.4: Decline button is new on this page (audit found
+// /client-portal/quotes had no decline action -- only the magic-link
+// /q/[token] did). Routes through the same wizard the public page
+// uses, mode='quote' so the payout step is skipped.
+import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
+import { useToast } from "@/hooks/use-toast";
 
 interface PortalQuote {
   id: string;
@@ -93,6 +99,11 @@ export default function ClientQuotesPage() {
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
+  // Wave 28.4: which quote is in the decline wizard. Holds the row
+  // (or null when closed) so the wizard can read public_token and
+  // event_date.
+  const [declineQuote, setDeclineQuote] = useState<PortalQuote | null>(null);
+  const { toast } = useToast();
 
   const brandPrimary = company?.primary_color || "#059669";
   const companyName = company?.company_name || "your caterer";
@@ -202,6 +213,7 @@ export default function ClientQuotesPage() {
                   items={grouped.pending}
                   brandPrimary={brandPrimary}
                   onRequestEdits={(q) => setEditsQuote({ id: q.id, quote_number: q.quote_number })}
+                  onDecline={(q) => setDeclineQuote(q)}
                   fmtMoney={fmtMoney}
                 />
               )}
@@ -243,6 +255,59 @@ export default function ClientQuotesPage() {
           setEditsQuote(null);
         }}
       />
+
+      {/* Wave 28.4: Decline wizard. mode='quote' renders the 2-step
+          variant (no payout step -- nothing has been paid yet). Uses
+          the existing /api/public/quotes/[token]/reject endpoint --
+          token-bearer auth means the auth-portal user can call it
+          since they hold the public_token in their portal feed. */}
+      {declineQuote && (
+        <CancellationWizard
+          open={!!declineQuote}
+          onOpenChange={(o) => {
+            if (!o) setDeclineQuote(null);
+          }}
+          mode="quote"
+          companyName={companyName}
+          companyPhone={(company as any)?.phone || null}
+          termsInput={{
+            amountPaid: 0,
+            depositAmount: 0,
+            depositPaid: false,
+            eventDate:
+              declineQuote.event_date || new Date().toISOString().slice(0, 10),
+            status: declineQuote.status || "sent",
+            policy: ((company as any)?.cancellation_policy as any) || {},
+          }}
+          onSubmit={async (payload) => {
+            const r = await fetch(
+              `/api/public/quotes/${encodeURIComponent(declineQuote.public_token)}/reject`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  reason: payload.reason || payload.reason_category,
+                }),
+              },
+            );
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j?.ok) {
+              throw new Error(j?.error || "Could not decline the quote.");
+            }
+            // Local update -- drops the quote out of pending into
+            // history without a refetch.
+            setQuotes((prev) =>
+              prev.map((q) =>
+                q.id === declineQuote.id ? { ...q, status: "rejected" } : q,
+              ),
+            );
+            toast({
+              title: "Quote declined",
+              description: `${companyName} has been notified.`,
+            });
+          }}
+        />
+      )}
     </>
   );
 }
@@ -253,6 +318,7 @@ function QuoteGroup({
   items,
   brandPrimary,
   onRequestEdits,
+  onDecline,
   fmtMoney,
 }: {
   title: string;
@@ -260,6 +326,7 @@ function QuoteGroup({
   items: PortalQuote[];
   brandPrimary: string;
   onRequestEdits?: (q: PortalQuote) => void;
+  onDecline?: (q: PortalQuote) => void;
   fmtMoney: Intl.NumberFormat;
 }) {
   return (
@@ -332,6 +399,17 @@ function QuoteGroup({
                           onClick={() => onRequestEdits(q)}
                         >
                           Request changes
+                        </Button>
+                      )}
+                      {onDecline && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onDecline(q)}
+                          className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1" />
+                          Decline
                         </Button>
                       )}
                     </div>

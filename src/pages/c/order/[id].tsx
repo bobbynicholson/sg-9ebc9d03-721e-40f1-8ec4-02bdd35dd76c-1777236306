@@ -29,6 +29,11 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+// Wave 28.4: route the magic-link cancel button through the new
+// 3-step Cancellation Companion. The wizard owns the consequence
+// preview + payout choice; this page just opens it and POSTs the
+// payload to the existing /api/client-tokens/cancel-order endpoint.
+import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 
 type OrderView = {
   ok: true;
@@ -131,12 +136,19 @@ export default function ClientOrderPage() {
   // token-bearer API endpoints (cookie set by /api/client-tokens/validate
   // is the auth surface). Local UI state only -- the request body is
   // hand-built per dialog rather than dragging in a heavier form lib.
+  // Wave 28.4: cancel goes through the new CancellationWizard now.
+  // The inline panel below is kept for postpone-only -- the cancel
+  // path opens a Dialog with Reason -> Consequences -> Payout choice.
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelType, setCancelType] = useState<"cancel" | "postpone">("cancel");
+  // cancelType locked to "postpone" for this inline panel; cancel
+  // routes through wizardOpen instead.
+  const cancelType = "postpone" as const;
   const [cancelReason, setCancelReason] = useState("");
   const [postponeDate, setPostponeDate] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelMsg, setCancelMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardJustDone, setWizardJustDone] = useState(false);
 
   const [amendOpen, setAmendOpen] = useState(false);
   const [amendGuestCount, setAmendGuestCount] = useState<string>("");
@@ -578,11 +590,27 @@ export default function ClientOrderPage() {
                       setCancelOpen((v) => !v);
                       setAmendOpen(false);
                     }}
-                    className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
+                    className="w-full text-amber-700 border-amber-200 hover:bg-amber-50"
                   >
-                    Cancel or postpone
+                    Postpone
                   </Button>
                 </div>
+
+                {/* Wave 28.4: dedicated full-width Cancel button that opens
+                    the wizard. Sits below the Amend/Postpone duo so
+                    it's distinct -- a destructive action shouldn't
+                    share visual weight with a benign one. */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setWizardOpen(true);
+                    setAmendOpen(false);
+                    setCancelOpen(false);
+                  }}
+                  className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
+                >
+                  Cancel this order
+                </Button>
 
                 {amendOpen && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
@@ -628,44 +656,21 @@ export default function ClientOrderPage() {
                 )}
 
                 {cancelOpen && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 space-y-3">
-                    <p className="text-sm font-semibold text-slate-900">Cancel or postpone</p>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setCancelType("cancel")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
-                          cancelType === "cancel"
-                            ? "bg-rose-600 text-white border-rose-600"
-                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCancelType("postpone")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
-                          cancelType === "postpone"
-                            ? "bg-amber-600 text-white border-amber-600"
-                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        Postpone
-                      </button>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+                    <p className="text-sm font-semibold text-slate-900">Postpone this booking</p>
+                    <p className="text-xs text-slate-600">
+                      Pick a new date and the team will confirm by email. Your deposit travels with you to the new date -- nothing is lost.
+                    </p>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
+                      <input
+                        type="date"
+                        value={postponeDate}
+                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        onChange={(e) => setPostponeDate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                      />
                     </div>
-                    {cancelType === "postpone" && (
-                      <div>
-                        <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
-                        <input
-                          type="date"
-                          value={postponeDate}
-                          min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                          onChange={(e) => setPostponeDate(e.target.value)}
-                          className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
-                        />
-                      </div>
-                    )}
                     <div>
                       <label className="text-xs font-medium text-slate-700 block mb-1">Reason (optional)</label>
                       <textarea
@@ -676,11 +681,6 @@ export default function ClientOrderPage() {
                         className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500">
-                      {cancelType === "cancel"
-                        ? "The catering team reviews your request, then refunds per their cancellation policy. They'll email you with the outcome."
-                        : "Tell us your preferred new date. The team will confirm by email."}
-                    </p>
                     {cancelMsg && (
                       <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>
                         {cancelMsg.text}
@@ -691,11 +691,11 @@ export default function ClientOrderPage() {
                       disabled={
                         cancelBusy ||
                         (cancelMsg?.tone === "ok") ||
-                        (cancelType === "postpone" && !postponeDate)
+                        !postponeDate
                       }
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                     >
-                      {cancelBusy ? "Sending..." : cancelMsg?.tone === "ok" ? "Sent" : `Send ${cancelType === "cancel" ? "cancellation" : "postponement"} request`}
+                      {cancelBusy ? "Sending..." : cancelMsg?.tone === "ok" ? "Sent" : "Send postponement request"}
                     </Button>
                   </div>
                 )}
@@ -734,6 +734,57 @@ export default function ClientOrderPage() {
 
         <Footer />
       </div>
+
+      {/* Wave 28.4: Cancellation Companion. Posts to the existing
+          token-bearer endpoint -- the wizard owns the UX, the API
+          handles the side-effects (cascade, refund/credit, audit). */}
+      {view?.order && (
+        <CancellationWizard
+          open={wizardOpen}
+          onOpenChange={(o) => {
+            setWizardOpen(o);
+            if (!o && wizardJustDone) {
+              // Refresh on close after a successful cancel so the
+              // page status flips and the action card hides.
+              window.location.reload();
+            }
+          }}
+          mode="order"
+          companyName={view.company?.company_name || "the catering team"}
+          companyPhone={view.company?.phone || null}
+          termsInput={{
+            amountPaid: Number(view.order.amount_paid) || 0,
+            depositAmount: Number(view.order.deposit_amount) || 0,
+            depositPaid: !!view.order.deposit_paid,
+            eventDate: view.order.event_date || new Date().toISOString().slice(0, 10),
+            status: view.order.status || "pending",
+            kitchenPrepStarted: !!view.order.kitchen_prep_started_at,
+            shoppingDone: !!view.order.shopping_completed_at,
+            dispatched: ["out_for_delivery", "in_transit", "delivered"].includes(view.order.status),
+            policy: (view.company?.cancellation_policy as any) || {},
+            legacyCancelFeePct: Number(view.company?.cancellation_fee_percent) || undefined,
+          }}
+          onSubmit={async (payload) => {
+            const r = await fetch("/api/client-tokens/cancel-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                order_id: view.order.id,
+                request_type: "cancel",
+                reason: payload.reason || payload.reason_category,
+                payout_choice: payload.payout_choice,
+                credit_amount: payload.credit_amount,
+                committed_cost_note: payload.committed_cost_note,
+              }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data?.ok) {
+              throw new Error(data?.error || `Cancellation failed (${r.status})`);
+            }
+            setWizardJustDone(true);
+          }}
+        />
+      )}
     </>
   );
 }

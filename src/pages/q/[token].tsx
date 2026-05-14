@@ -42,6 +42,10 @@ import {
   fetchByToken, recordView, recordAccept, submitChangeRequest,
   type PublicQuoteView,
 } from "@/services/publicQuoteService";
+// Wave 28.4: route the Decline button through the new wizard so the
+// client gets the "Tell us why -> Confirm" flow with a note before
+// each action. Quote mode skips the payout step (no money to move).
+import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -111,35 +115,32 @@ export default function PublicQuotePage() {
   // client could only Accept or Request changes; saying "no thanks"
   // meant emailing the caterer. Quotes sat in the operator's
   // In-play bucket until they expired, masking conversion stats.
-  const [declineOpen, setDeclineOpen] = useState(false);
-  const [declineReason, setDeclineReason] = useState("");
-  const [declining, setDeclining] = useState(false);
-  const [declineError, setDeclineError] = useState<string | null>(null);
+  // Wave 28.4: wizardOpen replaces the inline declineOpen state.
+  // The legacy inline form is kept as a fallback view (justDeclined
+  // success state) and removed from the open-flow path.
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [justDeclined, setJustDeclined] = useState(false);
 
-  const handleDecline = async () => {
-    if (!token) return;
-    setDeclining(true);
-    setDeclineError(null);
-    try {
-      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: declineReason.trim() || null }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) {
-        setDeclineError(data?.error || "Could not decline the quote right now.");
-        return;
-      }
-      setJustDeclined(true);
-      setDeclineOpen(false);
-      if (quote) setQuote({ ...quote, status: "rejected" });
-    } catch (e: any) {
-      setDeclineError(e?.message || "Try again");
-    } finally {
-      setDeclining(false);
+  // Submit handler the wizard calls on its final step. Same endpoint
+  // as before -- the wizard just owns the UX wrapping.
+  const handleWizardDecline = async (payload: {
+    reason_category: string;
+    reason: string;
+  }) => {
+    if (!token) throw new Error("Missing quote token");
+    const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: payload.reason.trim() || payload.reason_category || null,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data?.ok) {
+      throw new Error(data?.error || "Could not decline the quote right now.");
     }
+    setJustDeclined(true);
+    if (quote) setQuote({ ...quote, status: "rejected" });
   };
 
   // Request-changes flow. Inline expansion (matches accept-flow
@@ -888,7 +889,7 @@ export default function PublicQuotePage() {
                         {!justDeclined && quote.status !== "rejected" && (
                           <Button
                             variant="outline"
-                            onClick={() => { setDeclineOpen(true); setDeclineError(null); }}
+                            onClick={() => setWizardOpen(true)}
                             className="gap-1.5 px-6 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
                             size="lg"
                           >
@@ -904,61 +905,25 @@ export default function PublicQuotePage() {
             )}
           </div>
 
-          {/* DECLINE inline form -- screen only. Mirrors the request-
-              changes block's inline-expansion pattern. */}
-          {(declineOpen || justDeclined) && (
+          {/* Wave 28.4: legacy inline decline form replaced by the
+              CancellationWizard mounted at the bottom of the page.
+              The success state stays here (no Dialog needed once
+              the client has declined -- they see the page change). */}
+          {justDeclined && (
             <div className="no-print mt-4">
-              {justDeclined ? (
-                <Card className="border-0 bg-stone-50 shadow-sm">
-                  <CardContent className="py-6 px-5 text-center space-y-2">
-                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-stone-700">
-                      <CheckCircle2 className="w-5 h-5 text-white" />
-                    </div>
-                    <h3 className="text-base font-semibold text-stone-900">
-                      Thanks for letting {companyName} know
-                    </h3>
-                    <p className="text-sm text-stone-600">
-                      We've closed this quote on our side. If anything changes, just reply to the original email.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="py-5 px-5 space-y-3">
-                    <p className="text-sm font-semibold text-stone-900">Decline this quote</p>
-                    <p className="text-sm text-stone-600">
-                      No need to give a reason if you'd rather not. A quick line just helps {companyName} learn what didn't fit.
-                    </p>
-                    <textarea
-                      rows={3}
-                      value={declineReason}
-                      onChange={(e) => setDeclineReason(e.target.value)}
-                      placeholder="Optional -- e.g. went with another option, budget didn't work, postponing..."
-                      className="w-full px-3 py-2 rounded-md border border-stone-300 text-sm"
-                      autoFocus
-                    />
-                    {declineError && (
-                      <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
-                        <p className="text-xs text-rose-700 font-medium">{declineError}</p>
-                      </div>
-                    )}
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => { setDeclineOpen(false); setDeclineError(null); }} disabled={declining}>
-                        Back
-                      </Button>
-                      <Button
-                        onClick={handleDecline}
-                        disabled={declining}
-                        variant="outline"
-                        className="text-rose-700 border-rose-200 hover:bg-rose-50 gap-1.5"
-                      >
-                        {declining ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        {declining ? "Sending..." : "Send decline"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="border-0 bg-stone-50 shadow-sm">
+                <CardContent className="py-6 px-5 text-center space-y-2">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-stone-700">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-base font-semibold text-stone-900">
+                    Thanks for letting {companyName} know
+                  </h3>
+                  <p className="text-sm text-stone-600">
+                    We've closed this quote on our side. If anything changes, just reply to the original email.
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1116,6 +1081,27 @@ export default function PublicQuotePage() {
 
         </div>
       </div>
+
+      {/* Wave 28.4: Cancellation wizard mounts at the page root so its
+          Dialog overlays the quote. mode='quote' skips the payout
+          step (no money is at stake on a quote that hasn't been
+          accepted yet) and renders the 2-step variant. */}
+      <CancellationWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        mode="quote"
+        companyName={companyName}
+        companyPhone={(quote as any)?.company?.phone || null}
+        termsInput={{
+          amountPaid: 0,
+          depositAmount: 0,
+          depositPaid: false,
+          eventDate: quote.event_date || new Date().toISOString().slice(0, 10),
+          status: quote.status || "sent",
+          policy: ((quote as any)?.company?.cancellation_policy as any) || {},
+        }}
+        onSubmit={handleWizardDecline}
+      />
     </>
   );
 }
