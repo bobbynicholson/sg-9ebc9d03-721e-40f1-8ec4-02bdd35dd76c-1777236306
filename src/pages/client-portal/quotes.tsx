@@ -43,11 +43,24 @@ interface PortalQuote {
   created_at: string | null;
 }
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", {
-  style: "currency",
-  currency: "ZAR",
-  maximumFractionDigits: 0,
-});
+// Wave 18 audit: hardcoded ZAR rendered "R5,000" for non-ZA tenants.
+// Resolve from the loaded company row inside the component instead of
+// a module-scope constant.
+function fmtMoneyFor(currencyCode: string): Intl.NumberFormat {
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: currencyCode || "ZAR",
+      maximumFractionDigits: 0,
+    });
+  } catch {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      maximumFractionDigits: 0,
+    });
+  }
+}
 
 const fmtDate = (iso: string | null | undefined) =>
   iso
@@ -76,6 +89,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function ClientQuotesPage() {
   const { user, company } = useAuth() as any;
+  const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
@@ -188,6 +202,7 @@ export default function ClientQuotesPage() {
                   items={grouped.pending}
                   brandPrimary={brandPrimary}
                   onRequestEdits={(q) => setEditsQuote({ id: q.id, quote_number: q.quote_number })}
+                  fmtMoney={fmtMoney}
                 />
               )}
               {grouped.accepted.length > 0 && (
@@ -196,6 +211,7 @@ export default function ClientQuotesPage() {
                   description="You've signed off on these. The deposit invoice (if any) lives under Billing."
                   items={grouped.accepted}
                   brandPrimary={brandPrimary}
+                  fmtMoney={fmtMoney}
                 />
               )}
               {grouped.historical.length > 0 && (
@@ -204,6 +220,7 @@ export default function ClientQuotesPage() {
                   description="Drafts, declined, expired, and quotes the team is revising."
                   items={grouped.historical}
                   brandPrimary={brandPrimary}
+                  fmtMoney={fmtMoney}
                 />
               )}
             </>
@@ -236,12 +253,14 @@ function QuoteGroup({
   items,
   brandPrimary,
   onRequestEdits,
+  fmtMoney,
 }: {
   title: string;
   description: string;
   items: PortalQuote[];
   brandPrimary: string;
   onRequestEdits?: (q: PortalQuote) => void;
+  fmtMoney: Intl.NumberFormat;
 }) {
   return (
     <section className="w-full">

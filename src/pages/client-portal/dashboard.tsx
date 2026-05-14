@@ -86,7 +86,27 @@ interface DriverPin {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// Wave 18 audit: hardcoded ZAR formatter rendered "R5,000" for UK / US
+// / EU tenants, breaking the dashboard for non-ZA caterers. Replaced
+// the module-scope constant with a per-currency factory so the
+// component can resolve the tenant currency from the loaded company
+// row at render time. fmtMoneyFor("GBP") -> "£5,000", etc.
+function fmtMoneyFor(currencyCode: string): Intl.NumberFormat {
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: currencyCode || "ZAR",
+      maximumFractionDigits: 0,
+    });
+  } catch {
+    // Bad currency code -- fall back to a safe formatter.
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      maximumFractionDigits: 0,
+    });
+  }
+}
 
 const STATUS_TIMELINE = [
   { id: "confirmed",  label: "Confirmed",  icon: CheckCircle2 },
@@ -288,6 +308,14 @@ export default function ClientPortalDashboard() {
   const brandSoftBg = `linear-gradient(135deg, ${brandPrimary}10 0%, ${brandSecondary}10 100%)`;
   const companyName = company?.company_name || profile?.company_name || "Your portal";
   const companyLogo = company?.logo_url || null;
+  // Wave 18 audit: dashboard used to render every order total with a
+  // hardcoded ZAR formatter -- UK / US / EU tenants saw R5,000 against
+  // a £/$/€ caterer. Resolve from the loaded company row with a ZAR
+  // fallback for legacy NULL values.
+  const fmtMoney = useMemo(
+    () => fmtMoneyFor(((company as any)?.currency as string) || "ZAR"),
+    [(company as any)?.currency],
+  );
 
   const greeting = useMemo(() => greetingFor(new Date()), []);
 
@@ -619,9 +647,8 @@ export default function ClientPortalDashboard() {
               (q) => q.status === "sent" || q.status === "viewed",
             );
             if (pending.length === 0) return null;
-            const fmt = new Intl.NumberFormat("en-ZA", {
-              style: "currency", currency: "ZAR", maximumFractionDigits: 0,
-            });
+            // Use the same tenant-aware formatter as the rest of the page.
+            const fmt = fmtMoney;
             // Brand-coloured accent strip on the left + plain white card.
             // The previous 10%-opacity gradient washed out to pinkish on
             // most brand colours; this reads as the brand instead.
@@ -814,6 +841,7 @@ export default function ClientPortalDashboard() {
               brandSecondary={brandSecondary}
               brandGradient={brandGradient}
               driverPin={driverPin}
+              fmtMoney={fmtMoney}
             />
           )}
 
@@ -866,6 +894,7 @@ export default function ClientPortalDashboard() {
                     order={o}
                     brandPrimary={brandPrimary}
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
+                    fmtMoney={fmtMoney}
                     onRebook={(target) => {
                       // Open the RebookDialog -- it manages its own
                       // form state internally now (date, items, notes).
@@ -984,12 +1013,17 @@ function HeroCard({
   brandSecondary,
   brandGradient,
   driverPin,
+  fmtMoney,
 }: {
   order: Order;
   brandPrimary: string;
   brandSecondary: string;
   brandGradient: string;
   driverPin: DriverPin | null;
+  // Wave 18: tenant currency formatter passed down from the parent
+  // so the totals render in the actual tenant currency, not a
+  // module-scope ZAR constant.
+  fmtMoney: Intl.NumberFormat;
 }) {
   const copy = smartStatusCopy(order);
   const tone = STATUS_TONES[order.status] || STATUS_TONES.pending;
@@ -1219,12 +1253,14 @@ function PastEventTile({
   onRebook,
   onRate,
   slugPrefix,
+  fmtMoney,
 }: {
   order: Order;
   brandPrimary: string;
   onRebook: (o: Order) => void;
   onRate: (o: Order, rating: number) => Promise<void> | void;
   slugPrefix: string;
+  fmtMoney: Intl.NumberFormat;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);

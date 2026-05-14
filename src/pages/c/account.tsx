@@ -115,7 +115,16 @@ export default function ClientAccountPage() {
   }
 
   const { orders, company } = view;
-  const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+  // Wave 18 audit: hardcoded ZAR rendered "R5,000" for non-ZA tenants on
+  // the magic-link account page. Resolve from the company row.
+  const fmtMoney = (() => {
+    const code = (company as any)?.currency || "ZAR";
+    try {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: code, maximumFractionDigits: 0 });
+    } catch {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+    }
+  })();
   const upcoming = orders.filter((o: any) => o.event_date >= toLocalISO(new Date()) && o.status !== "cancelled");
   const past     = orders.filter((o: any) => !upcoming.includes(o));
 

@@ -169,6 +169,106 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         applied_at: nowIso,
       } as any).eq("id", request_id);
 
+      // Wave 18 audit: postpone-approval used to ONLY stamp the new
+      // event_date on the order. Kitchen prep tasks, equipment_bookings,
+      // collection driver_assignments and the queued pre-event email
+      // reminders all stayed pinned to the ORIGINAL date. Chef showed
+      // up at the wrong site, vehicle was double-booked, client got
+      // "see you tomorrow!" the day before an event that wasn't
+      // happening. Cascade the new date through every linked artefact
+      // so the postpone actually means what it says.
+      if (updates.event_date && originalDate && updates.event_date !== originalDate) {
+        const newEventIso = String(updates.event_date);
+        const oldEventIso = String(originalDate);
+        const dayMs = 86400000;
+        const drift = (new Date(newEventIso).getTime() - new Date(oldEventIso).getTime()) || 0;
+        // Equipment bookings -- shift the booked window by the same
+        // delta so the availability calculator releases the old date
+        // and reserves the new one. Window shape stays intact.
+        try {
+          const { data: bookings } = await ssr
+            .from("equipment_bookings")
+            .select("id, booked_from, booked_until")
+            .eq("order_id", (request as any).order_id)
+            .in("status", ["booked", "in_use", "planned"]);
+          for (const b of (bookings || []) as any[]) {
+            const newFrom = b.booked_from ? new Date(new Date(b.booked_from).getTime() + drift).toISOString() : null;
+            const newUntil = b.booked_until ? new Date(new Date(b.booked_until).getTime() + drift).toISOString() : null;
+            await ssr
+              .from("equipment_bookings")
+              .update({ booked_from: newFrom, booked_until: newUntil } as any)
+              .eq("id", b.id);
+          }
+        } catch (e) {
+          console.warn("[postpone] equipment_bookings shift failed:", e);
+        }
+        // Vehicle bookings -- same shift logic.
+        try {
+          const { data: vbookings } = await ssr
+            .from("vehicle_bookings")
+            .select("id, booked_from, booked_until")
+            .eq("order_id", (request as any).order_id)
+            .in("status", ["planned", "on_route"]);
+          for (const b of (vbookings || []) as any[]) {
+            const newFrom = b.booked_from ? new Date(new Date(b.booked_from).getTime() + drift).toISOString() : null;
+            const newUntil = b.booked_until ? new Date(new Date(b.booked_until).getTime() + drift).toISOString() : null;
+            await ssr
+              .from("vehicle_bookings")
+              .update({ booked_from: newFrom, booked_until: newUntil } as any)
+              .eq("id", b.id);
+          }
+        } catch (e) {
+          console.warn("[postpone] vehicle_bookings shift failed:", e);
+        }
+        // Driver collection assignment -- shift scheduled_for.
+        try {
+          const { data: assigns } = await ssr
+            .from("driver_assignments")
+            .select("id, scheduled_for")
+            .eq("order_id", (request as any).order_id)
+            .neq("status", "completed");
+          for (const a of (assigns || []) as any[]) {
+            if (!a.scheduled_for) continue;
+            const newScheduled = new Date(new Date(a.scheduled_for).getTime() + drift).toISOString();
+            await ssr
+              .from("driver_assignments")
+              .update({ scheduled_for: newScheduled } as any)
+              .eq("id", a.id);
+          }
+        } catch (e) {
+          console.warn("[postpone] driver_assignments shift failed:", e);
+        }
+        // Pending pre-event reminders -- cancel the old ones, the
+        // ensureScheduledPreEventReminders cron will queue fresh ones
+        // against the new event_date the next time the order is
+        // touched. We don't try to recompute them inline here because
+        // the original sender uses a fully-rendered email body and
+        // recomputing it server-side would diverge from the queued
+        // copy.
+        try {
+          await ssr
+            .from("outgoing_email_queue")
+            .update({ status: "cancelled", updated_at: nowIso } as any)
+            .eq("trigger_ref_id", (request as any).order_id)
+            .eq("trigger_event", "pre_event")
+            .eq("status", "pending");
+        } catch (e) {
+          console.warn("[postpone] pre_event email cancel failed:", e);
+        }
+        // Kitchen prep tasks -- delete the existing rows for this
+        // order; ensurePrepTasksForOrder will regenerate them against
+        // the new event_date the next time the order is touched.
+        try {
+          await ssr
+            .from("kitchen_prep_tasks")
+            .delete()
+            .eq("order_id", (request as any).order_id)
+            .neq("status", "completed");
+        } catch (e) {
+          console.warn("[postpone] kitchen_prep_tasks delete failed:", e);
+        }
+      }
+
       void sendPostponementApprovedEmail((request as any).order_id, updates.event_date || null);
 
       await notifyClient(ssr, {

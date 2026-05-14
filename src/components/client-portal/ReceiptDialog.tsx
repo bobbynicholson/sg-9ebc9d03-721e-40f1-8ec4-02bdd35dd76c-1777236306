@@ -59,6 +59,11 @@ interface CompanyLite {
   address_line2: string | null;
   city: string | null;
   logo_url: string | null;
+  // Wave 18: receipt totals were rendered with a hardcoded ZAR
+  // formatter -- non-ZA tenants saw "R5,000" on a £/$/€ receipt.
+  // Carry the tenant currency through so the receipt shows what
+  // the client actually paid.
+  currency?: string | null;
 }
 
 interface PaymentLite {
@@ -98,11 +103,26 @@ interface ClientLite {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", {
-  style: "currency",
-  currency: "ZAR",
-  maximumFractionDigits: 2,
-});
+// Wave 18: tenant-aware currency formatter. Caller passes
+// company.currency through and we render the correct symbol +
+// locale-friendly grouping. Falls back to ZAR when the tenant row
+// has no currency set (legacy data).
+function fmtMoneyFor(currencyCode: string | null | undefined): Intl.NumberFormat {
+  const code = currencyCode || "ZAR";
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      maximumFractionDigits: 2,
+    });
+  }
+}
 
 const fmtDate = (iso: string | null | undefined): string => {
   if (!iso) return "--";
@@ -143,6 +163,7 @@ export function ReceiptDialog({
   const [client, setClient] = useState<ClientLite | null>(null);
   const [company, setCompany] = useState<CompanyLite | null>(null);
   const [payments, setPayments] = useState<PaymentLite[]>([]);
+  const fmtMoney = fmtMoneyFor(company?.currency);
 
   useEffect(() => {
     if (!open || !invoiceId) return;
@@ -228,7 +249,7 @@ export function ReceiptDialog({
           const { data: companyData, error: cErr } = await supabase
             .from("companies")
             .select(
-              "id, company_name, vat_registered, vat_number, email, phone, address_line1, address_line2, city, logo_url",
+              "id, company_name, vat_registered, vat_number, email, phone, address_line1, address_line2, city, logo_url, currency",
             )
             .eq("id", tenantCompanyId)
             .maybeSingle();
