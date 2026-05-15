@@ -433,55 +433,59 @@ function AdminDashboardPage() {
               every send silently fails. Show the banner directly under
               the header so it cannot be missed. Self-hides once
               email_settings is configured. */}
-          {companyId ? <EmailProviderBanner companyId={companyId} /> : null}
+          {companyId ? (
+            <WidgetErrorBoundary label="Email provider banner">
+              <EmailProviderBanner companyId={companyId} />
+            </WidgetErrorBoundary>
+          ) : null}
 
           {/* Phase 9 #5: Today's pulse -- live KPI strip with the
               numbers the dispatch lead actually checks every morning:
               today's confirmed events, in-transit deliveries, drivers
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
-          <TodaysPulse companyId={companyId} />
+          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 17 #8: recently-viewed shortcut. Tracks the last
               5 entities the operator opened across orders / quotes /
               contacts in localStorage so jumping back is one click.
               Self-hides until at least one entity is tracked. */}
-          <RecentlyViewedWidget />
+          <WidgetErrorBoundary label="Recently viewed"><RecentlyViewedWidget /></WidgetErrorBoundary>
 
           {/* Phase 9 #10: quotes-to-chase widget. Surfaces the 5
               oldest in-play quotes sent more than 3 days ago without
               a reply, so the sales lead doesn't have to open the
               quotes page to find the rotting ones. Self-hides when
               there's nothing to chase. */}
-          <QuoteFollowupWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 10 #4: inventory low-stock widget. Surfaces the
               top 5 items at or below their minimum reorder level so
               the shopping team gets a visual nudge straight from the
               dashboard. Self-hides when nothing is short. */}
-          <InventoryLowStockWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 12 #7: inventory expiry tracking. Batches with
               stock on hand expiring within 14 days, plus already-
               expired batches still showing quantity. Self-hides
               when nothing is close. */}
-          <InventoryExpiryWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Inventory expiry"><InventoryExpiryWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 16 #10: recent stock movements. Last 5
               inventory_transactions in the past 7 days so the
               shopping team coordinator sees activity at a
               glance without per-item drilling. */}
-          <RecentInventoryAdjustsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 13 #4: fleet service due. Vehicles whose
               next_service_due lands within 30 days. Self-hides
               when no service is on the horizon. */}
-          <VehicleServiceDueWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Vehicle service due"><VehicleServiceDueWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 13 #6: delivery on-time SLA. delivered_at vs
               event_time over the last 30 days, with a 15-min
               grace window. Self-hides on a fresh tenant. */}
-          <DeliverySlaWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 13 #7: equipment cleaning queue. Items still
               in pending / cleaning / drying after returning from
@@ -495,120 +499,122 @@ function AdminDashboardPage() {
 
           {/* Phase 16 #2: equipment damages waiting on resolution.
               Self-hides when nothing is unresolved. */}
-          <EquipmentDamagesWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Equipment damages"><EquipmentDamagesWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 22 #5: brand-new leads inside the last 24 hours.
               Pairs with LeadAgingWidget which surfaces the >3 day
               stragglers. Together they cover the funnel: 'who's
               fresh' on top, 'who's rotting' below. */}
-          <NewLeadsTodayWidget companyId={companyId} />
+          <WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #1: lead aging. Active leads (not converted,
               not won/lost) older than 3 days, oldest first. Self-
               hides when nothing is overdue. */}
-          <LeadAgingWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Lead aging"><LeadAgingWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #3: tomorrow's events. Compact list with
               earliest start time + driver assignment for the
               evening-before review. Self-hides on a quiet day. */}
-          <TomorrowsEventsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Tomorrow's events"><TomorrowsEventsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 20 #5: who's on the clock right now. Today's
               Pulse shows the driver count but the kitchen +
               cleaning + shopping side was invisible. Lists open
               staff_work_sessions sorted by longest-running so
               stale clock-ins surface to the top. */}
-          <ActiveStaffNowWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #8: dispatch coverage gaps. Confirmed
               orders in the next 7 days with no driver
               assigned. Self-hides when every event is covered. */}
-          <DispatchGapWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Dispatch gaps"><DispatchGapWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #9: weekly order load mini chart. Shows the
               past + next 7 days of confirmed-and-onwards orders
               by event date so the kitchen lead can spot bunching
               days at a glance. Self-hides on a fresh tenant. */}
-          <WeeklyOrdersChart companyId={companyId} />
+          <WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #6: pending refunds list. The stat tile
               showed total + count; this surfaces individual rows
               with client name + amount + age so the bookkeeper
               can act on the oldest first. */}
-          <PendingRefundsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Pending refunds"><PendingRefundsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 19 #8: overdue invoices list. The matching surface
               for money waiting to come in -- invoices past due_date
               that haven't been paid or cancelled, oldest first.
               Self-hides on a tenant with no overdue invoices. */}
-          <OverdueInvoicesWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Overdue invoices"><OverdueInvoicesWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 19 #10: recent event ratings. Closes the loop on
               the Phase 18 #10 quick-rating capture in the order
               drawer -- 30-day average plus the last 5 rated orders.
               Self-hides until a tenant has stamped at least one
               rating. */}
-          <RecentRatingsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 20 #7: cancellations rollup. Surfaces the last 5
               cancelled orders plus the 30-day lost-revenue total so
               an owner sees patterns forming. Self-hides on a clean
               month. */}
-          <CancelledOrdersWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Cancelled orders"><CancelledOrdersWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 16 #9: recent payments collected. Today's Pulse
               shows 'Paid today' total but no row-level detail. This
               card surfaces the last 5 completed payments so the
               bookkeeper can reconcile against the bank deposit. */}
-          <RecentPaymentsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Recent payments"><RecentPaymentsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 14 #7: recent activity timeline. Pivoted from
               the brand-colour preview slot since live preview
               already exists on /admin/white-label. Shows the
               last 8 audit_logs entries so owners get a quick
               read on team activity from the dashboard. */}
-          <RecentActivityWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 10 #7: email failures widget. Surfaces the last
               5 failed sends in the last 24h so quietly broken
               automations don't go unnoticed. Self-hides when there
               are no failures. */}
-          <EmailFailuresWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Email failures"><EmailFailuresWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 11 #4: menu top-sellers. Shows the 5 dishes
               moving most across confirmed orders in the last 30
               days so the kitchen lead + sales lead see what's
               actually pulling. Self-hides on a fresh tenant. */}
-          <MenuTopSellersWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Menu top sellers"><MenuTopSellersWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 21 #6: top clients by spend over the last 30
               days. Retention surface for thank-yous, loyalty
               perks and follow-up. Groups orders by client_name
               and ranks the top 5 by total booked value. Self-
               hides on a tenant with no qualifying orders. */}
-          <TopClientsWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Top clients"><TopClientsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 11 #10: quote response time. Median sent->view
               and sent->accept across the last 90 days. Helps the
               sales lead spot pricing / tone problems separately
               from chase cadence. Self-hides without a sample. */}
-          <QuoteResponseTimeWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Quote response time"><QuoteResponseTimeWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 12 #2: per-branch revenue + order count
               comparison for multi-branch tenants. Self-hides on
               single-branch setups so it doesn't take up space. */}
-          <RegionPerformanceWidget companyId={companyId} />
+          <WidgetErrorBoundary label="Region performance"><RegionPerformanceWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 12 #4: year-over-year comparison. Same date
               window shifted back 12 months so the 'this month
               vs same month last year' read is one glance. Self-
               hides if the prior-year window is empty. */}
-          <YearOverYearCard
-            companyId={companyId}
-            range={range}
-            thisYearRevenue={stats.bookedRevenue}
-            thisYearOrders={stats.bookedOrders}
-          />
+          <WidgetErrorBoundary label="Year over year">
+            <YearOverYearCard
+              companyId={companyId}
+              range={range}
+              thisYearRevenue={stats.bookedRevenue}
+              thisYearOrders={stats.bookedOrders}
+            />
+          </WidgetErrorBoundary>
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -619,7 +625,11 @@ function AdminDashboardPage() {
 
           {/* Day-zero "First Steps" card. Self-hides once required steps
               are in or the owner dismisses / completes onboarding. */}
-          {companyId ? <FirstStepsCard companyId={companyId} slug={companySlug || ""} /> : null}
+          {companyId ? (
+            <WidgetErrorBoundary label="First steps">
+              <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
+            </WidgetErrorBoundary>
+          ) : null}
 
           {/* Priority Actions, not date-bound, always-on attention items */}
           {(stats.pendingQuotes > 0 || stats.lowStockItems > 0 || stats.upcomingEvents > 0) && (
@@ -897,7 +907,9 @@ function AdminDashboardPage() {
               the bottom of the dashboard, collapsible, persists state per
               tenant. Owns its own data fetch (24-month window of orders +
               quotes + leads, narrowed by the global region filter). */}
-          <BusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
+          <WidgetErrorBoundary label="Business intelligence">
+            <BusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
+          </WidgetErrorBoundary>
         </div>
       </div>
 
