@@ -204,6 +204,17 @@ export async function postOrderCreationCascade(
         receipt.email = { ok: false, skipped: true, reason: "order_not_found" };
       } else if (!(order as any).client_email) {
         receipt.email = { ok: false, skipped: true, reason: "no_client_email" };
+      } else if (await _orderConfirmedAlreadySentRecently(client, orderId)) {
+        // Wave 48 A6 -- dedup against the status-flip path. When an
+        // order is created already at status='confirmed' (the quote
+        // accept flow) the cascade's email here AND the status-flip
+        // sendStatusNotifications path BOTH fire `order_confirmed`
+        // within seconds. The 5-min in-app dedup catches the second
+        // push but the email branch had no gate for the cascade-time
+        // fire. Probe email_automation_log: if any prior
+        // order_confirmed row exists for this order in the last 5
+        // minutes, skip and let the other path own it.
+        receipt.email = { ok: true, skipped: true, reason: "deduped_recent_send" };
       } else {
         const { data: companyRow, error: companyRowErr } = await (client as any)
           .from("companies")
@@ -646,4 +657,41 @@ export async function postOrderCreationCascade(
   }
 
   return receipt;
+}
+
+/**
+ * Wave 48 A6 -- dedup probe used by Step 2.
+ *
+ * Returns true when an `order_confirmed` automation row was logged
+ * for this order within the last 5 minutes. The status-flip path
+ * (sendStatusNotifications) writes such a row whenever it sends the
+ * customer email, so this guard lets cascade and status-flip race
+ * without the customer seeing two confirmation emails. The 5-min
+ * window is the retry-storm horizon; legitimate "confirm again
+ * later" cycles for the same order are extremely rare.
+ *
+ * Best-effort: any probe failure returns false so we err on the
+ * side of sending.
+ */
+async function _orderConfirmedAlreadySentRecently(
+  client: any,
+  orderId: string,
+): Promise<boolean> {
+  try {
+    const fiveMinAgoIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { count, error } = await (client as any)
+      .from("email_automation_log")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId)
+      .eq("template_type", "order_confirmed")
+      .gte("sent_at", fiveMinAgoIso);
+    if (error) {
+      console.warn("[postOrderCreationCascade] dedup probe failed:", error);
+      return false;
+    }
+    return Number(count || 0) > 0;
+  } catch (e) {
+    console.warn("[postOrderCreationCascade] dedup probe crashed:", e);
+    return false;
+  }
 }

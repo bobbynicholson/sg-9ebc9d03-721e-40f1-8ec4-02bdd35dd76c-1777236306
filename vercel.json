@@ -20,10 +20,6 @@
   ],
   "crons": [
     {
-      "path": "/api/process-email-notifications",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/process-email-queue",
       "schedule": "*/15 * * * *"
     },

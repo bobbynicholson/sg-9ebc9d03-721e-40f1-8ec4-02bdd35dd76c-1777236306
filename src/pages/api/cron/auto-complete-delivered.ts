@@ -38,9 +38,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fetch candidate orders. Service-role bypasses RLS so we see
     // every tenant -- the trigger is platform-wide intentionally.
+    //
+    // Wave 48 A2 -- tightened payment filter. The original "paid OR
+    // partial" gate let orders complete with money still owed, which
+    // then kicked the after-sales drip at customers who hadn't yet
+    // settled the balance (Specialist 1 P1 finding). Now we demand
+    // payment_status='paid' AND no outstanding balance_due.
     const { data: candidates, error: selErr } = await (sb as any)
       .from("orders")
-      .select("id, company_id, payment_status")
+      .select("id, company_id, payment_status, balance_due, total_amount, balance_paid")
       .eq("status", "delivered")
       .lte("delivered_at", cutoffIso)
       .limit(200);
@@ -50,9 +56,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: selErr.message });
     }
 
-    const eligible = (candidates || []).filter(
-      (o: any) => o.payment_status === "paid" || o.payment_status === "partial",
-    );
+    const eligible = (candidates || []).filter((o: any) => {
+      // Hard rule: payment_status must be 'paid'. Partial no longer
+      // qualifies -- it triggered the after-sales drip on debtors.
+      if (o.payment_status !== "paid") return false;
+      // Belt and braces: also confirm no outstanding balance owed.
+      // balance_paid is the canonical truth where it exists; fall
+      // back to balance_due numeric check.
+      if (o.balance_paid === false) return false;
+      const bd = Number(o.balance_due ?? 0);
+      if (Number.isFinite(bd) && bd > 0.01) return false;
+      return true;
+    });
 
     let flipped = 0;
     const errors: string[] = [];

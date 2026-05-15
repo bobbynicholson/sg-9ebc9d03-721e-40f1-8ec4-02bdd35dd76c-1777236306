@@ -463,6 +463,10 @@ export const driverConfirmationService = {
 
     if (!driver || !order || !order.company_id) return;
 
+    // Wave 48 A5 -- per-order dedup. The check-en-route cron runs
+    // every 5 minutes; without dedup it re-broadcast the urgent
+    // "driver hasn't confirmed" alert 12 times per hour into every
+    // dispatcher's inbox. 60-minute window is the recovery margin.
     await notificationService.broadcastNotification({
       companyId: order.company_id,
       type: "driver_not_confirmed",
@@ -473,6 +477,8 @@ export const driverConfirmationService = {
       link: `/admin/orders?orderId=${orderId}`,
       relatedEntityType: "order",
       relatedEntityId: orderId,
+      dedup: true,
+      dedupWindowMinutes: 60,
     });
   },
 

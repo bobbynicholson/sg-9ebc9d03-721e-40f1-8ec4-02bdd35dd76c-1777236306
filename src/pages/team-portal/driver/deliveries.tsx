@@ -16,9 +16,21 @@ import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+// Wave 48 A1 -- DriverConfirmationPanel was a P0 orphan: the full
+// 4-stage post-event UI (en-route to kitchen, departed, arrived at
+// venue, collection complete) existed at /components/driver/ but was
+// mounted on zero pages. Without it, completeCollection() was
+// unreachable from the driver app -- so equipment_bookings never
+// flipped to 'returned', dispatch carried phantom open assignments,
+// driver pay never snapshotted the collection leg, damages couldn't
+// be recorded. Mounting here on each active delivery surfaces every
+// stage button per order in the driver's natural flow.
+import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
 
 interface DriverOrder {
   id: string;
+  /** Wave 48 A1 -- order_number drives the panel header. */
+  order_number?: string | null;
   event_date: string;
   event_time?: string;
   venue_address: string;
@@ -37,6 +49,15 @@ interface DriverOrder {
   /** From orders.menu_items jsonb -- so the driver knows the headline. */
   menu_items?: any[] | null;
 }
+
+/** Wave 48 A1 -- statuses where the post-event panel should render.
+ *  Hide it on cancelled (irrelevant) and on completed where every
+ *  stage button is already non-actionable -- the panel itself
+ *  no-ops when buttons are pressed for a closed job, but suppressing
+ *  the surface keeps the completed list clean. */
+const ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL = new Set([
+  "confirmed", "preparing", "ready", "in_transit", "delivered",
+]);
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {
@@ -78,7 +99,7 @@ export default function DriverDeliveriesPage() {
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
-        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
+        .select("id, order_number, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -359,6 +380,24 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Wave 48 A1 -- mount the post-event confirmation panel
+                inline on every active delivery row. The panel
+                surfaces every stage button (en-route, departed,
+                arrived, collection complete) so the driver can close
+                each leg without leaving this page. Render only when
+                the order is in an active range; cancelled and
+                completed jobs hide it to keep the history clean. */}
+            {ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL.has(o.status) && (
+              <div className="pt-3 border-t border-slate-100">
+                <DriverConfirmationPanel
+                  orderId={o.id}
+                  orderNumber={o.order_number || o.id}
+                  eventTime={o.event_time || ""}
+                  venueAddress={o.venue_address || ""}
+                />
               </div>
             )}
           </div>
