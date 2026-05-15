@@ -44,6 +44,13 @@ interface Props {
   /** Optional callback after a successful write so the parent can refresh. */
   onCreated?: () => void;
   actorUserId?: string | null;
+  /**
+   * Wave 40.4: which team this shift is for. Defaults to 'kitchen'
+   * for back-compat with every existing call site. The cleaning
+   * schedule page passes 'cleaning'. Combined-role staff who do
+   * kitchen + cleaning in one shift use 'kitchen_and_cleaning'.
+   */
+  shiftType?: "kitchen" | "cleaning" | "kitchen_and_cleaning" | "general";
 }
 
 export function LogKitchenShiftModal({
@@ -55,6 +62,7 @@ export function LogKitchenShiftModal({
   defaultDate,
   onCreated,
   actorUserId,
+  shiftType = "kitchen",
 }: Props) {
   const { toast } = useToast();
   const [shiftDate, setShiftDate] = useState(defaultDate);
@@ -101,6 +109,7 @@ export function LogKitchenShiftModal({
           company_id: companyId,
           staff_id: staffId,
           shift_date: shiftDate,
+          shift_type: shiftType,
           planned_start: plannedStart,
           planned_end: plannedEnd,
           status: "scheduled",

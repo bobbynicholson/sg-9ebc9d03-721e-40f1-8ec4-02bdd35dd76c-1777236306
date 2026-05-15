@@ -1,19 +1,19 @@
 /**
- * /admin/kitchen-schedule -- weekly grid view of every kitchen
- * staffer's planned roster for the selected week.
+ * /admin/cleaning-schedule -- weekly grid view of every cleaning
+ * staffer's planned roster.
  *
- * Wave 36.1. Mirrors /admin/driver-schedule.tsx 1:1 -- same week
- * navigation, same Mon-Sun grid, same click-empty-cell-to-roster
- * pattern. Uses the kitchen_shifts table (planned + actual per
- * chef per day).
+ * Wave 40.4. Direct sibling of /admin/kitchen-schedule.tsx -- same
+ * UI shape, same week-grid pattern, same modal for adding shifts.
+ * Difference is the role filter (cleaning_staff + dual-role staff)
+ * and the shift_type ('cleaning') passed to the roster modal.
  *
- * What's different from driver-schedule:
- *   - Cells render planned hours (e.g. "9.0h planned") not actual
- *   - When actual_start has been stamped, the cell flips to a
- *     two-line "8a-5p / 8h actual" so the operator can see lateness
- *     at a glance.
- *   - Late / missed status badges (status='missed' or planned_start
- *     was past with no actual_start)
+ * Architecturally: cleaning shifts share the kitchen_shifts table
+ * via the shift_type column added in 20260515180000 -- so a person
+ * who does both cooking + cleaning logs ONE shift_type
+ * 'kitchen_and_cleaning' or two separate ones, depending on how
+ * the roster lead wants to split the day. Same payslip math
+ * regardless. Bobby's brief: "each user dashboard must be the
+ * same" -- this clone keeps the visual contract tight.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
@@ -28,7 +28,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
 
@@ -50,13 +50,14 @@ interface ShiftRow {
   status: string;
   rate_multiplier: number | null;
   notes: string | null;
+  shift_type: string;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function startOfWeek(d: Date): Date {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = (out.getDay() + 6) % 7; // Mon=0, Sun=6
+  const day = (out.getDay() + 6) % 7;
   out.setDate(out.getDate() - day);
   return out;
 }
@@ -72,9 +73,7 @@ function plannedHours(start: string | null, end: string | null): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
-  const startMin = sh * 60 + sm;
-  const endMin = eh * 60 + em;
-  return Math.max(0, (endMin - startMin) / 60);
+  return Math.max(0, ((eh * 60 + em) - (sh * 60 + sm)) / 60);
 }
 
 function actualHours(start: string | null, end: string | null): number {
@@ -85,13 +84,9 @@ function actualHours(start: string | null, end: string | null): number {
   return (e - s) / 3_600_000;
 }
 
-function fmtTime(t: string | null): string {
-  if (!t) return "";
-  const [h, m] = t.split(":");
-  return `${h}:${m}`;
-}
+const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "");
 
-function KitchenScheduleGrid() {
+function CleaningScheduleGrid() {
   const { user } = useAuth() as any;
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
@@ -112,25 +107,23 @@ function KitchenScheduleGrid() {
       const fromIso = toLocalISO(weekStart);
       const toIso = toLocalISO(addDays(weekStart, 6));
       const [staffRes, shiftsRes] = await Promise.all([
-        // Wave 36.1: kitchen_staff role for chefs. Some tenants
-        // also flag head chefs as company_admin -- pull both so the
-        // grid shows everyone who could be on a kitchen shift.
+        // Cleaning roster eligibility: cleaning_staff + dual-role
+        // staff (anyone who might pick up a cleaning shift). Same
+        // person who shows on /admin/kitchen-schedule shows up here
+        // when they're flagged as cleaning_staff -- avoids the "I
+        // need two logins" problem Bobby flagged.
         (supabase as any)
           .from("profiles")
           .select("id, full_name, email, role")
           .eq("company_id", companyId)
-          .in("role", ["kitchen_staff", "company_admin", "owner"])
+          .in("role", ["cleaning_staff", "company_admin", "owner", "kitchen_staff"])
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
-        // Wave 40.4: kitchen_shifts now backs both kitchen + cleaning
-        // rosters via the shift_type column. This page stays
-        // kitchen-only via the IN filter; the cleaning equivalent
-        // lives at /admin/cleaning-schedule.
         (supabase as any)
           .from("kitchen_shifts")
-          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes")
+          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type")
           .eq("company_id", companyId)
-          .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
+          .in("shift_type", ["cleaning", "kitchen_and_cleaning"])
           .gte("shift_date", fromIso)
           .lte("shift_date", toIso)
           .is("deleted_at", null),
@@ -173,26 +166,25 @@ function KitchenScheduleGrid() {
   }, [shifts, weekDays]);
 
   const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} -- ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
-
   const todayIso = toLocalISO(new Date());
 
   return (
     <>
-      <Head><title>Kitchen schedule - CateringMS</title></Head>
+      <Head><title>Cleaning schedule - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80">
         <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
-                  <CalendarClock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen schedule</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Cleaning schedule</h1>
                   <p className="text-slate-600 text-sm mt-0.5">
-                    Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in.
+                    Weekly cleaning roster. Same shifts table as the kitchen, filtered to cleaning duties.
                   </p>
                 </div>
               </div>
@@ -221,7 +213,7 @@ function KitchenScheduleGrid() {
                       const s = String(v).replace(/"/g, '""');
                       return /[",\n]/.test(s) ? `"${s}"` : s;
                     };
-                    const headers = ["Chef", "Email", "Day", "Date", "Planned start", "Planned end", "Planned hours", "Actual hours", "Status", "Rate multiplier"];
+                    const headers = ["Staff", "Email", "Day", "Date", "Planned start", "Planned end", "Planned hours", "Actual hours", "Status", "Rate multiplier"];
                     const lines = [headers.join(",")];
                     for (const p of staff) {
                       for (let i = 0; i < weekDays.length; i++) {
@@ -250,7 +242,7 @@ function KitchenScheduleGrid() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `kitchen-schedule-${toLocalISO(weekStart)}.csv`;
+                    a.download = `cleaning-schedule-${toLocalISO(weekStart)}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -266,10 +258,10 @@ function KitchenScheduleGrid() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  {staff.length} chef{staff.length === 1 ? "" : "s"}
+                  {staff.length} staff member{staff.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Cells show planned hours. Once the chef clocks in, the cell flips to actual hours and surfaces lateness inline.
+                  Cells show planned hours. Once the cleaner clocks in via the team portal, the cell flips to actual hours.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -279,7 +271,7 @@ function KitchenScheduleGrid() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No kitchen staff in this company yet. Add one from /admin/kitchen-staff.
+                    No cleaning-eligible staff in this company yet. Add a cleaner via /admin/users.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -287,15 +279,15 @@ function KitchenScheduleGrid() {
                       <thead>
                         <tr className="text-left">
                           <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
-                            Chef
+                            Staff
                           </th>
                           {weekDays.map((d, i) => {
                             const iso = toLocalISO(d);
                             const isToday = iso === todayIso;
                             return (
-                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-orange-700" : "text-slate-500"}`}>
+                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-cyan-700" : "text-slate-500"}`}>
                                 <div>{DAY_LABELS[i]}</div>
-                                <div className={`text-[10px] tabular-nums ${isToday ? "text-orange-600" : "text-slate-400"}`}>
+                                <div className={`text-[10px] tabular-nums ${isToday ? "text-cyan-600" : "text-slate-400"}`}>
                                   {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                                 </div>
                               </th>
@@ -311,7 +303,7 @@ function KitchenScheduleGrid() {
                             <tr key={p.id} className="hover:bg-slate-50">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
-                                <div className="text-[11px] text-slate-500 truncate">{p.email}</div>
+                                <div className="text-[11px] text-slate-500 truncate capitalize">{p.role.replace(/_/g, " ")}</div>
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
@@ -336,14 +328,14 @@ function KitchenScheduleGrid() {
                                                   ? "border-red-200 bg-red-50"
                                                   : hasActual
                                                     ? "border-emerald-200 bg-emerald-50"
-                                                    : "border-orange-200 bg-orange-50"
+                                                    : "border-cyan-200 bg-cyan-50"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-red-900" :
                                                   hasActual ? "text-emerald-900" :
-                                                              "text-orange-900"
+                                                              "text-cyan-900"
                                                 }`}>
                                                   {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
                                                 </span>
@@ -362,7 +354,7 @@ function KitchenScheduleGrid() {
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-orange-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-cyan-700 mt-0.5 tabular-nums">
                                                   {plannedHours(s.planned_start, s.planned_end).toFixed(1)}h planned
                                                 </div>
                                               )}
@@ -374,8 +366,8 @@ function KitchenScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ staffId: p.id, staffName: p.full_name || p.email, date: iso })}
-                                        className="w-full text-slate-300 hover:text-orange-600 hover:bg-orange-50 rounded-md py-2 transition-colors"
-                                        title="Roster a shift on this day"
+                                        className="w-full text-slate-300 hover:text-cyan-600 hover:bg-cyan-50 rounded-md py-2 transition-colors"
+                                        title="Roster a cleaning shift on this day"
                                       >
                                         <Plus className="w-4 h-4 mx-auto" />
                                       </button>
@@ -423,6 +415,7 @@ function KitchenScheduleGrid() {
           staffId={logTarget.staffId}
           staffName={logTarget.staffName}
           defaultDate={logTarget.date}
+          shiftType="cleaning"
           actorUserId={user?.id ?? null}
           onCreated={() => { setLogTarget(null); void load(); }}
         />
@@ -431,10 +424,10 @@ function KitchenScheduleGrid() {
   );
 }
 
-export default function ProtectedKitchenSchedulePage() {
+export default function ProtectedCleaningSchedulePage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
-      <KitchenScheduleGrid />
+      <CleaningScheduleGrid />
     </ProtectedRoute>
   );
 }

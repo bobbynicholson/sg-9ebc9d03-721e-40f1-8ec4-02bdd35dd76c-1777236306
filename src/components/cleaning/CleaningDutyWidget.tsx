@@ -25,8 +25,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Clock, CheckCircle2, Activity, Play, Square, Sparkles } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, Activity, Play, Square, Sparkles, Calendar as CalendarIcon, AlertTriangle } from "lucide-react";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,6 +72,18 @@ export function CleaningDutyWidget() {
   const [onDutyStaff, setOnDutyStaff] = useState<DutyRow[]>([]);
   const [myCurrentDuty, setMyCurrentDuty] = useState<DutyRow | null>(null);
 
+  // Wave 40.4: today's planned cleaning shift for the current
+  // user. Shows "Rostered 13:00-17:00 today" + lateness chip --
+  // mirror of what Wave 36.1 added on /team-portal/kitchen/duty.
+  interface RosteredShift {
+    id: string;
+    planned_start: string | null;
+    planned_end: string | null;
+    actual_start: string | null;
+    shift_type: string;
+  }
+  const [myRoster, setMyRoster] = useState<RosteredShift | null>(null);
+
   const companyId: string | null = user?.company_id || null;
 
   const loadOnDutyStaff = useCallback(async () => {
@@ -85,6 +98,23 @@ export function CleaningDutyWidget() {
       setOnDutyStaff(rows);
       const myDuty = rows.find((s) => s.user_id === user?.id);
       setMyCurrentDuty(myDuty || null);
+
+      // Wave 40.4: pull today's planned cleaning shift if any.
+      try {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const { data: rosterRow } = await (supabase as any)
+          .from("kitchen_shifts")
+          .select("id, planned_start, planned_end, actual_start, shift_type")
+          .eq("company_id", companyId)
+          .eq("staff_id", user?.id)
+          .eq("shift_date", todayIso)
+          .in("shift_type", ["cleaning", "kitchen_and_cleaning"])
+          .is("deleted_at", null)
+          .maybeSingle();
+        setMyRoster(rosterRow || null);
+      } catch (rosterErr) {
+        console.warn("[CleaningDutyWidget] roster lookup failed:", rosterErr);
+      }
     } catch (e: any) {
       console.warn("[CleaningDutyWidget] load failed:", e?.message || e);
     } finally {
@@ -172,6 +202,33 @@ export function CleaningDutyWidget() {
               <p className="text-base font-semibold text-slate-900 truncate">
                 {onShift ? `On duty · ${formatDuration(myCurrentDuty?.duty_started_at)}` : "Off duty"}
               </p>
+              {/* Wave 40.4: rostered cleaning shift line + lateness
+                  chip. Mirror of Wave 36.1 kitchen pattern. */}
+              {myRoster && myRoster.planned_start && myRoster.planned_end && (() => {
+                const [sh, sm] = (myRoster.planned_start || "0:0").split(":").map(Number);
+                const startedToday = new Date();
+                startedToday.setHours(sh || 0, sm || 0, 0, 0);
+                const lateMin = !onShift && !myRoster.actual_start
+                  ? Math.floor((Date.now() - startedToday.getTime()) / 60000)
+                  : 0;
+                return (
+                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 flex-wrap">
+                    <CalendarIcon className="w-3 h-3 text-slate-500" />
+                    Rostered <strong className="text-slate-900">{myRoster.planned_start.slice(0,5)}-{myRoster.planned_end.slice(0,5)}</strong>
+                    {lateMin > 0 && lateMin < 240 && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-semibold">
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        {lateMin}m late
+                      </span>
+                    )}
+                    {onShift && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+                        Linked to shift
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
           </div>
           <div className="flex-shrink-0">

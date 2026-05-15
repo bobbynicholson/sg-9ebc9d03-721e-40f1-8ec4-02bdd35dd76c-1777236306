@@ -87,12 +87,17 @@ function KitchenSettlementPage() {
     if (!companyId) return;
     setLoading(true);
     try {
-      // 1) Pull all kitchen-eligible staff
+      // 1) Pull all hourly-eligible staff. Wave 40.4: widened to
+      // include cleaning_staff so the same settlement page covers
+      // chef + cleaner payroll. Bobby's brief: same person can do
+      // both jobs in one shift -- pay once, not twice. The
+      // kitchen_payslips table is keyed by (company, staff,
+      // period) so it's role-agnostic anyway.
       const { data: staffRes } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, email, hourly_rate")
+        .select("id, full_name, email, hourly_rate, role")
         .eq("company_id", companyId)
-        .in("role", ["kitchen_staff", "company_admin", "owner"])
+        .in("role", ["kitchen_staff", "cleaning_staff", "company_admin", "owner"])
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
       const staffRows = (staffRes || []) as Staffer[];
