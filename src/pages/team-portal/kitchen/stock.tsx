@@ -152,12 +152,21 @@ export default function KitchenStockPage() {
       <KitchenNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-3">
-              <Package className="h-7 w-7 text-orange-600" />
-              Kitchen Stock
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">What you have on hand right now, click any item to log what you used</p>
+          {/* Wave 33.3: header now uses the icon-in-gradient-box
+              pattern the rest of the kitchen suite uses (dashboard,
+              menu, prep-list). Was a bare icon floating beside the
+              text -- felt like an afterthought next to the polished
+              sibling pages. */}
+          <div className="mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
+              <Package className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                Kitchen Stock
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">What you have on hand right now, click any item to log what you used</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">

@@ -572,17 +572,29 @@ export default function KitchenDashboard() {
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {COLUMNS.map(col => (
-                      <div key={col.key} className="flex flex-col">
-                        <div className="flex items-center justify-between mb-2 px-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {COLUMNS.map(col => {
+                      // Wave 33.5: per-column visual boundary. Was a
+                      // flat flex-col with no background, so on mobile
+                      // (single-column grid) all three lanes ran into
+                      // each other as one stream. Tint the header bar
+                      // with the lane's tone and wrap in a soft
+                      // container so the visual separation survives
+                      // the mobile collapse.
+                      const headerTone =
+                        col.key === "confirmed" ? "bg-blue-50 border-blue-200 text-blue-800" :
+                        col.key === "preparing" ? "bg-amber-50 border-amber-200 text-amber-800" :
+                                                  "bg-emerald-50 border-emerald-200 text-emerald-800";
+                      return (
+                      <div key={col.key} className="flex flex-col rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden">
+                        <div className={`flex items-center justify-between px-3 py-2 border-b ${headerTone}`}>
+                          <p className="text-xs font-semibold uppercase tracking-wide">
                             {col.label}
                           </p>
-                          <Badge variant="outline" className="text-[10px] tabular-nums">
+                          <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                             {byStatus[col.key].length}
                           </Badge>
                         </div>
-                        <div className="space-y-2 min-h-[100px]">
+                        <div className="space-y-2 min-h-[100px] p-2">
                           {byStatus[col.key].length === 0 ? (
                             <div className="text-xs text-slate-400 italic px-2 py-3 border border-dashed border-slate-200 rounded-md text-center">
                               {col.empty}
@@ -726,7 +738,8 @@ export default function KitchenDashboard() {
                           })}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}

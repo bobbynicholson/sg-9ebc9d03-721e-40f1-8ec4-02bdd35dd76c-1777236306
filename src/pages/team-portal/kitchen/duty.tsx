@@ -362,18 +362,23 @@ export default function KitchenDutyRosterPage() {
                     </div>
                   </div>
 
-                  {/* Earnings strip, only renders when on shift */}
+                  {/* Earnings strip, only renders when on shift.
+                      Wave 33.6: was bg-white/70 which read as muddy
+                      grey on the gradient parent card. Solid white
+                      with a subtle border + shadow gives the numbers
+                      the contrast a chef glancing at the kitchen
+                      tablet needs. */}
                   {myActiveShift && earnings && (
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-orange-200">
-                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500">Worked</div>
                         <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.workedMin)}</div>
                       </div>
-                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500">Break</div>
                         <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.breakMin)}</div>
                       </div>
-                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
                           <DollarSign className="h-2.5 w-2.5" />Earnings
                         </div>

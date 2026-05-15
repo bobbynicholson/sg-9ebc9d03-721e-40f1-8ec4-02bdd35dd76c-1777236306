@@ -198,7 +198,7 @@ export default function KitchenMenuItemsPage() {
                   <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {list.map((i) => (
-                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white rounded-lg border border-slate-200 hover:border-orange-300 hover:shadow-md transition overflow-hidden">
+                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white rounded-lg border border-slate-200 hover:border-orange-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 overflow-hidden">
                         <div className="aspect-[16/9] bg-slate-100 flex items-center justify-center overflow-hidden">
                           {i.image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
