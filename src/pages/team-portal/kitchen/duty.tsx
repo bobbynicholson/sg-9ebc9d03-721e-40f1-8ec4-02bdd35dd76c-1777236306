@@ -90,6 +90,20 @@ export default function KitchenDutyRosterPage() {
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [acking, setAcking] = useState<string | null>(null);
 
+  // Wave 36.1: today's planned shift for the current user. When the
+  // operator opens this page and they're rostered, surface it on the
+  // status card so they know what hours they were planned for and can
+  // see lateness if they're past planned_start without clocking in.
+  interface RosteredShift {
+    id: string;
+    planned_start: string | null;
+    planned_end: string | null;
+    actual_start: string | null;
+    actual_end: string | null;
+    status: string;
+  }
+  const [myRoster, setMyRoster] = useState<RosteredShift | null>(null);
+
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
@@ -168,6 +182,25 @@ export default function KitchenDutyRosterPage() {
         setChefPerf(perf);
       } catch (perfErr) {
         console.warn("Chef performance query failed:", perfErr);
+      }
+
+      // Wave 36.1: today's rostered shift for the current user.
+      // Surfaces "You're rostered 8am-5pm today" on the status card,
+      // and gives clock-in/out the row to stamp actual times onto.
+      try {
+        const today = new Date();
+        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const { data: rosterRow } = await (supabase as any)
+          .from("kitchen_shifts")
+          .select("id, planned_start, planned_end, actual_start, actual_end, status")
+          .eq("company_id", user.company_id)
+          .eq("staff_id", user.id)
+          .eq("shift_date", todayIso)
+          .is("deleted_at", null)
+          .maybeSingle();
+        setMyRoster(rosterRow || null);
+      } catch (rosterErr) {
+        console.warn("Roster lookup failed (non-blocking):", rosterErr);
       }
 
       // Wave 35: pull the most recent hand-off notes for this
@@ -280,16 +313,40 @@ export default function KitchenDutyRosterPage() {
     if (!user?.id || !user?.company_id) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("kitchen_duty_shifts").insert([{
-        company_id: user.company_id,
-        staff_id: user.id,
-        user_id: user.id,
-        shift_start: new Date().toISOString(),
-        is_active: true,
-        shift_type: "kitchen",
-      }] as never);
+      const nowIso = new Date().toISOString();
+      const { data: insertedShift, error } = await supabase
+        .from("kitchen_duty_shifts")
+        .insert([{
+          company_id: user.company_id,
+          staff_id: user.id,
+          user_id: user.id,
+          shift_start: nowIso,
+          is_active: true,
+          shift_type: "kitchen",
+        }] as never)
+        .select("id")
+        .single();
       if (error) throw error;
-      toast({ title: "Clocked in", description: "Welcome to your shift" });
+
+      // Wave 36.1: if today's roster exists for this chef, stamp
+      // actual_start + flip status to 'active' + back-link to the
+      // duty shift row. Best-effort -- a missed roster shouldn't
+      // block clock-in (walk-in shifts are valid too).
+      if (myRoster && myRoster.id && insertedShift) {
+        try {
+          await (supabase as any)
+            .from("kitchen_shifts")
+            .update({
+              actual_start: nowIso,
+              status: "active",
+              duty_shift_id: (insertedShift as any).id,
+            })
+            .eq("id", myRoster.id);
+        } catch (rosterErr) {
+          console.warn("Could not stamp roster actual_start (non-blocking):", rosterErr);
+        }
+      }
+      toast({ title: "Clocked in", description: myRoster ? "Linked to today's rostered shift" : "Welcome to your shift" });
       load();
     } catch (e: any) {
       toast({ title: "Could not clock in", description: e?.message ?? "Unknown error", variant: "destructive" });
@@ -307,15 +364,35 @@ export default function KitchenDutyRosterPage() {
     if (!endingShift) return;
     setSaving(true);
     try {
+      const nowIso = new Date().toISOString();
       const { error } = await supabase
         .from("kitchen_duty_shifts")
         .update({
           is_active: false,
-          shift_end: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          shift_end: nowIso,
+          updated_at: nowIso,
         })
         .eq("id", endingShift.id);
       if (error) throw error;
+
+      // Wave 36.1: stamp roster actual_end + flip status to
+      // 'completed'. Match by duty_shift_id (set on clock-in) when
+      // possible, otherwise fall back to today's roster row.
+      if (user?.id && user?.company_id) {
+        try {
+          let q = (supabase as any)
+            .from("kitchen_shifts")
+            .update({ actual_end: nowIso, status: "completed" });
+          if (myRoster?.id) {
+            q = q.eq("id", myRoster.id);
+          } else {
+            q = q.eq("duty_shift_id", endingShift.id);
+          }
+          await q;
+        } catch (rosterErr) {
+          console.warn("Could not stamp roster actual_end (non-blocking):", rosterErr);
+        }
+      }
 
       // Phase 1: hand-off notes ALWAYS save now. The previous flow silently
       // dropped them when the shift had no order_id (the common case). They
@@ -543,6 +620,36 @@ export default function KitchenDutyRosterPage() {
                               : `On shift, ${fmtMinutes(earnings?.workedMin ?? 0)}`
                             : "Not clocked in"}
                         </p>
+                        {/* Wave 36.1: rostered shift line. Shows
+                            today's planned start/end if the operator
+                            has put one on the schedule, plus a
+                            lateness chip when the chef is past
+                            planned_start without clocking in. */}
+                        {myRoster && myRoster.planned_start && myRoster.planned_end && (() => {
+                          const [sh, sm] = (myRoster.planned_start || "0:0").split(":").map(Number);
+                          const startedToday = new Date();
+                          startedToday.setHours(sh || 0, sm || 0, 0, 0);
+                          const lateMin = !myActiveShift && !myRoster.actual_start
+                            ? Math.floor((Date.now() - startedToday.getTime()) / 60000)
+                            : 0;
+                          return (
+                            <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 flex-wrap">
+                              <CalendarIcon className="w-3 h-3 text-slate-500" />
+                              Rostered <strong className="text-slate-900">{myRoster.planned_start.slice(0,5)}-{myRoster.planned_end.slice(0,5)}</strong>
+                              {lateMin > 0 && lateMin < 240 && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-semibold">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {lateMin}m late
+                                </span>
+                              )}
+                              {myRoster.actual_start && !myRoster.actual_end && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+                                  Clocked in
+                                </span>
+                              )}
+                            </p>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
