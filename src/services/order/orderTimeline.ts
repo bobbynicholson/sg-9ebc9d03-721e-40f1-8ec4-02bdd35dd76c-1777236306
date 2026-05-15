@@ -139,6 +139,26 @@ export interface OrderTimeline {
   urgency: OrderTimelineUrgency;
   /** Wave 43 T3 -- ms until event_date+event_time; negative if past. */
   msToEvent: number | null;
+  /** Wave 44 T2 -- cross-system blockers that explain why the
+   *  current stage isn't moving (e.g. equipment still in cleaning,
+   *  no driver shift covers dispatch window). Empty when nothing
+   *  is blocking. */
+  crossSystemBlockers: CrossSystemBlocker[];
+}
+
+/**
+ * Wave 44 T2 -- cross-system blocker.
+ *
+ * Each entry is one specific reason the current stage can't make
+ * progress, sourced from data outside the orders table itself
+ * (cleaning_jobs, kitchen_shifts deliveries, etc). Surfaced
+ * inline on the TimelineTrack chip so the operator sees exactly
+ * what to unstick.
+ */
+export interface CrossSystemBlocker {
+  kind: "equipment_in_cleaning" | "no_delivery_shift";
+  message: string;
+  severity: "warning" | "error";
 }
 
 /**
@@ -162,6 +182,17 @@ export interface OrderTimelineInput {
   /** Truthy when the linked quote has status='accepted'. Optional --
    *  if missing, falls back to inferring from order existence. */
   quoteAccepted?: boolean;
+  /** Wave 44 T2 -- active cleaning_jobs (status in queued/in_progress)
+   *  for any equipment booked on this order. When kitchen_prep is
+   *  the current stage and any equipment_id from equipmentBookings
+   *  appears here, surface a blocker chip ("Equipment X still being
+   *  cleaned"). Empty array when not joined. */
+  cleaningJobsActive?: Array<{ equipment_id: string; equipment_name?: string | null; status?: string }>;
+  /** Wave 44 T2 -- delivery shifts linked to this order via
+   *  kitchen_shifts.order_id. When driver_assigned_delivery is the
+   *  current stage and this is empty, surface "No driver claimed
+   *  yet". */
+  deliveryShifts?: Array<{ id: string; staff_id?: string | null; planned_start?: string | null; actual_start?: string | null }>;
 }
 
 // --- Cluster + label table -------------------------------------------------
@@ -776,6 +807,50 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     }
   }
 
+  // Wave 44 T2 -- cross-system blocker detection. Two sources today,
+  // both gated on the current stage: it doesn't help to flag "no
+  // driver" when we're still on kitchen prep. Empty array when the
+  // caller didn't join cleaningJobsActive / deliveryShifts.
+  const crossSystemBlockers: CrossSystemBlocker[] = [];
+  const currentKey = currentStage?.key || null;
+
+  if (currentKey === "kitchen_prep_in_progress" || currentKey === "ready_for_dispatch") {
+    const orderEquipmentIds = new Set<string>(
+      (input.equipmentBookings || [])
+        .map((b: any) => b?.equipment_id)
+        .filter((x: any): x is string => typeof x === "string"),
+    );
+    if (orderEquipmentIds.size > 0) {
+      const stuck = (input.cleaningJobsActive || []).filter((j) =>
+        orderEquipmentIds.has(j.equipment_id),
+      );
+      if (stuck.length > 0) {
+        const names = Array.from(
+          new Set(stuck.map((s) => s.equipment_name || "Equipment").filter(Boolean)),
+        ).slice(0, 3);
+        crossSystemBlockers.push({
+          kind: "equipment_in_cleaning",
+          message:
+            stuck.length === 1
+              ? `${names[0]} still being cleaned -- can't dispatch yet.`
+              : `${stuck.length} items still in cleaning (${names.join(", ")}${stuck.length > names.length ? "..." : ""}).`,
+          severity: "warning",
+        });
+      }
+    }
+  }
+
+  if (currentKey === "driver_assigned_delivery") {
+    const liveShifts = (input.deliveryShifts || []).filter((s) => !!s.staff_id);
+    if (liveShifts.length === 0) {
+      crossSystemBlockers.push({
+        kind: "no_delivery_shift",
+        message: "No driver shift covers this dispatch yet.",
+        severity: "error",
+      });
+    }
+  }
+
   return {
     orderId: String(input.order?.id || ""),
     computedAt: new Date().toISOString(),
@@ -789,6 +864,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     applicableCount: applicableStages.length,
     urgency,
     msToEvent,
+    crossSystemBlockers,
   };
 }
 

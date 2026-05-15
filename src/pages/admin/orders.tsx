@@ -709,6 +709,11 @@ function OrderProcessDashboard() {
       try {
         const orderIds = allOrders.map((o: any) => o.id).filter(Boolean);
         if (orderIds.length > 0) {
+          // Wave 44 T2: also batch-fetch active cleaning_jobs
+          // (filtered by the equipment_ids on this set of orders)
+          // and delivery shifts (kitchen_shifts where order_id IS
+          // NOT NULL). Both feed the new cross-system blocker
+          // detection in computeOrderTimeline.
           const [
             paymentsRes,
             bookingsRes,
@@ -718,6 +723,7 @@ function OrderProcessDashboard() {
             assignmentsRes,
             invoicesRes,
             emailLogRes,
+            deliveryShiftsRes,
           ] = await Promise.all([
             supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
             supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
@@ -727,7 +733,53 @@ function OrderProcessDashboard() {
             supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
             supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds),
             supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
+            (supabase as any)
+              .from("kitchen_shifts")
+              .select("id, order_id, staff_id, planned_start, actual_start")
+              .in("order_id", orderIds)
+              .eq("shift_type", "delivery")
+              .is("deleted_at", null),
           ]);
+
+          // Cross-system blocker T2: pull active cleaning_jobs
+          // for any equipment booked on this batch of orders. Two
+          // hops because cleaning_jobs is keyed by equipment_id,
+          // not order_id.
+          const equipmentIdsThisBatch = Array.from(
+            new Set(
+              ((bookingsRes.data || []) as Array<{ equipment_id?: string | null }>)
+                .map((b) => b.equipment_id)
+                .filter((x): x is string => typeof x === "string"),
+            ),
+          );
+          let cleaningJobsActiveRows: Array<{ equipment_id: string; equipment_name?: string | null; status?: string }> = [];
+          if (equipmentIdsThisBatch.length > 0) {
+            const { data: cjRaw, error: cjErr } = await (supabase as any)
+              .from("cleaning_jobs")
+              .select("equipment_id, status")
+              .in("equipment_id", equipmentIdsThisBatch)
+              .in("status", ["queued", "in_progress"])
+              .is("deleted_at", null);
+            if (cjErr) console.error("[orders] cleaning_jobs batch failed:", cjErr);
+            const eqIdsInJobs = Array.from(
+              new Set(((cjRaw || []) as Array<{ equipment_id: string }>).map((r) => r.equipment_id)),
+            );
+            const eqNameMap = new Map<string, string>();
+            if (eqIdsInJobs.length > 0) {
+              const { data: eqRaw } = await (supabase as any)
+                .from("equipment")
+                .select("id, name")
+                .in("id", eqIdsInJobs);
+              for (const e of (eqRaw || []) as Array<{ id: string; name: string | null }>) {
+                if (e.name) eqNameMap.set(e.id, e.name);
+              }
+            }
+            cleaningJobsActiveRows = ((cjRaw || []) as Array<{ equipment_id: string; status: string }>).map((r) => ({
+              equipment_id: r.equipment_id,
+              equipment_name: eqNameMap.get(r.equipment_id) || null,
+              status: r.status,
+            }));
+          }
 
           // Bucket each row-set by order_id once, then compute
           // timeline per order with O(1) lookup. Avoids N filter
@@ -750,9 +802,23 @@ function OrderProcessDashboard() {
           const assignmentsByOrder = bucket(assignmentsRes.data as any[] | null);
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
+          const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
+
+          // For cleaningJobsActive: scope per-order by intersecting
+          // its equipment_bookings.equipment_id set with the active
+          // cleaning_jobs rows. computeOrderTimeline does the final
+          // filter, but pre-bucketing trims the payload size.
 
           const timelines = new Map<string, OrderTimeline>();
           for (const o of allOrders as any[]) {
+            const orderEqIds = new Set<string>(
+              (bookingsByOrder.get(o.id) || [])
+                .map((b: any) => b.equipment_id)
+                .filter((x: any): x is string => typeof x === "string"),
+            );
+            const cleaningJobsActive = cleaningJobsActiveRows.filter((r) =>
+              orderEqIds.has(r.equipment_id),
+            );
             const tl = computeOrderTimeline({
               order: o,
               payments: paymentsByOrder.get(o.id) || [],
@@ -763,6 +829,8 @@ function OrderProcessDashboard() {
               driverAssignments: assignmentsByOrder.get(o.id) || [],
               invoices: invoicesByOrder.get(o.id) || [],
               emailLog: emailLogByOrder.get(o.id) || [],
+              cleaningJobsActive,
+              deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
             });
             timelines.set(o.id, tl);
           }

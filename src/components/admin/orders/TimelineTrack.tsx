@@ -447,6 +447,26 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
                   {currentStage.blockedReason}
                 </div>
               )}
+              {/* Wave 44 T2: cross-system blockers. Pulled from
+                  cleaning_jobs + delivery shift state -- explains
+                  why the current stage isn't moving with the
+                  specific thing to unstick. */}
+              {Array.isArray((timeline as any).crossSystemBlockers) &&
+                (timeline as any).crossSystemBlockers.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {(timeline as any).crossSystemBlockers.map((b: any, i: number) => (
+                      <div
+                        key={i}
+                        className={`text-[11px] font-medium inline-flex items-center gap-1 ${
+                          b.severity === "error" ? "text-red-700" : "text-amber-700"
+                        }`}
+                      >
+                        <span aria-hidden="true">{b.severity === "error" ? "✕" : "⚠"}</span>
+                        {b.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
             {currentStage.sourceLink && (
               <Link
