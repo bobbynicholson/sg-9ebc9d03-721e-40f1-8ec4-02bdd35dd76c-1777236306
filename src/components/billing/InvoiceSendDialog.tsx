@@ -13,6 +13,8 @@ import { SendEmailDialog } from "./SendEmailDialog";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { sendInvoiceEmail } from "@/services/invoiceGenerationService";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -48,7 +50,14 @@ export function InvoiceSendDialog({
   const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
   const eventLabel = invoiceData.eventName || invoiceData.orderNumber || "your event";
   const totalAmount = Number(invoiceData.balanceDue || invoiceData.total || 0);
-  const amountLabel = `R${totalAmount.toFixed(2)}`;
+  // Wave 66 -- multi-currency parameterisation. Pre-Wave-66 the
+  // amount label was hardcoded `R${totalAmount}` so any tenant in
+  // the UK (£) / US ($) / Botswana (P) saw an "R" prefix in their
+  // outbound invoice email body. Now: pull the tenant currency
+  // symbol from the same hook the pages use.
+  const { user } = useAuth() as any;
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const amountLabel = tenantCurrency.format(totalAmount);
 
   // Resolve subject + body whenever the dialog opens for a different
   // invoice. Pre-substitution means the operator sees real values, not

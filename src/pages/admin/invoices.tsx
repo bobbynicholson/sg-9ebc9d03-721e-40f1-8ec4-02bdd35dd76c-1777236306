@@ -32,9 +32,10 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { 
+import {
   syncInvoiceToAccounting,
-  getIntegrationStatus 
+  getIntegrationStatus,
+  getValidAccessToken,
 } from "@/services/accountingIntegrationService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
@@ -108,38 +109,110 @@ export default function InvoicesPage() {
     statusFilter: string;
   }
   const [savedInvoiceViews, setSavedInvoiceViews] = useState<SavedInvoiceView[]>([]);
+  // Wave 66 -- saved views moved from localStorage to user_saved_views
+  // table. Pre-Wave-66 a bookkeeper switching from desktop to laptop
+  // lost every chip. Now: per-user persistence, survives device
+  // changes. localStorage migration runs once on mount for any
+  // existing chips (one-time best-effort).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("cateringms.adminInvoices.savedViews.v1");
-      if (raw) setSavedInvoiceViews(JSON.parse(raw) as SavedInvoiceView[]);
-    } catch { /* ignore */ }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        "cateringms.adminInvoices.savedViews.v1",
-        JSON.stringify(savedInvoiceViews),
-      );
-    } catch { /* storage blocked */ }
-  }, [savedInvoiceViews]);
-  const saveCurrentInvoiceView = () => {
+    const uid = (user as any)?.id;
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("user_saved_views")
+          .select("id, name, config")
+          .eq("user_id", uid)
+          .eq("surface", "invoices")
+          .order("created_at", { ascending: true });
+        if (!cancelled && data) {
+          const rows: SavedInvoiceView[] = (data as any[]).map((r) => ({
+            id: r.id,
+            name: r.name,
+            searchTerm: r.config?.searchTerm || "",
+            statusFilter: r.config?.statusFilter || "all",
+          }));
+          setSavedInvoiceViews(rows);
+        }
+        // One-time localStorage -> DB migration for pre-Wave-66 chips.
+        if (typeof window !== "undefined" && (!data || data.length === 0)) {
+          const raw = window.localStorage.getItem("cateringms.adminInvoices.savedViews.v1");
+          if (raw) {
+            const legacy = JSON.parse(raw) as SavedInvoiceView[];
+            for (const v of legacy) {
+              await (supabase as any).from("user_saved_views").insert([{
+                user_id: uid,
+                company_id: (user as any).company_id || null,
+                surface: "invoices",
+                name: v.name,
+                config: { searchTerm: v.searchTerm, statusFilter: v.statusFilter },
+              }]);
+            }
+            window.localStorage.removeItem("cateringms.adminInvoices.savedViews.v1");
+            // Re-fetch to pick up the migrated rows.
+            const { data: fresh } = await (supabase as any)
+              .from("user_saved_views")
+              .select("id, name, config")
+              .eq("user_id", uid)
+              .eq("surface", "invoices");
+            if (!cancelled && fresh) {
+              setSavedInvoiceViews((fresh as any[]).map((r) => ({
+                id: r.id, name: r.name,
+                searchTerm: r.config?.searchTerm || "",
+                statusFilter: r.config?.statusFilter || "all",
+              })));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[invoices] saved views fetch failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [(user as any)?.id]);
+  const saveCurrentInvoiceView = async () => {
     if (typeof window === "undefined") return;
     const name = window.prompt("Name this view:", "");
     if (!name || !name.trim()) return;
-    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    setSavedInvoiceViews((prev) => [
-      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
-      { id, name: name.trim(), searchTerm, statusFilter },
-    ]);
+    const uid = (user as any)?.id;
+    if (!uid) return;
+    try {
+      const { data, error } = await (supabase as any)
+        .from("user_saved_views")
+        .insert([{
+          user_id: uid,
+          company_id: (user as any).company_id || null,
+          surface: "invoices",
+          name: name.trim(),
+          config: { searchTerm, statusFilter },
+        }])
+        .select("id, name, config")
+        .single();
+      if (error) throw error;
+      setSavedInvoiceViews((prev) => [
+        ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+        { id: (data as any).id, name: (data as any).name, searchTerm, statusFilter },
+      ]);
+    } catch (e: any) {
+      toast({
+        title: "Could not save view",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
+    }
   };
   const applySavedInvoiceView = (v: SavedInvoiceView) => {
     setSearchTerm(v.searchTerm);
     setStatusFilter(v.statusFilter);
   };
-  const removeSavedInvoiceView = (id: string) => {
+  const removeSavedInvoiceView = async (id: string) => {
     setSavedInvoiceViews((prev) => prev.filter((v) => v.id !== id));
+    try {
+      await (supabase as any).from("user_saved_views").delete().eq("id", id);
+    } catch (e) {
+      console.warn("[invoices] saved view delete failed:", e);
+    }
   };
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   // Wave 61 -- track the actual id alongside the rehydrated payload.
@@ -161,6 +234,30 @@ export default function InvoicesPage() {
   // invoice + due dates render in companies.timezone; multi-region
   // tenants couldn't tell which clock the math was using.
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  // Wave 66 -- accounting reconnect banner. Probes the OAuth refresh
+  // for any active integration on mount; surfaces a reconnect banner
+  // when the refresh token has died (60-day Xero idle expiry, etc).
+  // Pre-Wave-66 the row Sync icon would spin then die silently and
+  // the bookkeeper thought sync worked.
+  const [accountingReconnectNeeded, setAccountingReconnectNeeded] = useState<{ provider: string; reason?: string } | null>(null);
+  useEffect(() => {
+    const cid = (user as any)?.company_id;
+    if (!cid) return;
+    let cancelled = false;
+    (async () => {
+      for (const provider of ["xero", "quickbooks"] as const) {
+        const status = await getIntegrationStatus(cid, provider);
+        if (!status.connected) continue;
+        const token = await getValidAccessToken(cid, provider);
+        if (!token.success && !cancelled) {
+          setAccountingReconnectNeeded({ provider, reason: token.error });
+          return;
+        }
+      }
+      if (!cancelled) setAccountingReconnectNeeded(null);
+    })();
+    return () => { cancelled = true; };
+  }, [(user as any)?.company_id]);
   useEffect(() => {
     const cid = (user as any)?.company_id;
     if (!cid) return;
@@ -879,10 +976,59 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 print:pl-0 print:bg-white">
+      {/* Wave 66 -- print stylesheet for paper invoices. SA municipal
+          + government clients still ask for posted PDFs; bookkeepers
+          want clean A4 output without the admin chrome. Hides the
+          nav, the filters, the bulk toolbar, and the action icons.
+          Keeps invoice rows + the aging card + the page heading so
+          a printed list is reconciliation-ready. */}
+      <style jsx global>{`
+        @media print {
+          nav, .admin-nav, [data-print-hidden="true"] {
+            display: none !important;
+          }
+          .lg\\:pl-72, .xl\\:pl-80 { padding-left: 0 !important; }
+          body { background: white !important; }
+          .shadow, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+          button, a[role="button"] { display: none !important; }
+          input, select { display: none !important; }
+        }
+      `}</style>
       <AdminNav />
 
       <div className="py-8 px-4 max-w-full">
+        {/* Wave 66 -- accounting reconnect banner. Surfaces when an
+            integration is marked active but its OAuth refresh has
+            died (60-day Xero idle, manual revoke). Pre-Wave-66 the
+            row Sync icon spun then died silently and the bookkeeper
+            assumed sync worked -- duplicates didn't exist in the
+            accounting tool because the API call never reached it. */}
+        {accountingReconnectNeeded && (
+          <div data-print-hidden="true" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">
+                Reconnect {accountingReconnectNeeded.provider === "xero" ? "Xero" : "QuickBooks"}
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Your accounting integration's OAuth token has expired. New invoice syncs will fail silently until you reconnect.
+                {accountingReconnectNeeded.reason && (
+                  <span className="block mt-0.5 text-amber-700/80">Detail: {accountingReconnectNeeded.reason}</span>
+                )}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-400 text-amber-900 hover:bg-amber-100"
+              onClick={() => router.push("/admin/integrations")}
+            >
+              Open integrations
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div>
