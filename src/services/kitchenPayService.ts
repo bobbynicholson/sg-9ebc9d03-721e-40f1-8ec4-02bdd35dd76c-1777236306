@@ -137,11 +137,19 @@ export async function summariseStaffPay(
   // Pull every roster row in the same window so we can pick up the
   // rate_multiplier (Sunday / OT premium). Match by duty_shift_id
   // (set on clock-in) when present, otherwise by date proximity.
+  //
+  // Wave 41 (CRITICAL FIX): scope to kitchen-side shift_types only.
+  // Once cleaning shifts started living in this same table (Wave 40.4
+  // shift_type column), an unfiltered query would mix a cleaner's
+  // hours into the chef's pay run for any staffer who does both.
+  // 'kitchen_and_cleaning' counts on the kitchen side because the
+  // multiplier was set during kitchen rostering.
   const { data: rosterRows } = await (supabase as any)
     .from("kitchen_shifts")
     .select("staff_id, shift_date, rate_multiplier, duty_shift_id")
     .eq("company_id", companyId)
     .eq("staff_id", staffId)
+    .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
     .gte("shift_date", periodStart)
     .lte("shift_date", periodEnd)
     .is("deleted_at", null)

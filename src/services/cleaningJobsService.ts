@@ -1,0 +1,288 @@
+/**
+ * Wave 41 Phase 2 -- cleaning_jobs service.
+ *
+ * cleaning_jobs is the equipment-availability ledger. Deliberately
+ * separate from labour cost (which lives in kitchen_shifts +
+ * staff_shift_tasks). Bobby's rule:
+ *   - if a staffer on shift handles cleaning, no extra cost --
+ *     billable=FALSE on the staff_shift_tasks row.
+ *   - what matters here is "when is this gear back in inventory"
+ *     so the planner knows availability for the next function.
+ *
+ * Three methods:
+ *   - dishwasher: machine_id set, no shift_task_id (machine does it)
+ *   - manual: shift_task_id may be set (staffer pulled to clean)
+ *   - outsourced_hire: third party, equipment unavailable until
+ *     it returns. No machine_id, no shift_task_id.
+ */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type CleaningMethod = "dishwasher" | "manual" | "outsourced_hire";
+export type CleaningJobStatus = "queued" | "in_progress" | "complete" | "cancelled";
+
+export interface CleaningJobRow {
+  id: string;
+  company_id: string;
+  equipment_id: string;
+  quantity: number;
+  method: CleaningMethod;
+  machine_id: string | null;
+  shift_task_id: string | null;
+  planned_start: string;
+  planned_end: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  status: CleaningJobStatus;
+  triggered_by_event_id: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface CleaningJobWithEquipment extends CleaningJobRow {
+  equipment_name: string | null;
+}
+
+interface EquipmentLite {
+  id: string;
+  name: string | null;
+  cleaning_time_manual_minutes: number | null;
+  cleaning_time_dishwasher_minutes: number | null;
+  cleaning_time_hours: number | null; // legacy fallback
+  dishwasher_safe: boolean | null;
+}
+
+interface MachineLite {
+  id: string;
+  name: string;
+  cycle_minutes: number;
+  items_per_cycle: number;
+  active: boolean;
+}
+
+const FALLBACK_MANUAL_MIN = 20;
+const FALLBACK_DISHWASHER_PER_PIECE_MIN = 1;
+const FALLBACK_OUTSOURCED_HOURS = 24;
+
+/**
+ * Resolve the duration (in minutes) we expect a cleaning job to
+ * take, given method + equipment + quantity (+ machine for
+ * dishwasher).
+ *
+ * Falls back to the legacy cleaning_time_hours column if the new
+ * minute-resolution columns aren't filled in yet. Outsourced hire
+ * defaults to 24h if the operator didn't override.
+ */
+export function estimateJobMinutes(args: {
+  method: CleaningMethod;
+  equipment: Pick<
+    EquipmentLite,
+    "cleaning_time_manual_minutes" | "cleaning_time_dishwasher_minutes" | "cleaning_time_hours"
+  >;
+  quantity: number;
+  machine?: Pick<MachineLite, "cycle_minutes" | "items_per_cycle"> | null;
+  overrideMinutes?: number | null;
+}): number {
+  if (args.overrideMinutes && args.overrideMinutes > 0) return args.overrideMinutes;
+  const legacyMin = args.equipment.cleaning_time_hours
+    ? Math.round(Number(args.equipment.cleaning_time_hours) * 60)
+    : null;
+
+  if (args.method === "dishwasher") {
+    // Per-piece dishwasher minutes if set, else machine cycle/capacity.
+    const perPiece = args.equipment.cleaning_time_dishwasher_minutes;
+    if (perPiece != null && perPiece > 0) {
+      return Math.max(perPiece * args.quantity, 1);
+    }
+    if (args.machine && args.machine.cycle_minutes > 0 && args.machine.items_per_cycle > 0) {
+      const cycles = Math.ceil(args.quantity / args.machine.items_per_cycle);
+      return cycles * args.machine.cycle_minutes;
+    }
+    return Math.max(args.quantity * FALLBACK_DISHWASHER_PER_PIECE_MIN, 1);
+  }
+
+  if (args.method === "manual") {
+    const perPiece = args.equipment.cleaning_time_manual_minutes;
+    if (perPiece != null && perPiece > 0) {
+      return Math.max(perPiece * args.quantity, 1);
+    }
+    if (legacyMin != null) return legacyMin;
+    return FALLBACK_MANUAL_MIN;
+  }
+
+  // outsourced_hire -- 24h placeholder unless overridden.
+  return 60 * FALLBACK_OUTSOURCED_HOURS;
+}
+
+/**
+ * List active cleaning_jobs (queued + in_progress) for a company,
+ * with equipment_name resolved via FK embed.
+ */
+export async function listActiveJobs(
+  supabase: SupabaseClient,
+  companyId: string,
+): Promise<CleaningJobWithEquipment[]> {
+  const { data, error } = await (supabase as any)
+    .from("cleaning_jobs")
+    .select(
+      "id, company_id, equipment_id, quantity, method, machine_id, shift_task_id, planned_start, planned_end, actual_start, actual_end, status, triggered_by_event_id, notes, created_at, equipment:equipment_id(name)",
+    )
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .in("status", ["queued", "in_progress"])
+    .order("planned_end", { ascending: true });
+  if (error) {
+    console.error("[cleaningJobsService.listActiveJobs] read failed:", error);
+    return [];
+  }
+  return ((data || []) as any[]).map((r) => ({
+    ...r,
+    equipment_name: r.equipment?.name ?? null,
+  }));
+}
+
+/**
+ * Compute a Map<equipment_id, units_currently_in_active_cleaning>.
+ * Used to subtract from equipment.available_quantity so the
+ * dashboard's "Available" tile reflects gear that's actually
+ * available right now (not just nominally on-hand).
+ */
+export async function unitsInActiveCleaning(
+  supabase: SupabaseClient,
+  companyId: string,
+): Promise<Map<string, number>> {
+  const { data, error } = await (supabase as any)
+    .from("cleaning_jobs")
+    .select("equipment_id, quantity")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .in("status", ["queued", "in_progress"]);
+  if (error) {
+    console.error("[cleaningJobsService.unitsInActiveCleaning] read failed:", error);
+    return new Map();
+  }
+  const map = new Map<string, number>();
+  for (const r of (data || []) as Array<{ equipment_id: string; quantity: number }>) {
+    map.set(r.equipment_id, (map.get(r.equipment_id) || 0) + Number(r.quantity || 0));
+  }
+  return map;
+}
+
+/**
+ * Create a new cleaning_job. planned_start defaults to now,
+ * planned_end is now + estimated minutes. status defaults to
+ * 'queued' -- caller flips to 'in_progress' via startJob().
+ */
+export async function createJob(
+  supabase: SupabaseClient,
+  args: {
+    companyId: string;
+    equipmentId: string;
+    quantity: number;
+    method: CleaningMethod;
+    machineId?: string | null;
+    shiftTaskId?: string | null;
+    triggeredByEventId?: string | null;
+    notes?: string | null;
+    plannedStart?: string | null;
+    overrideMinutes?: number | null;
+    actorUserId?: string | null;
+  },
+): Promise<{ ok: boolean; jobId?: string; error?: string }> {
+  try {
+    // Pull the equipment metadata + (optional) machine to estimate
+    // the duration. Single round-trip each.
+    const [{ data: equipment }, machinePromise] = await Promise.all([
+      (supabase as any)
+        .from("equipment")
+        .select(
+          "id, name, cleaning_time_manual_minutes, cleaning_time_dishwasher_minutes, cleaning_time_hours, dishwasher_safe",
+        )
+        .eq("id", args.equipmentId)
+        .maybeSingle(),
+      args.machineId
+        ? (supabase as any)
+            .from("cleaning_machines")
+            .select("id, name, cycle_minutes, items_per_cycle, active")
+            .eq("id", args.machineId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const machine = (machinePromise as any).data;
+    if (!equipment) {
+      return { ok: false, error: "Equipment not found" };
+    }
+
+    const estMinutes = estimateJobMinutes({
+      method: args.method,
+      equipment: equipment as EquipmentLite,
+      quantity: args.quantity,
+      machine,
+      overrideMinutes: args.overrideMinutes ?? null,
+    });
+
+    const start = args.plannedStart ? new Date(args.plannedStart) : new Date();
+    const end = new Date(start.getTime() + estMinutes * 60 * 1000);
+
+    const { data, error } = await (supabase as any)
+      .from("cleaning_jobs")
+      .insert({
+        company_id: args.companyId,
+        equipment_id: args.equipmentId,
+        quantity: args.quantity,
+        method: args.method,
+        machine_id: args.machineId ?? null,
+        shift_task_id: args.shiftTaskId ?? null,
+        triggered_by_event_id: args.triggeredByEventId ?? null,
+        planned_start: start.toISOString(),
+        planned_end: end.toISOString(),
+        status: "queued",
+        notes: args.notes?.trim() || null,
+        created_by_user_id: args.actorUserId ?? null,
+      })
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, jobId: (data as any)?.id };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "createJob crashed" };
+  }
+}
+
+export async function startJob(
+  supabase: SupabaseClient,
+  jobId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await (supabase as any)
+    .from("cleaning_jobs")
+    .update({ status: "in_progress", actual_start: new Date().toISOString() })
+    .eq("id", jobId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function completeJob(
+  supabase: SupabaseClient,
+  jobId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await (supabase as any)
+    .from("cleaning_jobs")
+    .update({ status: "complete", actual_end: new Date().toISOString() })
+    .eq("id", jobId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function cancelJob(
+  supabase: SupabaseClient,
+  jobId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await (supabase as any)
+    .from("cleaning_jobs")
+    .update({ status: "cancelled" })
+    .eq("id", jobId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

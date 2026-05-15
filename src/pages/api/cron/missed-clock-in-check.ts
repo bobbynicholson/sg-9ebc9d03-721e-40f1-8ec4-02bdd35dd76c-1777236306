@@ -47,11 +47,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // past. PostgREST can't compare a TIME column to a JS time without
   // round-tripping through SQL, so we filter by date here and
   // refine in JS.
+  // Wave 41 (CRITICAL FIX): scope to kitchen-only shift_types.
+  // Wave 40.4 added 'cleaning' + 'kitchen_and_cleaning' values to
+  // kitchen_shifts.shift_type. The cleaning-side cron at
+  // /api/cron/cleaning-missed-clock-in-check.ts handles those rows
+  // (it filters to ['cleaning', 'kitchen_and_cleaning']). Without
+  // this filter both crons would fire on the same kitchen_and_
+  // cleaning row and the catering team would get duplicate alerts
+  // (one labelled "Chef no-show", one labelled "Cleaner no-show")
+  // for the same human.
   const { data: rows, error } = await supabase
     .from("kitchen_shifts")
     .select("id, company_id, staff_id, shift_date, planned_start, planned_end, actual_start, status")
     .eq("shift_date", todayIso)
     .eq("status", "scheduled")
+    .eq("shift_type", "kitchen")
     .is("actual_start", null)
     .is("deleted_at", null)
     .limit(500);

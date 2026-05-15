@@ -8,10 +8,12 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
+import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowTracker";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
+import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +22,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 type EquipmentStatus = "available" | "in_use" | "cleaning" | "damaged";
 
@@ -31,7 +34,7 @@ interface EquipmentRow {
   available_quantity: number;
 }
 
-export default function CleaningDashboard() {
+function CleaningDashboardInner() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("verification");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
@@ -54,21 +57,24 @@ export default function CleaningDashboard() {
         return;
       }
 
-      const { data: cleaningBookings } = await supabase
-        .from("equipment_bookings")
-        .select("equipment_id")
-        .eq("company_id", user.company_id)
-        .eq("status", "returned");
-
-      const cleaningSet = new Set((cleaningBookings || []).map((b: any) => b.equipment_id));
+      // Wave 41 Phase 2: cleaning_jobs is now the source of truth
+      // for "what's currently being cleaned" (units, not just a
+      // boolean flag on the equipment). Falls back gracefully if
+      // the company hasn't started using cleaning_jobs yet -- the
+      // map will simply be empty.
+      const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
 
       const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
+        const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
+        // Subtract active-cleaning units from nominal availability
+        // so the operator sees what's truly available right now.
+        const trueAvailable = Math.max(0, (eq.available_quantity ?? 0) - inCleaning);
         let status: EquipmentStatus;
         if (eq.condition === "damaged" || eq.condition === "broken") {
           status = "damaged";
-        } else if (cleaningSet.has(eq.id)) {
+        } else if (inCleaning > 0) {
           status = "cleaning";
-        } else if ((eq.available_quantity ?? 0) < (eq.quantity ?? 0)) {
+        } else if (trueAvailable < (eq.quantity ?? 0)) {
           status = "in_use";
         } else {
           status = "available";
@@ -78,7 +84,7 @@ export default function CleaningDashboard() {
           name: eq.name,
           status,
           quantity: eq.quantity ?? 0,
-          available_quantity: eq.available_quantity ?? 0,
+          available_quantity: trueAvailable,
         };
       });
 
@@ -117,6 +123,12 @@ export default function CleaningDashboard() {
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
           <CleaningDutyWidget />
+
+          {/* Wave 41 Phase 2: equipment-availability ledger. Lists
+              every active cleaning_jobs row with method chip + ETA
+              back into inventory + start/complete actions. Operator
+              also gets a "New job" button to log fresh batches. */}
+          <CleaningJobsQueue />
 
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
             <CardHeader className="pb-3">
@@ -360,5 +372,34 @@ export default function CleaningDashboard() {
 
       <ChatBot userRole="cleaning" companyId={user?.company_id} />
     </>
+  );
+}
+
+/**
+ * Wave 41 (CRITICAL FIX): wrap in ProtectedRoute. The page was
+ * previously reachable by any authenticated user -- a kitchen_staff
+ * (or driver, or anyone with a session) could hit
+ * /team-portal/cleaning/dashboard and clock in as a cleaner via the
+ * embedded CleaningDutyWidget. Restrict to cleaning + admin roles.
+ */
+/**
+ * Wave 41 Phase 2 -- the dashboard now reads from cleaning_jobs
+ * (the new equipment-availability ledger) for the "Cleaning" tile
+ * and subtracts active-job units from "Available". Brings the
+ * overview into line with what the new CleaningJobsQueue surface
+ * shows the team.
+ */
+export default function CleaningDashboard() {
+  return (
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_STAFF,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+        UserRole.SUPER_ADMIN,
+      ]}
+    >
+      <CleaningDashboardInner />
+    </ProtectedRoute>
   );
 }
