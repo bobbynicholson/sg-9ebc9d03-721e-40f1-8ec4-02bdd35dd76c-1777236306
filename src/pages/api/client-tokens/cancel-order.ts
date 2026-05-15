@@ -205,6 +205,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Wave 32: persist the wizard's payout_choice into the snapshot
+    // sidecar so the operator approving via /admin/orders ->
+    // Cancellations tab honours the client's pick instead of
+    // defaulting to refund. Mirrors the auth-portal endpoint.
+    const enriched_snapshot = {
+      ...(snap.policy_snapshot ?? snap),
+      _payout_choice: payout_choice_raw !== undefined ? payout_choice : null,
+      _credit_amount: payout_choice === "credit" ? credit_amount_in : null,
+      _committed_cost_note: committed_cost_note,
+      _requested_by: "client",
+    };
     const { data: inserted, error: insertErr } = await sb
       .from("cancellation_requests")
       .insert({
@@ -221,7 +232,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         requested_by_user_id: null,
         user_id: null,
         requested_postpone_date,
-        policy_snapshot: snap.policy_snapshot ?? snap,
+        policy_snapshot: enriched_snapshot,
         refund_amount_calculated: Number(snap.refund_amount) || 0,
       } as any)
       .select("id")

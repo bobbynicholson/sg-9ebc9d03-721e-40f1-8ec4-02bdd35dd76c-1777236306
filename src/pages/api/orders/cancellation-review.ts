@@ -100,9 +100,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Invalid request_id or action" });
     }
 
+    // Wave 32: pull policy_snapshot too so we can read the
+    // _payout_choice + _credit_amount sidecar the wizard wrote on
+    // submission. Without this, an operator approving an
+    // inside-window cancellation always issues a refund -- ignoring
+    // the client's choice of credit -- so the catering company's
+    // cashflow nudge from Wave 28 silently doesn't work.
     const { data: request } = await ssr
       .from("cancellation_requests")
-      .select("id, order_id, company_id, request_type, requested_postpone_date, status, refund_amount_calculated, reason, requested_by_user_id")
+      .select("id, order_id, company_id, request_type, requested_postpone_date, status, refund_amount_calculated, reason, requested_by_user_id, policy_snapshot")
       .eq("id", request_id)
       .maybeSingle();
     if (!request) return res.status(404).json({ error: "Request not found" });
@@ -410,9 +416,89 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       policy_snapshot: snap.policy_snapshot ?? snap,
     } as any).eq("id", request_id);
 
+    // Wave 32: branch on the wizard's stored payout_choice. The
+    // sidecar lives in the request's policy_snapshot (written when
+    // the request was first submitted via the magic-link or auth-
+    // portal endpoint). Defaults to 'refund' for legacy requests
+    // submitted before Wave 28.5 that have no sidecar.
+    const stored_snapshot: any = (request as any).policy_snapshot || {};
+    const wizard_payout_choice: "refund" | "credit" =
+      stored_snapshot._payout_choice === "credit" ? "credit" : "refund";
+    const wizard_credit_amount: number =
+      Number(stored_snapshot._credit_amount) || 0;
+    const wizard_committed_cost_note: string | null =
+      stored_snapshot._committed_cost_note || null;
+
+    // Derive a server-trusted credit amount from the fresh policy
+    // snapshot (in case the policy changed between request and
+    // review, or the wizard is on an old client). Mirrors the same
+    // math runAutoCancel uses.
+    const bonus_pp = Math.max(
+      0,
+      Math.min(100, Number((snap.policy_snapshot as any)?.credit_bonus_pct ?? 10)),
+    );
+    const credit_pct = Math.min(100, (Number(snap.refund_pct) || 0) + bonus_pp);
+    const derived_credit = Math.round(
+      Math.max(
+        Number(snap.deposit_paid_amount) || 0,
+        Number(snap.total_amount_paid) || 0,
+      ) * (credit_pct / 100) * 100,
+    ) / 100;
+    const credit_final =
+      wizard_credit_amount > 0 ? wizard_credit_amount : derived_credit;
+
     let refundPaymentId: string | null = null;
+    let creditPaymentId: string | null = null;
     let refundStatus: "auto_processed" | "pending_manual" | "auto_failed" | null = null;
-    if (refund_final > 0) {
+
+    if (wizard_payout_choice === "credit" && credit_final > 0) {
+      // Issue store credit -- mirrors the runAutoCancel +
+      // /api/orders/[id]/cancel admin-side credit branch.
+      const { data: ord } = await ssr
+        .from("orders")
+        .select("client_id")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const { data: credRow } = await (ssr as any).from("payments").insert({
+        company_id: (request as any).company_id,
+        order_id: (request as any).order_id,
+        client_id: (ord as any)?.client_id || null,
+        payment_type: "credit_issue",
+        amount: credit_final,
+        payment_status: "completed",
+        reason: `Cancellation credit (client-requested, ${snap.tier_label || "tier"}, ${credit_pct}% of paid${
+          bonus_pp > 0 ? ` -- includes ${bonus_pp}pp goodwill bonus` : ""
+        })`,
+        created_by_user_id: user.id,
+        cancellation_request_id: request_id,
+      }).select("id").single();
+      creditPaymentId = (credRow as any)?.id || null;
+      // Order is reconciled via credit -- nothing further owed.
+      await ssr.from("orders").update({
+        payment_status: "refunded",
+      } as any).eq("id", (request as any).order_id);
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (request as any).company_id,
+          order_id: (request as any).order_id,
+          user_id: user.id,
+          action: "cancellation_credit_issued",
+          entity_type: "payments",
+          entity_id: creditPaymentId,
+          details: {
+            credit_amount: credit_final,
+            credit_pct,
+            bonus_pp,
+            tier_label: snap.tier_label,
+            requested_by: "client",
+            via: "review",
+            committed_cost_note: wizard_committed_cost_note,
+          },
+        });
+      } catch (e) {
+        console.warn("[cancellation-review] credit audit failed:", e);
+      }
+    } else if (wizard_payout_choice === "refund" && refund_final > 0) {
       // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
       const { data: payRow } = await ssr.from("payments").insert({
         company_id: (request as any).company_id,
@@ -467,7 +553,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    void sendCancellationEmail((request as any).order_id, refund_final);
+    // Wave 32: email variant follows the wizard payout choice. Was
+    // always firing the refund-paragraph variant -- so a client who
+    // chose credit got a "your refund of R0 is being processed"
+    // email instead of "we've added R485 to your account."
+    if (wizard_payout_choice === "credit" && credit_final > 0) {
+      void sendCancellationEmail((request as any).order_id, 0, {
+        creditAmount: credit_final,
+      });
+    } else {
+      void sendCancellationEmail((request as any).order_id, refund_final);
+    }
 
     // Wave 24: audit_logs entry for the cancellation approval. The
     // most money-critical decision in this whole flow -- captures

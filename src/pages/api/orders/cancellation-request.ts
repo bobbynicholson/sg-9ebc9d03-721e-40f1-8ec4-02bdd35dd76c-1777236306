@@ -182,6 +182,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Wave 32: when the wizard sent a payout_choice but we're inside
+    // the override window (so we're queueing instead of auto-
+    // processing), persist the choice into the policy_snapshot
+    // sidecar so the operator approving via /admin/orders ->
+    // Cancellations tab honours the client's pick instead of
+    // defaulting to refund.
+    const enriched_snapshot = {
+      ...(snap.policy_snapshot ?? snap),
+      _payout_choice: payout_choice_raw !== undefined ? payout_choice : null,
+      _credit_amount: payout_choice === "credit" ? credit_amount_in : null,
+      _committed_cost_note: committed_cost_note,
+      _requested_by: "client",
+    };
     const { data: inserted, error } = await ssr
       .from("cancellation_requests")
       .insert({
@@ -195,7 +208,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         requested_by_user_id: user.id,
         user_id: user.id,
         requested_postpone_date,
-        policy_snapshot: snap.policy_snapshot ?? snap,
+        policy_snapshot: enriched_snapshot,
         refund_amount_calculated: Number(snap.refund_amount) || 0,
       } as any)
       .select("id")
