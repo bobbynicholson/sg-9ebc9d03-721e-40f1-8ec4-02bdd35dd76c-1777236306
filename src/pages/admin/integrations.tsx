@@ -465,6 +465,52 @@ function IntegrationsPage() {
             </CardContent>
           </Card>
 
+          {/* Wave 70 -- Sage Business Cloud (the SA market's accounting
+              default). OAuth flow + callback wired; invoice + payment
+              sync mapping is the next wave (Sage's API shape differs
+              from Xero/QB so it needs proper per-payload mapping). */}
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-blue-600" />
+                Sage Business Cloud (Pastel)
+                <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">Native OAuth</Badge>
+                <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 border-amber-300">OAuth ready, sync mapping in next wave</Badge>
+              </CardTitle>
+              <CardDescription>
+                Sage is the SA market default -- SARS-aware out of the box, comma-decimal money, ZAR currency. Once invoice + payment payload mapping lands you can push CateringMS invoices into Sage just like Xero / QuickBooks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="bg-white rounded-lg p-3 border border-blue-100 text-xs space-y-1">
+                <p className="font-semibold text-slate-900">What works today</p>
+                <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                  <li>OAuth connection to your Sage tenant (consent flow + token storage).</li>
+                  <li>Auto token refresh so the connection stays live.</li>
+                </ul>
+                <p className="font-semibold text-slate-900 mt-2">Pending in the next wave</p>
+                <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                  <li>Invoice push (Sage's invoice API + per-tenant business_id resolution).</li>
+                  <li>Payment push (Sage's payment / allocation endpoint).</li>
+                  <li>Customer mapping (match by email or VAT number).</li>
+                </ul>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-900 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold mb-1">Connect Sage Business Cloud</p>
+                  <p>Sign in once with your Sage account. CateringMS stores the OAuth tokens; sync wires up automatically the moment the mapping wave lands.</p>
+                </div>
+                <a
+                  href="/api/accounting/sage/authorize"
+                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
+                >
+                  Connect Sage
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Outbound webhooks */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
