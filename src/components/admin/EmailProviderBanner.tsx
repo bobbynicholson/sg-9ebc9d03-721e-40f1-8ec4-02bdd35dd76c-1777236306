@@ -20,6 +20,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { getEmailProviderStatus } from "@/lib/email/providerStatus";
 
 interface Props {
   companyId: string;
@@ -33,32 +34,15 @@ export function EmailProviderBanner({ companyId }: Props) {
     if (!companyId) return;
 
     void (async () => {
-      const { data, error } = await supabase
-        .from("email_settings")
-        .select("provider, smtp_host, smtp_user, smtp_password, enabled")
-        .eq("user_id", companyId)
-        .maybeSingle();
-
+      // Wave 40.2: was querying email_settings (5-column skeleton)
+      // by user_id (always wrong, the column is company_id) and
+      // asking for smtp_password / smtp_host that don't exist on
+      // that table. Net effect: every tenant saw the banner forever
+      // even when properly configured. Helper queries the real
+      // email_provider_settings table by company_id.
+      const status = await getEmailProviderStatus(supabase as any, companyId);
       if (cancelled) return;
-
-      // Treat any RLS / row-missing error as "not configured" so the
-      // banner shows and the operator goes and sets it up. Failing
-      // closed here is the right call -- the cost of a false positive
-      // (one banner) is tiny vs. the cost of silently not warning.
-      if (error || !data) {
-        setConfigured(false);
-        return;
-      }
-
-      const provider = (data.provider || "").toLowerCase();
-      const isResend = provider === "resend";
-      const isSmtp =
-        provider === "smtp" &&
-        Boolean(data.smtp_host) &&
-        Boolean(data.smtp_user) &&
-        Boolean(data.smtp_password);
-
-      setConfigured(Boolean(data.enabled) && (isResend || isSmtp));
+      setConfigured(status.configured);
     })();
 
     return () => {

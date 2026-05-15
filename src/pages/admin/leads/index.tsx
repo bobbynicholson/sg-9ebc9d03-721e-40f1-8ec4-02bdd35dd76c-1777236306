@@ -337,21 +337,17 @@ export default function AdminLeads() {
     if (!user?.company_id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
-        .from("email_settings")
-        .select("enabled, provider, smtp_host, resend_api_key_set")
-        .eq("user_id", user.company_id)
-        .maybeSingle();
+      // Wave 40.2: was querying email_settings (wrong table) by
+      // user_id (wrong column) for resend_api_key_set / smtp_host
+      // (columns that don't exist on that table). Net effect:
+      // emailSettingsEnabled stayed null forever, the "Email is on"
+      // banner could never read true. Helper queries the right
+      // table (email_provider_settings) and applies the per-
+      // provider readiness logic in one place.
+      const { getEmailProviderStatus } = await import("@/lib/email/providerStatus");
+      const status = await getEmailProviderStatus(supabase as any, user.company_id);
       if (cancelled) return;
-      // Treat as enabled when row exists AND .enabled is not false
-      // AND provider is configured (resend key OR smtp host).
-      const provider = (data as any)?.provider;
-      const hasResend = (data as any)?.resend_api_key_set === true;
-      const hasSmtp = !!(data as any)?.smtp_host;
-      const isEnabled = !!data
-        && (data as any).enabled !== false
-        && (provider === "resend" ? hasResend : provider === "smtp" ? hasSmtp : (hasResend || hasSmtp));
-      setEmailSettingsEnabled(isEnabled);
+      setEmailSettingsEnabled(status.configured);
     })();
     return () => { cancelled = true; };
   }, [user?.company_id]);
