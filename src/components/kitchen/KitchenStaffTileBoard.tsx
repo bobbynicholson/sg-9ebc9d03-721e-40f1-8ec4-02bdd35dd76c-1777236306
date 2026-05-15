@@ -128,6 +128,14 @@ export function KitchenStaffTileBoard({
     staff: KitchenStaffPublic;
     shift: KitchenShift;
   } | null>(null);
+  // Wave 45 follow-up -- clock-in confirmation. Captures the moment
+  // the operator tapped the tile so the dialog can show the exact
+  // start time we'd record. Lets misclicks bail out without locking
+  // anyone into a wrong shift start.
+  const [openingTarget, setOpeningTarget] = useState<{
+    staff: KitchenStaffPublic;
+    capturedAt: Date;
+  } | null>(null);
 
   // Long-press handling -- used to surface the override dialog from a tile
   // tap-and-hold without stealing the regular click.
@@ -180,20 +188,30 @@ export function KitchenStaffTileBoard({
     });
   };
 
-  const handleClockIn = async (s: KitchenStaffPublic) => {
+  // Wave 45 follow-up -- the tap captures the moment + opens the
+  // confirmation dialog. Bobby's note: shift accuracy matters
+  // (every minute = pay), AND misclicks happen, so we surface a
+  // friendly "yes, start shift now" check before committing.
+  // Also avoids the surveillance-vibe by framing it positively.
+  const promptClockIn = (s: KitchenStaffPublic) => {
     if (!companyId) {
-      // Wave 45 follow-up -- previously this returned silently,
-      // making the tap appear to do nothing. Surface the bad state
-      // so the user can refresh / re-auth instead of clicking a
-      // dead button repeatedly.
-      console.error("[KitchenStaffTileBoard] handleClockIn: companyId missing", { user, profile });
+      console.error("[KitchenStaffTileBoard] promptClockIn: companyId missing", { user, profile });
       toast({
-        title: "Couldn't clock in",
+        title: "Couldn't open clock-in",
         description: "Your session is still loading. Refresh the page and try again.",
         variant: "destructive",
       });
       return;
     }
+    setOpeningTarget({ staff: s, capturedAt: new Date() });
+  };
+
+  // The actual write -- runs after the dialog confirm. Uses the
+  // capturedAt time from the original tap so we don't drift if the
+  // operator stares at the dialog for a few seconds before confirming.
+  const handleConfirmClockIn = async () => {
+    if (!openingTarget || !companyId) return;
+    const { staff: s, capturedAt } = openingTarget;
     setBusyFor(s.id, true);
     try {
       await kitchenStaffService.clockIn({
@@ -201,8 +219,13 @@ export function KitchenStaffTileBoard({
         staffMemberId: s.id,
         clockedInBy: user?.id || null,
         department,
+        overrideStartAt: capturedAt.toISOString(),
       });
-      toast({ title: "Clocked in", description: s.full_name });
+      toast({
+        title: `${s.full_name} is on shift`,
+        description: "Their hours are tracking now -- nice one.",
+      });
+      setOpeningTarget(null);
       load();
     } catch (e: any) {
       console.error("[KitchenStaffTileBoard] clockIn failed:", e);
@@ -460,7 +483,7 @@ export function KitchenStaffTileBoard({
                         if (sh && isOnBreak) handleToggleBreak(s, sh);
                         else if (sh) confirmClockOut(s, sh);
                       } else {
-                        handleClockIn(s);
+                        promptClockIn(s);
                       }
                     }}
                     onMouseDown={() => startLongPress(s)}
@@ -532,31 +555,78 @@ export function KitchenStaffTileBoard({
         )}
       </CardContent>
 
-      {/* ── Clock-out confirm ───────────────────────────────────────────── */}
-      <AlertDialog open={!!closingTarget} onOpenChange={(open) => { if (!open) setClosingTarget(null); }}>
+      {/* ── Clock-in confirm (Wave 45 follow-up) ────────────────────────
+          Friendly two-tap pattern -- the first tap on the tile captures
+          the moment, opens this dialog. The dialog frames the moment
+          positively ("we want every minute to count") so it doesn't read
+          as surveillance. Bail-out is a soft "Wait, not yet" so a
+          mistap doesn't lock anyone into a wrong start. */}
+      <AlertDialog open={!!openingTarget} onOpenChange={(open) => { if (!open) setOpeningTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clock out {closingTarget?.staff.full_name}?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="text-2xl" aria-hidden="true">👋</span>
+              Start shift for {openingTarget?.staff.full_name}?
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <div>
-                  Worked: <span className="font-semibold tabular-nums">
-                    {fmtMins(closingTarget ? liveWorkedMinutes(closingTarget.shift, now) : 0)}
-                  </span>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+                  Starting at <span className="font-bold tabular-nums">
+                    {openingTarget ? openingTarget.capturedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : ""}
+                  </span> -- every minute from now counts toward their hours.
                 </div>
-                {closingTarget && closingTarget.shift.total_break_min > 0 && (
-                  <div className="text-slate-500">Break taken: {closingTarget.shift.total_break_min}m</div>
-                )}
+                <div className="text-slate-600">
+                  Quick check before you tap in -- if the time looks right and they're ready to go, hit start. If you tapped by mistake or they're not quite here yet, give it a sec.
+                </div>
                 <div className="text-xs text-slate-500">
-                  We'll split the worked time into standard and overtime using their daily threshold.
+                  Hours are tracked accurately so payroll is fair on both sides.
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Wait, not yet</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmClockIn} className="bg-emerald-600 hover:bg-emerald-700">
+              Yes, start the shift
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Clock-out confirm ─────────────────────────────────────────────
+          Wave 45 follow-up -- warmed up the copy. Same friendly-but-
+          accurate vibe as clock-in: celebrate the worked time, frame
+          the split as fairness, soft bail-out. */}
+      <AlertDialog open={!!closingTarget} onOpenChange={(open) => { if (!open) setClosingTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="text-2xl" aria-hidden="true">🎉</span>
+              Wrap up {closingTarget?.staff.full_name}'s shift?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+                  Worked today: <span className="font-bold tabular-nums">
+                    {fmtMins(closingTarget ? liveWorkedMinutes(closingTarget.shift, now) : 0)}
+                  </span>
+                  {closingTarget && closingTarget.shift.total_break_min > 0 && (
+                    <span className="text-emerald-700"> · break {closingTarget.shift.total_break_min}m</span>
+                  )}
+                </div>
+                <div className="text-slate-600">
+                  If they're done, lock it in. If they're stepping out for a few minutes, hit "Take a break" instead so the time keeps counting toward their day.
+                </div>
+                <div className="text-xs text-slate-500">
+                  Standard and overtime split happens automatically using their daily threshold -- payroll stays honest both ways.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Not yet</AlertDialogCancel>
             <AlertDialogAction onClick={handleClockOut} className="bg-rose-600 hover:bg-rose-700">
-              Clock out
+              Yes, end the shift
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
