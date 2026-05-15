@@ -765,7 +765,12 @@ function OrderProcessDashboard() {
             vehiclesRes,
           ] = await Promise.all([
             supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
-            supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
+            // Wave 47 fix -- pre_event_cleaning_done_at column was
+            // selected but never existed on the live DB. The whole
+            // bookings batch was silently erroring (or returning
+            // empty) for every page load. We derive pre-event
+            // cleaning state from cleaning_jobs instead now.
+            supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity").in("order_id", orderIds),
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
             supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
@@ -793,7 +798,7 @@ function OrderProcessDashboard() {
             distinctVehicleIds.length > 0
               ? (supabase as any)
                   .from("vehicles")
-                  .select("id, next_service_due")
+                  .select("id, next_service_due, nickname, plate")
                   .in("id", distinctVehicleIds)
               : Promise.resolve({ data: [] as any[] } as any),
           ]);
@@ -1516,7 +1521,7 @@ function OrderProcessDashboard() {
                   </div>
                 );
               }
-              return <TimelineTrack timeline={tl} />;
+              return <TimelineTrack timeline={tl} hideOperatorBanner />;
             })()}
 
             {/* Wave 43 T1: surface every kitchen_shifts row linked

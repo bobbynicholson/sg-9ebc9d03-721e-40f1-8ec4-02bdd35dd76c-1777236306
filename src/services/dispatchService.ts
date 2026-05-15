@@ -708,6 +708,51 @@ export const dispatchService = {
       reason: payload.reason ?? null,
     }]);
 
+    // Wave 47 -- write the formal driver_assignments row mirroring
+    // the claim_order RPC pattern. Pre-Wave-47 only the self-claim
+    // path created this row, so admin-driven dispatches caused two
+    // silent bugs: (a) the readiness chip false-negatived "driver
+    // assigned but hasn't accepted", and (b) driverPayService reads
+    // driver_assignments to compute earnings -- bulk-assigned orders
+    // earned $0 driver pay forever. Reassignments need to clear the
+    // old row first to avoid a UNIQUE conflict on (order_id,
+    // driver_id) if there's an index, hence DELETE-then-INSERT.
+    try {
+      if (fromDriverId && fromDriverId !== payload.driverId) {
+        await supabase
+          .from("driver_assignments")
+          .delete()
+          .eq("order_id", payload.orderId)
+          .eq("driver_id", fromDriverId)
+          .eq("assignment_type", "delivery");
+      }
+      // Idempotent: if the row exists for this driver already (e.g.
+      // a self-claim that an admin is "confirming" via assign), skip.
+      const { count: existingCount } = await supabase
+        .from("driver_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("order_id", payload.orderId)
+        .eq("driver_id", payload.driverId)
+        .eq("assignment_type", "delivery");
+      if (!existingCount || existingCount === 0) {
+        const { error: daErr } = await supabase
+          .from("driver_assignments")
+          .insert([{
+            company_id: payload.companyId,
+            order_id: payload.orderId,
+            driver_id: payload.driverId,
+            status: "assigned",
+            assigned_at: new Date().toISOString(),
+            assignment_type: "delivery",
+          }]);
+        if (daErr) {
+          console.error("[dispatchService] driver_assignments insert failed:", daErr);
+        }
+      }
+    } catch (daCatch: any) {
+      console.error("[dispatchService] driver_assignments write crashed:", daCatch);
+    }
+
     // Auto-book the best vehicle for the run, unless the caller has
     // taken over vehicle picking themselves. Failure here is non-
     // fatal: the driver assignment already happened. We surface a

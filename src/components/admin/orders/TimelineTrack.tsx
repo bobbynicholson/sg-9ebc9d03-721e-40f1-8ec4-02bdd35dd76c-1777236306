@@ -43,6 +43,13 @@ interface TimelineTrackProps {
    *  stopPropagation when a stage dot is clicked so the parent card
    *  doesn't open the order drawer at the same time. */
   onStageClick?: (stage: OrderTimelineStage) => void;
+  /** Wave 47 -- when true, suppress the "Now / Blocked" banner at
+   *  the top. /admin/orders sets this because the new
+   *  OrderReadinessChip mounted above the TimelineTrack already
+   *  shows the urgency tier + next-action and the operator was
+   *  seeing two banners reading the same situation. Client portals
+   *  + the order detail drawer keep the banner (no chip there). */
+  hideOperatorBanner?: boolean;
 }
 
 const CLUSTER_ORDER: StageGroup[] = [
@@ -309,7 +316,7 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
 
 // --- Main export ------------------------------------------------------------
 
-export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrackProps) {
+export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBanner }: TimelineTrackProps) {
   const [expanded, setExpanded] = useState(false);
   // Wave 26.1: tenant-slug wrapper for every Link the timeline
   // renders. The user on /spit-braai-delivery/admin/orders should
@@ -400,7 +407,7 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
           flash crimson, soon=amber, normal=orange) so the operator
           spots tomorrow's events at a glance. Blocked still wins
           (red, regardless of urgency). */}
-      {currentStage && (() => {
+      {!hideOperatorBanner && currentStage && (() => {
         const isBlocked = currentStage.status === "blocked";
         const u = (timeline as any).urgency as string | undefined;
         // Wave 46 T1 -- 'tomorrow' tier added. Same amber tone as

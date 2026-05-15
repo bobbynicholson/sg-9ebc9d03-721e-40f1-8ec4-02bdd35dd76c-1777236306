@@ -65,8 +65,8 @@ export interface OrderReadinessInputExtras {
    *  'kitchen_shift_event_day'. */
   kitchenShiftsEventDay?: Array<{ id: string; staff_id?: string | null; status?: string | null }>;
   /** vehicles row matching orders.assigned_vehicle_id. Drives
-   *  'vehicle_assigned'. Reserved for Wave 47 service-due signal. */
-  vehicle?: { id: string; next_service_due?: string | null } | null;
+   *  'vehicle_service_ok'. */
+  vehicle?: { id: string; next_service_due?: string | null; nickname?: string | null; plate?: string | null } | null;
 }
 
 /** Aggregation thresholds. Matches the brief's "logistics-supply-chain" framing. */
@@ -137,50 +137,74 @@ export function computeOrderReadiness(
   });
 
   // 2. Balance not overdue.
-  const balanceDueDate = o.balance_due_date as string | null | undefined;
-  const balancePaid = !!o.balance_paid;
+  // Wave 47 truth-source fix: read invoice.due_date (the operator-
+  // facing date the customer sees on the invoice) instead of
+  // orders.balance_due_date (drifts apart from the invoice -- e.g.
+  // ORD-003828 has order=2026-05-09 but invoice=2026-06-13).
+  // Mark paid if either flag indicates payment.
+  const balancePaid =
+    !!o.balance_paid
+    || (input.invoices || []).some((inv: any) => !!inv?.paid_at);
+  const invoiceDueDate = (input.invoices || [])
+    .map((inv: any) => inv?.due_date as string | null | undefined)
+    .filter((d: string | null | undefined): d is string => !!d)
+    .sort()[0]
+    || (o.balance_due_date as string | null | undefined);
   const balanceOverdue = !balancePaid
-    && !!balanceDueDate
-    && new Date(balanceDueDate).getTime() < now.getTime();
+    && !!invoiceDueDate
+    && new Date(invoiceDueDate).getTime() < now.getTime();
   signals.push({
     key: "balance_not_overdue",
     severity: "high",
     passing: !balanceOverdue,
     message: balanceOverdue
-      ? `Balance overdue (due ${balanceDueDate}). Chase or convert to COD.`
+      ? `Balance overdue (due ${invoiceDueDate}). Chase or convert to COD.`
       : "Balance on track.",
     actionLink: `/admin/invoices?orderId=${orderId}`,
   });
 
-  // 3. Driver-truly-assigned (3-state per strategy audit):
-  //    a) orders.assigned_driver_id populated
-  //    b) driver_assignments row with status in ('assigned','accepted','en_route','picked_up')
-  //    c) kitchen_shifts(shift_type='delivery', order_id=this) covers dispatch
-  // Pass only when ALL THREE hold. Otherwise message names the gap.
+  // 3. Driver assigned (Wave 47 simplification).
+  // Wave 46 demanded a 3-state check. The strategy audit + live
+  // ORD-003828 audit revealed two of the three were unsatisfiable
+  // for admin-driven assignments: dispatchService.assignDriverWithGate
+  // never wrote driver_assignments (Wave 47 Phase A fixes that),
+  // and NO code path writes kitchen_shifts(shift_type='delivery',
+  // order_id=...). The dispatch UI considers "driver assigned"
+  // as orders.assigned_driver_id + audit row -- that's what the
+  // operator sees, so that's the truth source.
+  // The "accepted" state moves to a separate MEDIUM signal below
+  // (driver_acknowledged) so the chip can still surface it.
   const assignedDriverId = (o.assigned_driver_id as string | null | undefined) || null;
-  const driverAssignmentsRows = input.driverAssignments || [];
-  const driverHasAcceptedAssignment = driverAssignmentsRows.some(
-    (a: any) =>
-      String(a?.assignment_type || "delivery") === "delivery"
-      && ["assigned", "accepted", "en_route", "picked_up"].includes(String(a?.status || "")),
-  );
-  const deliveryShifts = input.deliveryShifts || [];
-  const driverShiftCovers = deliveryShifts.some((s) => !!s.staff_id);
-  const driverAllInPlace = !!assignedDriverId && driverHasAcceptedAssignment && driverShiftCovers;
-  const driverGap = !assignedDriverId
-    ? "No driver assigned yet."
-    : !driverHasAcceptedAssignment
-      ? "Driver assigned but hasn't accepted -- no driver_assignments row."
-      : !driverShiftCovers
-        ? "Driver assigned but no delivery shift covers the dispatch window."
-        : null;
   signals.push({
-    key: "driver_truly_assigned",
+    key: "driver_assigned",
     severity: "high",
-    passing: driverAllInPlace,
-    message: driverGap || "Driver assigned, accepted, and shift covers dispatch.",
+    passing: !!assignedDriverId,
+    message: assignedDriverId
+      ? "Driver assigned."
+      : "No driver assigned yet.",
     actionLink: `/admin/order-assignments?orderId=${orderId}`,
   });
+
+  // 3b. Driver acknowledged the assignment (MEDIUM -- Wave 47 split).
+  // Reads driver_assignments.status (preferred) OR order_assignment_audit
+  // for an 'accepted' event. Skips if no driver assigned (covered above).
+  if (assignedDriverId) {
+    const driverAssignmentsRows = input.driverAssignments || [];
+    const driverHasAcceptedAssignment = driverAssignmentsRows.some(
+      (a: any) =>
+        String(a?.assignment_type || "delivery") === "delivery"
+        && ["accepted", "en_route", "picked_up"].includes(String(a?.status || "")),
+    );
+    signals.push({
+      key: "driver_acknowledged",
+      severity: "medium",
+      passing: driverHasAcceptedAssignment,
+      message: driverHasAcceptedAssignment
+        ? "Driver acknowledged the assignment."
+        : "Driver hasn't accepted the assignment yet -- nudge them.",
+      actionLink: `/admin/order-assignments?orderId=${orderId}`,
+    });
+  }
 
   // 4. Kitchen shift booked for the event date.
   const chefRostered =
@@ -208,6 +232,150 @@ export function computeOrderReadiness(
     actionLink: `/admin/orders?orderId=${orderId}&tab=kitchen`,
   });
 
+  // ---- Wave 47 -- additional HIGH signals -------------------------------
+
+  // 7. Booking confirmation email sent to client.
+  const emailLog = input.emailLog || [];
+  const confirmationSent = emailLog.some(
+    (r: any) =>
+      r?.template_type === "booking_confirmation"
+      && ["sent", "delivered"].includes(String(r?.status || "")),
+  );
+  signals.push({
+    key: "confirmation_email_sent",
+    severity: "high",
+    passing: confirmationSent,
+    message: confirmationSent
+      ? "Booking confirmation sent to client."
+      : `${clientName || "Client"} hasn't received a booking confirmation -- send one before the event.`,
+    actionLink: orderLink,
+  });
+
+  // 8. Vehicle service in date for the event.
+  // NULL next_service_due treated as PASS (don't blanket-flag every
+  // vehicle on tenants that don't track service intervals yet).
+  const vehicle = input.vehicle || null;
+  if (vehicle) {
+    const serviceOk =
+      !vehicle.next_service_due
+      || (!!evDate && new Date(vehicle.next_service_due).getTime() >= new Date(evDate).getTime());
+    const vehicleLabel = vehicle.nickname || vehicle.plate || "Vehicle";
+    signals.push({
+      key: "vehicle_service_ok",
+      severity: "high",
+      passing: serviceOk,
+      message: serviceOk
+        ? `${vehicleLabel} service in date.`
+        : `${vehicleLabel} service overdue (was due ${vehicle.next_service_due}) -- not safe to dispatch.`,
+      actionLink: "/admin/vehicles",
+    });
+  }
+
+  // 9. Setup + pickup times set.
+  const setupTime = (o.setup_time as string | null | undefined) || null;
+  const pickupTime = (o.pickup_time as string | null | undefined) || null;
+  const timesPresent = !!setupTime && !!pickupTime;
+  signals.push({
+    key: "setup_pickup_times_set",
+    severity: "high",
+    passing: timesPresent,
+    message: timesPresent
+      ? "Setup + pickup times set."
+      : !setupTime && !pickupTime
+        ? "Setup + pickup times missing -- driver doesn't know when to arrive or head back."
+        : !pickupTime
+          ? "Pickup time missing -- driver doesn't know when to head back."
+          : "Setup time missing -- crew doesn't know when to start.",
+    actionLink: orderLink,
+  });
+
+  // 10. Hire pickup dates set (n/a-skip when no hire orders).
+  const hireRows = input.equipmentHireOrders || [];
+  if (hireRows.length > 0) {
+    const allHireBooked = hireRows.every((h: any) => !!h?.expected_pickup_date);
+    const missingCount = hireRows.filter((h: any) => !h?.expected_pickup_date).length;
+    signals.push({
+      key: "hire_pickup_dates_set",
+      severity: "high",
+      passing: allHireBooked,
+      message: allHireBooked
+        ? "Hire supplier pickups booked."
+        : `Hire supplier pickup not booked for ${missingCount} item${missingCount === 1 ? "" : "s"}.`,
+      actionLink: orderLink,
+    });
+  }
+
+  // 11. Pre-event cleaning complete (Wave 47 derived from cleaning_jobs
+  // since equipment_bookings.pre_event_cleaning_done_at column doesn't
+  // exist on the live DB). For every equipment_id booked on this
+  // order, expect a cleaning_jobs row with status='complete' completed
+  // before event_date. Skips when no equipment is booked.
+  const bookings = input.equipmentBookings || [];
+  if (bookings.length > 0) {
+    // input.cleaningJobsActive only carries queued/in_progress jobs.
+    // The presence of an active job for one of our equipment IDs
+    // means it's NOT yet ready -- which is what we flag.
+    const orderEqIdsForCleaning = new Set<string>(
+      bookings
+        .map((b: any) => b?.equipment_id)
+        .filter((x: any): x is string => typeof x === "string"),
+    );
+    const stillCleaningCount = (input.cleaningJobsActive || []).filter((j) =>
+      orderEqIdsForCleaning.has(j.equipment_id),
+    ).length;
+    const cleaningOk = stillCleaningCount === 0;
+    signals.push({
+      key: "pre_event_cleaning",
+      severity: "high",
+      passing: cleaningOk,
+      message: cleaningOk
+        ? "Equipment cleaning complete."
+        : `Pre-event cleaning not signed off for ${stillCleaningCount} item${stillCleaningCount === 1 ? "" : "s"}.`,
+      actionLink: "/team-portal/cleaning/dashboard",
+    });
+  }
+
+  // ---- Wave 47 -- additional MEDIUM signals -----------------------------
+
+  // M1. Client phone present (driver tap-to-call enabled).
+  signals.push({
+    key: "client_phone_present",
+    severity: "medium",
+    passing: !!clientPhone,
+    message: !!clientPhone
+      ? "Client phone on file."
+      : `No phone for ${clientName || "client"} -- driver can't call on the day.`,
+    actionLink: orderLink,
+  });
+
+  // M2. Two-driver job covered by two assignments. n/a-skip otherwise.
+  if (o.requires_two_drivers) {
+    const deliveryShifts = input.deliveryShifts || [];
+    const driversCovered = deliveryShifts.filter((s) => !!s.staff_id).length;
+    const twoCovered = driversCovered >= 2;
+    signals.push({
+      key: "requires_two_drivers_covered",
+      severity: "medium",
+      passing: twoCovered,
+      message: twoCovered
+        ? "Two drivers covering the run."
+        : `Two-driver job but only ${driversCovered} assigned -- second driver missing.`,
+      actionLink: `/admin/order-assignments?orderId=${orderId}`,
+    });
+  }
+
+  // M3. Invoice has been sent to the client.
+  const invoiceSent = (input.invoices || []).some((inv: any) => !!inv?.sent_at);
+  signals.push({
+    key: "invoice_sent",
+    severity: "medium",
+    passing: invoiceSent,
+    message: invoiceSent
+      ? "Invoice delivered."
+      : "Invoice never sent to the client.",
+    actionLink: `/admin/invoices?orderId=${orderId}`,
+  });
+
   // 6. Menu items + venue present.
   const items = input.orderItems || [];
   const menuPresent = items.length > 0 && items.every((it) => (it.item_name || "").trim().length > 0);
@@ -225,11 +393,15 @@ export function computeOrderReadiness(
 
   // ---- crossSystemBlockers fold-in --------------------------------------
   // Strategy audit: route blockers INTO readiness signals so the chip is
-  // single source of truth. Don't double-count: skip if a corresponding
-  // signal above already failed for the same reason.
+  // single source of truth. Wave 47 -- signal #3 became 'driver_assigned'
+  // only (was 3-state in Wave 46), so the no_delivery_shift blocker is
+  // no longer redundant and folds in. equipment_in_cleaning is also
+  // covered by signal #11 (pre_event_cleaning) but with a different
+  // copy lens, so we still skip it to avoid two signals on the same
+  // underlying state.
   for (const blocker of timeline.crossSystemBlockers || []) {
-    if (blocker.kind === "no_delivery_shift") {
-      // Already covered by driver_truly_assigned above. Skip.
+    if (blocker.kind === "equipment_in_cleaning") {
+      // Covered by pre_event_cleaning signal above.
       continue;
     }
     signals.push({

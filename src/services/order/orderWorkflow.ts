@@ -305,6 +305,23 @@ export async function updateOrderStatus(
       }
     }
 
+    // Wave 47 -- prep tasks auto-gen on confirmed transition.
+    // Pre-Wave-47 ensurePrepTasksForOrder ran only inside
+    // postCreationCascade (at order creation). Orders that were
+    // converted from quote / draft and only later transitioned to
+    // confirmed never got prep tasks generated -- the chef opened
+    // the kitchen portal to an empty list. ensurePrepTasksForOrder
+    // is idempotent so a re-run on an order that already has tasks
+    // is a cheap no-op.
+    if (newStatus === "confirmed" && order.company_id) {
+      try {
+        const { kitchenPrepService } = await import("../kitchenPrepService");
+        await kitchenPrepService.ensurePrepTasksForOrder(order.company_id, order.id);
+      } catch (e) {
+        console.warn("[orderWorkflow] prep tasks ensure on confirm crashed (non-blocking):", e);
+      }
+    }
+
     // Queue the 24h post-delivery review prompt. Replaces the old
     // setTimeout(callback, 24h) in notificationService -- serverless
     // functions don't survive that long so the timer never fired.
