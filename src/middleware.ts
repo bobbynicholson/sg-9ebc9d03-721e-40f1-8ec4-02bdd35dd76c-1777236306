@@ -398,12 +398,18 @@ export async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = roleLandingPage;
         url.searchParams.set("error", "unauthorized");
+        // Wave 45 follow-up: surface the rejected path in the toast
+        // so post-hoc debugging doesn't need server logs. The
+        // MiddlewareErrorToast picks this up and includes it in the
+        // description.
+        url.searchParams.set("error_path", pathname);
         return NextResponse.redirect(url);
       }
       // No landing page resolved — refuse rather than fall through
       const url = request.nextUrl.clone();
       url.pathname = "/auth/login";
       url.searchParams.set("error", "unauthorized");
+      url.searchParams.set("error_path", pathname);
       return NextResponse.redirect(url);
     }
   }
