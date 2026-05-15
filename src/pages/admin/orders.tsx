@@ -208,6 +208,10 @@ function OrderProcessDashboard() {
   // bookings, hire orders, cleaning status, prep tasks, driver
   // assignments, invoices). Empty map until first load.
   const [timelinesById, setTimelinesById] = useState<Map<string, OrderTimeline>>(new Map());
+  // Wave 59 -- batched shifts + profiles for AssignedShiftsPanel
+  // (closes the per-card N+1 fan-out).
+  const [allShiftsByOrder, setAllShiftsByOrder] = useState<Map<string, any[]>>(new Map());
+  const [staffProfilesById, setStaffProfilesById] = useState<Map<string, any>>(new Map());
   // Wave 46 T2 -- per-order readiness chip (green/orange/red).
   // tenantTimezone is sourced from the existing state at line 245
   // (Phase 13 #9 already pulls companies.timezone), so we don't
@@ -946,6 +950,43 @@ function OrderProcessDashboard() {
           const vehicleById = new Map<string, any>();
           for (const v of vehicleRowsRaw) vehicleById.set(String(v.id), v);
 
+          // Wave 59 -- batched shifts + profiles for AssignedShiftsPanel.
+          // Pre-Wave-59 each rendered AssignedShiftsPanel fired its own
+          // kitchen_shifts query AND its own profiles query per order
+          // -- 200 visible orders = up to 400 round-trips, wedging the
+          // Supabase pool. Now: one query for all shifts on these
+          // order_ids, one query for all distinct staff_ids found in
+          // the shifts. Per-card panel reads from the preloaded maps.
+          let allShiftsByOrder = new Map<string, any[]>();
+          let staffProfilesById = new Map<string, any>();
+          try {
+            const { data: allShiftRows } = await (supabase as any)
+              .from("kitchen_shifts")
+              .select("id, order_id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status")
+              .in("order_id", orderIds)
+              .is("deleted_at", null);
+            allShiftsByOrder = bucket(allShiftRows as any[] | null);
+            const distinctStaffIds = Array.from(new Set(
+              ((allShiftRows || []) as Array<{ staff_id: string | null }>)
+                .map((r) => r.staff_id)
+                .filter((v): v is string => !!v),
+            ));
+            if (distinctStaffIds.length > 0) {
+              const { data: profileRows } = await (supabase as any)
+                .from("profiles")
+                .select("id, full_name, email")
+                .in("id", distinctStaffIds);
+              for (const p of (profileRows || []) as any[]) {
+                staffProfilesById.set(p.id, p);
+              }
+            }
+          } catch (shiftBatchErr) {
+            console.warn("[orders] Wave 59 shift batch failed -- AssignedShiftsPanel will fall back to per-card fetch", shiftBatchErr);
+          }
+          // Push into state so the per-row AssignedShiftsPanel reads it.
+          setAllShiftsByOrder(allShiftsByOrder);
+          setStaffProfilesById(staffProfilesById);
+
           const timelines = new Map<string, OrderTimeline>();
           const readinesses = new Map<string, OrderReadiness>();
           for (const o of allOrders as any[]) {
@@ -999,6 +1040,8 @@ function OrderProcessDashboard() {
         } else {
           setTimelinesById(new Map());
           setReadinessById(new Map());
+          setAllShiftsByOrder(new Map());
+          setStaffProfilesById(new Map());
         }
       } catch (err) {
         // Non-fatal -- the timeline component handles a missing entry
@@ -1620,6 +1663,8 @@ function OrderProcessDashboard() {
               <AssignedShiftsPanel
                 orderId={(order as any).id}
                 companyId={(order as any).company_id}
+                preloadedShifts={allShiftsByOrder.get((order as any).id) || []}
+                preloadedProfiles={staffProfilesById}
               />
             )}
           </div>

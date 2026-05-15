@@ -55,14 +55,36 @@ function fmtTime(t: string | null): string {
 interface Props {
   orderId: string;
   companyId: string;
+  /** Wave 59 -- when the parent has already batch-fetched shifts +
+   *  profiles for many orders, skip the panel's own per-order fetches.
+   *  Closes a 200-orders = 200-round-trips perf cliff. When omitted,
+   *  the panel falls back to its own fetch (back-compat for any
+   *  caller that hasn't lifted the batch up yet). */
+  preloadedShifts?: ShiftRow[];
+  preloadedProfiles?: Map<string, ProfileRow>;
 }
 
-export function AssignedShiftsPanel({ orderId, companyId }: Props) {
-  const [shifts, setShifts] = useState<ShiftRow[]>([]);
-  const [profileMap, setProfileMap] = useState<Map<string, ProfileRow>>(new Map());
-  const [loading, setLoading] = useState(true);
+export function AssignedShiftsPanel({
+  orderId,
+  companyId,
+  preloadedShifts,
+  preloadedProfiles,
+}: Props) {
+  const [shifts, setShifts] = useState<ShiftRow[]>(preloadedShifts || []);
+  const [profileMap, setProfileMap] = useState<Map<string, ProfileRow>>(
+    preloadedProfiles || new Map(),
+  );
+  const [loading, setLoading] = useState(!preloadedShifts);
 
   useEffect(() => {
+    // Wave 59 -- preloaded fast-path. Parent passed shifts + profiles
+    // from its batch fetch; sync local state and skip the round-trips.
+    if (preloadedShifts) {
+      setShifts(preloadedShifts);
+      setProfileMap(preloadedProfiles || new Map());
+      setLoading(false);
+      return;
+    }
     if (!orderId || !companyId) return;
     let cancelled = false;
     (async () => {
@@ -99,7 +121,7 @@ export function AssignedShiftsPanel({ orderId, companyId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [orderId, companyId]);
+  }, [orderId, companyId, preloadedShifts, preloadedProfiles]);
 
   if (loading) return null;
   if (shifts.length === 0) return null;
