@@ -110,3 +110,49 @@ export function humaniseEnum(value: string | null | undefined): string {
  *  becomes a tenant lookup once companies.timezone is the truth source. */
 export const TENANT_LOCALE = DEFAULT_LOCALE;
 export const TENANT_TIMEZONE = "Africa/Johannesburg";
+
+/**
+ * Wave 61 -- proper SA-style ZAR formatter with thousand separators.
+ *
+ * Pre-Wave-61 the invoices page formatter (`useTenantCurrency.format`)
+ * called `Number(n).toFixed(decimals)` which produces "R 15453.50"
+ * with no thousand separator -- unreadable for any tenant with
+ * R250 000+ receivables. The bookkeeper has to count zeros to
+ * reconcile against the bank statement.
+ *
+ * This util uses Intl.NumberFormat with en-ZA so the output reads
+ * "R 15 453.50" (modern SA web standard: thin/non-breaking space
+ * thousand separator, dot decimal). We force 2dp everywhere so a
+ * row showing R890 doesn't read inconsistent next to R890.50.
+ *
+ * Pass `currency: "ZAR"` (default) for the auto-prefix; pass a
+ * different code for tenants in BWP / NAD / etc. once multi-
+ * currency lands.
+ */
+export function formatZAR(
+  amount: number | string | null | undefined,
+  opts: { currency?: string; decimals?: number } = {},
+): string {
+  if (amount === null || amount === undefined || amount === "") return "--";
+  const n = typeof amount === "number" ? amount : Number(amount);
+  if (!Number.isFinite(n)) return "--";
+  const decimals = opts.decimals ?? 2;
+  try {
+    const formatted = new Intl.NumberFormat(DEFAULT_LOCALE, {
+      style: "currency",
+      currency: opts.currency || "ZAR",
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(n);
+    // Intl returns "R 15 453,50" by default (comma decimal). The
+    // codebase + Bobby's screenshots use dot decimal everywhere
+    // (R 15 453.50) -- normalise so display matches the rest of
+    // the platform.
+    return formatted.replace(",", ".");
+  } catch {
+    // Fallback: bare prefix + fixed-decimal string (matches the old
+    // useTenantCurrency behaviour) so a missing Intl runtime never
+    // crashes the page.
+    return `R ${n.toFixed(decimals)}`;
+  }
+}

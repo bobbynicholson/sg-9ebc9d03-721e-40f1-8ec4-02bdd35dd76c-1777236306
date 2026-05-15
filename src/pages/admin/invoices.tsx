@@ -130,6 +130,13 @@ export default function InvoicesPage() {
     setSavedInvoiceViews((prev) => prev.filter((v) => v.id !== id));
   };
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  // Wave 61 -- track the actual id alongside the rehydrated payload.
+  // Pre-Wave-61 the Preview "Send to Client" button looked up the
+  // invoice by reference equality (inv.invoice_data === selectedInvoice)
+  // -- but the rehydrate path at line 476 spreads a new object, so
+  // post-rehydrate the find returned undefined and the Send button
+  // silently did nothing.
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   // Phase 14 #10: bulk-mark-paid. Operators reconciling EFTs can
@@ -170,6 +177,31 @@ export default function InvoicesPage() {
   const clearBulkMarkPaid = () => setBulkMarkPaidIds(new Set());
   const runBulkMarkPaid = async () => {
     if (bulkMarkPaidIds.size === 0) return;
+    // Wave 61 -- scope selection to currently-visible-filtered rows.
+    // Pre-Wave-61 the selection Set survived filter changes so a
+    // bookkeeper could tick rows, change the status filter (hiding
+    // some), then submit -- silently settling invoices that were no
+    // longer on screen. Now: drop any id not present in
+    // filteredInvoices BEFORE submitting; bail with a friendly toast
+    // if everything got filtered out.
+    const visibleIds = new Set(filteredInvoices.map((i: any) => i.id));
+    const visibleSelected = Array.from(bulkMarkPaidIds).filter((id) => visibleIds.has(id));
+    if (visibleSelected.length === 0) {
+      toast({
+        title: "Nothing visible to mark paid",
+        description: "Your filter has hidden every selected row. Clear the filter and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (visibleSelected.length < bulkMarkPaidIds.size) {
+      const dropped = bulkMarkPaidIds.size - visibleSelected.length;
+      const proceed = window.confirm(
+        `${dropped} of your selected invoice${dropped === 1 ? " is" : "s are"} hidden by the current filter and will be skipped. Mark the remaining ${visibleSelected.length} paid?`,
+      );
+      if (!proceed) return;
+      setBulkMarkPaidIds(new Set(visibleSelected));
+    }
     // Wave 30.4: copy was wrong (and the underlying RPC behaviour
     // it described was wrong too). Marking an invoice paid no longer
     // touches the order's status -- the order continues through its
@@ -464,6 +496,7 @@ export default function InvoicesPage() {
     }
 
     setSelectedInvoice(invoiceData);
+    setSelectedInvoiceId(invoiceId);
     setPreviewOpen(true);
 
     // Phase 18 #3: track this invoice preview in the recently-
@@ -502,14 +535,33 @@ export default function InvoicesPage() {
   };
 
   const handleInvoiceSent = async (invoice: any) => {
+    // Wave 61 -- surface the UPDATE failure instead of swallowing.
+    // Pre-Wave-61 a failed sent_at stamp logged a warning + reloaded
+    // the list; the row still showed Draft so the operator hit Send
+    // again, double-emailing the client. Now: if the UPDATE fails,
+    // toast loudly so the operator knows the email DID go out but
+    // the status didn't flip -- they can hit "Mark as sent" or retry
+    // without firing a second email.
     try {
-      await supabase
+      const { error } = await supabase
         .from("invoices")
-        .update({ sent_at: new Date().toISOString() })
+        .update({ sent_at: new Date().toISOString(), status: "sent" })
         .eq("id", invoice.id);
+      if (error) {
+        toast({
+          title: "Email sent, but status didn't update",
+          description: `${invoice.invoice_number || "Invoice"} was emailed to the client. The 'sent' status did NOT save (${error.message}). Refresh the page; do NOT click Send again or the client gets a duplicate.`,
+          variant: "destructive",
+        });
+      }
       loadInvoices();
-    } catch (e) {
-      console.warn("[invoices] failed to stamp sent_at after manual send:", e);
+    } catch (e: any) {
+      toast({
+        title: "Email sent, but status didn't update",
+        description: `${invoice.invoice_number || "Invoice"} was emailed to the client. The 'sent' status did NOT save (${e?.message || "unknown error"}). Refresh the page; do NOT click Send again or the client gets a duplicate.`,
+        variant: "destructive",
+      });
+      loadInvoices();
     }
   };
 
@@ -517,6 +569,22 @@ export default function InvoicesPage() {
     if (!user?.company_id) return;
     const invoice = invoices.find(inv => inv.id === invoiceId);
     if (!invoice || !invoice.invoice_data) return;
+
+    // Wave 61 -- duplicate-sync guard. Pre-Wave-61 the function would
+    // POST to Xero / QuickBooks every time the operator clicked the
+    // sync icon, even on already-synced invoices. Two clicks = two
+    // Xero invoices = two emails to the client = a real brand event.
+    // Now: hard-refuse the second sync, surface a confirmation flow
+    // for the rare "I really do need to push again" case (e.g.
+    // accounting reset).
+    if (invoice.synced_to_accounting) {
+      const reSync = window.confirm(
+        `${invoice.invoice_number} was already synced to accounting on ` +
+        `${invoice.last_synced_at ? new Date(invoice.last_synced_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "an earlier date"}. ` +
+        `Re-syncing will create a duplicate in Xero / QuickBooks. Continue anyway?`,
+      );
+      if (!reSync) return;
+    }
 
     try {
       setGeneratingInvoice(true);
@@ -592,33 +660,50 @@ export default function InvoicesPage() {
     }
   };
 
+  // Wave 61 -- full enum coverage. Pre-Wave-61 the map keyed off the
+  // literal "outstanding" which is NOT in the invoice_status enum
+  // ({draft|sent|paid|partially_paid|overdue|written_off}), so sent /
+  // partially_paid / written_off rows fell through to the "Draft"
+  // default -- bookkeeper saw a SENT invoice labelled DRAFT and
+  // chased the wrong thing. Now: every enum value gets its own
+  // badge in the Wave 56 amber/blue/slate/rose 3-tone semantic.
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; label: string; help: string }> = {
       draft: {
-        color: "bg-slate-100 text-slate-700",
+        color: "bg-slate-100 text-slate-700 border-slate-200",
         label: "Draft",
         help: "Created but not yet sent to the client. Click the paper-plane icon to email it.",
       },
-      outstanding: {
-        color: "bg-yellow-100 text-yellow-700",
-        label: "Outstanding",
+      sent: {
+        color: "bg-amber-50 text-amber-800 border-amber-200",
+        label: "Awaiting payment",
         help: "Sent to the client and waiting for payment.",
       },
+      partially_paid: {
+        color: "bg-blue-50 text-blue-800 border-blue-200",
+        label: "Part paid",
+        help: "Some money in, balance still owing.",
+      },
       paid: {
-        color: "bg-green-100 text-green-700",
+        color: "bg-slate-100 text-slate-700 border-slate-200",
         label: "Paid",
         help: "Payment has been received in full.",
       },
       overdue: {
-        color: "bg-red-100 text-red-700",
+        color: "bg-rose-50 text-rose-800 border-rose-200",
         label: "Overdue",
-        help: "The due date has passed without payment.",
+        help: "The due date has passed without payment. Chase or convert to COD.",
+      },
+      written_off: {
+        color: "bg-slate-100 text-slate-500 border-slate-300 line-through",
+        label: "Written off",
+        help: "Voided / written off. No longer chased.",
       },
     };
 
     const variant = variants[status] || variants.draft;
     return (
-      <Badge className={variant.color} title={variant.help}>
+      <Badge className={`${variant.color} border`} title={variant.help}>
         {variant.label}
       </Badge>
     );
@@ -736,8 +821,24 @@ export default function InvoicesPage() {
                   esc(inv.status),
                   esc(inv.invoice_date),
                   esc(inv.due_date),
-                  esc(inv.client?.client_name || inv.invoice_data?.clientName),
-                  esc(inv.client?.email),
+                  // Wave 61 -- corrected join. Pre-Wave-61 read
+                  // `inv.client?.*` but the loadInvoices SELECT joins
+                  // via `inv.orders.clients.*` -- so every export
+                  // shipped with blank Client + Email columns.
+                  // Bookkeepers reconciling against Xero couldn't
+                  // match rows. Fallback to client_name on the
+                  // invoice itself + clientName on the rendered
+                  // payload to cover legacy rows.
+                  esc(
+                    inv.orders?.clients?.client_name
+                    || inv.client_name
+                    || inv.invoice_data?.clientName,
+                  ),
+                  esc(
+                    inv.orders?.clients?.email
+                    || inv.client_email
+                    || inv.invoice_data?.clientEmail,
+                  ),
                   esc(inv.subtotal),
                   esc(inv.tax_amount),
                   esc(inv.total_amount),
@@ -844,13 +945,35 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Outstanding <InfoTooltip content={"Invoices that have been sent but are not yet paid in full."} />
+                Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {invoices.filter(i => i.status === "outstanding").length}
-              </div>
+              {/* Wave 61 -- shows rand value not count, and uses the
+                  correct enum set. Pre-Wave-61 the filter was
+                  `i.status === "outstanding"` but the enum is
+                  draft|sent|paid|partially_paid|overdue|written_off
+                  -- no "outstanding" value. So this tile read 0
+                  forever regardless of how much was actually owed.
+                  Now: sum balance_due across the live unpaid set,
+                  and surface the count as a subtext. */}
+              {(() => {
+                const live = invoices.filter((i: any) =>
+                  ["sent", "partially_paid", "overdue"].includes(i.status)
+                  && Number(i.balance_due ?? 0) > 0,
+                );
+                const total = live.reduce((s: number, i: any) => s + Number(i.balance_due || 0), 0);
+                return (
+                  <>
+                    <div className="text-2xl font-bold text-amber-700">
+                      {tenantMoney.format(total)}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                      {live.length} unpaid
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
           <Card>
@@ -962,11 +1085,18 @@ export default function InvoicesPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-4 py-2 border rounded-md"
               >
-                <option value="all">All Statuses</option>
+                {/* Wave 61 -- options now match the actual enum:
+                    {draft|sent|paid|partially_paid|overdue|written_off}.
+                    Pre-Wave-61 the dropdown offered "outstanding"
+                    which matched zero rows, while sent + partially_paid
+                    + written_off had no filter route in. */}
+                <option value="all">All statuses</option>
                 <option value="draft">Draft</option>
-                <option value="outstanding">Outstanding</option>
+                <option value="sent">Awaiting payment</option>
+                <option value="partially_paid">Part paid</option>
                 <option value="paid">Paid</option>
                 <option value="overdue">Overdue</option>
+                <option value="written_off">Written off</option>
               </select>
             </div>
             {/* Phase 15 #2: saved-view chips. Bookkeepers running
@@ -1116,7 +1246,13 @@ export default function InvoicesPage() {
                           )}
                         </div>
                         <div className="text-sm text-slate-600">
-                          {format(new Date(invoice.invoice_date), "dd MMM yyyy")}
+                          {/* Wave 61 -- null guard. Pre-Wave-61
+                              new Date(null) returned Unix epoch and
+                              the row rendered "01 Jan 1970" for any
+                              imported invoice with no invoice_date. */}
+                          {invoice.invoice_date
+                            ? format(new Date(invoice.invoice_date), "dd MMM yyyy")
+                            : "No date"}
                         </div>
                       </div>
                       <div>
@@ -1218,8 +1354,10 @@ export default function InvoicesPage() {
                   Close
                 </Button>
                 <Button onClick={() => {
-                  const invoice = invoices.find(inv => inv.invoice_data === selectedInvoice);
-                  if (invoice) handleSendInvoice(invoice.id);
+                  // Wave 61 -- look up by id (set in handlePreviewInvoice).
+                  // Pre-Wave-61 used reference equality on a rehydrated
+                  // object -- find returned undefined, button did nothing.
+                  if (selectedInvoiceId) handleSendInvoice(selectedInvoiceId);
                   setPreviewOpen(false);
                 }}>
                   <Send className="h-4 w-4 mr-2" />
