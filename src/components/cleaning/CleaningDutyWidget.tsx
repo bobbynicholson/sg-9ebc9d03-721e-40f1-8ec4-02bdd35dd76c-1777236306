@@ -1,183 +1,263 @@
-import { useState, useEffect } from "react";
+/**
+ * CleaningDutyWidget -- live clock-in/out + on-duty roster for the
+ * cleaning team.
+ *
+ * Wave 39 rebuild. Original shipped with 4 stacked bugs:
+ *   1. Passed user.id where the service expected company_id
+ *      (so getOnDutyCleaningStaff returned an empty list every
+ *      time -- nobody's company_id ever matches a user.id).
+ *   2. Same bug on startCleaningDuty -- the duty row was inserted
+ *      with company_id = user.id, breaking RLS lookups + the
+ *      "currently on duty" join.
+ *   3. Read duty_started_at off the row but the column didn't
+ *      exist in the DB (added in 20260515160000 migration).
+ *   4. Component imported into the cleaning dashboard but never
+ *      actually rendered in JSX -- so even if 1-3 were fixed, no
+ *      user could see it.
+ *
+ * Wave 39 also Silicon-Valley-polishes the UI to match the kitchen
+ * duty roster (Wave 35): gradient avatar with initials, live pulse
+ * dot when on duty, sentence-case h2 heading, illustrated empty
+ * state.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Clock, CheckCircle2, User } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, Activity, Play, Square, Sparkles } from "lucide-react";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+
+interface DutyRow {
+  id: string;
+  user_id: string;
+  duty_started_at: string | null;
+  equipment_verified: boolean | null;
+  profile?: {
+    full_name: string | null;
+    avatar_url: string | null;
+    email: string | null;
+  } | null;
+}
+
+const initialsOf = (name: string | null | undefined, fallback: string | null | undefined): string => {
+  const seed = (name || fallback || "?").trim();
+  return seed
+    .split(/\s+/)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "?";
+};
+
+const formatDuration = (startTime: string | null): string => {
+  if (!startTime) return "just now";
+  const start = new Date(startTime).getTime();
+  if (Number.isNaN(start)) return "—";
+  const diffMs = Math.max(0, Date.now() - start);
+  const hours = Math.floor(diffMs / 3_600_000);
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000);
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+};
 
 export function CleaningDutyWidget() {
-  const { user } = useAuth();
+  const { user } = useAuth() as any;
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [onDutyStaff, setOnDutyStaff] = useState<any[]>([]);
-  const [myCurrentDuty, setMyCurrentDuty] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [onDutyStaff, setOnDutyStaff] = useState<DutyRow[]>([]);
+  const [myCurrentDuty, setMyCurrentDuty] = useState<DutyRow | null>(null);
+
+  const companyId: string | null = user?.company_id || null;
+
+  const loadOnDutyStaff = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      const staff = await equipmentTrackingService.getOnDutyCleaningStaff(companyId);
+      // Cast through unknown -- the DB types haven't been regenerated
+      // since the Wave 39 migration added duty_started_at +
+      // equipment_verified columns to cleaning_duty_logs.
+      const rows = (staff || []) as unknown as DutyRow[];
+      setOnDutyStaff(rows);
+      const myDuty = rows.find((s) => s.user_id === user?.id);
+      setMyCurrentDuty(myDuty || null);
+    } catch (e: any) {
+      console.warn("[CleaningDutyWidget] load failed:", e?.message || e);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, user?.id]);
 
   useEffect(() => {
-    loadOnDutyStaff();
-    const interval = setInterval(loadOnDutyStaff, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const loadOnDutyStaff = async () => {
-    if (!user) return;
-    
-    try {
-      const staff = await equipmentTrackingService.getOnDutyCleaningStaff(user.id);
-      setOnDutyStaff(staff);
-      
-      // Check if current user is on duty
-      const myDuty = staff.find((s) => s.user_id === user.id);
-      setMyCurrentDuty(myDuty || null);
-    } catch (error) {
-      console.error("Error loading on-duty staff:", error);
-    }
-  };
+    void loadOnDutyStaff();
+    // 30s tick so durations stay roughly current.
+    const t = setInterval(loadOnDutyStaff, 30_000);
+    return () => clearInterval(t);
+  }, [loadOnDutyStaff]);
 
   const handleStartDuty = async () => {
-    if (!user) return;
-    
-    setLoading(true);
+    if (!user?.id || !companyId) return;
+    setBusy(true);
     try {
       await equipmentTrackingService.startCleaningDuty({
         userId: user.id,
-        companyId: user.id,
+        companyId,
       });
+      toast({ title: "Clocked in", description: "Welcome to your cleaning shift." });
       await loadOnDutyStaff();
-    } catch (error) {
-      console.error("Error starting duty:", error);
-      alert("Failed to start duty");
+    } catch (e: any) {
+      toast({
+        title: "Could not clock in",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   const handleEndDuty = async () => {
     if (!myCurrentDuty) return;
-    
-    setLoading(true);
+    setBusy(true);
     try {
       await equipmentTrackingService.endCleaningDuty(myCurrentDuty.id);
+      toast({ title: "Clocked out", description: "Shift saved. Don't forget the equipment check." });
       await loadOnDutyStaff();
-    } catch (error) {
-      console.error("Error ending duty:", error);
-      alert("Failed to end duty");
+    } catch (e: any) {
+      toast({
+        title: "Could not clock out",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const formatDuration = (startTime: string) => {
-    const start = new Date(startTime);
-    const now = new Date();
-    const diffMs = now.getTime() - start.getTime();
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
-  };
+  const onShift = !!myCurrentDuty;
+  const otherStaff = onDutyStaff.filter((s) => s.user_id !== user?.id);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          Cleaning Team On Duty
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Current user duty toggle */}
-        <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={user?.avatar_url} />
-              <AvatarFallback>
-                {user?.full_name?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{user?.full_name || "You"}</p>
-              {myCurrentDuty && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  On duty for {formatDuration(myCurrentDuty.duty_started_at)}
-                </p>
+    <Card
+      className={`border-2 ${
+        onShift
+          ? "border-cyan-200 bg-gradient-to-r from-cyan-50 to-blue-50"
+          : "border-slate-200 bg-white"
+      } shadow-sm mb-6`}
+    >
+      <CardContent className="p-4 sm:p-6 space-y-4">
+        {/* Status row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative flex-shrink-0">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shadow-sm ${
+                onShift
+                  ? "bg-gradient-to-br from-cyan-500 to-blue-600"
+                  : "bg-slate-300"
+              }`}>
+                {initialsOf(user?.full_name, user?.email)}
+              </div>
+              {onShift && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live -- on shift" />
               )}
             </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-600 flex items-center gap-1">
+                <Activity className="w-3 h-3" /> Your status
+              </p>
+              <p className="text-base font-semibold text-slate-900 truncate">
+                {onShift ? `On duty · ${formatDuration(myCurrentDuty?.duty_started_at)}` : "Off duty"}
+              </p>
+            </div>
           </div>
-          
-          {myCurrentDuty ? (
-            <Button
-              variant="outline"
-              onClick={handleEndDuty}
-              disabled={loading}
-              className="gap-2"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              End Shift
-            </Button>
-          ) : (
-            <Button
-              onClick={handleStartDuty}
-              disabled={loading}
-              className="gap-2"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Start Shift
-            </Button>
-          )}
+          <div className="flex-shrink-0">
+            {onShift ? (
+              <Button
+                onClick={handleEndDuty}
+                disabled={busy}
+                className="bg-rose-600 hover:bg-rose-700 gap-2"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+                Clock out
+              </Button>
+            ) : (
+              <Button
+                onClick={handleStartDuty}
+                disabled={busy}
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Clock in
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Other on-duty staff */}
-        {onDutyStaff.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              Team Members On Duty ({onDutyStaff.length})
-            </p>
-            <div className="space-y-2">
-              {onDutyStaff.map((staff) => (
-                <div
-                  key={staff.id}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+        {/* Live floor */}
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-cyan-600" />
+            Live floor
+            <span className="text-xs font-normal text-slate-500 tabular-nums">
+              · {onDutyStaff.length} on duty
+            </span>
+          </h3>
+          {loading && onDutyStaff.length === 0 ? (
+            <div className="flex items-center justify-center py-6 text-slate-500 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+            </div>
+          ) : onDutyStaff.length === 0 ? (
+            <div className="text-center py-6 px-4 bg-white/60 rounded-lg border border-dashed border-slate-200">
+              <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                <Clock className="h-5 w-5 text-slate-300" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">Quiet floor</p>
+              <p className="text-xs text-slate-500 mt-0.5">When the team clocks in, they'll show up here in real time.</p>
+            </div>
+          ) : otherStaff.length === 0 ? (
+            <p className="text-xs text-slate-500 px-1">It's just you on the floor right now.</p>
+          ) : (
+            <ul className="space-y-2">
+              {otherStaff.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={staff.profile?.avatar_url} />
-                      <AvatarFallback>
-                        {staff.profile?.full_name?.charAt(0) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {staff.profile?.full_name || "Team Member"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDuration(staff.duty_started_at)}
-                      </p>
+                  <div className="relative flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-sm">
+                      {initialsOf(s.profile?.full_name, s.profile?.email)}
                     </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {staff.equipment_verified && (
-                      <Badge variant="outline" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {s.profile?.full_name || s.profile?.email || "Team member"}
+                    </p>
+                    <p className="text-xs text-slate-500 tabular-nums">
+                      On for {formatDuration(s.duty_started_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {s.equipment_verified && (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+                        <CheckCircle2 className="h-2.5 w-2.5" />
                         Verified
                       </Badge>
                     )}
-                    <Badge variant="secondary">Active</Badge>
+                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] tabular-nums">
+                      <Clock className="h-2.5 w-2.5 mr-0.5" />
+                      Live
+                    </Badge>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
-        )}
-
-        {onDutyStaff.length === 0 && !myCurrentDuty && (
-          <div className="text-center py-8 text-muted-foreground">
-            <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No one is currently on duty</p>
-            <p className="text-xs">Start your shift to begin cleaning</p>
-          </div>
-        )}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

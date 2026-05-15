@@ -112,6 +112,12 @@ export default function CleaningDashboard() {
 
           <TeamWelcomeBanner role="cleaning" userId={user?.id} />
 
+          {/* Wave 39: live duty + clock-in surface. Component existed
+              but was imported and never rendered. Wave 39 also fixed
+              4 stacked bugs in the widget itself (company_id scoped
+              wrong, missing schema columns added via migration). */}
+          <CleaningDutyWidget />
+
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
