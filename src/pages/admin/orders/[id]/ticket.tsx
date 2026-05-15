@@ -36,12 +36,19 @@ interface OrderRow {
   event_time: string | null;
   guest_count: number | null;
   venue_address: string | null;
-  menu_items: any;
   special_instructions: string | null;
   internal_notes: string | null;
   setup_time: string | null;
   pickup_time: string | null;
   status: string | null;
+}
+
+interface OrderItemRow {
+  id: string;
+  item_name: string | null;
+  description: string | null;
+  quantity: number | null;
+  special_instructions: string | null;
 }
 
 function fmtDate(iso: string | null): string {
@@ -64,6 +71,7 @@ function KitchenTicketPage() {
   const { profile } = useAuth() as any;
   const callerCompanyId = (profile as any)?.company_id || null;
   const [order, setOrder] = useState<OrderRow | null>(null);
+  const [items, setItems] = useState<OrderItemRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,16 +84,44 @@ function KitchenTicketPage() {
         // -- but it makes a wrong-tenant URL surface as "not found"
         // explicitly instead of relying on RLS to silently return
         // empty.
+        //
+        // Wave 43 hotfix: previous query asked for orders.menu_items
+        // which doesn't exist on the orders table -- line items live
+        // in order_items joined on order_id. PostgREST returned a
+        // 400 "column orders.menu_items does not exist", the page
+        // swallowed the error, and every kitchen ticket showed
+        // "Order not found" regardless of tenant or RLS state.
         let q = (supabase as any)
           .from("orders")
-          .select("order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, menu_items, special_instructions, internal_notes, setup_time, pickup_time, status")
+          .select("order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
           .eq("id", orderId)
           .is("deleted_at", null);
         if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
-        const { data } = await q.maybeSingle();
+        const { data, error } = await q.maybeSingle();
+        if (error) {
+          // Wave 43 hotfix: surface PostgREST errors instead of
+          // silently null-ing them. The original bug went undiagnosed
+          // for ages because the `error` field was never destructured.
+          console.error("[ticket] orders fetch failed:", error);
+        }
         if (!cancelled) setOrder((data || null) as OrderRow | null);
-      } catch {
-        if (!cancelled) setOrder(null);
+
+        // Pull line items in a separate query keyed off order_id.
+        const { data: itemRows, error: itemErr } = await (supabase as any)
+          .from("order_items")
+          .select("id, item_name, description, quantity, special_instructions")
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: true });
+        if (itemErr) {
+          console.error("[ticket] order_items fetch failed:", itemErr);
+        }
+        if (!cancelled) setItems((itemRows || []) as OrderItemRow[]);
+      } catch (e) {
+        console.error("[ticket] unexpected error:", e);
+        if (!cancelled) {
+          setOrder(null);
+          setItems([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -119,16 +155,13 @@ function KitchenTicketPage() {
     );
   }
 
-  const items = Array.isArray(order.menu_items) ? order.menu_items : [];
+  // Wave 43 hotfix: items now come from the dedicated state populated
+  // by the order_items query above. Old shape relied on a non-existent
+  // orders.menu_items JSON column. Allergen aggregation defers to a
+  // future enhancement -- order_items doesn't carry dietary_tags
+  // directly today; the menu_items table does, but joining adds
+  // another round-trip we can ship if the kitchen needs it.
   const allAllergens = new Set<string>();
-  for (const it of items) {
-    const tags = Array.isArray(it?.dietary_tags) ? it.dietary_tags
-      : Array.isArray(it?.allergens) ? it.allergens
-      : [];
-    for (const t of tags) {
-      if (typeof t === "string" && t.trim()) allAllergens.add(t.trim().toLowerCase());
-    }
-  }
 
   return (
     <>
@@ -208,27 +241,22 @@ function KitchenTicketPage() {
                 <p className="text-sm text-slate-500 italic">No menu items on this order.</p>
               ) : (
                 <ul className="divide-y divide-slate-200">
-                  {items.map((it: any, i: number) => {
-                    const name = it?.name || it?.item_name || `Item ${i + 1}`;
-                    const qty = Number(it?.quantity ?? 1);
-                    const tags = Array.isArray(it?.dietary_tags) ? it.dietary_tags
-                      : Array.isArray(it?.allergens) ? it.allergens : [];
-                    const desc = it?.description || it?.notes || null;
+                  {items.map((it, i) => {
+                    const name = it.item_name || `Item ${i + 1}`;
+                    const qty = Number(it.quantity ?? 1);
+                    const desc = it.description || null;
+                    const itemNote = it.special_instructions || null;
                     return (
-                      <li key={i} className="py-2.5">
+                      <li key={it.id} className="py-2.5">
                         <div className="flex items-baseline gap-3">
                           <span className="text-2xl font-bold tabular-nums text-slate-900 w-12 shrink-0">{qty}x</span>
                           <div className="flex-1">
                             <p className="text-base font-semibold text-slate-900">{name}</p>
                             {desc && <p className="text-xs text-slate-600 mt-0.5">{desc}</p>}
-                            {tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {tags.map((t: string) => (
-                                  <span key={t} className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-slate-700">
-                                    {t}
-                                  </span>
-                                ))}
-                              </div>
+                            {itemNote && (
+                              <p className="text-xs text-rose-700 mt-1 font-medium">
+                                {itemNote}
+                              </p>
                             )}
                           </div>
                         </div>
