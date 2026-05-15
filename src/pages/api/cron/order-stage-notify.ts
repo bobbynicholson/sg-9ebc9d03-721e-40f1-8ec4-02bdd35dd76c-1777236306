@@ -57,8 +57,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // back into per-tenant notification streams.
   const { data: orders, error: ordersErr } = await supabase
     .from("orders")
+    // Wave 45 hotfix: include every order field the timeline
+    // resolvers reference. The previous SELECT was missing
+    // quote_id which made the quote_accepted resolver always
+    // return 'upcoming' (because o.quote_id was undefined), so
+    // the walker assigned every confirmed order to current
+    // stage = quote_accepted. Net effect: the snapshot column
+    // ended up wedged at 'quote_accepted' for every order.
     .select(
-      "id, company_id, region_id, status, event_date, event_time, order_number, last_notified_stage_key, last_notified_stage_at, deposit_paid, balance_paid, balance_due_date, confirmed_at, picked_up_at, delivered_at, ready_at, assigned_driver_id",
+      "id, company_id, region_id, status, event_date, event_time, order_number, last_notified_stage_key, last_notified_stage_at, quote_id, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, confirmed_at, picked_up_at, delivered_at, ready_at, completed_at, prep_started_at, total_amount, assigned_driver_id, driver_name, equipment_return_method, pod_photo_url, pod_recipient_name, created_at, updated_at",
     )
     .in("status", ACTIVE_STATUSES as unknown as string[])
     .is("deleted_at", null)
@@ -205,6 +212,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         emailLog: emailLogByOrder.get(o.id) || [],
         cleaningJobsActive,
         deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
+        // Wave 45 hotfix: every order in this loop has status in
+        // (confirmed, preparing, ready, in_transit, delivered) per
+        // the SELECT filter above -- the upstream quote was
+        // necessarily accepted to get here. Pass quoteAccepted=true
+        // so the resolver doesn't fall back to checking quote_id
+        // (which is itself a brittle proxy).
+        quoteAccepted: true,
       });
 
       const currentKey = tl.currentStageKey;
