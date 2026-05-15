@@ -495,6 +495,12 @@ function OrderProcessDashboard() {
   const [editMode, setEditMode] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
+  // Wave 55 -- duplicate-order dialog state. Replaces the
+  // window.prompt() call. duplicateDate holds the user's pick;
+  // duplicateBusy is the in-flight guard.
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateDate, setDuplicateDate] = useState<string>("");
+  const [duplicateBusy, setDuplicateBusy] = useState(false);
   // Amendment / cancellation review drawer state. Driven entirely off
   // the URL: when /admin/orders is loaded with ?amendment=... (or
   // ?cancellation=...) plus an ?orderId=..., the matching drawer opens
@@ -534,7 +540,10 @@ function OrderProcessDashboard() {
   useEffect(() => {
     const companyId = (user as any)?.company_id;
     if (!companyId) return;
-    const channelKey = `admin-orders-new:${companyId}:${Math.random().toString(36).slice(2, 8)}`;
+    // Wave 55 -- channel key is stable per (companyId, mount) instead
+    // of Math.random(). Avoids leaked subscriptions on Strict Mode
+    // double-mount + cleaner HMR.
+    const channelKey = `admin-orders-realtime:${companyId}`;
     const channel = (supabase as any)
       .channel(channelKey)
       .on(
@@ -548,8 +557,29 @@ function OrderProcessDashboard() {
               ? `${row.client_name}${row.event_date ? ` -- ${new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}`
               : "An order just landed. Pulling the latest list.",
           });
-          // Refresh in the background so the new row shows up in
-          // the kanban / timeline without a manual click.
+          loadOrders();
+        },
+      )
+      // Wave 55 -- subscribe to UPDATE so a payment captured in
+      // another tab, a status flip, a venue edit all reflect on the
+      // operator's screen without a manual refresh. Pre-Wave-55 the
+      // INSERT-only channel lulled the operator into thinking
+      // realtime was comprehensive -- false confidence.
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => {
+          // Quiet refresh -- no toast, just keep the list fresh. A
+          // status change banner already fires elsewhere.
+          loadOrders();
+        },
+      )
+      // Wave 55 -- DELETE so a hard-deleted order disappears from
+      // the list without a refresh.
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => {
           loadOrders();
         },
       )
@@ -598,6 +628,26 @@ function OrderProcessDashboard() {
     if (found) {
       setSelectedOrder(found);
       setIsModalOpen(true);
+    } else {
+      // Wave 55 -- deep-link silent failure. Pre-Wave-55 a paste of a
+      // Slack link to ?orderId=X would silently land on an empty
+      // Orders page if X wasn't in the loaded set (filtered out by
+      // region scope, hidden by status filter, soft-deleted). Now
+      // surface a toast naming the likely cause + offer a one-click
+      // clear so the operator can find the order.
+      toast({
+        title: "Order not in your current view",
+        description: "The link points to an order that's filtered out (cancelled, archived, or outside your region). Clear filters to find it.",
+        variant: "destructive",
+      });
+      // Strip the orderId from URL so a refresh doesn't keep firing
+      // the toast.
+      const { orderId: _drop, ...rest } = router.query;
+      router.replace(
+        { pathname: router.pathname, query: rest },
+        undefined,
+        { shallow: true, scroll: false },
+      );
     }
     // selectedOrder + isModalOpen intentionally omitted -- including
     // them would re-fire on every drawer change and bounce the modal.
@@ -2212,6 +2262,16 @@ function OrderProcessDashboard() {
       <Dialog
         open={isModalOpen}
         onOpenChange={(o) => {
+          // Wave 55 -- unsaved-changes guard. Pre-Wave-55 a click
+          // outside the modal in editMode silently discarded any
+          // typed changes (5 minutes of internal notes lost on a
+          // misclick). Now: prompt before closing if editMode is on.
+          if (!o && editMode) {
+            const ok = typeof window !== "undefined"
+              && window.confirm("You have unsaved edits. Discard and close?");
+            if (!ok) return;
+            setEditMode(false);
+          }
           setIsModalOpen(o);
           // Wave 28.8: when the drawer closes, strip ?orderId from the
           // URL so a refresh doesn't bounce it open again. Keeps any
@@ -2420,40 +2480,64 @@ function OrderProcessDashboard() {
                       over so we don't create phantom reservations. */}
                   {selectedOrder && (
                     <Button
-                      onClick={async () => {
+                      onClick={() => {
+                        // Wave 55 -- replaces window.prompt() with a
+                        // proper Dialog. Default to today + 7 days.
                         const todayPlus7 = (() => {
                           const d = new Date();
                           d.setDate(d.getDate() + 7);
                           return toLocalISO(d);
                         })();
-                        const newDate = window.prompt(
-                          "New event date for the duplicate (YYYY-MM-DD):",
-                          todayPlus7,
-                        );
-                        if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
-                        const res = await orderService.duplicateOrder(selectedOrder.id, newDate);
-                        if (!res.success) {
-                          toast({
-                            title: "Could not duplicate",
-                            description: (res as { success: false; error: string }).error,
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        toast({
-                          title: "Order duplicated",
-                          description: `New order ${(res.data as any).order_number} created on ${newDate}.`,
-                        });
-                        // Reload the orders list so the new row
-                        // appears, then close + reopen on the clone.
-                        setIsModalOpen(false);
-                        loadOrders();
+                        setDuplicateDate(todayPlus7);
+                        setDuplicateDialogOpen(true);
                       }}
                       variant="outline"
                       size="sm"
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Duplicate
+                    </Button>
+                  )}
+                  {/* Wave 55 -- Pause + Resume promoted out of edit
+                      mode. Pre-Wave-55 Pause was buried inside
+                      Edit -> Status field, four clicks deep for a
+                      daily-driver action. Resume used window.confirm.
+                      Both now sit alongside Cancel / Duplicate /
+                      Kitchen ticket as first-class verbs. */}
+                  {selectedOrder && ["confirmed", "preparing", "ready"].includes(String((selectedOrder as any).status)) && (
+                    <Button
+                      onClick={() => setPauseDialogOrderId(selectedOrder.id)}
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                      title="Client called to hold? Pauses reminders + prep without losing them."
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pause order
+                    </Button>
+                  )}
+                  {selectedOrder && (selectedOrder as any).status === "paused" && (
+                    <Button
+                      onClick={async () => {
+                        if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
+                        try {
+                          const res = await fetch(`/api/orders/${selectedOrder.id}/resume`, { method: "POST" });
+                          const json = await res.json().catch(() => ({}));
+                          if (!res.ok) { toast({ title: "Resume failed", description: json?.error, variant: "destructive" }); return; }
+                          toast({ title: "Order resumed", description: `Back to ${json.order?.status}. Reminders + prep restored.` });
+                          await loadOrders();
+                          setSelectedOrder(json.order);
+                          setEditedOrder(json.order);
+                        } catch (e: any) {
+                          toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Resume order
                     </Button>
                   )}
                   {/* Phase 12 #1: print kitchen ticket. Opens the
@@ -3833,10 +3917,41 @@ function OrderProcessDashboard() {
                 {getFilteredOrders().length === 0 ? (
                   <Card className="border-0 shadow-lg">
                     <CardContent className="py-24">
+                      {/* Wave 55 -- empty state names the active filter
+                          set + offers a one-click clear so the operator
+                          stops guessing which filter is hiding rows. */}
                       <div className="text-center text-slate-400">
                         <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p className="text-lg font-medium">No orders found</p>
-                        <p className="text-sm mt-1">Try adjusting your filters</p>
+                        <p className="text-lg font-medium text-slate-500">No orders match these filters</p>
+                        {(() => {
+                          const active: string[] = [];
+                          if (searchTerm) active.push(`search "${searchTerm}"`);
+                          if (statusFilter !== "all") active.push(`status: ${statusFilter.replace(/_/g, " ")}`);
+                          if (dateFilter !== "all") active.push(`date: ${dateFilter.replace(/_/g, " ")}`);
+                          if (myOrdersOnly) active.push("mine only");
+                          if (active.length === 0) {
+                            return <p className="text-sm mt-1">No orders in this view yet.</p>;
+                          }
+                          return (
+                            <>
+                              <p className="text-sm mt-1 text-slate-600">
+                                Filtered by {active.join(", ")}.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearchTerm("");
+                                  setStatusFilter("all");
+                                  setDateFilter("all");
+                                  setMyOrdersOnly(false);
+                                }}
+                                className="mt-3 text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
+                              >
+                                Clear all filters
+                              </button>
+                            </>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -3884,6 +3999,71 @@ function OrderProcessDashboard() {
                 loadOrders();
               }}
             />
+
+            {/* Wave 55 -- replaces window.prompt() for Duplicate.
+                Native prompt was a visual frame regression -- no
+                calendar widget, no in-app frame. */}
+            <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Duplicate this order</DialogTitle>
+                  <DialogDescription>
+                    Pick the event date for the new copy. Everything else
+                    (client, menu, equipment, total) carries over and you
+                    can tweak the duplicate after it lands.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    New event date
+                    <Input
+                      type="date"
+                      value={duplicateDate}
+                      onChange={(e) => setDuplicateDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDuplicateDialogOpen(false)}
+                    disabled={duplicateBusy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={duplicateBusy || !duplicateDate || !/^\d{4}-\d{2}-\d{2}$/.test(duplicateDate)}
+                    onClick={async () => {
+                      if (!selectedOrder) return;
+                      setDuplicateBusy(true);
+                      try {
+                        const res = await orderService.duplicateOrder(selectedOrder.id, duplicateDate);
+                        if (!res.success) {
+                          toast({
+                            title: "Could not duplicate",
+                            description: (res as { success: false; error: string }).error,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        toast({
+                          title: "Order duplicated",
+                          description: `New order ${(res.data as any).order_number} created on ${duplicateDate}.`,
+                        });
+                        setDuplicateDialogOpen(false);
+                        setIsModalOpen(false);
+                        loadOrders();
+                      } finally {
+                        setDuplicateBusy(false);
+                      }
+                    }}
+                  >
+                    {duplicateBusy ? "Duplicating..." : "Duplicate order"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Pause dialog -- captures reason + expected resume date,
                 runs the pauseOrder cascade (status -> 'paused', email
