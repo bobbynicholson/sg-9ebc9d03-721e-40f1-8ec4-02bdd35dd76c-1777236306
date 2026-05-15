@@ -171,6 +171,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
   const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
 
+  // Wave 46 T1 -- batch-fetch tenant timezones for every distinct
+  // company in this run so the per-order timeline urgency tier
+  // buckets by calendar day in the operator's wall clock, not the
+  // server's UTC clock.
+  const distinctCompanyIds = Array.from(
+    new Set(
+      (orders as Array<{ company_id?: string | null }>)
+        .map((o) => o.company_id)
+        .filter((c): c is string => !!c),
+    ),
+  );
+  const tenantTzByCompany = new Map<string, string | null>();
+  if (distinctCompanyIds.length > 0) {
+    const { data: tzRows, error: tzErr } = await supabase
+      .from("companies")
+      .select("id, timezone")
+      .in("id", distinctCompanyIds);
+    if (tzErr) console.error("[cron/order-stage-notify] timezone fetch failed:", tzErr);
+    for (const r of (tzRows || []) as Array<{ id: string; timezone: string | null }>) {
+      tenantTzByCompany.set(r.id, r.timezone);
+    }
+  }
+
   // 3. Per-order: compute timeline, compare to snapshot, fire +
   // update if changed.
   const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -212,13 +235,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         emailLog: emailLogByOrder.get(o.id) || [],
         cleaningJobsActive,
         deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
-        // Wave 45 hotfix: every order in this loop has status in
-        // (confirmed, preparing, ready, in_transit, delivered) per
-        // the SELECT filter above -- the upstream quote was
-        // necessarily accepted to get here. Pass quoteAccepted=true
-        // so the resolver doesn't fall back to checking quote_id
-        // (which is itself a brittle proxy).
         quoteAccepted: true,
+        // Wave 46 T1 -- pass per-order tenant tz so the urgency
+        // tier (today/tomorrow/soon) matches what each operator
+        // sees on their /admin/orders page.
+        tenantTimezone: tenantTzByCompany.get(o.company_id) || null,
       });
 
       const currentKey = tl.currentStageKey;

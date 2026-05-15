@@ -367,17 +367,39 @@ export default function KitchenDashboard() {
                     const eventTime = order.event_time || "TBC";
 
                     return (
-                      <div key={order.id} className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border-l-4 ${urgency.color}`}>
-                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base">
-                            {index + 1}
+                      <div key={order.id} className={`p-2 sm:p-3 rounded-lg border-l-4 ${urgency.color}`}>
+                        <div className="flex items-start justify-between gap-2 sm:gap-3">
+                          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
+                              {index + 1}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                                {order.event_name || (order as any).client_name || "Event"}
+                              </p>
+                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                                {order.guest_count} guests • {eventTime}
+                                {/* Wave 46 T4 -- show client name + venue inline so the
+                                    chef knows who's eating + where it's going. Previously
+                                    only event_name + guest_count + time appeared. */}
+                                {(order as any).client_name && order.event_name && (
+                                  <span> · for <span className="font-medium text-slate-700 dark:text-slate-300">{(order as any).client_name}</span></span>
+                                )}
+                              </p>
+                              {(order as any).venue_address && (
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                                  📍 {(order as any).venue_address}
+                                </p>
+                              )}
+                              {(order as any).special_instructions && (
+                                <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-1 italic line-clamp-2">
+                                  Special: {(order as any).special_instructions}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{order.event_name}</p>
-                            <p className="text-xs text-slate-600 dark:text-slate-400">{order.guest_count} guests • {eventTime}</p>
-                          </div>
+                          <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
                         </div>
-                        <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0 ml-2`}>{order.status}</Badge>
                       </div>
                     );
                   })}
@@ -636,13 +658,29 @@ export default function KitchenDashboard() {
                                 className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
                               >
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                  <p className="text-sm font-semibold text-slate-900 truncate flex-1">
-                                    {order.event_name || order.client_name || "Order"}
-                                  </p>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 truncate">
+                                      {order.event_name || order.client_name || "Order"}
+                                    </p>
+                                    {/* Wave 46 T4 -- show client name when event_name
+                                        was the headline + venue address. The chef
+                                        previously had to dig through the order modal
+                                        to know who the food is for and where it goes. */}
+                                    {order.event_name && order.client_name && (
+                                      <p className="text-[11px] text-slate-500 truncate">
+                                        for {order.client_name}
+                                      </p>
+                                    )}
+                                  </div>
                                   <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
                                     {order.order_number}
                                   </span>
                                 </div>
+                                {(order as any).venue_address && (
+                                  <p className="text-[11px] text-slate-500 truncate mb-1">
+                                    📍 {(order as any).venue_address}
+                                  </p>
+                                )}
                                 <div className="text-xs text-slate-600 flex items-center gap-2 flex-wrap">
                                   <span className="inline-flex items-center gap-1">
                                     <Users className="w-3 h-3" />{order.guest_count} pax

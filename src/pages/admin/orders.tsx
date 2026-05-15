@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
+import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPanel";
+import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import Head from "next/head";
 import Link from "next/link";
@@ -187,6 +189,11 @@ function OrderProcessDashboard() {
   // bookings, hire orders, cleaning status, prep tasks, driver
   // assignments, invoices). Empty map until first load.
   const [timelinesById, setTimelinesById] = useState<Map<string, OrderTimeline>>(new Map());
+  // Wave 46 T2 -- per-order readiness chip (green/orange/red).
+  // tenantTimezone is sourced from the existing state at line 245
+  // (Phase 13 #9 already pulls companies.timezone), so we don't
+  // duplicate the fetch.
+  const [readinessById, setReadinessById] = useState<Map<string, OrderReadiness>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #1: "/" or Cmd-F focuses the search box. Matches the
@@ -720,6 +727,30 @@ function OrderProcessDashboard() {
           // cross-system blocker detection). The timeline still
           // accepts equipmentCleaningStatus for back-compat but we
           // pass [] now.
+          // Wave 46 T3 -- 3 new batch queries that feed the
+          // computeOrderReadiness chip:
+          //   - order_items: 'menu_items_present' signal
+          //   - kitchen_shifts(kitchen+kitchen_and_cleaning) on each
+          //     event_date: 'kitchen_shift_event_day' signal (separate
+          //     from the existing delivery-only fetch)
+          //   - vehicles: reserved for the Wave 47 service-due signal
+          // Distinct event_dates pulled from the order set so the
+          // shift query is ONE round-trip per page refresh, not per
+          // order. RLS already company-scopes everything.
+          const distinctEventDates = Array.from(
+            new Set(
+              (allOrders as any[])
+                .map((o) => o.event_date as string | null | undefined)
+                .filter((d): d is string => !!d),
+            ),
+          );
+          const distinctVehicleIds = Array.from(
+            new Set(
+              (allOrders as any[])
+                .map((o) => o.assigned_vehicle_id as string | null | undefined)
+                .filter((v): v is string => !!v),
+            ),
+          );
           const [
             paymentsRes,
             bookingsRes,
@@ -729,6 +760,9 @@ function OrderProcessDashboard() {
             invoicesRes,
             emailLogRes,
             deliveryShiftsRes,
+            orderItemsRes,
+            kitchenShiftsEventDayRes,
+            vehiclesRes,
           ] = await Promise.all([
             supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
             supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
@@ -743,6 +777,25 @@ function OrderProcessDashboard() {
               .in("order_id", orderIds)
               .eq("shift_type", "delivery")
               .is("deleted_at", null),
+            // Wave 46 T3 additions:
+            (supabase as any)
+              .from("order_items")
+              .select("order_id, item_name, quantity")
+              .in("order_id", orderIds),
+            distinctEventDates.length > 0
+              ? (supabase as any)
+                  .from("kitchen_shifts")
+                  .select("id, shift_date, staff_id, status, shift_type")
+                  .in("shift_date", distinctEventDates)
+                  .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
+                  .is("deleted_at", null)
+              : Promise.resolve({ data: [] as any[] } as any),
+            distinctVehicleIds.length > 0
+              ? (supabase as any)
+                  .from("vehicles")
+                  .select("id, next_service_due")
+                  .in("id", distinctVehicleIds)
+              : Promise.resolve({ data: [] as any[] } as any),
           ]);
 
           // Cross-system blocker T2: pull active cleaning_jobs
@@ -812,7 +865,15 @@ function OrderProcessDashboard() {
           // cleaning_jobs rows. computeOrderTimeline does the final
           // filter, but pre-bucketing trims the payload size.
 
+          // Wave 46 T3 -- bucket the new fetches.
+          const orderItemsByOrder = bucket(orderItemsRes.data as any[] | null);
+          const kitchenShiftsEventDayRows = (kitchenShiftsEventDayRes.data as any[] | null) || [];
+          const vehicleRowsRaw = (vehiclesRes.data as any[] | null) || [];
+          const vehicleById = new Map<string, any>();
+          for (const v of vehicleRowsRaw) vehicleById.set(String(v.id), v);
+
           const timelines = new Map<string, OrderTimeline>();
+          const readinesses = new Map<string, OrderReadiness>();
           for (const o of allOrders as any[]) {
             const orderEqIds = new Set<string>(
               (bookingsByOrder.get(o.id) || [])
@@ -822,7 +883,9 @@ function OrderProcessDashboard() {
             const cleaningJobsActive = cleaningJobsActiveRows.filter((r) =>
               orderEqIds.has(r.equipment_id),
             );
-            const tl = computeOrderTimeline({
+            // Wave 46 T1 -- pass tenant timezone so the urgency tier
+            // buckets by calendar day in the operator's wall clock.
+            const timelineInput: any = {
               order: o,
               payments: paymentsByOrder.get(o.id) || [],
               equipmentBookings: bookingsByOrder.get(o.id) || [],
@@ -834,12 +897,34 @@ function OrderProcessDashboard() {
               emailLog: emailLogByOrder.get(o.id) || [],
               cleaningJobsActive,
               deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
-            });
+              tenantTimezone,
+            };
+            const tl = computeOrderTimeline(timelineInput);
             timelines.set(o.id, tl);
+
+            // Wave 46 T2 -- compute the readiness chip alongside.
+            const eventDay = o.event_date as string | null | undefined;
+            const kitchenShiftsForDay = eventDay
+              ? kitchenShiftsEventDayRows.filter(
+                  (r) => r.shift_date === eventDay,
+                )
+              : [];
+            const readiness = computeOrderReadiness(
+              {
+                ...timelineInput,
+                orderItems: orderItemsByOrder.get(o.id) || [],
+                kitchenShiftsEventDay: kitchenShiftsForDay,
+                vehicle: o.assigned_vehicle_id ? vehicleById.get(String(o.assigned_vehicle_id)) || null : null,
+              },
+              tl,
+            );
+            readinesses.set(o.id, readiness);
           }
           setTimelinesById(timelines);
+          setReadinessById(readinesses);
         } else {
           setTimelinesById(new Map());
+          setReadinessById(new Map());
         }
       } catch (err) {
         // Non-fatal -- the timeline component handles a missing entry
@@ -1026,7 +1111,9 @@ function OrderProcessDashboard() {
   // soon at the top so the flashing chip lands above the fold.
   // When a search is active we trust the fuzzy ranking and skip the
   // urgency re-sort -- the operator is hunting a specific order.
-  const URGENCY_RANK: Record<string, number> = { overdue: 0, today: 1, soon: 2, normal: 3 };
+  // Wave 46 T1 -- 'tomorrow' tier slotted between 'today' and 'soon'
+  // so tomorrow's events float above the rest of the week.
+  const URGENCY_RANK: Record<string, number> = { overdue: 0, today: 1, tomorrow: 2, soon: 3, normal: 4 };
   const getFilteredOrders = () => {
     if (searchTerm) return fuzzyOrders;
     const out = [...fuzzyOrders];
@@ -1409,6 +1496,17 @@ function OrderProcessDashboard() {
                 The legacy nextStage label above is no longer needed
                 because the TimelineTrack surfaces the current stage
                 inline with richer detail. */}
+            {/* Wave 46 T2 -- readiness chip ABOVE the timeline.
+                Headline + subhead = the operator's TLDR; expand
+                chevron drops the per-signal breakdown with deep
+                links. The chip is the source of truth for "what's
+                missing"; the timeline below remains the source of
+                truth for "where we are in the pipeline". */}
+            {(() => {
+              const r = readinessById.get((order as any).id);
+              if (!r) return null;
+              return <OrderReadinessChip readiness={r} />;
+            })()}
             {(() => {
               const tl = timelinesById.get((order as any).id);
               if (!tl) {

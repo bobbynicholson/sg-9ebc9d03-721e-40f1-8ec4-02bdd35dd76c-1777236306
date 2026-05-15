@@ -403,22 +403,28 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
       {currentStage && (() => {
         const isBlocked = currentStage.status === "blocked";
         const u = (timeline as any).urgency as string | undefined;
+        // Wave 46 T1 -- 'tomorrow' tier added. Same amber tone as
+        // 'soon' for visual consistency, but the label is explicit.
         const tone = isBlocked
           ? { card: "bg-red-50 border-red-200", dot: "bg-red-500", label: "text-red-700", btn: "bg-red-600 hover:bg-red-700", pulseClass: "animate-pulse" }
           : u === "overdue" || u === "today"
             ? { card: "bg-rose-50 border-rose-300 ring-2 ring-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
-            : u === "soon"
+            : u === "tomorrow"
               ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
-              : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
+              : u === "soon"
+                ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
+                : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
         const headerLabel = isBlocked
           ? "Blocked"
           : u === "overdue"
             ? "Event past -- still incomplete"
             : u === "today"
               ? "Event today -- act now"
-              : u === "soon"
-                ? "Event in <72h -- next to do"
-                : "Next to do";
+              : u === "tomorrow"
+                ? "Event tomorrow -- final checks"
+                : u === "soon"
+                  ? "Event this week -- next to do"
+                  : "Next to do";
         return (
           <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${tone.card}`}>
             <div className={`w-2 h-2 rounded-full ${tone.pulseClass} flex-shrink-0 ${tone.dot}`} />

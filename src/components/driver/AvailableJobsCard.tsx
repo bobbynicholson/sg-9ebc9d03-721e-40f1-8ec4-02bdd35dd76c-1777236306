@@ -30,11 +30,13 @@ interface OpenOrder {
   id: string;
   order_number: string | null;
   client_name: string | null;
+  client_phone: string | null;
   event_date: string | null;
   event_time: string | null;
   guest_count: number | null;
   venue_address: string | null;
   total_amount: number | null;
+  special_instructions: string | null;
 }
 
 interface Props {
@@ -67,7 +69,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     const { data, error } = await (supabase as any)
       .from("orders")
       .select(
-        "id, order_number, client_name, event_date, event_time, guest_count, venue_address, total_amount",
+        "id, order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, total_amount, special_instructions",
       )
       .eq("company_id", companyId)
       .in("status", ["confirmed", "preparing", "ready"])
@@ -253,7 +255,24 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       <span className="truncate">{o.venue_address}</span>
                     </span>
                   )}
+                  {/* Wave 46 T5 -- tap-to-call client + special
+                      instructions inline so the driver knows what
+                      they're walking into BEFORE they claim. */}
+                  {o.client_phone && (
+                    <a
+                      href={`tel:${String(o.client_phone).replace(/\s+/g, "")}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-blue-700 hover:underline tabular-nums"
+                    >
+                      📞 {o.client_phone}
+                    </a>
+                  )}
                 </div>
+                {o.special_instructions && (
+                  <p className="mt-1 text-[11px] text-rose-700 italic line-clamp-2">
+                    {o.special_instructions}
+                  </p>
+                )}
               </div>
               <Button
                 size="sm"

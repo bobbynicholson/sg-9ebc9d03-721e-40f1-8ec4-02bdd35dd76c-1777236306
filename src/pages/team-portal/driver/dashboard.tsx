@@ -55,6 +55,10 @@ interface Job {
   id: string;
   order_number: string;
   client_name: string;
+  // Wave 46 T5 -- driver previously couldn't ring the client when
+  // they hit the venue (locked gate, on-site contact only). Now
+  // surfaces the contact phone + any special instructions inline.
+  client_phone?: string | null;
   venue_address: string;
   venue_lat?: number | null;
   venue_lng?: number | null;
@@ -64,6 +68,7 @@ interface Job {
   event_date: string;
   pickup_time?: string;
   delivery_distance_km?: number | null;
+  special_instructions?: string | null;
 }
 
 export default function DriverDashboard() {
@@ -125,6 +130,9 @@ export default function DriverDashboard() {
       setLoading(true);
 
       // Get driver's assignments
+      // Wave 46 T5 -- pull client_phone + special_instructions so the
+      // driver doesn't get stuck at a locked venue with no number
+      // to call, and sees any "back gate, ring up first" notes.
       const { data: assignments, error: assignmentsError } = await supabase
         .from("driver_assignments")
         .select(`
@@ -135,6 +143,7 @@ export default function DriverDashboard() {
             id,
             order_number,
             client_name,
+            client_phone,
             venue_address,
             venue_lat,
             venue_lng,
@@ -143,7 +152,8 @@ export default function DriverDashboard() {
             event_date,
             status,
             pickup_time,
-            delivery_distance_km
+            delivery_distance_km,
+            special_instructions
           )
         `)
         .eq("driver_id", user.id)
@@ -196,6 +206,9 @@ export default function DriverDashboard() {
           event_date: a.orders.event_date,
           pickup_time: a.orders.pickup_time,
           delivery_distance_km: a.orders.delivery_distance_km ?? null,
+          // Wave 46 T5
+          client_phone: a.orders.client_phone ?? null,
+          special_instructions: a.orders.special_instructions ?? null,
         }));
 
       const directJobs: Job[] = (directOrders || []).map((o: any) => ({
@@ -211,6 +224,9 @@ export default function DriverDashboard() {
         event_date: o.event_date,
         pickup_time: o.pickup_time,
         delivery_distance_km: o.delivery_distance_km ?? null,
+        // Wave 46 T5
+        client_phone: o.client_phone ?? null,
+        special_instructions: o.special_instructions ?? null,
       }));
 
       // Deduplicate by order ID
@@ -601,9 +617,9 @@ export default function DriverDashboard() {
                     {todaysJobs.slice(0, 3).map((job, index) => (
                       <div
                         key={job.id}
-                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-slate-50 rounded-lg"
+                        className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-slate-50 rounded-lg"
                       >
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
                           {index + 1}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -611,6 +627,24 @@ export default function DriverDashboard() {
                             {job.client_name}
                           </p>
                           <p className="text-xs text-slate-600 truncate">{job.venue_address}</p>
+                          {/* Wave 46 T5 -- client_phone tap-to-call so the
+                              driver can ring on arrival without leaving the
+                              app. Special instructions render in rose so a
+                              "back gate, ring up first" note is unmissable. */}
+                          {job.client_phone && (
+                            <a
+                              href={`tel:${String(job.client_phone).replace(/\s+/g, "")}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[11px] text-blue-700 hover:underline tabular-nums inline-flex items-center gap-1 mt-0.5"
+                            >
+                              📞 {job.client_phone}
+                            </a>
+                          )}
+                          {job.special_instructions && (
+                            <p className="text-[11px] text-rose-700 mt-1 italic line-clamp-2">
+                              {job.special_instructions}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-xs sm:text-sm font-semibold text-slate-900">{job.event_time}</p>

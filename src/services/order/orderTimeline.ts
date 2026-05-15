@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+
 /**
  * Order Timeline -- derives a richer 22-stage view of an order's
  * progress from the joined data (orders + payments + equipment + prep
@@ -109,18 +111,23 @@ export interface OrderTimelineFlags {
 }
 
 /**
- * Wave 43 T3 -- urgency tier derived from event_date vs now.
+ * Wave 43 T3 + Wave 46 T1 -- urgency tier derived from event_date
+ * vs now using CALENDAR-DAY comparison in the tenant's timezone.
  *
- *   normal   -- event > 72h away, or order is fully complete
- *   soon     -- event 24h-72h away, stages still incomplete
- *   today    -- event within 24h, stages still incomplete
- *   overdue  -- event date is past AND stages still incomplete
+ *   normal   -- event > 7 days away, or order is fully complete
+ *   soon     -- event within 7 days but not today/tomorrow
+ *   tomorrow -- event is the next calendar day (tenant tz)
+ *   today    -- event is today (tenant tz)
+ *   overdue  -- event date has passed AND stages still incomplete
  *
- * Drives the orange "next to do" chip's tone + pulse so the
- * operator sees at a glance which orders need attention RIGHT NOW.
- * Pure derivation -- no DB, no side effects.
+ * Wave 46 T1 fix: previously a hour-bucket (`<=24h -> 'today'`)
+ * incorrectly labelled tomorrow's evening event as "today" when
+ * the operator opened the page after midday. Calendar-day match
+ * matches the operator's wall clock.
+ *
+ * Drives the chip tone + pulse + sort. Pure derivation -- no DB.
  */
-export type OrderTimelineUrgency = "normal" | "soon" | "today" | "overdue";
+export type OrderTimelineUrgency = "normal" | "soon" | "tomorrow" | "today" | "overdue";
 
 export interface OrderTimeline {
   orderId: string;
@@ -193,6 +200,11 @@ export interface OrderTimelineInput {
    *  current stage and this is empty, surface "No driver claimed
    *  yet". */
   deliveryShifts?: Array<{ id: string; staff_id?: string | null; planned_start?: string | null; actual_start?: string | null }>;
+  /** Wave 46 T1 -- tenant timezone (IANA). Used for calendar-day
+   *  comparison when bucketing the urgency tier so "tomorrow" doesn't
+   *  collapse to "today" just because the event is <24h away.
+   *  Defaults to Africa/Johannesburg if missing. */
+  tenantTimezone?: string | null;
 }
 
 // --- Cluster + label table -------------------------------------------------
@@ -781,28 +793,40 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
   const completedStages = resolved.filter((s) => s.status === "completed");
   const isFullyComplete = completedStages.length === applicableStages.length;
 
-  // Wave 43 T3 -- urgency tier. Compute ms-to-event from
-  // event_date (+ event_time when present) so the orange chip can
-  // pulse for tomorrow's events and the orders list can sort by
-  // most-urgent first.
+  // Wave 43 T3 + Wave 46 T1 -- urgency tier with calendar-day
+  // comparison in the tenant's timezone. Hour-bucketing meant a
+  // tomorrow-evening event opened at midday today flipped to "today"
+  // (because <24h away) even though the operator's wall clock said
+  // tomorrow. Calendar-day match honours the operator's mental model.
   let msToEvent: number | null = null;
   let urgency: OrderTimelineUrgency = "normal";
   const evDate = input.order?.event_date as string | null | undefined;
   if (evDate) {
     const evTime = (input.order?.event_time as string | null | undefined) || "12:00:00";
-    // Local-tenant time. Without a timezone column we build naively
-    // and accept ~tz-offset error -- fine for "is it today?" buckets.
+    const tz = input.tenantTimezone || DEFAULT_TENANT_TIMEZONE;
+    // msToEvent stays absolute UTC -- pulse / countdown still uses
+    // raw delta. Only the bucketing flips to calendar-day.
     const evMs = new Date(`${evDate}T${evTime}`).getTime();
     if (!Number.isNaN(evMs)) {
       msToEvent = evMs - Date.now();
       if (isFullyComplete) {
         urgency = "normal";
       } else {
-        const hoursToEvent = msToEvent / 3_600_000;
-        if (hoursToEvent < 0) urgency = "overdue";
-        else if (hoursToEvent <= 24) urgency = "today";
-        else if (hoursToEvent <= 72) urgency = "soon";
-        else urgency = "normal";
+        const nowDate = new Date();
+        const todayLocal = toZonedISO(nowDate, tz);
+        const tomorrowLocal = toZonedISO(
+          new Date(nowDate.getTime() + 24 * 60 * 60 * 1000),
+          tz,
+        );
+        // event_date is stored as YYYY-MM-DD already in tenant tz.
+        if (evDate < todayLocal) urgency = "overdue";
+        else if (evDate === todayLocal) urgency = "today";
+        else if (evDate === tomorrowLocal) urgency = "tomorrow";
+        else {
+          // Within 7 days = "soon", otherwise "normal".
+          const daysOut = Math.floor((evMs - nowDate.getTime()) / 86_400_000);
+          urgency = daysOut <= 7 ? "soon" : "normal";
+        }
       }
     }
   }
