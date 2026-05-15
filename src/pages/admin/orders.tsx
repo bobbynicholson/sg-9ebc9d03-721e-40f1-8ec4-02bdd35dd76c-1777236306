@@ -1484,9 +1484,19 @@ function OrderProcessDashboard() {
                     <Users className="w-4 h-4" />
                     <span>{order.guest_count} guests</span>
                   </div>
+                  {/* Wave 53 -- drop the misleading dollar icon (was
+                      rendering "$" in front of ZAR / GBP / EUR
+                      amounts). Currency code lives in the C prefix
+                      already. Force 2 dp so 9223.5 renders as
+                      9 223.50, matching how every invoice line
+                      reads. */}
                   <div className="flex items-center gap-1 font-semibold text-slate-900">
-                    <DollarSign className="w-4 h-4" />
-                    <span>{C}{Number(order.total_amount || 0).toLocaleString()}</span>
+                    <span>
+                      {C}{Number(order.total_amount || 0).toLocaleString("en-ZA", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
