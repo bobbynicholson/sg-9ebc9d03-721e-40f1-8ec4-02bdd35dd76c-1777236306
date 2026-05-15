@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    const { resolveEmailTemplate } = await import("@/services/emailTemplateResolver");
+    const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
     const { emailService } = await import("@/services/emailService");
     const yesterdayIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 

@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const templateKey = templateKeyFor(state.nextPosition, "email");
         try {
           // Lazy import to keep cold-start light + avoid circular deps.
-          const { resolveEmailTemplate } = await import("@/services/emailTemplateResolver");
+          const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
           const { emailService } = await import("@/services/emailService");
 
           const variables: Record<string, string> = {

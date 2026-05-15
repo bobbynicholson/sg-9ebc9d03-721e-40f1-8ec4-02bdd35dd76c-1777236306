@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .gte("sent_at", yesterday);
         if (recentCount && recentCount > 0) continue;
 
-        const { resolveEmailTemplate } = await import("@/services/emailTemplateResolver");
+        const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
         const { emailService } = await import("@/services/emailService");
 
         const variables: Record<string, string> = {
