@@ -97,7 +97,12 @@ function StageDot({
   // hospital-cross green; emerald reads as teal which muddied the
   // signal in the live spit-braai walkthrough.
   const dotClasses = (() => {
-    if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 animate-pulse shadow-md shadow-orange-200`;
+    // Wave 56 -- pulse only on blocked. Pre-Wave-56 every "current"
+    // dot pulsed (every order has exactly one current stage, so 50
+    // visible orders = 50 simultaneous heartbeats -- signal-to-noise
+    // destroyed). Now: orange ring still marks current at-a-glance,
+    // pulse reserved for the genuine alert state (blocked).
+    if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 shadow-md shadow-orange-200`;
     if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
     if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
@@ -421,12 +426,17 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
               : u === "soon"
                 ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
                 : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
+        // Wave 56 -- copy softened. Pre-Wave-56 read "Event today --
+        // act now" + "Event past -- still incomplete" -- alarmist
+        // surveillance register that the OrderReadinessChip's own
+        // header docstring explicitly bans ("Goal is to make Callum
+        // feel held, not policed"). Now reads as a calm shoulder-tap.
         const headerLabel = isBlocked
           ? "Blocked"
           : u === "overdue"
-            ? "Event past -- still incomplete"
+            ? "Event past -- close out"
             : u === "today"
-              ? "Event today -- act now"
+              ? "Event today -- final checks"
               : u === "tomorrow"
                 ? "Event tomorrow -- final checks"
                 : u === "soon"

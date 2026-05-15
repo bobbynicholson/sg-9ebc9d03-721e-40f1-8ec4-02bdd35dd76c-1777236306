@@ -75,54 +75,69 @@ interface OrderStats {
   inProgress: number;
 }
 
+// Wave 56 -- collapsed from 8 categorical hues to a 3-tone semantic
+// scheme. The status progression is genuinely linear (waiting ->
+// active -> done), not categorical. The previous palette taught the
+// operator nothing because every status was a different unrelated
+// colour. Now: amber = waiting on someone, blue = work in motion,
+// slate = closed, rose = cancelled (the only true alert tone).
+//
+// Icons retained per stage so the badge still carries fast
+// recognition; sentence-case labels match Wave 54.5 dropdown.
 const STATUS_CONFIG = {
-  pending: { 
-    label: "Pending", 
-    icon: Clock, 
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    dotColor: "bg-yellow-500"
+  pending: {
+    label: "Pending",
+    icon: Clock,
+    color: "bg-amber-50 text-amber-800 border-amber-200",
+    dotColor: "bg-amber-500"
   },
-  confirmed: { 
-    label: "Confirmed", 
-    icon: CheckCircle2, 
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+  confirmed: {
+    label: "Confirmed",
+    icon: CheckCircle2,
+    color: "bg-blue-50 text-blue-800 border-blue-200",
     dotColor: "bg-blue-500"
   },
-  preparing: { 
-    label: "In Prep", 
-    icon: Package, 
-    color: "bg-purple-100 text-purple-800 border-purple-200",
-    dotColor: "bg-purple-500"
+  preparing: {
+    label: "In prep",
+    icon: Package,
+    color: "bg-blue-50 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500"
   },
-  ready: { 
-    label: "Ready", 
-    icon: CheckCircle2, 
-    color: "bg-green-100 text-green-800 border-green-200",
-    dotColor: "bg-green-500"
+  ready: {
+    label: "Ready",
+    icon: CheckCircle2,
+    color: "bg-blue-50 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500"
   },
-  in_transit: { 
-    label: "In Transit", 
-    icon: Truck, 
-    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
-    dotColor: "bg-indigo-500"
+  in_transit: {
+    label: "In transit",
+    icon: Truck,
+    color: "bg-blue-50 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500"
   },
-  delivered: { 
-    label: "Delivered", 
-    icon: MapPin, 
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    dotColor: "bg-emerald-500"
+  delivered: {
+    label: "Delivered",
+    icon: CheckCircle2,
+    color: "bg-blue-50 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500"
   },
-  completed: { 
-    label: "Completed", 
-    icon: CheckCircle2, 
-    color: "bg-slate-100 text-slate-800 border-slate-200",
-    dotColor: "bg-slate-500"
+  completed: {
+    label: "Completed",
+    icon: CheckCircle2,
+    color: "bg-slate-100 text-slate-700 border-slate-200",
+    dotColor: "bg-slate-400"
   },
-  cancelled: { 
-    label: "Cancelled", 
-    icon: AlertCircle, 
-    color: "bg-red-100 text-red-800 border-red-200",
-    dotColor: "bg-red-500"
+  paused: {
+    label: "Paused",
+    icon: Clock,
+    color: "bg-slate-100 text-slate-700 border-slate-300",
+    dotColor: "bg-slate-400"
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: AlertCircle,
+    color: "bg-rose-50 text-rose-800 border-rose-200",
+    dotColor: "bg-rose-400"
   },
 };
 
@@ -1311,23 +1326,13 @@ function OrderProcessDashboard() {
                     public_token (legacy quotes pre-token migration).
                     Opens in a new tab so the operator doesn't lose
                     their place in /admin/orders. */}
-                {(order as any).quote_id && (() => {
-                  const tok = (order as any).quote?.public_token;
-                  const href = tok ? `/q/${tok}` : withSlug(`/admin/quotes/${(order as any).quote_id}`);
-                  return (
-                    <Link
-                      href={href}
-                      target={tok ? "_blank" : undefined}
-                      rel={tok ? "noopener noreferrer" : undefined}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
-                      title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
-                    >
-                      <FileText className="w-3 h-3" />
-                      from quote
-                    </Link>
-                  );
-                })()}
+                {/* Wave 56 -- "from quote" pill removed from kanban
+                    OrderCard. Pre-Wave-56 it appeared on this card +
+                    on the TimelineRow + in the modal -- triplicate.
+                    Kanban is a secondary view; the modal still
+                    surfaces the cross-reference on click, and the
+                    TimelineRow keeps its pill for default-view
+                    scannability. Net: 3x -> 2x per order. */}
               </div>
               <Badge
                 variant="outline"
@@ -3377,7 +3382,11 @@ function OrderProcessDashboard() {
                   <ShoppingCart className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  {/* Wave 56 -- gradient text H1 was the loudest
+                      element on the page and conveyed nothing. Plain
+                      text-slate-900 lets the actual data carry
+                      visual hierarchy. */}
+                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
                     Orders
                   </h1>
                   <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
@@ -3564,87 +3573,51 @@ function OrderProcessDashboard() {
               </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Orders <InfoTooltip content={"Number of orders that match your current search, status and date filters."} /></p>
-                      <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-                    </div>
-                    <ShoppingCart className="w-8 h-8 text-blue-600 opacity-30" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">
-                        Booked revenue
-                        <InfoTooltip content={"Total value of orders the client has confirmed, either by paying a deposit or by being manually marked as confirmed by your team.\n\nPending, draft, and cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed, 'money in the till'."} />
-                      </p>
-                      <p className="text-2xl font-bold text-green-900">
-                        {C}{(stats.revenue.booked / 1000).toFixed(0)}k
-                      </p>
-                      <p className="text-[11px] text-green-700/80 mt-0.5">
-                        Realised: {C}{(stats.revenue.realised / 1000).toFixed(0)}k
-                      </p>
-                    </div>
-                    <DollarSign className="w-8 h-8 text-green-600 opacity-30 flex-shrink-0" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-purple-700 mb-1 flex items-center gap-1.5">In Progress <InfoTooltip content={"Orders the team is actively working on, anywhere from confirmed through to delivered."} /></p>
-                      <p className="text-3xl font-bold text-purple-900">{stats.inProgress}</p>
-                    </div>
-                    <Package className="w-8 h-8 text-purple-600 opacity-30" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-orange-700 mb-1 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Orders in the current view dated today or later that are still open."} /></p>
-                      <p className="text-3xl font-bold text-orange-900">{stats.upcoming}</p>
-                    </div>
-                    <Calendar className="w-8 h-8 text-orange-600 opacity-30" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-yellow-700 mb-1 flex items-center gap-1.5">Pending <InfoTooltip content={"Orders waiting for you to confirm them."} /></p>
-                      <p className="text-3xl font-bold text-yellow-900">{stats.byStatus.pending || 0}</p>
-                    </div>
-                    <Clock className="w-8 h-8 text-yellow-600 opacity-30" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-indigo-700 mb-1 flex items-center gap-1.5">In Transit <InfoTooltip content={"Orders that are out on the road being delivered right now."} /></p>
-                      <p className="text-3xl font-bold text-indigo-900">{stats.byStatus.in_transit || 0}</p>
-                    </div>
-                    <Truck className="w-8 h-8 text-indigo-600 opacity-30" />
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Wave 56 -- design system collapse.
+                The 6 gradient stats tiles consumed the top third of the
+                viewport with near-zero actionability per the audit team.
+                The page is "where every order is in its lifecycle" --
+                show orders first, summaries second.
+                Booked revenue + Realised tiles removed entirely per
+                Bobby's Skylight finance-visibility rule (staff
+                shouldn't see invoiced amounts; that lives in director-
+                only Cashflow / DashDog surfaces).
+                Total Orders + Upcoming + In Progress reduced to a
+                single thin pill strip. Pending + In Transit kept
+                because they're the two action-signal counts an
+                operator scans for. */}
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
+                <ShoppingCart className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                <span className="font-semibold text-slate-900">{stats.total}</span>
+                <span className="text-slate-500">{stats.total === 1 ? "order" : "orders"}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                <span className="font-semibold text-slate-900">{stats.upcoming}</span>
+                <span className="text-slate-500">upcoming</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
+                <Package className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                <span className="font-semibold text-slate-900">{stats.inProgress}</span>
+                <span className="text-slate-500">in progress</span>
+              </span>
+              {/* Pending = action signal -- amber */}
+              {(stats.byStatus.pending || 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+                  <span className="font-semibold">{stats.byStatus.pending}</span>
+                  <span>pending</span>
+                </span>
+              )}
+              {/* In transit = live signal -- blue */}
+              {(stats.byStatus.in_transit || 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800">
+                  <Truck className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                  <span className="font-semibold">{stats.byStatus.in_transit}</span>
+                  <span>in transit</span>
+                </span>
+              )}
             </div>
 
             {/* Client filter pill -- shows when /admin/orders was opened

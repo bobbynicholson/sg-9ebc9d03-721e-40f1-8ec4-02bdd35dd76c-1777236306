@@ -18,6 +18,13 @@ import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, Exter
 import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderReadiness";
 import { useTenantHref } from "@/lib/tenantUrl";
 
+// Wave 56 -- emerald retired in favour of green per the existing
+// TimelineTrack docstring: "green-500 (not emerald-500) is the
+// unambiguous hospital-cross green; emerald reads as teal which
+// muddied the signal". Pulse on the rose chip removed -- the colour
+// + ring already carries enough urgency, and the previous pulse
+// stacked with the timeline's stage-dot pulse on the same row, two
+// out-of-sync heartbeats.
 const TONE: Record<OrderReadiness["chip"], {
   card: string;
   dot: string;
@@ -26,9 +33,9 @@ const TONE: Record<OrderReadiness["chip"], {
   pulse: string;
 }> = {
   green: {
-    card: "bg-emerald-50 border-emerald-200",
-    dot: "bg-emerald-500",
-    label: "text-emerald-800",
+    card: "bg-green-50 border-green-200",
+    dot: "bg-green-500",
+    label: "text-green-800",
     Icon: CheckCircle2,
     pulse: "",
   },
@@ -44,7 +51,7 @@ const TONE: Record<OrderReadiness["chip"], {
     dot: "bg-rose-500",
     label: "text-rose-800",
     Icon: AlertCircle,
-    pulse: "animate-pulse",
+    pulse: "",
   },
 };
 
