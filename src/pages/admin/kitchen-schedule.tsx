@@ -31,6 +31,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
+import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
+import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
+import {
+  listTasksForShifts,
+  type ShiftTaskRow,
+} from "@/services/staffShiftTasksService";
 
 interface Staffer {
   id: string;
@@ -99,6 +105,11 @@ function KitchenScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
+  // Wave 41 Phase 3: per-shift task chips (kitchen / cleaning /
+  // delivery / shopping / waitering / setup / breakdown / admin).
+  // Indexed by shift_id for O(1) cell render lookup.
+  const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
+  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string } | null>(null);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -136,13 +147,31 @@ function KitchenScheduleGrid() {
           .is("deleted_at", null),
       ]);
       setStaff((staffRes.data || []) as Staffer[]);
-      setShifts((shiftsRes.data || []) as ShiftRow[]);
+      const shiftRows = (shiftsRes.data || []) as ShiftRow[];
+      setShifts(shiftRows);
+      // Phase 3: pull tasks for every shift in this week in one
+      // batch. Empty map until shifts exist, no extra round-trip.
+      const shiftIds = shiftRows.map((s) => s.id);
+      if (shiftIds.length > 0) {
+        const taskMap = await listTasksForShifts(supabase as any, shiftIds);
+        setTasksByShift(taskMap);
+      } else {
+        setTasksByShift(new Map());
+      }
     } catch {
       setStaff([]);
       setShifts([]);
+      setTasksByShift(new Map());
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshTasks = async () => {
+    const shiftIds = shifts.map((s) => s.id);
+    if (shiftIds.length === 0) return;
+    const taskMap = await listTasksForShifts(supabase as any, shiftIds);
+    setTasksByShift(taskMap);
   };
 
   useEffect(() => {
@@ -366,6 +395,12 @@ function KitchenScheduleGrid() {
                                                   {plannedHours(s.planned_start, s.planned_end).toFixed(1)}h planned
                                                 </div>
                                               )}
+                                              {/* Wave 41 Phase 3: typed task chips. */}
+                                              <ShiftTasksChips
+                                                tasks={tasksByShift.get(s.id) || []}
+                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
+                                                onChanged={refreshTasks}
+                                              />
                                             </div>
                                           );
                                         })}
@@ -425,6 +460,20 @@ function KitchenScheduleGrid() {
           defaultDate={logTarget.date}
           actorUserId={user?.id ?? null}
           onCreated={() => { setLogTarget(null); void load(); }}
+        />
+      )}
+
+      {/* Wave 41 Phase 3 -- add-task modal. Defaults to 'kitchen'
+          on this page; operator can pick any of the 8 task types. */}
+      {addTaskTarget && companyId && (
+        <AddShiftTaskModal
+          open={!!addTaskTarget}
+          onOpenChange={(o) => !o && setAddTaskTarget(null)}
+          companyId={companyId}
+          shiftId={addTaskTarget.shiftId}
+          defaultType="kitchen"
+          actorUserId={user?.id ?? null}
+          onCreated={() => { setAddTaskTarget(null); void refreshTasks(); }}
         />
       )}
     </>
