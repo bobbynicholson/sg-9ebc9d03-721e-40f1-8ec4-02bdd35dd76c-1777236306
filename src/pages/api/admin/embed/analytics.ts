@@ -27,11 +27,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { data: { user } } = await ssr.auth.getUser();
   if (!user) return res.status(401).json({ error: "Authentication required" });
 
-  const { data: profile } = await ssr
+  const { data: profile, error: profileErr } = await ssr
     .from("profiles")
     .select("role, active_role, company_id")
     .eq("id", user.id)
     .single();
+  if (profileErr) {
+    console.error("[admin/embed/analytics] profiles fetch failed:", profileErr);
+  }
   if (!profile) return res.status(403).json({ error: "Profile not found" });
   const role = (profile as any).active_role || (profile as any).role;
   if (!ALLOWED.has(role)) return res.status(403).json({ error: "Forbidden" });
@@ -46,11 +49,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = getServiceSupabase();
 
   // Verify the form belongs to caller's company.
-  const { data: form } = await (db as any)
+  const { data: form, error: formErr } = await (db as any)
     .from("embed_form_configs")
     .select("id, company_id, views_count, submissions_count")
     .eq("id", formId)
     .maybeSingle();
+  if (formErr) {
+    console.error("[admin/embed/analytics] embed_form_configs fetch failed:", formErr);
+  }
 
   if (!form) return res.status(404).json({ error: "Form not found" });
   if ((form as any).company_id !== companyId && role !== "super_admin") {

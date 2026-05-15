@@ -46,11 +46,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wave 24: role gate (see header). RLS continues to scope the
     // quote read per-tenant; this rejects in-tenant non-admin staff
     // before they reach the read.
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role")
       .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      console.error("[admin/quote-pdf] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED_ROLES.has(role)) {
       return res.status(403).json({ error: "Owner or admin only" });

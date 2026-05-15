@@ -81,11 +81,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Look up the order + verify ownership + amendable window.
-    const { data: order } = await ssr
+    const { data: order, error: orderErr } = await ssr
       .from("orders")
       .select("id, company_id, client_id, event_date, status, deleted_at")
       .eq("id", order_id)
       .maybeSingle();
+    if (orderErr) {
+      console.error("[orders/amendment-request] orders fetch failed:", orderErr);
+    }
     if (!order || (order as any).deleted_at) {
       return res.status(404).json({ error: "Order not found" });
     }
@@ -100,11 +103,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // auth.uid() OR clients.email = auth.email() (the second is a
     // fallback for clients who own the order via portal token but
     // haven't been linked to an auth user yet).
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id, email")
       .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      console.error("[orders/amendment-request] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     const isAdminInCompany =
       ["super_admin", "company_admin", "admin", "owner"].includes(role) &&
@@ -112,11 +118,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let isLinkedClient = false;
     if (!isAdminInCompany && (order as any).client_id) {
-      const { data: clientRow } = await ssr
+      const { data: clientRow, error: clientRowErr } = await ssr
         .from("clients")
         .select("id, user_id, email")
         .eq("id", (order as any).client_id)
         .maybeSingle();
+      if (clientRowErr) {
+        console.error("[orders/amendment-request] clients fetch failed:", clientRowErr);
+      }
       if (clientRow) {
         const cr = clientRow as any;
         const userEmail = (user.email || (profile as any)?.email || "").toLowerCase().trim();

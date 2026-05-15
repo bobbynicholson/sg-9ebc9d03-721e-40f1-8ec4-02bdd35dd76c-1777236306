@@ -160,11 +160,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // surface that order rather than refusing -- the caller can deep-link.
     const alreadyConverted = quoteList.find((q: any) => q.converted_to_order_id);
     if (alreadyConverted) {
-      const { data: existingOrder } = await svc
+      const { data: existingOrder, error: existingOrderErr } = await svc
         .from("orders")
         .select("id, order_number")
         .eq("id", (alreadyConverted as any).converted_to_order_id)
         .maybeSingle();
+      if (existingOrderErr) {
+        console.error("[admin/leads/[id]/convert-to-order] orders fetch failed:", existingOrderErr);
+      }
       if (existingOrder) {
         // Re-run the cascade on already-converted leads. Each step is
         // idempotent (invoice short-circuits on existing row; email

@@ -36,11 +36,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      console.error("[admin/invoices/bulk-mark-paid] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: "Admin only" });
     const companyId = (profile as any)?.company_id as string | undefined;
@@ -81,11 +84,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // on every row.
     let companyCurrency = "ZAR";
     try {
-      const { data: companyRow } = await ssr
+      const { data: companyRow, error: companyRowErr } = await ssr
         .from("companies")
         .select("currency")
         .eq("id", companyId)
         .maybeSingle();
+      if (companyRowErr) {
+        console.error("[admin/invoices/bulk-mark-paid] companies fetch failed:", companyRowErr);
+      }
       if ((companyRow as any)?.currency) companyCurrency = (companyRow as any).currency;
     } catch {
       // non-fatal -- fall back to ZAR

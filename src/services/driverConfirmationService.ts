@@ -356,11 +356,14 @@ export const driverConfirmationService = {
    */
   async startCollection(orderId: string, driverId: string) {
     try {
-      const { data: orderRow } = await supabase
+      const { data: orderRow, error: orderRowErr3 } = await supabase
         .from("orders")
         .select("company_id")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderRowErr3) {
+        console.error("[driverConfirmationService] orders fetch failed:", orderRowErr3);
+      }
       const companyId = (orderRow as any)?.company_id;
       if (!companyId) return null;
       const { driverPayService } = await import("@/services/driverPayService");
@@ -404,13 +407,16 @@ export const driverConfirmationService = {
     if (orderError || !order) return;
 
     // Check if confirmation exists
-    const { data: confirmation } = await supabase
+    const { data: confirmation, error: confirmationErr } = await supabase
       .from('driver_confirmations')
       .select('*')
       .eq('order_id', orderId)
       .eq('driver_id', driverId)
       .eq('confirmation_type', 'en_route_to_kitchen')
       .single();
+    if (confirmationErr) {
+      console.error("[driverConfirmationService] driver_confirmations fetch failed:", confirmationErr);
+    }
 
     if (confirmation) return; // Already confirmed
 
@@ -437,17 +443,23 @@ export const driverConfirmationService = {
    * the missing confirmation, recipients are dispatch / admin only.
    */
   async sendEnRouteAlert(orderId: string, driverId: string) {
-    const { data: driver } = await supabase
+    const { data: driver, error: driverErr } = await supabase
       .from('profiles')
       .select('full_name, phone_number')
       .eq('id', driverId)
       .single();
+    if (driverErr) {
+      console.error("[driverConfirmationService] profiles fetch failed:", driverErr);
+    }
 
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from('orders')
       .select('order_number, event_date, event_time, company_id')
       .eq('id', orderId)
       .single();
+    if (orderErr) {
+      console.error("[driverConfirmationService] orders fetch failed:", orderErr);
+    }
 
     if (!driver || !order || !order.company_id) return;
 
@@ -513,21 +525,27 @@ export const driverConfirmationService = {
    * Notify admin of driver confirmation
    */
   async notifyAdminOfConfirmation(orderId: string, driverId: string, confirmationType: string) {
-    const { data: driver } = await supabase
+    const { data: driver, error: driverErr2 } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', driverId)
       .single();
+    if (driverErr2) {
+      console.error("[driverConfirmationService] profiles fetch failed:", driverErr2);
+    }
 
     // Pull company_id + user_id from the order so we hit a real
     // recipient. Previously this used 'admin' / 'system-id' which are
     // not UUIDs -- the insert failed silently and dispatch never got
     // the ping.
-    const { data: order } = await supabase
+    const { data: order, error: orderErr2 } = await supabase
       .from('orders')
       .select('order_number, company_id, user_id')
       .eq('id', orderId)
       .single();
+    if (orderErr2) {
+      console.error("[driverConfirmationService] orders fetch failed:", orderErr2);
+    }
 
     if (!driver || !order || !order.company_id) return;
 

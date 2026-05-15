@@ -63,11 +63,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const ssr = createPagesServerClient({ req, res });
       const { data: { user } } = await ssr.auth.getUser();
       if (!user) return res.status(401).json({ error: "Not signed in" });
-      const { data: profile } = await ssr
+      const { data: profile, error: profileErr } = await ssr
         .from("profiles")
         .select("role, active_role, company_id")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileErr) {
+        console.error("[accounting/xero/sync-invoice] profiles fetch failed:", profileErr);
+      }
       const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
       if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: "Owner or admin only" });
       companyIdScope = (profile as any)?.company_id || null;
@@ -75,11 +78,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabase: any = getServiceSupabase();
 
-    const { data: invoice } = await supabase
+    const { data: invoice, error: invoiceErr } = await supabase
       .from("invoices")
       .select("id, company_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount, amount_paid, balance_due, status, external_id, client_id, order_id, last_synced_at")
       .eq("id", invoice_id)
       .maybeSingle();
+    if (invoiceErr) {
+      console.error("[accounting/xero/sync-invoice] invoices fetch failed:", invoiceErr);
+    }
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
     if (!isInternal && companyIdScope && companyIdScope !== invoice.company_id) {
       return res.status(403).json({ error: "Wrong company" });
@@ -97,11 +103,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsErr } = await supabase
       .from("xero_integration_settings")
       .select("*")
       .eq("company_id", invoice.company_id)
       .maybeSingle();
+    if (settingsErr) {
+      console.error("[accounting/xero/sync-invoice] xero_integration_settings fetch failed:", settingsErr);
+    }
     const xs = settings as XeroSettings | null;
     if (!xs || !xs.is_connected || !xs.xero_tenant_id) {
       return res.status(409).json({ error: "Xero is not connected for this company" });

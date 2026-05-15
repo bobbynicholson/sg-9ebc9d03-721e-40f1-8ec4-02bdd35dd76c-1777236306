@@ -28,11 +28,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (subErr || !sub) return res.status(404).json({ error: "Webhook not found" });
 
   // Verify caller is in the same company
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("company_id, role")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileErr) {
+    console.error("[integrations/test-webhook] profiles fetch failed:", profileErr);
+  }
   if (!profile || profile.company_id !== sub.company_id) {
     return res.status(403).json({ error: "Not authorised for this webhook" });
   }

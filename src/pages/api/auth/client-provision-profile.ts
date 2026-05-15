@@ -52,11 +52,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Look up the company by slug. We never trust the slug as-is for
     // the insert -- we resolve it to a UUID server-side first.
-    const { data: company } = await admin
+    const { data: company, error: companyErr } = await admin
       .from("companies")
       .select("id, slug, company_name")
       .eq("slug", company_slug)
       .maybeSingle();
+    if (companyErr) {
+      console.error("[auth/client-provision-profile] companies fetch failed:", companyErr);
+    }
 
     if (!company) {
       return res.status(404).json({ error: "Company not found" });
@@ -79,12 +82,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // legitimately using the same email could end up with the
         // wrong person's quotes attached. Surface it for admin
         // review rather than guessing.
-        const { data: candidates } = await admin
+        const { data: candidates, error: candidatesErr } = await admin
           .from("clients")
           .select("id")
           .eq("company_id", company.id)
           .ilike("email", user.email || "")
           .is("user_id", null);
+        if (candidatesErr) {
+          console.error("[auth/client-provision-profile] clients fetch failed:", candidatesErr);
+        }
         const candidateCount = Array.isArray(candidates) ? candidates.length : 0;
         if (candidateCount > 1) {
           console.warn("[client-provision-profile] ambiguous email relink", {
@@ -108,11 +114,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // then attach orphan quotes (NULL client_id) by email match.
         // The .or() is guarded by company_id so we never link a quote
         // from another tenant by accident.
-        const { data: clientRowsResolved } = await admin
+        const { data: clientRowsResolved, error: clientRowsResolvedErr } = await admin
           .from("clients")
           .select("id")
           .eq("company_id", company.id)
           .eq("user_id", user.id);
+        if (clientRowsResolvedErr) {
+          console.error("[auth/client-provision-profile] clients fetch failed:", clientRowsResolvedErr);
+        }
         const ids = ((clientRowsResolved as any[]) || []).map((r) => r.id);
         if (ids.length > 0 && user.email) {
           // Pick the most recent clients row as the canonical id to
@@ -134,11 +143,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // If the user already has a profile, return it -- never overwrite.
     // This handles the case where the same email is also a client of
     // another catering company, or in some other role entirely.
-    const { data: existing } = await admin
+    const { data: existing, error: existingErr } = await admin
       .from("profiles")
       .select("id, role, company_id, full_name, email")
       .eq("id", user.id)
       .maybeSingle();
+    if (existingErr) {
+      console.error("[auth/client-provision-profile] profiles fetch failed:", existingErr);
+    }
 
     if (existing) {
       // Still run the email-relink for the existing-profile path --
@@ -157,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // capitalised version of the email's local-part.
     let fullName: string | null = null;
     try {
-      const { data: clientRow } = await admin
+      const { data: clientRow, error: clientRowErr } = await admin
         .from("clients")
         .select("client_name")
         .eq("company_id", company.id)
@@ -165,6 +177,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (clientRowErr) {
+        console.error("[auth/client-provision-profile] clients fetch failed:", clientRowErr);
+      }
       fullName = (clientRow as any)?.client_name || null;
     } catch {
       /* non-fatal */

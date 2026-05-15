@@ -472,7 +472,7 @@ export const driverPayService = {
         // the same driver. Pull the most recent closed shift in
         // the 24h before this one.
         const lookbackIso = new Date(startMs - 24 * 3_600_000).toISOString();
-        const { data: prior } = await (client as any)
+        const { data: prior, error: priorErr } = await (client as any)
           .from("driver_shifts")
           .select("actual_end")
           .eq("driver_id", payload.driver_id)
@@ -482,6 +482,9 @@ export const driverPayService = {
           .lte("actual_end", payload.actual_start)
           .order("actual_end", { ascending: false })
           .limit(1);
+        if (priorErr) {
+          console.error("[driverPayService] driver_shifts fetch failed:", priorErr);
+        }
         const lastEnd = (prior as any)?.[0]?.actual_end;
         if (lastEnd) {
           const gapHours = (startMs - new Date(lastEnd).getTime()) / 3_600_000;
@@ -525,11 +528,14 @@ export const driverPayService = {
     // missing snapshot doesn't block the edit.
     let before: any = null;
     try {
-      const { data } = await (client as any)
+      const { data, error: error2 } = await (client as any)
         .from("driver_shifts")
         .select("id, company_id, driver_id, actual_start, actual_end, notes, rate_multiplier, status")
         .eq("id", id)
         .maybeSingle();
+      if (error2) {
+        console.error("[driverPayService] driver_shifts fetch failed:", error2);
+      }
       before = data || null;
     } catch {
       /* non-blocking */
@@ -567,11 +573,14 @@ export const driverPayService = {
   ): Promise<{ ok: boolean; error?: string }> {
     let before: any = null;
     try {
-      const { data } = await (client as any)
+      const { data, error: error3 } = await (client as any)
         .from("driver_shifts")
         .select("id, company_id, driver_id, actual_start, actual_end, notes, rate_multiplier, status")
         .eq("id", id)
         .maybeSingle();
+      if (error3) {
+        console.error("[driverPayService] driver_shifts fetch failed:", error3);
+      }
       before = data || null;
     } catch {
       /* non-blocking */
@@ -716,7 +725,7 @@ export const driverPayService = {
       // Check for an existing open shift on this order. Avoids dupe
       // rows when the driver hits "picked up" twice or the API
       // double-fires.
-      const { data: existing } = await (client as any)
+      const { data: existing, error: existingErr } = await (client as any)
         .from("driver_shifts")
         .select("id")
         .eq("company_id", opts.companyId)
@@ -725,6 +734,9 @@ export const driverPayService = {
         .is("actual_end", null)
         .is("deleted_at", null)
         .maybeSingle();
+      if (existingErr) {
+        console.error("[driverPayService] driver_shifts fetch failed:", existingErr);
+      }
       if (existing) return { ok: true, shiftId: (existing as any).id };
 
       const nowIso = new Date().toISOString();
@@ -763,7 +775,7 @@ export const driverPayService = {
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; error?: string }> {
     try {
-      const { data: openShift } = await (client as any)
+      const { data: openShift, error: openShiftErr } = await (client as any)
         .from("driver_shifts")
         .select("id, actual_start")
         .eq("company_id", opts.companyId)
@@ -772,6 +784,9 @@ export const driverPayService = {
         .is("actual_end", null)
         .is("deleted_at", null)
         .maybeSingle();
+      if (openShiftErr) {
+        console.error("[driverPayService] driver_shifts fetch failed:", openShiftErr);
+      }
       if (!openShift) return { ok: true }; // nothing to close, fine
 
       const nowIso = new Date().toISOString();
@@ -789,10 +804,13 @@ export const driverPayService = {
       // when the summary view wants the breakdown.
       const oneOffSet = new Set<string>();
       const recurringMDSet = new Set<string>();
-      const { data: holidays } = await (client as any)
+      const { data: holidays, error: holidaysErr } = await (client as any)
         .from("public_holidays")
         .select("date, is_recurring")
         .eq("company_id", opts.companyId);
+      if (holidaysErr) {
+        console.error("[driverPayService] public_holidays fetch failed:", holidaysErr);
+      }
       for (const h of (holidays || []) as Array<{ date: string; is_recurring: boolean }>) {
         if (!h.date) continue;
         if (h.is_recurring) recurringMDSet.add(h.date.slice(5));
@@ -886,11 +904,14 @@ export const driverPayService = {
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
-    const { data: assignmentRows } = await (client as any)
+    const { data: assignmentRows, error: assignmentRowsErr } = await (client as any)
       .from("driver_assignments")
       .select("order_id, base_fee, distance_fee, total_earnings")
       .eq("driver_id", opts.driverId)
       .in("order_id", orderIds);
+    if (assignmentRowsErr) {
+      console.error("[driverPayService] driver_assignments fetch failed:", assignmentRowsErr);
+    }
     const lockedByOrder = new Map<string, { base: number | null; distance: number | null; total: number | null }>();
     for (const a of (assignmentRows || []) as Array<{
       order_id: string;
@@ -933,11 +954,14 @@ async function snapshotDriverAssignmentForOrder(
   opts: { companyId: string; driverId: string; orderId: string },
 ): Promise<void> {
   // Pull the order's distance + the driver's effective rates.
-  const { data: orderRow } = await (client as any)
+  const { data: orderRow, error: orderRowErr } = await (client as any)
     .from("orders")
     .select("id, delivery_distance_km")
     .eq("id", opts.orderId)
     .maybeSingle();
+  if (orderRowErr) {
+    console.error("[driverPayService] orders fetch failed:", orderRowErr);
+  }
   if (!orderRow) return;
 
   const [defaults, profile] = await Promise.all([
@@ -953,12 +977,15 @@ async function snapshotDriverAssignmentForOrder(
   // Upsert by (order_id, driver_id). driver_assignments has no
   // composite unique constraint we can rely on across all tenants,
   // so do a check-then-write: safer with mixed-history rows.
-  const { data: existing } = await (client as any)
+  const { data: existing, error: existingErr2 } = await (client as any)
     .from("driver_assignments")
     .select("id")
     .eq("order_id", opts.orderId)
     .eq("driver_id", opts.driverId)
     .maybeSingle();
+  if (existingErr2) {
+    console.error("[driverPayService] driver_assignments fetch failed:", existingErr2);
+  }
 
   const payload = {
     base_fee: line.callout_fee,

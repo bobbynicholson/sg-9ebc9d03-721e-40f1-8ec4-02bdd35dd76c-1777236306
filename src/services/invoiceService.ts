@@ -193,7 +193,7 @@ export const invoiceService = {
   },
 
   async generateSubscriptionInvoice(subscriptionId: string): Promise<Blob> {
-    const { data: subscription } = await supabase
+    const { data: subscription, error: subscriptionErr } = await supabase
       .from("subscriptions")
       .select(`
         *,
@@ -206,6 +206,9 @@ export const invoiceService = {
       `)
       .eq("id", subscriptionId)
       .single();
+    if (subscriptionErr) {
+      console.error("[invoiceService] subscriptions fetch failed:", subscriptionErr);
+    }
 
     if (!subscription) {
       throw new Error("Subscription not found");
@@ -272,7 +275,7 @@ export const invoiceService = {
   },
 
   async generateOrderInvoice(orderId: string, edits?: Partial<InvoiceData>): Promise<Blob> {
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select(`
         *,
@@ -285,17 +288,26 @@ export const invoiceService = {
       `)
       .eq("id", orderId)
       .single();
+    if (orderErr) {
+      console.error("[invoiceService] orders fetch failed:", orderErr);
+    }
 
     if (!order) {
       throw new Error("Order not found");
     }
 
-    const { data: user } = await supabase.auth.getUser();
-    const { data: supplierProfile } = await supabase
+    const { data: user, error: userErr } = await supabase.auth.getUser();
+    if (userErr) {
+      console.error("[invoiceService] supabase op failed:", userErr);
+    }
+    const { data: supplierProfile, error: supplierProfileErr } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user?.user?.id)
       .single();
+    if (supplierProfileErr) {
+      console.error("[invoiceService] profiles fetch failed:", supplierProfileErr);
+    }
 
     const profileData = Array.isArray((order as any).profiles) 
       ? (order as any).profiles[0] 
@@ -320,11 +332,14 @@ export const invoiceService = {
     // applying 15%. Non-VAT-registered tenants must not see a VAT
     // line on their invoices (SARS rule); VAT-registered tenants in
     // other regions may have a non-15% rate (UK 20%, etc).
-    const { data: companyRow } = await (supabase as any)
+    const { data: companyRow, error: companyRowErr } = await (supabase as any)
       .from("companies")
       .select("vat_registered, tax_rate")
       .eq("id", (order as any).company_id)
       .maybeSingle();
+    if (companyRowErr) {
+      console.error("[invoiceService] companies fetch failed:", companyRowErr);
+    }
     const vatRegistered = !!(companyRow as any)?.vat_registered;
     const vatRatePct = Number((companyRow as any)?.tax_rate ?? 15);
     const vatRate = vatRegistered ? vatRatePct / 100 : 0;
@@ -338,7 +353,7 @@ export const invoiceService = {
     let invoiceNumber: string | undefined = edits?.invoiceNumber;
     if (!invoiceNumber) {
       try {
-        const { data: invRow } = await supabase
+        const { data: invRow, error: invRowErr } = await supabase
           .from("invoices")
           .select("invoice_number")
           .eq("order_id", order.id)
@@ -346,6 +361,9 @@ export const invoiceService = {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (invRowErr) {
+          console.error("[invoiceService] invoices fetch failed:", invRowErr);
+        }
         invoiceNumber = (invRow as any)?.invoice_number || undefined;
       } catch {
         // fall through

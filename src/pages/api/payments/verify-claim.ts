@@ -74,11 +74,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Payment has no invoice link" });
     }
 
-    const { data: callerProfile } = await admin
+    const { data: callerProfile, error: callerProfileErr } = await admin
       .from("profiles")
       .select("id, role, company_id")
       .eq("id", user.id)
       .maybeSingle();
+    if (callerProfileErr) {
+      console.error("[payments/verify-claim] profiles fetch failed:", callerProfileErr);
+    }
     const callerRole = callerProfile?.role as string | undefined;
     const isSuperAdmin = callerRole === "super_admin";
     if (!callerRole || !ADMIN_ROLES.has(callerRole)) {
@@ -90,11 +93,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Resolve the invoice once; we need it on both branches for
     // the response and (on confirm) for the totals math.
-    const { data: invoice } = await admin
+    const { data: invoice, error: invoiceErr } = await admin
       .from("invoices")
       .select("id, total_amount, amount_paid, balance_due, status, invoice_number")
       .eq("id", payment.invoice_id)
       .maybeSingle();
+    if (invoiceErr) {
+      console.error("[payments/verify-claim] invoices fetch failed:", invoiceErr);
+    }
     if (!invoice) {
       return res.status(404).json({ error: "Invoice not found" });
     }

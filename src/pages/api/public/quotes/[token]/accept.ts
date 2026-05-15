@@ -73,12 +73,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // even if it was already rejected, expired or past valid_until.
   // A client (or anyone with the token) could re-accept stale pricing
   // weeks later. Gate the acceptance on a fresh status check first.
-  const { data: existing } = await (supabase as any)
+  const { data: existing, error: existingErr } = await (supabase as any)
     .from("quotes")
     .select("id, status, valid_until, converted_to_order_id")
     .eq("public_token", token)
     .is("deleted_at", null)
     .maybeSingle();
+  if (existingErr) {
+    console.error("[public/quotes/[token]/accept] quotes fetch failed:", existingErr);
+  }
 
   if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
   if (existing.converted_to_order_id) {
@@ -136,12 +139,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!updated) {
     // No row matched -- either the token is wrong (404) OR another
     // request just accepted this one (race -- treat as 409 idempotent).
-    const { data: existsCheck } = await (supabase as any)
+    const { data: existsCheck, error: existsCheckErr } = await (supabase as any)
       .from("quotes")
       .select("id, status")
       .eq("public_token", token)
       .is("deleted_at", null)
       .maybeSingle();
+    if (existsCheckErr) {
+      console.error("[public/quotes/[token]/accept] quotes fetch failed:", existsCheckErr);
+    }
     if (existsCheck?.status === "accepted") {
       return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existsCheck.id });
     }
@@ -317,21 +323,27 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
 }
 
 async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: string) {
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, phone_number, company_name")
     .eq("id", quote.user_id)
     .maybeSingle();
+  if (profileErr) {
+    console.error("[public/quotes/[token]/accept] profiles fetch failed:", profileErr);
+  }
 
   // Currency lives on companies, not quotes. Resolve from the
   // tenant's company row with a ZAR fallback for legacy rows.
   let currencyCode = "ZAR";
   try {
-    const { data: companyRow } = await supabase
+    const { data: companyRow, error: companyRowErr } = await supabase
       .from("companies")
       .select("currency")
       .eq("id", quote.company_id)
       .maybeSingle();
+    if (companyRowErr) {
+      console.error("[public/quotes/[token]/accept] companies fetch failed:", companyRowErr);
+    }
     if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
   } catch { /* fall back to ZAR */ }
   const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;

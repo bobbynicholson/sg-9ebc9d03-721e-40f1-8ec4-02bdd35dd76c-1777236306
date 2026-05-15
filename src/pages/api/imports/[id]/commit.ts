@@ -151,12 +151,15 @@ async function buildDedupMaps(
         orFilters.push(`client_name.in.(${Array.from(clientNames).map((n) => `"${n}"`).join(",")})`);
       }
       if (orFilters.length === 0) return;
-      const { data } = await supabase
+      const { data, error: error2 } = await supabase
         .from("clients")
         .select("id, email, client_name")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(orFilters.join(","));
+      if (error2) {
+        console.error("[imports/[id]/commit] clients fetch failed:", error2);
+      }
       for (const c of (data || []) as Array<{ id: string; email: string | null; client_name: string | null }>) {
         if (c.email) clientByEmail.set(c.email.toLowerCase().trim(), c.id);
         if (c.client_name) clientByName.set(c.client_name.toLowerCase().trim(), c.id);
@@ -195,12 +198,15 @@ async function buildDedupMaps(
       // Orders are keyed by (event_date, client_name). Pull every
       // order in this company on any of the candidate dates and
       // post-filter by name in memory.
-      const { data } = await supabase
+      const { data, error: error3 } = await supabase
         .from("orders")
         .select("id, event_date, client_name")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .in("event_date", Array.from(orderDates));
+      if (error3) {
+        console.error("[imports/[id]/commit] orders fetch failed:", error3);
+      }
       for (const o of (data || []) as Array<{ id: string; event_date: string | null; client_name: string | null }>) {
         if (!o.event_date || !o.client_name) continue;
         const nameKey = o.client_name.toLowerCase().trim();
@@ -263,11 +269,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[imports/[id]/commit] profiles fetch failed:", profileErr);
+    }
     const role = (profile?.active_role || profile?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
       return res.status(403).json({ error: "Only owners / admins can run imports" });
@@ -297,12 +306,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.body as any).region_id
       : null;
     if (typeof requestedRegionId === "string" && requestedRegionId.length === 36) {
-      const { data: regionRow } = await ssr
+      const { data: regionRow, error: regionRowErr } = await ssr
         .from("regions")
         .select("id")
         .eq("id", requestedRegionId)
         .eq("company_id", companyId)
         .maybeSingle();
+      if (regionRowErr) {
+        console.error("[imports/[id]/commit] regions fetch failed:", regionRowErr);
+      }
       if (regionRow) targetRegionId = (regionRow as any).id;
     }
 
@@ -680,13 +692,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Fall back to a DB lookup -- the operator may be
             // importing only invoices against orders that already
             // exist in the platform from a previous import.
-            const { data: existingOrder } = await supabase
+            const { data: existingOrder, error: existingOrderErr } = await supabase
               .from("orders")
               .select("id, client_id")
               .eq("company_id", companyId)
               .eq("order_number", k)
               .is("deleted_at", null)
               .maybeSingle();
+            if (existingOrderErr) {
+              console.error("[imports/[id]/commit] orders fetch failed:", existingOrderErr);
+            }
             if (existingOrder) {
               orderId = (existingOrder as any).id;
               if (!clientId) clientId = (existingOrder as any).client_id;
@@ -725,13 +740,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // commit so the operator sees a friendly message rather than
         // a unique-constraint violation.
         if (mapped.invoice_number) {
-          const { data: existing } = await supabase
+          const { data: existing, error: existingErr } = await supabase
             .from("invoices")
             .select("id")
             .eq("company_id", companyId)
             .eq("invoice_number", mapped.invoice_number)
             .is("deleted_at", null)
             .maybeSingle();
+          if (existingErr) {
+            console.error("[imports/[id]/commit] invoices fetch failed:", existingErr);
+          }
           if (existing) {
             summary.invoices.skipped += 1;
             if (!dryRun) {
@@ -852,13 +870,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             clientId = inBatch.client_id;
             orderId = inBatch.order_id;
           } else {
-            const { data: existingInv } = await supabase
+            const { data: existingInv, error: existingInvErr } = await supabase
               .from("invoices")
               .select("id, client_id, order_id")
               .eq("company_id", companyId)
               .eq("invoice_number", k)
               .is("deleted_at", null)
               .maybeSingle();
+            if (existingInvErr) {
+              console.error("[imports/[id]/commit] invoices fetch failed:", existingInvErr);
+            }
             if (existingInv) {
               invoiceId = (existingInv as any).id;
               clientId = (existingInv as any).client_id;
@@ -875,13 +896,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             orderId = inBatch.id;
             if (!clientId) clientId = inBatch.client_id;
           } else {
-            const { data: existingOrd } = await supabase
+            const { data: existingOrd, error: existingOrdErr } = await supabase
               .from("orders")
               .select("id, client_id")
               .eq("company_id", companyId)
               .eq("order_number", k)
               .is("deleted_at", null)
               .maybeSingle();
+            if (existingOrdErr) {
+              console.error("[imports/[id]/commit] orders fetch failed:", existingOrdErr);
+            }
             if (existingOrd) {
               orderId = (existingOrd as any).id;
               if (!clientId) clientId = (existingOrd as any).client_id;
@@ -975,13 +999,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Skip if a quote with this number already exists for the
         // tenant. Cheaper than catching the unique-constraint error.
         if (mapped.quote_number) {
-          const { data: existing } = await supabase
+          const { data: existing, error: existingErr2 } = await supabase
             .from("quotes")
             .select("id")
             .eq("company_id", companyId)
             .eq("quote_number", mapped.quote_number)
             .is("deleted_at", null)
             .maybeSingle();
+          if (existingErr2) {
+            console.error("[imports/[id]/commit] quotes fetch failed:", existingErr2);
+          }
           if (existing) {
             summary.quotes.skipped += 1;
             if (!dryRun) {

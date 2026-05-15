@@ -108,11 +108,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Resolve the tenant brand once -- used for the invite email styling.
-    const { data: company } = await admin
+    const { data: company, error: companyErr } = await admin
       .from("companies")
       .select("company_name, primary_color, logo_url, slug")
       .eq("id", staff.company_id)
       .maybeSingle();
+    if (companyErr) {
+      console.error("[staff/[id]/invite-login] companies fetch failed:", companyErr);
+    }
     const brand = {
       name: company?.company_name || "Your team",
       primaryColor: company?.primary_color || undefined,

@@ -30,21 +30,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[admin/resend-email] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED_ROLES.has(role)) {
       return res.status(403).json({ error: "Owner or admin only" });
     }
 
-    const { data: logRow } = await ssr
+    const { data: logRow, error: logRowErr } = await ssr
       .from("email_automation_log")
       .select("user_id, template_type, recipient_email, recipient_name, subject, order_id")
       .eq("id", logId)
       .maybeSingle();
+    if (logRowErr) {
+      console.error("[admin/resend-email] email_automation_log fetch failed:", logRowErr);
+    }
     if (!logRow) return res.status(404).json({ error: "Log entry not found" });
 
     const log = logRow as any;

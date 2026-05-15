@@ -45,11 +45,14 @@ const FALLBACK_ROW_CAP = 200;
 async function getImportRowCap(): Promise<number> {
   try {
     const supabase: any = getServiceSupabase();
-    const { data } = await supabase
+    const { data, error: error2 } = await supabase
       .from("app_config")
       .select("value")
       .eq("key", "import_row_cap")
       .maybeSingle();
+    if (error2) {
+      console.error("[imports/upload] app_config fetch failed:", error2);
+    }
     const n = parseInt(String((data as any)?.value || ""), 10);
     if (Number.isFinite(n) && n > 0 && n <= 100000) return n;
   } catch {
@@ -321,11 +324,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[imports/upload] profiles fetch failed:", profileErr);
+    }
     if (!profile) return res.status(403).json({ error: "Profile not found" });
     const role = (profile.active_role || profile.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {

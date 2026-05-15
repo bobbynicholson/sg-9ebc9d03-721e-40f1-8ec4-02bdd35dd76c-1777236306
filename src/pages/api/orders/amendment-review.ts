@@ -40,11 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      console.error("[orders/amendment-review] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED_ROLES.has(role)) {
       return res.status(403).json({ error: "Owner or admin only" });
@@ -55,11 +58,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Invalid request_id or action" });
     }
 
-    const { data: request } = await ssr
+    const { data: request, error: requestErr } = await ssr
       .from("order_amendment_requests")
       .select("id, order_id, company_id, proposed_changes, status, requested_by_user_id")
       .eq("id", request_id)
       .maybeSingle();
+    if (requestErr) {
+      console.error("[orders/amendment-review] order_amendment_requests fetch failed:", requestErr);
+    }
     if (!request) return res.status(404).json({ error: "Amendment request not found" });
     if ((request as any).status !== "pending") {
       return res.status(409).json({ error: `Request is already ${(request as any).status}` });
@@ -109,11 +115,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // review. requested_by_user_id is the client's auth uid, fall
       // back to the orders->clients lookup if it's missing.
       try {
-        const { data: orderRow } = await ssr
+        const { data: orderRow, error: orderRowErr } = await ssr
           .from("orders")
           .select("client_id, order_number")
           .eq("id", (request as any).order_id)
           .maybeSingle();
+        if (orderRowErr) {
+          console.error("[orders/amendment-review] orders fetch failed:", orderRowErr);
+        }
         const recipientId =
           (request as any).requested_by_user_id ||
           (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
@@ -163,11 +172,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Snapshot current order values for the keys we're about to change.
-    const { data: orderBefore } = await ssr
+    const { data: orderBefore, error: orderBeforeErr } = await ssr
       .from("orders")
       .select(Array.from(ALLOWED_FIELDS).join(", "))
       .eq("id", (request as any).order_id)
       .maybeSingle();
+    if (orderBeforeErr) {
+      console.error("[orders/amendment-review] orders fetch failed:", orderBeforeErr);
+    }
     const snapshot: Record<string, any> = {};
     for (const k of Object.keys(toApply)) {
       snapshot[k] = orderBefore ? (orderBefore as any)[k] : null;
@@ -355,11 +367,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Notify the client that their change went through. Best-effort
     // -- a notification failure must not roll back the amendment.
     try {
-      const { data: orderRow } = await ssr
+      const { data: orderRow, error: orderRowErr3 } = await ssr
         .from("orders")
         .select("client_id, order_number")
         .eq("id", (request as any).order_id)
         .maybeSingle();
+      if (orderRowErr3) {
+        console.error("[orders/amendment-review] orders fetch failed:", orderRowErr3);
+      }
       const recipientId =
         (request as any).requested_by_user_id ||
         (await resolveClientUserId(ssr, (orderRow as any)?.client_id));

@@ -57,11 +57,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const ssr = createPagesServerClient({ req, res });
       const { data: { user } } = await ssr.auth.getUser();
       if (!user) return res.status(401).json({ error: "Not signed in" });
-      const { data: profile } = await ssr
+      const { data: profile, error: profileErr } = await ssr
         .from("profiles")
         .select("role, active_role, company_id")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileErr) {
+        console.error("[accounting/xero/sync-credit-note] profiles fetch failed:", profileErr);
+      }
       const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
       if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: "Owner or admin only" });
       companyIdScope = (profile as any)?.company_id || null;
@@ -69,11 +72,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabase: any = getServiceSupabase();
 
-    const { data: payment } = await supabase
+    const { data: payment, error: paymentErr } = await supabase
       .from("payments")
       .select("id, company_id, order_id, amount, payment_type, payment_status, external_id, reason")
       .eq("id", refund_payment_id)
       .maybeSingle();
+    if (paymentErr) {
+      console.error("[accounting/xero/sync-credit-note] payments fetch failed:", paymentErr);
+    }
     if (!payment) return res.status(404).json({ error: "Refund payment not found" });
     if (payment.payment_type !== "refund") {
       return res.status(400).json({ error: "Payment is not a refund" });

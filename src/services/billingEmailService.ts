@@ -17,11 +17,14 @@ function buildBillingUrl(slug: string | null | undefined, path: string): string 
 // Pull the company slug for a given profile in a single query so the
 // billing email methods don't each have to repeat the join.
 async function fetchCompanySlugForUser(userId: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error: error2 } = await supabase
     .from("profiles")
     .select("companies:company_id ( slug )")
     .eq("id", userId)
     .single();
+  if (error2) {
+    console.error("[billingEmailService] profiles fetch failed:", error2);
+  }
   const company = (data as any)?.companies;
   const slug = Array.isArray(company) ? company?.[0]?.slug : company?.slug;
   return slug ?? null;
@@ -383,11 +386,14 @@ export class BillingEmailService {
   }
 
   async notifySubscriptionStarted(userId: string, subscription: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -408,11 +414,14 @@ export class BillingEmailService {
   }
 
   async notifyPaymentSucceeded(userId: string, payment: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr2 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr2) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr2);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -435,11 +444,14 @@ export class BillingEmailService {
   }
 
   async notifyPaymentFailed(userId: string, payment: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr3 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr3) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr3);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -459,11 +471,14 @@ export class BillingEmailService {
   }
 
   async notifyTrialEnding(userId: string, daysRemaining: number, trialEndDate: string, stats: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr4 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr4) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr4);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -484,11 +499,14 @@ export class BillingEmailService {
   }
 
   async notifySubscriptionExpiring(userId: string, subscription: any, daysUntilRenewal: number) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr5 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr5) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr5);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -510,11 +528,14 @@ export class BillingEmailService {
   }
 
   async notifyPriceChange(userId: string, priceChange: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr6 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr6) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr6);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -536,11 +557,14 @@ export class BillingEmailService {
   }
 
   async notifySubscriptionCancelled(userId: string, subscription: any, cancelType: string) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr7 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr7) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr7);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -562,11 +586,14 @@ export class BillingEmailService {
   }
 
   async notifySubscriptionReactivated(userId: string, subscription: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr8 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr8) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr8);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 
@@ -586,11 +613,14 @@ export class BillingEmailService {
   }
 
   async notifyAccountDeletionScheduled(userId: string, deletionRequest: any) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr9 } = await supabase
       .from("profiles")
       .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
+    if (profileErr9) {
+      console.error("[billingEmailService] profiles fetch failed:", profileErr9);
+    }
 
     if (!profile?.email || !profile.company_id) return;
 

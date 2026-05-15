@@ -61,12 +61,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!updated) {
     // No row matched -- either bad token or already terminal.
-    const { data: existsCheck } = await (supabase as any)
+    const { data: existsCheck, error: existsCheckErr } = await (supabase as any)
       .from("quotes")
       .select("id, status")
       .eq("public_token", token)
       .is("deleted_at", null)
       .maybeSingle();
+    if (existsCheckErr) {
+      console.error("[public/quotes/[token]/reject] quotes fetch failed:", existsCheckErr);
+    }
     if (existsCheck?.status === "rejected") {
       return res.status(200).json({ ok: true, alreadyRejected: true, quoteId: existsCheck.id });
     }

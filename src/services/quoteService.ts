@@ -287,11 +287,14 @@ export const quoteService = {
     let wasTransitioningToSent = false;
     if (updates.status === "sent") {
       try {
-        const { data: current } = await supabase
+        const { data: current, error: currentErr2 } = await supabase
           .from("quotes")
           .select("status")
           .eq("id", quoteId)
           .maybeSingle();
+        if (currentErr2) {
+          console.error("[quoteService] quotes fetch failed:", currentErr2);
+        }
         wasTransitioningToSent = !!current && (current as any).status !== "sent";
       } catch {
         // If we can't read the current row we assume it IS a transition --
@@ -364,11 +367,14 @@ export const quoteService = {
       console.warn(`[quoteService] _fireQuoteSentEmail: failed to stamp sent_at, proceeding anyway:`, e);
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr2 } = await supabase
       .from("profiles")
       .select("full_name, company_name")
       .eq("id", quote.user_id)
       .single();
+    if (profileErr2) {
+      console.error("[quoteService] profiles fetch failed:", profileErr2);
+    }
     const companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
     // Currency lives on companies, not quotes. Resolve via the
@@ -376,11 +382,14 @@ export const quoteService = {
     let currencyCode = "ZAR";
     if ((quote as any).company_id) {
       try {
-        const { data: companyRow } = await supabase
+        const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
           .select("currency")
           .eq("id", (quote as any).company_id)
           .maybeSingle();
+        if (companyRowErr) {
+          console.error("[quoteService] companies fetch failed:", companyRowErr);
+        }
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
       } catch { /* fall back to ZAR */ }
     }
@@ -562,11 +571,14 @@ export const quoteService = {
     // actual setting.
     let resolvedCurrency = "ZAR";
     try {
-      const { data: companyRow } = await supabase
+      const { data: companyRow, error: companyRowErr2 } = await supabase
         .from("companies")
         .select("currency")
         .eq("id", q.company_id)
         .maybeSingle();
+      if (companyRowErr2) {
+        console.error("[quoteService] companies fetch failed:", companyRowErr2);
+      }
       if ((companyRow as any)?.currency) resolvedCurrency = (companyRow as any).currency;
     } catch { /* fall back to ZAR */ }
     const orderData: any = {
@@ -635,11 +647,14 @@ export const quoteService = {
     // cadence + the public PaymentScheduleCard both have something
     // to honour.
     try {
-      const { data: companyRow } = await supabase
+      const { data: companyRow, error: companyRowErr3 } = await supabase
         .from("companies")
         .select("balance_due_days")
         .eq("id", q.company_id)
         .maybeSingle();
+      if (companyRowErr3) {
+        console.error("[quoteService] companies fetch failed:", companyRowErr3);
+      }
       const days = Number((companyRow as any)?.balance_due_days ?? 7);
       const eventDateStr = (q.event_date as string | null) || null;
       if (eventDateStr && Number.isFinite(days) && days > 0) {
@@ -741,11 +756,14 @@ export const quoteService = {
     if (cascade.invoice.ok && cascade.invoice.invoiceId) {
       // Fetch the friendly invoice number + amount so the toast can
       // surface them. ensureInvoiceForOrder only returns the id.
-      const { data: row } = await supabase
+      const { data: row, error: rowErr } = await supabase
         .from("invoices")
         .select("invoice_number, total_amount")
         .eq("id", cascade.invoice.invoiceId)
         .maybeSingle();
+      if (rowErr) {
+        console.error("[quoteService] invoices fetch failed:", rowErr);
+      }
       // If the operator captured a deposit, stamp the invoice paid
       // (or partially paid) so the invoice record matches the order
       // and the public payment page doesn't ask the client to pay

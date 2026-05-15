@@ -31,11 +31,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { data: { user } } = await ssr.auth.getUser();
   if (!user) return res.status(401).json({ error: "Authentication required" });
 
-  const { data: profile } = await ssr
+  const { data: profile, error: profileErr } = await ssr
     .from("profiles")
     .select("role, active_role, company_id")
     .eq("id", user.id)
     .single();
+  if (profileErr) {
+    console.error("[admin/embed/rotate-token] profiles fetch failed:", profileErr);
+  }
   if (!profile) return res.status(403).json({ error: "Profile not found" });
 
   const role = (profile as any).active_role || (profile as any).role;

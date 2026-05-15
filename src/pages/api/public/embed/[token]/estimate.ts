@@ -56,13 +56,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .json({ ok: false, message: "Too many requests, slow down" });
   }
 
-  const { data: company } = await (supabase as any)
+  const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
     .select(
       "id, currency, is_active, deleted_at, embed_token, embed_pricing_tiers"
     )
     .eq("embed_token", token)
     .maybeSingle();
+  if (companyErr) {
+    console.error("[public/embed/[token]/estimate] companies fetch failed:", companyErr);
+  }
 
   if (!company || company.is_active === false || company.deleted_at) {
     return res.status(404).json({ ok: false, message: "Not found" });

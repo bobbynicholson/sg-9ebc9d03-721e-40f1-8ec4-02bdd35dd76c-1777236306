@@ -71,12 +71,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Look up the client. Privacy: don't tell the requester whether
     // we found one. Just silently no-op if not.
-    const { data: client } = await sb
+    const { data: client, error: clientErr } = await sb
       .from("clients")
       .select("id, client_name, email, user_id")
       .eq("company_id", company.id)
       .ilike("email", cleanEmail)
       .maybeSingle();
+    if (clientErr) {
+      console.error("[client-tokens/request] clients fetch failed:", clientErr);
+    }
     if (!client) {
       return res.status(200).json({ ok: true });
     }

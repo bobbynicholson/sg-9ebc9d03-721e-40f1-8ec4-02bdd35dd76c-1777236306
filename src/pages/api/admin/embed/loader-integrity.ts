@@ -47,11 +47,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { data: { user } } = await ssr.auth.getUser();
   if (!user) return res.status(401).json({ error: "Authentication required" });
 
-  const { data: profile } = await ssr
+  const { data: profile, error: profileErr } = await ssr
     .from("profiles")
     .select("role, active_role")
     .eq("id", user.id)
     .single();
+  if (profileErr) {
+    console.error("[admin/embed/loader-integrity] profiles fetch failed:", profileErr);
+  }
   const role = (profile as any)?.active_role || (profile as any)?.role;
   if (!ALLOWED.has(role)) return res.status(403).json({ error: "Forbidden" });
 

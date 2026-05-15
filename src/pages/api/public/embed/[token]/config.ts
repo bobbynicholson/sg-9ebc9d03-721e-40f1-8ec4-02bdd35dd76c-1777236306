@@ -103,11 +103,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     } catch {
       try {
-        const { data: current } = await (supabase as any)
+        const { data: current, error: currentErr } = await (supabase as any)
           .from("embed_form_configs")
           .select("views_count")
           .eq("id", form.id)
           .maybeSingle();
+        if (currentErr) {
+          console.error("[public/embed/[token]/config] embed_form_configs fetch failed:", currentErr);
+        }
         const next = ((current as any)?.views_count || 0) + 1;
         await (supabase as any)
           .from("embed_form_configs")

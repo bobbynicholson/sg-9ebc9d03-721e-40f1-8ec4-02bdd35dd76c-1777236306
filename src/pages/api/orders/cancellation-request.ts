@@ -120,12 +120,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Don't allow duplicate active requests on the same order.
-    const { data: existing } = await ssr
+    const { data: existing, error: existingErr } = await ssr
       .from("cancellation_requests")
       .select("id, status")
       .eq("order_id", order_id)
       .in("status", ["pending"])
       .limit(1);
+    if (existingErr) {
+      console.error("[orders/cancellation-request] cancellation_requests fetch failed:", existingErr);
+    }
     if (existing && existing.length > 0) {
       return res.status(409).json({
         error: "There's already a pending request on this order. Wait for the team to review it.",

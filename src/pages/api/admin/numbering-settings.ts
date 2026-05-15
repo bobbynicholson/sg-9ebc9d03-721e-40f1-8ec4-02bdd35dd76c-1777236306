@@ -73,10 +73,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Ensure rows exist for all three doc types. Calling the consume
       // RPC would advance the counter -- instead, read what's there
       // and fill any missing rows with sane defaults.
-      const { data: existing } = await admin
+      const { data: existing, error: existingErr } = await admin
         .from("company_number_settings")
         .select("*")
         .eq("company_id", targetCompany);
+      if (existingErr) {
+        console.error("[admin/numbering-settings] company_number_settings fetch failed:", existingErr);
+      }
       const haveTypes = new Set((existing || []).map((r: any) => r.document_type));
       const toInsert = DOC_TYPES.filter((t) => !haveTypes.has(t)).map((t) => ({
         company_id: targetCompany,
@@ -88,22 +91,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (toInsert.length > 0) {
         await admin.from("company_number_settings").insert(toInsert);
       }
-      const { data: settings } = await admin
+      const { data: settings, error: settingsErr } = await admin
         .from("company_number_settings")
         .select("*")
         .eq("company_id", targetCompany)
         .order("document_type");
+      if (settingsErr) {
+        console.error("[admin/numbering-settings] company_number_settings fetch failed:", settingsErr);
+      }
 
       // Pull the highest-issued seq per doc type so the UI can show
       // "you've already issued up to ..." hints.
       const stats: Record<string, { highest: number; sample: string | null }> = {};
       for (const t of DOC_TYPES) {
         const { table, column } = DOC_TABLE[t];
-        const { data: rows } = await admin
+        const { data: rows, error: rowsErr } = await admin
           .from(table)
           .select(column)
           .eq("company_id", targetCompany)
           .not(column, "is", null);
+        if (rowsErr) {
+          console.error("[admin/numbering-settings] supabase op failed:", rowsErr);
+        }
         let highest = 0;
         let sample: string | null = null;
         for (const r of rows || []) {

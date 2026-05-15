@@ -83,25 +83,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (public_token && (invoice as any).public_token && public_token === (invoice as any).public_token) {
       // Token-bearer path: capability granted by holding the token.
       // Resolve the linked client for personalisation only.
-      const { data: clientRow } = await admin
+      const { data: clientRow, error: clientRowErr } = await admin
         .from("clients")
         .select("id, email, client_name")
         .eq("id", invoice.client_id)
         .eq("company_id", invoice.company_id)
         .maybeSingle();
+      if (clientRowErr) {
+        console.error("[payments/create-session] clients fetch failed:", clientRowErr);
+      }
       ownership = clientRow ? {
         id: (clientRow as any).id,
         email: (clientRow as any).email,
         client_name: (clientRow as any).client_name,
       } : { id: invoice.client_id, email: null, client_name: null };
     } else if (user) {
-      const { data: row } = await admin
+      const { data: row, error: rowErr } = await admin
         .from("clients")
         .select("id, email, client_name")
         .eq("id", invoice.client_id)
         .eq("user_id", user.id)
         .eq("company_id", invoice.company_id)
         .maybeSingle();
+      if (rowErr) {
+        console.error("[payments/create-session] clients fetch failed:", rowErr);
+      }
       if (row) ownership = {
         id: (row as any).id,
         email: (row as any).email,
@@ -116,11 +122,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // route deposit vs balance correctly.
     let orderRow: any = null;
     if (invoice.order_id) {
-      const { data: order } = await admin
+      const { data: order, error: orderErr } = await admin
         .from("orders")
         .select("id, deposit_paid, deposit_amount, balance_amount, total_amount, currency, order_number, client_email, client_name")
         .eq("id", invoice.order_id)
         .maybeSingle();
+      if (orderErr) {
+        console.error("[payments/create-session] orders fetch failed:", orderErr);
+      }
       orderRow = order;
     }
 

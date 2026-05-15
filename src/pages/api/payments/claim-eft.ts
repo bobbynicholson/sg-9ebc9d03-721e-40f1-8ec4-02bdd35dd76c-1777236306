@@ -89,13 +89,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: "Invoice is already marked paid" });
     }
 
-    const { data: ownership } = await admin
+    const { data: ownership, error: ownershipErr } = await admin
       .from("clients")
       .select("id")
       .eq("id", invoice.client_id)
       .eq("user_id", user.id)
       .eq("company_id", invoice.company_id)
       .maybeSingle();
+    if (ownershipErr) {
+      console.error("[payments/claim-eft] clients fetch failed:", ownershipErr);
+    }
     if (!ownership) {
       return res.status(403).json({ error: "Not your invoice" });
     }
@@ -103,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Idempotency -- treat very recent duplicate clicks as the same
     // claim so a flaky network doesn't spam admin notifications.
     const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString();
-    const { data: recentClaim } = await admin
+    const { data: recentClaim, error: recentClaimErr } = await admin
       .from("payments")
       .select("id, payment_status, created_at")
       .eq("invoice_id", invoice.id)
@@ -113,6 +116,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (recentClaimErr) {
+      console.error("[payments/claim-eft] payments fetch failed:", recentClaimErr);
+    }
     if (recentClaim) {
       return res.status(200).json({ ok: true, payment_id: recentClaim.id, deduped: true });
     }

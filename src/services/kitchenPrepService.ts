@@ -105,11 +105,14 @@ export interface KitchenStation {
 
 export const kitchenPrepService = {
   async getKitchenSettings(companyId: string): Promise<KitchenSettings> {
-    const { data } = await supabase
+    const { data, error: error2 } = await supabase
       .from("companies")
       .select("kitchen_settings")
       .eq("id", companyId)
       .maybeSingle();
+    if (error2) {
+      console.error("[kitchenPrepService] companies fetch failed:", error2);
+    }
     const raw = (data as any)?.kitchen_settings || {};
     return {
       prepSafetyBufferMin:    Number(raw.prep_safety_buffer_min     ?? DEFAULT_KITCHEN_SETTINGS.prepSafetyBufferMin),
@@ -152,26 +155,35 @@ export const kitchenPrepService = {
     const settings = await this.getKitchenSettings(companyId);
 
     // Try DB: menu_items by name -> recipes -> recipe_ingredients
-    const { data: menuItem } = await supabase
+    const { data: menuItem, error: menuItemErr } = await supabase
       .from("menu_items")
       .select("id, item_name, base_servings, prep_time_minutes, cook_time_minutes")
       .eq("company_id", companyId)
       .ilike("item_name", menuItemName.trim())
       .is("deleted_at", null)
       .maybeSingle();
+    if (menuItemErr) {
+      console.error("[kitchenPrepService] menu_items fetch failed:", menuItemErr);
+    }
 
     if (menuItem?.id) {
-      const { data: recipe } = await supabase
+      const { data: recipe, error: recipeErr } = await supabase
         .from("recipes")
         .select("id, base_servings, prep_time_minutes, cook_time_minutes")
         .eq("menu_item_id", menuItem.id)
         .maybeSingle();
+      if (recipeErr) {
+        console.error("[kitchenPrepService] recipes fetch failed:", recipeErr);
+      }
 
       if (recipe?.id) {
-        const { data: ings } = await supabase
+        const { data: ings, error: ingsErr } = await supabase
           .from("recipe_ingredients")
           .select("ingredient_name, quantity, unit, inventory_item_id")
           .eq("recipe_id", recipe.id);
+        if (ingsErr) {
+          console.error("[kitchenPrepService] recipe_ingredients fetch failed:", ingsErr);
+        }
 
         if (ings && ings.length > 0) {
           return {
@@ -264,11 +276,14 @@ export const kitchenPrepService = {
   async planTasksForOrder(companyId: string, orderId: string): Promise<PrepTask[]> {
     const settings = await this.getKitchenSettings(companyId);
 
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("id, company_id, region_id, menu_items, guest_count, final_guest_count, event_date, event_time, pickup_time")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr) {
+      console.error("[kitchenPrepService] orders fetch failed:", orderErr);
+    }
     if (!order) return [];
 
     // Determine the pickup moment. Prefer pickup_time, else event_time on
@@ -392,11 +407,14 @@ export const kitchenPrepService = {
     // system at onboarding time) must not spin up kitchen prep tasks
     // -- the events already happened. We check the order row itself
     // for imported_at / comms_paused_until before planning anything.
-    const { data: orderMeta } = await sb
+    const { data: orderMeta, error: orderMetaErr } = await sb
       .from("orders")
       .select("imported_at, comms_paused_until, event_date")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderMetaErr) {
+      console.error("[kitchenPrepService] orders fetch failed:", orderMetaErr);
+    }
     if (orderMeta) {
       const importedAt = (orderMeta as any).imported_at;
       const paused = (orderMeta as any).comms_paused_until;
@@ -422,12 +440,15 @@ export const kitchenPrepService = {
     // existing PENDING tasks first and re-plans against the new guest
     // count. In-progress tasks are preserved -- the chef has already
     // started, you can't undo that. Audit Kitchen G3.
-    const { data: existing } = await sb
+    const { data: existing, error: existingErr } = await sb
       .from("kitchen_prep_tasks")
       .select("id, status")
       .eq("order_id", orderId)
       .in("status", ["pending", "in_progress"])
       .is("deleted_at", null);
+    if (existingErr) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", existingErr);
+    }
     if (existing && existing.length > 0) {
       if (opts.force) {
         const pendingIds = (existing as any[])
@@ -479,12 +500,15 @@ export const kitchenPrepService = {
   // ── Read tasks ────────────────────────────────────────────────────────────
 
   async getTasksForOrder(orderId: string): Promise<any[]> {
-    const { data } = await supabase
+    const { data, error: error3 } = await supabase
       .from("kitchen_prep_tasks")
       .select("*, chef:assigned_chef_id(full_name)")
       .eq("order_id", orderId)
       .is("deleted_at", null)
       .order("start_at", { ascending: true });
+    if (error3) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", error3);
+    }
     return data || [];
   },
 
@@ -523,11 +547,14 @@ export const kitchenPrepService = {
    */
   async getProgressByOrder(orderIds: string[]): Promise<Record<string, { total: number; done: number }>> {
     if (orderIds.length === 0) return {};
-    const { data } = await supabase
+    const { data, error: error4 } = await supabase
       .from("kitchen_prep_tasks")
       .select("order_id, status")
       .in("order_id", orderIds)
       .is("deleted_at", null);
+    if (error4) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", error4);
+    }
     const out: Record<string, { total: number; done: number }> = {};
     for (const id of orderIds) out[id] = { total: 0, done: 0 };
     for (const t of (data || []) as any[]) {
@@ -592,20 +619,26 @@ export const kitchenPrepService = {
    * task completion doesn't drag the status backwards.
    */
   async checkPrepCompleteForOrder(orderId: string, _performedBy: string): Promise<{ promoted: boolean }> {
-    const { data: tasks } = await supabase
+    const { data: tasks, error: tasksErr } = await supabase
       .from("kitchen_prep_tasks")
       .select("status")
       .eq("order_id", orderId);
+    if (tasksErr) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", tasksErr);
+    }
     if (!tasks || tasks.length === 0) return { promoted: false };
     const active = tasks.filter((t: any) => String(t?.status || "") !== "skipped");
     const allDone = active.length > 0 && active.every((t: any) => String(t?.status || "") === "done");
     if (!allDone) return { promoted: false };
 
-    const { data: order } = await supabase
+    const { data: order, error: orderErr2 } = await supabase
       .from("orders")
       .select("id, status, ready_at")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr2) {
+      console.error("[kitchenPrepService] orders fetch failed:", orderErr2);
+    }
     if (!order) return { promoted: false };
     const currentStatus = String((order as any).status || "").toLowerCase();
     // Statuses already past 'ready' -- don't drag the order backwards.
@@ -785,12 +818,15 @@ export const kitchenPrepService = {
   },
 
   async getRecentHandoffs(companyId: string, limit = 20): Promise<any[]> {
-    const { data } = await supabase
+    const { data, error: error5 } = await supabase
       .from("kitchen_handoffs")
       .select("*, author:author_id(full_name)")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
       .limit(limit);
+    if (error5) {
+      console.error("[kitchenPrepService] kitchen_handoffs fetch failed:", error5);
+    }
     return data || [];
   },
 
@@ -930,10 +966,13 @@ export const kitchenPrepService = {
     const dietaryLower = dietary.toLowerCase().trim();
     if (!dietaryLower) return { hasConflicts: false, conflicts: [], dietaryRequirements: "" };
 
-    const { data: items } = await supabase
+    const { data: items, error: itemsErr } = await supabase
       .from("order_items")
       .select("item_name, menu_item_id, menu_items:menu_item_id ( allergen_codes, allergen_info )")
       .eq("order_id", orderId);
+    if (itemsErr) {
+      console.error("[kitchenPrepService] order_items fetch failed:", itemsErr);
+    }
 
     const conflicts: Array<{ menuItem: string; allergens: string[] }> = [];
     for (const it of (items as any[]) || []) {

@@ -36,7 +36,10 @@ async function downloadSlipImage(supabase: any, imagePath: string): Promise<{ by
   const buckets = ["purchase-receipts", "imports"];
   for (const bucket of buckets) {
     try {
-      const { data } = await supabase.storage.from(bucket).download(imagePath);
+      const { data, error: error2 } = await supabase.storage.from(bucket).download(imagePath);
+      if (error2) {
+        console.error("[receipts/[id]/rescan] supabase op failed:", error2);
+      }
       if (data) {
         const mime = (data as Blob).type || guessMimeFromPath(imagePath);
         const arrayBuf = await (data as Blob).arrayBuffer();
@@ -62,11 +65,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[receipts/[id]/rescan] profiles fetch failed:", profileErr);
+    }
     const role = (profile?.active_role || profile?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
       return res.status(403).json({ error: "Only owners / admins can rescan receipts" });
@@ -105,13 +111,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // the drawer, came back. We return the persisted drafts as if
     // the AI just produced them. Saves Anthropic spend + matches
     // exactly what the operator was last looking at.
-    const { data: existingDrafts } = await supabase
+    const { data: existingDrafts, error: existingDraftsErr } = await supabase
       .from("purchase_receipt_items")
       .select(
         "id, description, amount, is_deductible, category, suggested_rule_id, inventory_item_id, quantity, unit_of_measure, unit_price, is_draft"
       )
       .eq("receipt_id", receiptId)
       .order("created_at", { ascending: true });
+    if (existingDraftsErr) {
+      console.error("[receipts/[id]/rescan] purchase_receipt_items fetch failed:", existingDraftsErr);
+    }
 
     if ((existingDrafts || []).length > 0) {
       // Return drafts in the same shape extractReceiptViaAI emits,
@@ -176,11 +185,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Load active SARS rules for the classifier prompt.
-    const { data: rulesData } = await supabase
+    const { data: rulesData, error: rulesDataErr } = await supabase
       .from("sa_tax_deductibility_rules")
       .select("id, category_code, display_name, group_label, deductibility, match_keywords")
       .eq("is_active", true)
       .order("display_order", { ascending: true });
+    if (rulesDataErr) {
+      console.error("[receipts/[id]/rescan] sa_tax_deductibility_rules fetch failed:", rulesDataErr);
+    }
     const taxRules = (rulesData || []) as Array<any>;
 
     const { extraction, tokens_in, tokens_out } = await extractReceiptViaAI({

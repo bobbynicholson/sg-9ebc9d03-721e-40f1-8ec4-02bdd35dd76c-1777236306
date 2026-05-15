@@ -36,11 +36,14 @@ async function notifyClient(
   },
 ) {
   try {
-    const { data: orderRow } = await ssr
+    const { data: orderRow, error: orderRowErr } = await ssr
       .from("orders")
       .select("client_id")
       .eq("id", params.orderId)
       .maybeSingle();
+    if (orderRowErr) {
+      console.error("[orders/cancellation-review] orders fetch failed:", orderRowErr);
+    }
     const recipientId =
       params.requestedByUserId || (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
     if (!recipientId) return;
@@ -79,11 +82,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      console.error("[orders/cancellation-review] profiles fetch failed:", profileErr);
+    }
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Admin or owner only" });
@@ -106,11 +112,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // inside-window cancellation always issues a refund -- ignoring
     // the client's choice of credit -- so the catering company's
     // cashflow nudge from Wave 28 silently doesn't work.
-    const { data: request } = await ssr
+    const { data: request, error: requestErr } = await ssr
       .from("cancellation_requests")
       .select("id, order_id, company_id, request_type, requested_postpone_date, status, refund_amount_calculated, reason, requested_by_user_id, policy_snapshot")
       .eq("id", request_id)
       .maybeSingle();
+    if (requestErr) {
+      console.error("[orders/cancellation-review] cancellation_requests fetch failed:", requestErr);
+    }
     if (!request) return res.status(404).json({ error: "Request not found" });
     if ((request as any).status !== "pending") {
       return res.status(409).json({ error: `Request is already ${(request as any).status}` });
@@ -195,11 +204,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Stamp the postponement onto the order. The agreed new date
       // moves event_date when present; the original date is captured
       // for audit so a "we postponed FROM X TO Y" trail survives.
-      const { data: order } = await ssr
+      const { data: order, error: orderErr2 } = await ssr
         .from("orders")
         .select("event_date")
         .eq("id", (request as any).order_id)
         .maybeSingle();
+      if (orderErr2) {
+        console.error("[orders/cancellation-review] orders fetch failed:", orderErr2);
+      }
       const originalDate = (order as any)?.event_date || null;
 
       const updates: any = {
@@ -454,11 +466,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (wizard_payout_choice === "credit" && credit_final > 0) {
       // Issue store credit -- mirrors the runAutoCancel +
       // /api/orders/[id]/cancel admin-side credit branch.
-      const { data: ord } = await ssr
+      const { data: ord, error: ordErr } = await ssr
         .from("orders")
         .select("client_id")
         .eq("id", (request as any).order_id)
         .maybeSingle();
+      if (ordErr) {
+        console.error("[orders/cancellation-review] orders fetch failed:", ordErr);
+      }
       const { data: credRow } = await (ssr as any).from("payments").insert({
         company_id: (request as any).company_id,
         order_id: (request as any).order_id,

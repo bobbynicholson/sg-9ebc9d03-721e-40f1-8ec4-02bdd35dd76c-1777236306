@@ -230,11 +230,14 @@ Guests: ${lead.guest_count ?? "TBD"}`;
 
   async updateLead(id: string, updates: LeadUpdate) {
     // Get original lead for comparison
-    const { data: originalLead } = await supabase
+    const { data: originalLead, error: originalLeadErr } = await supabase
       .from("leads")
       .select("*")
       .eq("id", id)
       .single();
+    if (originalLeadErr) {
+      console.error("[leadService] leads fetch failed:", originalLeadErr);
+    }
 
     const { data, error } = await supabase
       .from("leads")

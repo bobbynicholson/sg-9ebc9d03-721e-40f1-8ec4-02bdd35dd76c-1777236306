@@ -57,11 +57,14 @@ export default async function handler(
       if (!user) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const { data: profile } = await ssr
+      const { data: profile, error: profileErr } = await ssr
         .from("profiles")
         .select("company_id, role, active_role")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileErr) {
+        console.error("[send-email] profiles fetch failed:", profileErr);
+      }
       const callerRole = (profile as any)?.active_role || (profile as any)?.role;
       if (callerRole !== "super_admin" && (profile as any)?.company_id !== companyId) {
         return res.status(403).json({ error: "Cannot send email for another company" });
@@ -87,11 +90,14 @@ export default async function handler(
         .map((r) => r.toLowerCase().trim());
 
       if (recipientLower.length > 0) {
-        const { data: blocks } = await ssr
+        const { data: blocks, error: blocksErr } = await ssr
           .from("blocked_contacts")
           .select("email_lower, reason")
           .eq("company_id", companyId)
           .in("email_lower", recipientLower);
+        if (blocksErr) {
+          console.error("[send-email] blocked_contacts fetch failed:", blocksErr);
+        }
         if (blocks && blocks.length > 0) {
           const firstBlocked = blocks.map((b) => b.email_lower).filter(Boolean)[0] as string | undefined;
           return res.status(409).json({
@@ -284,7 +290,7 @@ export default async function handler(
       if (attachInvoicePdf && invoiceId) {
         try {
           const ssr = createPagesServerClient({ req, res });
-          const { data: inv } = await ssr
+          const { data: inv, error: invErr } = await ssr
             .from("invoices")
             .select(`
               id, invoice_number, invoice_date, due_date, status,
@@ -311,6 +317,9 @@ export default async function handler(
             .eq("id", invoiceId)
             .is("deleted_at", null)
             .maybeSingle();
+          if (invErr) {
+            console.error("[send-email] invoices fetch failed:", invErr);
+          }
 
           if (inv) {
             const invAny = inv as any;

@@ -10,11 +10,14 @@ type StaffWorkSession = Database["public"]["Tables"]["staff_work_sessions"]["Row
 export const timeClockService = {
   async clockIn(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
     // Look up the staff's company so the work session is properly tenant-scoped.
-    const { data: staffProfile } = await supabase
+    const { data: staffProfile, error: staffProfileErr } = await supabase
       .from("profiles")
       .select("company_id")
       .eq("id", staffId)
       .maybeSingle();
+    if (staffProfileErr) {
+      console.error("[timeClockService] profiles fetch failed:", staffProfileErr);
+    }
     const companyId = staffProfile?.company_id ?? null;
     if (!companyId) {
       throw new Error("Cannot clock in: profile has no company_id. Set the staff member's company before clocking in.");
@@ -24,7 +27,7 @@ export const timeClockService = {
     // Audit (May 2026) found that double-tap or stale-tab clock-in
     // bloated unpaid-hour totals because the next clockOut only
     // closed the latest session, orphaning prior ones.
-    const { data: existingOpen } = await supabase
+    const { data: existingOpen, error: existingOpenErr } = await supabase
       .from("staff_work_sessions")
       .select("id")
       .eq("staff_id", staffId)
@@ -32,6 +35,9 @@ export const timeClockService = {
       .is("clock_out", null)
       .limit(1)
       .maybeSingle();
+    if (existingOpenErr) {
+      console.error("[timeClockService] staff_work_sessions fetch failed:", existingOpenErr);
+    }
     if (existingOpen) {
       throw new Error("This staff member already has an open session. Clock out first before clocking in again.");
     }
@@ -75,11 +81,14 @@ export const timeClockService = {
     // first open session by staff_id alone -- if a staff record existed
     // across tenants (super-admin, re-invited user) it could close the
     // wrong tenant's session and stamp earnings on the wrong tenant.
-    const { data: staffProfile } = await supabase
+    const { data: staffProfile, error: staffProfileErr2 } = await supabase
       .from("profiles")
       .select("company_id")
       .eq("id", staffId)
       .maybeSingle();
+    if (staffProfileErr2) {
+      console.error("[timeClockService] profiles fetch failed:", staffProfileErr2);
+    }
     const companyId = staffProfile?.company_id ?? null;
     if (!companyId) {
       throw new Error("Cannot clock out: profile has no company_id.");
@@ -129,30 +138,39 @@ export const timeClockService = {
     //      bug on the wage roll-up so the operator notices and sets
     //      a rate, rather than silently paying a default that's
     //      likely wrong)
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("hourly_rate, role")
       .eq("id", staffId)
       .single();
+    if (profileErr) {
+      console.error("[timeClockService] profiles fetch failed:", profileErr);
+    }
 
     let hourlyRate = Number((profile as any)?.hourly_rate) || 0;
     if (hourlyRate <= 0) {
       // Walk the role-specific tables that store rate independently.
-      const { data: ks } = await supabase
+      const { data: ks, error: ksErr } = await supabase
         .from("kitchen_staff_members")
         .select("hourly_rate")
         .eq("profile_id", staffId)
         .maybeSingle();
+      if (ksErr) {
+        console.error("[timeClockService] kitchen_staff_members fetch failed:", ksErr);
+      }
       if (ks && Number((ks as any).hourly_rate) > 0) {
         hourlyRate = Number((ks as any).hourly_rate);
       }
     }
     if (hourlyRate <= 0) {
-      const { data: dr } = await supabase
+      const { data: dr, error: drErr } = await supabase
         .from("drivers")
         .select("hourly_rate, hourly_rate_normal")
         .eq("profile_id", staffId)
         .maybeSingle();
+      if (drErr) {
+        console.error("[timeClockService] drivers fetch failed:", drErr);
+      }
       const r = Number((dr as any)?.hourly_rate) || Number((dr as any)?.hourly_rate_normal) || 0;
       if (r > 0) hourlyRate = r;
     }

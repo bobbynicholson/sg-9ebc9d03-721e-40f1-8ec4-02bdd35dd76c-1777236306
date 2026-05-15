@@ -145,11 +145,14 @@ export async function syncOrderArtifacts(
     const quote_id: string | null = (order as any).quote_id || null;
     let quoteIsAccepted = false;
     if (quote_id) {
-      const { data: quoteRow } = await sb
+      const { data: quoteRow, error: quoteRowErr } = await sb
         .from("quotes")
         .select("status, accepted_at")
         .eq("id", quote_id)
         .maybeSingle();
+      if (quoteRowErr) {
+        console.error("[order/orderSyncService] quotes fetch failed:", quoteRowErr);
+      }
       quoteIsAccepted =
         ((quoteRow as any)?.status === "accepted") ||
         !!(quoteRow as any)?.accepted_at;
@@ -195,11 +198,14 @@ export async function syncOrderArtifacts(
 
     // 6. Mirror to the invoice, if one exists. Invoices reference the
     //    order; we just push totals through.
-    const { data: invoice } = await sb
+    const { data: invoice, error: invoiceErr } = await sb
       .from("invoices")
       .select("id")
       .eq("order_id", orderId)
       .maybeSingle();
+    if (invoiceErr) {
+      console.error("[order/orderSyncService] invoices fetch failed:", invoiceErr);
+    }
 
     let invoice_id: string | null = null;
     if (invoice) {

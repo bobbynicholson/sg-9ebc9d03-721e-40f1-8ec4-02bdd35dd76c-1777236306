@@ -94,11 +94,14 @@ export async function updateOrderStatus(
     // function happily flipped pending -> delivered, skipping
     // confirmed-time invoice creation, kitchen prep, and inventory
     // deduction. [P0-12]
-    const { data: current } = await supabase
+    const { data: current, error: currentErr } = await supabase
       .from("orders")
       .select("status")
       .eq("id", orderId)
       .maybeSingle();
+    if (currentErr) {
+      console.error("[order/orderWorkflow] orders fetch failed:", currentErr);
+    }
     const currentStatus = (current as any)?.status as string | null | undefined;
 
     // Idempotency guard: if the order is already in the target state,
@@ -140,11 +143,14 @@ export async function updateOrderStatus(
     };
     const nowIso = new Date().toISOString();
     if (advancedStatuses.has(newStatus)) {
-      const { data: prior } = await supabase
+      const { data: prior, error: priorErr } = await supabase
         .from("orders")
         .select("confirmed_at, ready_at, picked_up_at, delivered_at, completed_at")
         .eq("id", orderId)
         .maybeSingle();
+      if (priorErr) {
+        console.error("[order/orderWorkflow] orders fetch failed:", priorErr);
+      }
       // confirmed_at -- any advanced status counts as "past confirmed"
       if (!(prior as any)?.confirmed_at) updates.confirmed_at = nowIso;
       // Per-status stamps -- never clobber an existing value. The
@@ -444,20 +450,26 @@ export async function updateOrderStatus(
           .eq("status", "booked");
         if ((bookingCount ?? 0) > 0) {
           // Idempotency check.
-          const { data: existingCollection } = await (supabase as any)
+          const { data: existingCollection, error: existingCollectionErr } = await (supabase as any)
             .from("driver_assignments")
             .select("id")
             .eq("order_id", order.id)
             .eq("assignment_type", "collection")
             .maybeSingle();
+          if (existingCollectionErr) {
+            console.error("[order/orderWorkflow] driver_assignments fetch failed:", existingCollectionErr);
+          }
           if (!existingCollection) {
             // Find the delivery assignment to copy driver + as parent.
-            const { data: deliveryAssignment } = await (supabase as any)
+            const { data: deliveryAssignment, error: deliveryAssignmentErr } = await (supabase as any)
               .from("driver_assignments")
               .select("id, driver_id")
               .eq("order_id", order.id)
               .eq("assignment_type", "delivery")
               .maybeSingle();
+            if (deliveryAssignmentErr) {
+              console.error("[order/orderWorkflow] driver_assignments fetch failed:", deliveryAssignmentErr);
+            }
 
             const deliveryDriverId =
               (deliveryAssignment as any)?.driver_id || order.assigned_driver_id || null;
@@ -822,11 +834,14 @@ export async function cancelOrder(
     // terminal (cancelled / completed) -- those should be handled
     // via reactivate / refund flows, not a fresh cancellation. Also
     // bail early if already cancelled (idempotency).
-    const { data: current } = await sb
+    const { data: current, error: currentErr2 } = await sb
       .from("orders")
       .select("status, company_id, user_id")
       .eq("id", orderId)
       .maybeSingle();
+    if (currentErr2) {
+      console.error("[order/orderWorkflow] orders fetch failed:", currentErr2);
+    }
     const currentStatus = (current as any)?.status as string | null | undefined;
     const orderCompanyId = (current as any)?.company_id as string | null | undefined;
     const orderUserId = (current as any)?.user_id as string | null | undefined;
@@ -1812,12 +1827,15 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
   }
 
   // Idempotency: don't double-schedule.
-  const { data: existing } = await (supabase as any)
+  const { data: existing, error: existingErr2 } = await (supabase as any)
     .from("outgoing_email_queue")
     .select("id")
     .eq("trigger_event", "aftersales")
     .eq("trigger_ref_id", order.id)
     .limit(1);
+  if (existingErr2) {
+    console.error("[order/orderWorkflow] outgoing_email_queue fetch failed:", existingErr2);
+  }
   if (existing && existing.length > 0) return;
 
   try {
@@ -1910,12 +1928,15 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   }
 
   // Idempotency.
-  const { data: existing } = await (supabase as any)
+  const { data: existing, error: existingErr3 } = await (supabase as any)
     .from("outgoing_email_queue")
     .select("id")
     .eq("trigger_event", "pre_event")
     .eq("trigger_ref_id", order.id)
     .limit(1);
+  if (existingErr3) {
+    console.error("[order/orderWorkflow] outgoing_email_queue fetch failed:", existingErr3);
+  }
   if (existing && existing.length > 0) return;
 
   const eventDate = new Date(order.event_date);
@@ -1931,11 +1952,14 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   // send a generic body if the lookup fails.
   let tenantNameForReminders = "the team";
   try {
-    const { data: companyRow } = await (supabase as any)
+    const { data: companyRow, error: companyRowErr } = await (supabase as any)
       .from("companies")
       .select("company_name")
       .eq("id", order.company_id)
       .maybeSingle();
+    if (companyRowErr) {
+      console.error("[order/orderWorkflow] companies fetch failed:", companyRowErr);
+    }
     if ((companyRow as any)?.company_name) tenantNameForReminders = (companyRow as any).company_name;
   } catch {
     // fall through

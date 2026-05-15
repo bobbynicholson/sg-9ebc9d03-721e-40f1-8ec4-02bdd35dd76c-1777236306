@@ -63,11 +63,14 @@ export default async function handler(
       return res.status(401).json({ error: "No active session." });
     }
 
-    const { data: callerProfile } = await ssr
+    const { data: callerProfile, error: callerProfileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", callerAuth.id)
       .single();
+    if (callerProfileErr) {
+      console.error("[admin/resend/force-reverify] profiles fetch failed:", callerProfileErr);
+    }
     const role =
       (callerProfile as any)?.active_role || (callerProfile as any)?.role;
     if (!callerProfile || !ALLOWED_ROLES.has(role)) {
@@ -79,12 +82,15 @@ export default async function handler(
     const companyId = (callerProfile as any).company_id;
     const admin = getServiceSupabase();
 
-    const { data: row } = await admin
+    const { data: row, error: rowErr } = await admin
       .from("email_provider_settings")
       .select("id, resend_domain_id, resend_sending_domain")
       .eq("company_id", companyId)
       .eq("provider", "resend")
       .maybeSingle();
+    if (rowErr) {
+      console.error("[admin/resend/force-reverify] email_provider_settings fetch failed:", rowErr);
+    }
 
     if (!row) {
       return res.status(404).json({

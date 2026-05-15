@@ -69,13 +69,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // was sent to the user's email (orphan quote pre-signup).
     let owns = false;
     if (quote.client_id) {
-      const { data: ownership } = await admin
+      const { data: ownership, error: ownershipErr } = await admin
         .from("clients")
         .select("id")
         .eq("id", quote.client_id)
         .eq("user_id", user.id)
         .eq("company_id", quote.company_id)
         .maybeSingle();
+      if (ownershipErr) {
+        console.error("[quotes/request-edits] clients fetch failed:", ownershipErr);
+      }
       if (ownership) owns = true;
     }
     if (!owns && quote.client_email && user.email && quote.client_email.toLowerCase() === user.email.toLowerCase()) {
@@ -140,11 +143,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fan out admin notifications. One row per recipient.
     try {
-      const { data: recipients } = await admin
+      const { data: recipients, error: recipientsErr } = await admin
         .from("profiles")
         .select("id")
         .eq("company_id", quote.company_id)
         .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
+      if (recipientsErr) {
+        console.error("[quotes/request-edits] profiles fetch failed:", recipientsErr);
+      }
       const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
       if (recipientIds.length > 0) {
         // Store the full request text in the notification message so

@@ -137,13 +137,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // 4) Resolve form (token -> company, slug -> form config)
-  const { data: company } = await (supabase as any)
+  const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
     .select(
       "id, company_name, owner_id, is_active, deleted_at, embed_token, auto_reply_to_embed_submissions"
     )
     .eq("embed_token", token)
     .maybeSingle();
+  if (companyErr) {
+    console.error("[public/embed/[token]/submit] companies fetch failed:", companyErr);
+  }
 
   if (!company || company.is_active === false || company.deleted_at) {
     return res.status(404).json({ ok: false, message: "Not found" });

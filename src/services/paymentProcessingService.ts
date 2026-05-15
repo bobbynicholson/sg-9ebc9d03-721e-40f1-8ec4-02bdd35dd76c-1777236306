@@ -154,11 +154,14 @@ class PaymentProcessingService {
       // four side-effects and silently regressing late orders that
       // were already past 'confirmed' back to 'confirmed' when a
       // second payment landed.
-      const { data: priorDeposit } = await supabase
+      const { data: priorDeposit, error: priorDepositErr } = await supabase
         .from("orders")
         .select("status, confirmed_at")
         .eq("id", orderId)
         .maybeSingle();
+      if (priorDepositErr) {
+        console.error("[paymentProcessingService] orders fetch failed:", priorDepositErr);
+      }
 
       const moneyUpdate: any = {
         deposit_paid: true,
@@ -204,11 +207,14 @@ class PaymentProcessingService {
 
       // Get order details for notification. Schedule fields are now on
       // orders so a single select covers everything.
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select("*")
         .eq("id", orderId)
         .single();
+      if (orderErr) {
+        console.error("[paymentProcessingService] orders fetch failed:", orderErr);
+      }
 
       if (order) {
         const schedule = order as any;
@@ -282,11 +288,14 @@ class PaymentProcessingService {
       // and this balance closes the books, the auto-complete hook
       // in webhooks/payment-confirmation.ts (Phase 0 #4) handles
       // the flip to 'completed' separately.
-      const { data: priorBalance } = await supabase
+      const { data: priorBalance, error: priorBalanceErr } = await supabase
         .from("orders")
         .select("status, confirmed_at")
         .eq("id", orderId)
         .maybeSingle();
+      if (priorBalanceErr) {
+        console.error("[paymentProcessingService] orders fetch failed:", priorBalanceErr);
+      }
 
       const moneyUpdate: any = {
         balance_paid: true,
@@ -328,11 +337,14 @@ class PaymentProcessingService {
       }
 
       // Get order details. Schedule fields live on orders now.
-      const { data: order } = await supabase
+      const { data: order, error: orderErr2 } = await supabase
         .from("orders")
         .select("*")
         .eq("id", orderId)
         .single();
+      if (orderErr2) {
+        console.error("[paymentProcessingService] orders fetch failed:", orderErr2);
+      }
 
       if (order) {
         const schedule = order as any;

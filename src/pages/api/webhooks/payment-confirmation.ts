@@ -357,22 +357,28 @@ export default async function handler(
           let recipientEmail: string | null = null;
           let recipientName: string | null = null;
           if (invoiceData.client_id) {
-            const { data: clientRow } = await supabase
+            const { data: clientRow, error: clientRowErr } = await supabase
               .from("clients")
               .select("email, client_name")
               .eq("id", invoiceData.client_id)
               .maybeSingle();
+            if (clientRowErr) {
+              console.error("[webhooks/payment-confirmation] clients fetch failed:", clientRowErr);
+            }
             if (clientRow) {
               recipientEmail = (clientRow as any).email;
               recipientName = (clientRow as any).client_name;
             }
           }
           if (!recipientEmail && invoiceData.order_id) {
-            const { data: orderRow } = await supabase
+            const { data: orderRow, error: orderRowErr } = await supabase
               .from("orders")
               .select("client_email, client_name")
               .eq("id", invoiceData.order_id)
               .maybeSingle();
+            if (orderRowErr) {
+              console.error("[webhooks/payment-confirmation] orders fetch failed:", orderRowErr);
+            }
             if (orderRow) {
               recipientEmail = (orderRow as any).client_email;
               recipientName = (orderRow as any).client_name;
@@ -586,11 +592,14 @@ export default async function handler(
       );
 
       // If the invoice is now fully paid, close the order out.
-      const { data: refreshed } = await supabase
+      const { data: refreshed, error: refreshedErr } = await supabase
         .from("orders")
         .select("payment_status, status")
         .eq("id", order.id)
         .maybeSingle();
+      if (refreshedErr) {
+        console.error("[webhooks/payment-confirmation] orders fetch failed:", refreshedErr);
+      }
       if (refreshed && (refreshed as any).payment_status === "paid"
           && (refreshed as any).status !== "completed") {
         await supabase
@@ -700,20 +709,26 @@ async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null)
  */
 async function resolveClientUserId(orderClientId: string | null | undefined): Promise<string | null> {
   if (!orderClientId) return null;
-  const { data: clientRow } = await supabase
+  const { data: clientRow, error: clientRowErr2 } = await supabase
     .from("clients")
     .select("user_id, email")
     .eq("id", orderClientId)
     .maybeSingle();
+  if (clientRowErr2) {
+    console.error("[webhooks/payment-confirmation] clients fetch failed:", clientRowErr2);
+  }
   if (!clientRow) return null;
   if ((clientRow as any).user_id) return (clientRow as any).user_id as string;
   const email = ((clientRow as any).email || "").toLowerCase().trim();
   if (!email) return null;
-  const { data: profileMatch } = await supabase
+  const { data: profileMatch, error: profileMatchErr } = await supabase
     .from("profiles")
     .select("id")
     .ilike("email", email)
     .maybeSingle();
+  if (profileMatchErr) {
+    console.error("[webhooks/payment-confirmation] profiles fetch failed:", profileMatchErr);
+  }
   return (profileMatch as any)?.id || null;
 }
 
@@ -759,11 +774,14 @@ async function sendClientPaymentConfirmation(
   let recipientEmail: string | null = order.client_email || null;
   let recipientName: string | null = order.client_name || null;
   if (!recipientEmail && order.client_id) {
-    const { data: clientRow } = await supabase
+    const { data: clientRow, error: clientRowErr3 } = await supabase
       .from("clients")
       .select("email, client_name")
       .eq("id", order.client_id)
       .maybeSingle();
+    if (clientRowErr3) {
+      console.error("[webhooks/payment-confirmation] clients fetch failed:", clientRowErr3);
+    }
     if (clientRow) {
       recipientEmail = (clientRow as any).email || null;
       recipientName = recipientName || (clientRow as any).client_name || null;

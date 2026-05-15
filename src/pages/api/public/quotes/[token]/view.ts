@@ -56,11 +56,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // not exist" and 500 the view-tracking endpoint, which silently
   // swallowed every viewed-at stamp + the admin "client viewed"
   // notification.
-  const { data: row } = await (supabase as any)
+  const { data: row, error: rowErr } = await (supabase as any)
     .from("quotes")
     .select("id, company_id, user_id, client_name, total, event_date, viewed_at, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
+  if (rowErr) {
+    console.error("[public/quotes/[token]/view] quotes fetch failed:", rowErr);
+  }
 
   if (!row || row.deleted_at) return res.status(404).json({ ok: false });
 
@@ -79,11 +82,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Resolve currency from the company; quotes table doesn't carry it.
     let currencyCode = "ZAR";
     try {
-      const { data: companyRow } = await (supabase as any)
+      const { data: companyRow, error: companyRowErr } = await (supabase as any)
         .from("companies")
         .select("currency")
         .eq("id", row.company_id)
         .maybeSingle();
+      if (companyRowErr) {
+        console.error("[public/quotes/[token]/view] companies fetch failed:", companyRowErr);
+      }
       if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
     } catch { /* fall back to ZAR */ }
     const totalLabel = `${currencyCode} ${Number(row.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;

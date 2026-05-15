@@ -424,7 +424,10 @@ export async function createInvoiceRecord(
 ): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
   const supabase = resolveClient(client);
   try {
-    const { data: order } = await supabase.from("orders").select("client_id").eq("id", orderId).single();
+    const { data: order, error: orderErr } = await supabase.from("orders").select("client_id").eq("id", orderId).single();
+    if (orderErr) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderErr);
+    }
 
     const insertPayload: any = {
       company_id: companyId,
@@ -481,7 +484,7 @@ export async function ensureInvoiceForOrder(
     // entry), every subsequent call here would crash silently.
     // Switched to a multi-row read so we can heal corrupted state in
     // place: keep the newest, void the rest, recalc the survivor.
-    const { data: existingRows } = await (supabase as any)
+    const { data: existingRows, error: existingRowsErr } = await (supabase as any)
       .from("invoices")
       .select("id, status, created_at, total_amount")
       .eq("order_id", orderId)
@@ -489,6 +492,9 @@ export async function ensureInvoiceForOrder(
       .is("deleted_at", null)
       .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
       .order("created_at", { ascending: false });
+    if (existingRowsErr) {
+      console.error("[invoiceGenerationService] invoices fetch failed:", existingRowsErr);
+    }
     const liveInvoices: any[] = Array.isArray(existingRows) ? existingRows : [];
 
     if (liveInvoices.length > 0) {
@@ -543,11 +549,14 @@ export async function ensureInvoiceForOrder(
 
     // 2. Skip imported / quarantined orders -- their financials are
     // historical and already settled in the prior system.
-    const { data: orderRow } = await supabase
+    const { data: orderRow, error: orderRowErr } = await supabase
       .from("orders")
       .select("imported_at, comms_paused_until")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderRowErr) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderRowErr);
+    }
     if (orderRow) {
       const importedAt = (orderRow as any).imported_at;
       const paused = (orderRow as any).comms_paused_until;
@@ -726,26 +735,35 @@ async function notifyClientOfInvoiceIssued(
   const supabase = resolveClient(client);
   try {
     // Idempotency gate. One client notification per invoice.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from("notifications")
       .select("id")
       .eq("related_entity_id", invoiceId)
       .eq("notification_type", "invoice_issued")
       .limit(1);
+    if (existingErr) {
+      console.error("[invoiceGenerationService] notifications fetch failed:", existingErr);
+    }
     if (existing && existing.length > 0) return;
 
     // Pull order + tenant once for the message body.
-    const { data: order } = await supabase
+    const { data: order, error: orderErr2 } = await supabase
       .from("orders")
       .select("id, client_id, client_email, event_name")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr2) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderErr2);
+    }
 
-    const { data: company } = await supabase
+    const { data: company, error: companyErr } = await supabase
       .from("companies")
       .select("company_name")
       .eq("id", companyId)
       .maybeSingle();
+    if (companyErr) {
+      console.error("[invoiceGenerationService] companies fetch failed:", companyErr);
+    }
 
     const tenantName = (company as any)?.company_name || "Your catering team";
     const eventName =
@@ -895,7 +913,7 @@ async function renderInvoicePdfAttachment(
   injectedClient?: SupabaseLike,
 ): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
   const supabase = resolveClient(injectedClient);
-  const { data: invRow } = await supabase
+  const { data: invRow, error: invRowErr } = await supabase
     .from("invoices")
     .select(`
       id, invoice_number, invoice_date, due_date, status,
@@ -923,6 +941,9 @@ async function renderInvoicePdfAttachment(
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .maybeSingle();
+  if (invRowErr) {
+    console.error("[invoiceGenerationService] invoices fetch failed:", invRowErr);
+  }
 
   if (!invRow) {
     console.warn(`[renderInvoicePdfAttachment] invoice ${invoiceId} not found`);

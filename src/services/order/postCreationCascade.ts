@@ -191,22 +191,28 @@ export async function postOrderCreationCascade(
     try {
       // Pull the order + recipient details using the injected client
       // so this works under either RLS or service-role auth.
-      const { data: order } = await (client as any)
+      const { data: order, error: orderErr } = await (client as any)
         .from("orders")
         .select("id, order_number, client_email, client_name, event_date, currency, total_amount, company_id")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr) {
+        console.error("[order/postCreationCascade] orders fetch failed:", orderErr);
+      }
 
       if (!order) {
         receipt.email = { ok: false, skipped: true, reason: "order_not_found" };
       } else if (!(order as any).client_email) {
         receipt.email = { ok: false, skipped: true, reason: "no_client_email" };
       } else {
-        const { data: companyRow } = await (client as any)
+        const { data: companyRow, error: companyRowErr } = await (client as any)
           .from("companies")
           .select("company_name")
           .eq("id", companyId)
           .maybeSingle();
+        if (companyRowErr) {
+          console.error("[order/postCreationCascade] companies fetch failed:", companyRowErr);
+        }
         const companyName = (companyRow as any)?.company_name || "Your Catering Company";
         const totalAmount = `${(order as any).currency || "ZAR"} ${Number((order as any).total_amount || 0).toFixed(2)}`;
         const eventDate = (order as any).event_date
@@ -333,21 +339,27 @@ export async function postOrderCreationCascade(
   // overlap window. Phase 2 will pad by equipment.cleaning_time_hours.
   if (!opts.skipEquipment) {
     try {
-      const { data: order } = await (client as any)
+      const { data: order, error: orderErr2 } = await (client as any)
         .from("orders")
         .select("id, quote_id, event_date, company_id")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr2) {
+        console.error("[order/postCreationCascade] orders fetch failed:", orderErr2);
+      }
       if (!order) {
         receipt.equipment = { ok: false, bookingsCreated: 0, reason: "order_not_found" };
       } else if (!(order as any).quote_id) {
         receipt.equipment = { ok: true, bookingsCreated: 0, reason: "no_source_quote" };
       } else {
-        const { data: quote } = await (client as any)
+        const { data: quote, error: quoteErr } = await (client as any)
           .from("quotes")
           .select("equipment_items")
           .eq("id", (order as any).quote_id)
           .maybeSingle();
+        if (quoteErr) {
+          console.error("[order/postCreationCascade] quotes fetch failed:", quoteErr);
+        }
         const raw = (quote as any)?.equipment_items;
         const items: any[] = Array.isArray(raw)
           ? raw
@@ -366,10 +378,13 @@ export async function postOrderCreationCascade(
 
           // Idempotency: pull existing bookings for this order first
           // so we don't re-insert on retry.
-          const { data: existing } = await (client as any)
+          const { data: existing, error: existingErr } = await (client as any)
             .from("equipment_bookings")
             .select("equipment_id")
             .eq("order_id", orderId);
+          if (existingErr) {
+            console.error("[order/postCreationCascade] equipment_bookings fetch failed:", existingErr);
+          }
           const taken = new Set((existing || []).map((b: any) => b.equipment_id));
 
           const rows = items
@@ -431,18 +446,24 @@ export async function postOrderCreationCascade(
   // just surface the problem loudly.
   if (!opts.skipConflictCheck) {
     try {
-      const { data: order } = await (client as any)
+      const { data: order, error: orderErr3 } = await (client as any)
         .from("orders")
         .select("id, event_date, region_id")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr3) {
+        console.error("[order/postCreationCascade] orders fetch failed:", orderErr3);
+      }
       if (!order || !(order as any).event_date) {
         receipt.conflicts = { ok: true, shortfalls: 0, reason: "no_event_date" };
       } else {
-        const { data: bookings } = await (client as any)
+        const { data: bookings, error: bookingsErr } = await (client as any)
           .from("equipment_bookings")
           .select("equipment_id, quantity, equipment:equipment_id(name)")
           .eq("order_id", orderId);
+        if (bookingsErr) {
+          console.error("[order/postCreationCascade] equipment_bookings fetch failed:", bookingsErr);
+        }
         const bookingRows = (bookings || []) as any[];
         if (bookingRows.length === 0) {
           receipt.conflicts = { ok: true, shortfalls: 0, reason: "no_equipment_on_order" };
@@ -525,11 +546,14 @@ export async function postOrderCreationCascade(
   // Non-blocking: failures don't refuse the order, just log.
   if (!opts.skipShoppingSuggestion) {
     try {
-      const { data: order } = await (client as any)
+      const { data: order, error: orderErr4 } = await (client as any)
         .from("orders")
         .select("id, guest_count, final_guest_count, number_of_guests, event_date, region_id, order_number")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr4) {
+        console.error("[order/postCreationCascade] orders fetch failed:", orderErr4);
+      }
       if (!order) {
         receipt.shopping = { ok: true, shortfalls: 0, reason: "order_not_found" };
       } else {
@@ -538,10 +562,13 @@ export async function postOrderCreationCascade(
         // and webhook-created paths the field is null/empty and the
         // shopping forecast silently no-op'd. Read from order_items
         // (back-filled by Step 0 from quote.menu_items).
-        const { data: itemRows } = await (client as any)
+        const { data: itemRows, error: itemRowsErr } = await (client as any)
           .from("order_items")
           .select("item_name, menu_item_id, quantity")
           .eq("order_id", orderId);
+        if (itemRowsErr) {
+          console.error("[order/postCreationCascade] order_items fetch failed:", itemRowsErr);
+        }
         const menuItems = (itemRows || []).map((r: any) => ({
           name: r.item_name,
           menu_item_id: r.menu_item_id,

@@ -53,11 +53,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Server email config missing" });
   }
 
-  const { data: profile } = await sb
+  const { data: profile, error: profileErr } = await sb
     .from("profiles")
     .select("id,company_id")
     .eq("id", userId)
     .maybeSingle();
+  if (profileErr) {
+    console.error("[emails/owner-welcome] profiles fetch failed:", profileErr);
+  }
   if (!profile || profile.company_id !== companyId) {
     return res.status(403).json({ error: "Profile / company mismatch" });
   }

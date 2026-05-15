@@ -140,12 +140,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Reject duplicates -- prevents the client mash-clicking Cancel
     // and spawning N pending rows on the same order.
-    const { data: existing } = await sb
+    const { data: existing, error: existingErr } = await sb
       .from("cancellation_requests")
       .select("id")
       .eq("order_id", order_id)
       .eq("status", "pending")
       .limit(1);
+    if (existingErr) {
+      console.error("[client-tokens/cancel-order] cancellation_requests fetch failed:", existingErr);
+    }
     if (existing && existing.length > 0) {
       return res.status(409).json({
         error: "There's already a pending request on this order. We'll come back to you shortly.",

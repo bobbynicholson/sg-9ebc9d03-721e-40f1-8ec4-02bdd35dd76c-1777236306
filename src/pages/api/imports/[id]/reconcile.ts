@@ -75,23 +75,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Invoices import_job_id isn't a column on the schema today --
     // we link via the invoice_id stamped on import_rows. Pull those
     // rows separately and look the invoices up by id.
-    const { data: invoiceRowIds } = await supabase
+    const { data: invoiceRowIds, error: invoiceRowIdsErr } = await supabase
       .from("import_rows")
       .select("target_id")
       .eq("job_id", jobId)
       .eq("target_table", "invoices")
       .in("status", ["inserted", "updated"]);
+    if (invoiceRowIdsErr) {
+      console.error("[imports/[id]/reconcile] import_rows fetch failed:", invoiceRowIdsErr);
+    }
     const invoiceIds: string[] = ((invoiceRowIds || []) as Array<{ target_id: string | null }>)
       .map((r) => r.target_id)
       .filter((id): id is string => !!id);
     let invoices: any[] = [];
     if (invoiceIds.length > 0) {
-      const { data } = await supabase
+      const { data, error: error2 } = await supabase
         .from("invoices")
         .select("id, total_amount, amount_paid, balance_due, status")
         .in("id", invoiceIds)
         .eq("company_id", companyId)
         .is("deleted_at", null);
+      if (error2) {
+        console.error("[imports/[id]/reconcile] invoices fetch failed:", error2);
+      }
       invoices = (data || []) as any[];
     }
 

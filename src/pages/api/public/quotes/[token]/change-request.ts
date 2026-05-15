@@ -128,7 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Resolve quote.
-  const { data: quote } = await (supabase as any)
+  const { data: quote, error: quoteErr } = await (supabase as any)
     .from("quotes")
     // Wave 12 follow-up: currency lives on companies, not quotes.
     // Selecting it here used to throw "column quotes.currency does
@@ -136,6 +136,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .select("id, company_id, user_id, lead_id, client_name, total, event_date, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
+  if (quoteErr) {
+    console.error("[public/quotes/[token]/change-request] quotes fetch failed:", quoteErr);
+  }
 
   if (!quote || quote.deleted_at) return res.status(404).json({ ok: false, error: "Quote not found" });
 
@@ -184,11 +187,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Resolve currency from the company; quotes table doesn't carry it.
       let currencyCode = "ZAR";
       try {
-        const { data: companyRow } = await (supabase as any)
+        const { data: companyRow, error: companyRowErr } = await (supabase as any)
           .from("companies")
           .select("currency")
           .eq("id", quote.company_id)
           .maybeSingle();
+        if (companyRowErr) {
+          console.error("[public/quotes/[token]/change-request] companies fetch failed:", companyRowErr);
+        }
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
       } catch { /* fall back to ZAR */ }
       const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
@@ -197,11 +203,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : "TBD";
       const summary = message.length > 140 ? message.slice(0, 137) + "..." : message;
 
-      const { data: recipients } = await (supabase as any)
+      const { data: recipients, error: recipientsErr } = await (supabase as any)
         .from("profiles")
         .select("id, role")
         .eq("company_id", quote.company_id)
         .in("role", ["company_admin", "admin", "sales_admin", "region_admin", "owner"]);
+      if (recipientsErr) {
+        console.error("[public/quotes/[token]/change-request] profiles fetch failed:", recipientsErr);
+      }
 
       const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
       // Fall back to the quote's user_id if we found no admins -- this

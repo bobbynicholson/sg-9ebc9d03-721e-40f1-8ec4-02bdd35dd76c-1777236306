@@ -21,11 +21,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[imports/[id]/index] profiles fetch failed:", profileErr);
+    }
     const role = (profile?.active_role || profile?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
       return res.status(403).json({ error: "Only owners / admins can view imports" });

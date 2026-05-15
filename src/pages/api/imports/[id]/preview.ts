@@ -76,12 +76,15 @@ async function buildExistingEmailIndex(
     // Postgres `in.()` filter, lowercased emails. Supabase returns
     // null for empty arrays so guard.
     const list = Array.from(clientEmails);
-    const { data } = await supabase
+    const { data, error: error2 } = await supabase
       .from("clients")
       .select("id, email")
       .eq("company_id", companyId)
       .in("email", list)
       .is("deleted_at", null);
+    if (error2) {
+      console.error("[imports/[id]/preview] clients fetch failed:", error2);
+    }
     for (const row of (data || []) as Array<{ id: string; email: string | null }>) {
       if (row.email) clientByEmail.set(row.email.toLowerCase().trim(), row.id);
     }
@@ -90,21 +93,27 @@ async function buildExistingEmailIndex(
   if (leadEmails.size > 0) {
     const list = Array.from(leadEmails);
     // leads has both email + client_email -- match on either.
-    const { data: a } = await supabase
+    const { data: a, error: aErr } = await supabase
       .from("leads")
       .select("id, email")
       .eq("company_id", companyId)
       .in("email", list)
       .is("deleted_at", null);
+    if (aErr) {
+      console.error("[imports/[id]/preview] leads fetch failed:", aErr);
+    }
     for (const row of (a || []) as Array<{ id: string; email: string | null }>) {
       if (row.email) leadByEmail.set(row.email.toLowerCase().trim(), row.id);
     }
-    const { data: b } = await supabase
+    const { data: b, error: bErr } = await supabase
       .from("leads")
       .select("id, client_email")
       .eq("company_id", companyId)
       .in("client_email", list)
       .is("deleted_at", null);
+    if (bErr) {
+      console.error("[imports/[id]/preview] leads fetch failed:", bErr);
+    }
     for (const row of (b || []) as Array<{ id: string; client_email: string | null }>) {
       if (row.client_email && !leadByEmail.has(row.client_email.toLowerCase().trim())) {
         leadByEmail.set(row.client_email.toLowerCase().trim(), row.id);
@@ -123,11 +132,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: profile } = await ssr
+    const { data: profile, error: profileErr } = await ssr
       .from("profiles")
       .select("role, active_role, company_id")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      console.error("[imports/[id]/preview] profiles fetch failed:", profileErr);
+    }
     const role = (profile?.active_role || profile?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
       return res.status(403).json({ error: "Only owners / admins can run imports" });

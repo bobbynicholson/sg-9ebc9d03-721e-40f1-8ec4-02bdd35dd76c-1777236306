@@ -96,13 +96,16 @@ export const lifecycleService = {
     // 3. Look for a pre-existing client with the same email in this
     // tenant (admins sometimes create clients manually before / after
     // the lead, so we want to link rather than duplicate).
-    const { data: existingClient } = await sb
+    const { data: existingClient, error: existingClientErr } = await sb
       .from("clients")
       .select("id")
       .eq("company_id", (lead as any).company_id)
       .eq("email", (lead as any).email)
       .is("deleted_at", null)
       .maybeSingle();
+    if (existingClientErr) {
+      console.error("[lifecycleService] clients fetch failed:", existingClientErr);
+    }
 
     let clientId: string;
     let isNew = false;
@@ -225,11 +228,14 @@ export const lifecycleService = {
 
     // 1. Read the order with its items so we can synthesise a quote
     //    if needed.
-    const { data: order } = await sb
+    const { data: order, error: orderErr } = await sb
       .from("orders")
       .select("id, company_id, region_id, client_id, quote_id, order_number, client_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr) {
+      console.error("[lifecycleService] orders fetch failed:", orderErr);
+    }
     if (!order || (order as any).deleted_at) {
       return { orderId, clientId: null, leadId: null, quoteId: null, invoiceId: null, backfilled: [] };
     }
@@ -243,17 +249,20 @@ export const lifecycleService = {
     // 2. Find or create the clients row.
     let clientId: string | null = (order as any).client_id || null;
     if (!clientId && email) {
-      const { data: existingClient } = await sb
+      const { data: existingClient, error: existingClientErr2 } = await sb
         .from("clients")
         .select("id")
         .eq("company_id", companyId)
         .eq("email", email)
         .is("deleted_at", null)
         .maybeSingle();
+      if (existingClientErr2) {
+        console.error("[lifecycleService] clients fetch failed:", existingClientErr2);
+      }
       if (existingClient?.id) {
         clientId = (existingClient as any).id;
       } else {
-        const { data: newClient } = await sb
+        const { data: newClient, error: newClientErr } = await sb
           .from("clients")
           .insert({
             company_id: companyId,
@@ -265,6 +274,9 @@ export const lifecycleService = {
           } as any)
           .select("id")
           .single();
+        if (newClientErr) {
+          console.error("[lifecycleService] clients fetch failed:", newClientErr);
+        }
         clientId = (newClient as any)?.id || null;
         if (clientId) backfilled.push("client");
       }
@@ -276,13 +288,16 @@ export const lifecycleService = {
     // 3. Find or create the leads row.
     let leadId: string | null = null;
     if (email) {
-      const { data: existingLead } = await sb
+      const { data: existingLead, error: existingLeadErr } = await sb
         .from("leads")
         .select("id, converted_to_client_id")
         .eq("company_id", companyId)
         .eq("email", email)
         .is("deleted_at", null)
         .maybeSingle();
+      if (existingLeadErr) {
+        console.error("[lifecycleService] leads fetch failed:", existingLeadErr);
+      }
       if (existingLead?.id) {
         leadId = (existingLead as any).id;
         // Ensure the lead is stamped as converted to this client.
@@ -294,7 +309,7 @@ export const lifecycleService = {
           } as any).eq("id", leadId);
         }
       } else {
-        const { data: newLead } = await sb
+        const { data: newLead, error: newLeadErr } = await sb
           .from("leads")
           .insert({
             company_id: companyId,
@@ -310,6 +325,9 @@ export const lifecycleService = {
           } as any)
           .select("id")
           .single();
+        if (newLeadErr) {
+          console.error("[lifecycleService] leads fetch failed:", newLeadErr);
+        }
         leadId = (newLead as any)?.id || null;
         if (leadId) backfilled.push("lead");
       }
@@ -322,10 +340,13 @@ export const lifecycleService = {
       // jsonb. Equipment_bookings could also be mirrored but the
       // existing orderSyncService already handles that direction; the
       // quote's role here is "the price book this order locked in".
-      const { data: items } = await sb
+      const { data: items, error: itemsErr } = await sb
         .from("order_items")
         .select("id, item_name, description, quantity, unit_price, line_total")
         .eq("order_id", orderId);
+      if (itemsErr) {
+        console.error("[lifecycleService] order_items fetch failed:", itemsErr);
+      }
       const menuItemsJsonb = (items || []).map((it: any) => ({
         id: it.id,
         name: it.item_name,
@@ -341,7 +362,7 @@ export const lifecycleService = {
       const taxAmount = Number((order as any).tax_amount || 0);
       const quoteNumber = `QT-${(order as any).order_number || orderId.slice(0, 8)}`;
 
-      const { data: newQuote } = await sb
+      const { data: newQuote, error: newQuoteErr } = await sb
         .from("quotes")
         .insert({
           company_id: companyId,
@@ -366,6 +387,9 @@ export const lifecycleService = {
         } as any)
         .select("id")
         .single();
+      if (newQuoteErr) {
+        console.error("[lifecycleService] quotes fetch failed:", newQuoteErr);
+      }
       quoteId = (newQuote as any)?.id || null;
       if (quoteId) {
         await sb.from("orders").update({ quote_id: quoteId } as any).eq("id", orderId);
@@ -412,23 +436,29 @@ export const lifecycleService = {
   ): Promise<{ leadId: string | null; created: boolean }> {
     const sb = opts.client || supabase;
 
-    const { data: client } = await sb
+    const { data: client, error: clientErr } = await sb
       .from("clients")
       .select("id, company_id, region_id, client_name, email, phone, deleted_at")
       .eq("id", clientId)
       .maybeSingle();
+    if (clientErr) {
+      console.error("[lifecycleService] clients fetch failed:", clientErr);
+    }
     if (!client || (client as any).deleted_at || !(client as any).email) {
       return { leadId: null, created: false };
     }
 
     // Existing lead for this email?
-    const { data: existing } = await sb
+    const { data: existing, error: existingErr } = await sb
       .from("leads")
       .select("id, converted_to_client_id, status")
       .eq("company_id", (client as any).company_id)
       .eq("email", (client as any).email)
       .is("deleted_at", null)
       .maybeSingle();
+    if (existingErr) {
+      console.error("[lifecycleService] leads fetch failed:", existingErr);
+    }
     if (existing?.id) {
       // Stamp the conversion link if missing.
       if ((existing as any).converted_to_client_id !== clientId) {
@@ -442,7 +472,7 @@ export const lifecycleService = {
     }
 
     // No lead for this client yet -- create one stamped 'won'.
-    const { data: newLead } = await sb
+    const { data: newLead, error: newLeadErr2 } = await sb
       .from("leads")
       .insert({
         company_id: (client as any).company_id,
@@ -458,6 +488,9 @@ export const lifecycleService = {
       } as any)
       .select("id")
       .single();
+    if (newLeadErr2) {
+      console.error("[lifecycleService] leads fetch failed:", newLeadErr2);
+    }
     return { leadId: (newLead as any)?.id || null, created: !!newLead };
   },
 
