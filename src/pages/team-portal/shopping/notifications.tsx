@@ -111,13 +111,18 @@ export default function ShoppingNotificationsPage() {
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
-                <Bell className="h-7 w-7 text-emerald-600" />
-                Shopping Notifications
-                <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">Stock alerts, supplier updates, purchase requests</p>
+            {/* Wave 34: gradient-box icon header. */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+                <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                  Shopping Notifications
+                  <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
+                </h1>
+                <p className="text-sm text-slate-600 mt-0.5">Stock alerts, supplier updates, purchase requests</p>
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {staleCount > 0 && (

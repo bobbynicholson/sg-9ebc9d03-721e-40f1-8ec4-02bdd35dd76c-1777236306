@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Receipt, Search, Loader2, FileText, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -98,12 +99,18 @@ export default function ShoppingInvoicesPage() {
       <ShoppingNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
-              <Receipt className="h-7 w-7 text-emerald-600" />
-              Purchase Receipts
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">All your purchase runs with their receipts and actual spend</p>
+          {/* Wave 34: gradient-box icon header for shopping portal
+              consistency. */}
+          <div className="mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <Receipt className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                Purchase Receipts
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">All your purchase runs with their receipts and actual spend</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -124,13 +131,16 @@ export default function ShoppingInvoicesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input className="pl-9" placeholder="Search by date or notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <button
+              {/* Wave 34: filter toggle now uses Button so it
+                  matches the rest of the team-portal toolbars. */}
+              <Button
                 type="button"
+                variant={hasReceiptOnly ? "default" : "outline"}
                 onClick={() => setHasReceiptOnly((v) => !v)}
-                className={`px-4 py-2 rounded-md border text-sm flex items-center gap-2 ${hasReceiptOnly ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-slate-200 hover:bg-slate-50"}`}
+                className={hasReceiptOnly ? "bg-emerald-600 hover:bg-emerald-700 gap-2" : "gap-2"}
               >
                 <FileText className="h-4 w-4" />Receipt attached only
-              </button>
+              </Button>
             </CardContent>
           </Card>
 
