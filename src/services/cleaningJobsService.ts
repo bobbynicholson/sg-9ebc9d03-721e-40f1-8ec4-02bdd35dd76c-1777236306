@@ -118,7 +118,14 @@ export function estimateJobMinutes(args: {
 
 /**
  * List active cleaning_jobs (queued + in_progress) for a company,
- * with equipment_name resolved via FK embed.
+ * with equipment_name resolved via a separate batch query.
+ *
+ * Wave 42 hotfix: avoid the PostgREST embed `equipment:equipment_id(name)`
+ * because it requires PostgREST's FK schema cache to be reloaded after
+ * the cleaning_jobs migration -- which it may not be on a freshly-
+ * deployed environment, causing the embed to 400 and the call to
+ * crash any consumer that doesn't catch (e.g. CleaningQueueWidget).
+ * Two flat queries are bullet-proof and cost one extra round-trip.
  */
 export async function listActiveJobs(
   supabase: SupabaseClient,
@@ -127,7 +134,7 @@ export async function listActiveJobs(
   const { data, error } = await (supabase as any)
     .from("cleaning_jobs")
     .select(
-      "id, company_id, equipment_id, quantity, method, machine_id, shift_task_id, planned_start, planned_end, actual_start, actual_end, status, triggered_by_event_id, notes, created_at, equipment:equipment_id(name)",
+      "id, company_id, equipment_id, quantity, method, machine_id, shift_task_id, planned_start, planned_end, actual_start, actual_end, status, triggered_by_event_id, notes, created_at",
     )
     .eq("company_id", companyId)
     .is("deleted_at", null)
@@ -137,9 +144,25 @@ export async function listActiveJobs(
     console.error("[cleaningJobsService.listActiveJobs] read failed:", error);
     return [];
   }
-  return ((data || []) as any[]).map((r) => ({
+  const rows = (data || []) as any[];
+  if (rows.length === 0) return [];
+
+  // Batch-resolve equipment names. Single query, no embed.
+  const equipmentIds = Array.from(new Set(rows.map((r) => r.equipment_id))).filter(Boolean);
+  const nameMap = new Map<string, string>();
+  if (equipmentIds.length > 0) {
+    const { data: eqRows } = await (supabase as any)
+      .from("equipment")
+      .select("id, name")
+      .in("id", equipmentIds);
+    for (const e of (eqRows || []) as Array<{ id: string; name: string | null }>) {
+      if (e.name) nameMap.set(e.id, e.name);
+    }
+  }
+
+  return rows.map((r) => ({
     ...r,
-    equipment_name: r.equipment?.name ?? null,
+    equipment_name: nameMap.get(r.equipment_id) ?? null,
   }));
 }
 
