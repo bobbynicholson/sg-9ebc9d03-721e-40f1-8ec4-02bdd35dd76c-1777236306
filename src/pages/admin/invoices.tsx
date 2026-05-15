@@ -29,7 +29,7 @@ import { InvoicePreview } from "@/components/InvoicePreview";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -1255,13 +1255,62 @@ export default function InvoicesPage() {
                             : "No date"}
                         </div>
                       </div>
-                      <div>
-                        <div className="text-sm">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
                           {invoice.orders?.clients?.client_name || "Unknown client"}
                         </div>
-                        <div className="text-xs text-slate-600">
-                          {invoice.orders?.clients?.email}
+                        {/* Wave 62 -- contact strip. Click-to-call,
+                            click-to-WhatsApp, click-to-email so the
+                            bookkeeper can chase money without copy-
+                            pasting numbers into another app. */}
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs">
+                          {invoice.orders?.clients?.email && (
+                            <a
+                              href={`mailto:${invoice.orders.clients.email}?subject=${encodeURIComponent(`Invoice ${invoice.invoice_number || ""}`)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-slate-600 hover:text-slate-900 truncate"
+                              title={`Email ${invoice.orders.clients.email}`}
+                            >
+                              {invoice.orders.clients.email}
+                            </a>
+                          )}
+                          {invoice.orders?.clients?.phone && (
+                            <>
+                              <a
+                                href={`tel:${String(invoice.orders.clients.phone).replace(/[^+\d]/g, "")}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-slate-700 inline-flex items-center gap-0.5"
+                                title={`Call ${invoice.orders.clients.phone}`}
+                              >
+                                <Phone className="w-3 h-3" />
+                              </a>
+                              <a
+                                href={`https://wa.me/${String(invoice.orders.clients.phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${(invoice.orders.clients.client_name || "there").split(" ")[0]}, regarding invoice ${invoice.invoice_number || ""}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-emerald-700 inline-flex items-center gap-0.5"
+                                title="WhatsApp the client"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                              </a>
+                            </>
+                          )}
                         </div>
+                        {/* Wave 62 -- per-row link to the parent order.
+                            Pre-Wave-62 the bookkeeper had to memorise
+                            the order number then navigate to /admin/orders. */}
+                        {invoice.order_id && (
+                          <a
+                            href={`/admin/orders?orderId=${invoice.order_id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
+                            title="Open the order this invoice belongs to"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            Open order
+                          </a>
+                        )}
                       </div>
                       <div>
                         <div className="font-medium">{tenantMoney.format(invoice.total_amount || 0)}</div>
@@ -1294,14 +1343,24 @@ export default function InvoicesPage() {
                       >
                         <Send className="h-4 w-4" />
                       </Button>
+                      {/* Wave 62 -- CloudUpload icon disambiguates
+                          from the page-level Refresh button (also
+                          RefreshCw). Pre-Wave-62 the same icon
+                          meant "reload list" at page-level and
+                          "sync to Xero" at row-level -- new operators
+                          would click the row icon expecting a row
+                          reload and silently push to Xero instead. */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSyncToAccounting(invoice.id)}
-                        title="Push this invoice to your linked accounting tool (Xero / QuickBooks)"
+                        title={invoice.synced_to_accounting
+                          ? `Already synced to accounting${invoice.last_synced_at ? ` on ${format(new Date(invoice.last_synced_at), "dd MMM yyyy")}` : ""}. Click to push again (will create a duplicate).`
+                          : "Push this invoice to your linked accounting tool (Xero / QuickBooks)"}
                         aria-label="Sync invoice to accounting"
+                        className={invoice.synced_to_accounting ? "text-slate-400" : ""}
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <CloudUpload className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
