@@ -84,6 +84,18 @@ export default function InvoicesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [statusFilter, setStatusFilter] = useState("all");
+  // Wave 65 -- date-range + amount-range filters. Bookkeepers running
+  // monthly reconciliation need "April invoices only" or "all
+  // invoices over R10k" without scrolling through everything.
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [amountMin, setAmountMin] = useState<string>("");
+  const [amountMax, setAmountMax] = useState<string>("");
+  // Wave 65 -- group-by-client toggle so a tenant with the same
+  // client owing money on 3 invoices sees a single rolled-up row
+  // by default (matches the operator's mental model: "Bobby owes
+  // R8 528.50 across 3 invoices" not "row, row, row").
+  const [groupByClient, setGroupByClient] = useState(false);
   // Phase 15 #2: saved-view chips on /admin/invoices. Mirrors the
   // /admin/orders + /admin/quotes pattern -- snapshot search +
   // status under a named chip. Bookkeepers running monthly close
@@ -275,6 +287,88 @@ export default function InvoicesPage() {
       loadOrders();
     }
   }, [user]);
+
+  // Wave 65 -- realtime UPDATE + DELETE subscription on invoices +
+  // payments. Pre-Wave-65 the page only refreshed on manual click or
+  // a full page load -- so a payment captured on the client portal
+  // (or another bookkeeper in another tab) left the operator's
+  // screen stale, leading to duplicate chases. Mirrors the Orders
+  // Wave 55 channel pattern: stable channel key per (companyId,
+  // mount), subscribe to all changes that mutate the visible list.
+  useEffect(() => {
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+    const channel = (supabase as any)
+      .channel(`admin-invoices-realtime:${companyId}`)
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
+        () => loadInvoices(),
+      )
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
+        () => loadInvoices(),
+      )
+      .on("postgres_changes",
+        { event: "DELETE", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
+        () => loadInvoices(),
+      )
+      .on("postgres_changes",
+        // Payments don't filter by company_id directly (they key
+        // off order_id) -- subscribe to all payment changes and
+        // let the reload re-run loadInvoices which already scopes
+        // to this tenant. Volume is low; refresh cost is bounded.
+        { event: "*", schema: "public", table: "payments" },
+        () => loadInvoices(),
+      )
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [(user as any)?.company_id]);
+
+  // Wave 65 -- URL persistence of statusFilter, searchTerm,
+  // dateFrom, dateTo, amountMin, amountMax. Pre-Wave-65 reload lost
+  // every filter so a bookkeeper sharing a Slack link couldn't pass
+  // their current view to a colleague.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = {};
+    if (statusFilter && statusFilter !== "all") next.status = statusFilter;
+    if (searchTerm) next.q = searchTerm;
+    if (dateFrom) next.from = dateFrom;
+    if (dateTo) next.to = dateTo;
+    if (amountMin) next.min = amountMin;
+    if (amountMax) next.max = amountMax;
+    // Preserve other params (invoiceId, clientId, claimId).
+    const carry: Record<string, string> = {};
+    for (const [k, v] of Object.entries(router.query)) {
+      if (typeof v === "string" && ["invoiceId","clientId","claimId"].includes(k)) {
+        carry[k] = v;
+      }
+    }
+    const newQuery = { ...carry, ...next };
+    const currentQ = router.asPath.split("?")[1] || "";
+    const newQ = new URLSearchParams(newQuery as any).toString();
+    if (currentQ !== newQ) {
+      router.replace(
+        { pathname: router.pathname, query: newQuery },
+        undefined,
+        { shallow: true, scroll: false },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchTerm, dateFrom, dateTo, amountMin, amountMax, router.isReady]);
+
+  // Wave 65 -- hydrate filters from URL on first mount.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const qs = router.query as Record<string, string | string[] | undefined>;
+    if (typeof qs.status === "string" && statusFilter === "all") setStatusFilter(qs.status);
+    if (typeof qs.q === "string" && !searchTerm) setSearchTerm(qs.q);
+    if (typeof qs.from === "string" && !dateFrom) setDateFrom(qs.from);
+    if (typeof qs.to === "string" && !dateTo) setDateTo(qs.to);
+    if (typeof qs.min === "string" && !amountMin) setAmountMin(qs.min);
+    if (typeof qs.max === "string" && !amountMax) setAmountMax(qs.max);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -717,8 +811,34 @@ export default function InvoicesPage() {
     if (clientFilterId) {
       rows = rows.filter((inv: any) => inv.orders?.client_id === clientFilterId);
     }
+    // Wave 65 -- date-range filter on invoice_date.
+    if (dateFrom) {
+      rows = rows.filter((inv: any) => {
+        if (!inv.invoice_date) return false;
+        return String(inv.invoice_date).slice(0, 10) >= dateFrom;
+      });
+    }
+    if (dateTo) {
+      rows = rows.filter((inv: any) => {
+        if (!inv.invoice_date) return false;
+        return String(inv.invoice_date).slice(0, 10) <= dateTo;
+      });
+    }
+    // Wave 65 -- amount-range filter on total_amount.
+    if (amountMin) {
+      const n = Number(amountMin);
+      if (Number.isFinite(n)) {
+        rows = rows.filter((inv: any) => Number(inv.total_amount || 0) >= n);
+      }
+    }
+    if (amountMax) {
+      const n = Number(amountMax);
+      if (Number.isFinite(n)) {
+        rows = rows.filter((inv: any) => Number(inv.total_amount || 0) <= n);
+      }
+    }
     return rows;
-  }, [invoices, statusFilter, clientFilterId]);
+  }, [invoices, statusFilter, clientFilterId, dateFrom, dateTo, amountMin, amountMax]);
 
   const filteredInvoices = useFuzzyItems(
     statusFilteredInvoices,
@@ -1099,6 +1219,67 @@ export default function InvoicesPage() {
                 <option value="written_off">Written off</option>
               </select>
             </div>
+
+            {/* Wave 65 -- date-range, amount-range, and group-by-client
+                filters. Bookkeepers reconciling monthly need
+                "April invoices" or "everything over R10k" without
+                scrolling. Group-by-client rolls up a tenant's
+                multiple invoices into a single row -- matches the
+                operator's mental model: "Bobby owes R8 528.50 across
+                3 invoices". */}
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-center text-xs">
+              <label className="flex flex-col gap-0.5">
+                <span className="text-slate-500">Issued from</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="px-2 py-1 border rounded text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-slate-500">Issued to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="px-2 py-1 border rounded text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-slate-500">Min amount</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  placeholder="0"
+                  value={amountMin}
+                  onChange={(e) => setAmountMin(e.target.value)}
+                  className="px-2 py-1 border rounded text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-slate-500">Max amount</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  placeholder="No limit"
+                  value={amountMax}
+                  onChange={(e) => setAmountMax(e.target.value)}
+                  className="px-2 py-1 border rounded text-sm"
+                />
+              </label>
+              <label className="flex items-end gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={groupByClient}
+                  onChange={(e) => setGroupByClient(e.target.checked)}
+                  className="h-4 w-4 accent-blue-600"
+                />
+                <span className="text-slate-700">Group by client</span>
+              </label>
+            </div>
             {/* Phase 15 #2: saved-view chips. Bookkeepers running
                 monthly close want to flip between 'overdue', 'paid
                 this month' and 'unpaid > 30 days' fast. */}
@@ -1149,7 +1330,42 @@ export default function InvoicesPage() {
             ) : filteredInvoices.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-600">No invoices found</p>
+                {/* Wave 65 -- name the active filters + one-click clear,
+                    parity with Orders Wave 55. Pre-Wave-65 the empty
+                    state said "No invoices found" with no hint which
+                    filter was hiding rows. */}
+                <p className="text-slate-600 font-medium">No invoices match these filters</p>
+                {(() => {
+                  const active: string[] = [];
+                  if (searchTerm) active.push(`search "${searchTerm}"`);
+                  if (statusFilter !== "all") active.push(`status: ${statusFilter.replace(/_/g, " ")}`);
+                  if (dateFrom || dateTo) active.push(`date: ${dateFrom || "any"} to ${dateTo || "any"}`);
+                  if (amountMin || amountMax) active.push(`amount: ${amountMin || "0"} to ${amountMax || "any"}`);
+                  if (clientFilterId) active.push("specific client");
+                  if (active.length === 0) {
+                    return <p className="text-sm text-slate-500 mt-1">No invoices in this view yet.</p>;
+                  }
+                  return (
+                    <>
+                      <p className="text-sm text-slate-500 mt-1">Filtered by {active.join(", ")}.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setStatusFilter("all");
+                          setDateFrom("");
+                          setDateTo("");
+                          setAmountMin("");
+                          setAmountMax("");
+                          if (clientFilterId) clearClientFilter();
+                        }}
+                        className="mt-3 text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
+                      >
+                        Clear all filters
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <div className="space-y-3">
@@ -1176,7 +1392,67 @@ export default function InvoicesPage() {
                     </div>
                   </div>
                 )}
-                {filteredInvoices.map(invoice => (
+                {/* Wave 65 -- group-by-client view. When toggled,
+                    collapses invoices belonging to the same client
+                    into a single rolled-up row showing total
+                    outstanding, count, and latest invoice date.
+                    Click the chip to filter to that client and
+                    expand into per-invoice rows. Top debtors
+                    surface naturally because the rolled list is
+                    sortable by outstanding desc. */}
+                {groupByClient && (() => {
+                  type Group = { clientId: string; clientName: string; clientEmail: string; invoices: any[]; outstanding: number; total: number };
+                  const groups = new Map<string, Group>();
+                  for (const inv of filteredInvoices as any[]) {
+                    const cid = inv.orders?.client_id || inv.orders?.clients?.id || inv.orders?.clients?.client_name || "unknown";
+                    const existing = groups.get(cid) || {
+                      clientId: cid,
+                      clientName: inv.orders?.clients?.client_name || "Unknown client",
+                      clientEmail: inv.orders?.clients?.email || "",
+                      invoices: [],
+                      outstanding: 0,
+                      total: 0,
+                    };
+                    existing.invoices.push(inv);
+                    existing.outstanding += Number(inv.balance_due || 0);
+                    existing.total += Number(inv.total_amount || 0);
+                    groups.set(cid, existing);
+                  }
+                  const sorted = Array.from(groups.values()).sort((a, b) => b.outstanding - a.outstanding);
+                  return sorted.map((g) => (
+                    <div
+                      key={g.clientId}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Set the client filter to expand into per-invoice rows.
+                        setGroupByClient(false);
+                        if (g.clientId !== "unknown") {
+                          router.push(
+                            { pathname: router.pathname, query: { ...router.query, clientId: g.clientId } },
+                            undefined,
+                            { shallow: true, scroll: false },
+                          );
+                        }
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-900 truncate">{g.clientName}</div>
+                        <div className="text-xs text-slate-500 truncate">{g.clientEmail}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {g.invoices.length} invoice{g.invoices.length === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <div className="text-right tabular-nums flex-shrink-0">
+                        <div className="text-xs text-slate-500">Outstanding</div>
+                        <div className="text-lg font-bold text-amber-700">{tenantMoney.format(g.outstanding)}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Total: {tenantMoney.format(g.total)}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+                {!groupByClient && filteredInvoices.map(invoice => (
                   <div
                     key={invoice.id}
                     className={`flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
