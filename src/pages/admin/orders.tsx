@@ -958,7 +958,7 @@ function OrderProcessDashboard() {
           // order_ids, one query for all distinct staff_ids found in
           // the shifts. Per-card panel reads from the preloaded maps.
           let allShiftsByOrder = new Map<string, any[]>();
-          let staffProfilesById = new Map<string, any>();
+          const staffProfilesById = new Map<string, any>();
           try {
             const { data: allShiftRows } = await (supabase as any)
               .from("kitchen_shifts")
