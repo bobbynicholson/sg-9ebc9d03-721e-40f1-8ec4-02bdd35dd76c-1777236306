@@ -106,7 +106,10 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
         ) : (
           <ul className="divide-y divide-cyan-100">
             {rows.map((r) => {
-              const meta = METHOD_TONE[r.method];
+              // Defensive: fall back to 'manual' tone if method comes
+              // back as anything unexpected (PostgREST cache lag,
+              // future enum value, etc).
+              const meta = METHOD_TONE[r.method] ?? METHOD_TONE.manual;
               const Icon = meta.icon;
               const eta = formatEta(r.planned_end);
               const inProgress = r.status === "in_progress";

@@ -146,7 +146,7 @@ export function CleaningJobsQueue() {
           ) : (
             <div className="space-y-2">
               {rows.map((r) => {
-                const meta = METHOD_META[r.method];
+                const meta = METHOD_META[r.method] ?? METHOD_META.manual;
                 const Icon = meta.icon;
                 const eta = formatEta(r.planned_end);
                 const isBusy = busyId === r.id;

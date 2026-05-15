@@ -25,6 +25,7 @@ import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget"
 import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
 import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
 import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
@@ -484,8 +485,13 @@ function AdminDashboardPage() {
 
           {/* Phase 13 #7: equipment cleaning queue. Items still
               in pending / cleaning / drying after returning from
-              an event. Self-hides when the queue is empty. */}
-          <CleaningQueueWidget companyId={companyId} />
+              an event. Self-hides when the queue is empty.
+              Wave 42 hotfix: error-boundary-wrapped because Wave 42
+              Tier 2 rewrote this widget to read cleaning_jobs and a
+              broken render here was wiping the entire dashboard. */}
+          <WidgetErrorBoundary label="Cleaning queue">
+            <CleaningQueueWidget companyId={companyId} />
+          </WidgetErrorBoundary>
 
           {/* Phase 16 #2: equipment damages waiting on resolution.
               Self-hides when nothing is unresolved. */}
