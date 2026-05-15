@@ -29,6 +29,7 @@ import { InvoicePreview } from "@/components/InvoicePreview";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawer";
+import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -244,6 +245,10 @@ export default function InvoicesPage() {
   // Wave 67 -- activity log drawer state. Opens per-invoice timeline
   // composed from email_automation_log + payments + invoice scalars.
   const [activityInvoice, setActivityInvoice] = useState<any | null>(null);
+  // Wave 69 -- manual invoice dialog state. Lets the operator create
+  // an invoice with order_id = NULL for deposits / retainers / late
+  // fees / damage charges / ad-hoc consultations.
+  const [manualInvoiceOpen, setManualInvoiceOpen] = useState(false);
   useEffect(() => {
     const cid = (user as any)?.company_id;
     if (!cid) return;
@@ -1141,6 +1146,16 @@ export default function InvoicesPage() {
             <Clock className="w-4 h-4 mr-2" />
             Recurring
           </Button>
+          {/* Wave 69 -- manual invoice creation (no order required).
+              For deposits, retainers, late fees, damage charges, ad-hoc. */}
+          <Button
+            onClick={() => setManualInvoiceOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+            title="Create an invoice not tied to a specific order (deposits, retainers, late fees, etc)"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            New invoice
+          </Button>
           {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
               branded reminder for every overdue invoice in one
               click; safer scope (just overdue, not all
@@ -1916,6 +1931,14 @@ export default function InvoicesPage() {
         open={!!activityInvoice}
         onOpenChange={(o) => { if (!o) setActivityInvoice(null); }}
         invoice={activityInvoice}
+      />
+
+      {/* Wave 69 -- manual invoice creation dialog. Order-less
+          invoices for deposits / retainers / late fees / damage. */}
+      <ManualInvoiceDialog
+        open={manualInvoiceOpen}
+        onOpenChange={setManualInvoiceOpen}
+        onCreated={() => loadInvoices()}
       />
     </div>
   );
