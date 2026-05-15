@@ -28,6 +28,7 @@ import {
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
+import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawer";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -240,6 +241,9 @@ export default function InvoicesPage() {
   // Pre-Wave-66 the row Sync icon would spin then die silently and
   // the bookkeeper thought sync worked.
   const [accountingReconnectNeeded, setAccountingReconnectNeeded] = useState<{ provider: string; reason?: string } | null>(null);
+  // Wave 67 -- activity log drawer state. Opens per-invoice timeline
+  // composed from email_automation_log + payments + invoice scalars.
+  const [activityInvoice, setActivityInvoice] = useState<any | null>(null);
   useEffect(() => {
     const cid = (user as any)?.company_id;
     if (!cid) return;
@@ -1267,6 +1271,23 @@ export default function InvoicesPage() {
               <div className="text-2xl font-bold">
                 {tenantMoney.format(invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
               </div>
+              {/* Wave 67 -- VAT collected line. SARS-aware. Sums
+                  tax_amount across PAID invoices only -- that's
+                  what the operator actually owes SARS this period.
+                  Pre-Wave-67 the page had no surface for monthly
+                  VAT reconciliation despite the data being on
+                  every invoice row. */}
+              {(() => {
+                const vatCollected = invoices
+                  .filter((i: any) => i.status === "paid")
+                  .reduce((sum: number, inv: any) => sum + Number(inv.tax_amount || 0), 0);
+                if (vatCollected <= 0) return null;
+                return (
+                  <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                    Output VAT (paid): {tenantMoney.format(vatCollected)}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>
@@ -1784,6 +1805,20 @@ export default function InvoicesPage() {
                       >
                         <CloudUpload className="h-4 w-4" />
                       </Button>
+                      {/* Wave 67 -- per-row activity log button.
+                          Opens drawer with chronological timeline
+                          (generated, sent, opened, paid, synced)
+                          composed from existing email_automation_log
+                          + payments + invoice scalars. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActivityInvoice(invoice)}
+                        title="View activity log for this invoice"
+                        aria-label="Activity log"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -1862,6 +1897,16 @@ export default function InvoicesPage() {
         companyId={user?.company_id || ""}
         invoice={sendDialogInvoice}
         onSent={handleInvoiceSent}
+      />
+
+      {/* Wave 67 -- per-invoice activity drawer. Opens from the Clock
+          icon on each row. Composes timeline from existing tables
+          so it surfaces what happened without needing a new
+          invoice_activity_log table. */}
+      <InvoiceActivityDrawer
+        open={!!activityInvoice}
+        onOpenChange={(o) => { if (!o) setActivityInvoice(null); }}
+        invoice={activityInvoice}
       />
     </div>
   );
