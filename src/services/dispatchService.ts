@@ -665,7 +665,14 @@ export const dispatchService = {
     // to those read paths and only the orders dispatched before the
     // column rename were ever shown. Write both columns in lockstep
     // until the legacy column is dropped to keep read paths coherent.
-    const { error: updErr } = await supabase
+    //
+    // Wave 43 T1: optimistic-locking concurrency guard. The previous
+    // shape blind-wrote both columns with no stale-check, so two
+    // admins clicking Assign in the same second both succeeded
+    // silently and the second one won. Now we condition on the
+    // assigned_driver_id we read above still being the current value;
+    // a 0-row result means another writer raced us first.
+    let updateQ = supabase
       .from("orders")
       .update({
         assigned_driver_id: payload.driverId,
@@ -673,9 +680,22 @@ export const dispatchService = {
         assignment_score: payload.score ?? null,
       })
       .eq("id", payload.orderId);
+    if (fromDriverId === null) {
+      updateQ = updateQ.is("assigned_driver_id", null);
+    } else {
+      updateQ = updateQ.eq("assigned_driver_id", fromDriverId);
+    }
+    const { data: updRows, error: updErr } = await updateQ.select("id");
     if (updErr) {
       console.error("Error assigning driver:", updErr);
       return { ok: false, reason: updErr.message };
+    }
+    if (!updRows || updRows.length === 0) {
+      return {
+        ok: false,
+        reason:
+          "Order was assigned to a different driver while you were submitting. Refresh and try again.",
+      };
     }
 
     await supabase.from("order_assignment_audit").insert([{

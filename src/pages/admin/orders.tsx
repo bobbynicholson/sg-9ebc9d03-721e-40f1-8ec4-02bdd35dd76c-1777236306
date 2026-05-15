@@ -14,6 +14,7 @@ import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPanel";
 import { useTenantHref } from "@/lib/tenantUrl";
 import Head from "next/head";
 import Link from "next/link";
@@ -946,7 +947,28 @@ function OrderProcessDashboard() {
     { limit: 0 },
   );
 
-  const getFilteredOrders = () => fuzzyOrders;
+  // Wave 43 T3 -- urgency-first sort. When the operator hasn't typed
+  // a search term, surface orders whose timeline is overdue/today/
+  // soon at the top so the flashing chip lands above the fold.
+  // When a search is active we trust the fuzzy ranking and skip the
+  // urgency re-sort -- the operator is hunting a specific order.
+  const URGENCY_RANK: Record<string, number> = { overdue: 0, today: 1, soon: 2, normal: 3 };
+  const getFilteredOrders = () => {
+    if (searchTerm) return fuzzyOrders;
+    const out = [...fuzzyOrders];
+    out.sort((a, b) => {
+      const ta = timelinesById.get((a as any).id);
+      const tb = timelinesById.get((b as any).id);
+      const ra = URGENCY_RANK[(ta as any)?.urgency || "normal"] ?? 3;
+      const rb = URGENCY_RANK[(tb as any)?.urgency || "normal"] ?? 3;
+      if (ra !== rb) return ra - rb;
+      // Same urgency tier -- earlier event first.
+      const da = new Date((a as any).event_date || 0).getTime();
+      const db = new Date((b as any).event_date || 0).getTime();
+      return da - db;
+    });
+    return out;
+  };
 
   // Phase 7 #6: bulk-select helpers + bulk-status mutator.
   const toggleSelected = (id: string) => {
@@ -1324,6 +1346,17 @@ function OrderProcessDashboard() {
               }
               return <TimelineTrack timeline={tl} />;
             })()}
+
+            {/* Wave 43 T1: surface every kitchen_shifts row linked
+                to this order via order_id. Wave 41 Phase 4 added
+                the column but nothing read it. Self-hides when no
+                shifts are assigned. */}
+            {((order as any).company_id) && (
+              <AssignedShiftsPanel
+                orderId={(order as any).id}
+                companyId={(order as any).company_id}
+              />
+            )}
           </div>
         </CardContent>
       </Card>

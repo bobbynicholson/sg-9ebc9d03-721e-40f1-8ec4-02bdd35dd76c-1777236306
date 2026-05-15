@@ -9,6 +9,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
@@ -121,11 +122,13 @@ function CleaningDashboardInner() {
           {/* Wave 42 Tier 3: personal shift card. Lists today's
               cleaning + kitchen_and_cleaning shifts with task chips
               inline. Self-add via the staff_shift_tasks_self_write
-              RLS policy. */}
-          <MyShiftTodayCard
-            scopeShiftTypes={["cleaning", "kitchen_and_cleaning"]}
-            defaultTaskType="cleaning"
-          />
+              RLS policy. Wave 43 T1: wrapped in WidgetErrorBoundary. */}
+          <WidgetErrorBoundary label="Your shifts today">
+            <MyShiftTodayCard
+              scopeShiftTypes={["cleaning", "kitchen_and_cleaning"]}
+              defaultTaskType="cleaning"
+            />
+          </WidgetErrorBoundary>
 
           {/* Wave 39: live duty + clock-in surface. Component existed
               but was imported and never rendered. Wave 39 also fixed

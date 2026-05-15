@@ -108,6 +108,20 @@ export interface OrderTimelineFlags {
   hasPrepTasks: boolean;
 }
 
+/**
+ * Wave 43 T3 -- urgency tier derived from event_date vs now.
+ *
+ *   normal   -- event > 72h away, or order is fully complete
+ *   soon     -- event 24h-72h away, stages still incomplete
+ *   today    -- event within 24h, stages still incomplete
+ *   overdue  -- event date is past AND stages still incomplete
+ *
+ * Drives the orange "next to do" chip's tone + pulse so the
+ * operator sees at a glance which orders need attention RIGHT NOW.
+ * Pure derivation -- no DB, no side effects.
+ */
+export type OrderTimelineUrgency = "normal" | "soon" | "today" | "overdue";
+
 export interface OrderTimeline {
   orderId: string;
   computedAt: string;
@@ -121,6 +135,10 @@ export interface OrderTimeline {
   completedCount: number;
   /** Number of applicable stages total. */
   applicableCount: number;
+  /** Wave 43 T3 -- urgency tier for the orange chip + sort. */
+  urgency: OrderTimelineUrgency;
+  /** Wave 43 T3 -- ms until event_date+event_time; negative if past. */
+  msToEvent: number | null;
 }
 
 /**
@@ -730,6 +748,33 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     (s) => s.status !== "not_applicable" && s.status !== "skipped",
   );
   const completedStages = resolved.filter((s) => s.status === "completed");
+  const isFullyComplete = completedStages.length === applicableStages.length;
+
+  // Wave 43 T3 -- urgency tier. Compute ms-to-event from
+  // event_date (+ event_time when present) so the orange chip can
+  // pulse for tomorrow's events and the orders list can sort by
+  // most-urgent first.
+  let msToEvent: number | null = null;
+  let urgency: OrderTimelineUrgency = "normal";
+  const evDate = input.order?.event_date as string | null | undefined;
+  if (evDate) {
+    const evTime = (input.order?.event_time as string | null | undefined) || "12:00:00";
+    // Local-tenant time. Without a timezone column we build naively
+    // and accept ~tz-offset error -- fine for "is it today?" buckets.
+    const evMs = new Date(`${evDate}T${evTime}`).getTime();
+    if (!Number.isNaN(evMs)) {
+      msToEvent = evMs - Date.now();
+      if (isFullyComplete) {
+        urgency = "normal";
+      } else {
+        const hoursToEvent = msToEvent / 3_600_000;
+        if (hoursToEvent < 0) urgency = "overdue";
+        else if (hoursToEvent <= 24) urgency = "today";
+        else if (hoursToEvent <= 72) urgency = "soon";
+        else urgency = "normal";
+      }
+    }
+  }
 
   return {
     orderId: String(input.order?.id || ""),
@@ -742,6 +787,8 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     flags,
     completedCount: completedStages.length,
     applicableCount: applicableStages.length,
+    urgency,
+    msToEvent,
   };
 }
 

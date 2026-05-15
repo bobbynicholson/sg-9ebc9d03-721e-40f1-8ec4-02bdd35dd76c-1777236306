@@ -57,6 +57,7 @@ interface ShiftRow {
   rate_multiplier: number | null;
   notes: string | null;
   shift_type: string;
+  order_id: string | null;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -131,7 +132,7 @@ function CleaningScheduleGrid() {
           .order("full_name", { ascending: true }),
         (supabase as any)
           .from("kitchen_shifts")
-          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type")
+          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type, order_id")
           .eq("company_id", companyId)
           .in("shift_type", ["cleaning", "kitchen_and_cleaning"])
           .gte("shift_date", fromIso)

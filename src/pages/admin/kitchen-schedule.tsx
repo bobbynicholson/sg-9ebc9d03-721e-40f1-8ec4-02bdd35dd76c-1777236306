@@ -56,6 +56,9 @@ interface ShiftRow {
   status: string;
   rate_multiplier: number | null;
   notes: string | null;
+  // Wave 43 T1: delivery shifts link to the order they served.
+  // Surfaced on the order detail panel "Assigned shifts" list.
+  order_id: string | null;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -139,7 +142,7 @@ function KitchenScheduleGrid() {
         // lives at /admin/cleaning-schedule.
         (supabase as any)
           .from("kitchen_shifts")
-          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes")
+          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id")
           .eq("company_id", companyId)
           .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
           .gte("shift_date", fromIso)

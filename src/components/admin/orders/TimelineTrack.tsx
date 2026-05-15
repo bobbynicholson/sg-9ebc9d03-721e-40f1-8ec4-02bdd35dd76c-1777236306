@@ -395,64 +395,72 @@ export function TimelineTrack({ timeline, compact, onStageClick }: TimelineTrack
   // by status: orange = next to do, red = blocked.
   return (
     <div className="space-y-2.5">
-      {/* Now / Blocked banner -- the single most important question */}
-      {currentStage && (
-        <div
-          className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-            currentStage.status === "blocked"
-              ? "bg-red-50 border-red-200"
-              : "bg-orange-50 border-orange-200"
-          }`}
-        >
-          <div className={`w-2 h-2 rounded-full animate-pulse flex-shrink-0 ${
-            currentStage.status === "blocked" ? "bg-red-500" : "bg-orange-500"
-          }`} />
-          <div className="flex-1 min-w-0">
-            <div className={`text-[10px] font-bold uppercase tracking-wider ${
-              currentStage.status === "blocked" ? "text-red-700" : "text-orange-700"
-            }`}>
-              {currentStage.status === "blocked" ? "Blocked" : "Next to do"}
-            </div>
-            <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
-              <span>{currentStage.label}</span>
-              {currentStage.meta?.progress && (
-                <span className="text-xs font-normal text-slate-600">
-                  ({currentStage.meta.progress.done}/{currentStage.meta.progress.total})
-                </span>
-              )}
-              {currentStage.meta?.actor && (
-                <span className="text-xs font-normal text-slate-600">· {currentStage.meta.actor}</span>
-              )}
-              {currentStage.meta?.expectedAt && (
-                <span className="text-xs font-normal text-slate-600">
-                  · expected {new Date(currentStage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-            </div>
-            {currentStage.blockedReason && (
-              <div className="text-xs text-red-700 font-medium mt-0.5">
-                {currentStage.blockedReason}
+      {/* Now / Blocked banner -- the single most important question.
+          Wave 43 T3: tone now keys off urgency tier (today/overdue
+          flash crimson, soon=amber, normal=orange) so the operator
+          spots tomorrow's events at a glance. Blocked still wins
+          (red, regardless of urgency). */}
+      {currentStage && (() => {
+        const isBlocked = currentStage.status === "blocked";
+        const u = (timeline as any).urgency as string | undefined;
+        const tone = isBlocked
+          ? { card: "bg-red-50 border-red-200", dot: "bg-red-500", label: "text-red-700", btn: "bg-red-600 hover:bg-red-700", pulseClass: "animate-pulse" }
+          : u === "overdue" || u === "today"
+            ? { card: "bg-rose-50 border-rose-300 ring-2 ring-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
+            : u === "soon"
+              ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
+              : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
+        const headerLabel = isBlocked
+          ? "Blocked"
+          : u === "overdue"
+            ? "Event past -- still incomplete"
+            : u === "today"
+              ? "Event today -- act now"
+              : u === "soon"
+                ? "Event in <72h -- next to do"
+                : "Next to do";
+        return (
+          <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${tone.card}`}>
+            <div className={`w-2 h-2 rounded-full ${tone.pulseClass} flex-shrink-0 ${tone.dot}`} />
+            <div className="flex-1 min-w-0">
+              <div className={`text-[10px] font-bold uppercase tracking-wider ${tone.label}`}>
+                {headerLabel}
               </div>
+              <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+                <span>{currentStage.label}</span>
+                {currentStage.meta?.progress && (
+                  <span className="text-xs font-normal text-slate-600">
+                    ({currentStage.meta.progress.done}/{currentStage.meta.progress.total})
+                  </span>
+                )}
+                {currentStage.meta?.actor && (
+                  <span className="text-xs font-normal text-slate-600">· {currentStage.meta.actor}</span>
+                )}
+                {currentStage.meta?.expectedAt && (
+                  <span className="text-xs font-normal text-slate-600">
+                    · expected {new Date(currentStage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+              {currentStage.blockedReason && (
+                <div className="text-xs text-red-700 font-medium mt-0.5">
+                  {currentStage.blockedReason}
+                </div>
+              )}
+            </div>
+            {currentStage.sourceLink && (
+              <Link
+                href={withSlug(currentStage.sourceLink)}
+                onClick={(e) => e.stopPropagation()}
+                scroll={false}
+                className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${tone.btn}`}
+              >
+                Open →
+              </Link>
             )}
           </div>
-          {currentStage.sourceLink && (
-            <Link
-              href={withSlug(currentStage.sourceLink)}
-              onClick={(e) => e.stopPropagation()}
-              // Wave 28.8: see StageDot above -- scroll:false so the
-              // page doesn't jump to top when the URL flips ?orderId.
-              scroll={false}
-              className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${
-                currentStage.status === "blocked"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-orange-600 hover:bg-orange-700"
-              }`}
-            >
-              Open →
-            </Link>
-          )}
-        </div>
-      )}
+        );
+      })()}
       {/* Cluster band -- Wave 25.1 polish: flex-1 per cluster wrapper
           stretches the 5 clusters across the full width of the parent
           card. Without this the cluster band sized to its natural dot

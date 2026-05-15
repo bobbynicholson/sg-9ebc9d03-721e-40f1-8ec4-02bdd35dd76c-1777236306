@@ -25,6 +25,8 @@ import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
+import { AvailableJobsCard } from "@/components/driver/AvailableJobsCard";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
@@ -466,11 +468,18 @@ export default function DriverDashboard() {
                 delivery shifts (and any other shift_type the driver
                 is rostered for) with task chips inline. Self-add
                 works thanks to the staff_shift_tasks_self_write
-                policy from Tier 1. */}
-            <MyShiftTodayCard
-              scopeShiftTypes={["delivery"]}
-              defaultTaskType="delivery"
-            />
+                policy from Tier 1.
+                Wave 43 T1: scope widened to include
+                kitchen_and_cleaning so multi-role drivers (some
+                drivers also help in kitchen) see all their shifts
+                here. Wrapped in WidgetErrorBoundary so a render
+                fault doesn't blank the portal. */}
+            <WidgetErrorBoundary label="Your shifts today">
+              <MyShiftTodayCard
+                scopeShiftTypes={["delivery", "kitchen_and_cleaning"]}
+                defaultTaskType="delivery"
+              />
+            </WidgetErrorBoundary>
 
             {/* Phase 10 #10: one-tap clock-in / clock-out.
              *  Replaces the only-after-the-fact admin-logged shift
@@ -479,6 +488,17 @@ export default function DriverDashboard() {
             <div className="mb-4 sm:mb-6">
               <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
             </div>
+
+            {/* Wave 43 T2: driver self-claim surface. Lists confirmed
+                orders in this company that are still unassigned --
+                one-tap Claim calls the SECURITY DEFINER claim_order
+                RPC which atomically locks the order to this driver,
+                inserts the driver_assignments row, fires the admin
+                notification. Refreshes loadDriverJobs() so the
+                claimed order appears in active deliveries. */}
+            <WidgetErrorBoundary label="Available jobs">
+              <AvailableJobsCard onClaimed={loadDriverJobs} />
+            </WidgetErrorBoundary>
 
             {/* Phase 17 #4: recent shift history. Driver-side
              *  sanity-check for 'did I forget to clock out
