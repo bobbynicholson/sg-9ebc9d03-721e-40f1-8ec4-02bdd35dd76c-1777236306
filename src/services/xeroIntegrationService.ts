@@ -84,19 +84,20 @@ export const xeroIntegrationService = {
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) throw new Error("User not authenticated");
 
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationErr } = await supabase
         .from("integrations")
         .select("*")
         .eq("user_id", user.user.id)
         .eq("integration_type", "xero")
         .eq("is_active", true)
         .single();
+      if (integrationErr && (integrationErr as any).code !== "PGRST116") console.error("[xeroIntegrationService/syncInvoiceToXero] integrations lookup failed:", integrationErr);
 
       if (!integration) {
         throw new Error("Xero integration not connected");
       }
 
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select(`
           *,
@@ -104,6 +105,7 @@ export const xeroIntegrationService = {
         `)
         .eq("id", orderId)
         .single();
+      if (orderErr) console.error("[xeroIntegrationService/syncInvoiceToXero] orders lookup failed:", orderErr);
 
       if (!order) {
         throw new Error("Order not found");
@@ -126,7 +128,7 @@ export const xeroIntegrationService = {
       // tenant counter so Xero never sees a UUID-derived placeholder.
       let xeroInvoiceNumber: string | null = null;
       try {
-        const { data: invRow } = await supabase
+        const { data: invRow, error: invRowErr } = await supabase
           .from("invoices")
           .select("invoice_number")
           .eq("order_id", orderId)
@@ -134,6 +136,7 @@ export const xeroIntegrationService = {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (invRowErr) console.error("[xeroIntegrationService/syncInvoiceToXero] invoices number lookup failed:", invRowErr);
         if ((invRow as any)?.invoice_number) {
           xeroInvoiceNumber = (invRow as any).invoice_number as string;
         }
@@ -209,13 +212,14 @@ export const xeroIntegrationService = {
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) throw new Error("User not authenticated");
 
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationErr } = await supabase
         .from("integrations")
         .select("*")
         .eq("user_id", user.user.id)
         .eq("integration_type", "xero")
         .eq("is_active", true)
         .single();
+      if (integrationErr && (integrationErr as any).code !== "PGRST116") console.error("[xeroIntegrationService/syncExpenseToXero] integrations lookup failed:", integrationErr);
 
       if (!integration) {
         throw new Error("Xero integration not connected");
@@ -242,13 +246,14 @@ export const xeroIntegrationService = {
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) return null;
 
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationErr } = await supabase
         .from("integrations")
         .select("*")
         .eq("user_id", user.user.id)
         .eq("integration_type", "xero")
         .eq("is_active", true)
         .single();
+      if (integrationErr && (integrationErr as any).code !== "PGRST116") console.error("[xeroIntegrationService/getXeroConnection] integrations lookup failed:", integrationErr);
 
       if (!integration || !integration.credentials) return null;
       

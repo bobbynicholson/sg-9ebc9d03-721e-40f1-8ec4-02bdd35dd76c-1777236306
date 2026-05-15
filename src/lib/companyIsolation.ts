@@ -76,11 +76,12 @@ export async function validateCompanyAccess(
  * Used to filter database queries
  */
 export async function getCompanyIdFromSlug(slug: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("id")
     .eq("slug", slug)
     .single();
+  if (error && (error as any).code !== "PGRST116") console.error("[companyIsolation/getCompanyIdFromSlug] companies lookup failed:", error);
 
   return data?.id || null;
 }

@@ -151,13 +151,14 @@ export const whatsappIntegrationService = {
         throw new Error("WhatsApp send: company_id could not be resolved.");
       }
 
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationErr } = await supabase
         .from("integrations")
         .select("*")
         .eq("company_id", connectionCompanyId)
         .eq("integration_type", "whatsapp")
         .eq("is_active", true)
         .maybeSingle();
+      if (integrationErr) console.error("[whatsappIntegrationService/sendWhatsAppMessage] integrations lookup failed:", integrationErr);
 
       if (!integration) {
         throw new Error("WhatsApp integration not connected");
@@ -196,7 +197,7 @@ export const whatsappIntegrationService = {
 
   async sendOrderConfirmation(orderId: string): Promise<boolean> {
     try {
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select(`
           *,
@@ -204,6 +205,7 @@ export const whatsappIntegrationService = {
         `)
         .eq("id", orderId)
         .single();
+      if (orderErr) console.error("[whatsappIntegrationService/sendOrderConfirmation] orders lookup failed:", orderErr);
 
       if (!order) {
         throw new Error("Order not found");
@@ -244,7 +246,7 @@ export const whatsappIntegrationService = {
 
   async sendDeliveryUpdate(orderId: string, status: string): Promise<boolean> {
     try {
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select(`
           *,
@@ -252,6 +254,7 @@ export const whatsappIntegrationService = {
         `)
         .eq("id", orderId)
         .single();
+      if (orderErr) console.error("[whatsappIntegrationService/sendDeliveryUpdate] orders lookup failed:", orderErr);
 
       if (!order) {
         throw new Error("Order not found");
@@ -297,7 +300,7 @@ export const whatsappIntegrationService = {
 
   async sendPaymentReminder(orderId: string): Promise<boolean> {
     try {
-      const { data: orderData } = await supabase
+      const { data: orderData, error: orderDataErr } = await supabase
         .from("orders")
         .select(`
           *,
@@ -305,7 +308,8 @@ export const whatsappIntegrationService = {
         `)
         .eq("id", orderId)
         .single();
-        
+      if (orderDataErr) console.error("[whatsappIntegrationService/sendPaymentReminder] orders lookup failed:", orderDataErr);
+
       if (!orderData) {
         throw new Error("Order not found");
       }
@@ -346,13 +350,14 @@ export const whatsappIntegrationService = {
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) return null;
 
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationErr } = await supabase
         .from("integrations")
         .select("*")
         .eq("user_id", user.user.id)
         .eq("integration_type", "whatsapp")
         .eq("is_active", true)
         .single();
+      if (integrationErr && (integrationErr as any).code !== "PGRST116") console.error("[whatsappIntegrationService/getWhatsAppConnection] integrations lookup failed:", integrationErr);
 
       if (!integration) return null;
 

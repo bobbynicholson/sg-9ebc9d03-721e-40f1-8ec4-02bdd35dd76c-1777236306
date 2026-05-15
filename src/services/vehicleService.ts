@@ -378,7 +378,7 @@ export const vehicleService = {
     const fleet = await this.getVehiclesForCompany(companyId);
     if (fleet.length === 0) return [];
 
-    const { data: bookings } = await supabase
+    const { data: bookings, error: bookingsErr } = await supabase
       .from("vehicle_bookings")
       .select(`
         id, vehicle_id, booked_from, booked_until, status,
@@ -387,6 +387,7 @@ export const vehicleService = {
       .eq("company_id", companyId)
       .gte("booked_from", fromISO)
       .lte("booked_until", toISO);
+    if (bookingsErr) console.error("[vehicleService] vehicle_bookings stats lookup failed:", bookingsErr);
 
     const byVehicle: Record<string, {
       runs: number; plannedHours: number; distanceKm: number;
@@ -448,13 +449,14 @@ export const vehicleService = {
     if (fleet.length === 0) return [];
 
     // Pull every overlapping booking for this window in one query.
-    const { data: clashes } = await supabase
+    const { data: clashes, error: clashesErr } = await supabase
       .from("vehicle_bookings")
       .select("id, vehicle_id, order_id, booked_from, booked_until, status")
       .eq("company_id", req.companyId)
       .in("status", ["planned", "on_route"])
       .lte("booked_from", req.bookedUntil)
       .gte("booked_until", req.bookedFrom);
+    if (clashesErr) console.error("[vehicleService/findAvailableVehicles] vehicle_bookings clash lookup failed:", clashesErr);
 
     const blocked = new Set<string>();
     for (const c of (clashes || [])) {

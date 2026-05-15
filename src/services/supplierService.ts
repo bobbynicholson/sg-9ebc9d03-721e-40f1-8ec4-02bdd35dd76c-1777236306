@@ -94,27 +94,30 @@ export const supplierService = {
 
     // Pull all transactions in the last 365 days in one shot, then
     // bucket per-supplier client-side. Avoids N round-trips.
-    const { data: tx } = await (supabase as any)
+    const { data: tx, error: txErr } = await (supabase as any)
       .from("inventory_transactions")
       .select("supplier_id, quantity, unit_cost, performed_at, created_at")
       .eq("company_id", companyId)
       .not("supplier_id", "is", null)
       .gte("created_at", isoDaysAgo(365));
+    if (txErr) console.error("[supplierService] inventory_transactions lookup failed:", txErr);
 
     // And the receipt ledger for completeness.
-    const { data: receipts } = await (supabase as any)
+    const { data: receipts, error: receiptsErr } = await (supabase as any)
       .from("purchase_receipts")
       .select("supplier_id, total, receipt_date, created_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .not("supplier_id", "is", null)
       .gte("created_at", isoDaysAgo(365));
+    if (receiptsErr) console.error("[supplierService] purchase_receipts lookup failed:", receiptsErr);
 
     // Item count per supplier (multi-supplier table).
-    const { data: linksRaw } = await supabase
+    const { data: linksRaw, error: linksRawErr } = await supabase
       .from("inventory_item_suppliers")
       .select("supplier_id")
       .eq("company_id", companyId);
+    if (linksRawErr) console.error("[supplierService] inventory_item_suppliers lookup failed:", linksRawErr);
     const productCount = new Map<string, number>();
     (linksRaw || []).forEach((l: any) => {
       productCount.set(l.supplier_id, (productCount.get(l.supplier_id) || 0) + 1);

@@ -109,11 +109,12 @@ export async function notifyAdminOfEmbedLead(
   // ── 1b. Region-manager fan-out (when the form is region-scoped) ──
   if (regionId) {
     try {
-      const { data: region } = await supabase
+      const { data: region, error: regionErr } = await supabase
         .from("regions")
         .select("manager_user_id, name, notify_manager_on_new_lead")
         .eq("id", regionId)
         .maybeSingle();
+      if (regionErr) console.error("[embed/notifyAdminOfEmbedLead] regions lookup failed:", regionErr);
       const managerId = (region as any)?.manager_user_id as string | null;
       const optedIn = (region as any)?.notify_manager_on_new_lead !== false;
       if (managerId && managerId !== ownerUserId && optedIn) {
