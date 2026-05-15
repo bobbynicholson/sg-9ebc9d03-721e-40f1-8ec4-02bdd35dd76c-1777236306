@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft, Loader2 } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface OrderRow {
@@ -60,6 +61,8 @@ function fmtTime(t: string | null): string {
 function KitchenTicketPage() {
   const router = useRouter();
   const orderId = typeof router.query.id === "string" ? router.query.id : null;
+  const { profile } = useAuth() as any;
+  const callerCompanyId = (profile as any)?.company_id || null;
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,12 +71,18 @@ function KitchenTicketPage() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await (supabase as any)
+        // Wave 31: defense-in-depth tenant scope. RLS already blocks
+        // cross-tenant SELECT on orders, so this is belt-and-braces
+        // -- but it makes a wrong-tenant URL surface as "not found"
+        // explicitly instead of relying on RLS to silently return
+        // empty.
+        let q = (supabase as any)
           .from("orders")
           .select("order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, menu_items, special_instructions, internal_notes, setup_time, pickup_time, status")
           .eq("id", orderId)
-          .is("deleted_at", null)
-          .maybeSingle();
+          .is("deleted_at", null);
+        if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
+        const { data } = await q.maybeSingle();
         if (!cancelled) setOrder((data || null) as OrderRow | null);
       } catch {
         if (!cancelled) setOrder(null);
@@ -82,7 +91,7 @@ function KitchenTicketPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [orderId]);
+  }, [orderId, callerCompanyId]);
 
   // Auto-trigger print once the data lands. Operator presses cancel
   // on the print dialog if they just wanted to preview.

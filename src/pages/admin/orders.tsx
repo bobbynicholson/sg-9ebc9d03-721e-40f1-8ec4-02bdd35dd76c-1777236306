@@ -1872,12 +1872,43 @@ function OrderProcessDashboard() {
           } as any).eq("id", editedOrder.id);
         }
 
+        // Wave 31: split status changes off from the rest of the
+        // edit. orderService.updateOrder is a raw .from("orders").update
+        // -- it bypasses orderWorkflow.updateOrderStatus, which means
+        // ALL the cascades (transition validation, kitchen prep
+        // re-plan on confirmation, auto-invoice on confirm, after-
+        // sales scheduling on completion, POD-missing check on
+        // delivered, status email + dispatch broadcast triggers, the
+        // order_status_history audit row) silently don't fire when
+        // the operator changes status via the Edit modal. Now: when
+        // the status field actually changed, route THAT through
+        // updateOrderStatus first; everything else (name, venue,
+        // guest count, notes, discount) goes through the raw update
+        // as before. updateOrderStatus is idempotent on no-op flips
+        // so passing the same status is safe.
+        const statusChanged =
+          typeof editedOrder.status === "string" &&
+          editedOrder.status !== (selectedOrder as any)?.status;
+        if (statusChanged) {
+          const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+          const stRes: any = await updateOrderStatus(
+            editedOrder.id,
+            String(editedOrder.status),
+            user?.id,
+          );
+          if (stRes && stRes.success === false) {
+            throw new Error(stRes.error || "Status change rejected");
+          }
+        }
+
         const result: any = await orderService.updateOrder(editedOrder.id, {
           client_name: editedOrder.client_name,
           venue_address: editedOrder.venue_address,
           guest_count: editedOrder.guest_count,
           event_date: editedOrder.event_date,
-          status: editedOrder.status,
+          // Wave 31: omit status here -- the dispatch above owns the
+          // status transition + cascades. Passing it again would
+          // raw-update over the orderWorkflow stamp.
           internal_notes: (editedOrder as any).internal_notes,
           // Phase 14 #5: discount carries through to the orders
           // row + downstream invoice via the syncOrderArtifacts
