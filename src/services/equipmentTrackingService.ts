@@ -10,7 +10,10 @@ import { UserRole } from "@/types/app";
 type EquipmentHandover = Database["public"]["Tables"]["equipment_handovers"]["Row"];
 type EquipmentDamage = Database["public"]["Tables"]["equipment_damages"]["Row"];
 type CleaningDutyLog = Database["public"]["Tables"]["cleaning_duty_logs"]["Row"];
-type EquipmentCleaningStatus = Database["public"]["Tables"]["equipment_cleaning_status"]["Row"];
+// Wave 45 D3: equipment_cleaning_status table dropped, type
+// alias removed. Cleaning state now lives in cleaning_jobs.
+// EquipmentCleaningStatus type retained as `any` for back-compat
+// with consumers expecting it, but no live code path uses it.
 
 export type HandoverStage = "kitchen" | "driver" | "client" | "return" | "cleaning" | "drying" | "ready";
 export type DamageType = "broken" | "lost" | "stolen" | "damaged";
