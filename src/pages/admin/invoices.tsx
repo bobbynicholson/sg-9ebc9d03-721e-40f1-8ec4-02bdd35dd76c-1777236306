@@ -601,7 +601,7 @@ export default function InvoicesPage() {
 
       if (!provider) {
         toast({
-          title: "No Accounting Integration",
+          title: "No accounting integration",
           description: "Please connect Xero or QuickBooks in Settings → Integrations",
           variant: "destructive",
         });
@@ -935,7 +935,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total Invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} />
+                Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -983,7 +983,7 @@ export default function InvoicesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-700">
                 {tenantMoney.format(invoices.filter(i => i.status === "paid").reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
@@ -994,7 +994,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total Invoiced <InfoTooltip content={"Total value across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid. See the Collected tile for paid value."} />
+                Total invoiced <InfoTooltip content={"Total value across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid. See the Collected tile for paid value."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1010,8 +1010,8 @@ export default function InvoicesPage() {
           <Card className="mb-8 border-yellow-200 bg-yellow-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-600" />
-                Uninvoiced Orders ({orders.length})
+                <AlertCircle className="h-5 w-5 text-yellow-700" />
+                Uninvoiced orders ({orders.length})
                 <InfoTooltip content={"Confirmed or completed orders that still need an invoice generated."} />
               </CardTitle>
               <CardDescription>
@@ -1157,8 +1157,8 @@ export default function InvoicesPage() {
                     above the list when at least one invoice is
                     ticked. */}
                 {bulkMarkPaidIds.size > 0 && (
-                  <div className="sticky top-2 z-10 bg-white border border-emerald-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-medium text-emerald-900">
+                  <div className="sticky top-2 z-10 bg-white border border-green-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-green-900">
                       {bulkMarkPaidIds.size} invoice{bulkMarkPaidIds.size === 1 ? "" : "s"} selected
                     </span>
                     <div className="ml-auto flex items-center gap-2">
@@ -1166,7 +1166,7 @@ export default function InvoicesPage() {
                         size="sm"
                         onClick={runBulkMarkPaid}
                         disabled={bulkMarkPaidBusy}
-                        className="bg-emerald-600 hover:bg-emerald-700"
+                        className="bg-green-600 hover:bg-green-700"
                       >
                         {bulkMarkPaidBusy ? "Marking..." : "Mark all paid"}
                       </Button>
@@ -1180,7 +1180,7 @@ export default function InvoicesPage() {
                   <div
                     key={invoice.id}
                     className={`flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
-                      bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-emerald-300 bg-emerald-50/30" : ""
+                      bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
                     }`}
                   >
                     {/* Phase 14 #10: row checkbox. Only renders for
@@ -1196,7 +1196,7 @@ export default function InvoicesPage() {
                     {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
                       <input
                         type="checkbox"
-                        className="mr-3 h-4 w-4 cursor-pointer accent-emerald-600 shrink-0"
+                        className="mr-3 h-4 w-4 cursor-pointer accent-green-600 shrink-0"
                         checked={bulkMarkPaidIds.has(invoice.id)}
                         onChange={() => toggleBulkMarkPaid(invoice.id)}
                         title="Tick to include in bulk mark-paid"
@@ -1289,7 +1289,7 @@ export default function InvoicesPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-emerald-700 inline-flex items-center gap-0.5"
+                                className="text-green-700 inline-flex items-center gap-0.5"
                                 title="WhatsApp the client"
                               >
                                 <MessageCircle className="w-3 h-3" />
@@ -1315,7 +1315,7 @@ export default function InvoicesPage() {
                       <div>
                         <div className="font-medium">{tenantMoney.format(invoice.total_amount || 0)}</div>
                         {invoice.balance_due > 0 && (
-                          <div className="text-sm text-yellow-600">
+                          <div className="text-sm text-yellow-700">
                             Balance: {tenantMoney.format(invoice.balance_due)}
                           </div>
                         )}
