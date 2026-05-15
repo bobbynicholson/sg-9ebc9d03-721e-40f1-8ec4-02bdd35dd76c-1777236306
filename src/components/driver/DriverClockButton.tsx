@@ -35,6 +35,12 @@ interface OpenShift {
   actual_start: string;
 }
 
+interface PlannedToday {
+  id: string;
+  planned_start: string | null;
+  planned_end: string | null;
+}
+
 const fmtElapsed = (startIso: string): string => {
   const ms = Date.now() - new Date(startIso).getTime();
   if (ms < 0 || isNaN(ms)) return "0m";
@@ -53,6 +59,7 @@ export function DriverClockButton({
 }) {
   const { toast } = useToast();
   const [openShift, setOpenShift] = useState<OpenShift | null>(null);
+  const [plannedToday, setPlannedToday] = useState<PlannedToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
@@ -80,8 +87,26 @@ export function DriverClockButton({
         .limit(1);
       const row = (data && data[0]) as OpenShift | undefined;
       setOpenShift(row || null);
+
+      // Wave 37: also pull today's planned shift (if any). Surfaced
+      // on the off-shift state so the driver sees "Rostered 06:00-15:00
+      // today" and on the on-shift state so they know what's expected
+      // of them. No-op for walk-in drivers with no roster.
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const { data: planned } = await (supabase as any)
+        .from("driver_shifts")
+        .select("id, planned_start, planned_end")
+        .eq("driver_id", driverId)
+        .eq("shift_date", todayIso)
+        .is("deleted_at", null)
+        .not("planned_start", "is", null)
+        .order("planned_start", { ascending: true })
+        .limit(1);
+      const plannedRow = (planned && planned[0]) as PlannedToday | undefined;
+      setPlannedToday(plannedRow || null);
     } catch {
       setOpenShift(null);
+      setPlannedToday(null);
     } finally {
       setLoading(false);
     }
@@ -97,17 +122,47 @@ export function DriverClockButton({
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
-      const { error } = await (supabase as any)
+      const todayIso = nowIso.slice(0, 10);
+
+      // Wave 37: prefer to STAMP onto today's planned shift if one
+      // exists (admin rostered the driver for today), otherwise
+      // INSERT a fresh walk-in shift row. Without this, every
+      // clock-in spawned a second row -- the roster row stayed
+      // forever in 'scheduled' state and the schedule grid showed
+      // a phantom no-show next to the actual hours. Mirrors the
+      // pattern Wave 36.1 added on /team-portal/kitchen/duty.
+      const { data: planned } = await (supabase as any)
         .from("driver_shifts")
-        .insert({
-          driver_id: driverId,
-          company_id: companyId,
-          actual_start: nowIso,
-          shift_date: nowIso.slice(0, 10),
-          status: "active",
-        });
-      if (error) throw error;
-      toast({ title: "Clocked in", description: "Shift started." });
+        .select("id, actual_start, status")
+        .eq("driver_id", driverId)
+        .eq("company_id", companyId)
+        .eq("shift_date", todayIso)
+        .is("deleted_at", null)
+        .is("actual_start", null)
+        .order("planned_start", { ascending: true })
+        .limit(1);
+      const plannedRow = planned && planned[0];
+
+      if (plannedRow?.id) {
+        const { error } = await (supabase as any)
+          .from("driver_shifts")
+          .update({ actual_start: nowIso, status: "active" })
+          .eq("id", plannedRow.id);
+        if (error) throw error;
+        toast({ title: "Clocked in", description: "Linked to today's rostered shift." });
+      } else {
+        const { error } = await (supabase as any)
+          .from("driver_shifts")
+          .insert({
+            driver_id: driverId,
+            company_id: companyId,
+            actual_start: nowIso,
+            shift_date: todayIso,
+            status: "active",
+          });
+        if (error) throw error;
+        toast({ title: "Clocked in", description: "Walk-in shift started (no roster on file)." });
+      }
       await refresh();
     } catch (e: any) {
       toast({ title: "Could not clock in", description: e?.message || "Try again", variant: "destructive" });
@@ -172,21 +227,52 @@ export function DriverClockButton({
     );
   }
 
+  // Wave 37: lateness detector for the off-shift state. If the
+  // driver was rostered for 06:00 and it's now 06:23 with no
+  // clock-in, show a red "23m late" chip alongside the schedule
+  // line so they (and any glancing dispatch lead) see it.
+  const rosterLateMin = (() => {
+    if (!plannedToday?.planned_start) return 0;
+    const [h, m] = plannedToday.planned_start.split(":").map(Number);
+    if (Number.isNaN(h)) return 0;
+    const planned = new Date();
+    planned.setHours(h, m || 0, 0, 0);
+    const diff = Math.floor((Date.now() - planned.getTime()) / 60000);
+    // 240 cap = stop showing once we're 4h past, after which the
+    // missed-clock-in cron auto-promotes to status='missed' anyway.
+    return diff > 0 && diff < 240 ? diff : 0;
+  })();
+
   return (
-    <Card className="border-emerald-200 bg-emerald-50">
+    <Card className={`${rosterLateMin > 0 ? "border-rose-300 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
       <CardContent className="p-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-          <Clock className="w-5 h-5 text-emerald-700" />
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+          rosterLateMin > 0 ? "bg-rose-100" : "bg-emerald-100"
+        }`}>
+          <Clock className={`w-5 h-5 ${rosterLateMin > 0 ? "text-rose-700" : "text-emerald-700"}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-emerald-900">Off shift</p>
-          <p className="text-xs text-emerald-800/80">Tap clock in when you start work.</p>
+          <p className={`text-sm font-semibold ${rosterLateMin > 0 ? "text-rose-900" : "text-emerald-900"}`}>
+            Off shift
+          </p>
+          {plannedToday?.planned_start && plannedToday?.planned_end ? (
+            <p className={`text-xs ${rosterLateMin > 0 ? "text-rose-800" : "text-emerald-800/80"} flex items-center gap-1.5 flex-wrap`}>
+              Rostered <strong className="tabular-nums">{plannedToday.planned_start.slice(0, 5)}-{plannedToday.planned_end.slice(0, 5)}</strong> today
+              {rosterLateMin > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-200 text-rose-900 text-[10px] font-bold tabular-nums">
+                  {rosterLateMin}m late
+                </span>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-emerald-800/80">Tap clock in when you start work.</p>
+          )}
         </div>
         <Button
           size="sm"
           onClick={clockIn}
           disabled={busy}
-          className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+          className={`shrink-0 ${rosterLateMin > 0 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
         >
           {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
           Clock in
