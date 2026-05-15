@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign, Activity, MessageSquareText, Check, Calendar as CalendarIcon } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -89,6 +89,24 @@ export default function KitchenDutyRosterPage() {
   }
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [acking, setAcking] = useState<string | null>(null);
+
+  // Wave 36.3: payslip history for the current user. Surfaced as a
+  // small disclosure link on the earnings strip; clicking it pops a
+  // dialog with the last 12 payslips. Read-only (admins issue from
+  // /admin/kitchen-settlement).
+  interface PayslipPreview {
+    id: string;
+    period_start: string;
+    period_end: string;
+    total_hours: number;
+    total_pay: number;
+    currency: string;
+    status: string;
+    issued_at: string | null;
+    paid_at: string | null;
+  }
+  const [myPayslips, setMyPayslips] = useState<PayslipPreview[]>([]);
+  const [payslipsOpen, setPayslipsOpen] = useState(false);
 
   // Wave 36.1: today's planned shift for the current user. When the
   // operator opens this page and they're rostered, surface it on the
@@ -182,6 +200,20 @@ export default function KitchenDutyRosterPage() {
         setChefPerf(perf);
       } catch (perfErr) {
         console.warn("Chef performance query failed:", perfErr);
+      }
+
+      // Wave 36.3: pull this chef's last 12 payslips so the
+      // earnings strip can offer a "View payslips" disclosure.
+      try {
+        const { listPayslipsForStaff } = await import("@/services/kitchenPayService");
+        const ps = await listPayslipsForStaff(supabase as any, {
+          companyId: user.company_id,
+          staffId: user.id,
+          limit: 12,
+        });
+        setMyPayslips(ps as PayslipPreview[]);
+      } catch (psErr) {
+        console.warn("Payslips lookup failed (non-blocking):", psErr);
       }
 
       // Wave 36.1: today's rostered shift for the current user.
@@ -682,6 +714,21 @@ export default function KitchenDutyRosterPage() {
                       with a subtle border + shadow gives the numbers
                       the contrast a chef glancing at the kitchen
                       tablet needs. */}
+                  {/* Wave 36.3: payslips disclosure. Always visible
+                      when the chef has at least one payslip on
+                      file -- doesn't require being on shift. */}
+                  {myPayslips.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPayslipsOpen(true)}
+                      className="self-start inline-flex items-center gap-1.5 text-xs text-orange-800 hover:text-orange-900 font-medium hover:underline"
+                    >
+                      <Wallet className="w-3 h-3" />
+                      View payslips ({myPayslips.length})
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  )}
+
                   {myActiveShift && earnings && (
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-orange-200">
                       <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
@@ -1017,6 +1064,56 @@ export default function KitchenDutyRosterPage() {
           </Card>
         </div>
       </main>
+
+      {/* Wave 36.3: payslip history dialog. Read-only -- the chef
+          sees what the catering company has issued for them. New
+          payslips arrive via /admin/kitchen-settlement. */}
+      <Dialog open={payslipsOpen} onOpenChange={setPayslipsOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-orange-600" />
+              Your payslips
+            </DialogTitle>
+            <DialogDescription>
+              Last {myPayslips.length} payslip{myPayslips.length === 1 ? "" : "s"} the catering company has issued for you.
+            </DialogDescription>
+          </DialogHeader>
+          {myPayslips.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 text-sm">
+              No payslips on file yet. They'll appear here as soon as the office issues one.
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {myPayslips.map((ps) => {
+                const periodLabel = `${new Date(ps.period_start).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(ps.period_end).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
+                const tone =
+                  ps.status === "paid" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                  ps.status === "issued" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                                           "bg-slate-100 text-slate-700 border-slate-200";
+                return (
+                  <li key={ps.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900">{periodLabel}</div>
+                      <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                        {Number(ps.total_hours).toFixed(1)}h worked
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-bold tabular-nums text-orange-700">
+                        {ps.currency} {Number(ps.total_pay).toFixed(2)}
+                      </div>
+                      <Badge variant="outline" className={`${tone} text-[10px] mt-0.5`}>
+                        {ps.status}
+                      </Badge>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!endingShift} onOpenChange={(o) => { if (!o) { setEndingShift(null); setHandoffNotes(""); } }}>
         <DialogContent>
