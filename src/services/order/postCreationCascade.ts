@@ -295,7 +295,18 @@ export async function postOrderCreationCascade(
         if (detailed?.success) {
           receipt.email = { ok: true, skipped: false };
         } else {
-          const reason = detailed?.error_code || detailed?.error || "send_failed";
+          // Wave 51 C1 -- prefer the human-readable `error` string over
+          // the machine-code `error_code`. Pre-Wave-51 the order was
+          // reversed, so when emailService returned `error_code: "unknown"`
+          // (its catch-all branches at lines 468, 702, 724) the toast
+          // surfaced the literal "unknown" instead of the actual reason.
+          // Operators saw "Email did NOT send. unknown." with no clue
+          // what to fix. Now: error first (the sentence), error_code
+          // second (the machine slug), and only if BOTH are missing do
+          // we fall back to "send_failed".
+          const reason = detailed?.error
+            || (detailed?.error_code && detailed.error_code !== "unknown" ? detailed.error_code : null)
+            || "send_failed";
           receipt.email = { ok: false, skipped: false, reason };
           console.warn("[postOrderCreationCascade] email send failed:", {
             orderId,

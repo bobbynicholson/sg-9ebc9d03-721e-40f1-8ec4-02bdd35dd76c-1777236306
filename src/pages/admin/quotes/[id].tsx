@@ -41,6 +41,11 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { describeQuoteEditImpact } from "@/services/quote/propagateQuoteEdit";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { usePricingMode } from "@/hooks/usePricingMode";
 
@@ -97,6 +102,14 @@ export default function AdminQuoteDetail() {
   // where a status flip to 'sent' through quoteService.updateQuote
   // triggered _fireQuoteSentEmail behind the scenes with no preview.
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  // Wave 51 -- propagation confirmation modal. When the linked order
+  // is past acceptance and the operator changes a load-bearing field
+  // (event_date, event_time, guest_count, total, menu, equipment),
+  // we surface the cascade impacts before save commits.
+  const [propagateImpactOpen, setPropagateImpactOpen] = useState(false);
+  const [propagateImpacts, setPropagateImpacts] = useState<string[]>([]);
+  const [pendingSaveAction, setPendingSaveAction] = useState<"draft" | "send" | null>(null);
+  const [linkedOrderForImpact, setLinkedOrderForImpact] = useState<any>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const companyId =
     ((user as any)?.user_metadata?.company_id as string | undefined) ||
@@ -365,18 +378,56 @@ export default function AdminQuoteDetail() {
     } as any;
   };
 
-  const handleSaveDraft = async () => {
+  // Wave 51 -- pre-flight check. Look up the linked order, build the
+  // would-be payload, and ask describeQuoteEditImpact whether any
+  // load-bearing field is moving. If yes, hold the save behind the
+  // confirmation modal. If no (or no linked order), commit
+  // immediately. Used by both Save Draft and Save & Send.
+  const _runPreflightThenSave = async (action: "draft" | "send") => {
+    if (!quote || !id || typeof id !== "string") return;
+    try {
+      const { data: linkedOrder } = await (supabase as any)
+        .from("orders")
+        .select("id, status, order_number")
+        .eq("quote_id", id)
+        .is("deleted_at", null)
+        .maybeSingle();
+      const afterPayload = buildPayload();
+      const { needsConfirmation, impacts } = describeQuoteEditImpact({
+        beforeQuote: quote,
+        afterQuote: { ...quote, ...afterPayload },
+        linkedOrder: linkedOrder || null,
+      });
+      if (needsConfirmation) {
+        setLinkedOrderForImpact(linkedOrder || null);
+        setPropagateImpacts(impacts);
+        setPendingSaveAction(action);
+        setPropagateImpactOpen(true);
+        return;
+      }
+    } catch (e) {
+      console.warn("[quote-edit] preflight check failed; saving without modal:", e);
+    }
+    if (action === "draft") return _doSaveDraft();
+    return _doSend();
+  };
+
+  const _doSaveDraft = async () => {
     if (!quote || !id || typeof id !== "string") return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("quotes")
-        .update(buildPayload())
-        .eq("id", id);
-      if (error) throw error;
+      // Wave 51 -- route through quoteService.updateQuote so the
+      // post-Wave-51 propagation hook fires. The earlier code wrote
+      // directly via supabase, bypassing every quote-side side effect.
+      const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
       const refreshed = await quoteService.getQuote(id);
       setQuote(refreshed);
-      toast({ title: "Draft saved", description: "Your changes are stored." });
+      const propReceipt = (updated as any)?._propagationReceipt;
+      const propLine = _formatPropagationLine(propReceipt);
+      toast({
+        title: "Draft saved",
+        description: ["Your changes are stored.", propLine].filter(Boolean).join(" "),
+      });
     } catch (e: any) {
       toast({
         title: "Could not save",
@@ -388,6 +439,8 @@ export default function AdminQuoteDetail() {
     }
   };
 
+  const handleSaveDraft = () => _runPreflightThenSave("draft");
+
   // "Save & Send" -- two-stage. Stage 1: persist the latest pricing as
   // a draft (no status change, so quoteService.updateQuote does NOT
   // fire _fireQuoteSentEmail). Stage 2: open QuoteSendDialog. The
@@ -396,7 +449,7 @@ export default function AdminQuoteDetail() {
   // a confirmed successful delivery. Old behaviour fired the email
   // the moment the operator clicked Save & Send, with no preview and
   // no chance to fix a typo.
-  const handleSend = async () => {
+  const _doSend = async () => {
     if (!quote || !id || typeof id !== "string") return;
     if (!quote.client_email) {
       toast({
@@ -422,6 +475,13 @@ export default function AdminQuoteDetail() {
       if (!updated) throw new Error("Quote update returned no row");
       const refreshed = await quoteService.getQuote(id);
       setQuote(refreshed);
+      // Wave 51 -- propagation receipt surfaced before the dialog opens
+      // so the operator sees what changed on the order in the same flash.
+      const propReceipt = (updated as any)?._propagationReceipt;
+      const propLine = _formatPropagationLine(propReceipt);
+      if (propLine) {
+        toast({ title: "Saved", description: propLine });
+      }
       // Hand off to the review-before-send composer.
       setSendDialogOpen(true);
     } catch (e: any) {
@@ -434,6 +494,28 @@ export default function AdminQuoteDetail() {
       setSending(false);
     }
   };
+
+  const handleSend = () => _runPreflightThenSave("send");
+
+  // Wave 51 -- format the propagation receipt as a one-line toast.
+  // Returns "" when nothing was propagated so the caller can collapse.
+  function _formatPropagationLine(r: any): string {
+    if (!r || r.noLinkedOrder) return "";
+    if (r.refusedPostDispatch) {
+      return `Order is past dispatch. Amendment request opened for review.`;
+    }
+    const parts: string[] = [];
+    if (r.fieldsChanged && r.fieldsChanged.length > 0) {
+      parts.push(`${r.fieldsChanged.length} field${r.fieldsChanged.length === 1 ? "" : "s"} mirrored to the order`);
+    }
+    if (r.balanceDueDateRecalculated) parts.push("balance due date recalculated");
+    if (r.prepTasksRescheduled) parts.push("kitchen prep rescheduled");
+    if (r.equipmentBookingsResynced) parts.push("equipment bookings re-synced");
+    if (r.collectionRescheduled) parts.push("collection trip moved");
+    if (r.emailQueueResynced) parts.push("pre-event reminders re-stamped");
+    if (r.orderItemsRebuilt) parts.push("order line items rebuilt");
+    return parts.length > 0 ? `Order updated -- ${parts.join(", ")}.` : "";
+  }
 
   const isClientRequest = (quote as any)?.external_source === "client_portal_rebook";
 
@@ -1031,6 +1113,53 @@ export default function AdminQuoteDetail() {
           }}
         />
       )}
+
+      {/* Wave 51 -- propagation impact confirmation modal. Fires when
+          the operator's edit will move event_date / event_time /
+          guest_count / total / menu / equipment on a quote whose
+          linked order is past acceptance. Lists every cascade
+          consequence so the operator commits with their eyes open. */}
+      <AlertDialog open={propagateImpactOpen} onOpenChange={setPropagateImpactOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>This change touches the linked order</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Quote {(quote as any)?.quote_number ?? "this quote"}
+                  {linkedOrderForImpact?.order_number ? ` is linked to order ${linkedOrderForImpact.order_number}` : ""}.
+                  Saving will propagate the changes through:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                  {propagateImpacts.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-slate-500 pt-2">
+                  Cancel to keep editing. Confirm to apply across the order, kitchen schedule, equipment bookings, and reminders.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setPropagateImpactOpen(false);
+              setPendingSaveAction(null);
+            }}>
+              Keep editing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              const action = pendingSaveAction;
+              setPropagateImpactOpen(false);
+              setPendingSaveAction(null);
+              if (action === "draft") await _doSaveDraft();
+              else if (action === "send") await _doSend();
+            }}>
+              Apply &amp; save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

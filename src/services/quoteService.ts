@@ -328,6 +328,24 @@ export const quoteService = {
       );
     }
 
+    // Wave 51 -- propagate the edit to the linked order + cascade
+    // artefacts (kitchen prep, equipment bookings, collection trip,
+    // pre-event reminders). Pre-Wave-51 every quote edit drifted
+    // silently from its order. The propagation service is best-effort
+    // and never throws -- the receipt is attached to the returned
+    // quote so the caller's toast can surface what changed.
+    let propagationReceipt: any = null;
+    try {
+      const { propagateQuoteEditToOrder } = await import("./quote/propagateQuoteEdit");
+      propagationReceipt = await propagateQuoteEditToOrder(quoteId, null);
+    } catch (propErr) {
+      console.warn("[quoteService] propagateQuoteEditToOrder crashed (non-blocking):", propErr);
+    }
+
+    if (propagationReceipt) {
+      (data as any)._propagationReceipt = propagationReceipt;
+    }
+
     return data;
   },
 
