@@ -19,6 +19,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
+import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
@@ -328,6 +329,14 @@ export default function KitchenDashboard() {
           </div>
 
           <TeamWelcomeBanner role="kitchen" userId={user?.id} />
+
+          {/* Wave 42 Tier 3: personal shift card. Lists today's
+              kitchen + kitchen_and_cleaning shifts with task chips
+              inline. */}
+          <MyShiftTodayCard
+            scopeShiftTypes={["kitchen", "kitchen_and_cleaning"]}
+            defaultTaskType="kitchen"
+          />
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}

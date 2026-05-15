@@ -108,6 +108,12 @@ export function AddShiftTaskModal({
   const [quantity, setQuantity] = useState<number>(1);
   const [createCleaningJob, setCreateCleaningJob] = useState<boolean>(true);
   const [loadingExtras, setLoadingExtras] = useState(false);
+  const [loadedExtras, setLoadedExtras] = useState(false);
+
+  // Wave 42 Tier 3: track whether the operator has touched the
+  // billable toggle so the auto-snap on task_type change doesn't
+  // override their explicit override.
+  const [billableTouched, setBillableTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -116,6 +122,7 @@ export function AddShiftTaskModal({
     // Cleaning defaults to NOT extra cost (Bobby's rule). Other
     // task types default billable=TRUE.
     setBillable(defaultType === "cleaning" ? false : true);
+    setBillableTouched(false);
     setNotes("");
     setEquipmentId("");
     setQuantity(1);
@@ -124,15 +131,23 @@ export function AddShiftTaskModal({
     setBusy(false);
   }, [open, defaultType, types]);
 
-  // Snap billable when task_type changes.
+  // Snap billable when task_type changes -- but only if the operator
+  // hasn't already overridden the default. Otherwise their explicit
+  // toggle gets clobbered every time they flip task_type.
   useEffect(() => {
+    if (billableTouched) return;
     setBillable(taskType === "cleaning" ? false : true);
-  }, [taskType]);
+  }, [taskType, billableTouched]);
 
   // Load equipment + machines lazily once cleaning is picked.
+  // Wave 42 Tier 3: gate by an explicit "loaded" sentinel rather
+  // than the array lengths -- otherwise a company with zero
+  // equipment AND zero machines never re-fires the loader (both
+  // arrays stay empty forever, so the stale guard
+  // `length > 0 || length > 0` always returns).
   useEffect(() => {
     if (!open || taskType !== "cleaning" || !companyId) return;
-    if (equipmentList.length > 0 || machineList.length > 0) return;
+    if (loadedExtras) return;
     setLoadingExtras(true);
     (async () => {
       const [{ data: eq }, { data: ma }] = await Promise.all([
@@ -154,9 +169,17 @@ export function AddShiftTaskModal({
       ]);
       setEquipmentList((eq || []) as EquipmentOption[]);
       setMachineList((ma || []) as MachineOption[]);
+      setLoadedExtras(true);
       setLoadingExtras(false);
     })();
-  }, [open, taskType, companyId, equipmentList.length, machineList.length]);
+  }, [open, taskType, companyId, loadedExtras]);
+
+  // Reset the loaded sentinel when the modal closes so the next
+  // open re-fetches (in case the operator added equipment in
+  // another tab between opens).
+  useEffect(() => {
+    if (!open) setLoadedExtras(false);
+  }, [open]);
 
   // Auto-decision: dishwasher if safe + machine present, else manual.
   const selectedEquipment = useMemo(
@@ -297,7 +320,10 @@ export function AddShiftTaskModal({
                 <input
                   type="checkbox"
                   checked={billable}
-                  onChange={(e) => setBillable(e.target.checked)}
+                  onChange={(e) => {
+                    setBillable(e.target.checked);
+                    setBillableTouched(true);
+                  }}
                   className="rounded border-slate-300"
                 />
                 <span>Adds extra cost</span>

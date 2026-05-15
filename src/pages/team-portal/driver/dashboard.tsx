@@ -24,6 +24,7 @@ import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
+import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
@@ -460,6 +461,16 @@ export default function DriverDashboard() {
             </div>
 
             <TeamWelcomeBanner role="driver" userId={user?.id} />
+
+            {/* Wave 42 Tier 3: personal shift card. Lists today's
+                delivery shifts (and any other shift_type the driver
+                is rostered for) with task chips inline. Self-add
+                works thanks to the staff_shift_tasks_self_write
+                policy from Tier 1. */}
+            <MyShiftTodayCard
+              scopeShiftTypes={["delivery"]}
+              defaultTaskType="delivery"
+            />
 
             {/* Phase 10 #10: one-tap clock-in / clock-out.
              *  Replaces the only-after-the-fact admin-logged shift
