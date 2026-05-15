@@ -98,9 +98,15 @@ export function KitchenStaffTileBoard({
    *  callers don't need to change anything. */
   department?: string;
 } = {}) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth() as any;
   const { toast } = useToast();
-  const companyId = (user as any)?.company_id as string | undefined;
+  // Wave 45 follow-up -- fall back to profile.company_id when
+  // user.company_id is undefined. AuthContext populates user.company_id
+  // from userProfile.company_id but there's a brief window during
+  // profile load where user is set without the join completing. The
+  // silent `if (!companyId) return` in click handlers below was making
+  // tap-to-clock-in look broken with zero feedback.
+  const companyId = ((user as any)?.company_id || (profile as any)?.company_id) as string | undefined;
 
   const [staff, setStaff] = useState<KitchenStaffPublic[]>([]);
   const [openShifts, setOpenShifts] = useState<KitchenShift[]>([]);
@@ -175,7 +181,19 @@ export function KitchenStaffTileBoard({
   };
 
   const handleClockIn = async (s: KitchenStaffPublic) => {
-    if (!companyId) return;
+    if (!companyId) {
+      // Wave 45 follow-up -- previously this returned silently,
+      // making the tap appear to do nothing. Surface the bad state
+      // so the user can refresh / re-auth instead of clicking a
+      // dead button repeatedly.
+      console.error("[KitchenStaffTileBoard] handleClockIn: companyId missing", { user, profile });
+      toast({
+        title: "Couldn't clock in",
+        description: "Your session is still loading. Refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusyFor(s.id, true);
     try {
       await kitchenStaffService.clockIn({
@@ -187,7 +205,8 @@ export function KitchenStaffTileBoard({
       toast({ title: "Clocked in", description: s.full_name });
       load();
     } catch (e: any) {
-      toast({ title: "Could not clock in", description: e?.message, variant: "destructive" });
+      console.error("[KitchenStaffTileBoard] clockIn failed:", e);
+      toast({ title: "Could not clock in", description: e?.message || "Unknown error", variant: "destructive" });
     } finally {
       setBusyFor(s.id, false);
     }
