@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown } from "lucide-react";
+import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
@@ -425,15 +425,22 @@ export default function ClientBillingPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="text-center py-12 text-slate-600">Loading invoices...</div>
+                /* Wave 40.3: spinner + sentence-case copy. Was a
+                    bare "Loading invoices..." text line which felt
+                    flat next to every other page in the portal that
+                    uses Loader2. */
+                <div className="flex items-center justify-center py-12 text-slate-600">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Loading invoices...
+                </div>
               ) : filteredInvoices.length === 0 ? (
                 <div className="text-center py-12">
                   <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                   <p className="text-slate-600 font-medium mb-2">No invoices found</p>
                   <p className="text-sm text-slate-500">
                     {searchQuery || statusFilter !== "all"
-                      ? "Try adjusting your filters"
-                      : "Invoices will appear here when you place orders"}
+                      ? "Try adjusting your filters."
+                      : "Invoices will appear here when you place an order."}
                   </p>
                 </div>
               ) : (
@@ -458,12 +465,17 @@ export default function ClientBillingPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4" />
-                              <span>Event: {new Date(invoice.event_date).toLocaleDateString()}</span>
+                              {/* Wave 40.3: consistent en-ZA "15 May 2026"
+                                  formatting matching the rest of the
+                                  portal. Was bare toLocaleDateString()
+                                  which renders differently per browser
+                                  locale. */}
+                              <span>Event: {new Date(invoice.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4" />
                               <span>
-                                Due: {new Date(invoice.due_date).toLocaleDateString()}
+                                Due: {new Date(invoice.due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                               </span>
                             </div>
                           </div>
@@ -475,7 +487,7 @@ export default function ClientBillingPage() {
                             </p>
                             {invoice.paid_at && (
                               <p className="text-xs text-green-600">
-                                Paid: {new Date(invoice.paid_at).toLocaleDateString()}
+                                Paid: {new Date(invoice.paid_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                               </p>
                             )}
                           </div>
