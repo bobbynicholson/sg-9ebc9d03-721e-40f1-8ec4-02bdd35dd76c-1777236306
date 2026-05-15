@@ -27,6 +27,12 @@ interface Props {
 }
 
 export function EmailProviderBanner({ companyId }: Props) {
+  // Wave 42 hotfix: destructure withSlug from the hook so the
+  // Link href below resolves. Was missing -- the file's @ts-nocheck
+  // hid the reference error at build time. The banner only renders
+  // when email isn't configured, so any tenant with a missing
+  // provider would crash the entire admin dashboard.
+  const { withSlug } = useTenantHref();
   const [configured, setConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
