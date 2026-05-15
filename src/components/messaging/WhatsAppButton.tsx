@@ -133,18 +133,24 @@ export function WhatsAppButton(props: Props) {
     }
     let cancelled = false;
     (async () => {
-      const { data: clientRow } = await supabase
+      const { data: clientRow, error: clientRowError } = await supabase
         .from("clients")
         .select("user_id")
         .eq("id", clientId)
         .maybeSingle();
+      if (clientRowError) {
+        console.error("[WhatsAppButton] clients fetch failed:", clientRowError);
+      }
       const userId = (clientRow as any)?.user_id;
       if (cancelled || !userId) return;
-      const { data: profileRow } = await supabase
+      const { data: profileRow, error: profileRowError } = await supabase
         .from("profiles")
         .select("whatsapp_opt_in")
         .eq("id", userId)
         .maybeSingle();
+      if (profileRowError) {
+        console.error("[WhatsAppButton] profiles fetch failed:", profileRowError);
+      }
       if (cancelled) return;
       setAutoOptedOut((profileRow as any)?.whatsapp_opt_in === false);
     })();

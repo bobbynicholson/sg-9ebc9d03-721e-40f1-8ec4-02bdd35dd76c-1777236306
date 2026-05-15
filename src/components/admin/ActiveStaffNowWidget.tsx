@@ -53,7 +53,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
         // so the operator sees who's been on the clock longest at the
         // top -- that's the row that matters when checking for stale
         // sessions someone forgot to close.
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("staff_work_sessions")
           .select(`
             id, staff_id, clock_in,
@@ -62,6 +62,9 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
           .is("clock_out", null)
           .order("clock_in", { ascending: true })
           .limit(20);
+        if (error) {
+          console.error("[ActiveStaffNowWidget] staff_work_sessions fetch failed:", error);
+        }
         const list = ((data || []) as any[])
           .filter((r) => r.kitchen_staff?.company_id === companyId)
           .map((r) => ({

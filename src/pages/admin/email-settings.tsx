@@ -172,12 +172,15 @@ function EmailSettingsPage() {
       }
 
       // Mailchimp row
-      const { data: mc } = await supabase
+      const { data: mc, error: mcError } = await supabase
         .from("email_provider_settings")
         .select("mailchimp_audience_id")
         .eq("company_id", companyId)
         .eq("provider", "mailchimp")
         .maybeSingle();
+      if (mcError) {
+        console.error("[admin/email-settings] mailchimp settings fetch failed:", mcError);
+      }
       if (mc) setMailchimpAudienceId(mc.mailchimp_audience_id || "");
       setLoading(false);
     })();

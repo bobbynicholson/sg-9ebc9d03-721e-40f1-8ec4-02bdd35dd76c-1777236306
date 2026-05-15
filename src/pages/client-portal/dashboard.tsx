@@ -358,11 +358,14 @@ export default function ClientPortalDashboard() {
         // email so the orders query catches all of them. Tenant scope
         // is enforced by company_id; user might be a client of several
         // companies but this portal renders one tenant at a time.
-        const { data: clientRowsRaw } = await supabase
+        const { data: clientRowsRaw, error: clientRowsError } = await supabase
           .from("clients")
           .select("id, client_name")
           .eq("user_id", user.id)
           .eq("company_id", tenantCompanyId);
+        if (clientRowsError) {
+          console.error("[client-portal/dashboard] clients fetch failed:", clientRowsError);
+        }
         const clientRows = ((clientRowsRaw as any[]) || []);
         const clientIds = clientRows.map((r) => r.id);
         // Pick the most recent clients.client_name as the tenant-scoped
@@ -412,10 +415,13 @@ export default function ClientPortalDashboard() {
         const ratingByOrderId = new Map<string, number>();
         if (rows.length > 0) {
           const orderIds = rows.map((r) => r.id);
-          const { data: feedback } = await supabase
+          const { data: feedback, error: feedbackError } = await supabase
             .from("delivery_feedback")
             .select("order_id, overall_rating")
             .in("order_id", orderIds);
+          if (feedbackError) {
+            console.error("[client-portal/dashboard] delivery_feedback fetch failed:", feedbackError);
+          }
           for (const f of (feedback as any[]) || []) {
             if (f.order_id && f.overall_rating != null) {
               ratingByOrderId.set(f.order_id, f.overall_rating);
@@ -516,20 +522,26 @@ export default function ClientPortalDashboard() {
         // Current-location lookup off driver_locations (P1-23 split):
         // single PK row per driver instead of scanning gps_tracking
         // history.
-        const { data: pin } = await (supabase as any)
+        const { data: pin, error: pinError } = await (supabase as any)
           .from("driver_locations")
           .select("latitude, longitude, updated_at")
           .eq("driver_id", headline.driver_id)
           .maybeSingle();
+        if (pinError) {
+          console.error("[client-portal/dashboard] driver_locations fetch failed:", pinError);
+        }
 
         // Driver name + phone live on the profiles row -- there's no
         // separate drivers table. Fetched in parallel so a missing
         // profile (e.g. a deleted driver) doesn't hide the location.
-        const { data: driverProfile } = await supabase
+        const { data: driverProfile, error: driverProfileError } = await supabase
           .from("profiles")
           .select("full_name, phone, phone_number")
           .eq("id", headline.driver_id)
           .maybeSingle();
+        if (driverProfileError) {
+          console.error("[client-portal/dashboard] profiles fetch failed:", driverProfileError);
+        }
 
         if (!cancelled && pin) {
           const driver = (driverProfile || {}) as any;

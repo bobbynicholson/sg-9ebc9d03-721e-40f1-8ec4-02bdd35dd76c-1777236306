@@ -50,7 +50,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
     (async () => {
       try {
         const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("leads")
           .select("id, contact_name, client_name, email, client_email, phone, client_phone, source, event_date, created_at, status")
           .eq("company_id", companyId)
@@ -59,6 +59,9 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
+        if (error) {
+          console.error("[NewLeadsTodayWidget] leads fetch failed:", error);
+        }
         if (!cancelled) setRows(((data || []) as FreshLead[]));
       } catch {
         if (!cancelled) setRows([]);

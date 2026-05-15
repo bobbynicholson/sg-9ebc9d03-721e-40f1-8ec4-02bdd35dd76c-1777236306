@@ -178,11 +178,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Fetch company if user has company_id
           let userCompany = null;
           if (userProfile.company_id) {
-            const { data: companyData } = await supabase
+            const { data: companyData, error: companyError } = await supabase
               .from("companies")
               .select("*")
               .eq("id", userProfile.company_id)
               .single();
+            if (companyError) {
+              console.error("[AuthContext] companies fetch failed:", companyError);
+            }
 
             if (companyData) {
               userCompany = companyData;

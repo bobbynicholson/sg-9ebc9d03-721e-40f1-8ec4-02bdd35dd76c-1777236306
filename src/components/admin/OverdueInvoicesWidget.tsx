@@ -56,7 +56,7 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
         // marked paid or cancelled. Oldest-due first so the widget
         // surfaces the longest-outstanding rows -- those are the
         // ones bookkeeping needs to chase first.
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("invoices")
           .select(`
             id, invoice_number, total_amount, status, due_date,
@@ -67,6 +67,9 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
           .lt("due_date", today)
           .order("due_date", { ascending: true })
           .limit(5);
+        if (error) {
+          console.error("[OverdueInvoicesWidget] invoices fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as InvoiceRow[]);
       } catch {
         if (!cancelled) setRows([]);

@@ -7,10 +7,13 @@
  * actually pulling. Owners chasing menu performance had to scroll
  * orders or spreadsheet-export.
  *
- * Reads orders.menu_items (JSONB array of {name, quantity, ...})
- * for orders whose event_date falls in the last 30 days, sums
- * quantities per item name client-side. No new RPC, no schema
- * change.
+ * Wave 43 hotfix: previous query asked for orders.menu_items, a
+ * column that doesn't exist on orders -- it's only on quotes.
+ * Line items live in order_items (item_name, quantity, ...) keyed
+ * by order_id. Net result: the widget silently returned zero
+ * results forever (failed query was swallowed pre-Wave 43 sweep).
+ * Switched to order_items + an inner join filter on orders for the
+ * status + event_date + company guard.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
@@ -35,30 +38,36 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
     (async () => {
       try {
         const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-        const { data } = await (supabase as any)
-          .from("orders")
-          .select("menu_items")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
-          .gte("event_date", since)
-          .limit(2000);
+        // Wave 43 hotfix: query order_items + inner join to orders
+        // for the status / event_date / company filter. Each
+        // order_items row already has item_name + quantity, so no
+        // JSON unwrap needed -- one row per dish per order.
+        const { data, error } = await (supabase as any)
+          .from("order_items")
+          .select(
+            "item_name, quantity, order_id, orders!inner(company_id, status, event_date, deleted_at)",
+          )
+          .eq("orders.company_id", companyId)
+          .is("orders.deleted_at", null)
+          .in("orders.status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+          .gte("orders.event_date", since)
+          .limit(5000);
+        if (error) {
+          console.error("[MenuTopSellersWidget] order_items fetch failed:", error);
+        }
 
-        const totals = new Map<string, { qty: number; appearances: number }>();
-        for (const row of (data || []) as Array<{ menu_items: any }>) {
-          const items = Array.isArray(row.menu_items) ? row.menu_items : [];
-          for (const it of items) {
-            const name = String(it?.name || it?.item_name || "").trim();
-            if (!name) continue;
-            const qty = Number(it?.quantity ?? 1);
-            const existing = totals.get(name) || { qty: 0, appearances: 0 };
-            existing.qty += qty;
-            existing.appearances += 1;
-            totals.set(name, existing);
-          }
+        const totals = new Map<string, { qty: number; orders: Set<string> }>();
+        for (const row of (data || []) as Array<{ item_name: string | null; quantity: number | null; order_id: string }>) {
+          const name = String(row.item_name || "").trim();
+          if (!name) continue;
+          const qty = Number(row.quantity ?? 1);
+          const existing = totals.get(name) || { qty: 0, orders: new Set<string>() };
+          existing.qty += qty;
+          existing.orders.add(row.order_id);
+          totals.set(name, existing);
         }
         const ranked: Entry[] = Array.from(totals.entries())
-          .map(([name, v]) => ({ name, quantity: v.qty, appearances: v.appearances }))
+          .map(([name, v]) => ({ name, quantity: v.qty, appearances: v.orders.size }))
           .sort((a, b) => b.quantity - a.quantity)
           .slice(0, 5);
         if (!cancelled) setEntries(ranked);

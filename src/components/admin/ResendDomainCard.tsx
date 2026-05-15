@@ -111,7 +111,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
   const reload = async () => {
     if (!companyId) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("email_provider_settings")
       .select(
         "id, resend_domain_id, resend_sending_domain, resend_dns_records, resend_domain_status, resend_domain_verified_at, resend_last_checked_at",
@@ -119,6 +119,9 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       .eq("company_id", companyId)
       .eq("provider", "resend")
       .maybeSingle();
+    if (error) {
+      console.error("[ResendDomainCard] email_provider_settings fetch failed:", error);
+    }
     setState({
       id: (data as any)?.resend_domain_id,
       domain: (data as any)?.resend_sending_domain || null,

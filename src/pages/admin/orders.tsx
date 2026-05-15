@@ -243,11 +243,14 @@ function OrderProcessDashboard() {
     if (!cid) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("companies")
         .select("timezone")
         .eq("id", cid)
         .maybeSingle();
+      if (error) {
+        console.error("[admin/orders] companies.timezone fetch failed:", error);
+      }
       if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
     })();
     return () => { cancelled = true; };
@@ -1619,10 +1622,13 @@ function OrderProcessDashboard() {
       // PostgREST returned 400 on the embed and the whole booking
       // list silently came back null. Same fix on the on-mount fetch
       // below.
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("equipment_bookings")
         .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
         .eq("order_id", selectedOrder.id);
+      if (error) {
+        console.error("[admin/orders] equipment_bookings reload failed:", error);
+      }
       setEquipmentBookings(data || []);
     };
 
@@ -1738,11 +1744,14 @@ function OrderProcessDashboard() {
 
     const reloadOrderItems = async () => {
       if (!selectedOrder?.id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("order_items")
         .select("id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at")
         .eq("order_id", selectedOrder.id)
         .order("created_at", { ascending: true });
+      if (error) {
+        console.error("[admin/orders] order_items reload failed:", error);
+      }
       setFetchedItems(data || []);
     };
 
@@ -1795,11 +1804,14 @@ function OrderProcessDashboard() {
       let cancelled = false;
       (async () => {
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("order_items")
             .select("id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at")
             .eq("order_id", selectedOrder.id)
             .order("created_at", { ascending: true });
+          if (error) {
+            console.error("[admin/orders] order_items fetch failed:", error);
+          }
           if (!cancelled) setFetchedItems(data || []);
         } catch (err) {
           console.warn("[orders] order_items fetch failed", err);
@@ -1821,10 +1833,13 @@ function OrderProcessDashboard() {
       (async () => {
         setEquipmentLoading(true);
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("equipment_bookings")
             .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
             .eq("order_id", selectedOrder.id);
+          if (error) {
+            console.error("[admin/orders] equipment_bookings fetch failed:", error);
+          }
           if (!cancelled) setEquipmentBookings(data || []);
         } catch (err) {
           console.warn("[orders] equipment bookings fetch failed", err);

@@ -55,7 +55,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
     (async () => {
       try {
         const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("payments")
           .select(`
             id, amount, payment_method, payment_status, payment_type, created_at, order_id,
@@ -67,6 +67,9 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
+        if (error) {
+          console.error("[RecentPaymentsWidget] payments fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as PaymentRow[]);
       } catch {
         if (!cancelled) setRows([]);

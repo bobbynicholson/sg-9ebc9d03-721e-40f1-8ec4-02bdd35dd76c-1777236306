@@ -42,11 +42,14 @@ export function usePricingMode(): PricingMode {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("companies")
           .select("pricing_includes_vat")
           .eq("id", companyId)
           .maybeSingle();
+        if (error) {
+          console.error("[usePricingMode] companies fetch failed:", error);
+        }
         if (cancelled) return;
         setIncludesVat((data as any)?.pricing_includes_vat === true);
       } catch {

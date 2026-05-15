@@ -50,7 +50,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
         end.setDate(end.getDate() + 7);
         const startIso = toLocalISO(start);
         const endIso = toLocalISO(end);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("event_date")
           .eq("company_id", companyId)
@@ -59,6 +59,9 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
           .gte("event_date", startIso)
           .lte("event_date", endIso)
           .limit(2000);
+        if (error) {
+          console.error("[WeeklyOrdersChart] orders fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as OrderRow[]);
       } catch {
         if (!cancelled) setRows([]);

@@ -46,7 +46,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
         const horizon = new Date();
         horizon.setDate(horizon.getDate() + 7);
         const horizonIso = toLocalISO(horizon);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("id, order_number, client_name, event_date, event_time, guest_count, status")
           .eq("company_id", companyId)
@@ -57,6 +57,9 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
           .lte("event_date", horizonIso)
           .order("event_date", { ascending: true })
           .limit(8);
+        if (error) {
+          console.error("[DispatchGapWidget] orders fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as OrderRow[]);
       } catch {
         if (!cancelled) setRows([]);

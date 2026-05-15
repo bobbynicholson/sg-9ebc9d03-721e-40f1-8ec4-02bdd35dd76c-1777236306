@@ -94,7 +94,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("payments")
       .select(
         "id, amount, payment_reference, payment_date, notes, created_at, " +
@@ -105,6 +105,9 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
       .eq("payment_method", "eft")
       .eq("payment_status", "pending")
       .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[PendingClaimsBanner] payments fetch failed:", error);
+    }
     setClaims(((data as any[]) || []) as PendingClaim[]);
     setLoading(false);
   };

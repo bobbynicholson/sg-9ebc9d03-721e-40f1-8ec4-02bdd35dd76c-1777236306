@@ -48,7 +48,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("payments")
           .select(`
             id, amount, payment_status, payment_method, created_at,
@@ -59,6 +59,9 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
           .neq("payment_status", "completed")
           .order("created_at", { ascending: true })
           .limit(5);
+        if (error) {
+          console.error("[PendingRefundsWidget] payments fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as RefundRow[]);
       } catch {
         if (!cancelled) setRows([]);

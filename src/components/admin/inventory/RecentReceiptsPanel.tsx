@@ -62,7 +62,7 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("purchase_receipts")
         .select(`
           id, vendor, receipt_date, total, created_at,
@@ -76,6 +76,9 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (error) {
+        console.error("[RecentReceiptsPanel] purchase_receipts fetch failed:", error);
+      }
       if (cancelled) return;
       // Only keep slips that actually fed stock at least once.
       const fed = ((data || []) as ReceiptRow[]).filter((r) =>

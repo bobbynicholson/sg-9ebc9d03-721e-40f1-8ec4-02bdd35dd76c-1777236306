@@ -197,23 +197,29 @@ export function AmendmentReviewDrawer({
     (async () => {
       setLoading(true);
       try {
-        const { data: req } = await (supabase as any)
+        const { data: req, error: reqError } = await (supabase as any)
           .from("order_amendment_requests")
           .select("*")
           .eq("id", amendmentId)
           .maybeSingle();
+        if (reqError) {
+          console.error("[AmendmentReviewDrawer] order_amendment_requests fetch failed:", reqError);
+        }
         if (cancelled) return;
         setRequest(req || null);
 
         const targetOrderId = orderId || (req as any)?.order_id;
         if (targetOrderId) {
-          const { data: ord } = await (supabase as any)
+          const { data: ord, error: ordError } = await (supabase as any)
             .from("orders")
             .select(
               "id, order_number, client_name, status, guest_count, menu_items, equipment_items, special_instructions, delivery_time, venue_address",
             )
             .eq("id", targetOrderId)
             .maybeSingle();
+          if (ordError) {
+            console.error("[AmendmentReviewDrawer] orders fetch failed:", ordError);
+          }
           if (cancelled) return;
           setOrder(ord || null);
         }
@@ -222,11 +228,14 @@ export function AmendmentReviewDrawer({
         // source for full_name; the FK on reviewed_by_user_id points at
         // auth.users which we can't read directly from the client.
         if ((req as any)?.reviewed_by_user_id) {
-          const { data: prof } = await (supabase as any)
+          const { data: prof, error: profError } = await (supabase as any)
             .from("profiles")
             .select("full_name, email")
             .eq("id", (req as any).reviewed_by_user_id)
             .maybeSingle();
+          if (profError) {
+            console.error("[AmendmentReviewDrawer] profiles fetch failed:", profError);
+          }
           if (!cancelled) {
             setReviewerName(
               (prof as any)?.full_name || (prof as any)?.email || null,
@@ -582,31 +591,40 @@ export function CancellationReviewDrawer({
     (async () => {
       setLoading(true);
       try {
-        const { data: req } = await (supabase as any)
+        const { data: req, error: reqError } = await (supabase as any)
           .from("cancellation_requests")
           .select("*")
           .eq("id", cancellationId)
           .maybeSingle();
+        if (reqError) {
+          console.error("[CancellationReviewDrawer] cancellation_requests fetch failed:", reqError);
+        }
         if (cancelled) return;
         setRequest(req || null);
 
         const targetOrderId = orderId || (req as any)?.order_id;
         if (targetOrderId) {
-          const { data: ord } = await (supabase as any)
+          const { data: ord, error: ordError } = await (supabase as any)
             .from("orders")
             .select("id, order_number, client_name, status")
             .eq("id", targetOrderId)
             .maybeSingle();
+          if (ordError) {
+            console.error("[CancellationReviewDrawer] orders fetch failed:", ordError);
+          }
           if (cancelled) return;
           setOrder(ord || null);
         }
 
         if ((req as any)?.reviewed_by_user_id) {
-          const { data: prof } = await (supabase as any)
+          const { data: prof, error: profError } = await (supabase as any)
             .from("profiles")
             .select("full_name, email")
             .eq("id", (req as any).reviewed_by_user_id)
             .maybeSingle();
+          if (profError) {
+            console.error("[CancellationReviewDrawer] profiles fetch failed:", profError);
+          }
           if (!cancelled) {
             setReviewerName(
               (prof as any)?.full_name || (prof as any)?.email || null,

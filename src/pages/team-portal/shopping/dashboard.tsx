@@ -68,12 +68,15 @@ export default function ShoppingDashboard() {
         .order("event_date", { ascending: true });
 
       // Live inventory in place of hardcoded Beef/Chicken/Rice mocks
-      const { data: invRows } = await supabase
+      const { data: invRows, error: invError } = await supabase
         .from("inventory_items")
         .select("id, item_name, current_stock, minimum_stock, unit_of_measure, cost_per_unit")
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
         .order("item_name", { ascending: true });
+      if (invError) {
+        console.error("[team-portal/shopping/dashboard] inventory_items fetch failed:", invError);
+      }
       if (!cancelled) {
         setInventoryItems(
           (invRows || []).map((r: any) => ({

@@ -54,7 +54,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
     (async () => {
       try {
         const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("quotes")
           .select("sent_at, viewed_at, accepted_at")
           .eq("company_id", companyId)
@@ -62,6 +62,9 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
           .gte("sent_at", since)
           .not("sent_at", "is", null)
           .limit(2000);
+        if (error) {
+          console.error("[QuoteResponseTimeWidget] quotes fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as Row[]);
       } catch {
         if (!cancelled) setRows([]);

@@ -119,11 +119,14 @@ function AdminDashboardPage() {
     if (!companyId) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("companies")
         .select("timezone")
         .eq("id", companyId)
         .maybeSingle();
+      if (error) {
+        console.error("[admin/dashboard] companies.timezone fetch failed:", error);
+      }
       if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
     })();
     return () => { cancelled = true; };
@@ -329,12 +332,15 @@ function AdminDashboardPage() {
         ?.replace(/_/g, " ") || "-";
 
       // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
-      const { data: refundRows } = await supabase
+      const { data: refundRows, error: refundRowsError } = await supabase
         .from("payments")
         .select("amount, payment_status")
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
         .neq("payment_status", "completed");
+      if (refundRowsError) {
+        console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
+      }
       const refundsOutstandingCount = (refundRows || []).length;
       const refundsOutstandingValue = (refundRows || []).reduce(
         (sum: number, r: any) => sum + (Number(r.amount) || 0),

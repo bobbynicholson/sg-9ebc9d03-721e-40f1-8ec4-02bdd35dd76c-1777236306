@@ -47,7 +47,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowIso = toLocalISO(tomorrow);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select(`
             id, order_number, client_name, event_time, guest_count,
@@ -60,6 +60,9 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
           .eq("event_date", tomorrowIso)
           .order("event_time", { ascending: true })
           .limit(8);
+        if (error) {
+          console.error("[TomorrowsEventsWidget] orders fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as OrderRow[]);
       } catch {
         if (!cancelled) setRows([]);

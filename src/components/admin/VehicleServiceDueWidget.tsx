@@ -43,7 +43,7 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
       try {
         const horizon = new Date(Date.now() + HORIZON_DAYS * 86_400_000)
           .toISOString().slice(0, 10);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("vehicles")
           .select("id, plate, nickname, make, model, next_service_due")
           .eq("company_id", companyId)
@@ -53,6 +53,9 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
           .lte("next_service_due", horizon)
           .order("next_service_due", { ascending: true })
           .limit(5);
+        if (error) {
+          console.error("[VehicleServiceDueWidget] vehicles fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as VehicleRow[]);
       } catch {
         if (!cancelled) setRows([]);

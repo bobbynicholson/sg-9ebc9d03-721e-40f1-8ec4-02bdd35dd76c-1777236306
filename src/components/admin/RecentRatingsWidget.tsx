@@ -55,7 +55,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
         // dedup below keeps the latest rating per order (re-ratings
         // overwrite older ones in the rollup).
         const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("audit_logs")
           .select("entity_id, details, created_at")
           .eq("company_id", companyId)
@@ -64,6 +64,9 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(200);
+        if (error) {
+          console.error("[RecentRatingsWidget] audit_logs fetch failed:", error);
+        }
         const list = (data || []) as any[];
         const seen = new Set<string>();
         const latest: RatingRow[] = [];

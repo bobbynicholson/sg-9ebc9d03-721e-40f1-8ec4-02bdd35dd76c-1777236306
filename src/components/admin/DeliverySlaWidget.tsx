@@ -62,7 +62,7 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
     (async () => {
       try {
         const sinceIso = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("event_date, event_time, delivered_at")
           .eq("company_id", companyId)
@@ -70,6 +70,9 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
           .in("status", ["delivered", "completed"])
           .gte("event_date", sinceIso)
           .limit(2000);
+        if (error) {
+          console.error("[DeliverySlaWidget] orders fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as OrderRow[]);
       } catch {
         if (!cancelled) setRows([]);

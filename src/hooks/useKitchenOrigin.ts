@@ -27,18 +27,24 @@ export function useKitchenOrigin(userId?: string | null, companyId?: string | nu
 
     (async () => {
       // Try region first
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("region_id")
         .eq("id", userId)
         .maybeSingle();
+      if (profileError) {
+        console.error("[useKitchenOrigin] profiles fetch failed:", profileError);
+      }
 
       if (profile?.region_id) {
-        const { data: region } = await supabase
+        const { data: region, error: regionError } = await supabase
           .from("regions")
           .select("address, city, province_state, postal_code, lat, lng")
           .eq("id", profile.region_id)
           .maybeSingle();
+        if (regionError) {
+          console.error("[useKitchenOrigin] regions fetch failed:", regionError);
+        }
         if (!cancelled && region && (region.lat != null || region.address)) {
           const parts = [region.address, region.city, region.province_state, region.postal_code].filter(Boolean);
           setOrigin({
@@ -52,11 +58,14 @@ export function useKitchenOrigin(userId?: string | null, companyId?: string | nu
       }
 
       // Fall back to company HQ
-      const { data: company } = await supabase
+      const { data: company, error: companyError } = await supabase
         .from("companies")
         .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
         .eq("id", companyId)
         .maybeSingle();
+      if (companyError) {
+        console.error("[useKitchenOrigin] companies fetch failed:", companyError);
+      }
       if (cancelled || !company) return;
       const parts = [company.address_line1, company.city, company.state_province, company.postal_code].filter(Boolean);
       setOrigin({

@@ -147,11 +147,14 @@ export default function InvoicesPage() {
     if (!cid) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("companies")
         .select("timezone")
         .eq("id", cid)
         .maybeSingle();
+      if (error) {
+        console.error("[admin/invoices] companies.timezone fetch failed:", error);
+      }
       if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
     })();
     return () => { cancelled = true; };

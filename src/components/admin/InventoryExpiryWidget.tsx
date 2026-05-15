@@ -56,7 +56,7 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
     (async () => {
       try {
         const horizonIso = new Date(Date.now() + WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
-        const { data: batchData } = await (supabase as any)
+        const { data: batchData, error: batchError } = await (supabase as any)
           .from("inventory_batches")
           .select("id, expiry_date, quantity, inventory_item_id")
           .eq("company_id", companyId)
@@ -66,16 +66,22 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
           .lte("expiry_date", horizonIso)
           .order("expiry_date", { ascending: true })
           .limit(50);
+        if (batchError) {
+          console.error("[InventoryExpiryWidget] inventory_batches fetch failed:", batchError);
+        }
         if (cancelled) return;
         const rows = (batchData || []) as BatchRow[];
         setBatches(rows);
         // Hydrate item names in a single IN query.
         const itemIds = Array.from(new Set(rows.map((b) => b.inventory_item_id)));
         if (itemIds.length > 0) {
-          const { data: itemData } = await (supabase as any)
+          const { data: itemData, error: itemError } = await (supabase as any)
             .from("inventory_items")
             .select("id, item_name, unit_of_measure")
             .in("id", itemIds);
+          if (itemError) {
+            console.error("[InventoryExpiryWidget] inventory_items fetch failed:", itemError);
+          }
           if (cancelled) return;
           const map: Record<string, ItemLite> = {};
           for (const i of (itemData || []) as ItemLite[]) map[i.id] = i;

@@ -53,11 +53,14 @@ export function useTenantCurrency(
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("companies")
           .select("currency")
           .eq("id", companyId)
           .maybeSingle();
+        if (error) {
+          console.error("[useTenantCurrency] companies fetch failed:", error);
+        }
         if (cancelled) return;
         const raw = (data as any)?.currency as string | undefined;
         const next: CurrencyCode =

@@ -49,7 +49,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("equipment_damages")
           .select(`
             id, damage_type, notes, repair_cost, created_at,
@@ -59,6 +59,9 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
           .or("resolved.is.null,resolved.eq.false")
           .order("created_at", { ascending: false })
           .limit(5);
+        if (error) {
+          console.error("[EquipmentDamagesWidget] equipment_damages fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as DamageRow[]);
       } catch {
         if (!cancelled) setRows([]);

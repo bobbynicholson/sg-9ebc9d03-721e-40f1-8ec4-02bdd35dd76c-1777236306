@@ -47,13 +47,16 @@ export function InventoryLowStockWidget({ companyId }: { companyId: string | nul
         // so pull rows where minimum_stock > 0 and filter client-side.
         // The set is small (single-tenant inventory rarely > a few
         // hundred items) so this is cheap.
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("inventory_items")
           .select("id, item_name, current_stock, minimum_stock, unit_of_measure, category")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gt("minimum_stock", 0)
           .limit(500);
+        if (error) {
+          console.error("[InventoryLowStockWidget] inventory_items fetch failed:", error);
+        }
         const all = (data || []) as LowStockRow[];
         const short = all
           .filter((r) => Number(r.current_stock || 0) <= Number(r.minimum_stock || 0))

@@ -50,7 +50,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
     (async () => {
       try {
         const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("inventory_transactions")
           .select(`
             id, transaction_type, quantity, notes, created_at,
@@ -60,6 +60,9 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
+        if (error) {
+          console.error("[RecentInventoryAdjustsWidget] inventory_transactions fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as TxRow[]);
       } catch {
         if (!cancelled) setRows([]);

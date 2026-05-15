@@ -54,11 +54,14 @@ export function useCompanyKitchens(companyId: string | null | undefined) {
       const out: KitchenOption[] = [];
 
       // 1. Active branch regions with coords
-      const { data: regions } = await supabase
+      const { data: regions, error: regionsError } = await supabase
         .from("regions")
         .select("id, name, code, city, address, lat, lng, is_active")
         .eq("company_id", companyId)
         .eq("is_active", true);
+      if (regionsError) {
+        console.error("[useCompanyKitchens] regions fetch failed:", regionsError);
+      }
 
       for (const r of regions || []) {
         const lat = (r as any).lat;
@@ -79,11 +82,14 @@ export function useCompanyKitchens(companyId: string | null | undefined) {
       //    coords are set so a single-branch tenant has at least
       //    one option, and a multi-branch tenant can pick "Main"
       //    when none of the named branches fit.
-      const { data: company } = await supabase
+      const { data: company, error: companyError } = await supabase
         .from("companies")
         .select("company_name, address_line1, city, headquarters_lat, headquarters_lng")
         .eq("id", companyId)
         .maybeSingle();
+      if (companyError) {
+        console.error("[useCompanyKitchens] companies fetch failed:", companyError);
+      }
 
       const hqLat = (company as any)?.headquarters_lat;
       const hqLng = (company as any)?.headquarters_lng;

@@ -69,7 +69,7 @@ export function EntityNotesThread({
     if (!entityId) return;
     setLoading(true);
     try {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("audit_logs")
         .select("id, created_at, user_id, details")
         .eq("entity_type", entityType)
@@ -77,15 +77,21 @@ export function EntityNotesThread({
         .eq("action", action)
         .order("created_at", { ascending: false })
         .limit(50);
+      if (error) {
+        console.error("[EntityNotesThread] audit_logs fetch failed:", error);
+      }
       const list = (data || []) as NoteRow[];
       setRows(list);
       const userIds = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean) as string[]));
       const missing = userIds.filter((id) => !profileMap[id]);
       if (missing.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles, error: profilesError } = await supabase
           .from("profiles")
           .select("id, full_name, email")
           .in("id", missing);
+        if (profilesError) {
+          console.error("[EntityNotesThread] profiles fetch failed:", profilesError);
+        }
         if (profiles) {
           const next = { ...profileMap };
           for (const p of profiles as any[]) next[p.id] = p as ProfileLite;

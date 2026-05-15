@@ -52,7 +52,7 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
     (async () => {
       try {
         const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("quotes")
           .select("id, quote_number, client_name, client_email, total, event_date, sent_at")
           .eq("company_id", companyId)
@@ -62,6 +62,9 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
           .lte("sent_at", threeDaysAgo)
           .order("sent_at", { ascending: true })
           .limit(5);
+        if (error) {
+          console.error("[QuoteFollowupWidget] quotes fetch failed:", error);
+        }
         if (!cancelled) setQuotes((data || []) as StaleQuote[]);
       } catch {
         if (!cancelled) setQuotes([]);

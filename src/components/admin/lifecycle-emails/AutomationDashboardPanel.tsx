@@ -50,7 +50,7 @@ export function AutomationDashboardPanel() {
     (async () => {
       setLoading(true);
       try {
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("quote_followup_log")
           .select(`
             id, quote_id, sequence_position, template_key, channel, status, sent_at, notes,
@@ -59,6 +59,9 @@ export function AutomationDashboardPanel() {
           .eq("company_id", companyId)
           .order("sent_at", { ascending: false })
           .limit(200);
+        if (error) {
+          console.error("[AutomationDashboardPanel] quote_followup_log fetch failed:", error);
+        }
         if (cancelled) return;
         const flat: AuditRow[] = (data || []).map((r: any) => ({
           id: r.id,

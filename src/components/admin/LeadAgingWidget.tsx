@@ -49,7 +49,7 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
         // 'qualifying' and 'quoted' as still in play. Anything older
         // than 3 days qualifies for the widget.
         const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("leads")
           .select("id, contact_name, email, phone, status, source, event_date, created_at")
           .eq("company_id", companyId)
@@ -59,6 +59,9 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
           .lte("created_at", cutoff)
           .order("created_at", { ascending: true })
           .limit(5);
+        if (error) {
+          console.error("[LeadAgingWidget] leads fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as LeadRow[]);
       } catch {
         if (!cancelled) setRows([]);

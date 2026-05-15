@@ -93,7 +93,10 @@ export function MyShiftTodayCard({
       if (scopeShiftTypes && scopeShiftTypes.length > 0) {
         q = q.in("shift_type", scopeShiftTypes);
       }
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) {
+        console.error("[MyShiftTodayCard] kitchen_shifts fetch failed:", error);
+      }
       const rows = (data || []) as ShiftRow[];
       setShifts(rows);
       if (rows.length > 0) {

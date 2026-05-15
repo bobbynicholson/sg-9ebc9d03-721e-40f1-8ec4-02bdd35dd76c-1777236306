@@ -41,12 +41,15 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
     (async () => {
       try {
         const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("client_name, total_amount, status, event_date")
           .eq("company_id", companyId)
           .gte("event_date", since)
           .in("status", ["delivered", "completed", "in_transit", "ready", "preparing", "confirmed"]);
+        if (error) {
+          console.error("[TopClientsWidget] orders fetch failed:", error);
+        }
         const byClient = new Map<string, TopClient>();
         for (const o of (data || []) as any[]) {
           const name = (o.client_name || "").trim();

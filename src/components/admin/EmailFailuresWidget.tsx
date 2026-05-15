@@ -48,7 +48,7 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
     (async () => {
       try {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("email_automation_log")
           .select("id, created_at, template_type, recipient_email, subject, error_message")
           .eq("user_id", companyId)
@@ -56,6 +56,9 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
+        if (error) {
+          console.error("[EmailFailuresWidget] email_automation_log fetch failed:", error);
+        }
         if (!cancelled) setRows((data || []) as FailRow[]);
       } catch {
         if (!cancelled) setRows([]);

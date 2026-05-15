@@ -145,11 +145,14 @@ export default function KitchenDashboard() {
         console.warn("Upcoming preview failed:", pErr);
       }
       try {
-        const { data: company } = await supabase
+        const { data: company, error: companyError } = await supabase
           .from("companies")
           .select("kitchen_settings")
           .eq("id", user.company_id)
           .single();
+        if (companyError) {
+          console.error("[team-portal/kitchen/dashboard] companies fetch failed:", companyError);
+        }
         const ks: any = company?.kitchen_settings || {};
         if (ks.maxHotHoldMin) setMaxHotHoldMin(Number(ks.maxHotHoldMin));
       } catch (sErr) {

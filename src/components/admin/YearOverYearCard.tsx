@@ -58,7 +58,7 @@ export function YearOverYearCard({
       try {
         const fromIso = toLocalISO(shiftYear(range.from, -1));
         const toIso = toLocalISO(shiftYear(range.to, -1));
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("total_amount, status, payment_status, deposit_paid, confirmed_at")
           .eq("company_id", companyId)
@@ -66,6 +66,9 @@ export function YearOverYearCard({
           .gte("event_date", fromIso)
           .lte("event_date", toIso)
           .limit(5000);
+        if (error) {
+          console.error("[YearOverYearCard] orders fetch failed:", error);
+        }
         if (cancelled) return;
         let revenue = 0;
         let count = 0;

@@ -60,11 +60,14 @@ export function ClientLinkButton({ orderId, companyId, compact, onGenerated }: P
 
   const reload = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("client_access_tokens")
       .select("id, token_prefix, expires_at, revoked_at, created_at, label")
       .eq("order_id", orderId)
       .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[ClientLinkButton] client_access_tokens fetch failed:", error);
+    }
     setTokens(data || []);
     setLoading(false);
   };

@@ -53,7 +53,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
     (async () => {
       try {
         const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("orders")
           .select("id, order_number, client_name, total_amount, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
@@ -61,6 +61,9 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
           .gte("cancelled_at", since)
           .order("cancelled_at", { ascending: false })
           .limit(50);
+        if (error) {
+          console.error("[CancelledOrdersWidget] orders fetch failed:", error);
+        }
         const list = ((data || []) as CancelRow[]).filter((r) => !!r.cancelled_at);
         if (cancelled) return;
         setRows(list.slice(0, 5));

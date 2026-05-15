@@ -64,7 +64,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
   const refresh = useCallback(async () => {
     if (!companyId || !userId) return;
     const todayIso = new Date().toISOString().slice(0, 10);
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("orders")
       .select(
         "id, order_number, client_name, event_date, event_time, guest_count, venue_address, total_amount",
@@ -75,6 +75,9 @@ export function AvailableJobsCard({ onClaimed }: Props) {
       .gte("event_date", todayIso)
       .order("event_date", { ascending: true })
       .limit(20);
+    if (error) {
+      console.error("[AvailableJobsCard] orders fetch failed:", error);
+    }
     setRows((data || []) as OpenOrder[]);
     setLoading(false);
   }, [companyId, userId]);

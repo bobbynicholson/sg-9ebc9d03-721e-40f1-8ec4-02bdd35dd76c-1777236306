@@ -66,23 +66,29 @@ export function AssignedShiftsPanel({ orderId, companyId }: Props) {
     if (!orderId || !companyId) return;
     let cancelled = false;
     (async () => {
-      const { data: shiftRows } = await (supabase as any)
+      const { data: shiftRows, error: shiftError } = await (supabase as any)
         .from("kitchen_shifts")
         .select("id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status")
         .eq("company_id", companyId)
         .eq("order_id", orderId)
         .is("deleted_at", null)
         .order("planned_start", { ascending: true });
+      if (shiftError) {
+        console.error("[AssignedShiftsPanel] kitchen_shifts fetch failed:", shiftError);
+      }
       if (cancelled) return;
       const rows = (shiftRows || []) as ShiftRow[];
       setShifts(rows);
       // Pull profile names in one batch.
       const ids = Array.from(new Set(rows.map((r) => r.staff_id).filter(Boolean) as string[]));
       if (ids.length > 0) {
-        const { data: profileRows } = await (supabase as any)
+        const { data: profileRows, error: profileError } = await (supabase as any)
           .from("profiles")
           .select("id, full_name, email")
           .in("id", ids);
+        if (profileError) {
+          console.error("[AssignedShiftsPanel] profiles fetch failed:", profileError);
+        }
         if (cancelled) return;
         const m = new Map<string, ProfileRow>();
         for (const p of (profileRows || []) as ProfileRow[]) m.set(p.id, p);

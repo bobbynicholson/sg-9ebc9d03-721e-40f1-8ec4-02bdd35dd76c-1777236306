@@ -93,13 +93,16 @@ function KitchenSettlementPage() {
       // both jobs in one shift -- pay once, not twice. The
       // kitchen_payslips table is keyed by (company, staff,
       // period) so it's role-agnostic anyway.
-      const { data: staffRes } = await (supabase as any)
+      const { data: staffRes, error: staffResError } = await (supabase as any)
         .from("profiles")
         .select("id, full_name, email, hourly_rate, role")
         .eq("company_id", companyId)
         .in("role", ["kitchen_staff", "cleaning_staff", "company_admin", "owner"])
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
+      if (staffResError) {
+        console.error("[admin/kitchen-settlement] profiles fetch failed:", staffResError);
+      }
       const staffRows = (staffRes || []) as Staffer[];
       setStaff(staffRows);
 
@@ -124,13 +127,16 @@ function KitchenSettlementPage() {
 
       // 3) Pull any existing payslips for this exact period so the
       // operator sees what's already been issued / paid.
-      const { data: psRows } = await (supabase as any)
+      const { data: psRows, error: psRowsError } = await (supabase as any)
         .from("kitchen_payslips")
         .select("id, staff_id, period_start, period_end, total_pay, status")
         .eq("company_id", companyId)
         .eq("period_start", periodStart)
         .eq("period_end", periodEnd)
         .is("deleted_at", null);
+      if (psRowsError) {
+        console.error("[admin/kitchen-settlement] kitchen_payslips fetch failed:", psRowsError);
+      }
       const psMap: Record<string, PayslipRow> = {};
       for (const r of (psRows || []) as PayslipRow[]) {
         psMap[r.staff_id] = r;

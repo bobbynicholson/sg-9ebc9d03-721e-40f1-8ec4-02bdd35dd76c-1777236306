@@ -66,21 +66,27 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("audit_logs")
           .select("id, created_at, user_id, action, entity_type, entity_id, details")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(8);
+        if (error) {
+          console.error("[RecentActivityWidget] audit_logs fetch failed:", error);
+        }
         if (cancelled) return;
         const list = (data || []) as AuditRow[];
         setRows(list);
         const userIds = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean) as string[]));
         if (userIds.length > 0) {
-          const { data: profiles } = await supabase
+          const { data: profiles, error: profilesError } = await supabase
             .from("profiles")
             .select("id, full_name, email")
             .in("id", userIds);
+          if (profilesError) {
+            console.error("[RecentActivityWidget] profiles fetch failed:", profilesError);
+          }
           if (cancelled) return;
           const map: Record<string, ProfileLite> = {};
           for (const p of (profiles || []) as ProfileLite[]) map[p.id] = p;
