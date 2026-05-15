@@ -140,12 +140,17 @@ export default function CleaningSuppliesPage() {
       <CleaningNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
-              <Wrench className="h-7 w-7 text-cyan-600" />
-              Cleaning Supplies
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">Detergents, cloths, gloves, low-stock items feed straight to the shopping team</p>
+          {/* Wave 38: gradient-box icon header. */}
+          <div className="mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
+              <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                Cleaning Supplies
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">Detergents, cloths, gloves, low-stock items feed straight to the shopping team</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
