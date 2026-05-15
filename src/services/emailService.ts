@@ -369,12 +369,13 @@ export const emailService = {
     const recipientLower = String(payload.to || "").toLowerCase().trim();
     if (recipientLower) {
       try {
-        const { data: blocks } = await sb
+        const { data: blocks, error: blocksErr } = await sb
           .from("blocked_contacts")
           .select("email_lower")
           .eq("company_id", payload.companyId)
           .eq("email_lower", recipientLower)
           .limit(1);
+        if (blocksErr) console.error("[emailService] blocked_contacts lookup failed:", blocksErr);
         if (blocks && blocks.length > 0) {
           console.warn(`[emailService] refused -- ${recipientLower} is on the block list for ${payload.companyId}`);
           // Log the refusal so admin sees "blocked" in the failures

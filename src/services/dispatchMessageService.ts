@@ -76,12 +76,13 @@ export const dispatchMessageService = {
     viewerRole: SenderRole,
   ): Promise<Record<string, number>> {
     const otherRole: SenderRole = viewerRole === "dispatcher" ? "driver" : "dispatcher";
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("dispatch_messages")
       .select("order_id")
       .eq("company_id", companyId)
       .eq("sender_role", otherRole)
       .is("read_at", null);
+    if (error) console.error("[dispatchMessageService/getUnreadCountByOrder] dispatch_messages lookup failed:", error);
     const map: Record<string, number> = {};
     for (const r of (data || []) as any[]) {
       const id = r.order_id;

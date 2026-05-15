@@ -211,12 +211,13 @@ export const paymentLedgerService = {
     paymentReference?: string,
     notes?: string
   ) {
-    const { data: sessions } = await supabase
+    const { data: sessions, error: sessionsErr } = await supabase
       .from("staff_work_sessions")
       .select("*")
       .in("id", sessionIds)
       .eq("staff_id", staffId)
       .eq("payment_status", "unpaid");
+    if (sessionsErr) console.error("[paymentLedgerService] staff_work_sessions lookup failed:", sessionsErr);
 
     if (!sessions || sessions.length === 0) {
       throw new Error("No unpaid sessions found");

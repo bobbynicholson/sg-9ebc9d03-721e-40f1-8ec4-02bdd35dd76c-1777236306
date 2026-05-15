@@ -24,19 +24,21 @@ export async function resolveClientUserId(
   orderClientId: string | null,
 ): Promise<string | null> {
   if (!orderClientId) return null;
-  const { data: clientRow } = await ssr
+  const { data: clientRow, error: clientRowErr } = await ssr
     .from("clients")
     .select("user_id, email")
     .eq("id", orderClientId)
     .maybeSingle();
+  if (clientRowErr) console.error("[resolveClientUserId] clients lookup failed:", clientRowErr);
   if (!clientRow) return null;
   if (clientRow.user_id) return clientRow.user_id as string;
   const email = (clientRow.email || "").toLowerCase().trim();
   if (!email) return null;
-  const { data: profileMatch } = await ssr
+  const { data: profileMatch, error: profileMatchErr } = await ssr
     .from("profiles")
     .select("id")
     .ilike("email", email)
     .maybeSingle();
+  if (profileMatchErr) console.error("[resolveClientUserId] profiles fallback lookup failed:", profileMatchErr);
   return (profileMatch as any)?.id || null;
 }

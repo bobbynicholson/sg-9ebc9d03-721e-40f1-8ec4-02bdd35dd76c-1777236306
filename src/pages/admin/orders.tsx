@@ -714,11 +714,16 @@ function OrderProcessDashboard() {
           // and delivery shifts (kitchen_shifts where order_id IS
           // NOT NULL). Both feed the new cross-system blocker
           // detection in computeOrderTimeline.
+          // Wave 45 D3: dropped the equipment_cleaning_status query
+          // -- the table is being retired in favour of cleaning_jobs
+          // (already pulled below as cleaningJobsActiveRows for the
+          // cross-system blocker detection). The timeline still
+          // accepts equipmentCleaningStatus for back-compat but we
+          // pass [] now.
           const [
             paymentsRes,
             bookingsRes,
             hireRes,
-            cleaningRes,
             prepRes,
             assignmentsRes,
             invoicesRes,
@@ -728,7 +733,6 @@ function OrderProcessDashboard() {
             supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
             supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
-            supabase.from("equipment_cleaning_status").select("order_id, equipment_id, current_status, cleaning_started_at, cleaning_completed_at, ready_for_use_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
             supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
             supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds),
@@ -797,7 +801,6 @@ function OrderProcessDashboard() {
           const paymentsByOrder = bucket(paymentsRes.data as any[] | null);
           const bookingsByOrder = bucket(bookingsRes.data as any[] | null);
           const hireByOrder = bucket(hireRes.data as any[] | null);
-          const cleaningByOrder = bucket(cleaningRes.data as any[] | null);
           const prepByOrder = bucket(prepRes.data as any[] | null);
           const assignmentsByOrder = bucket(assignmentsRes.data as any[] | null);
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
@@ -824,7 +827,7 @@ function OrderProcessDashboard() {
               payments: paymentsByOrder.get(o.id) || [],
               equipmentBookings: bookingsByOrder.get(o.id) || [],
               equipmentHireOrders: hireByOrder.get(o.id) || [],
-              equipmentCleaningStatus: cleaningByOrder.get(o.id) || [],
+              equipmentCleaningStatus: [],
               kitchenPrepTasks: prepByOrder.get(o.id) || [],
               driverAssignments: assignmentsByOrder.get(o.id) || [],
               invoices: invoicesByOrder.get(o.id) || [],

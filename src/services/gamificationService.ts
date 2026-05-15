@@ -109,12 +109,13 @@ export const gamificationService = {
    */
   async unlockAchievement(userId: string, achievementKey: string, achievementName: string, achievementDescription?: string, icon?: string) {
     // Check if already unlocked
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from('gamification_achievements')
       .select('*')
       .eq('user_id', userId)
       .eq('achievement_key', achievementKey)
       .single();
+    if (existingErr && (existingErr as any).code !== "PGRST116") console.error("[gamificationService/unlockAchievement] gamification_achievements lookup failed:", existingErr);
 
     if (existing) return existing;
 
@@ -209,10 +210,11 @@ export const gamificationService = {
    */
   async checkAchievements(userId: string) {
     const totalPoints = await this.getUserPoints(userId);
-    const { data: history } = await supabase
+    const { data: history, error: historyErr } = await supabase
       .from('gamification_points')
       .select('*')
       .eq('user_id', userId);
+    if (historyErr) console.error("[gamificationService/checkAchievements] gamification_points lookup failed:", historyErr);
 
     const completedOrders = history?.filter(h => h.action_type === 'order_completed').length || 0;
     const onTimeDeliveries = history?.filter(h => h.action_type === 'on_time_delivery').length || 0;

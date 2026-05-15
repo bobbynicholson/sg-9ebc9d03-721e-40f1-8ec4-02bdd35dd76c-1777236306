@@ -82,12 +82,13 @@ export async function getEquipmentAvailability(
   // and isn't actually back on the shelf. Audit Equipment G7 --
   // 100 chairs returning Sunday 11pm looked "available" for a
   // Monday 8am breakfast because nothing padded the window.
-  const { data: eq } = await supabase
+  const { data: eq, error: eqErr } = await supabase
     .from("equipment")
     .select("id, quantity, cleaning_time_hours")
     .eq("id", equipmentId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (eqErr) console.error("[equipmentAvailabilityService] equipment lookup (availability) failed:", eqErr);
   const owned = Number((eq as any)?.quantity ?? 0);
   const cleaningHours = Math.max(
     0,
@@ -185,12 +186,13 @@ export async function getEquipmentMeta(
   equipmentId: string,
 ): Promise<{ hire_in_cost: number; rental_price: number } | null> {
   if (!companyId || !equipmentId) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("equipment")
     .select("hire_in_cost, rental_price")
     .eq("id", equipmentId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (error) console.error("[equipmentAvailabilityService/getEquipmentMeta] equipment lookup failed:", error);
   if (!data) return null;
   return {
     hire_in_cost: Number((data as any).hire_in_cost ?? 0),
@@ -267,12 +269,13 @@ export async function listUpcomingReservations(
   }
 
   // Pull owned count once so we can flag rows that pushed past it.
-  const { data: eq } = await supabase
+  const { data: eq, error: eqErr } = await supabase
     .from("equipment")
     .select("quantity")
     .eq("id", equipmentId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (eqErr) console.error("[equipmentAvailabilityService/listUpcomingReservations] equipment lookup failed:", eqErr);
   const owned = Number((eq as any)?.quantity ?? 0);
 
   const out: EquipmentReservationRow[] = [];

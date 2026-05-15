@@ -164,11 +164,12 @@ export const deliveryService = {
       if (!orderId) return;
 
       // Get order owner (admin/client)
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select("user_id, client_name, client_email")
         .eq("id", orderId)
         .single();
+      if (orderErr) console.error("[deliveryService] orders lookup failed:", orderErr);
 
       if (!order) return;
 

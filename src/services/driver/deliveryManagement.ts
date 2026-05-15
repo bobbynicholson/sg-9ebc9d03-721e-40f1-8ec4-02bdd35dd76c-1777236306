@@ -19,11 +19,12 @@ import { driverPayService } from "@/services/driverPayService";
  * dispatch surface clean.
  */
 async function companyIdForOrder(orderId: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
     .select("company_id")
     .eq("id", orderId)
     .maybeSingle();
+  if (error) console.error("[driver/deliveryManagement/companyIdForOrder] orders lookup failed:", error);
   return (data as any)?.company_id ?? null;
 }
 
@@ -61,11 +62,12 @@ export async function updateDeliveryStatus(
     // Ownership guard: refuse the update if this driver isn't on
     // the order via either column (assigned_driver_id or legacy
     // driver_id).
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr) console.error("[driver/deliveryManagement/updateDeliveryStatus] orders ownership lookup failed:", orderErr);
     if (!order) return { success: false, error: "Order not found." };
     const isAssigned =
       (order as any).assigned_driver_id === driverId ||
@@ -128,11 +130,12 @@ export async function confirmDelivery(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Ownership guard
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr) console.error("[driver/deliveryManagement/confirmDelivery] orders ownership lookup failed:", orderErr);
     if (!order) return { success: false, error: "Order not found." };
     const isAssigned =
       (order as any).assigned_driver_id === driverId ||
@@ -248,11 +251,12 @@ export async function markOrderPickedUp(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Ownership guard
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("id, assigned_driver_id, driver_id")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderErr) console.error("[driver/deliveryManagement/markOrderPickedUp] orders ownership lookup failed:", orderErr);
     if (!order) return { success: false, error: "Order not found." };
     const isAssigned =
       (order as any).assigned_driver_id === driverId ||

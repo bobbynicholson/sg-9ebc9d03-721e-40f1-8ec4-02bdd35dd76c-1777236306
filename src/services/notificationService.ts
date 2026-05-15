@@ -310,7 +310,8 @@ export const notificationService = {
         if (notification.related_entity_id) {
           probe = probe.eq("related_entity_id", notification.related_entity_id);
         }
-        const { data: existing } = await probe.maybeSingle();
+        const { data: existing, error: existingErr } = await probe.maybeSingle();
+        if (existingErr) console.error("[notificationService/createNotification] dedup probe failed:", existingErr);
         if (existing) {
           // Match -- skip the insert. Returning null mirrors the
           // "soft no-op" shape callers already handle for RLS rejects.
@@ -460,7 +461,7 @@ export const notificationService = {
       try {
         const windowMin = Math.max(1, params.dedupWindowMinutes ?? 60);
         const sinceIso = new Date(Date.now() - windowMin * 60 * 1000).toISOString();
-        const { data: existing } = await sb
+        const { data: existing, error: existingErr } = await sb
           .from("notifications")
           .select("id")
           .eq("company_id", params.companyId)
@@ -469,6 +470,7 @@ export const notificationService = {
           .gte("created_at", sinceIso)
           .limit(1)
           .maybeSingle();
+        if (existingErr) console.error("[notificationService/broadcast] dedup lookup failed:", existingErr);
         if (existing) {
           // Match -- skip the entire fan-out.
           return 0;
@@ -663,11 +665,12 @@ export const notificationService = {
     try {
       // Resolve company_id + delivered_at off the order so the cron
       // worker has everything it needs without a re-resolve.
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select("id, company_id, client_id, client_email, client_name")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr) console.error("[notificationService/sendReviewRequest] orders lookup failed:", orderErr);
 
       if (!order || !(order as any).company_id) {
         console.warn("[sendReviewRequest] order not found or missing company_id, skipping queue");

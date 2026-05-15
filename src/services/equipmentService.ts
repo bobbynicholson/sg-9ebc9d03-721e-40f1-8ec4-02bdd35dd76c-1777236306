@@ -154,11 +154,12 @@ export const equipmentService = {
     // on the same day.
     let resolvedCompanyId = companyId;
     if (!resolvedCompanyId && orderId) {
-      const { data: order } = await (supabase as any)
+      const { data: order, error: orderErr } = await (supabase as any)
         .from("orders")
         .select("company_id")
         .eq("id", orderId)
         .maybeSingle();
+      if (orderErr) console.error("[equipmentService] orders company_id lookup failed:", orderErr);
       resolvedCompanyId = (order as any)?.company_id || null;
     }
 

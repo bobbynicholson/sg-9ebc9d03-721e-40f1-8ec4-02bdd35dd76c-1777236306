@@ -464,11 +464,12 @@ export const paymentGatewayService = {
       .maybeSingle();
     if (error || !gateway) return null;
 
-    const { data: cred } = await serviceClient
+    const { data: cred, error: credErr } = await serviceClient
       .from(CREDS_TABLE)
       .select("credentials")
       .eq("gateway_id", gatewayId)
       .maybeSingle();
+    if (credErr) console.error("[paymentGatewayService] gateway credentials lookup failed:", credErr);
 
     return {
       gateway: gateway as PaymentGatewayMetadata,

@@ -291,12 +291,13 @@ export async function rollbackImportJob(
   // Leads: skip ones already converted to clients.
   let leadsDeleted = 0;
   let leadsSkipped = 0;
-  const { data: leadCandidates } = await supabase
+  const { data: leadCandidates, error: leadCandidatesErr } = await supabase
     .from("leads")
     .select("id, converted_to_client_id")
     .eq("import_job_id", jobId)
     .eq("company_id", companyId)
     .is("deleted_at", null);
+  if (leadCandidatesErr) console.error("[importService] leads lookup failed:", leadCandidatesErr);
   for (const l of (leadCandidates || []) as any[]) {
     if (l.converted_to_client_id) {
       leadsSkipped += 1;

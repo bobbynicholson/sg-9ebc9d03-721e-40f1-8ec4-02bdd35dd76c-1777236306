@@ -155,19 +155,30 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         sigPublicUrl = sigUrl.publicUrl;
       }
 
-      // Update the order
-      const { error: updErr } = await supabase
+      // Wave 45 D2 -- two-step write so the status flip routes
+      // through orderWorkflow.updateOrderStatus and triggers the
+      // full side-effect cascade (status_history, audit_logs,
+      // sendStatusNotifications, POD-missing alert, inventory
+      // deduction, equipment cleaning rows, pending_reviews,
+      // after-sales scheduler, transition validation). The
+      // previous shape wrote status='delivered' raw and silently
+      // skipped all of it -- same bug class Wave 5 fixed in
+      // confirmDelivery (deliveryManagement.ts:38-52).
+      const { error: podErr } = await supabase
         .from("orders")
         .update({
           pod_photo_url: photoUrl.publicUrl,
           pod_signature_url: sigPublicUrl,
           pod_recipient_name: recipientName.trim(),
           pod_captured_at: new Date().toISOString(),
-          status: "delivered",
-          delivered_at: new Date().toISOString(),
         })
         .eq("id", orderId);
-      if (updErr) throw updErr;
+      if (podErr) throw podErr;
+      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+      const flipResult = await (updateOrderStatus as any)(orderId, "delivered");
+      if (flipResult && flipResult.ok === false) {
+        throw new Error(flipResult.error || "Status flip to delivered failed");
+      }
 
       toast({ title: "Delivery confirmed", description: clientName ? `${clientName} marked delivered.` : "Order marked delivered." });
       onOpenChange(false);

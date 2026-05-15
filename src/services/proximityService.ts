@@ -29,22 +29,31 @@ async function markArrived(assignmentId: string): Promise<any | null> {
       throw error;
     }
 
-    const { data: assignment } = await supabase
+    const { data: assignment, error: assignmentErr } = await supabase
       .from("driver_assignments")
       .select("order_id, driver_id")
       .eq("id", assignmentId)
       .single();
+    if (assignmentErr) console.error("[proximityService/markArrived] driver_assignments lookup failed:", assignmentErr);
 
     if (assignment) {
-      // Best-effort transactional pair: assignment was already moved
-      // to "arrived" above. If the order update fails, revert the
-      // assignment so the two stay in lockstep -- otherwise dispatch
-      // shows an arrived driver against an in_transit order forever
-      // until someone manually reconciles.
-      const { error: orderUpdateErr } = await supabase
-        .from("orders")
-        .update({ status: "delivered" } as any)
-        .eq("id", assignment.order_id);
+      // Wave 45 D2 -- route the status flip through
+      // orderWorkflow.updateOrderStatus instead of writing
+      // status='delivered' raw. The raw write skipped the entire
+      // delivered-side cascade (status_history, audit_logs, client
+      // notification, equipment cleaning rows, after-sales
+      // scheduler, transition validation). Geofence-triggered
+      // delivery now fires the same side-effects as a manual one.
+      let orderUpdateErr: any = null;
+      try {
+        const { updateOrderStatus } = await import("./order/orderWorkflow");
+        const flip = await (updateOrderStatus as any)(assignment.order_id, "delivered", assignment.driver_id);
+        if (flip && flip.ok === false) {
+          orderUpdateErr = new Error(flip.error || "updateOrderStatus refused the transition");
+        }
+      } catch (flipErr: any) {
+        orderUpdateErr = flipErr;
+      }
 
       if (orderUpdateErr) {
         console.error(
@@ -59,14 +68,15 @@ async function markArrived(assignmentId: string): Promise<any | null> {
         } catch (revertErr) {
           console.error(`[markArrived] revert failed -- assignment ${assignmentId} now in inconsistent state:`, revertErr);
         }
-        throw new Error(`Failed to mark order delivered: ${orderUpdateErr.message}`);
+        throw new Error(`Failed to mark order delivered: ${orderUpdateErr.message || orderUpdateErr}`);
       }
 
-      const { data: orderDetails } = await supabase
+      const { data: orderDetails, error: orderDetailsErr } = await supabase
         .from("orders")
         .select("user_id, company_id")
         .eq("id", assignment.order_id)
         .single();
+      if (orderDetailsErr) console.error("[proximityService/markArrived] orders lookup failed:", orderDetailsErr);
 
       if (orderDetails) {
         // Driver-facing acknowledgement that they've hit the venue.

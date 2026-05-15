@@ -167,17 +167,19 @@ export const equipmentTrackingService = {
     }
 
     // Get order and equipment details for notifications
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("user_id, company_id, order_number, client_name")
       .eq("id", params.orderId)
       .single();
+    if (orderErr) console.error("[equipmentTrackingService/reportDamage] orders lookup failed:", orderErr);
 
-    const { data: equipment } = await supabase
+    const { data: equipment, error: equipmentErr } = await supabase
       .from("equipment")
       .select("name, category")
       .eq("id", params.equipmentId)
       .single();
+    if (equipmentErr) console.error("[equipmentTrackingService/reportDamage] equipment lookup failed:", equipmentErr);
       
     const equipmentName = equipment?.name || "Unknown Equipment";
 
@@ -207,7 +209,7 @@ export const equipmentTrackingService = {
       // to. Audit (May 2026): the previous lookup used .eq("id",
       // order.user_id) which is the client, not the admin.
       try {
-        const { data: adminProfile } = await supabase
+        const { data: adminProfile, error: adminProfileErr } = await supabase
           .from("profiles")
           .select("email, full_name, phone, phone_number")
           .eq("company_id", order.company_id)
@@ -215,11 +217,13 @@ export const equipmentTrackingService = {
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
-        const { data: companyRow } = await supabase
+        if (adminProfileErr) console.error("[equipmentTrackingService/reportDamage] admin profile lookup failed:", adminProfileErr);
+        const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
           .select("company_name")
           .eq("id", order.company_id)
           .maybeSingle();
+        if (companyRowErr) console.error("[equipmentTrackingService/reportDamage] companies lookup failed:", companyRowErr);
         const companyName = (companyRow as any)?.company_name || "CateringMS";
 
         if (adminProfile?.email) {
@@ -535,26 +539,55 @@ ${companyName}`;
   },
 
   /**
-   * Create cleaning status for returned equipment
+   * Create cleaning status for returned equipment.
+   *
+   * Wave 45 D3 -- migrated to the canonical cleaning_jobs ledger
+   * (Wave 41 P2). The legacy equipment_cleaning_status table is
+   * being retired. Same call signature for back-compat with
+   * EquipmentVerificationPanel; the return shape now mirrors
+   * cleaning_jobs (queued/in_progress/complete) rather than the
+   * old pending/cleaning/drying/ready/stored model.
    */
   async createCleaningStatus(params: {
     orderId: string;
     equipmentId: string;
     returnedQuantity: number;
-  }): Promise<EquipmentCleaningStatus> {
+  }): Promise<any> {
+    // Resolve the order's company_id (cleaning_jobs requires it).
+    const { data: orderRow, error: orderErr } = await supabase
+      .from("orders")
+      .select("company_id")
+      .eq("id", params.orderId)
+      .maybeSingle();
+    if (orderErr) {
+      console.error("[equipmentTrackingService] order company lookup failed:", orderErr);
+      throw orderErr;
+    }
+    const companyId = (orderRow as any)?.company_id;
+    if (!companyId) {
+      throw new Error("createCleaningStatus: order missing company_id");
+    }
+
+    const nowIso = new Date().toISOString();
+    const oneHourLater = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
     const { data, error } = await supabase
-      .from("equipment_cleaning_status")
+      .from("cleaning_jobs")
       .insert({
-        order_id: params.orderId,
+        company_id: companyId,
         equipment_id: params.equipmentId,
-        returned_quantity: params.returnedQuantity,
-        current_status: "pending",
+        quantity: Math.max(1, Number(params.returnedQuantity || 1)),
+        method: "manual",
+        status: "queued",
+        triggered_by_event_id: params.orderId,
+        planned_start: nowIso,
+        planned_end: oneHourLater,
       })
       .select()
       .single();
 
     if (error) {
-      console.error("Error creating cleaning status:", error);
+      console.error("Error creating cleaning_jobs row:", error);
       throw error;
     }
 
@@ -562,142 +595,145 @@ ${companyName}`;
   },
 
   /**
-   * Update cleaning workflow status
+   * Update cleaning workflow status. Wave 45 D3 -- migrated to
+   * cleaning_jobs (Wave 41 P2 ledger). The 5-state UI model
+   * (pending/cleaning/drying/ready/stored) collapses to the
+   * 3-state cleaning_jobs model:
+   *   pending  -> queued
+   *   cleaning -> in_progress (sets actual_start)
+   *   drying   -> in_progress (no separate state, see note)
+   *   ready    -> complete   (sets actual_end + notify admin)
+   *   stored   -> complete   (terminal)
+   *
+   * Drying-step loss is intentional -- CleaningJobsQueue (the
+   * canonical UX) doesn't model drying separately. Add 'drying'
+   * to cleaning_jobs.status CHECK + route here if it's ever
+   * needed back.
+   *
+   * Notification dedup: cleaning_jobs has no admin_notified
+   * column. We dedup via a notifications-table lookup with a
+   * 7-day window keyed off (company, type, related_entity_id).
    */
   async updateCleaningStatus(params: {
     cleaningStatusId: string;
     status: "pending" | "cleaning" | "drying" | "ready" | "stored";
     cleanedByUserId?: string;
     verifiedByUserId?: string;
-  }): Promise<EquipmentCleaningStatus> {
-    const updates: any = {
-      current_status: params.status,
-      updated_at: new Date().toISOString(),
-    };
+  }): Promise<any> {
+    const nowIso = new Date().toISOString();
+    const updates: any = { updated_at: nowIso };
 
-    if (params.status === "cleaning") {
-      updates.cleaning_started_at = new Date().toISOString();
-      updates.cleaned_by_user_id = params.cleanedByUserId;
-    } else if (params.status === "drying") {
-      updates.cleaning_completed_at = new Date().toISOString();
-      updates.drying_started_at = new Date().toISOString();
-    } else if (params.status === "ready") {
-      updates.drying_completed_at = new Date().toISOString();
-      updates.ready_for_use_at = new Date().toISOString();
-      updates.verified_by_user_id = params.verifiedByUserId;
+    if (params.status === "pending") {
+      updates.status = "queued";
+    } else if (params.status === "cleaning" || params.status === "drying") {
+      updates.status = "in_progress";
+      if (params.status === "cleaning") updates.actual_start = nowIso;
+    } else if (params.status === "ready" || params.status === "stored") {
+      updates.status = "complete";
+      updates.actual_end = nowIso;
     }
 
     const { data, error } = await supabase
-      .from("equipment_cleaning_status")
+      .from("cleaning_jobs")
       .update(updates)
       .eq("id", params.cleaningStatusId)
       .select()
       .single();
 
     if (error) {
-      console.error("Error updating cleaning status:", error);
+      console.error("Error updating cleaning_jobs row:", error);
       throw error;
     }
 
-    // If ready, notify admin
-    if (params.status === "ready" && !data.admin_notified) {
-      const { data: statusData } = await supabase
-        .from("equipment_cleaning_status")
-        .select(`
-          order_id,
-          equipment:equipment_id (name),
-          returned_quantity
-        `)
-        .eq("id", params.cleaningStatusId)
-        .single();
+    if ((params.status === "ready" || params.status === "stored") && data) {
+      const orderId = (data as any).triggered_by_event_id;
+      if (!orderId) return data;
 
-      if (statusData) {
-        const { data: order } = await supabase
-          .from("orders")
-          .select("user_id, company_id, order_number")
-          .eq("id", statusData.order_id)
-          .single();
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { count: recentNotifs, error: dedupErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", (data as any).company_id)
+        .eq("notification_type", "cleaning_completed")
+        .eq("related_entity_id", orderId)
+        .gte("created_at", sevenDaysAgo);
+      if (dedupErr) console.error("[equipmentTrackingService/updateCleaningStatus] dedup lookup failed:", dedupErr);
+      if (typeof recentNotifs === "number" && recentNotifs > 0) return data;
 
-        if (order && order.company_id) {
-          const equipmentName = (statusData as any).equipment?.name || "Equipment";
+      const [{ data: eqRow, error: eqErr }, { data: order, error: orderErr }] = await Promise.all([
+        supabase.from("equipment").select("name").eq("id", (data as any).equipment_id).maybeSingle(),
+        supabase.from("orders").select("user_id, company_id, order_number").eq("id", orderId).maybeSingle(),
+      ]);
+      if (eqErr) console.error("[equipmentTrackingService/updateCleaningStatus] equipment lookup failed:", eqErr);
+      if (orderErr) console.error("[equipmentTrackingService/updateCleaningStatus] orders lookup failed:", orderErr);
+      if (!order?.company_id) return data;
+      const equipmentName = (eqRow as any)?.name || "Equipment";
 
-          // Audit (May 2026): notification + email previously used
-          // order.user_id (the CLIENT) as both recipient and lookup
-          // key. Cleaning-ready signals belong to the catering company's
-          // admin / dispatch team. Broadcast to admin roles within the
-          // tenant.
-          await notificationService.broadcastNotification({
-            companyId: order.company_id,
-            type: "cleaning_completed",
-            title: "✨ Equipment Ready for Use",
-            message: `${equipmentName} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
-            targetRoles: [
-              UserRole.SUPER_ADMIN,
-              UserRole.COMPANY_ADMIN,
-              UserRole.ADMIN,
-              UserRole.REGION_ADMIN,
-            ],
-            priority: "low",
-            link: `/admin/orders?orderId=${statusData.order_id}`,
-            relatedEntityType: "order",
-            relatedEntityId: statusData.order_id,
-          });
+      await notificationService.broadcastNotification({
+        companyId: order.company_id,
+        type: "cleaning_completed",
+        title: "Equipment ready for use",
+        message: `${equipmentName} from Order ${order.order_number} has been cleaned and is ready for the next function.`,
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          UserRole.REGION_ADMIN,
+        ],
+        priority: "low",
+        link: `/admin/orders?orderId=${orderId}`,
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+      });
 
-          try {
-            const { data: adminProfile } = await supabase
-              .from("profiles")
-              .select("email, full_name")
-              .eq("company_id", order.company_id)
-              .in("role", ["company_admin", "owner", "admin"])
-              .order("created_at", { ascending: true })
-              .limit(1)
-              .maybeSingle();
-            const { data: companyRow } = await supabase
-              .from("companies")
-              .select("company_name")
-              .eq("id", order.company_id)
-              .maybeSingle();
-            const companyName = (companyRow as any)?.company_name || "CateringMS";
+      try {
+        const { data: adminProfile, error: adminProfileErr } = await supabase
+          .from("profiles")
+          .select("email, full_name")
+          .eq("company_id", order.company_id)
+          .in("role", ["company_admin", "owner", "admin"])
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (adminProfileErr) console.error("[equipmentTrackingService/updateCleaningStatus] admin profile lookup failed:", adminProfileErr);
+        const { data: companyRow, error: companyRowErr } = await supabase
+          .from("companies")
+          .select("company_name")
+          .eq("id", order.company_id)
+          .maybeSingle();
+        if (companyRowErr) console.error("[equipmentTrackingService/updateCleaningStatus] companies lookup failed:", companyRowErr);
+        const companyName = (companyRow as any)?.company_name || "CateringMS";
 
-            if (adminProfile?.email) {
-              const subject = `✨ Equipment Ready - ${equipmentName}`;
-              const body = `Dear ${adminProfile.full_name || "Admin"},
+        if (adminProfile?.email) {
+          const qtyForBody = (data as any).quantity ?? 1;
+          const subject = `Equipment ready - ${equipmentName}`;
+          const body = `Dear ${adminProfile.full_name || "Admin"},
 
-✨ Equipment Cleaning Complete
+Equipment cleaning complete.
 
 Equipment: ${equipmentName}
-Quantity: ${statusData.returned_quantity}
+Quantity: ${qtyForBody}
 Order: ${order.order_number}
 
-Status: Cleaned, Dried, and Ready for Use
+Status: cleaned and ready for use.
 
-This equipment is now available for your next booking!
+This equipment is now available for your next booking.
 
-View Inventory: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/inventory
+View inventory: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/inventory
 
 Best regards,
 ${companyName}`;
 
-              await sendEmailViaAPI({
-                companyId: order.company_id,
-                to: adminProfile.email,
-                subject,
-                body,
-                variables: { companyName },
-              });
-            }
-          } catch (emailError) {
-            console.error("⚠️ Failed to send equipment ready email (non-blocking):", emailError);
-          }
-
-          await supabase
-            .from("equipment_cleaning_status")
-            .update({
-              admin_notified: true,
-              admin_notified_at: new Date().toISOString(),
-            })
-            .eq("id", params.cleaningStatusId);
+          await sendEmailViaAPI({
+            companyId: order.company_id,
+            to: adminProfile.email,
+            subject,
+            body,
+            variables: { companyName },
+          });
         }
+      } catch (emailError) {
+        console.error("Failed to send equipment ready email (non-blocking):", emailError);
       }
     }
 
@@ -705,61 +741,33 @@ ${companyName}`;
   },
 
   /**
-   * Get cleaning status for an order
+   * Wave 45 D3 -- cleaning_jobs joined by triggered_by_event_id.
    */
-  async getOrderCleaningStatus(orderId: string): Promise<EquipmentCleaningStatus[]> {
+  async getOrderCleaningStatus(orderId: string): Promise<any[]> {
     const { data, error } = await supabase
-      .from("equipment_cleaning_status")
-      .select(`
-        *,
-        equipment:equipment_id (
-          name,
-          category
-        ),
-        cleaned_by:cleaned_by_user_id (
-          full_name
-        ),
-        verified_by:verified_by_user_id (
-          full_name
-        )
-      `)
-      .eq("order_id", orderId)
+      .from("cleaning_jobs")
+      .select("*, equipment:equipment_id ( name, category )")
+      .eq("triggered_by_event_id", orderId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching cleaning status:", error);
+      console.error("Error fetching cleaning_jobs for order:", error);
       return [];
     }
 
-    return data || [];
+    return (data as any[]) || [];
   },
 
   /**
-   * Get all equipment pending cleaning
+   * getPendingCleaningEquipment was the only feed for
+   * CleaningWorkflowTracker, which Wave 42 retired from the
+   * cleaning dashboard. The function is dead but kept stubbed
+   * for back-compat: returns [] until/unless someone re-mounts
+   * the tracker. Use cleaningJobsService.listActiveJobs in new
+   * code -- that's the canonical replacement.
    */
-  async getPendingCleaningEquipment(userId: string): Promise<EquipmentCleaningStatus[]> {
-    const { data, error } = await supabase
-      .from("equipment_cleaning_status")
-      .select(`
-        *,
-        equipment:equipment_id (
-          name,
-          category
-        ),
-        order:order_id (
-          order_number,
-          event_date,
-          user_id
-        )
-      `)
-      .in("current_status", ["pending", "cleaning", "drying"])
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching pending cleaning:", error);
-      return [];
-    }
-
-    return (data || []).filter((item: any) => item.order?.user_id === userId);
+  async getPendingCleaningEquipment(_userId: string): Promise<any[]> {
+    return [];
   },
 };

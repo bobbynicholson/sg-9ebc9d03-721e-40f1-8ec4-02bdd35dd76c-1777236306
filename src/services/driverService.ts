@@ -72,11 +72,12 @@ const notifyDriverOfRouteAssignment = async (driverId: string, details: any) => 
 };
 
 const getAllDrivers = async (companyId: string) => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('company_id', companyId)
     .eq('role', 'driver');
+  if (error) console.error("[driverService/getAllDrivers] profiles lookup failed:", error);
   return data || [];
 };
 

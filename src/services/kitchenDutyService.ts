@@ -252,11 +252,12 @@ export const kitchenDutyService = {
     // the task) so admins never saw it. Broadcast to admin roles
     // instead.
     if (data && data.order_id) {
-      const { data: order } = await supabase
+      const { data: order, error: orderErr } = await supabase
         .from("orders")
         .select("company_id, assigned_driver_id, order_number")
         .eq("id", data.order_id)
         .maybeSingle();
+      if (orderErr) console.error("[kitchenDutyService] orders lookup failed:", orderErr);
       if (order?.company_id) {
         try {
           await notificationService.broadcastNotification({
@@ -280,10 +281,11 @@ export const kitchenDutyService = {
         if (taskType === "prep_completed" || taskType === "all_tasks_completed") {
           const recipientIds = new Set<string>();
           if (order.assigned_driver_id) recipientIds.add(order.assigned_driver_id);
-          const { data: assignments } = await supabase
+          const { data: assignments, error: assignmentsErr } = await supabase
             .from("driver_assignments")
             .select("driver_id, status")
             .eq("order_id", data.order_id);
+          if (assignmentsErr) console.error("[kitchenDutyService] driver_assignments lookup failed:", assignmentsErr);
           for (const a of (assignments || []) as any[]) {
             if (a.driver_id && a.status !== "cancelled" && a.status !== "declined") {
               recipientIds.add(a.driver_id);

@@ -556,37 +556,50 @@ export async function updateOrderStatus(
           .eq("order_id", order.id);
 
         if (bookings && bookings.length > 0) {
-          // Pre-fetch existing cleaning rows to dedupe.
+          // Wave 45 D3: switched the auto-insert from the legacy
+          // equipment_cleaning_status table to the canonical
+          // cleaning_jobs ledger (Wave 41 P2). Default method is
+          // 'manual' -- the cleaning team can flip to dishwasher
+          // via the LogCleaningJobModal if appropriate.
+          //
+          // Idempotency key changed from (order_id, equipment_id)
+          // to (triggered_by_event_id, equipment_id) -- a re-run
+          // of the delivered transition won't double-insert.
           const { data: existing } = await supabase
-            .from("equipment_cleaning_status")
+            .from("cleaning_jobs")
             .select("equipment_id")
-            .eq("order_id", order.id);
+            .eq("triggered_by_event_id", order.id);
           const taken = new Set(
             ((existing || []) as any[])
               .map((r) => r.equipment_id)
               .filter(Boolean),
           );
 
+          // ETA placeholder: planned_end is 60 min from now.
+          // The cleaning team can refine via the queue UI.
+          const nowIso = new Date().toISOString();
+          const oneHourLater = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
           const rows = (bookings as any[])
             .filter((b) => b.equipment_id && !taken.has(b.equipment_id))
             .map((b) => ({
               company_id: order.company_id,
-              order_id: order.id,
               equipment_id: b.equipment_id,
-              returned_quantity: Number(b.quantity || 0),
-              cleaned_quantity: 0,
-              current_status: "pending",
-              status: "pending",
-              admin_notified: false,
+              quantity: Math.max(1, Number(b.quantity || 1)),
+              method: "manual",
+              status: "queued",
+              triggered_by_event_id: order.id,
+              planned_start: nowIso,
+              planned_end: oneHourLater,
             }));
 
           if (rows.length > 0) {
             const { error: cleanErr } = await (supabase as any)
-              .from("equipment_cleaning_status")
+              .from("cleaning_jobs")
               .insert(rows);
             if (cleanErr) {
               console.warn(
-                "[orderWorkflow] cleaning rows insert failed (non-blocking):",
+                "[orderWorkflow] cleaning_jobs insert failed (non-blocking):",
                 cleanErr.message,
               );
             }

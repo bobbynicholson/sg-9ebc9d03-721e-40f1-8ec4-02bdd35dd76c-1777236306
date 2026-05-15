@@ -110,7 +110,7 @@ export async function runAutoCancel(
     _refund_amount: input.payoutChoice === "refund" ? refund_final : 0,
     _auto_processed: true,
   };
-  const { data: requestRow } = await sb
+  const { data: requestRow, error: requestRowErr } = await sb
     .from("cancellation_requests")
     .insert({
       company_id: input.companyId,
@@ -130,6 +130,7 @@ export async function runAutoCancel(
     })
     .select("id")
     .single();
+  if (requestRowErr) console.error("[runAutoCancel] cancellation_requests insert failed:", requestRowErr);
 
   // 3. Payout branch.
   let refund_payment_id: string | null = null;
@@ -243,11 +244,12 @@ export async function runAutoCancel(
   // committed-cost note, freed-slot line, and a deep link to the
   // order so admins read the consequence in one card.
   try {
-    const { data: orderRow } = await sb
+    const { data: orderRow, error: orderRowErr } = await sb
       .from("orders")
       .select("order_number, client_name, event_date, currency")
       .eq("id", input.orderId)
       .maybeSingle();
+    if (orderRowErr) console.error("[runAutoCancel] orders lookup for notification failed:", orderRowErr);
     const { fireRichCancellationNotification } = await import(
       "./fireCancellationNotification"
     );

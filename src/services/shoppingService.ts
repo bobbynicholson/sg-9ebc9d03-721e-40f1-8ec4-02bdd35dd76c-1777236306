@@ -97,11 +97,12 @@ export const shoppingService = {
     }
 
     if (data && data.shopper_id) {
-        const { data: shopperProfile } = await supabase
+        const { data: shopperProfile, error: shopperProfileErr } = await supabase
             .from("profiles")
             .select("full_name, email")
             .eq("id", data.shopper_id)
             .single();
+        if (shopperProfileErr) console.error("[shoppingService] shopper profile lookup failed:", shopperProfileErr);
 
         if (shopperProfile?.email) {
             await billingEmailService.sendStaffInvitationEmail(

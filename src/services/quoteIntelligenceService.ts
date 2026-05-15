@@ -309,17 +309,18 @@ export const quoteIntelligenceService = {
     // 1. Canonical client row
     let client: any = null;
     if (clientId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("clients")
         .select("*")
         .eq("id", clientId)
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .maybeSingle();
+      if (error) console.error("[quoteIntelligenceService] clients lookup by id failed:", error);
       client = data || null;
     }
     if (!client && email) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("clients")
         .select("*")
         .eq("company_id", companyId)
@@ -328,6 +329,7 @@ export const quoteIntelligenceService = {
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) console.error("[quoteIntelligenceService] clients lookup by email failed:", error);
       client = data || null;
     }
 
@@ -367,7 +369,7 @@ export const quoteIntelligenceService = {
     // 4. If still nothing, pull the most recent lead matching by email
     let lead: any = null;
     if (!client && email) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("leads")
         .select("*")
         .eq("company_id", companyId)
@@ -376,6 +378,7 @@ export const quoteIntelligenceService = {
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) console.error("[quoteIntelligenceService] leads fallback lookup failed:", error);
       lead = data || null;
     }
 

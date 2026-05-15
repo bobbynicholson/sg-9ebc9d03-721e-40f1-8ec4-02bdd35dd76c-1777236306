@@ -140,12 +140,13 @@ export const aiFinancialService = {
   async generatePredictions(daysAhead: number = 90, orders: any[]): Promise<FinancialPrediction[]> {
     // If no orders passed, get historical data
     if (!orders || orders.length === 0) {
-      const { data: historicalOrders } = await supabase
+      const { data: historicalOrders, error: historicalOrdersErr } = await supabase
         .from('orders')
         .select('*')
         .order('event_date', { ascending: false })
         .limit(100);
-      
+      if (historicalOrdersErr) console.error("[aiFinancialService/generatePredictions] orders lookup failed:", historicalOrdersErr);
+
       orders = historicalOrders || [];
     }
 
@@ -329,12 +330,13 @@ export const aiFinancialService = {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 30);
 
-    const { data: predictions } = await supabase
+    const { data: predictions, error: predictionsErr } = await supabase
       .from('financial_predictions')
       .select('*')
       .gte('prediction_date', new Date().toISOString().split('T')[0])
       .lte('prediction_date', endDate.toISOString().split('T')[0])
       .order('prediction_date', { ascending: true });
+    if (predictionsErr) console.error("[aiFinancialService/getCashflowAlerts] financial_predictions lookup failed:", predictionsErr);
 
     if (!predictions) return alerts;
 

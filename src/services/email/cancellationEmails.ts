@@ -117,19 +117,21 @@ interface CompanyForEmailExt extends CompanyForEmail {
 
 async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmailExt | null }> {
   const sb = resolveServerClient();
-  const { data: order } = await sb
+  const { data: order, error: orderErr } = await sb
     .from("orders")
     .select("id, company_id, client_email, client_name, order_number, event_date, event_name")
     .eq("id", orderId)
     .maybeSingle();
+  if (orderErr) console.error("[email/cancellationEmails/fetchOrderAndCompany] orders lookup failed:", orderErr);
   if (!order) return { order: null, company: null };
   // refund_process_days landed in the companies_financial_settings_columns
   // migration; cast keeps us off the still-stale Supabase Database types.
-  const { data: company } = await (sb as any)
+  const { data: company, error: companyErr } = await (sb as any)
     .from("companies")
     .select("id, company_name, refund_process_days, currency")
     .eq("id", (order as any).company_id)
     .maybeSingle();
+  if (companyErr) console.error("[email/cancellationEmails/fetchOrderAndCompany] companies lookup failed:", companyErr);
   return { order: order as any, company: (company as any) || null };
 }
 

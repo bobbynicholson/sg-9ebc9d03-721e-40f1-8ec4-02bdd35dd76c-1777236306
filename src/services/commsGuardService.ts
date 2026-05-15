@@ -84,7 +84,8 @@ export async function isCommsAllowed(input: CommsCheckInput): Promise<CommsCheck
     if (orParts.length === 0) return ALLOWED;
     blockQuery = blockQuery.or(orParts.join(","));
 
-    const { data: blocks } = await blockQuery;
+    const { data: blocks, error: blocksErr } = await blockQuery;
+    if (blocksErr) console.error("[commsGuard] blocked_contacts lookup failed:", blocksErr);
     if (blocks && blocks.length > 0) {
       const reason = (blocks[0] as any)?.reason ?? null;
       return {

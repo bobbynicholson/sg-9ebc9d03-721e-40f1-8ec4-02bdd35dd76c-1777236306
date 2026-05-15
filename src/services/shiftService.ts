@@ -65,7 +65,7 @@ export const shiftService = {
    */
   async isDriverOnShift(driverId: string): Promise<{ onShift: boolean; shift: DriverShift | null }> {
     const today = new Date().toISOString().slice(0, 10);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("driver_shifts")
       .select("*")
       .eq("driver_id", driverId)
@@ -74,6 +74,7 @@ export const shiftService = {
       .order("planned_start", { ascending: true })
       .limit(1)
       .maybeSingle();
+    if (error) console.error("[shiftService/isDriverOnShift] driver_shifts lookup failed:", error);
     if (!data) return { onShift: false, shift: null };
     if (data.status === "active") return { onShift: true, shift: data as DriverShift };
     if (data.status === "scheduled" && data.planned_start && data.planned_end) {
@@ -151,12 +152,13 @@ export const shiftService = {
    */
   async getActiveDriverIdsForCompany(companyId: string): Promise<string[]> {
     const today = new Date().toISOString().slice(0, 10);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("driver_shifts")
       .select("driver_id, status, planned_start, planned_end")
       .eq("company_id", companyId)
       .eq("shift_date", today)
       .is("deleted_at", null);
+    if (error) console.error("[shiftService/getActiveDriverIdsForCompany] driver_shifts lookup failed:", error);
     if (!data) return [];
     const now = new Date();
     const active = new Set<string>();

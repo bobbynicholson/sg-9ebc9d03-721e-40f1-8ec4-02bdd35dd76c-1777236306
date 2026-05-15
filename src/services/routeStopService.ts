@@ -51,11 +51,12 @@ export const routeStopService = {
   },
 
   async updateStopDeparture(stopId: string) {
-    const { data: stop } = await supabase
+    const { data: stop, error: stopErr } = await supabase
       .from("delivery_route_stops")
       .select("arrival_time")
       .eq("id", stopId)
       .single();
+    if (stopErr) console.error("[routeStopService/updateStopDeparture] delivery_route_stops lookup failed:", stopErr);
 
     if (!stop?.arrival_time) {
       throw new Error("Cannot depart without arrival time");

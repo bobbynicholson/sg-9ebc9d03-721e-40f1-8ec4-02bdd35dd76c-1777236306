@@ -332,7 +332,7 @@ export const kitchenStaffService = {
   }): Promise<KitchenShift> {
     // Defensive check -- RLS won't catch a duplicate open shift since both
     // are valid rows. The kitchen UI relies on this.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from("kitchen_staff_shifts")
       .select("id")
       .eq("company_id", args.companyId)
@@ -340,6 +340,7 @@ export const kitchenStaffService = {
       .is("shift_end", null)
       .is("deleted_at", null)
       .maybeSingle();
+    if (existingErr) console.error("[kitchenStaffService] open shift lookup failed:", existingErr);
     if (existing) {
       throw new Error("Staff member is already clocked in");
     }
@@ -402,17 +403,18 @@ export const kitchenStaffService = {
     // the same ISO week.
     const shiftStart = new Date(shift.shift_start);
     const dateStr = shiftStart.toISOString().slice(0, 10);
-    const { data: holidayRow } = await supabase
+    const { data: holidayRow, error: holidayRowErr } = await supabase
       .from("public_holidays")
       .select("id")
       .eq("date", dateStr)
       .or(`company_id.is.null,company_id.eq.${shift.company_id}`)
       .limit(1)
       .maybeSingle();
+    if (holidayRowErr) console.error("[kitchenStaffService] public_holidays lookup failed:", holidayRowErr);
     const isPublicHoliday = !!holidayRow;
 
     const weekStart = isoWeekStart(shiftStart);
-    const { data: weekShifts } = await supabase
+    const { data: weekShifts, error: weekShiftsErr } = await supabase
       .from("kitchen_staff_shifts")
       .select("standard_min, shift_start")
       .eq("staff_member_id", shift.staff_member_id)
@@ -421,6 +423,7 @@ export const kitchenStaffService = {
       .lt("shift_start", new Date(weekStart.getTime() + 7 * 86400000).toISOString())
       .neq("id", shift.id)
       .is("deleted_at", null);
+    if (weekShiftsErr) console.error("[kitchenStaffService] kitchen_staff_shifts week lookup failed:", weekShiftsErr);
     const weekToDateOrdinaryMin = (weekShifts || []).reduce(
       (sum: number, w: any) => sum + (Number(w.standard_min) || 0),
       0,

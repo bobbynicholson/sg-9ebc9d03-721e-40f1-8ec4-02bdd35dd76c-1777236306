@@ -175,11 +175,12 @@ export const emailNotificationService = {
     // Fetch order details if available
     let orderDetails = null;
     if (emailLog.order_id) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("orders")
         .select("*")
         .eq("id", emailLog.order_id)
         .single();
+      if (error) console.error("[emailNotificationService/buildEmailBody] orders lookup failed:", error);
       orderDetails = data;
     }
 

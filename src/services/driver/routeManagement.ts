@@ -52,10 +52,11 @@ export async function createDeliveryRoute(
 
     // Add stops for each order
     if (orderIds.length > 0) {
-      const { data: orders } = await supabase
+      const { data: orders, error: ordersErr } = await supabase
         .from("orders")
         .select("id, venue_address")
         .in("id", orderIds);
+      if (ordersErr) console.error("[driver/routeManagement] orders lookup for route stops failed:", ordersErr);
 
       const stops = orders?.map((order: any, index) => ({
         route_id: route.id,

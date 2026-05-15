@@ -70,10 +70,11 @@ export async function loadCompanyOverrides(companyId: string): Promise<Map<strin
   // matches our registry key for email templates. is_active flag is
   // honoured -- inactive overrides skip the override and use default.
   try {
-    const { data: emailRows } = await (supabase as any)
+    const { data: emailRows, error: emailRowsErr } = await (supabase as any)
       .from("email_templates")
       .select("template_type, subject, body, is_active")
       .eq("company_id", companyId);
+    if (emailRowsErr) console.error("[messageTemplateService] email_templates lookup failed:", emailRowsErr);
     for (const row of emailRows || []) {
       if (!row.template_type) continue;
       lookup.set(row.template_type, {
@@ -90,10 +91,11 @@ export async function loadCompanyOverrides(companyId: string): Promise<Map<strin
 
   // WhatsApp overrides: keyed off whatsapp_templates.template_key.
   try {
-    const { data: waRows } = await (supabase as any)
+    const { data: waRows, error: waRowsErr } = await (supabase as any)
       .from("whatsapp_templates")
       .select("template_key, template_content, is_enabled")
       .eq("company_id", companyId);
+    if (waRowsErr) console.error("[messageTemplateService] whatsapp_templates lookup failed:", waRowsErr);
     for (const row of waRows || []) {
       if (!row.template_key) continue;
       lookup.set(row.template_key, {

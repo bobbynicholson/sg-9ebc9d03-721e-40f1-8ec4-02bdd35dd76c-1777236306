@@ -380,11 +380,12 @@ export const routeOptimizationService = {
 
     // Pull the arrival buffer from dispatch_settings so each stop carries it
     // through the optimiser. Falls back to 30 minutes when unset.
-    const { data: company } = await supabase
+    const { data: company, error: companyErr } = await supabase
       .from("companies")
       .select("dispatch_settings")
       .eq("id", companyId)
       .maybeSingle();
+    if (companyErr) console.error("[routeOptimizationService] companies dispatch_settings lookup failed:", companyErr);
     const arrivalBufferMinutes = Number(
       (company as any)?.dispatch_settings?.arrival_buffer_minutes ?? 30,
     );
@@ -547,11 +548,12 @@ export const routeOptimizationService = {
     }
 
     // Get driver's current location
-    const { data: driver } = await (supabase as any)
+    const { data: driver, error: driverErr } = await (supabase as any)
       .from("profiles")
       .select("current_lat, current_lng")
       .eq("id", driverId)
       .single();
+    if (driverErr) console.error("[routeOptimizationService] driver profile lookup failed:", driverErr);
 
     return this.optimizeRoute(
       driverId,

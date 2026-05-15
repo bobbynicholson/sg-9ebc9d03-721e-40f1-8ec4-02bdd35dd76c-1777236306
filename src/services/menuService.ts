@@ -275,19 +275,21 @@ export const menuService = {
       return null;
     }
 
-    const { data: recipe } = await supabase
+    const { data: recipe, error: recipeErr } = await supabase
       .from("recipes")
       .select("*")
       .eq("menu_item_id", menuItemId)
       .maybeSingle();
+    if (recipeErr) console.error("[menuService/getFull] recipes lookup failed:", recipeErr);
 
     const ingredients: RecipeIngredientRow[] = [];
     if (recipe?.id) {
-      const { data: ingr } = await supabase
+      const { data: ingr, error: ingrErr } = await supabase
         .from("recipe_ingredients")
         .select("*")
         .eq("recipe_id", recipe.id)
         .order("ingredient_name", { ascending: true });
+      if (ingrErr) console.error("[menuService/getFull] recipe_ingredients lookup failed:", ingrErr);
       for (const r of ingr || []) {
         ingredients.push({
           id: r.id,
@@ -375,11 +377,12 @@ export const menuService = {
 
     // Look up existing recipe id (so we can keep its row id stable across
     // edits and let the UNIQUE constraint do its job).
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from("recipes")
       .select("id")
       .eq("menu_item_id", menuItemId)
       .maybeSingle();
+    if (existingErr) console.error("[menuService] recipes lookup for upsert failed:", existingErr);
 
     const recipePayload: any = {
       ...(existing ? { id: existing.id } : {}),

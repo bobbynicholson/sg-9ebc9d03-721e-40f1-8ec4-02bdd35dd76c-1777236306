@@ -132,52 +132,57 @@ class ChatBotService {
       switch (userRole) {
         case "admin":
           // Fetch orders, revenue, staff data
-          const { data: orders } = await supabase
+          const { data: orders, error: ordersErr } = await supabase
             .from("orders")
             .select("status, total, event_date")
             .eq("company_id", companyId)
             .limit(10);
+          if (ordersErr) console.error("[chatBotService/getCompanyContext] orders lookup failed:", ordersErr);
           context.recentOrders = orders;
           break;
 
         case "driver":
           // Fetch driver assignments
-          const { data: assignments } = await supabase
+          const { data: assignments, error: assignmentsErr } = await supabase
             .from("driver_assignments")
             .select("*")
             .eq("company_id", companyId)
             .limit(10);
+          if (assignmentsErr) console.error("[chatBotService/getCompanyContext] driver_assignments lookup failed:", assignmentsErr);
           context.assignments = assignments;
           break;
 
         case "kitchen":
           // Fetch kitchen orders
-          const { data: kitchenOrders } = await supabase
+          const { data: kitchenOrders, error: kitchenOrdersErr } = await supabase
             .from("orders")
             .select("*")
             .eq("company_id", companyId)
             .in("status", ["confirmed", "preparing"])
             .limit(10);
+          if (kitchenOrdersErr) console.error("[chatBotService/getCompanyContext] kitchen orders lookup failed:", kitchenOrdersErr);
           context.activeOrders = kitchenOrders;
           break;
 
         case "shopping":
           // Fetch inventory data
-          const { data: inventory } = await (supabase as any)
+          const { data: inventory, error: inventoryErr } = await (supabase as any)
             .from("inventory_items")
             .select("*")
             .eq("company_id", companyId)
             .limit(20);
+          if (inventoryErr) console.error("[chatBotService/getCompanyContext] inventory_items lookup failed:", inventoryErr);
           context.inventory = inventory;
           break;
 
         case "cleaning":
           // Fetch equipment data
-          const { data: equipment } = await supabase
+          const { data: equipment, error: equipmentErr } = await supabase
             .from("equipment")
             .select("*")
             .eq("company_id", companyId)
             .limit(20);
+          if (equipmentErr) console.error("[chatBotService/getCompanyContext] equipment lookup failed:", equipmentErr);
           context.equipment = equipment;
           break;
       }

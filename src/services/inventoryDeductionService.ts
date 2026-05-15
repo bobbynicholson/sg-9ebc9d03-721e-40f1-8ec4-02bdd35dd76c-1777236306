@@ -313,13 +313,14 @@ export async function getRecipeFromDb(
   }
   if (orClauses.length === 0) return undefined;
 
-  const { data } = await (supabase as any)
+  const { data, error } = await (supabase as any)
     .from("recipes")
     .select("recipe_name, menu_item_id, recipe_ingredients(ingredient_name, quantity, unit, inventory_item_id)")
     .eq("company_id", companyId)
     .or(orClauses.join(","))
     .limit(1)
     .maybeSingle();
+  if (error) console.error("[inventoryDeductionService] recipes lookup failed:", error);
 
   if (data && Array.isArray((data as any).recipe_ingredients) && (data as any).recipe_ingredients.length > 0) {
     return {
@@ -451,10 +452,11 @@ export async function deductInventoryForOrder(
     // bailed with "No menu items found" for every order. After Wave
     // 3, line items live in `order_items` (populated by
     // postOrderCreationCascade.step0). Read from there.
-    const { data: itemRows } = await (supabase as any)
+    const { data: itemRows, error: itemRowsErr } = await (supabase as any)
       .from("order_items")
       .select("item_name, menu_item_id, quantity")
       .eq("order_id", orderId);
+    if (itemRowsErr) console.error("[inventoryDeductionService] order_items lookup failed:", itemRowsErr);
     const menuLines = (itemRows || []).map((r: any) => ({
       name: r.item_name,
       menu_item_id: r.menu_item_id,
@@ -682,11 +684,12 @@ export async function recalculateInventoryForOrder(
     // stamp a compensating 'adjustment' tx so the audit trail shows
     // the reversal explicitly.
     for (const tx of priorTx || []) {
-      const { data: item } = await (supabase as any)
+      const { data: item, error: itemErr } = await (supabase as any)
         .from("inventory_items")
         .select("current_stock")
         .eq("id", (tx as any).inventory_item_id)
         .maybeSingle();
+      if (itemErr) console.error("[inventoryDeductionService] inventory_items lookup (reverse) failed:", itemErr);
       if (!item) continue;
       const restored = Number((item as any).current_stock || 0) + Number((tx as any).quantity || 0);
       await (supabase as any)
@@ -771,11 +774,12 @@ export async function reverseInventoryForOrder(
     }
 
     for (const tx of priorTx || []) {
-      const { data: item } = await (supabase as any)
+      const { data: item, error: itemErr } = await (supabase as any)
         .from("inventory_items")
         .select("current_stock")
         .eq("id", (tx as any).inventory_item_id)
         .maybeSingle();
+      if (itemErr) console.error("[inventoryDeductionService] inventory_items lookup (reverse) failed:", itemErr);
       if (!item) continue;
       const restored = Number((item as any).current_stock || 0) + Number((tx as any).quantity || 0);
       await (supabase as any)
@@ -835,11 +839,12 @@ export async function previewInventoryDeduction(
   const ingredientNeeds = await calculateIngredientNeeds(menuItems, guestCount, companyId);
   const ingredientNames: string[] = Array.from(ingredientNeeds.keys());
   
-  const { data: inventoryItems } = await supabase
+  const { data: inventoryItems, error: inventoryItemsErr } = await supabase
     .from("inventory_items")
     .select("item_name, current_stock, unit_of_measure")
     .eq("company_id", companyId)
     .in("item_name", ingredientNames);
+  if (inventoryItemsErr) console.error("[inventoryDeductionService] inventory_items lookup failed:", inventoryItemsErr);
   
   const preview = Array.from(ingredientNeeds.entries()).map(([name, { quantity, unit }]) => {
     const inventoryItem = inventoryItems?.find(

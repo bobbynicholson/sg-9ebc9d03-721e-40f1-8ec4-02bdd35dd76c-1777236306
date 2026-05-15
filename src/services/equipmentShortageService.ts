@@ -32,11 +32,12 @@ export const equipmentShortageService = {
     // pass an explicit companyId.
     let resolvedCompanyId = data.companyId || null;
     if (!resolvedCompanyId && data.orderId) {
-      const { data: order } = await (supabase as any)
+      const { data: order, error: orderErr } = await (supabase as any)
         .from("orders")
         .select("company_id")
         .eq("id", data.orderId)
         .maybeSingle();
+      if (orderErr) console.error("[equipmentShortageService] orders company_id lookup failed:", orderErr);
       resolvedCompanyId = (order as any)?.company_id || null;
     }
 
@@ -268,17 +269,19 @@ export const equipmentShortageService = {
       return null;
     }
 
-    const { data: order } = await supabase
+    const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("client_name, client_email")
       .eq("id", data.orderId)
       .single();
+    if (orderErr) console.error("[equipmentShortageService] orders lookup failed:", orderErr);
 
-    const { data: equipment } = await supabase
+    const { data: equipment, error: equipmentErr } = await supabase
       .from("equipment")
       .select("name, replacement_cost")
       .eq("id", data.equipmentId)
       .single();
+    if (equipmentErr) console.error("[equipmentShortageService] equipment lookup failed:", equipmentErr);
 
     if (!order || !equipment) {
       throw new Error("Order or equipment not found");

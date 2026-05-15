@@ -168,17 +168,19 @@ export function buildAccountingDocumentFromQuote(args: {
  * Used by the 'Push to Xero' / 'Copy accounting JSON' buttons.
  */
 export async function buildAccountingPayloadForQuote(quoteId: string, documentType: "Quote" | "Invoice" = "Quote"): Promise<AccountingDocument | null> {
-  const { data: quote } = await (supabase as any)
+  const { data: quote, error: quoteErr } = await (supabase as any)
     .from("quotes")
     .select("*")
     .eq("id", quoteId)
     .maybeSingle();
+  if (quoteErr) console.error("[accountingExportService/buildAccountingPayloadForQuote] quotes lookup failed:", quoteErr);
   if (!quote) return null;
-  const { data: company } = await (supabase as any)
+  const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
     .select("*")
     .eq("id", quote.company_id)
     .maybeSingle();
+  if (companyErr) console.error("[accountingExportService/buildAccountingPayloadForQuote] companies lookup failed:", companyErr);
   if (!company) return null;
   return buildAccountingDocumentFromQuote({ quote, company, documentType });
 }
@@ -197,13 +199,14 @@ export async function isAccountingConnected(provider: AccountingProvider): Promi
   try {
     const { data: user } = await (supabase as any).auth.getUser();
     if (!user?.user) return false;
-    const { data: integration } = await (supabase as any)
+    const { data: integration, error: integrationErr } = await (supabase as any)
       .from("integrations")
       .select("id, is_active")
       .eq("user_id", user.user.id)
       .eq("integration_type", provider)
       .eq("is_active", true)
       .maybeSingle();
+    if (integrationErr) console.error("[accountingExportService/isAccountingConnected] integrations lookup failed:", integrationErr);
     return !!integration;
   } catch {
     return false;

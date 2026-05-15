@@ -127,11 +127,12 @@ export const subscriptionService = {
     reason?: string,
     feedback?: string
   ): Promise<CancellationRequest | null> {
-    const { data: subscription } = await supabase
+    const { data: subscription, error: subscriptionErr } = await supabase
       .from("subscriptions")
       .select("status")
       .eq("id", subscriptionId)
       .single();
+    if (subscriptionErr) console.error("[subscriptionService/requestCancellation] subscriptions lookup failed:", subscriptionErr);
 
     const { data, error } = await supabase
       .from("cancellation_requests")
@@ -318,13 +319,14 @@ export const subscriptionService = {
 
     let hasUnreadNotifications = false;
     if (profile?.company_id) {
-      const { data: notifications } = await supabase
+      const { data: notifications, error: notificationsErr } = await supabase
         .from("trial_expiry_notifications")
         .select("id")
         .eq("company_id", profile.company_id)
         .eq("dashboard_seen", false)
         .limit(1)
         .maybeSingle();
+      if (notificationsErr) console.error("[subscriptionService] trial_expiry_notifications unread lookup failed:", notificationsErr);
 
       hasUnreadNotifications = !!notifications;
     }
@@ -428,11 +430,12 @@ export const subscriptionService = {
       : 0;
 
     // Get notification stats
-    const { data: notifications } = await supabase
+    const { data: notifications, error: notificationsErr } = await supabase
       .from("trial_expiry_notifications")
       .select("notification_type")
       .eq("company_id", companyId)
       .order("sent_at", { ascending: false });
+    if (notificationsErr) console.error("[subscriptionService] trial_expiry_notifications stats lookup failed:", notificationsErr);
 
     return {
       isInTrial: company.subscription_status === "trial" && daysRemaining > 0,
