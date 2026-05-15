@@ -185,7 +185,7 @@ function ClusterBand({
   if (visible.length === 0) {
     return (
       <div className="flex flex-col items-center gap-1 px-2 opacity-40">
-        <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           {STAGE_GROUP_LABELS[group]}
         </div>
         <div className="text-[10px] text-slate-400">n/a</div>
@@ -205,7 +205,7 @@ function ClusterBand({
 
   return (
     <div className="flex flex-col items-center gap-1.5 px-2 min-w-0">
-      <div className={`text-[9px] font-semibold uppercase tracking-wide ${headerColor}`}>
+      <div className={`text-[10px] font-semibold uppercase tracking-wide ${headerColor}`}>
         {STAGE_GROUP_LABELS[group]}
       </div>
       <div className="flex items-center gap-2">

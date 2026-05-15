@@ -1376,7 +1376,7 @@ function OrderProcessDashboard() {
             {(auto.sent > 0 || (intel.bucket === "done" && !auto.postEventSent)) && (
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
                 {auto.sent > 0 && (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
                     {auto.sent} auto email{auto.sent === 1 ? "" : "s"} sent
                   </span>
                 )}
@@ -1386,7 +1386,7 @@ function OrderProcessDashboard() {
                   </span>
                 )}
                 {intel.bucket === "done" && !auto.postEventSent && (
-                  <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
                     Review email pending
                   </span>
                 )}
@@ -2377,7 +2377,7 @@ function OrderProcessDashboard() {
                         });
                       }
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
                   >
                     <ChevronRight className="w-3 h-3" />
                     View as client sees it
@@ -2408,7 +2408,7 @@ function OrderProcessDashboard() {
                         });
                       }
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
                     title="Copy a tokenised client-view link"
                   >
                     <Copy className="w-3 h-3" />
@@ -2431,20 +2431,30 @@ function OrderProcessDashboard() {
                   {/* Phase 18 #10: quick rating capture. One-tap stars
                       write to audit_logs so the value flows back
                       through the timeline tab and survives reloads. */}
+                  {/* Wave 57 -- a11y. Stars now wrapped in
+                      role="radiogroup" with aria-label so SR users
+                      hear "Order rating: 1 of 5" instead of five
+                      separate "Rate 1 star button" announcements.
+                      yellow-700 -> yellow-800 to clear WCAG AA on
+                      yellow-50. focus-visible ring on each star. */}
                   <div
+                    role="radiogroup"
+                    aria-label="Order rating"
                     className="inline-flex items-center gap-1 text-xs font-medium text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
                     title={orderRating ? `Rated ${orderRating}/5. Tap a star to change.` : "Tap a star to rate this order (1-5)"}
                   >
-                    <span className="text-[10px] uppercase tracking-wide text-yellow-700">Rate</span>
+                    <span className="text-[10px] uppercase tracking-wide text-yellow-800" aria-hidden="true">Rate</span>
                     {[1, 2, 3, 4, 5].map((n) => {
                       const filled = orderRating != null && n <= orderRating;
                       return (
                         <button
                           key={n}
                           type="button"
+                          role="radio"
+                          aria-checked={orderRating === n}
                           onClick={() => setQuickRating(n)}
                           disabled={ratingBusy}
-                          className="hover:scale-110 transition-transform disabled:opacity-50"
+                          className="hover:scale-110 transition-transform disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-1 rounded-sm"
                           aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
                         >
                           <Star

@@ -69,8 +69,13 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
   const Icon = tone.Icon;
   const failingCount = readiness.failingHigh.length + readiness.failingMedium.length;
 
+  // Wave 57 -- shared focus-visible utility for the raw <button>
+  // elements inside the chip. Pre-Wave-57 keyboard users got
+  // nothing on tab focus.
+  const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
+
   return (
-    <div className={`rounded-lg border ${tone.card} px-3 py-2 mb-2`}>
+    <div className={`rounded-lg border ${tone.card} dark:bg-slate-800 dark:border-slate-700 px-3 py-2 mb-2`}>
       {/* Headline row */}
       <div className="flex items-center gap-3">
         <span
@@ -80,10 +85,10 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
           <Icon className="w-4 h-4 text-white" />
         </span>
         <div className="flex-1 min-w-0">
-          <div className={`text-sm font-semibold ${tone.label}`}>
+          <div className={`text-sm font-semibold ${tone.label} dark:text-slate-100`}>
             {readiness.headline}
           </div>
-          <div className="text-xs text-slate-700 mt-0.5 truncate">
+          <div className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 truncate">
             {readiness.subhead}
           </div>
         </div>
@@ -91,7 +96,7 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpen(); }}
-            className="text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-slate-700 bg-white border border-slate-200 hover:bg-slate-50"
+            className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 ${focusRing}`}
           >
             Open →
           </button>
@@ -100,8 +105,9 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white/60 shrink-0"
+            className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white/60 shrink-0 ${focusRing}`}
             aria-label={open ? "Collapse details" : "Expand details"}
+            aria-expanded={open}
           >
             {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
