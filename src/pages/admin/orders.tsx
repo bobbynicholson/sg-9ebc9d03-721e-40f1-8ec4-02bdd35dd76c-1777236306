@@ -55,6 +55,10 @@ import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+// Wave 54 -- centralised formatters. Replaces three bare
+// toLocaleDateString() call sites that defaulted to OS locale (US
+// machines showed 5/16/2026 on SA tenants).
+import { formatDate } from "@/lib/formatters";
 
 interface OrderStats {
   total: number;
@@ -1303,7 +1307,7 @@ function OrderProcessDashboard() {
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
                 <span className={isToday ? "font-semibold text-blue-600" : ""}>
-                  {eventDate.toLocaleDateString()}
+                  {formatDate(eventDate)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -1450,6 +1454,25 @@ function OrderProcessDashboard() {
                       Overdue
                     </Badge>
                   )}
+                  {/* Wave 54.5 -- paused + cancelled visible at row
+                      level. Pre-Wave-54 the operator could only learn
+                      "this order is paused" by opening the modal,
+                      meaning paused orders blended into the live
+                      stream and operators chased deposits on orders
+                      they paused themselves. Cancelled orders were
+                      excluded from default views and unreachable
+                      from this page entirely. */}
+                  {order.status === "paused" && (
+                    <Badge className="bg-slate-400 text-white gap-1">
+                      <Pause className="w-3 h-3" />
+                      Paused
+                    </Badge>
+                  )}
+                  {order.status === "cancelled" && (
+                    <Badge variant="outline" className="text-slate-500 border-slate-300 gap-1">
+                      Cancelled
+                    </Badge>
+                  )}
                   {(order as any).quote_id && (() => {
                     // Wave 27.1: routes to /q/{public_token} -- the
                     // polished client view -- instead of the admin
@@ -1474,7 +1497,7 @@ function OrderProcessDashboard() {
                 <div className="flex items-center gap-4 text-sm text-slate-600">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    <span>{eventDate.toLocaleDateString()}</span>
+                    <span>{formatDate(eventDate)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <MapPin className="w-4 h-4" />
@@ -1727,10 +1750,10 @@ function OrderProcessDashboard() {
                             </div>
                             <div className="text-right">
                               <p className="text-xs text-slate-500">
-                                {timestamp.toLocaleDateString()}
+                                {formatDate(timestamp)}
                               </p>
                               <p className="text-xs text-slate-400">
-                                {timestamp.toLocaleTimeString()}
+                                {timestamp.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })}
                               </p>
                             </div>
                           </div>
@@ -2326,8 +2349,13 @@ function OrderProcessDashboard() {
                     <Copy className="w-3 h-3" />
                     Copy client link
                   </button>
+                  {/* Wave 54.4 -- include ?orderId so the invoice
+                      list opens filtered to this order. Pre-Wave-54
+                      this dropped the operator on the unfiltered
+                      list -- the readiness chip's deeplink had the
+                      filter, the modal button didn't. */}
                   <Link
-                    href={withSlug(`/admin/invoices`)}
+                    href={withSlug(`/admin/invoices?orderId=${selectedOrder.id}`)}
                     onClick={() => setIsModalOpen(false)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100"
                   >
@@ -2514,7 +2542,27 @@ function OrderProcessDashboard() {
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="details" className="mt-6">
+          {/* Wave 54.3 -- controlled Tabs that honour ?tab= query
+              param. The readiness chip's "Fix it" deep-links append
+              tab=menu / tab=equipment / etc; pre-Wave-54 the modal
+              hardcoded defaultValue="details" and silently ignored
+              the param, so the operator clicked "Fix it" on a missing
+              menu and landed on Details. _activeTab below pulls from
+              router and falls back to "details". */}
+          <Tabs
+            value={(() => {
+              const t = typeof router.query.tab === "string" ? router.query.tab : "";
+              return ["details","menu","equipment","amendments","cancellations","history"].includes(t)
+                ? t
+                : "details";
+            })()}
+            onValueChange={(v) => {
+              const next = { ...router.query, tab: v };
+              if (v === "details") delete (next as any).tab;
+              router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+            }}
+            className="mt-6"
+          >
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="menu">Menu Items</TabsTrigger>
@@ -3570,14 +3618,21 @@ function OrderProcessDashboard() {
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
+                      {/* Wave 54.5 -- sentence-case + add Paused +
+                          Cancelled so paused orders are filterable
+                          and cancelled orders are reachable from
+                          this page (pre-Wave-54 they were excluded
+                          from default views with no filter route in). */}
+                      <SelectItem value="all">All statuses</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="preparing">In Prep</SelectItem>
+                      <SelectItem value="preparing">In prep</SelectItem>
                       <SelectItem value="ready">Ready</SelectItem>
-                      <SelectItem value="in_transit">In Transit</SelectItem>
+                      <SelectItem value="in_transit">In transit</SelectItem>
                       <SelectItem value="delivered">Delivered</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={dateFilter} onValueChange={setDateFilter}>

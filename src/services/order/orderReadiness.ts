@@ -229,7 +229,10 @@ export function computeOrderReadiness(
     message: prepReady
       ? `${prepTasks.length} prep tasks generated.`
       : "No prep tasks on the chef's board yet.",
-    actionLink: `/admin/orders?orderId=${orderId}&tab=kitchen`,
+    // Wave 54.3 -- the modal has no "kitchen" tab; the canonical
+    // surface for prep tasks is /admin/kitchen-schedule. Mirrors the
+    // kitchen_shift_event_day signal's destination.
+    actionLink: `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`,
   });
 
   // ---- Wave 47 -- additional HIGH signals -------------------------------
@@ -415,8 +418,19 @@ export function computeOrderReadiness(
 
   // ---- Aggregate to chip ------------------------------------------------
 
-  const failingHigh = signals.filter((s) => s.severity === "high" && !s.passing);
-  const failingMedium = signals.filter((s) => s.severity === "medium" && !s.passing);
+  // Wave 54.2 -- sort failing signals by impact-on-event-success
+  // weight, NOT insertion order. Pre-Wave-54 the chip ordered signals
+  // by the order they were pushed in this file -- so menu_items_present
+  // (HIGH but coded last) ranked BELOW client_phone_present (MEDIUM but
+  // coded earlier) when both failed. Operator triaged the wrong gap
+  // first. The weight table here is the operator's mental ranking of
+  // "which gap kills the event soonest if unfixed".
+  const failingHigh = signals
+    .filter((s) => s.severity === "high" && !s.passing)
+    .sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
+  const failingMedium = signals
+    .filter((s) => s.severity === "medium" && !s.passing)
+    .sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
   const stageBlocked = !!timeline.blocked;
   const hasErrorBlocker = (timeline.crossSystemBlockers || []).some((b) => b.severity === "error");
 
@@ -533,6 +547,41 @@ function _formatOverdueBalanceMessage(dueIso: string, now: Date): string {
     return "Balance is 1 day overdue (was due yesterday). Chase the client.";
   }
   return `Balance is ${daysOverdue} days overdue (was due ${shortDate}). Chase the client.`;
+}
+
+/**
+ * Wave 54.2 -- per-signal severity weight used to sort the chip's
+ * failing list. Higher weight = surfaces first. The numbers themselves
+ * are arbitrary; only the relative order matters. Anything not in this
+ * table gets weight 0 (still inside its tier, but at the back of the
+ * list).
+ *
+ * The operator's mental ranking: balance overdue + missing menu / driver
+ * are existential ("kills the event today"). Phone / email / vehicle
+ * service are escalations. Setup time + hire dates are tactical.
+ */
+function _signalWeight(key: string): number {
+  const WEIGHTS: Record<string, number> = {
+    // Existential -- the event cannot run without these
+    balance_not_overdue: 100,
+    menu_items_present: 95,
+    driver_assigned: 90,
+    kitchen_shift_event_day: 85,
+    kitchen_prep_tasks_present: 80,
+    pre_event_cleaning: 75,
+    requires_two_drivers_covered: 70,
+    setup_pickup_times_set: 65,
+    hire_pickup_dates_set: 60,
+    // Comms / contactability -- escalations, not blockers
+    confirmation_email_sent: 50,
+    invoice_sent: 45,
+    client_contactable: 40,
+    client_phone_present: 30,
+    // Operational hygiene
+    vehicle_service_ok: 25,
+    driver_acknowledged: 20,
+  };
+  return WEIGHTS[key] ?? 0;
 }
 
 // Re-export the shared types so consumers don't need a second import.
