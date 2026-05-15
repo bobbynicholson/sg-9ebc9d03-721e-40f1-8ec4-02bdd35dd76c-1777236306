@@ -2324,6 +2324,46 @@ function OrderProcessDashboard() {
                 <DialogDescription className="mt-1">
                   {editMode ? "Edit order information" : "View order details"}
                 </DialogDescription>
+                {/* Wave 58 -- contact action strip. Pre-Wave-58 the
+                    operator could see the client phone in the modal's
+                    edit fields but couldn't tap-to-call or open
+                    WhatsApp from the platform. Now: small action
+                    chips next to the quick-links so contacting the
+                    client about anything (deposit, change of plan,
+                    confirm headcount) is one tap. */}
+                {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email) && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(selectedOrder as any).client_phone && (
+                      <>
+                        <a
+                          href={`tel:${String((selectedOrder as any).client_phone).replace(/[^+\d]/g, "")}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded px-2 py-1 hover:bg-slate-200"
+                          title={`Call ${(selectedOrder as any).client_phone}`}
+                        >
+                          📞 Call {(selectedOrder as any).client_phone}
+                        </a>
+                        <a
+                          href={`https://wa.me/${String((selectedOrder as any).client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-green-800 bg-green-50 border border-green-200 rounded px-2 py-1 hover:bg-green-100"
+                          title="Open WhatsApp pre-filled"
+                        >
+                          💬 WhatsApp
+                        </a>
+                      </>
+                    )}
+                    {(selectedOrder as any).client_email && (
+                      <a
+                        href={`mailto:${(selectedOrder as any).client_email}?subject=${encodeURIComponent(`Booking ${(selectedOrder as any).order_number || "your order"}`)}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded px-2 py-1 hover:bg-slate-200"
+                        title={`Email ${(selectedOrder as any).client_email}`}
+                      >
+                        ✉️ Email
+                      </a>
+                    )}
+                  </div>
+                )}
                 {/* Quick links: source quote, client-facing order view,
                     invoice. The "View as client sees it" link opens the
                     public-ish customer order view in a new tab so the
