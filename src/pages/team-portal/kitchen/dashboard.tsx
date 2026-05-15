@@ -24,6 +24,11 @@ import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary"
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
+// Wave 49 B3 -- kitchen-to-driver handover surface. Mounts on every
+// "ready" + "preparing" order so the kitchen lead has a single tap
+// to sign food + equipment over to the driver. This row is the gate
+// that confirmDepartedKitchen now refuses to bypass.
+import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
 import { UserRole } from "@/types/app";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
@@ -786,6 +791,22 @@ export default function KitchenDashboard() {
                                       />
                                     </div>
                                   </details>
+                                )}
+
+                                {/* Wave 49 B3 -- the kitchen-to-driver
+                                    sign-off. Surfaces on ready + the
+                                    last preparing column where the
+                                    kitchen lead actually hands the
+                                    job over. Hidden on earlier columns
+                                    where there's nothing to hand over
+                                    yet. */}
+                                {(col.key === "ready" || col.key === "preparing") && (
+                                  <div className="mt-2 pt-2 border-t border-slate-200">
+                                    <HandoverToDriverPanel
+                                      orderId={order.id}
+                                      orderNumber={order.order_number || order.id}
+                                    />
+                                  </div>
                                 )}
                               </div>
                             );

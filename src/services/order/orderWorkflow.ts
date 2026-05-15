@@ -213,6 +213,27 @@ export async function updateOrderStatus(
       }
     }
 
+    // Wave 49 B1 -- lockstep mirror to driver_assignments. Pre-Wave-49
+    // every orders.status flip wrote the orders.<status>_at stamp but
+    // never touched the matching driver_assignments row. Result:
+    //   * driver_assignments.status rotted at 'accepted' for the
+    //     entire lifetime of the assignment
+    //   * dispatchService.getDriverPerformance filtered on
+    //     da.status='completed' -- never matched -- silently
+    //     under-counted every driver's stats
+    //   * delivered_at / completed_at lived only on orders, not
+    //     on driver_assignments where payroll reads from
+    // The same pattern that fixed the assignment-write race in Wave
+    // 47 (claim_order RPC + assignDriverWithGate writing the row)
+    // now extends to status progression.
+    if (newStatus === "in_transit" || newStatus === "delivered" || newStatus === "completed") {
+      try {
+        await _lockstepMirrorToDriverAssignment(order.id, newStatus, nowIso);
+      } catch (mirrorErr) {
+        console.warn("[orderWorkflow] driver_assignments lockstep mirror failed (non-blocking):", mirrorErr);
+      }
+    }
+
     // Send notifications based on status
     await sendStatusNotifications(order);
 
@@ -2044,5 +2065,68 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
 
   if (rows.length > 0) {
     await (supabase as any).from("outgoing_email_queue").insert(rows);
+  }
+}
+
+/**
+ * Wave 49 B1 -- mirror order status progression onto the active
+ * delivery driver_assignment row.
+ *
+ * Maps:
+ *   in_transit  -> da.status='en_route',  da.en_route_at + da.picked_up_at
+ *   delivered   -> da.status='delivered', da.delivered_at
+ *   completed   -> da.status='completed', da.completed_at
+ *
+ * Idempotent: only writes <stamp>_at when null. Status always
+ * advances forward (never backwards). Targets the delivery
+ * assignment_type only -- collection trips have their own status
+ * progression handled by driverConfirmationService.completeCollection.
+ *
+ * Best-effort: a missing assignment row (admin order with no driver
+ * yet) is a silent no-op rather than an error. Async errors are
+ * caught by the caller and logged.
+ */
+async function _lockstepMirrorToDriverAssignment(
+  orderId: string,
+  newStatus: string,
+  nowIso: string,
+): Promise<void> {
+  // Map the orders.status flip to the driver_assignments status enum
+  // value + the column that needs stamping.
+  const map: Record<string, { daStatus: string; stampColumns: string[] }> = {
+    in_transit: { daStatus: "en_route", stampColumns: ["en_route_at", "picked_up_at"] },
+    delivered: { daStatus: "delivered", stampColumns: ["delivered_at"] },
+    completed: { daStatus: "completed", stampColumns: ["completed_at"] },
+  };
+  const m = map[newStatus];
+  if (!m) return;
+
+  // Find the active delivery row. We never mirror onto collection
+  // (that has its own lifecycle) or returns / catering trips.
+  const { data: rows, error: selErr } = await (supabase as any)
+    .from("driver_assignments")
+    .select("id, status, en_route_at, picked_up_at, delivered_at, completed_at")
+    .eq("order_id", orderId)
+    .eq("assignment_type", "delivery");
+
+  if (selErr) {
+    console.warn("[lockstepMirror] driver_assignments select failed:", selErr);
+    return;
+  }
+  const targets = (rows as any[]) || [];
+  if (targets.length === 0) return;
+
+  for (const row of targets) {
+    const updates: any = { status: m.daStatus, updated_at: nowIso };
+    for (const col of m.stampColumns) {
+      if (!row[col]) updates[col] = nowIso;
+    }
+    const { error: updErr } = await (supabase as any)
+      .from("driver_assignments")
+      .update(updates)
+      .eq("id", row.id);
+    if (updErr) {
+      console.warn("[lockstepMirror] driver_assignments update failed:", { id: row.id, updErr });
+    }
   }
 }

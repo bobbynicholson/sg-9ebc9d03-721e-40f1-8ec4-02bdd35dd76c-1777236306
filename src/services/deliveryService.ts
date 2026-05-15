@@ -137,16 +137,38 @@ export const deliveryService = {
 
   async updateDeliveryStatus(deliveryId: string, status: string, driverNotes?: string) {
     const updates: DeliveryUpdate = { status };
-    
+
     if (status === "delivered") {
       updates.actual_delivery_time = new Date().toISOString();
     }
-    
+
     if (driverNotes) {
       updates.driver_notes = driverNotes;
     }
 
     const result = await this.updateDelivery(deliveryId, updates);
+
+    // Wave 49 B7 -- mirror the legacy `deliveries` write into the
+    // canonical orderWorkflow path. Pre-Wave-49 the legacy
+    // DeliveryStatusModal wrote ONLY to deliveries.actual_delivery_time
+    // -- orders.delivered_at stayed NULL -- so admin dashboards,
+    // driver pay snapshots, and the after-sales drip all read
+    // "never delivered" while the legacy table said otherwise.
+    // Now route a matching status flip through the same machine
+    // that the new driver UI uses, so both tables advance in
+    // lockstep until the deliveries table is fully retired.
+    if (status === "delivered" || status === "in_transit") {
+      try {
+        const targetStatus = status === "in_transit" ? "in_transit" : "delivered";
+        const orderId = (result as any)?.order_id;
+        if (orderId) {
+          const { updateOrderStatus } = await import("./order/orderWorkflow");
+          await updateOrderStatus(orderId, targetStatus as any);
+        }
+      } catch (e) {
+        console.warn("[deliveryService] orderWorkflow lockstep mirror failed (non-blocking):", e);
+      }
+    }
 
     // Send real-time notification on status change
     await this.notifyStatusChange(deliveryId, status, driverNotes);

@@ -20,7 +20,15 @@ export interface DriverConfirmation {
   id: string;
   order_id: string;
   driver_id: string;
-  confirmation_type: 'en_route_to_kitchen' | 'at_kitchen' | 'departed_kitchen' | 'at_venue' | 'completed';
+  confirmation_type:
+    | 'en_route_to_kitchen'
+    | 'at_kitchen'
+    | 'departed_kitchen'
+    | 'at_venue'
+    | 'setup_started'
+    | 'service_started'
+    | 'departed_venue'
+    | 'completed';
   confirmed_at: string;
   location_lat?: number;
   location_lng?: number;
@@ -90,6 +98,28 @@ export const driverConfirmationService = {
    * Driver confirms departure from kitchen
    */
   async confirmDepartedKitchen(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
+    // Wave 49 B3 -- handover gate. Block the depart-kitchen tap until
+    // a kitchen staff member has signed the equipment_handovers row
+    // for this order. Pre-Wave-49 the driver could roll out without
+    // anyone proving the food + equipment got loaded -- pure trust.
+    // Now the kitchen lead's HandoverToDriverPanel sign-off is a
+    // hard prerequisite. Bypass available via env flag for dev.
+    if (process.env.NEXT_PUBLIC_BYPASS_HANDOVER_GATE !== "true") {
+      const { count: handoverCount, error: handoverErr } = await supabase
+        .from("equipment_handovers")
+        .select("id", { count: "exact", head: true })
+        .eq("order_id", orderId)
+        .eq("from_stage", "kitchen")
+        .eq("to_stage", "driver");
+      if (handoverErr) {
+        console.warn("[confirmDepartedKitchen] handover probe failed -- letting through:", handoverErr);
+      } else if (!handoverCount || handoverCount === 0) {
+        throw new Error(
+          "Kitchen has not signed this order over yet. Ask the kitchen lead to tap 'Sign over to driver' first.",
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('driver_confirmations')
       .insert([{
@@ -210,6 +240,52 @@ export const driverConfirmationService = {
     }
 
     return data as DriverConfirmation;
+  },
+
+  /**
+   * Wave 49 B2 -- driver taps "Setup started" once rigging at the
+   * venue has begun. Stamps orders.setup_started_at + driver_confirmations
+   * audit row. Non-blocking on every sub-step so a failed mirror
+   * never blocks the tap.
+   */
+  async markSetupStarted(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
+    return _stampPostArrivalEvent({
+      orderId,
+      driverId,
+      location,
+      confirmationType: "setup_started",
+      orderColumn: "setup_started_at",
+    });
+  },
+
+  /**
+   * Wave 49 B2 -- driver taps "Service started" once food service
+   * begins. Stamps orders.service_started_at.
+   */
+  async markServiceStarted(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
+    return _stampPostArrivalEvent({
+      orderId,
+      driverId,
+      location,
+      confirmationType: "service_started",
+      orderColumn: "service_started_at",
+    });
+  },
+
+  /**
+   * Wave 49 B2 -- driver taps "Departed venue" once the truck rolls
+   * home. Stamps orders.departed_venue_at. Note this is BEFORE the
+   * collection trip (which is its own driver_assignment with its own
+   * en_route + completed lifecycle).
+   */
+  async markDepartedVenue(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
+    return _stampPostArrivalEvent({
+      orderId,
+      driverId,
+      location,
+      confirmationType: "departed_venue",
+      orderColumn: "departed_venue_at",
+    });
   },
 
   /**
@@ -335,7 +411,15 @@ export const driverConfirmationService = {
       const companyId = (orderRow as any)?.company_id;
       if (companyId) {
         const { driverPayService } = await import("@/services/driverPayService");
-        await (driverPayService as any).autoClockOut({ companyId, driverId, orderId });
+        // Wave 49 B6 -- pass assignmentType so the snapshot lands in
+        // the collection row, not the delivery row. Pre-Wave-49 this
+        // call overwrote the delivery leg's locked pay every time.
+        await (driverPayService as any).autoClockOut({
+          companyId,
+          driverId,
+          orderId,
+          assignmentType: "collection",
+        });
       }
     } catch (shiftErr) {
       console.warn("[completeCollection] autoClockOut failed (non-blocking):", shiftErr);
@@ -660,3 +744,79 @@ export const driverConfirmationService = {
     }
   }
 };
+
+/**
+ * Wave 49 B2 -- shared helper for the post-arrival venue stamps
+ * (setup_started, service_started, departed_venue). Each one writes
+ * a driver_confirmations audit row, stamps the matching column on
+ * orders, and posts an admin notification so dispatch can see the
+ * job moving on the timeline.
+ */
+async function _stampPostArrivalEvent(opts: {
+  orderId: string;
+  driverId: string;
+  location?: { lat: number; lng: number };
+  confirmationType: 'setup_started' | 'service_started' | 'departed_venue';
+  orderColumn: 'setup_started_at' | 'service_started_at' | 'departed_venue_at';
+}) {
+  const { orderId, driverId, location, confirmationType, orderColumn } = opts;
+  const nowIso = new Date().toISOString();
+
+  // 1. Audit row (canonical event log)
+  const { data, error } = await supabase
+    .from('driver_confirmations')
+    .insert([{
+      order_id: orderId,
+      driver_id: driverId,
+      confirmation_type: confirmationType,
+      location_lat: location?.lat,
+      location_lng: location?.lng,
+      confirmed_at: nowIso,
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+
+  // 2. Canonical stamp on orders -- only when null (idempotent)
+  try {
+    const { data: prior } = await supabase
+      .from('orders')
+      .select(`id, ${orderColumn}, company_id, order_number`)
+      .eq('id', orderId)
+      .maybeSingle();
+    if (prior && !(prior as any)[orderColumn]) {
+      const upd: any = {};
+      upd[orderColumn] = nowIso;
+      await supabase.from('orders').update(upd).eq('id', orderId);
+    }
+
+    // 3. Admin notification so dispatch sees the timeline advance
+    if ((prior as any)?.company_id) {
+      const labelMap: Record<string, string> = {
+        setup_started: "Setup started at venue",
+        service_started: "Service started at venue",
+        departed_venue: "Truck departed venue",
+      };
+      const orderNumber = (prior as any).order_number || orderId;
+      void notificationService.broadcastNotification({
+        companyId: (prior as any).company_id,
+        type: "driver_status_update",
+        title: `${labelMap[confirmationType]}: ${orderNumber}`,
+        message: `Driver tapped "${labelMap[confirmationType]}".`,
+        targetRoles: ADMIN_DISPATCH_ROLES,
+        priority: "normal",
+        link: `/admin/orders?orderId=${orderId}`,
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+        dedup: true,
+        dedupWindowMinutes: 60,
+      }).catch((e) => {
+        console.warn(`[${confirmationType}] admin broadcast failed:`, e);
+      });
+    }
+  } catch (stampErr) {
+    console.warn(`[${confirmationType}] orders stamp failed (non-blocking):`, stampErr);
+  }
+
+  return data as DriverConfirmation;
+}

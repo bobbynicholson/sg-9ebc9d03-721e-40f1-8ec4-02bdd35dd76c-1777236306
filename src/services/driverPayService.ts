@@ -771,7 +771,17 @@ export const driverPayService = {
    * pay calc).
    */
   async autoClockOut(
-    opts: { companyId: string; driverId: string; orderId: string },
+    opts: {
+      companyId: string;
+      driverId: string;
+      orderId: string;
+      /** Wave 49 B6 -- which leg is closing. Defaults to 'delivery'
+       *  for back-compat callers; the collection close-out path
+       *  (completeCollection) passes 'collection' so the snapshot
+       *  lands in its own driver_assignments row instead of
+       *  overwriting the delivery leg's pay. */
+      assignmentType?: string;
+    },
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; error?: string }> {
     try {
@@ -851,7 +861,12 @@ export const driverPayService = {
       // calc -- so changing a driver's rates next week doesn't
       // retroactively shift this delivery's pay.
       try {
-        await snapshotDriverAssignmentForOrder(client, opts);
+        await snapshotDriverAssignmentForOrder(client, {
+          companyId: opts.companyId,
+          driverId: opts.driverId,
+          orderId: opts.orderId,
+          assignmentType: opts.assignmentType || "delivery",
+        });
       } catch (snapshotErr) {
         // Snapshot is bookkeeping; never block the clock-out on it.
         console.warn("[autoClockOut] snapshot failed (non-fatal):", snapshotErr);
@@ -904,10 +919,15 @@ export const driverPayService = {
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
+    // Wave 49 B6 -- restrict the join to assignment_type='delivery'.
+    // Without this filter the snapshot from the collection leg
+    // (different fee structure) could be picked up as the delivery
+    // pay locked total. Now each leg owns its own row.
     const { data: assignmentRows, error: assignmentRowsErr } = await (client as any)
       .from("driver_assignments")
       .select("order_id, base_fee, distance_fee, total_earnings")
       .eq("driver_id", opts.driverId)
+      .eq("assignment_type", "delivery")
       .in("order_id", orderIds);
     if (assignmentRowsErr) {
       console.error("[driverPayService] driver_assignments fetch failed:", assignmentRowsErr);
@@ -941,18 +961,35 @@ export const driverPayService = {
 
 /**
  * Snapshot the calculated distance + callout pay onto
- * driver_assignments for a given (driver, order). Idempotent: looks
- * for an existing assignment row first, updates it; if absent,
- * inserts a fresh one.
+ * driver_assignments for a given (driver, order, assignment_type).
+ * Idempotent: looks for an existing assignment row first, updates
+ * it; if absent, inserts a fresh one.
  *
- * Called from autoClockOut on delivery completion so the values get
- * locked at the rates in force at that moment. Future getPaySummary
- * calls prefer these locked values over the live calc.
+ * Wave 49 B6 -- now keyed on (order_id, driver_id, assignment_type).
+ * Pre-Wave-49 the lookup was (order_id, driver_id) only, which
+ * meant the second autoClockOut on the same order overwrote the
+ * first leg's snapshot. Same driver doing both delivery and
+ * collection lost a leg's pay every time.
+ *
+ * Called from autoClockOut on delivery + collection completion so
+ * the values get locked at the rates in force at that moment.
+ * Future getPaySummary calls prefer these locked values over the
+ * live calc.
  */
 async function snapshotDriverAssignmentForOrder(
   client: Sb,
-  opts: { companyId: string; driverId: string; orderId: string },
+  opts: {
+    companyId: string;
+    driverId: string;
+    orderId: string;
+    /** Wave 49 B6 -- defaults to 'delivery' for back-compat callers,
+     *  but caller should pass explicitly so collection legs land in
+     *  their own row. */
+    assignmentType?: string;
+  },
 ): Promise<void> {
+  const assignmentType = opts.assignmentType || "delivery";
+
   // Pull the order's distance + the driver's effective rates.
   const { data: orderRow, error: orderRowErr } = await (client as any)
     .from("orders")
@@ -974,26 +1011,36 @@ async function snapshotDriverAssignmentForOrder(
     rates,
   );
 
-  // Upsert by (order_id, driver_id). driver_assignments has no
-  // composite unique constraint we can rely on across all tenants,
-  // so do a check-then-write: safer with mixed-history rows.
+  // Upsert by (order_id, driver_id, assignment_type). The composite
+  // includes assignment_type now so a collection leg can't overwrite
+  // a delivery leg's snapshot.
   const { data: existing, error: existingErr2 } = await (client as any)
     .from("driver_assignments")
     .select("id")
     .eq("order_id", opts.orderId)
     .eq("driver_id", opts.driverId)
+    .eq("assignment_type", assignmentType)
     .maybeSingle();
   if (existingErr2) {
     console.error("[driverPayService] driver_assignments fetch failed:", existingErr2);
   }
 
-  const payload = {
+  // Wave 49 B6 -- only the delivery leg stamps delivered_at; the
+  // collection leg uses completed_at. Otherwise reading delivered_at
+  // would mean "delivery happened" or "collection trip closed",
+  // which is a different fact each row.
+  const nowIso = new Date().toISOString();
+  const payload: any = {
     base_fee: line.callout_fee,
     distance_fee: line.distance_pay,
     total_earnings: line.total,
     calculated_distance: line.distance_km,
-    delivered_at: new Date().toISOString(),
   };
+  if (assignmentType === "delivery") {
+    payload.delivered_at = nowIso;
+  } else {
+    payload.completed_at = nowIso;
+  }
 
   if (existing) {
     await (client as any)
@@ -1007,6 +1054,7 @@ async function snapshotDriverAssignmentForOrder(
         company_id: opts.companyId,
         driver_id: opts.driverId,
         order_id: opts.orderId,
+        assignment_type: assignmentType,
         status: "completed",
         ...payload,
       });

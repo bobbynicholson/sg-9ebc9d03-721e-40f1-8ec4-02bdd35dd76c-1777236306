@@ -70,11 +70,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     let flipped = 0;
+    let damagesReconciled = 0;
+    let totalRecovered = 0;
     const errors: string[] = [];
     const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+    const { reconcileOnComplete } = await import("@/services/order/orderFinancials");
 
     for (const o of eligible) {
       try {
+        // Wave 49 B8 -- run damage reconciliation BEFORE the status
+        // flip so the balance_due bump lands while the customer is
+        // still on the active-orders surface. Non-blocking: a failed
+        // reconciliation does not block the completion flip; ops
+        // gets a row in errors[] instead.
+        try {
+          const recon = await reconcileOnComplete(o.id);
+          if (recon.success && recon.totalRecovered > 0) {
+            damagesReconciled += recon.damageCount;
+            totalRecovered += recon.totalRecovered;
+          } else if (!recon.success && recon.error) {
+            errors.push(`${o.id} reconcile: ${recon.error}`);
+          }
+        } catch (rErr: any) {
+          errors.push(`${o.id} reconcile crashed: ${rErr?.message || rErr}`);
+        }
+
         const result = await updateOrderStatus(o.id, "completed");
         if (result.success) {
           flipped += 1;
@@ -91,6 +111,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       considered: candidates?.length || 0,
       eligible: eligible.length,
       flipped,
+      damagesReconciled,
+      totalRecovered,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (e: any) {

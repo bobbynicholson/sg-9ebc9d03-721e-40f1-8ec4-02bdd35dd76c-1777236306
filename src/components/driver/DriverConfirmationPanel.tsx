@@ -76,7 +76,16 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
     }
   };
 
-  const handleConfirm = async (type: 'en_route_to_kitchen' | 'at_kitchen' | 'departed_kitchen' | 'at_venue') => {
+  const handleConfirm = async (
+    type:
+      | 'en_route_to_kitchen'
+      | 'at_kitchen'
+      | 'departed_kitchen'
+      | 'at_venue'
+      | 'setup_started'
+      | 'service_started'
+      | 'departed_venue',
+  ) => {
     if (!user) return;
 
     setLoading(true);
@@ -94,6 +103,15 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           break;
         case 'at_venue':
           result = await driverConfirmationService.confirmAtVenue(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'setup_started':
+          result = await (driverConfirmationService as any).markSetupStarted(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'service_started':
+          result = await (driverConfirmationService as any).markServiceStarted(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'departed_venue':
+          result = await (driverConfirmationService as any).markDepartedVenue(orderId, user.id, geoLocation || undefined);
           break;
       }
 
@@ -239,6 +257,92 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               size="sm"
             >
               Confirm
+            </Button>
+          )}
+        </div>
+
+        {/* Wave 49 B2 -- new post-arrival stamps. Setup -> service ->
+            depart. Each writes orders.<column>_at and a
+            driver_confirmations audit row, fires a dispatch ping.
+            Pre-Wave-49 these moments were invisible to the system. */}
+
+        {/* Setup started */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-green-500' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Setup started</p>
+              {isConfirmed('setup_started') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('setup_started')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('setup_started') ? (
+            <Badge variant="default" className="bg-green-500">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('setup_started')}
+              disabled={loading || !isConfirmed('at_venue')}
+              size="sm"
+            >
+              Tap when rigging begins
+            </Button>
+          )}
+        </div>
+
+        {/* Service started */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <CheckCircle className={`h-5 w-5 ${isConfirmed('service_started') ? 'text-green-500' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Service started</p>
+              {isConfirmed('service_started') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('service_started')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('service_started') ? (
+            <Badge variant="default" className="bg-green-500">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('service_started')}
+              disabled={loading || !isConfirmed('setup_started')}
+              size="sm"
+            >
+              Tap when food service begins
+            </Button>
+          )}
+        </div>
+
+        {/* Departed venue */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Truck className={`h-5 w-5 ${isConfirmed('departed_venue') ? 'text-green-500' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Departed venue</p>
+              {isConfirmed('departed_venue') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('departed_venue')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('departed_venue') ? (
+            <Badge variant="default" className="bg-green-500">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('departed_venue')}
+              disabled={loading || !isConfirmed('service_started')}
+              size="sm"
+            >
+              Tap when truck rolls home
             </Button>
           )}
         </div>

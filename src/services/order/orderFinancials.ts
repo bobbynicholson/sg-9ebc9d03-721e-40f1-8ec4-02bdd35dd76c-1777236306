@@ -203,3 +203,161 @@ export async function generateInvoice(orderId: string) {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Wave 49 B8 -- final invoice reconciliation on event close.
+ *
+ * Audit (Specialist 1) found that damages reported via
+ * driverConfirmationService.completeCollection landed in the
+ * equipment_damages table -- but no path ever turned them into a
+ * top-up invoice for the client. Cost of damaged kit walked out the
+ * door silently. Same gap for any post-event balance correction
+ * (extra hours, tip pass-through, missing return).
+ *
+ * Strategy:
+ *  - sum unresolved equipment_damages.repair_cost for this order
+ *  - if total > 0, add a single line item to the existing balance
+ *    invoice (or create one) describing the adjustment
+ *  - mark each consumed damage row as 'resolved' so a re-run is
+ *    a cheap no-op
+ *
+ * Idempotent: looks for an existing 'damage_recovery' line item on
+ * the invoice and updates it instead of duplicating. Returns the
+ * total recovered + per-damage breakdown so the caller (the
+ * auto-complete cron) can log the receipt.
+ *
+ * Best-effort: any sub-failure logs and returns success=false; the
+ * caller decides whether to block the order's status flip on it.
+ */
+export async function reconcileOnComplete(orderId: string): Promise<{
+  success: boolean;
+  totalRecovered: number;
+  damageCount: number;
+  error?: string;
+}> {
+  try {
+    // Pull all unresolved damages for this order.
+    const { data: damages, error: dmgErr } = await (supabase as any)
+      .from("equipment_damages")
+      .select("id, repair_cost, damage_type, notes")
+      .eq("order_id", orderId)
+      .eq("resolved", false);
+    if (dmgErr) {
+      console.error("[reconcileOnComplete] damages fetch failed:", dmgErr);
+      return { success: false, totalRecovered: 0, damageCount: 0, error: dmgErr.message };
+    }
+    const rows = (damages || []) as Array<{ id: string; repair_cost: number | null; damage_type: string; notes: string | null }>;
+    const totalRecovered = rows.reduce((s, r) => s + Number(r.repair_cost || 0), 0);
+    if (totalRecovered <= 0 || rows.length === 0) {
+      return { success: true, totalRecovered: 0, damageCount: 0 };
+    }
+
+    // Need company_id for the invoice path.
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id, company_id, order_number")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!order || !(order as any).company_id) {
+      return { success: false, totalRecovered, damageCount: rows.length, error: "order_or_company_missing" };
+    }
+    const companyId = (order as any).company_id;
+    const orderNumber = (order as any).order_number || orderId;
+
+    // Lazy import to avoid circular dep with invoiceGenerationService.
+    const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+    const inv = await ensureInvoiceForOrder(orderId, companyId, supabase as any, {});
+    if (!inv.success || !(inv as any).invoiceId) {
+      return { success: false, totalRecovered, damageCount: rows.length, error: "invoice_unavailable" };
+    }
+    const invoiceId = (inv as any).invoiceId as string;
+
+    // Invoices are flat (subtotal + tax_amount + total_amount). Line
+    // items live as JSONB on invoice_data.line_items so this single
+    // table holds both the headline numbers and the audit detail.
+    // We append a damage_recovery line if one isn't already there;
+    // existing rows get updated in-place so re-runs don't duplicate.
+    const { data: invRow, error: invFetchErr } = await (supabase as any)
+      .from("invoices")
+      .select("id, subtotal, tax_amount, total_amount, balance_due, invoice_data")
+      .eq("id", invoiceId)
+      .maybeSingle();
+    if (invFetchErr || !invRow) {
+      return { success: false, totalRecovered, damageCount: rows.length, error: "invoice_fetch_failed" };
+    }
+
+    const invoiceData = (invRow as any).invoice_data || {};
+    const lineItems: Array<any> = Array.isArray(invoiceData.line_items)
+      ? [...invoiceData.line_items]
+      : [];
+    const description = `Damage recovery for ${orderNumber} -- ${rows.length} item${rows.length === 1 ? "" : "s"}`;
+    const damageLine = {
+      type: "damage_recovery",
+      description,
+      quantity: 1,
+      unit_price: totalRecovered,
+      line_total: totalRecovered,
+      damage_ids: rows.map((r) => r.id),
+      added_at: new Date().toISOString(),
+    };
+
+    // Idempotent: replace any prior damage_recovery line, otherwise
+    // append. Allows the cron to retry safely after a partial failure.
+    const existingIdx = lineItems.findIndex((l) => l?.type === "damage_recovery");
+    const priorAmount = existingIdx >= 0 ? Number(lineItems[existingIdx]?.line_total || 0) : 0;
+    if (existingIdx >= 0) {
+      lineItems[existingIdx] = damageLine;
+    } else {
+      lineItems.push(damageLine);
+    }
+    invoiceData.line_items = lineItems;
+
+    // Recompute totals: subtract the prior recovery (if any) before
+    // adding the fresh figure so the headline numbers stay sane on
+    // re-runs.
+    const oldSubtotal = Number((invRow as any).subtotal || 0);
+    const oldTax = Number((invRow as any).tax_amount || 0);
+    const newSubtotal = Number((oldSubtotal - priorAmount + totalRecovered).toFixed(2));
+    // Damage recovery is taxable at the company rate; lookup once.
+    const { data: companyRow } = await (supabase as any)
+      .from("companies")
+      .select("vat_rate, pricing_includes_vat")
+      .eq("id", companyId)
+      .maybeSingle();
+    const vatRate = Number((companyRow as any)?.vat_rate ?? 0.15);
+    const taxOnRecovery = Number(((totalRecovered - priorAmount) * vatRate).toFixed(2));
+    const newTax = Number((oldTax + taxOnRecovery).toFixed(2));
+    const newTotal = Number((newSubtotal + newTax).toFixed(2));
+    const oldBalance = Number((invRow as any).balance_due || 0);
+    const newBalance = Number((oldBalance + (totalRecovered - priorAmount) + taxOnRecovery).toFixed(2));
+
+    const { error: invUpdErr } = await (supabase as any)
+      .from("invoices")
+      .update({
+        subtotal: newSubtotal,
+        tax_amount: newTax,
+        total_amount: newTotal,
+        balance_due: newBalance,
+        invoice_data: invoiceData,
+      })
+      .eq("id", invoiceId);
+    if (invUpdErr) {
+      return { success: false, totalRecovered, damageCount: rows.length, error: invUpdErr.message };
+    }
+
+    // Mark damages as resolved so re-runs do not double-charge.
+    const ids = rows.map((r) => r.id);
+    const { error: resolveErr } = await (supabase as any)
+      .from("equipment_damages")
+      .update({ resolved: true })
+      .in("id", ids);
+    if (resolveErr) {
+      console.warn("[reconcileOnComplete] damages resolve failed (non-blocking):", resolveErr);
+    }
+
+    return { success: true, totalRecovered, damageCount: rows.length };
+  } catch (e: any) {
+    console.error("[reconcileOnComplete] crashed:", e);
+    return { success: false, totalRecovered: 0, damageCount: 0, error: e?.message || "crash" };
+  }
+}
