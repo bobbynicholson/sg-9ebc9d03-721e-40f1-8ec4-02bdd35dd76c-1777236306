@@ -11,7 +11,6 @@ import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
-import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowTracker";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
 import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
@@ -238,34 +237,35 @@ function CleaningDashboardInner() {
             </CardContent>
           </Card>
 
+          {/* Wave 42 Tier 2: dropped the "Cleaning Workflow" tab.
+              The CleaningJobsQueue mounted at the top of the page is
+              now the canonical surface for live cleaning state, with
+              one source of truth (cleaning_jobs). The legacy
+              CleaningWorkflowTracker (pending->cleaning->drying->ready
+              over equipment_cleaning_status) was contradicting it --
+              cleaners completed jobs in one place and admins still
+              saw them pending elsewhere. Component file kept in case
+              another surface needs it later. */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-white/50 p-1 rounded-lg">
-              <TabsTrigger 
-                value="verification" 
+            <TabsList className="grid w-full grid-cols-3 gap-2 bg-white/50 p-1 rounded-lg">
+              <TabsTrigger
+                value="verification"
                 className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 <ClipboardCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">Equipment Verification</span>
                 <span className="sm:hidden">Verify</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="workflow" 
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <Droplets className="h-4 w-4" />
-                <span className="hidden sm:inline">Cleaning Workflow</span>
-                <span className="sm:hidden">Workflow</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="damages" 
+              <TabsTrigger
+                value="damages"
                 className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 <AlertTriangle className="h-4 w-4" />
                 <span className="hidden sm:inline">Damages & Losses</span>
                 <span className="sm:hidden">Damages</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="team" 
+              <TabsTrigger
+                value="team"
                 className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 <Users className="h-4 w-4" />
@@ -287,23 +287,6 @@ function CleaningDashboardInner() {
                 </CardHeader>
                 <CardContent className="pt-6">
                   <EquipmentVerificationPanel />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="workflow" className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <Droplets className="h-5 w-5 text-purple-600" />
-                    Cleaning Workflow Tracker
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Track equipment through the cleaning pipeline: Return → Cleaning → Drying → Ready
-                  </p>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <CleaningWorkflowTracker />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -350,9 +333,9 @@ function CleaningDashboardInner() {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="bg-white">
                     <Droplets className="h-3 w-3 mr-1" />
-                    Workflow
+                    Cleaning queue
                   </Badge>
-                  <span className="text-muted-foreground">Track cleaning progress</span>
+                  <span className="text-muted-foreground">Live wash + dishwasher status</span>
                 </div>
                 <div className="hidden sm:block h-4 w-px bg-slate-300" />
                 <div className="flex items-center gap-2">

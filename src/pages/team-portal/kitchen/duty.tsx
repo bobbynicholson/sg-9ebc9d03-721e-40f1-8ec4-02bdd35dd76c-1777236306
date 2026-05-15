@@ -222,12 +222,18 @@ export default function KitchenDutyRosterPage() {
       try {
         const today = new Date();
         const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        // Wave 42 Tier 2: scope to kitchen-side shift_types. Without
+        // this, a staffer who has both a 'kitchen' and a 'delivery'
+        // (or other shift_type) row today would crash maybeSingle()
+        // with a "more than one row" error after Wave 41 unified the
+        // table.
         const { data: rosterRow } = await (supabase as any)
           .from("kitchen_shifts")
           .select("id, planned_start, planned_end, actual_start, actual_end, status")
           .eq("company_id", user.company_id)
           .eq("staff_id", user.id)
           .eq("shift_date", todayIso)
+          .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
           .is("deleted_at", null)
           .maybeSingle();
         setMyRoster(rosterRow || null);

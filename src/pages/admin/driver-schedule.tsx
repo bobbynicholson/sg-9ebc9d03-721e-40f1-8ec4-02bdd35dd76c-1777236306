@@ -25,9 +25,15 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
+import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
+import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
+import {
+  listTasksForShifts,
+  type ShiftTaskRow,
+} from "@/services/staffShiftTasksService";
 
 interface Driver {
   id: string;
@@ -39,10 +45,27 @@ interface ShiftRow {
   id: string;
   driver_id: string;
   shift_date: string;
+  planned_start: string | null;
+  planned_end: string | null;
   actual_start: string | null;
   actual_end: string | null;
   status: string;
   rate_multiplier: number | null;
+  notes: string | null;
+}
+
+function plannedHoursFromTime(start: string | null, end: string | null): number {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
+  return Math.max(0, ((eh * 60 + em) - (sh * 60 + sm)) / 60);
+}
+
+function fmtTime(t: string | null): string {
+  if (!t) return "";
+  const [h, m] = t.split(":");
+  return `${h}:${m}`;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -78,6 +101,12 @@ function DriverScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ driverId: string; driverName: string } | null>(null);
+  // Wave 42 Tier 2: per-shift task chips. Mirrors kitchen + cleaning
+  // schedule grids so a driver shift can carry typed tasks
+  // (delivery / waitering / setup / breakdown / etc).
+  const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
+  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string } | null>(null);
+  const todayIso = useMemo(() => toLocalISO(new Date()), []);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -100,20 +129,36 @@ function DriverScheduleGrid() {
           .order("full_name", { ascending: true }),
         (supabase as any)
           .from("driver_shifts")
-          .select("id, driver_id, shift_date, actual_start, actual_end, status, rate_multiplier")
+          .select("id, driver_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes")
           .eq("company_id", companyId)
           .gte("shift_date", fromIso)
           .lte("shift_date", toIso)
           .is("deleted_at", null),
       ]);
       setDrivers((driversRes.data || []) as Driver[]);
-      setShifts((shiftsRes.data || []) as ShiftRow[]);
+      const shiftRows = (shiftsRes.data || []) as ShiftRow[];
+      setShifts(shiftRows);
+      const shiftIds = shiftRows.map((s) => s.id);
+      if (shiftIds.length > 0) {
+        const taskMap = await listTasksForShifts(supabase as any, shiftIds);
+        setTasksByShift(taskMap);
+      } else {
+        setTasksByShift(new Map());
+      }
     } catch {
       setDrivers([]);
       setShifts([]);
+      setTasksByShift(new Map());
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshTasks = async () => {
+    const shiftIds = shifts.map((s) => s.id);
+    if (shiftIds.length === 0) return;
+    const taskMap = await listTasksForShifts(supabase as any, shiftIds);
+    setTasksByShift(taskMap);
   };
 
   useEffect(() => {
@@ -145,7 +190,7 @@ function DriverScheduleGrid() {
     });
   }, [shifts, weekDays]);
 
-  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} — ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
+  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} -- ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
     <>
@@ -296,21 +341,73 @@ function DriverScheduleGrid() {
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
                                 const cellShifts = shiftIndex[`${d.id}|${iso}`] || [];
-                                const totalHours = cellShifts.reduce((acc, s) => acc + fmtHours(s.actual_start, s.actual_end).hours, 0);
-                                driverTotal += totalHours;
+                                // Wave 42 Tier 2: track planned hours (not just actual) so the
+                                // grid totals reflect rostered coverage, matching kitchen +
+                                // cleaning grids.
+                                const totalPlanned = cellShifts.reduce(
+                                  (acc, s) => acc + plannedHoursFromTime(s.planned_start, s.planned_end),
+                                  0,
+                                );
+                                driverTotal += totalPlanned;
                                 const hasShift = cellShifts.length > 0;
+                                const isPastDay = iso < todayIso;
                                 return (
                                   <td key={i} className="px-1.5 py-1.5 text-center align-top">
                                     {hasShift ? (
-                                      <div className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                                        <div className="text-sm font-semibold tabular-nums text-emerald-900">
-                                          {totalHours.toFixed(1)}h
-                                        </div>
-                                        {cellShifts.some((s) => (s.rate_multiplier ?? 1) > 1) && (
-                                          <Badge className="mt-0.5 bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1 py-0">
-                                            x{Math.max(...cellShifts.map((s) => Number(s.rate_multiplier ?? 1)))}
-                                          </Badge>
-                                        )}
+                                      <div className="space-y-0.5">
+                                        {cellShifts.map((s) => {
+                                          const aHours = fmtHours(s.actual_start, s.actual_end).hours;
+                                          const hasActual = !!s.actual_start;
+                                          const isMissed = s.status === "missed" || (isPastDay && !s.actual_start && s.status === "scheduled");
+                                          const pHours = plannedHoursFromTime(s.planned_start, s.planned_end);
+                                          return (
+                                            <div
+                                              key={s.id}
+                                              className={`rounded-md border px-2 py-1.5 text-left ${
+                                                isMissed
+                                                  ? "border-red-200 bg-red-50"
+                                                  : hasActual
+                                                    ? "border-emerald-200 bg-emerald-50"
+                                                    : "border-teal-200 bg-teal-50"
+                                              }`}
+                                            >
+                                              <div className="flex items-center justify-between gap-1">
+                                                <span className={`text-xs font-semibold tabular-nums ${
+                                                  isMissed ? "text-red-900" :
+                                                  hasActual ? "text-emerald-900" :
+                                                              "text-teal-900"
+                                                }`}>
+                                                  {s.planned_start
+                                                    ? `${fmtTime(s.planned_start)}-${fmtTime(s.planned_end)}`
+                                                    : `${aHours.toFixed(1)}h`}
+                                                </span>
+                                                {(s.rate_multiplier ?? 1) > 1 && (
+                                                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1 py-0">
+                                                    x{Number(s.rate_multiplier ?? 1)}
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              {hasActual ? (
+                                                <div className="text-[10px] text-emerald-700 mt-0.5 tabular-nums">
+                                                  Actual {aHours.toFixed(1)}h
+                                                </div>
+                                              ) : isMissed ? (
+                                                <div className="text-[10px] text-red-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
+                                                  <AlertTriangle className="w-2.5 h-2.5" /> Missed
+                                                </div>
+                                              ) : (
+                                                <div className="text-[10px] text-teal-700 mt-0.5 tabular-nums">
+                                                  {pHours.toFixed(1)}h planned
+                                                </div>
+                                              )}
+                                              <ShiftTasksChips
+                                                tasks={tasksByShift.get(s.id) || []}
+                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
+                                                onChanged={refreshTasks}
+                                              />
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     ) : (
                                       <button
@@ -366,6 +463,21 @@ function DriverScheduleGrid() {
           driverName={logTarget.driverName}
           actorUserId={user?.id ?? null}
           onCreated={() => { setLogTarget(null); void load(); }}
+        />
+      )}
+
+      {/* Wave 42 Tier 2 -- add-task modal. Defaults to 'delivery'
+          on this page so a dispatcher dropping a task on a driver
+          shift surfaces the relevant defaults. */}
+      {addTaskTarget && companyId && (
+        <AddShiftTaskModal
+          open={!!addTaskTarget}
+          onOpenChange={(o) => !o && setAddTaskTarget(null)}
+          companyId={companyId}
+          shiftId={addTaskTarget.shiftId}
+          defaultType="delivery"
+          actorUserId={user?.id ?? null}
+          onCreated={() => { setAddTaskTarget(null); void refreshTasks(); }}
         />
       )}
     </>
