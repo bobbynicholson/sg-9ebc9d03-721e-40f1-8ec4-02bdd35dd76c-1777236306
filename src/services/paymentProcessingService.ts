@@ -271,6 +271,30 @@ class PaymentProcessingService {
   }
 
   /**
+   * Wave 50 C7 -- manual EFT / cash deposit handler.
+   *
+   * Audit (Specialist 4) found that the only path that reliably
+   * cascades to status='confirmed' was the gateway IPN webhook.
+   * Manual EFT + cash deposits depended on the operator separately
+   * recording the payment and remembering to flip the status -- so
+   * orders sat at deposit_paid=true AND status='pending' for days,
+   * which silently broke prep-tasks-on-confirm + the after-sales
+   * drip eligibility.
+   *
+   * Same pipeline as processDepositPayment but the transactionId
+   * captures the EFT reference / receipt number, gateway = 'manual',
+   * and userId = the admin recording it. Re-uses every side-effect
+   * (in-app push, deposit receipt email, balance reminders).
+   */
+  async processManualDepositPayment(
+    orderId: string,
+    eftReference: string,
+    recordedByUserId: string,
+  ): Promise<boolean> {
+    return this.processDepositPayment(orderId, eftReference, "manual", recordedByUserId);
+  }
+
+  /**
    * Process balance payment
    */
   async processBalancePayment(

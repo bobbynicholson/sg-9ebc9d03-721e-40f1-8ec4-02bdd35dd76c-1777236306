@@ -394,6 +394,15 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       special_instructions: (lead as any).special_requests || null,
       internal_notes: internalNoteParts.length > 0 ? internalNoteParts.join("\n\n") : null,
       notes: "Converted from lead.",
+      // Wave 50 C9 -- carry the fields that previously got dropped at
+      // lead -> quote conversion. event_type + tags + contact_name +
+      // source survive into quote analytics + downstream order rows.
+      event_type: (lead as any).event_type ?? null,
+      tags: (lead as any).tags ?? null,
+      contact_name: (lead as any).contact_name ?? null,
+      // Wave 50 C10 -- first-class lead source attribution. Was buried
+      // in internal_notes pre-Wave-50.
+      source: (lead as any).source ?? null,
     };
 
     let createdQuoteId: string | null = null;

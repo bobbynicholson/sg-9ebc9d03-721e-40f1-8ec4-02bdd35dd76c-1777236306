@@ -1,25 +1,22 @@
+// Wave 50 C12 -- rewritten to SA English, sentence-case, lovely-vibe
+// (not surveillance) tone. Discounts removed from copy so operators
+// decide per send. No em dashes, no emoji, no asterisk-bold. Six
+// touchpoints over the year, each short enough to read on a phone in
+// under 30 seconds.
 export const defaultAfterSalesTemplates = [
   {
     id: "after-sales-1",
     sequence: 1,
     monthsAfterEvent: 2,
-    subject: "How did everything go at your event?",
+    subject: "How did your {{eventType}} land?",
     body: `Hi {{clientName}},
 
-I hope this message finds you well! It has been 2 months since we had the pleasure of catering your {{eventType}} on {{eventDate}}.
+It's been a couple of months since your {{eventType}} on {{eventDate}}. Hope it was everything you wanted it to be.
 
-We would love to hear how everything went. Your feedback helps us continue delivering exceptional service to clients like you.
+If you've got a minute, we'd love a quick line back -- what worked, what we could've done differently. Honest is best.
 
-Quick questions:
-• How was the food quality and presentation?
-• Did our team arrive on time and set up smoothly?
-• Was there anything that particularly impressed you?
-• Is there anything we could have done better?
-
-We are always looking for ways to improve and your honest thoughts mean the world to us.
-
-Also, if you have been thinking about hosting another event, we would be thrilled to work with you again. As a valued client, we can offer you a 10% loyalty discount on your next booking.`,
-    callToAction: "Share Your Feedback",
+Thanks again for trusting us with the day.`,
+    callToAction: "Share a quick word",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },
@@ -27,25 +24,15 @@ Also, if you have been thinking about hosting another event, we would be thrille
     id: "after-sales-2",
     sequence: 2,
     monthsAfterEvent: 4,
-    subject: "Planning something special? We have got you covered",
+    subject: "If anything's coming up, we're here",
     body: `Hi {{clientName}},
 
-The seasons are changing and we wanted to check in to see how you have been doing since your {{eventType}} back in {{eventMonth}}.
+Just a quick check-in. We've added a few new menu items since your {{eventType}} in {{eventMonth}}, plus some seasonal options that are good for this time of year.
 
-We have been busy expanding our menu with some exciting new options:
-• Seasonal specialties featuring fresh local ingredients
-• Customizable dietary options for all guests
-• Interactive food stations for a unique experience
-• New equipment packages for larger events
+If you've got something coming up -- a corporate function, a family thing, a celebration -- we're around. Reply to this email and we'll get a quote together.
 
-If you are planning any upcoming events, corporate functions, or celebrations, we would love to help make them memorable. Our calendar tends to fill up quickly, especially during peak seasons.
-
-As a returning client, you automatically qualify for:
-✓ 15% discount on your next event
-✓ Priority booking during busy periods
-✓ Complimentary tasting session for events over 50 guests
-✓ Free delivery within 25km`,
-    callToAction: "View Our Latest Menus",
+No pressure, just hello.`,
+    callToAction: "See what's on the menu",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },
@@ -53,29 +40,15 @@ As a returning client, you automatically qualify for:
     id: "after-sales-3",
     sequence: 3,
     monthsAfterEvent: 6,
-    subject: "6 months already! Time for another celebration?",
+    subject: "Half a year on -- anything brewing?",
     body: `Hi {{clientName}},
 
-Can you believe it has been half a year since your {{eventType}}? Time flies when you are creating great memories!
+Hard to believe it's been six months since your {{eventType}}.
 
-We have been thinking about you and wanted to reach out with some ideas for the upcoming months:
+Year-end and the festive season tend to fill up fast on our diary, so if you're thinking about a function in the next few months it's worth pencilling something in soon.
 
-**Perfect timing for:**
-• Holiday parties and year-end celebrations
-• Mid-year corporate events
-• Family reunions and milestone birthdays
-• Seasonal outdoor gatherings
-
-**What makes working with us even better now:**
-• We have added 50 new dishes to our repertoire
-• Improved our equipment inventory for larger events
-• Expanded our service area
-• Enhanced our tracking and communication systems
-
-We saved a spot in our calendar just for you. Let us help you plan something special before the busy season hits.
-
-Plus, we are offering an exclusive 20% discount for bookings made this month for events scheduled within the next 90 days.`,
-    callToAction: "Let's Plan Your Next Event",
+Reply to this email if you'd like a quick chat about what you've got in mind.`,
+    callToAction: "Get a quote",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },
@@ -83,27 +56,20 @@ Plus, we are offering an exclusive 20% discount for bookings made this month for
     id: "after-sales-4",
     sequence: 4,
     monthsAfterEvent: 8,
-    subject: "Missing you! Special offer inside",
+    subject: "Hi from the team",
     body: `Hi {{clientName}},
 
-It has been a while since we last connected, and we have been hoping to work with you again!
+Just dropping in to say hi.
 
-We understand that planning events takes time and the right occasion needs to come up. That is why we wanted to share something special with you.
+Planning an event takes time and the right reason to do it -- so we're not here to push. But if you've got something in mind, even loosely, we'd love to help shape it.
 
-**Exclusive VIP Client Benefits:**
-• 25% discount on any event booked in the next 60 days
-• Complimentary appetizer station for events over 75 guests
-• Free venue consultation and setup planning
-• Priority access to our premium equipment collection
-• Flexible payment terms available
+A few things we've added since your last booking:
+- More dietary-flexible menu options
+- Streamlined ordering for returning clients
+- Better tracking and updates on the day
 
-**Recent Client Success Stories:**
-We recently catered a corporate event for 200 guests with rave reviews. The client specifically mentioned our attention to detail and how stress-free we made the entire process.
-
-We have also introduced a referral program. If you know anyone planning an event, refer them to us and receive a 30% discount on your next booking when they book with us.
-
-Your satisfaction is our priority, and we would be honored to serve you again.`,
-    callToAction: "Claim Your VIP Discount",
+Reply if you're curious. Otherwise we'll catch up again later in the year.`,
+    callToAction: "Say hi back",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },
@@ -111,35 +77,15 @@ Your satisfaction is our priority, and we would be honored to serve you again.`,
     id: "after-sales-5",
     sequence: 5,
     monthsAfterEvent: 10,
-    subject: "We have been thinking about you",
+    subject: "Year's nearly out -- planning anything?",
     body: `Hi {{clientName}},
 
-As we approach the end of another year, I have been reflecting on the wonderful clients we have had the privilege to serve, and your {{eventType}} from {{eventMonth}} stands out as a memorable highlight.
+End of the year tends to creep up. If you're thinking about a function before the holidays, or kicking off the new year with something planned, this is the moment to lock in dates.
 
-**Looking ahead to the new year:**
-The next few months are perfect for planning:
-• Holiday celebrations and family gatherings
-• New Year corporate events
-• Early spring outdoor functions
-• Wedding season preparations
+We've still got a handful of slots open that we tend to hold for returning clients.
 
-**Why book with us again?**
-✓ You already know the quality we deliver
-✓ We know your preferences and style
-✓ No surprises, just reliable excellent service
-✓ Streamlined planning process for returning clients
-
-**Special Limited-Time Offer:**
-Book any event before the end of this month and receive:
-• 30% off your total catering package
-• Complimentary beverage service upgrade
-• Free event coordination and timeline management
-• Guaranteed availability for your preferred date
-
-We have kept some premium dates available specifically for valued clients like you. These dates typically book up 6 months in advance, but we are holding them for a limited time.
-
-I would love to catch up and hear what you have been up to. Even if you do not have an event planned right now, I am always happy to chat and answer any questions.`,
-    callToAction: "Book Your Premium Date",
+Reply to this email and we'll send through availability.`,
+    callToAction: "Check availability",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },
@@ -147,41 +93,17 @@ I would love to catch up and hear what you have been up to. Even if you do not h
     id: "after-sales-6",
     sequence: 6,
     monthsAfterEvent: 12,
-    subject: "One year anniversary and a special thank you",
+    subject: "A year since your {{eventType}}",
     body: `Hi {{clientName}},
 
-It has been exactly one year since we had the honor of catering your {{eventType}}. Time really does fly!
+A year ago you trusted us with your {{eventType}}. That still means a lot.
 
-I wanted to take a moment to personally thank you for trusting us with your special event. Clients like you are the reason we love what we do.
+If you've got another event on the horizon -- anniversary, birthday, function -- we'd love to do it again. Same care, just for whatever you're planning next.
 
-**Celebrating Our Connection:**
-To mark this one-year milestone, we want to offer you something truly special:
+Reply when you're ready, no rush.
 
-🎉 **Anniversary Gift: 35% Off Your Next Event**
-This is our biggest discount of the year, exclusively for clients celebrating their one-year anniversary with us.
-
-**Plus, you will receive:**
-• Complimentary premium package upgrade
-• Free custom menu consultation
-• Priority booking for any date in the next 18 months
-• Dedicated event coordinator from start to finish
-• Complimentary day-of coordination service
-
-**Stay Connected:**
-Even if you do not have an event planned right now, we would love to stay in touch:
-• Follow us for catering tips and food inspiration
-• Get early access to new menu items and seasonal specials
-• Receive exclusive offers throughout the year
-• Join our VIP client community
-
-**One More Thing:**
-If you refer three friends who book events with us, your next event is completely FREE. Yes, you read that right, 100% free catering for your next celebration.
-
-Thank you for being an incredible client. We hope to have the privilege of serving you again soon.
-
-With gratitude and warm wishes,
-[Your Catering Company Name]`,
-    callToAction: "Claim Your Anniversary Gift",
+Thanks for being a client.`,
+    callToAction: "Plan something new",
     isActive: true,
     lastEdited: new Date().toISOString(),
   },

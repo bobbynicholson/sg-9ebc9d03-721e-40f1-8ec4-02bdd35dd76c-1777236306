@@ -656,6 +656,46 @@ export async function postOrderCreationCascade(
     console.warn("[postOrderCreationCascade] receipt persist failed (non-blocking):", persistErr);
   }
 
+  // Wave 50 C14 -- loud admin alert when the cascade detects an
+  // admin-created order with no source quote. Audit (Specialist 4)
+  // flagged this as silent: the order ships with no menu items, no
+  // equipment_bookings, no kitchen_prep_tasks, R0 invoice, but the
+  // admin only finds out when the kitchen tablet shows nothing or
+  // the client never gets billed. Now broadcasts a high-priority
+  // warning so the operator immediately sees "this order needs
+  // line items + equipment added by hand".
+  const cascadeBaileds: string[] = [];
+  if ((receipt.equipment as any)?.reason === "no_source_quote") cascadeBaileds.push("equipment");
+  if ((receipt.shopping as any)?.reason === "no_menu_or_guests") cascadeBaileds.push("shopping");
+  if (cascadeBaileds.length > 0) {
+    try {
+      const { data: orderForAlert } = await (client as any)
+        .from("orders")
+        .select("order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+      const orderLabel = (orderForAlert as any)?.order_number || orderId;
+      const { notificationService } = await import("../notificationService");
+      void notificationService.broadcastNotification({
+        companyId,
+        type: "cascade_skipped_no_source",
+        title: `Manual order ${orderLabel} -- needs line items added by hand`,
+        message: `No source quote on this order. The cascade skipped: ${cascadeBaileds.join(", ")}. Add the menu + equipment manually so the kitchen, dispatch, and invoice all show the right data.`,
+        targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+        priority: "high",
+        link: `/admin/orders?orderId=${orderId}`,
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+        dedup: true,
+        dedupWindowMinutes: 60 * 24,
+      }).catch((e) => {
+        console.warn("[postOrderCreationCascade] cascade-skipped broadcast failed:", e);
+      });
+    } catch (alertErr) {
+      console.warn("[postOrderCreationCascade] cascade-skipped alert crashed:", alertErr);
+    }
+  }
+
   return receipt;
 }
 

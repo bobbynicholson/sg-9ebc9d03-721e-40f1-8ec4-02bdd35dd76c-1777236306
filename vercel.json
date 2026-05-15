@@ -82,6 +82,30 @@
     {
       "path": "/api/cron/order-stage-notify",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup-send",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/stale-lead-digest",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/expire-stale-quotes",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/balance-reminder",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/equipment-collection-reminder",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/deposit-paid-sweeper",
+      "schedule": "30 * * * *"
     }
   ]
 }

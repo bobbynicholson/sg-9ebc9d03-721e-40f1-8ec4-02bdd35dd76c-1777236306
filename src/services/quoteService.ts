@@ -48,6 +48,10 @@ export async function duplicateQuote(
     clone.event_date = newEventDate;
     clone.status = "draft";
     clone.quote_number = `${(s.quote_number || "QUO")}-COPY-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+    // Wave 50 C11 -- preserve the rebook chain. lead_id was stripped
+    // (the new quote is for the same client but has no fresh lead);
+    // record the parent so analytics can chase rebook conversion.
+    clone.parent_quote_id = sourceQuoteId;
 
     const { data: inserted, error: insertErr } = await supabase
       .from("quotes")
@@ -733,6 +737,21 @@ export const quoteService = {
     // single-row function returns as either an object or a one-element
     // array depending on the PostgREST version -- normalise here.
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
+
+    // Wave 50 C10 -- carry quotes.source onto orders.lead_source so
+    // attribution survives into order analytics. The convert RPC
+    // doesn't know about this column yet (signature is fixed); a
+    // single follow-up update is the cheapest path. Best-effort.
+    if ((q as any).source) {
+      try {
+        await (supabase as any)
+          .from("orders")
+          .update({ lead_source: (q as any).source })
+          .eq("id", newOrder.id);
+      } catch (sourceErr) {
+        console.warn("[convertQuoteToOrder] lead_source mirror failed (non-blocking):", sourceErr);
+      }
+    }
 
     // ── Steps 2-4: Server-safe cascade ─────────────────────────────
     // The audit consolidated invoice / email / kitchen-prep into one
