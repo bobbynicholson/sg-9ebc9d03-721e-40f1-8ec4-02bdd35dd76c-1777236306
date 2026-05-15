@@ -158,7 +158,7 @@ export function computeOrderReadiness(
     severity: "high",
     passing: !balanceOverdue,
     message: balanceOverdue
-      ? `Balance overdue (due ${invoiceDueDate}). Chase or convert to COD.`
+      ? _formatOverdueBalanceMessage(invoiceDueDate as string, now)
       : "Balance on track.",
     actionLink: `/admin/invoices?orderId=${orderId}`,
   });
@@ -465,13 +465,74 @@ export function computeOrderReadiness(
 }
 
 function renderEventWhen(urgency: OrderTimelineUrgency, evDate: string | null | undefined): string {
+  // Wave 52 -- format the event date as a human label, not the raw
+  // YYYY-MM-DD coming back from PostgREST. "9 May" beats "2026-05-09".
+  const friendly = evDate ? _formatFriendlyDate(evDate) : null;
   switch (urgency) {
     case "today": return "today";
     case "tomorrow": return "tomorrow";
-    case "overdue": return evDate ? `(${evDate} -- past)` : "(past)";
+    case "overdue": return friendly ? `(${friendly} -- past)` : "(past)";
     case "soon": return "this week";
-    default: return evDate ? `on ${evDate}` : "";
+    default: return friendly ? `on ${friendly}` : "";
   }
+}
+
+/** Wave 52 -- shared "9 May" / "9 May 2026" formatter. Returns the
+ *  raw input on parse failure rather than crashing. */
+function _formatFriendlyDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return sameYear
+      ? d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+      : d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Wave 52 -- format the overdue balance signal as a human sentence.
+ *
+ * Pre-Wave-52 the message interpolated the raw ISO timestamp:
+ *   "Balance overdue (due 2026-05-09T00:00:00+00:00). Chase or convert to COD."
+ * Bobby's brief: too many numbers, the timestamp is unreadable. Now:
+ *   "Balance is 6 days overdue (was due 9 May). Chase the client."
+ *   "Balance is 1 day overdue (was due yesterday). Chase the client."
+ *   "Balance was due today and is unpaid. Chase the client."
+ *
+ * Defensive: if the date can't be parsed, fall back to a clean
+ * shape without numbers ("Balance overdue. Chase the client.")
+ * rather than leaking the raw string.
+ */
+function _formatOverdueBalanceMessage(dueIso: string, now: Date): string {
+  let dueDate: Date;
+  try {
+    dueDate = new Date(dueIso);
+    if (Number.isNaN(dueDate.getTime())) throw new Error("invalid");
+  } catch {
+    return "Balance overdue. Chase the client.";
+  }
+
+  // Days difference, ignoring time-of-day. Compute on the date
+  // components only so 23:59 yesterday and 00:01 today both read
+  // as "yesterday" / "today".
+  const dueMidnight = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate()).getTime();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const daysOverdue = Math.round((todayMidnight - dueMidnight) / (24 * 60 * 60 * 1000));
+
+  const shortDate = dueDate.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+
+  if (daysOverdue <= 0) {
+    // Due today (or technically future, which shouldn't reach this
+    // branch, but be safe).
+    return "Balance was due today and is unpaid. Chase the client.";
+  }
+  if (daysOverdue === 1) {
+    return "Balance is 1 day overdue (was due yesterday). Chase the client.";
+  }
+  return `Balance is ${daysOverdue} days overdue (was due ${shortDate}). Chase the client.`;
 }
 
 // Re-export the shared types so consumers don't need a second import.
