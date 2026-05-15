@@ -368,9 +368,16 @@ export default function ClientOrderPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-slate-100">
+              {/* Wave 60 -- 5-stat grid (was 4): added Setup time so the
+                  client knows when the team will arrive on-site. Pre-Wave-60
+                  the client only saw the event Start and had to email to
+                  ask "what time are you arriving to set up?". */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 pt-5 border-t border-slate-100">
                 <Stat icon={Calendar} label={daysOut > 0 ? `In ${daysOut} day${daysOut === 1 ? "" : "s"}` : daysOut === 0 ? "Today" : "Past"} value={eventDate.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })} />
-                <Stat icon={Clock} label="Start" value={order.event_time || "TBD"} />
+                <Stat icon={Clock} label="Event start" value={order.event_time || "TBD"} />
+                {order.setup_time && (
+                  <Stat icon={Clock} label="Setup arrives" value={String(order.setup_time)} />
+                )}
                 <Stat icon={Users} label="Guests" value={`${order.guest_count}`} />
                 <Stat icon={Receipt} label="Payment" value={String(order.payment_status || "pending")} valueClass="capitalize" />
               </div>
@@ -394,13 +401,22 @@ export default function ClientOrderPage() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // Compute from the order row alone -- the magic-link
-                  // RPC doesn't return joined related rows, so the
-                  // client timeline can only derive what the order
-                  // columns expose (status, deposit_paid, balance_paid,
-                  // delivered_at, completed_at, equipment_return_method).
-                  // That's enough for every client-visible stage.
-                  const operatorTl = computeOrderTimeline({ order });
+                  // Wave 60 -- pass the related rows from the
+                  // RPC. Pre-Wave-60 the timeline computed from
+                  // order columns alone, which meant
+                  // "Preparing your food" + "Equipment collected"
+                  // could never advance because they read
+                  // kitchen_prep_tasks + driver_assignments.
+                  // Now: client sees the same stage statuses the
+                  // admin sees, exactly when they advance.
+                  const operatorTl = computeOrderTimeline({
+                    order,
+                    payments: (view as any)?.payments || [],
+                    driverAssignments: (view as any)?.driver_assignments || [],
+                    kitchenPrepTasks: (view as any)?.kitchen_prep_tasks || [],
+                    equipmentBookings: (view as any)?.equipment_bookings || [],
+                    invoices: invoice ? [invoice] : [],
+                  });
                   const clientTl = toClientTimeline(operatorTl);
                   return <TimelineTrack timeline={clientTl} />;
                 })()}
@@ -428,39 +444,95 @@ export default function ClientOrderPage() {
             </CardContent>
           </Card>
 
-          {/* Menu / line items */}
-          {Array.isArray(items) && items.length > 0 && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ChefHat className="w-4 h-4" style={{ color: primary }} />
-                  What we're catering
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100">
-                  {items.map((it: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900">{it.item_name}</p>
-                        {it.special_instructions && (
-                          <p className="text-xs text-slate-500 mt-0.5">{it.special_instructions}</p>
-                        )}
+          {/* Menu / line items + full money breakdown.
+              Wave 60 -- pre-Wave-60 the client jumped from line-item
+              prices straight to "Total" with no transparency on
+              subtotal, discount, delivery, or VAT. Bobby's request:
+              "wheres the vat and delivery, and all info for the
+              order? I want everything here for the client to be up
+              to date". Now: every component of the total is shown
+              when present, so the client can reconcile the maths
+              themselves and never wonder "what's the R200 for". */}
+          {Array.isArray(items) && items.length > 0 && (() => {
+            // Compute the line-item subtotal locally as a fallback
+            // when order.subtotal isn't on the magic-link payload.
+            const computedSubtotal = items.reduce(
+              (s: number, it: any) => s + Number(it.line_total || 0),
+              0,
+            );
+            const subtotal = Number(order.subtotal ?? computedSubtotal) || 0;
+            const discount = Number(order.discount_amount || 0);
+            const deliveryFee = Number(order.delivery_fee || 0);
+            const taxAmount = Number(order.tax_amount ?? order.tax ?? 0);
+            const total = Number(order.total_amount || 0);
+            return (
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ChefHat className="w-4 h-4" style={{ color: primary }} />
+                    What we're catering
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-slate-100">
+                    {items.map((it: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{it.item_name}</p>
+                          {it.special_instructions && (
+                            <p className="text-xs text-slate-500 mt-0.5">{it.special_instructions}</p>
+                          )}
+                        </div>
+                        <div className="text-right tabular-nums flex-shrink-0">
+                          <p className="text-slate-700">{it.quantity} × {fmtMoney.format(Number(it.unit_price || 0))}</p>
+                          <p className="text-xs text-slate-500">{fmtMoney.format(Number(it.line_total || 0))}</p>
+                        </div>
                       </div>
-                      <div className="text-right tabular-nums flex-shrink-0">
-                        <p className="text-slate-700">{it.quantity} × {fmtMoney.format(Number(it.unit_price || 0))}</p>
-                        <p className="text-xs text-slate-500">{fmtMoney.format(Number(it.line_total || 0))}</p>
+                    ))}
+                    {/* Breakdown: every line only renders when there's a
+                        non-zero value to show, so a no-discount /
+                        no-delivery / VAT-inclusive order doesn't pad
+                        the receipt with R0.00 lines. */}
+                    {subtotal > 0 && (
+                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                        <span className="text-slate-600">Subtotal</span>
+                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(subtotal)}</span>
                       </div>
+                    )}
+                    {discount > 0 && (
+                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                        <span className="text-emerald-700">Discount</span>
+                        <span className="text-emerald-700 tabular-nums">-{fmtMoney.format(discount)}</span>
+                      </div>
+                    )}
+                    {deliveryFee > 0 && (
+                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                        <span className="text-slate-600">
+                          Delivery
+                          {Number(order.delivery_distance_km) > 0 && (
+                            <span className="text-xs text-slate-500 ml-1">
+                              ({Number(order.delivery_distance_km).toFixed(1)} km)
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(deliveryFee)}</span>
+                      </div>
+                    )}
+                    {taxAmount > 0 && (
+                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                        <span className="text-slate-600">VAT</span>
+                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(taxAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-6 py-3 bg-slate-100">
+                      <span className="font-semibold text-slate-900">Total</span>
+                      <span className="font-bold text-slate-900 text-lg tabular-nums">{fmtMoney.format(total)}</span>
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between px-6 py-3 bg-slate-50">
-                    <span className="font-semibold text-slate-900">Total</span>
-                    <span className="font-bold text-slate-900 tabular-nums">{fmtMoney.format(Number(order.total_amount || 0))}</span>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Payment summary */}
           {(order.deposit_amount || order.balance_amount) && (
