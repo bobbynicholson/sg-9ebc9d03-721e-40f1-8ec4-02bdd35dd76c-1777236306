@@ -1132,6 +1132,15 @@ export default function InvoicesPage() {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
+          {/* Wave 68 -- recurring invoices entry point. */}
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/recurring-invoices")}
+            title="Set up weekly / monthly / quarterly invoices that generate themselves"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Recurring
+          </Button>
           {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
               branded reminder for every overdue invoice in one
               click; safer scope (just overdue, not all

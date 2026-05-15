@@ -106,6 +106,10 @@
     {
       "path": "/api/cron/deposit-paid-sweeper",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/recurring-invoices",
+      "schedule": "0 4 * * *"
     }
   ]
 }
