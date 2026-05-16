@@ -1224,8 +1224,10 @@ export default function InvoicesPage() {
             mostly 90+ days. Self-hides when nothing is outstanding. */}
         <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        {/* Stats Cards. Wave 66.1 -- 2-up on mobile so the operator
+            sees Outstanding + Collected side-by-side instead of
+            scrolling through four full-width tiles. */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
@@ -1646,31 +1648,42 @@ export default function InvoicesPage() {
                 {!groupByClient && filteredInvoices.map(invoice => (
                   <div
                     key={invoice.id}
-                    className={`flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
+                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
                     }`}
                   >
-                    {/* Phase 14 #10: row checkbox. Only renders for
-                        invoices that aren't already paid -- a paid
-                        row has nothing to bulk-action. */}
-                    {/* Wave 30.6: invoice_status enum is
-                        {draft|sent|paid|partially_paid|overdue|written_off}.
-                        'cancelled' never matches a real row -- the
-                        actual void value is 'written_off'. Kept the
-                        legacy literal for back-compat just in case
-                        any historical row carried it before the enum
-                        was tightened. */}
-                    {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
-                      <input
-                        type="checkbox"
-                        className="mr-3 h-4 w-4 cursor-pointer accent-green-600 shrink-0"
-                        checked={bulkMarkPaidIds.has(invoice.id)}
-                        onChange={() => toggleBulkMarkPaid(invoice.id)}
-                        title="Tick to include in bulk mark-paid"
-                        aria-label={`Select invoice ${invoice.invoice_number}`}
-                      />
-                    )}
-                    <div className="flex-1 grid grid-cols-4 gap-4">
+                    {/* Wave 66.1 -- mobile-first row layout. Pre-Wave
+                        66.1 the row used `flex items-center` with a
+                        hard `grid grid-cols-4` inside, so below 640px
+                        the four columns crushed into ~80px each, the
+                        client email truncated to one word, and the
+                        action button strip pushed off-screen.
+                        Now: stacks vertically on mobile (2-col grid
+                        for the fields + a separated action row below)
+                        and flips back to the original horizontal
+                        layout from md and up. */}
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {/* Phase 14 #10: row checkbox. Only renders for
+                          invoices that aren't already paid -- a paid
+                          row has nothing to bulk-action. */}
+                      {/* Wave 30.6: invoice_status enum is
+                          {draft|sent|paid|partially_paid|overdue|written_off}.
+                          'cancelled' never matches a real row -- the
+                          actual void value is 'written_off'. Kept the
+                          legacy literal for back-compat just in case
+                          any historical row carried it before the enum
+                          was tightened. */}
+                      {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 cursor-pointer accent-green-600 shrink-0"
+                          checked={bulkMarkPaidIds.has(invoice.id)}
+                          onChange={() => toggleBulkMarkPaid(invoice.id)}
+                          title="Tick to include in bulk mark-paid"
+                          aria-label={`Select invoice ${invoice.invoice_number}`}
+                        />
+                      )}
+                    <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
                           {/* Phase 21 #2: row-level click-to-copy
@@ -1791,7 +1804,8 @@ export default function InvoicesPage() {
                         {getStatusBadge(invoice.status)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    </div>
+                    <div className="flex items-center justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
                       <Button
                         variant="ghost"
                         size="sm"
