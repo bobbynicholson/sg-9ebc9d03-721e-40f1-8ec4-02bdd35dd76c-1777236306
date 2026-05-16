@@ -88,6 +88,12 @@ export default function InvoicesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [statusFilter, setStatusFilter] = useState("all");
+  // Wave 66.7 -- written-off rows are kept on file (SARS audit trail,
+  // VAT bad-debt recovery, linked order integrity, client credit
+  // history) but they shouldn't clutter the live AR triage view.
+  // Default: hide. Operator can flip back on with the toggle pill,
+  // and an explicit statusFilter='written_off' selection always wins.
+  const [includeWrittenOff, setIncludeWrittenOff] = useState(false);
   // Wave 65 -- date-range + amount-range filters. Bookkeepers running
   // monthly reconciliation need "April invoices only" or "all
   // invoices over R10k" without scrolling through everything.
@@ -921,6 +927,12 @@ export default function InvoicesPage() {
     let rows: any[] = invoices;
     if (statusFilter !== "all") {
       rows = rows.filter((inv: any) => inv.status === statusFilter);
+    } else if (!includeWrittenOff) {
+      // Wave 66.7 -- with "All statuses" selected and the toggle off,
+      // strip written_off rows from the default triage view. Explicit
+      // statusFilter="written_off" above bypasses this branch so the
+      // operator can always pull them up on demand.
+      rows = rows.filter((inv: any) => inv.status !== "written_off");
     }
     if (clientFilterId) {
       rows = rows.filter((inv: any) => inv.orders?.client_id === clientFilterId);
@@ -1411,7 +1423,7 @@ export default function InvoicesPage() {
                     Pre-Wave-61 the dropdown offered "outstanding"
                     which matched zero rows, while sent + partially_paid
                     + written_off had no filter route in. */}
-                <option value="all">All statuses</option>
+                <option value="all">{includeWrittenOff ? "All statuses" : "All (chase view)"}</option>
                 <option value="draft">Draft</option>
                 <option value="sent">Awaiting payment</option>
                 <option value="partially_paid">Part paid</option>
@@ -1420,6 +1432,38 @@ export default function InvoicesPage() {
                 <option value="written_off">Written off</option>
               </select>
             </div>
+
+            {/* Wave 66.7 -- written-off toggle. Hidden by default so
+                the operator's triage view is just live receivables.
+                The pill appears only when the chase view is active
+                (statusFilter='all'); explicit Written off filter
+                bypasses the hide logic so it's always discoverable. */}
+            {statusFilter === "all" && (() => {
+              const writtenOffCount = invoices.filter((i: any) => i.status === "written_off").length;
+              if (writtenOffCount === 0) return null;
+              return (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setIncludeWrittenOff((v) => !v)}
+                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border transition ${
+                      includeWrittenOff
+                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                    title="Written-off invoices stay on file for SARS audit + VAT bad-debt recovery. Toggle to include them in the list."
+                  >
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${includeWrittenOff ? "bg-slate-500" : "bg-slate-300"}`} />
+                    {includeWrittenOff ? "Including" : "Hiding"} {writtenOffCount} written-off invoice{writtenOffCount === 1 ? "" : "s"}
+                  </button>
+                  {includeWrittenOff && (
+                    <span className="text-[11px] text-slate-500">
+                      Faded rows below are closed-loop and don't count toward Outstanding.
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Wave 65 -- date-range, amount-range, and group-by-client
                 filters. Bookkeepers reconciling monthly need
@@ -1658,6 +1702,11 @@ export default function InvoicesPage() {
                     key={invoice.id}
                     className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
+                    } ${
+                      /* Wave 66.7 -- written-off rows fade to 60% so
+                         they read as closed-loop at a glance even when
+                         the operator has chosen to include them. */
+                      invoice.status === "written_off" ? "opacity-60 bg-slate-50/50" : ""
                     }`}
                   >
                     {/* Wave 66.1 -- mobile-first row layout. Pre-Wave
