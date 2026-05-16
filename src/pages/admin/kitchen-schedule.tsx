@@ -28,7 +28,9 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon } from "lucide-react";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
@@ -61,6 +63,20 @@ interface ShiftRow {
   order_id: string | null;
 }
 
+// Wave 66.2 -- event overlay rows. The schedule needs to surface the
+// demand side (orders booked for the day) alongside the supply side
+// (chefs rostered) so the operator can see "16 May has a 43-guest
+// event and zero chefs" at a glance instead of bouncing between
+// /admin/orders and this page.
+interface OrderForCal {
+  id: string;
+  order_number: string | null;
+  client_name: string | null;
+  event_date: string;
+  guest_count: number | null;
+  status: string;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function startOfWeek(d: Date): Date {
@@ -74,6 +90,14 @@ function addDays(d: Date, n: number): Date {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   out.setDate(out.getDate() + n);
   return out;
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
 function plannedHours(start: string | null, end: string | null): number {
@@ -102,10 +126,19 @@ function fmtTime(t: string | null): string {
 
 function KitchenScheduleGrid() {
   const { user } = useAuth() as any;
+  const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
+  // Wave 66.2 -- view mode. Week = the original Mon-Sun grid.
+  // Month = a 4-6 row calendar overview showing chef count + event
+  // count per day; click a day to drop back into week view for that
+  // week. Operators planning the next two months reach for the
+  // month view first; daily ops stay on week.
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [monthCursor, setMonthCursor] = useState<Date>(startOfMonth(new Date()));
   const [staff, setStaff] = useState<Staffer[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
+  const [orders, setOrders] = useState<OrderForCal[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
   // Wave 41 Phase 3: per-shift task chips (kitchen / cleaning /
@@ -119,13 +152,28 @@ function KitchenScheduleGrid() {
     [weekStart],
   );
 
+  // Wave 66.2 -- compute the date range we need to fetch for. Week
+  // view pulls 7 days; month view pulls the whole month grid (which
+  // can run Mon of week containing the 1st through Sun of week
+  // containing the last day, up to 42 days).
+  const fetchRange = useMemo(() => {
+    if (viewMode === "month") {
+      const monthFirst = startOfMonth(monthCursor);
+      const monthLast = endOfMonth(monthCursor);
+      const gridStart = startOfWeek(monthFirst);
+      const gridEnd = addDays(startOfWeek(monthLast), 6);
+      return { from: gridStart, to: gridEnd };
+    }
+    return { from: weekStart, to: addDays(weekStart, 6) };
+  }, [viewMode, monthCursor, weekStart]);
+
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const fromIso = toLocalISO(weekStart);
-      const toIso = toLocalISO(addDays(weekStart, 6));
-      const [staffRes, shiftsRes] = await Promise.all([
+      const fromIso = toLocalISO(fetchRange.from);
+      const toIso = toLocalISO(fetchRange.to);
+      const [staffRes, shiftsRes, ordersRes] = await Promise.all([
         // Wave 36.1: kitchen_staff role for chefs. Some tenants
         // also flag head chefs as company_admin -- pull both so the
         // grid shows everyone who could be on a kitchen shift.
@@ -154,10 +202,23 @@ function KitchenScheduleGrid() {
           .gte("shift_date", fromIso)
           .lte("shift_date", toIso)
           .is("deleted_at", null),
+        // Wave 66.2 -- pull orders within the range so the calendar
+        // shows the demand side (events booked) alongside the supply
+        // side (chefs rostered). Excludes cancelled so the overlay
+        // doesn't include a dead-and-buried run.
+        (supabase as any)
+          .from("orders")
+          .select("id, order_number, client_name, event_date, guest_count, status")
+          .eq("company_id", companyId)
+          .gte("event_date", fromIso)
+          .lte("event_date", toIso)
+          .neq("status", "cancelled")
+          .order("event_date", { ascending: true }),
       ]);
       setStaff((staffRes.data || []) as Staffer[]);
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
       setShifts(shiftRows);
+      setOrders((ordersRes.data || []) as OrderForCal[]);
       // Phase 3: pull tasks for every shift in this week in one
       // batch. Empty map until shifts exist, no extra round-trip.
       const shiftIds = shiftRows.map((s) => s.id);
@@ -170,6 +231,7 @@ function KitchenScheduleGrid() {
     } catch {
       setStaff([]);
       setShifts([]);
+      setOrders([]);
       setTasksByShift(new Map());
     } finally {
       setLoading(false);
@@ -186,7 +248,7 @@ function KitchenScheduleGrid() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, weekStart]);
+  }, [companyId, weekStart, monthCursor, viewMode]);
 
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};
@@ -194,6 +256,31 @@ function KitchenScheduleGrid() {
       const key = `${s.staff_id}|${s.shift_date}`;
       if (!map[key]) map[key] = [];
       map[key].push(s);
+    }
+    return map;
+  }, [shifts]);
+
+  // Wave 66.2 -- orders bucketed by event_date for O(1) cell lookup.
+  // Shape: 'YYYY-MM-DD' -> [event rows]. Drives both the week-view
+  // events row and the month-view per-day chips.
+  const ordersByDate = useMemo(() => {
+    const map = new Map<string, OrderForCal[]>();
+    for (const o of orders) {
+      if (!o.event_date) continue;
+      const arr = map.get(o.event_date);
+      if (arr) arr.push(o); else map.set(o.event_date, [o]);
+    }
+    return map;
+  }, [orders]);
+
+  // Wave 66.2 -- shifts bucketed by date (ignoring staff_id) so the
+  // month view can render a single chef-count chip per day without
+  // walking the full shift list per cell.
+  const shiftsByDate = useMemo(() => {
+    const map = new Map<string, ShiftRow[]>();
+    for (const s of shifts) {
+      const arr = map.get(s.shift_date);
+      if (arr) arr.push(s); else map.set(s.shift_date, [s]);
     }
     return map;
   }, [shifts]);
@@ -235,16 +322,60 @@ function KitchenScheduleGrid() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
-                  This week
-                </Button>
+                {/* Wave 66.2 -- view-mode toggle. Week stays the
+                    daily-ops surface (Mon-Sun grid with per-cell
+                    rostering); Month gives the planner a 5-6 week
+                    overview showing chef + event load per day, with
+                    click-through to that week. */}
+                <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("week")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    title="Daily-ops view -- one week, one cell per chef per day"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("month")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-slate-200 transition ${viewMode === "month" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    title="Planning view -- a month at a glance, chef + event load per day"
+                  >
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                    Month
+                  </button>
+                </div>
+                {viewMode === "week" ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
+                    <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
+                      This week
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">
+                      {monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(startOfMonth(new Date()))}>
+                      This month
+                    </Button>
+                  </>
+                )}
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
                 </Button>
@@ -319,7 +450,7 @@ function KitchenScheduleGrid() {
                   <div className="text-center py-12 text-slate-500 text-sm">
                     No kitchen staff in this company yet. Add one from /admin/kitchen-staff.
                   </div>
-                ) : (
+                ) : viewMode === "week" ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -342,6 +473,60 @@ function KitchenScheduleGrid() {
                           <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
                         </tr>
                       </thead>
+                      {/* Wave 66.2 -- events overlay row. Surfaces the
+                          demand side (orders booked on each day) so
+                          the operator can see "16 May: ORD-003828,
+                          43 guests, no chefs rostered -- needs cover"
+                          without bouncing to /admin/orders. Red ring
+                          fires when an event exists with zero chef
+                          shifts on the same date. */}
+                      <tbody className="border-b-2 border-slate-200">
+                        <tr className="bg-slate-50/60">
+                          <td className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-slate-50/60">
+                            Events
+                          </td>
+                          {weekDays.map((d, i) => {
+                            const iso = toLocalISO(d);
+                            const dayOrders = ordersByDate.get(iso) || [];
+                            const dayHasChef = (shiftsByDate.get(iso) || []).length > 0;
+                            const needsCover = dayOrders.length > 0 && !dayHasChef;
+                            return (
+                              <td key={i} className="px-1.5 py-1.5 align-top text-center">
+                                {dayOrders.length === 0 ? (
+                                  <span className="text-slate-300 text-xs">-</span>
+                                ) : (
+                                  <div className={`space-y-1 ${needsCover ? "ring-1 ring-rose-300 bg-rose-50 rounded-md p-1" : ""}`}>
+                                    {dayOrders.map((o) => (
+                                      <Link
+                                        key={o.id}
+                                        href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                        className={`block text-left rounded-md border px-1.5 py-1 text-[10px] leading-tight hover:bg-blue-50 transition ${needsCover ? "border-rose-200 bg-white" : "border-blue-200 bg-blue-50"}`}
+                                        title={`${o.order_number || "Order"} -- ${o.client_name || ""} -- ${o.guest_count ?? "?"} guests`}
+                                      >
+                                        <div className={`font-semibold truncate ${needsCover ? "text-rose-900" : "text-blue-900"}`}>
+                                          {o.client_name || o.order_number || "Event"}
+                                        </div>
+                                        <div className={`tabular-nums inline-flex items-center gap-0.5 ${needsCover ? "text-rose-700" : "text-blue-700"}`}>
+                                          <Users className="w-2.5 h-2.5" />
+                                          {o.guest_count ?? "?"}
+                                        </div>
+                                      </Link>
+                                    ))}
+                                    {needsCover && (
+                                      <div className="text-[10px] text-rose-700 font-medium inline-flex items-center gap-0.5 mt-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5" /> Needs cover
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-2 text-right tabular-nums text-xs text-slate-500">
+                            {orders.length > 0 ? `${orders.length} event${orders.length === 1 ? "" : "s"}` : "-"}
+                          </td>
+                        </tr>
+                      </tbody>
                       <tbody className="divide-y divide-slate-100">
                         {staff.map((p) => {
                           let staffTotal = 0;
@@ -451,6 +636,105 @@ function KitchenScheduleGrid() {
                       </tfoot>
                     </table>
                   </div>
+                ) : (
+                  // Wave 66.2 -- month view. 5-6 row calendar grid
+                  // showing chef count + event count per day. The
+                  // overview a planner reaches for when slotting
+                  // staff into next month's bookings. Click a day to
+                  // drop back into week view for that week.
+                  (() => {
+                    const monthFirst = startOfMonth(monthCursor);
+                    const monthLast = endOfMonth(monthCursor);
+                    const gridStart = startOfWeek(monthFirst);
+                    const gridEnd = addDays(startOfWeek(monthLast), 6);
+                    const totalDays = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86400000) + 1;
+                    const cells = Array.from({ length: totalDays }, (_, i) => addDays(gridStart, i));
+                    return (
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[700px]">
+                          <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-md overflow-hidden">
+                            {DAY_LABELS.map((lbl) => (
+                              <div key={lbl} className="bg-slate-50 px-2 py-1.5 text-xs uppercase tracking-wider text-slate-500 font-semibold text-center">
+                                {lbl}
+                              </div>
+                            ))}
+                            {cells.map((d) => {
+                              const iso = toLocalISO(d);
+                              const isToday = iso === todayIso;
+                              const inMonth = d.getMonth() === monthCursor.getMonth();
+                              const dayOrders = ordersByDate.get(iso) || [];
+                              const dayShifts = shiftsByDate.get(iso) || [];
+                              const distinctChefs = new Set(dayShifts.map((s) => s.staff_id)).size;
+                              const needsCover = dayOrders.length > 0 && distinctChefs === 0;
+                              return (
+                                <button
+                                  key={iso}
+                                  type="button"
+                                  onClick={() => {
+                                    // Jump into week view for the
+                                    // week containing this day so
+                                    // the operator can roster.
+                                    setWeekStart(startOfWeek(d));
+                                    setViewMode("week");
+                                  }}
+                                  className={`text-left min-h-[88px] p-1.5 transition ${
+                                    !inMonth ? "bg-slate-50 text-slate-400" :
+                                    needsCover ? "bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-200" :
+                                    isToday ? "bg-orange-50 hover:bg-orange-100" :
+                                    "bg-white hover:bg-slate-50"
+                                  }`}
+                                  title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} -- click to open the week`}
+                                >
+                                  <div className={`text-xs font-semibold tabular-nums ${isToday ? "text-orange-700" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
+                                    {d.getDate()}
+                                  </div>
+                                  <div className="mt-1 space-y-0.5">
+                                    {dayOrders.slice(0, 2).map((o) => (
+                                      <div
+                                        key={o.id}
+                                        className={`text-[10px] truncate rounded px-1 ${needsCover ? "bg-rose-100 text-rose-900" : "bg-blue-100 text-blue-900"}`}
+                                      >
+                                        {o.client_name || o.order_number || "Event"}
+                                      </div>
+                                    ))}
+                                    {dayOrders.length > 2 && (
+                                      <div className="text-[10px] text-slate-500">+{dayOrders.length - 2} more</div>
+                                    )}
+                                  </div>
+                                  {distinctChefs > 0 && (
+                                    <div className="text-[10px] text-emerald-700 mt-1 inline-flex items-center gap-0.5">
+                                      <Users className="w-2.5 h-2.5" />
+                                      {distinctChefs} chef{distinctChefs === 1 ? "" : "s"}
+                                    </div>
+                                  )}
+                                  {needsCover && (
+                                    <div className="text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
+                                      <AlertTriangle className="w-2.5 h-2.5" /> No cover
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-2 flex flex-wrap gap-3">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-200"></span>
+                              Event booked
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-rose-100 border border-rose-200"></span>
+                              Event with no chef rostered
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-orange-50 border border-orange-200"></span>
+                              Today
+                            </span>
+                            <span className="ml-auto text-slate-400">Click a day to open the week and roster shifts.</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 )}
               </CardContent>
             </Card>
