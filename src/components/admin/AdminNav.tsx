@@ -51,6 +51,7 @@ import {
   Sparkles,
   Receipt,
   Wallet,
+  HardHat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -234,6 +235,10 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Food & Ingredients", href: "/admin/inventory",             icon: Package,      description: "Pantry + chiller stock outlook" },
         { title: "Equipment",          href: "/admin/equipment",             icon: Layers,       description: "Catalog, availability, shortages and hire-in -- all tabs" },
         { title: "Suppliers",          href: "/admin/suppliers",             icon: Building2,    description: "Supplier hub: contacts, products, spend" },
+        // Wave 67 Phase B -- outsource providers (on-site chefs,
+        // florists, photographers etc) live next to Suppliers in
+        // the nav. Distinct registry + per-order assignment flow.
+        { title: "Outsource",          href: "/admin/outsource-providers",   icon: HardHat,      description: "On-site chefs, florists, photographers -- per-event service providers" },
         // Hire-in lives as a tab inside /admin/equipment now. The
         // standalone /admin/equipment/hire-orders URL still resolves
         // for old bookmarks + notification deep-links.
