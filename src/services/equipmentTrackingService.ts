@@ -216,7 +216,10 @@ export const equipmentTrackingService = {
           .from("profiles")
           .select("email, full_name, phone, phone_number")
           .eq("company_id", order.company_id)
-          .in("role", ["company_admin", "owner", "admin"])
+          // Wave 64.5 -- "owner" isn't a valid user_role enum value;
+          // pre-Wave-64.5 PostgREST threw on the .in() and the
+          // damage/cleaning notification silently picked no admin.
+          .in("role", ["company_admin", "admin"])
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
@@ -694,7 +697,10 @@ ${companyName}`;
           .from("profiles")
           .select("email, full_name")
           .eq("company_id", order.company_id)
-          .in("role", ["company_admin", "owner", "admin"])
+          // Wave 64.5 -- "owner" isn't a valid user_role enum value;
+          // pre-Wave-64.5 PostgREST threw on the .in() and the
+          // damage/cleaning notification silently picked no admin.
+          .in("role", ["company_admin", "admin"])
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();

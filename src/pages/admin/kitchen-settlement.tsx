@@ -97,7 +97,11 @@ function KitchenSettlementPage() {
         .from("profiles")
         .select("id, full_name, email, hourly_rate, role")
         .eq("company_id", companyId)
-        .in("role", ["kitchen_staff", "cleaning_staff", "company_admin", "owner"])
+        // Wave 64.5 -- "owner" was in this filter but isn't a valid
+        // user_role enum label, so PostgREST rejected the whole
+        // query and the settlement table silently came back empty.
+        // Same trap as kitchen-schedule + vehicles. Valid roles only.
+        .in("role", ["kitchen_staff", "cleaning_staff", "company_admin", "admin"])
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
       if (staffResError) {

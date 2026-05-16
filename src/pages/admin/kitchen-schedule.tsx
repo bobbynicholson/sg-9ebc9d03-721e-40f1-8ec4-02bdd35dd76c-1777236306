@@ -129,11 +129,17 @@ function KitchenScheduleGrid() {
         // Wave 36.1: kitchen_staff role for chefs. Some tenants
         // also flag head chefs as company_admin -- pull both so the
         // grid shows everyone who could be on a kitchen shift.
+        // Wave 64.5 -- "owner" was in this filter but isn't a valid
+        // user_role enum label, so PostgREST rejected the whole
+        // query and the catch block silently set staff=[]. The page
+        // then read as "0 chefs" even when Sarah Kitchen + Callum
+        // Rogers obviously qualified. Same trap caught and fixed
+        // previously on /admin/vehicles. Valid roles only here.
         (supabase as any)
           .from("profiles")
           .select("id, full_name, email, role")
           .eq("company_id", companyId)
-          .in("role", ["kitchen_staff", "company_admin", "owner"])
+          .in("role", ["kitchen_staff", "company_admin", "admin"])
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
         // Wave 40.4: kitchen_shifts now backs both kitchen + cleaning
