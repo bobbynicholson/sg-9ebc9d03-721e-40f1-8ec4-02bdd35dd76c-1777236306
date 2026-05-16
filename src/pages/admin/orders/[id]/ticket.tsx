@@ -50,7 +50,6 @@ interface OrderRow {
   event_date: string | null;
   event_time: string | null;
   guest_count: number | null;
-  final_guest_count: number | null;
   venue_address: string | null;
   special_instructions: string | null;
   internal_notes: string | null;
@@ -246,7 +245,12 @@ function KitchenTicketPage() {
       try {
         let q = (supabase as any)
           .from("orders")
-          .select("id, order_number, client_name, client_phone, event_date, event_time, guest_count, final_guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
+          // Wave 66.9 hotfix -- final_guest_count was in the select
+          // but doesn't exist on orders. PostgREST 400'd and the page
+          // silently null-rendered as "Order not found". Same trap as
+          // Wave 43. Use guest_count alone; if the column ever ships,
+          // re-add it here AND read it in the BackplannedItem helper.
+          .select("id, order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
           .eq("id", orderId)
           .is("deleted_at", null);
         if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
@@ -354,7 +358,7 @@ function KitchenTicketPage() {
   // Backplan all items + compute the global "kitchen starts at" /
   // "kitchen ends at" envelope so the header timeline ribbon reads
   // accurately even when each item has its own internal start.
-  const guestCount = Number(order?.final_guest_count || order?.guest_count || 1);
+  const guestCount = Number(order?.guest_count || 1);
   const pickupAt = order ? resolvePickupAt(order) : null;
   const eventAt = order ? combineDateTime(order.event_date, order.event_time) : null;
   const setupAt = order ? combineDateTime(order.event_date, order.setup_time) : null;
