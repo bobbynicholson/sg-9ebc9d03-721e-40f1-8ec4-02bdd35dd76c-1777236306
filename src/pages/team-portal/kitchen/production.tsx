@@ -332,6 +332,86 @@ export default function KitchenProductionPage() {
             </CardContent></Card>
           </div>
 
+          {/* Wave 66.9 Phase 2 -- "What to start next" priority queue.
+              The day-view grid answers "what's the kitchen on right
+              now"; this answers "what do I start cooking next" by
+              ranking every not-started task in the window by
+              start_at, then surfacing the top 5 with live countdowns.
+              Shows for day view only (week view is too coarse).
+              Self-hides when nothing's queued. */}
+          {!loading && view === "day" && (() => {
+            const nowMs = Date.now();
+            const queued = tasksOnAnchor
+              .filter((t: any) => t.status === "pending" && !t.started_at)
+              .map((t: any) => {
+                const startMs = new Date(t.start_at).getTime();
+                const minsFromNow = Math.round((startMs - nowMs) / 60_000);
+                return { task: t, startMs, minsFromNow };
+              })
+              .sort((a, b) => a.startMs - b.startMs)
+              .slice(0, 5);
+            if (queued.length === 0) return null;
+            const orderById = new Map<string, Order>(orders.map((o) => [o.id, o]));
+            const stationById = new Map<string, KitchenStation>(stations.map((s) => [s.id, s]));
+            return (
+              <Card className="mb-4 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-orange-700" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-orange-700">
+                      Start cooking next
+                    </p>
+                    <p className="text-[11px] text-orange-700/70">
+                      top {queued.length} by deadline -- earliest first
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {queued.map(({ task, minsFromNow }) => {
+                      const ord = orderById.get(task.order_id);
+                      const station = task.station_id ? stationById.get(task.station_id) : null;
+                      const taskTypeLabel = TASK_TYPE_LABEL[task.task_type as string] || task.task_type;
+                      const lateClass =
+                        minsFromNow < -15 ? "bg-rose-100 text-rose-900 border-rose-300 font-bold animate-pulse" :
+                        minsFromNow < 0 ? "bg-rose-50 text-rose-800 border-rose-200 font-semibold" :
+                        minsFromNow <= 15 ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold" :
+                        "bg-white text-slate-700 border-slate-200";
+                      const lateLabel =
+                        minsFromNow < -15 ? `Should have started ${Math.abs(minsFromNow)}m ago` :
+                        minsFromNow < 0 ? `${Math.abs(minsFromNow)}m late` :
+                        minsFromNow === 0 ? "Now" :
+                        minsFromNow <= 60 ? `Start in ${minsFromNow}m` :
+                        `Start in ${Math.round(minsFromNow / 60)}h ${minsFromNow % 60}m`;
+                      const startClock = new Date(task.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+                      return (
+                        <li key={task.id} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                          <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border tabular-nums whitespace-nowrap ${lateClass}`}>
+                            {lateLabel}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              <span className="text-orange-700 mr-1.5">{taskTypeLabel}</span>
+                              {task.menu_item_name || "Item"}
+                            </p>
+                            <p className="text-[11px] text-slate-600 truncate">
+                              {ord?.order_number ? `${ord.order_number} · ` : ""}
+                              {ord?.event_name || ord?.event_date || "—"}
+                              {ord?.guest_count ? ` · ${ord.guest_count} guests` : ""}
+                              {station ? ` · ${station.name}` : ""}
+                            </p>
+                          </div>
+                          <span className="text-xs text-slate-500 tabular-nums shrink-0">
+                            {startClock}
+                            <span className="text-slate-400 ml-1">· {Number(task.duration_min || 0)}m</span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {loading ? (
             <div className="flex items-center justify-center py-16 text-slate-500">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading production...
