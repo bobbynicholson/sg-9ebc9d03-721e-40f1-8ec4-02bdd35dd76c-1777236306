@@ -938,6 +938,57 @@ function MenuPage() {
                                   ) : (
                                     <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
                                   )}
+                                  {/* Wave 66.9 Phase 3 -- recipe-completeness chip.
+                                      Counts how many of the four backplanning
+                                      fields are populated (prep_time_minutes,
+                                      cook_time_minutes, base_servings,
+                                      requires_advance_notice_hours). Surfaces
+                                      a single chip on the row so the operator
+                                      sees at a glance which items the kitchen
+                                      ticket can fully backplan. Hidden for
+                                      buy-and-sell + fully-outsourced items
+                                      (those don't need the timing data). */}
+                                  {(() => {
+                                    const isBuySell = !!(it as any).is_buy_and_sell;
+                                    const ftype = (it as any).fulfilment_type;
+                                    if (isBuySell || ftype === "outsourced") return null;
+                                    const fields = [
+                                      (it as any).prep_time_minutes,
+                                      (it as any).cook_time_minutes,
+                                      (it as any).base_servings,
+                                      (it as any).requires_advance_notice_hours,
+                                    ];
+                                    const filled = fields.filter((f) => f != null && Number(f) >= 0 && String(f) !== "").length;
+                                    const total = fields.length;
+                                    const tone =
+                                      filled === total ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                      filled >= 2 ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                      "bg-rose-50 text-rose-700 border-rose-200";
+                                    const label = filled === total
+                                      ? "Prep timing complete"
+                                      : `Prep timing ${filled}/${total}`;
+                                    return (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] ${tone}`}
+                                        title={`Backplanning fields filled: prep_time_minutes, cook_time_minutes, base_servings, requires_advance_notice_hours. Kitchen ticket can ${filled === total ? "fully backplan" : "only partially backplan"} this item.`}
+                                      >
+                                        {label}
+                                      </Badge>
+                                    );
+                                  })()}
+                                  {/* Wave 66.9 Phase 3 -- outsourced fulfilment chip
+                                      so admin sees at-a-glance which items
+                                      route to external providers. */}
+                                  {((it as any).fulfilment_type === "outsourced" || (it as any).fulfilment_type === "hybrid") && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-blue-50 text-blue-700 border-blue-200"
+                                      title={`Fulfilment: ${(it as any).fulfilment_type}. Outsource assignment auto-mints on order creation.`}
+                                    >
+                                      {(it as any).fulfilment_type === "outsourced" ? "Outsourced" : "Hybrid"}
+                                    </Badge>
+                                  )}
                                   {/* Phase 2 #7: allergen review state. Surfaces
                                       the P0-15 data column so unreviewed items
                                       are visible at a glance. Only renders the
