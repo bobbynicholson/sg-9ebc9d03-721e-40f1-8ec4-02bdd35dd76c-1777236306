@@ -30,8 +30,9 @@ import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawer";
 import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
+import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -249,6 +250,11 @@ export default function InvoicesPage() {
   // an invoice with order_id = NULL for deposits / retainers / late
   // fees / damage charges / ad-hoc consultations.
   const [manualInvoiceOpen, setManualInvoiceOpen] = useState(false);
+  // Wave 66.5 -- per-row mark-paid dialog. The bulk toolbar handles
+  // multi-select settling; this is the focused single-invoice flow
+  // with amount / method / reference / note + optional client
+  // confirmation send.
+  const [markPaidInvoice, setMarkPaidInvoice] = useState<MarkPaidDialogInvoice | null>(null);
   useEffect(() => {
     const cid = (user as any)?.company_id;
     if (!cid) return;
@@ -522,9 +528,11 @@ export default function InvoicesPage() {
             order_number,
             event_date,
             client_id,
+            quote_id,
             clients (
               client_name,
-              email
+              email,
+              phone
             )
           )
         `)
@@ -1806,6 +1814,24 @@ export default function InvoicesPage() {
                     </div>
                     </div>
                     <div className="flex items-center justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
+                      {/* Wave 66.5 -- per-row Mark paid. Surfaced as
+                          a coloured pill rather than a ghost icon so
+                          it reads as the primary affordance on the
+                          row. Self-hides for fully-paid / written-off
+                          rows where there's nothing to record. */}
+                      {invoice.status !== "paid" && invoice.status !== "written_off" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
+                          title="Record a payment for this invoice and optionally send a confirmation to the client"
+                          aria-label="Mark this invoice paid"
+                          className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800 gap-1.5"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Mark paid</span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1953,6 +1979,17 @@ export default function InvoicesPage() {
         open={manualInvoiceOpen}
         onOpenChange={setManualInvoiceOpen}
         onCreated={() => loadInvoices()}
+      />
+
+      {/* Wave 66.5 -- single-invoice mark-paid dialog. Captures
+          amount, method, reference, date, internal note and an
+          optional client confirmation send (email or WhatsApp). */}
+      <MarkPaidDialog
+        open={!!markPaidInvoice}
+        invoice={markPaidInvoice}
+        onOpenChange={(o) => { if (!o) setMarkPaidInvoice(null); }}
+        onPaid={() => loadInvoices()}
+        formatMoney={tenantMoney.format}
       />
     </div>
   );
