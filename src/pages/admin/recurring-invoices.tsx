@@ -14,20 +14,46 @@
  * delete. Full line-item editor + per-row send-after-generate
  * preference can land in W68 part 2.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft } from "lucide-react";
+import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatZAR } from "@/lib/formatters";
+
+type LineItem = {
+  item_name: string;
+  quantity: number;
+  unit_price: number;
+};
+
+function emptyLine(): LineItem {
+  return { item_name: "", quantity: 1, unit_price: 0 };
+}
 
 type Template = {
   id: string;
@@ -48,6 +74,36 @@ export default function RecurringInvoicesPage() {
   const [rows, setRows] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  // Wave 68.1 -- proper Dialog state replacing the window.prompt chain.
+  // 4 sequential prompts couldn't be cancelled cleanly, lost typing on
+  // a misclick, and had no line-item editor at all. Now: one Dialog
+  // with validated fields + an editable line-items table.
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [frequency, setFrequency] = useState<string>("monthly");
+  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [lineItems, setLineItems] = useState<LineItem[]>([emptyLine()]);
+
+  const subtotal = useMemo(
+    () => lineItems.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unit_price) || 0), 0),
+    [lineItems],
+  );
+
+  const resetForm = () => {
+    setTemplateName("");
+    setClientName("");
+    setClientEmail("");
+    setFrequency("monthly");
+    setStartDate(new Date().toISOString().slice(0, 10));
+    setLineItems([emptyLine()]);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
 
   const load = async () => {
     if (!user?.company_id) return;
@@ -87,31 +143,54 @@ export default function RecurringInvoicesPage() {
     load();
   };
 
-  const quickCreate = async () => {
-    const name = window.prompt("Template name (e.g. 'Acme weekly office lunch'):", "");
-    if (!name) return;
-    const clientName = window.prompt("Client name:", "");
-    if (!clientName) return;
-    const totalStr = window.prompt("Total amount per cycle (rand, e.g. 5000):", "");
-    const total = Number(totalStr);
-    if (!Number.isFinite(total) || total <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
-    const frequency = (window.prompt("Frequency: weekly / fortnightly / monthly / quarterly", "monthly") || "monthly").toLowerCase();
-    if (!["weekly","fortnightly","monthly","quarterly"].includes(frequency)) { toast({ title: "Invalid frequency", variant: "destructive" }); return; }
-    const today = new Date().toISOString().slice(0, 10);
+  const handleCreate = async () => {
+    // Validate. Toast on the first failing field so the operator
+    // knows exactly what to fix; no shaking-form noise.
+    if (!templateName.trim()) {
+      toast({ title: "Template name required", variant: "destructive" });
+      return;
+    }
+    if (!clientName.trim()) {
+      toast({ title: "Client name required", variant: "destructive" });
+      return;
+    }
+    const cleanLines = lineItems
+      .map((l) => ({
+        item_name: (l.item_name || "").trim(),
+        quantity: Number(l.quantity) || 0,
+        unit_price: Number(l.unit_price) || 0,
+      }))
+      .filter((l) => l.item_name && l.quantity > 0 && l.unit_price > 0);
+    if (cleanLines.length === 0) {
+      toast({
+        title: "Need at least one line item",
+        description: "Each line needs a name, quantity > 0 and price > 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const total = cleanLines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+
     setCreating(true);
     const { error } = await (supabase as any)
       .from("recurring_invoice_templates")
       .insert([{
         company_id: user.company_id,
-        client_name: clientName,
-        template_name: name,
+        client_name: clientName.trim(),
+        client_email: clientEmail.trim() || null,
+        template_name: templateName.trim(),
         frequency,
-        start_date: today,
-        next_run_at: today, // first invoice fires on the next cron tick
+        start_date: startDate,
+        next_run_at: startDate, // first invoice fires on the next cron tick
         total_amount: total,
         subtotal: total,
         tax_amount: 0,
-        line_items: [{ item_name: name, quantity: 1, unit_price: total, line_total: total }],
+        line_items: cleanLines.map((l) => ({
+          item_name: l.item_name,
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          line_total: l.quantity * l.unit_price,
+        })),
         created_by: user.id,
       }]);
     setCreating(false);
@@ -119,9 +198,22 @@ export default function RecurringInvoicesPage() {
       toast({ title: "Could not create", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Recurring template created", description: `${name}: first invoice fires on tomorrow's cron run.` });
+    toast({
+      title: "Recurring template created",
+      description: `${templateName.trim()}: first invoice fires on the next cron run.`,
+    });
+    setDialogOpen(false);
+    resetForm();
     load();
   };
+
+  const updateLine = (i: number, patch: Partial<LineItem>) => {
+    setLineItems((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  };
+  const removeLine = (i: number) => {
+    setLineItems((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+  };
+  const addLine = () => setLineItems((prev) => [...prev, emptyLine()]);
 
   return (
     <>
@@ -148,7 +240,7 @@ export default function RecurringInvoicesPage() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button onClick={quickCreate} disabled={creating} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={openCreate} disabled={creating} className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="w-4 h-4 mr-2" />
                 New template
               </Button>
@@ -200,6 +292,173 @@ export default function RecurringInvoicesPage() {
           </Card>
         </div>
       </div>
+
+      {/* Wave 68.1 -- new-template dialog. Replaces the 4-prompt
+          window.prompt chain with validated fields + editable
+          line-items table. First invoice fires on the configured
+          next_run_at (defaults to today). */}
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New recurring template</DialogTitle>
+            <DialogDescription>
+              Set up the invoice once. The cron generates a draft on the {frequency} cycle starting {startDate}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="ri-name">Template name</Label>
+                <Input
+                  id="ri-name"
+                  placeholder="Acme weekly office lunch"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ri-client">Client name</Label>
+                <Input
+                  id="ri-client"
+                  placeholder="Acme Ltd"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ri-email">Client email <span className="text-xs text-slate-400">(optional)</span></Label>
+                <Input
+                  id="ri-email"
+                  type="email"
+                  placeholder="ap@acme.example"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Frequency</Label>
+                <Select value={frequency} onValueChange={setFrequency}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="fortnightly">Fortnightly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ri-start">First run date</Label>
+                <Input
+                  id="ri-start"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Line items</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={addLine}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add line
+                </Button>
+              </div>
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="text-left px-2 py-1.5">Item</th>
+                      <th className="text-right px-2 py-1.5 w-20">Qty</th>
+                      <th className="text-right px-2 py-1.5 w-28">Unit price</th>
+                      <th className="text-right px-2 py-1.5 w-28">Line total</th>
+                      <th className="w-9"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lineItems.map((l, i) => {
+                      const lineTotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+                      return (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="px-2 py-1">
+                            <Input
+                              value={l.item_name}
+                              onChange={(e) => updateLine(i, { item_name: e.target.value })}
+                              placeholder="Lunch platter"
+                              className="h-8"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={l.quantity}
+                              onChange={(e) => updateLine(i, { quantity: Number(e.target.value) || 0 })}
+                              className="h-8 text-right tabular-nums"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              value={l.unit_price}
+                              onChange={(e) => updateLine(i, { unit_price: Number(e.target.value) || 0 })}
+                              className="h-8 text-right tabular-nums"
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-right tabular-nums text-slate-700">
+                            {formatZAR(lineTotal)}
+                          </td>
+                          <td className="px-1 py-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeLine(i)}
+                              disabled={lineItems.length <= 1}
+                              className="text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Remove line"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-slate-50">
+                    <tr className="border-t border-slate-200">
+                      <td colSpan={3} className="px-2 py-1.5 text-right text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                        Subtotal per cycle
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-sm font-semibold tabular-nums text-slate-900">
+                        {formatZAR(subtotal)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {creating ? "Creating..." : "Create template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
