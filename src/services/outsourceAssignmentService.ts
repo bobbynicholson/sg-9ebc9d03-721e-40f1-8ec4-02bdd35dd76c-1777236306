@@ -59,6 +59,10 @@ export interface OutsourceAssignment {
   manually_marked_accepted: boolean;
   manually_marked_by: string | null;
   notes: string | null;
+  // Wave 67.5 -- multi-provider routing. Siblings in the same
+  // routing_group_id are alternates for the same fulfilment slot;
+  // accepting one auto-cancels the rest via DB trigger.
+  routing_group_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

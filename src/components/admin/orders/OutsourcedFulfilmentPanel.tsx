@@ -127,6 +127,13 @@ export function OutsourcedFulfilmentPanel({
   const [addBusy, setAddBusy] = useState(false);
   const [origin, setOrigin] = useState<string>("");
 
+  // Wave 67.5 -- multi-provider routing context. When the operator
+  // clicks "Add candidate" on an existing requested assignment, we
+  // open the add dialog scoped to that assignment's routing_group_id
+  // so the new sibling shares the fulfilment slot. First-to-accept
+  // auto-cancels the rest via DB trigger.
+  const [addCandidateFor, setAddCandidateFor] = useState<OutsourceAssignmentWithProvider | null>(null);
+
   // Add-form state
   const [pickedProviderId, setPickedProviderId] = useState<string>("");
   const [serviceDescription, setServiceDescription] = useState("");
@@ -181,6 +188,7 @@ export function OutsourcedFulfilmentPanel({
   }, [pickedProviderId]);
 
   const openAdd = () => {
+    setAddCandidateFor(null);
     setPickedProviderId("");
     setServiceDescription("");
     setScopeNotes("");
@@ -191,6 +199,23 @@ export function OutsourcedFulfilmentPanel({
     } else {
       setRequiredOnSiteAt("");
     }
+    setAddOpen(true);
+  };
+
+  // Wave 67.5 -- add an alternate provider to an existing requested
+  // assignment. Pre-fills scope + on-site from the parent so the
+  // operator only picks the new provider + tweaks cost if needed.
+  const openAddCandidate = (parent: OutsourceAssignmentWithProvider) => {
+    setAddCandidateFor(parent);
+    setPickedProviderId("");
+    setServiceDescription(parent.service_description);
+    setScopeNotes(parent.scope_notes || "");
+    setQuotedCost(String(parent.quoted_cost));
+    setRequiredOnSiteAt(
+      parent.required_on_site_at
+        ? new Date(parent.required_on_site_at).toISOString().slice(0, 16)
+        : (eventDate && eventTime ? `${eventDate}T${eventTime.slice(0, 5)}` : ""),
+    );
     setAddOpen(true);
   };
 
@@ -210,6 +235,29 @@ export function OutsourcedFulfilmentPanel({
     }
     setAddBusy(true);
     try {
+      // Wave 67.5 -- when adding a candidate to an existing
+      // routing group, reuse the parent's routing_group_id (or mint
+      // a new one if the parent doesn't have one yet, also bumping
+      // the parent into the group). When starting fresh, pass
+      // undefined so the new assignment stays a single.
+      let routingGroupId: string | undefined;
+      if (addCandidateFor) {
+        if (addCandidateFor.routing_group_id) {
+          routingGroupId = addCandidateFor.routing_group_id;
+        } else {
+          // Promote the parent into a new routing group first so the
+          // DB trigger sees both rows as siblings.
+          routingGroupId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+            ? crypto.randomUUID()
+            : "new";
+          await (await fetch(`/api/admin/outsource-assignments/${addCandidateFor.id}/action`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "set_routing_group", routingGroupId }),
+          })).json().catch(() => null);
+        }
+      }
+
       const resp = await fetch("/api/admin/outsource-assignments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,6 +270,7 @@ export function OutsourcedFulfilmentPanel({
           requiredOnSiteAt: requiredOnSiteAt ? new Date(requiredOnSiteAt).toISOString() : undefined,
           rateType: pickedProvider?.default_rate_type,
           costCurrency: pickedProvider?.default_currency,
+          routingGroupId,
         }),
       });
       const json = await resp.json();
@@ -399,6 +448,18 @@ export function OutsourcedFulfilmentPanel({
                             (manual)
                           </span>
                         )}
+                        {a.routing_group_id && (() => {
+                          const groupSize = assignments.filter((x) => x.routing_group_id === a.routing_group_id).length;
+                          if (groupSize < 2) return null;
+                          return (
+                            <span
+                              className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-semibold bg-blue-50 text-blue-800 border-blue-200"
+                              title={`${groupSize} candidates -- first to accept wins; others auto-cancel`}
+                            >
+                              1 of {groupSize}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <p className="text-xs text-slate-700 mt-1">{a.service_description}</p>
                       {a.scope_notes && (
@@ -430,15 +491,30 @@ export function OutsourcedFulfilmentPanel({
                         <Copy className="w-4 h-4" />
                       </Button>
                       {a.status === "requested" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleMarkAccepted(a)}
-                          title="Mark accepted on their behalf"
-                          className="text-green-700 hover:text-green-800"
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleMarkAccepted(a)}
+                            title="Mark accepted on their behalf"
+                            className="text-green-700 hover:text-green-800"
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          {/* Wave 67.5 -- add an alternate provider
+                              to the same fulfilment slot. First to
+                              accept wins; the others auto-cancel via
+                              DB trigger. */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openAddCandidate(a)}
+                            title="Add an alternate provider -- first to accept wins"
+                            className="text-blue-700 hover:text-blue-800"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
                       {a.status !== "cancelled" && a.status !== "completed" && (
                         <Button
@@ -479,12 +555,18 @@ export function OutsourcedFulfilmentPanel({
       </div>
 
       {/* Add dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setAddCandidateFor(null); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Attach outsource provider</DialogTitle>
+            <DialogTitle>
+              {addCandidateFor
+                ? `Add alternate to ${addCandidateFor.provider?.provider_name || "this booking"}`
+                : "Attach outsource provider"}
+            </DialogTitle>
             <DialogDescription>
-              Pick who fulfils what for {orderNumber || "this order"}. The provider gets a magic-link to accept or decline.
+              {addCandidateFor
+                ? "First provider to accept wins; the others auto-cancel. Useful when you need a fast response and want to ask two or three candidates at once."
+                : `Pick who fulfils what for ${orderNumber || "this order"}. The provider gets a magic-link to accept or decline.`}
             </DialogDescription>
           </DialogHeader>
 

@@ -94,6 +94,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
     }
 
+    // Wave 67.5 -- multi-provider routing. When the caller passes
+    // routingGroupId, this row joins the same fulfilment-slot group
+    // as the existing siblings. The DB trigger
+    // _outsource_cancel_routing_siblings auto-cancels the rest when
+    // any one of them is accepted. New routing groups can be started
+    // by setting routingGroupId to "new" -- we mint a fresh uuid so
+    // the caller doesn't have to.
+    let routingGroupId: string | null = null;
+    if (typeof body.routingGroupId === "string") {
+      if (body.routingGroupId === "new") {
+        routingGroupId = crypto.randomUUID();
+      } else if (/^[0-9a-f-]{36}$/i.test(body.routingGroupId)) {
+        routingGroupId = body.routingGroupId;
+      }
+    }
+
     const { data: inserted, error: insErr } = await admin
       .from("outsource_assignments")
       .insert({
@@ -111,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         accept_token: mintToken(),
         accept_token_expires_at: expiresAt,
         requested_by: user.id,
+        routing_group_id: routingGroupId,
       })
       .select()
       .single();

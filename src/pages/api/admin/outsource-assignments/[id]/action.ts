@@ -104,6 +104,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         auditAction = "outsource_cost_updated";
         break;
       }
+      case "set_routing_group": {
+        // Wave 67.5 -- join this assignment to an existing routing
+        // group (or start one). Used by the panel's "Add candidate"
+        // flow to promote a single into a multi-provider group when
+        // the first candidate is added.
+        const rgid = typeof body.routingGroupId === "string" ? body.routingGroupId : null;
+        if (rgid && !/^[0-9a-f-]{36}$/i.test(rgid)) {
+          return res.status(400).json({ error: "Invalid routing group id" });
+        }
+        patch = { routing_group_id: rgid };
+        auditAction = "outsource_routing_group_set";
+        break;
+      }
       default:
         return res.status(400).json({ error: "Unknown action" });
     }
