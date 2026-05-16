@@ -32,6 +32,7 @@
  *     would produce on a retry.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { emailService } from "@/services/emailService";
@@ -547,18 +548,11 @@ export async function postOrderCreationCascade(
             : (provider.default_rate != null ? Number(provider.default_rate) : 0);
           if (!Number.isFinite(cost)) continue;
 
-          // Crypto-safe token. Node `crypto` is available in the cron
-          // + API surfaces this cascade runs from; the browser supabase
-          // client never hits this path (postCreationCascade is called
-          // server-side via the leads + quote conversion routes).
-          let token: string;
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const nodeCrypto = require("crypto");
-            token = nodeCrypto.randomBytes(32).toString("hex");
-          } catch {
-            token = `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
-          }
+          // Crypto-safe token via Node's crypto. postCreationCascade
+          // runs server-side only (leads + quote conversion routes,
+          // never the browser supabase client) so the static import
+          // at the top of this file is safe.
+          const token = randomBytes(32).toString("hex");
 
           const { error: insErr } = await (client as any)
             .from("outsource_assignments")
