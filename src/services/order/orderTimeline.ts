@@ -465,12 +465,13 @@ function resolveStage(
           startedAt: null,
           completedAt: null,
           blockedReason: null,
-          // Wave 25.1 polish: deep-link to the order drawer (NOT
-        // /admin/kitchen-staff which is the chef-CRUD page). The
-        // drawer exposes prep tasks within the order context, which
-        // is the operator's natural "open this order's kitchen state"
-        // surface.
-        sourceLink: `/admin/orders?orderId=${orderId}`,
+          // Wave 66.4 -- route to kitchen schedule (see note on the
+          // active-tasks branch below). Same destination so the
+          // operator always lands on the kitchen surface regardless
+          // of whether prep has started.
+          sourceLink: o.event_date
+            ? `/admin/kitchen-schedule?date=${o.event_date}`
+            : `/admin/kitchen-schedule`,
         };
       }
       const totalActive = tasks.filter((t) => String(t?.status || "") !== "skipped").length;
@@ -489,12 +490,16 @@ function resolveStage(
           ? tasks.map((t) => t?.completed_at).filter(Boolean).sort().reverse()[0] || null
           : null,
         blockedReason: null,
-        // Wave 25.1 polish: deep-link to the order drawer (NOT
-        // /admin/kitchen-staff which is the chef-CRUD page). The
-        // drawer exposes prep tasks within the order context, which
-        // is the operator's natural "open this order's kitchen state"
-        // surface.
-        sourceLink: `/admin/orders?orderId=${orderId}`,
+        // Wave 66.4 -- deep-link to /admin/kitchen-schedule for the
+        // event date. The order modal has no kitchen tab (the
+        // Wave 25.1 plan to expose prep tasks in the modal never
+        // shipped), so the previous link dropped the operator on
+        // the order details with no kitchen state visible. The
+        // kitchen schedule's Wave 66.2 events row + week grid is
+        // the real surface for "open this order's kitchen state".
+        sourceLink: o.event_date
+          ? `/admin/kitchen-schedule?date=${o.event_date}`
+          : `/admin/kitchen-schedule`,
         meta: { progress: { done, total: totalActive } },
       };
     }

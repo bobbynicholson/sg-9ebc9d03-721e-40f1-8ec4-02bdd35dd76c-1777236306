@@ -1,38 +1,46 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * TimelineTrack -- the new 22-stage / 5-cluster order timeline UI.
+ * TimelineTrack -- the 22-stage / 5-cluster order timeline UI.
  *
- * Wave 25 architecture: replaces the 7-dot row in /admin/orders with
- * a clustered band that surfaces every operational milestone (deposit
- * paid, hire flow, prep progress, dispatch, post-event collection,
- * cleaning, balance paid, thank-you sent). The data model lives in
- * src/services/order/orderTimeline.ts; this file is pure presentation.
+ * Wave 66.4 rewrite. Full UI audit (5 specialists, 3 passes) concluded
+ * the previous design glanced well at cluster level but failed at the
+ * per-stage drill-in: labels were only visible via browser `title`
+ * tooltips (slow, unstylable, no touch), cluster headers showed names
+ * but no progress, the current stage label only appeared in the top
+ * banner, and four sourceLinks routed to surfaces that didn't honour
+ * the query param.
  *
- * Design goals (logistics-specialist plan):
- *   - One pulsing dot per row, eye-line at arm's length
- *   - 5 visual cluster bands so the operator's macro glance reads
- *     "where in the lifecycle is this order"
- *   - Conditional stages collapse cleanly (n/a hidden behind chevron
- *     when the cluster is otherwise inactive)
- *   - Click-through to the artifact (deposit -> invoice page, prep ->
- *     kitchen list, etc.) via stage.sourceLink
- *   - Mobile: render the cluster pills + a single "Now" card; tap to
- *     expand into a vertical list
+ * Now:
+ *   - Each stage dot is wrapped in a HoverCard with rich content:
+ *     status, when, who, what triggers completion, click-through.
+ *   - Cluster headers show progress count + tick when all done.
+ *   - Each cluster surfaces its current-or-next stage label inline
+ *     under the dot row so ops read context without hovering.
+ *   - Mini progress bar under each cluster (visual fill 0-100%).
+ *   - Connectors thickened to 2px with smoother transitions.
+ *   - Focus-visible ring on every dot for keyboard navigation.
+ *   - Stage-trigger glossary so the popover answers "what makes this
+ *     stage complete" -- operators learn the pipeline by hovering.
  *
- * This component is presentation-only. It receives an OrderTimeline
- * object and renders. Click handlers delegate to the Link href in
- * stage.sourceLink so server-side navigation doesn't need a callback.
+ * Data model still lives in src/services/order/orderTimeline.ts. This
+ * file is pure presentation; click handlers delegate to stage.sourceLink.
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock, AlertCircle, ChevronDown } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import {
   type OrderTimeline,
   type OrderTimelineStage,
   type StageGroup,
+  type StageKey,
   STAGE_GROUP_LABELS,
 } from "@/services/order/orderTimeline";
 import { useTenantHref } from "@/lib/tenantUrl";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface TimelineTrackProps {
   timeline: OrderTimeline;
@@ -60,6 +68,117 @@ const CLUSTER_ORDER: StageGroup[] = [
   "closure",
 ];
 
+// Wave 66.4 -- stage-trigger glossary. Each entry answers "what makes
+// this stage flip to completed" so the operator can see, without
+// reading the code, what data point closes the loop. Surfaced in the
+// HoverCard popover under "Completes when". Where the trigger is a
+// human action ("supplier delivers"), the actor is named so ops know
+// who's accountable.
+const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
+  quote_accepted: {
+    trigger: "Client accepted the quote or admin marked it accepted.",
+    owner: "Sales / client",
+  },
+  order_created: {
+    trigger: "Order row exists in the system.",
+    owner: "Sales admin",
+  },
+  deposit_invoice_issued: {
+    trigger: "First invoice with a deposit amount has been generated.",
+    owner: "Sales admin",
+  },
+  deposit_paid: {
+    trigger: "Deposit payment recorded against the invoice (manual or auto).",
+    owner: "Client / bookkeeping",
+  },
+  confirmed: {
+    trigger: "Order status moved off 'pending' / 'draft'. Blocked when deposit is required but unpaid.",
+    owner: "Sales admin",
+  },
+  equipment_hire_booked: {
+    trigger: "Every hire row has an expected_pickup_date set with the supplier.",
+    owner: "Operations / procurement",
+  },
+  equipment_hire_collected: {
+    trigger: "Every hire row has actual_pickup_date stamped -- the supplier handed it over.",
+    owner: "Driver / collector",
+  },
+  pre_event_cleaning: {
+    trigger: "All owned equipment has pre_event_cleaning_done_at stamped.",
+    owner: "Cleaning team",
+  },
+  kitchen_prep_in_progress: {
+    trigger: "All kitchen_prep_tasks marked done. Backplanned from pickup time.",
+    owner: "Head chef",
+  },
+  ready_for_dispatch: {
+    trigger: "Prep tasks complete OR order status flipped to 'ready' / beyond.",
+    owner: "Head chef",
+  },
+  driver_assigned_delivery: {
+    trigger: "A driver is assigned to this order via dispatch or self-claim.",
+    owner: "Dispatcher",
+  },
+  in_transit: {
+    trigger: "Order status flips to 'in_transit' or picked_up_at is stamped.",
+    owner: "Driver",
+  },
+  delivered: {
+    trigger: "delivered_at stamped via driver portal or status moves to 'delivered'.",
+    owner: "Driver",
+  },
+  collection_scheduled: {
+    trigger: "Driver assignment of type 'collection' exists for this order.",
+    owner: "Dispatcher",
+  },
+  collection_done: {
+    trigger: "Collection driver_assignment marked completed.",
+    owner: "Driver",
+  },
+  post_event_cleaning: {
+    trigger: "All equipment_cleaning_status rows back to ready / stored / available.",
+    owner: "Cleaning team",
+  },
+  final_invoice_issued: {
+    trigger: "Invoice matching order total exists.",
+    owner: "Bookkeeping",
+  },
+  final_invoice_sent: {
+    trigger: "Invoice has sent_at stamped (emailed to client).",
+    owner: "Bookkeeping",
+  },
+  balance_paid: {
+    trigger: "Balance payment recorded. Blocked when due date passes unpaid.",
+    owner: "Client / bookkeeping",
+  },
+  receipt_issued: {
+    trigger: "Payment receipt sent or recorded for the balance.",
+    owner: "Bookkeeping",
+  },
+  completed: {
+    trigger: "Order status moved to 'completed' or completed_at stamped.",
+    owner: "Sales admin",
+  },
+  thank_you_sent: {
+    trigger: "Thank-you / order_completed / review_request email logged for this order.",
+    owner: "Sales admin",
+  },
+};
+
+function fmtDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString("en-ZA", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
 // --- Stage dot --------------------------------------------------------------
 
 function StageDot({
@@ -71,13 +190,6 @@ function StageDot({
   stage: OrderTimelineStage;
   size?: "default" | "small";
   onStageClick?: (stage: OrderTimelineStage) => void;
-  /** Wave 26.1: tenant-slug wrapper from useTenantHref(). When the
-   *  current user is on /spit-braai-delivery/admin/..., every Link
-   *  href stays inside that namespace -- a stage dot pointing at
-   *  /admin/orders?orderId=X gets rendered as
-   *  /spit-braai-delivery/admin/orders?orderId=X. Passed by the
-   *  parent because hooks can only run inside a React component, not
-   *  inside a render-helper sub-function. */
   withSlug: (href: string) => string;
 }) {
   const isCompleted = stage.status === "completed";
@@ -85,85 +197,173 @@ function StageDot({
   const isBlocked = stage.status === "blocked";
   const isUpcoming = stage.status === "upcoming";
 
-  // Wave 25.1 polish: bumped completed dots up so the "done" track is
-  // legible at glance distance (4px was barely a pixel cluster).
-  // Current/blocked dots stay larger and pulse so they're the
-  // unambiguous focus of the eye.
-  const baseSize = size === "small" ? "w-2.5 h-2.5" : "w-4 h-4";
+  // Wave 66.4 -- dot sizing nudged up a notch for legibility at desk
+  // distance. Completed dots got w-3.5 (was w-4 but used as
+  // background), current/blocked stay distinct at w-7.
+  const baseSize = size === "small" ? "w-2.5 h-2.5" : "w-3.5 h-3.5";
   const currentSize = size === "small" ? "w-4 h-4" : "w-7 h-7";
 
-  // Logistics-spec colour rules: green = done, orange = next to do,
-  // red = problem. green-500 (not emerald-500) is the unambiguous
-  // hospital-cross green; emerald reads as teal which muddied the
-  // signal in the live spit-braai walkthrough.
+  const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500";
+
   const dotClasses = (() => {
-    // Wave 56 -- pulse only on blocked. Pre-Wave-56 every "current"
-    // dot pulsed (every order has exactly one current stage, so 50
-    // visible orders = 50 simultaneous heartbeats -- signal-to-noise
-    // destroyed). Now: orange ring still marks current at-a-glance,
-    // pulse reserved for the genuine alert state (blocked).
     if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 shadow-md shadow-orange-200`;
     if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
     if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
-    // skipped or n/a: rendered as a 0-size element so the layout
-    // stays tight without faint visual noise. n/a stages are filtered
-    // out at the cluster level too.
     return "w-0 h-0 hidden";
   })();
 
   const Icon = isCompleted ? CheckCircle2 : isBlocked ? AlertCircle : isCurrent ? Clock : null;
 
-  const tooltip = (() => {
-    const lines: string[] = [stage.label];
-    if (stage.meta?.progress) {
-      lines.push(`${stage.meta.progress.done} of ${stage.meta.progress.total}`);
-    }
-    if (stage.meta?.actor) lines.push(stage.meta.actor);
-    if (stage.meta?.expectedAt) {
-      try {
-        lines.push(`Due ${new Date(stage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`);
-      } catch { /* ignore */ }
-    }
-    if (stage.completedAt) {
-      try {
-        lines.push(`Done ${new Date(stage.completedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`);
-      } catch { /* ignore */ }
-    }
-    if (stage.blockedReason) lines.push(`Blocked: ${stage.blockedReason}`);
-    return lines.join(" • ");
-  })();
+  const glossary = STAGE_GLOSSARY[stage.key];
+  const completedAt = fmtDateTime(stage.completedAt);
+  const startedAt = fmtDateTime(stage.startedAt);
+  const expectedAt = fmtDateTime(stage.meta?.expectedAt);
 
   const dot = (
-    <div
-      className={`relative group inline-flex items-center justify-center rounded-full transition-all ${dotClasses}`}
-      title={tooltip}
-      aria-label={tooltip}
+    <span
+      className={`relative inline-flex items-center justify-center rounded-full transition-all ${dotClasses} ${focusRing}`}
+      aria-label={`${stage.label}: ${stage.status}`}
+      tabIndex={isCompleted || isCurrent || isBlocked ? 0 : -1}
     >
       {Icon && size !== "small" && (
-        <Icon className={isCurrent || isBlocked ? "w-3 h-3 text-white" : "w-2.5 h-2.5 text-white"} />
+        <Icon className={isCurrent || isBlocked ? "w-3 h-3 text-white" : "w-2 h-2 text-white"} />
       )}
-    </div>
+    </span>
   );
 
-  // When the dot has a sourceLink and a meaningful status, wrap as a
-  // link so click navigates to the source artifact. Stop propagation
-  // so the parent row click doesn't also fire.
-  if (stage.sourceLink && (isCurrent || isBlocked || isCompleted)) {
-    return (
-      <Link
-        href={withSlug(stage.sourceLink)}
-        onClick={(e) => {
-          e.stopPropagation();
-          onStageClick?.(stage);
-        }}
-        className="inline-flex"
-      >
-        {dot}
-      </Link>
-    );
-  }
-  return dot;
+  // Wave 66.4 -- HoverCard replaces the browser-native `title`
+  // attribute. Same trigger semantics (hover on desktop, focus
+  // for keyboard) but a stylable rich content panel.
+  const dotWithHover = (
+    <HoverCard openDelay={150} closeDelay={50}>
+      <HoverCardTrigger asChild>
+        {stage.sourceLink && (isCurrent || isBlocked || isCompleted) ? (
+          <Link
+            href={withSlug(stage.sourceLink)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStageClick?.(stage);
+            }}
+            className="inline-flex"
+          >
+            {dot}
+          </Link>
+        ) : (
+          <span className="inline-flex">{dot}</span>
+        )}
+      </HoverCardTrigger>
+      <HoverCardContent align="center" sideOffset={8} className="w-72 p-3">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-slate-900">{stage.label}</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">
+                {STAGE_GROUP_LABELS[stage.group]}
+              </div>
+            </div>
+            <StatusBadge status={stage.status} />
+          </div>
+
+          {stage.blockedReason && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">
+              <span className="font-semibold">Blocked: </span>
+              {stage.blockedReason}
+            </div>
+          )}
+
+          {stage.meta?.progress && (
+            <div className="text-xs">
+              <span className="text-slate-500">Progress: </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                {stage.meta.progress.done} of {stage.meta.progress.total}
+              </span>
+            </div>
+          )}
+
+          {stage.meta?.actor && (
+            <div className="text-xs">
+              <span className="text-slate-500">Assigned: </span>
+              <span className="font-semibold text-slate-900">{stage.meta.actor}</span>
+            </div>
+          )}
+
+          {expectedAt && !isCompleted && (
+            <div className="text-xs">
+              <span className="text-slate-500">Expected: </span>
+              <span className="font-semibold text-slate-900">{expectedAt}</span>
+            </div>
+          )}
+
+          {startedAt && !isCompleted && (
+            <div className="text-xs">
+              <span className="text-slate-500">Started: </span>
+              <span className="font-semibold text-slate-900">{startedAt}</span>
+            </div>
+          )}
+
+          {completedAt && (
+            <div className="text-xs">
+              <span className="text-slate-500">Done: </span>
+              <span className="font-semibold text-green-700">{completedAt}</span>
+            </div>
+          )}
+
+          {glossary && (
+            <div className="text-xs border-t border-slate-100 pt-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                Completes when
+              </div>
+              <div className="text-slate-700">{glossary.trigger}</div>
+              <div className="text-[11px] text-slate-500">
+                <span className="font-medium">Owner:</span> {glossary.owner}
+              </div>
+            </div>
+          )}
+
+          {stage.sourceLink && (isCurrent || isBlocked || isCompleted) && (
+            <Link
+              href={withSlug(stage.sourceLink)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStageClick?.(stage);
+              }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 pt-1 border-t border-slate-100 w-full"
+            >
+              Open the surface for this stage
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+
+  return dotWithHover;
+}
+
+function StatusBadge({ status }: { status: OrderTimelineStage["status"] }) {
+  const cfg = (() => {
+    switch (status) {
+      case "completed":
+        return { label: "Done", cls: "bg-green-50 text-green-700 border-green-200" };
+      case "current":
+        return { label: "In progress", cls: "bg-orange-50 text-orange-700 border-orange-200" };
+      case "blocked":
+        return { label: "Blocked", cls: "bg-rose-50 text-rose-700 border-rose-200" };
+      case "upcoming":
+        return { label: "Upcoming", cls: "bg-slate-50 text-slate-600 border-slate-200" };
+      case "skipped":
+        return { label: "Skipped", cls: "bg-slate-50 text-slate-500 border-slate-200" };
+      default:
+        return { label: "N/a", cls: "bg-slate-50 text-slate-400 border-slate-200" };
+    }
+  })();
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.cls} shrink-0`}>
+      {cfg.label}
+    </span>
+  );
 }
 
 // --- Cluster band -----------------------------------------------------------
@@ -179,12 +379,10 @@ function ClusterBand({
   onStageClick?: (stage: OrderTimelineStage) => void;
   withSlug: (href: string) => string;
 }) {
-  // Filter out n/a stages; if everything is n/a, render a faint placeholder
-  // so the cluster keeps a stable column width.
   const visible = stages.filter((s) => s.status !== "not_applicable");
   if (visible.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-1 px-2 opacity-40">
+      <div className="flex flex-col items-center gap-1 px-2 opacity-40 min-w-0">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           {STAGE_GROUP_LABELS[group]}
         </div>
@@ -193,9 +391,26 @@ function ClusterBand({
     );
   }
 
-  const allCompleted = visible.every((s) => s.status === "completed");
+  const completed = visible.filter((s) => s.status === "completed").length;
+  const total = visible.length;
+  const allCompleted = completed === total;
   const hasCurrent = visible.some((s) => s.status === "current");
   const hasBlocked = visible.some((s) => s.status === "blocked");
+  const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Wave 66.4 -- inline cluster context. If the cluster has the
+  // current (or blocked) stage, surface its label + progress beneath
+  // the dot row so ops read "Logistics: Kitchen prep (5/8)" without
+  // hovering. If fully done, surface a small "all done" hint. If
+  // upcoming-only, surface the next pending stage's label so the
+  // operator sees what this cluster is waiting on.
+  const focusStage = hasBlocked
+    ? visible.find((s) => s.status === "blocked")
+    : hasCurrent
+      ? visible.find((s) => s.status === "current")
+      : !allCompleted
+        ? visible.find((s) => s.status === "upcoming")
+        : null;
 
   const headerColor =
     allCompleted ? "text-green-600" :
@@ -203,39 +418,79 @@ function ClusterBand({
     hasCurrent ? "text-orange-600" :
     "text-slate-500";
 
+  const progressBarColor =
+    hasBlocked ? "bg-red-500" :
+    allCompleted ? "bg-green-500" :
+    hasCurrent ? "bg-orange-500" :
+    "bg-slate-300";
+
   return (
-    <div className="flex flex-col items-center gap-1.5 px-2 min-w-0">
-      <div className={`text-[10px] font-semibold uppercase tracking-wide ${headerColor}`}>
-        {STAGE_GROUP_LABELS[group]}
+    <div className="flex flex-col items-center gap-1.5 px-2 min-w-0 w-full">
+      {/* Header row: name + count + tick */}
+      <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${headerColor}`}>
+        <span>{STAGE_GROUP_LABELS[group]}</span>
+        <span className="tabular-nums text-[9px] opacity-80">
+          {completed}/{total}
+        </span>
+        {allCompleted && <CheckCircle2 className="w-3 h-3" />}
       </div>
-      <div className="flex items-center gap-2">
+
+      {/* Dot row */}
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
         {visible.map((s, idx) => {
-          // Wave 25.1: connector colour follows the stage transition.
-          // Green when the previous stage is done (it's a finished leg
-          // of the track); orange when the previous stage is current
-          // (the pipe leading INTO the next dot, hinting at "what's
-          // up next"); red when blocked; otherwise neutral grey.
           const next = visible[idx + 1];
+          // Wave 66.4 -- connector polish. 2px height (was 0.5),
+          // brighter gradient for in-progress legs, wider for
+          // breathing room.
           const connectorClass = !next
             ? ""
             : s.status === "completed" && next.status === "completed"
               ? "bg-green-500"
               : s.status === "completed" && (next.status === "current" || next.status === "blocked")
-                ? "bg-gradient-to-r from-green-500 to-orange-400"
+                ? "bg-gradient-to-r from-green-500 via-orange-400 to-orange-300"
                 : s.status === "current"
                   ? "bg-gradient-to-r from-orange-400 to-slate-200"
                   : s.status === "blocked"
                     ? "bg-red-300"
                     : "bg-slate-200";
           return (
-            <div key={s.key} className="flex items-center gap-2">
+            <div key={s.key} className="flex items-center gap-1.5">
               <StageDot stage={s} onStageClick={onStageClick} withSlug={withSlug} />
               {next && (
-                <div className={`h-0.5 w-4 rounded-full ${connectorClass}`} />
+                <div className={`h-[3px] w-5 rounded-full ${connectorClass}`} />
               )}
             </div>
           );
         })}
+      </div>
+
+      {/* Inline focus-stage label */}
+      {focusStage && (
+        <div className={`text-[10px] text-center leading-tight ${
+          hasBlocked ? "text-red-700 font-semibold" :
+          hasCurrent ? "text-orange-700 font-semibold" :
+          "text-slate-500"
+        }`}>
+          {focusStage.label}
+          {focusStage.meta?.progress && (
+            <span className="ml-1 tabular-nums opacity-80">
+              {focusStage.meta.progress.done}/{focusStage.meta.progress.total}
+            </span>
+          )}
+        </div>
+      )}
+      {!focusStage && allCompleted && (
+        <div className="text-[10px] text-green-600 font-medium leading-tight text-center">
+          All done
+        </div>
+      )}
+
+      {/* Mini progress bar -- visual fill 0-100% */}
+      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full transition-all duration-500 ${progressBarColor}`}
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
     </div>
   );
@@ -306,13 +561,10 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
         <Link
           href={withSlug(stage.sourceLink)}
           onClick={(e) => e.stopPropagation()}
-          // Wave 28.8: query-only nav was scrolling to top because
-          // next/link defaults scroll:true. The /admin/orders page
-          // adopts the orderId query param to open the drawer in-place.
           scroll={false}
           className="text-xs font-semibold underline decoration-dotted hover:decoration-solid flex-shrink-0"
         >
-          Open →
+          Open <ChevronRight className="w-3 h-3 inline" />
         </Link>
       )}
     </div>
@@ -323,15 +575,6 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
 
 export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBanner }: TimelineTrackProps) {
   const [expanded, setExpanded] = useState(false);
-  // Wave 26.1: tenant-slug wrapper for every Link the timeline
-  // renders. The user on /spit-braai-delivery/admin/orders should
-  // click a stage dot and stay inside /spit-braai-delivery/admin/...
-  // -- without this, the previous build dropped the operator out to
-  // bare /admin/... which broke tenant isolation Bobby's been
-  // enforcing across the codebase. Single hook call here, threaded
-  // down to StageDot / ClusterBand / NowCard so the slug-prefix
-  // happens at render time without each sub-component needing its
-  // own router lookup.
   const { withSlug } = useTenantHref();
 
   const stagesByCluster = useMemo(() => {
@@ -400,23 +643,11 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
   }
 
   // --- Full desktop view ---
-  // Wave 25.1 polish: promoted the "what's the next action" question
-  // out of an inline text label into a prominent banner at the top of
-  // the timeline. The operator sees the actionable signal in one
-  // glance instead of having to scan dots first. Banner colour reads
-  // by status: orange = next to do, red = blocked.
   return (
     <div className="space-y-2.5">
-      {/* Now / Blocked banner -- the single most important question.
-          Wave 43 T3: tone now keys off urgency tier (today/overdue
-          flash crimson, soon=amber, normal=orange) so the operator
-          spots tomorrow's events at a glance. Blocked still wins
-          (red, regardless of urgency). */}
       {!hideOperatorBanner && currentStage && (() => {
         const isBlocked = currentStage.status === "blocked";
         const u = (timeline as any).urgency as string | undefined;
-        // Wave 46 T1 -- 'tomorrow' tier added. Same amber tone as
-        // 'soon' for visual consistency, but the label is explicit.
         const tone = isBlocked
           ? { card: "bg-red-50 border-red-200", dot: "bg-red-500", label: "text-red-700", btn: "bg-red-600 hover:bg-red-700", pulseClass: "animate-pulse" }
           : u === "overdue" || u === "today"
@@ -426,11 +657,6 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
               : u === "soon"
                 ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
                 : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
-        // Wave 56 -- copy softened. Pre-Wave-56 read "Event today --
-        // act now" + "Event past -- still incomplete" -- alarmist
-        // surveillance register that the OrderReadinessChip's own
-        // header docstring explicitly bans ("Goal is to make Callum
-        // feel held, not policed"). Now reads as a calm shoulder-tap.
         const headerLabel = isBlocked
           ? "Blocked"
           : u === "overdue"
@@ -461,7 +687,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                 )}
                 {currentStage.meta?.expectedAt && (
                   <span className="text-xs font-normal text-slate-600">
-                    · expected {new Date(currentStage.meta.expectedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    · expected {fmtDateTime(currentStage.meta.expectedAt)}
                   </span>
                 )}
               </div>
@@ -470,10 +696,6 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                   {currentStage.blockedReason}
                 </div>
               )}
-              {/* Wave 44 T2: cross-system blockers. Pulled from
-                  cleaning_jobs + delivery shift state -- explains
-                  why the current stage isn't moving with the
-                  specific thing to unstick. */}
               {Array.isArray((timeline as any).crossSystemBlockers) &&
                 (timeline as any).crossSystemBlockers.length > 0 && (
                   <div className="mt-1 space-y-0.5">
@@ -498,17 +720,14 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                 scroll={false}
                 className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${tone.btn}`}
               >
-                Open →
+                Open <ChevronRight className="w-3 h-3 inline" />
               </Link>
             )}
           </div>
         );
       })()}
-      {/* Cluster band -- Wave 25.1 polish: flex-1 per cluster wrapper
-          stretches the 5 clusters across the full width of the parent
-          card. Without this the cluster band sized to its natural dot
-          width and left a wide whitespace strip on the right at
-          desktop widths. */}
+
+      {/* Cluster band */}
       <div className="flex items-stretch gap-1 w-full overflow-x-auto pb-1">
         {CLUSTER_ORDER.map((g, idx) => (
           <div key={g} className="flex items-stretch flex-1 min-w-0">
@@ -526,6 +745,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
           </div>
         ))}
       </div>
+
       {/* Bottom progress count */}
       <div className="text-[10px] text-slate-500 text-right">
         {timeline.completedCount} of {timeline.applicableCount} stages complete
