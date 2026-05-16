@@ -1017,6 +1017,12 @@ function OrderProcessDashboard() {
           const timelines = new Map<string, OrderTimeline>();
           const readinesses = new Map<string, OrderReadiness>();
           for (const o of allOrders as any[]) {
+            // Wave 67.2 -- attach outsource assignments to the order
+            // row so the money summary inside the order modal can read
+            // them without a second round-trip. The OutsourcedFulfilmentPanel
+            // still does its own live fetch with the full nested provider
+            // join; this is a lightweight rollup for COGS maths only.
+            (o as any).__outsourceAssignments = outsourceByOrder.get(o.id) || [];
             const orderEqIds = new Set<string>(
               (bookingsByOrder.get(o.id) || [])
                 .map((b: any) => b.equipment_id)
@@ -3007,6 +3013,54 @@ function OrderProcessDashboard() {
                     </p>
                   </div>
                 </div>
+
+                {/* Wave 67.2 -- COGS strip with outsource fees. Pulls
+                    quoted_cost (or actual_cost when invoiced) for
+                    every non-cancelled outsource_assignments row on
+                    this order, breaks out gross margin vs net
+                    margin so the operator sees what the event is
+                    actually earning after paying external providers.
+                    Self-hides when no outsource assignments exist. */}
+                {(() => {
+                  const outsourceList = ((selectedOrder as any).__outsourceAssignments || []) as Array<{ status: string; quoted_cost?: number | string | null; actual_cost?: number | string | null }>;
+                  const live = outsourceList.filter((a) => a.status !== "cancelled");
+                  if (live.length === 0) return null;
+                  const outsourceTotal = live.reduce((sum, a) => {
+                    const c = a.actual_cost != null ? Number(a.actual_cost) : Number(a.quoted_cost || 0);
+                    return sum + (Number.isFinite(c) ? c : 0);
+                  }, 0);
+                  const orderTotal = Number((selectedOrder as any).total_amount || 0);
+                  const netMargin = orderTotal - outsourceTotal;
+                  const marginPct = orderTotal > 0 ? (netMargin / orderTotal) * 100 : 0;
+                  return (
+                    <div className="col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2 pt-3 border-t border-slate-200">
+                      <div>
+                        <Label className="text-xs flex items-center gap-1.5">
+                          Outsource fees
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">COGS</span>
+                        </Label>
+                        <p className="text-sm font-semibold text-rose-700 mt-1 tabular-nums">
+                          −{C}{outsourceTotal.toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          {live.length} provider{live.length === 1 ? "" : "s"} engaged
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Net after outsource</Label>
+                        <p className={`text-sm font-semibold mt-1 tabular-nums ${netMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                          {C}{netMargin.toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Margin</Label>
+                        <p className={`text-sm font-semibold mt-1 tabular-nums ${marginPct >= 30 ? "text-emerald-700" : marginPct >= 15 ? "text-amber-700" : "text-rose-700"}`}>
+                          {marginPct.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Dispatch summary -- vehicle + 2-driver flag. Internal
                     only, never goes near the client portal. The vehicle
