@@ -1697,10 +1697,47 @@ export default function InvoicesPage() {
                     </div>
                   ));
                 })()}
-                {!groupByClient && filteredInvoices.map(invoice => (
+                {!groupByClient && filteredInvoices.map(invoice => {
+                  // Wave 66.8 -- compute overdue / due-soon per row so
+                  // the chase view's eye lands on what the bookkeeper
+                  // needs to chase first. invoice_status flips to
+                  // 'overdue' via cron (eventually) but the visual
+                  // signal has to be live -- we can't make a sent
+                  // invoice with due_date 7 days ago read as normal.
+                  // Hierarchy:
+                  //   - overdue (red border + RED badge): due_date past
+                  //     AND balance > 0 AND status is sent/partially_paid/overdue
+                  //   - due-soon (amber border + amber badge): due_date
+                  //     within 3 days AND balance > 0
+                  //   - normal: no extra treatment
+                  // Written-off rows ignore both branches (closed-loop).
+                  const balanceOpen = Number(invoice.balance_due || 0) > 0;
+                  const liveStatus = ["sent", "partially_paid", "overdue"].includes(invoice.status);
+                  let isOverdue = false;
+                  let daysOverdue = 0;
+                  let isDueSoon = false;
+                  let daysToDue = 0;
+                  if (invoice.due_date && balanceOpen && liveStatus) {
+                    const dueMs = new Date(invoice.due_date).getTime();
+                    const nowMs = Date.now();
+                    const diffDays = Math.floor((nowMs - dueMs) / 86_400_000);
+                    if (diffDays > 0) {
+                      isOverdue = true;
+                      daysOverdue = diffDays;
+                    } else if (diffDays >= -3) {
+                      isDueSoon = true;
+                      daysToDue = -diffDays;
+                    }
+                  }
+                  const overdueBorder = isOverdue
+                    ? "border-l-4 border-l-rose-500 bg-rose-50/30"
+                    : isDueSoon
+                      ? "border-l-4 border-l-amber-500 bg-amber-50/30"
+                      : "";
+                  return (
                   <div
                     key={invoice.id}
-                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${
+                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
                     } ${
                       /* Wave 66.7 -- written-off rows fade to 60% so
@@ -1852,13 +1889,33 @@ export default function InvoicesPage() {
                       <div>
                         <div className="font-medium">{tenantMoney.format(invoice.total_amount || 0)}</div>
                         {invoice.balance_due > 0 && (
-                          <div className="text-sm text-yellow-700">
+                          <div className={`text-sm ${isOverdue ? "text-rose-700 font-semibold" : "text-yellow-700"}`}>
                             Balance: {tenantMoney.format(invoice.balance_due)}
                           </div>
                         )}
                       </div>
-                      <div>
-                        {getStatusBadge(invoice.status)}
+                      <div className="space-y-1">
+                        {/* Wave 66.8 -- overdue + due-soon badges win
+                            over the generic status badge so the
+                            bookkeeper's eye lands on the chase target
+                            first. Falls back to getStatusBadge for
+                            draft / paid / written_off / etc. */}
+                        {isOverdue ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                            Overdue {daysOverdue}d
+                          </span>
+                        ) : isDueSoon ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                            {daysToDue === 0 ? "Due today" : `Due in ${daysToDue}d`}
+                          </span>
+                        ) : (
+                          getStatusBadge(invoice.status)
+                        )}
+                        {invoice.due_date && (isOverdue || isDueSoon) && (
+                          <div className="text-[10px] text-slate-500 tabular-nums">
+                            Was due {format(new Date(invoice.due_date), "dd MMM")}
+                          </div>
+                        )}
                       </div>
                     </div>
                     </div>
@@ -1934,7 +1991,8 @@ export default function InvoicesPage() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

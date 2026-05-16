@@ -122,7 +122,8 @@ export async function generateInvoiceData(
           billing_address_line1,
           billing_address_line2,
           billing_city,
-          billing_postal_code
+          billing_postal_code,
+          payment_terms
         )
       `)
       .eq("id", orderId)
@@ -331,12 +332,54 @@ export async function generateInvoiceData(
       client.billing_postal_code,
     ].filter(Boolean).join(", ");
 
+    // Wave 66.8 -- smart due-date hierarchy. Pre-Wave-66.8 the dueDate
+    // was hardcoded to invoice_date + 30 regardless of the tenant's
+    // configured default or the client's per-account terms. Now:
+    //
+    //   per-client payment_terms (integer days)
+    //     -> overrides every other default. Lets a corporate client be
+    //        set to Net 30 while everyone else stays on the company
+    //        default.
+    //   company balance_due_days (integer days, configurable in
+    //     /admin/settings)
+    //     -> fallback when the client has no override.
+    //   30 days
+    //     -> ultimate fallback when neither is configured.
+    //
+    // For catering specifically, the balance is conceptually due BEFORE
+    // the event (you cater the airport tomorrow, you want the money by
+    // close of business today). So we cap the computed dueDate at
+    // event_date - 1 day. The operator can still set a longer
+    // post-event term per-invoice manually if they want.
+    const clientPaymentTerms = Number((client as any)?.payment_terms);
+    const companyBalanceDueDays = Number((companyData as any)?.balance_due_days);
+    const termDays =
+      Number.isFinite(clientPaymentTerms) && clientPaymentTerms > 0
+        ? clientPaymentTerms
+        : Number.isFinite(companyBalanceDueDays) && companyBalanceDueDays > 0
+          ? companyBalanceDueDays
+          : 30;
+    const invoiceDateObj = new Date();
+    const computedDue = new Date(invoiceDateObj.getTime() + termDays * 24 * 60 * 60 * 1000);
+    // Cap at event_date - 1 day so balance lands before the event.
+    let finalDue = computedDue;
+    const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
+    if (eventDateRaw) {
+      const eventDate = new Date(eventDateRaw);
+      if (!Number.isNaN(eventDate.getTime())) {
+        const dueByEvent = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000);
+        if (dueByEvent.getTime() < computedDue.getTime() && dueByEvent.getTime() >= invoiceDateObj.getTime()) {
+          finalDue = dueByEvent;
+        }
+      }
+    }
+
     // 6. Build invoice data
     const invoiceData: InvoiceData = {
       invoiceNumber,
       invoiceDate: format(new Date(), "yyyy-MM-dd"),
-      dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"), // 30 days
-      
+      dueDate: format(finalDue, "yyyy-MM-dd"),
+
       companyName: companyData.company_name,
       companyLogo: companyData.logo_url,
       companyAddress: [

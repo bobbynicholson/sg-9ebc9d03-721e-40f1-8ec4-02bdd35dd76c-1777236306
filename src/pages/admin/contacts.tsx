@@ -1810,6 +1810,12 @@ function ClientFormDialog({
     // string in the form state so the operator can type freely;
     // we normalise to a string[] before writing to clients.tags.
     tags: "",
+    // Wave 66.8 -- per-client payment terms in days. Overrides the
+    // company-wide balance_due_days default during invoice generation.
+    // Lets corporate clients be set to Net 30 / Net 60 while everyone
+    // else stays on the company's catering-default (typically 7).
+    // "" = use the company default; positive integer = Net X days.
+    payment_terms: "",
   });
 
   // Seed the form when the dialog opens. Two layers: first we seed from
@@ -1823,6 +1829,7 @@ function ClientFormDialog({
         client_name: "", email: "", phone: "", client_type: "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
         billing_city: "", billing_postal_code: "", notes: "", tags: "",
+        payment_terms: "",
       });
       setShowMore(false);
       return;
@@ -1836,13 +1843,14 @@ function ClientFormDialog({
       client_type: "individual",
       tax_number: "", billing_address_line1: "", billing_address_line2: "",
       billing_city: "", billing_postal_code: "", notes: "", tags: "",
+      payment_terms: "",
     });
     setShowMore(false);
     // Layer 2: enrich from the row (billing, tax, notes, tags).
     (async () => {
       const { data } = await supabase
         .from("clients")
-        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags")
+        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms")
         .eq("id", editing.clientId)
         .maybeSingle();
       if (!data) return;
@@ -1859,6 +1867,7 @@ function ClientFormDialog({
         billing_postal_code: data.billing_postal_code || "",
         notes:       data.notes || "",
         tags:        dataTags.join(", "),
+        payment_terms: (data as any).payment_terms != null ? String((data as any).payment_terms) : "",
       });
       const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes || dataTags.length);
       setShowMore(hasOptional);
@@ -1895,6 +1904,13 @@ function ClientFormDialog({
       billing_postal_code: form.billing_postal_code.trim() || null,
       notes:       form.notes.trim() || null,
       tags:        normalisedTags.length > 0 ? normalisedTags : null,
+      // Wave 66.8 -- per-client payment terms override. Empty string
+      // clears the override so invoice generation falls back to the
+      // company default; positive integer sets Net X days.
+      payment_terms: (() => {
+        const n = parseInt(form.payment_terms.trim(), 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      })(),
     };
     let error: any = null;
     if (editing?.clientId) {
@@ -1970,6 +1986,28 @@ function ClientFormDialog({
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">VAT / Tax number</label>
                 <Input value={form.tax_number} onChange={set("tax_number")} placeholder="VAT 4123456789" className="mt-1" />
               </div>
+
+              {/* Wave 66.8 -- per-client payment terms (days). Overrides
+                  the company default during invoice generation. Lets
+                  a corporate that needs Net 30 stay on Net 30 while
+                  everyone else uses the catering-style 7-day balance.
+                  Leave blank to use the company default. */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Payment terms (days)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={form.payment_terms}
+                  onChange={set("payment_terms")}
+                  placeholder="Leave blank for the company default"
+                  className="mt-1"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Net X days for this client&apos;s invoices. Useful for corporate accounts who need 30 or 60 days. Blank = use the company-wide default (typically 7 for catering).
+                </p>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Billing address</label>
                 <Input value={form.billing_address_line1} onChange={set("billing_address_line1")} placeholder="Line 1" className="mt-1" />
