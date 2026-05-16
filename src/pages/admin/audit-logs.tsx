@@ -440,6 +440,32 @@ function CompanyAuditLogsViewer() {
                     still owns the long tail; these chips give one-tap
                     access to the entity types operators reach for
                     repeatedly (order/quote/payment/refund). */}
+                {/* Wave 67.6 -- POPIA quick filter. POPIA Section 11 +
+                    Subject Access Request (SAR) replies need the
+                    operator to surface "every read of this data
+                    subject's PII" on demand. One click pre-fills
+                    action=pii_access and clears the entity filter
+                    so the operator can scope-by-entity from there
+                    using the existing filter. */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-slate-500 mr-1">POPIA:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionFilter("pii_access");
+                      setEntityTypeFilter("all");
+                      setPage(0);
+                    }}
+                    className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border transition ${
+                      actionFilter === "pii_access"
+                        ? "border-violet-700 bg-violet-900 text-white"
+                        : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-400 hover:text-violet-900"
+                    }`}
+                    title="Filter to PII access events -- who viewed contact details, financial info, etc. Required for POPIA Subject Access Requests."
+                  >
+                    PII access only
+                  </button>
+                </div>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   <span className="text-xs text-slate-500 mr-1">Quick filter:</span>
                   {([

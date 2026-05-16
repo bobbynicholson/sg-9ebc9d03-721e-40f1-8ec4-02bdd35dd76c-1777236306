@@ -20,6 +20,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { logPiiAccess } from "@/services/piiAccessLogService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -1853,6 +1854,18 @@ function ClientFormDialog({
         .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms")
         .eq("id", editing.clientId)
         .maybeSingle();
+      // Wave 67.6 -- POPIA access log. Fire-and-forget; the read
+      // itself isn't blocked if the log call fails. Categories
+      // distinguish contact_details (phone/email/billing) from
+      // identifying (VAT/tax). Extend to other PII-bearing surfaces
+      // by importing and calling logPiiAccess.
+      const hasIdentifying = !!(data as any)?.tax_number;
+      void logPiiAccess({
+        entityType: "client",
+        entityId: editing.clientId,
+        category: hasIdentifying ? "identifying" : "contact_details",
+        fields: `opened client edit dialog: name, email, phone, billing address${hasIdentifying ? ", VAT/tax number" : ""}, notes, tags`,
+      });
       if (!data) return;
       const dataTags = ((data as any).tags as string[] | null) || [];
       setForm({
