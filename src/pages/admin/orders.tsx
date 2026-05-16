@@ -3458,6 +3458,23 @@ function OrderProcessDashboard() {
     );
   };
 
+  // Wave 64.2 -- deeplink flicker fix. When a sibling page (e.g. the
+  // invoices list "Open order" link) lands here as
+  // /admin/orders?orderId=X, the page used to render the full kanban
+  // / timeline for ~1s while the orders fetch resolved, then pop the
+  // modal on top. Operators read that flash as "glitchy". Now we mask
+  // the dashboard with a focused loading overlay while the deeplink
+  // is still resolving -- the overlay drops the instant the modal
+  // opens or the not-found toast fires (which strips ?orderId from
+  // the URL).
+  const isDeeplinkPending =
+    router.isReady &&
+    typeof router.query.orderId === "string" &&
+    !router.query.amendment &&
+    !router.query.cancellation &&
+    !isModalOpen &&
+    (loading || orders.length === 0);
+
   return (
     <>
       <NoIndexMeta />
@@ -3466,6 +3483,15 @@ function OrderProcessDashboard() {
       </Head>
 
       <AdminNav />
+
+      {isDeeplinkPending && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+          <div className="flex flex-col items-center gap-3 text-slate-600">
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+            <p className="text-sm">Opening order...</p>
+          </div>
+        </div>
+      )}
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
