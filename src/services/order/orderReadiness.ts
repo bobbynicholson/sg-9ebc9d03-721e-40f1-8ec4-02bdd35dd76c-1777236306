@@ -185,15 +185,26 @@ export function computeOrderReadiness(
     actionLink: `/admin/order-assignments?orderId=${orderId}`,
   });
 
-  // 3b. Driver acknowledged the assignment (MEDIUM -- Wave 47 split).
-  // Reads driver_assignments.status (preferred) OR order_assignment_audit
-  // for an 'accepted' event. Skips if no driver assigned (covered above).
+  // 3b. Driver acknowledged the assignment (MEDIUM).
+  // Wave 64.4 -- read accepted_at as the durable truth source instead
+  // of pattern-matching the status enum. Status is a workflow column
+  // that drifts (e.g. lockstep mirror jumps from 'assigned' straight
+  // to 'en_route' on the in_transit transition, skipping 'accepted').
+  // accepted_at is stamped once when the assignment is accepted (either
+  // by claim_order RPC self-claim, or by the Wave 64.4 admin auto-
+  // accept in dispatchService.assignDriverWithGate) and never cleared.
+  // Status fallback widened to include delivered + completed so a
+  // post-event chip that's missing accepted_at on a legacy row still
+  // reads as passing.
   if (assignedDriverId) {
     const driverAssignmentsRows = input.driverAssignments || [];
     const driverHasAcceptedAssignment = driverAssignmentsRows.some(
       (a: any) =>
         String(a?.assignment_type || "delivery") === "delivery"
-        && ["accepted", "en_route", "picked_up"].includes(String(a?.status || "")),
+        && (
+          !!a?.accepted_at
+          || ["accepted", "en_route", "picked_up", "delivered", "completed"].includes(String(a?.status || ""))
+        ),
     );
     signals.push({
       key: "driver_acknowledged",
@@ -201,7 +212,7 @@ export function computeOrderReadiness(
       passing: driverHasAcceptedAssignment,
       message: driverHasAcceptedAssignment
         ? "Driver acknowledged the assignment."
-        : "Driver hasn't accepted the assignment yet -- nudge them.",
+        : "Driver hasn't checked in on the run yet -- ping them on the day.",
       actionLink: `/admin/order-assignments?orderId=${orderId}`,
     });
   }

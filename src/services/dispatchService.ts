@@ -726,8 +726,21 @@ export const dispatchService = {
           .eq("driver_id", fromDriverId)
           .eq("assignment_type", "delivery");
       }
+      // Wave 64.4 -- admin-pushed assignments are auto-accepted.
+      // Pre-Wave-64.4 admin assignments inserted status='assigned' +
+      // accepted_at=NULL, while the parallel claim_order RPC (driver
+      // self-claim) inserted status='accepted' + accepted_at=NOW().
+      // The readiness chip's driver_acknowledged signal interpreted
+      // the admin path as "driver hasn't accepted" forever, even
+      // when the dispatcher and driver both knew the run was on.
+      // For CateringMS the admin IS the acceptance -- drivers
+      // don't sit in a separate consent flow before doing the run.
+      // Now: parity with claim_order. Self-claim still flows through
+      // the RPC and lands the same shape; this aligns the dispatch
+      // path so the chip stops false-flagging.
       // Idempotent: if the row exists for this driver already (e.g.
       // a self-claim that an admin is "confirming" via assign), skip.
+      const nowIso = new Date().toISOString();
       const { count: existingCount } = await supabase
         .from("driver_assignments")
         .select("id", { count: "exact", head: true })
@@ -741,8 +754,9 @@ export const dispatchService = {
             company_id: payload.companyId,
             order_id: payload.orderId,
             driver_id: payload.driverId,
-            status: "assigned",
-            assigned_at: new Date().toISOString(),
+            status: "accepted",
+            assigned_at: nowIso,
+            accepted_at: nowIso,
             assignment_type: "delivery",
           }]);
         if (daErr) {
