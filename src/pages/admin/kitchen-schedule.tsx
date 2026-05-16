@@ -18,6 +18,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -126,9 +127,24 @@ function fmtTime(t: string | null): string {
 
 function KitchenScheduleGrid() {
   const { user } = useAuth() as any;
+  const router = useRouter();
   const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
+
+  // Wave 66.6 -- honour ?date=YYYY-MM-DD URL param. The Wave 66.4
+  // timeline rewrite repointed the kitchen_prep_in_progress dot to
+  // /admin/kitchen-schedule?date={event_date}, but the page ignored
+  // the param and always landed on the current week. Now: when the
+  // URL carries a parseable date, jump to the week that contains it.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = typeof router.query.date === "string" ? router.query.date : null;
+    if (!raw) return;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return;
+    setWeekStart(startOfWeek(parsed));
+  }, [router.isReady, router.query.date]);
   // Wave 66.2 -- view mode. Week = the original Mon-Sun grid.
   // Month = a 4-6 row calendar overview showing chef count + event
   // count per day; click a day to drop back into week view for that

@@ -18,6 +18,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -95,8 +96,22 @@ const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "");
 
 function CleaningScheduleGrid() {
   const { user } = useAuth() as any;
+  const router = useRouter();
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
+
+  // Wave 66.6 -- honour ?date=YYYY-MM-DD URL param. The Wave 66.6
+  // timeline rewrite repointed pre_event_cleaning + post_event_cleaning
+  // dots to /admin/cleaning-schedule?date={event_date}. Without this
+  // effect the page always landed on the current week regardless.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = typeof router.query.date === "string" ? router.query.date : null;
+    if (!raw) return;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return;
+    setWeekStart(startOfWeek(parsed));
+  }, [router.isReady, router.query.date]);
   const [staff, setStaff] = useState<Staffer[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);

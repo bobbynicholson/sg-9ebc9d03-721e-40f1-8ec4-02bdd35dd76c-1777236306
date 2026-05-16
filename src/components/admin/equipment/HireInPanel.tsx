@@ -9,6 +9,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,12 +65,53 @@ const fmtR = (v: number) =>
 export function HireInPanel() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  const router = useRouter();
   const companyId = (user?.user_metadata?.company_id as string | undefined) || (user?.company_id as string | undefined) || null;
 
   const [rows, setRows] = useState<HireOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<HireOrder["status"] | "all">("all");
+  // Wave 66.6 -- order-scoped filter. When the URL carries ?orderId=X
+  // (the timeline's equipment_hire_booked / hire_collected deeplinks
+  // route here now), filter the list to that order's hire rows and
+  // surface a "Filtered to ORD-XXX" chip with a clear button. Without
+  // this the operator clicked the timeline dot and landed on every
+  // hire order across every order in the company.
+  const [orderIdFilter, setOrderIdFilter] = useState<string | null>(null);
+  const [orderNumberFilter, setOrderNumberFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.orderId === "string" ? router.query.orderId : null;
+    setOrderIdFilter(q);
+  }, [router.isReady, router.query.orderId]);
+
+  // Resolve the order number for the chip label so the operator sees
+  // ORD-003828 (their mental model) instead of the uuid.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!orderIdFilter) { setOrderNumberFilter(null); return; }
+      const { data } = await (supabase as any)
+        .from("orders")
+        .select("order_number")
+        .eq("id", orderIdFilter)
+        .maybeSingle();
+      if (!cancelled) setOrderNumberFilter((data as any)?.order_number || orderIdFilter.slice(0, 8));
+    })();
+    return () => { cancelled = true; };
+  }, [orderIdFilter]);
+
+  const clearOrderFilter = () => {
+    setOrderIdFilter(null);
+    const { orderId: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true, scroll: false },
+    );
+  };
 
   const [editing, setEditing] = useState<HireOrder | null>(null);
   const [saving, setSaving] = useState(false);
@@ -103,6 +145,8 @@ export function HireInPanel() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
+      // Wave 66.6 -- order-scoped filter takes precedence.
+      if (orderIdFilter && r.order_id !== orderIdFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -111,7 +155,7 @@ export function HireInPanel() {
         (r.category || "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, orderIdFilter]);
 
   const counts = useMemo(() => {
     const c = { all: rows.length, draft: 0, confirmed: 0, picked_up: 0, returned: 0, cancelled: 0 };
@@ -179,6 +223,32 @@ export function HireInPanel() {
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">In hand (confirmed + picked up)</p><p className="text-2xl font-bold text-amber-600">{(counts.confirmed || 0) + (counts.picked_up || 0)}</p></CardContent></Card>
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Open spend committed</p><p className="text-lg font-bold text-rose-700">{fmtR(totalCommitted)}</p></CardContent></Card>
       </div>
+
+      {/* Wave 66.6 -- order-scoped filter chip. Surfaces when the
+          URL carries ?orderId=X so the operator clicking from the
+          order timeline lands on a focused view, not the full list. */}
+      {orderIdFilter && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          <span className="font-medium">Filtered to</span>
+          <Link
+            href={`${slugPrefix}/admin/orders?orderId=${orderIdFilter}`}
+            className="font-semibold hover:underline inline-flex items-center gap-1"
+          >
+            {orderNumberFilter || "this order"}
+            <ExternalLink className="w-3 h-3" />
+          </Link>
+          <span className="text-blue-700">
+            {filtered.length} hire row{filtered.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={clearOrderFilter}
+            className="ml-auto text-xs text-blue-700 hover:text-blue-900 underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-col sm:flex-row gap-2">

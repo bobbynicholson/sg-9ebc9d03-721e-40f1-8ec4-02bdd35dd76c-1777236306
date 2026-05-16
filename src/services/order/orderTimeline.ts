@@ -163,7 +163,13 @@ export interface OrderTimeline {
  * what to unstick.
  */
 export interface CrossSystemBlocker {
-  kind: "equipment_in_cleaning" | "no_delivery_shift";
+  kind:
+    | "equipment_in_cleaning"
+    | "no_delivery_shift"
+    // Wave 66.6 -- new blockers for the dispatch leg.
+    | "vehicle_not_booked"
+    | "pickup_time_missing"
+    | "setup_time_missing";
   message: string;
   severity: "warning" | "error";
 }
@@ -404,7 +410,12 @@ function resolveStage(
         startedAt: null,
         completedAt: allBooked ? earliest : null,
         blockedReason: null,
-        sourceLink: `/admin/suppliers?orderId=${orderId}`,
+        // Wave 66.6 -- repoint from /admin/suppliers?orderId=X (which
+        // is a generic supplier list that doesn't honour orderId) to
+        // the Hire-in tab on /admin/equipment which actually surfaces
+        // the equipment_hire_orders rows. HireInPanel was extended in
+        // the same wave to honour ?orderId= and filter to this order.
+        sourceLink: `/admin/equipment?tab=hire-in&orderId=${orderId}`,
         meta: {
           actor: hires[0]?.supplier_name || null,
           expectedAt: hires[0]?.expected_pickup_date || null,
@@ -426,7 +437,10 @@ function resolveStage(
         startedAt: null,
         completedAt: allCollected ? latest : null,
         blockedReason: null,
-        sourceLink: `/admin/suppliers?orderId=${orderId}`,
+        // Wave 66.6 -- same destination as equipment_hire_booked. The
+        // Hire-in tab is the only admin surface that shows hire rows
+        // with their actual_pickup_date editable inline.
+        sourceLink: `/admin/equipment?tab=hire-in&orderId=${orderId}`,
         meta: {
           expectedAt: hires.find((h) => !h.actual_pickup_date)?.expected_pickup_date || null,
         },
@@ -452,7 +466,14 @@ function resolveStage(
           ? bookings.map((b) => b.pre_event_cleaning_done_at).filter(Boolean).sort().reverse()[0]
           : null,
         blockedReason: null,
-        sourceLink: `/admin/equipment?orderId=${orderId}`,
+        // Wave 66.6 -- repoint from /admin/equipment?orderId=X (which
+        // didn't honour the param) to /admin/cleaning-schedule, the
+        // actual surface where cleaning crew get rostered against the
+        // event date. cleaning-schedule was extended in the same wave
+        // to honour ?date= and jump to that week.
+        sourceLink: o.event_date
+          ? `/admin/cleaning-schedule?date=${o.event_date}`
+          : `/admin/cleaning-schedule`,
       };
     }
 
@@ -570,7 +591,12 @@ function resolveStage(
         startedAt: null,
         completedAt: scheduled ? firstTs(collection.created_at) : null,
         blockedReason: null,
-        sourceLink: `/admin/driver-schedule?orderId=${orderId}&type=collection`,
+        // Wave 66.6 -- repoint from /admin/driver-schedule (no
+        // orderId or type handling) to /admin/order-assignments,
+        // which already auto-expands the matching row via the Wave
+        // 66.3 deeplink effect. Operator lands directly on the
+        // assignment drawer where they can pick a collection driver.
+        sourceLink: `/admin/order-assignments?orderId=${orderId}`,
       };
     }
 
@@ -585,20 +611,27 @@ function resolveStage(
         startedAt: collection ? firstTs(collection.started_at) : null,
         completedAt: done ? firstTs(collection.completed_at) : null,
         blockedReason: null,
-        sourceLink: `/admin/driver-schedule?orderId=${orderId}&type=collection`,
+        // Wave 66.6 -- same destination as collection_scheduled.
+        sourceLink: `/admin/order-assignments?orderId=${orderId}`,
       };
     }
 
     case "post_event_cleaning": {
       if (!flags.hasCleaningWork) return notApplicable();
       const rows = input.equipmentCleaningStatus || [];
+      // Wave 66.6 -- cleaningLink centralises the repoint so both the
+      // empty-rows branch and the rows-present branch land on the
+      // same actionable surface (cleaning-schedule for the event day).
+      const cleaningLink = o.event_date
+        ? `/admin/cleaning-schedule?date=${o.event_date}`
+        : `/admin/cleaning-schedule`;
       if (rows.length === 0) {
         return {
           status: "upcoming",
           startedAt: null,
           completedAt: null,
           blockedReason: null,
-          sourceLink: `/admin/equipment?cleaningOrderId=${orderId}`,
+          sourceLink: cleaningLink,
         };
       }
       const allReady = rows.every((r) =>
@@ -619,7 +652,7 @@ function resolveStage(
         startedAt,
         completedAt,
         blockedReason: null,
-        sourceLink: `/admin/equipment?cleaningOrderId=${orderId}`,
+        sourceLink: cleaningLink,
         meta: {
           progress: {
             done: rows.filter((r) => ["ready", "stored", "available"].includes(String(r?.current_status || ""))).length,
@@ -878,6 +911,70 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
         severity: "error",
       });
     }
+  }
+
+  // Wave 66.6 -- vehicle_not_booked blocker. When the dispatch leg
+  // is current and there's no assigned_vehicle_id on the order, the
+  // driver can be assigned but they have no vehicle to load. Fires
+  // for the dispatch cluster only (ready_for_dispatch /
+  // driver_assigned_delivery / in_transit) because flagging missing
+  // vehicle on a confirmed-but-not-yet-staged order is noise --
+  // dispatchService.assignDriverWithGate auto-books the best vehicle
+  // when a driver is assigned, so the gap usually closes naturally.
+  const dispatchStages: Array<typeof currentKey> = [
+    "ready_for_dispatch",
+    "driver_assigned_delivery",
+    "in_transit",
+  ];
+  if (currentKey && dispatchStages.includes(currentKey) && !input.order?.assigned_vehicle_id) {
+    // Severity tier: warning normally, error when event is within 24h.
+    const within24h = msToEvent != null && msToEvent >= 0 && msToEvent <= 24 * 3_600_000;
+    crossSystemBlockers.push({
+      kind: "vehicle_not_booked",
+      message: within24h
+        ? "No vehicle booked -- assign or override on dispatch before the run."
+        : "No vehicle booked yet. Auto-books when a driver is assigned.",
+      severity: within24h ? "error" : "warning",
+    });
+  }
+
+  // Wave 66.6 -- pickup_time blocker. The driver can't be told when
+  // to leave the kitchen if pickup_time is null. Surfaced from the
+  // ready_for_dispatch + driver_assigned_delivery stages so it
+  // appears at the point in the pipeline where it matters.
+  if (
+    currentKey
+    && ["ready_for_dispatch", "driver_assigned_delivery"].includes(currentKey)
+    && !input.order?.pickup_time
+  ) {
+    const within48h = msToEvent != null && msToEvent >= 0 && msToEvent <= 48 * 3_600_000;
+    crossSystemBlockers.push({
+      kind: "pickup_time_missing",
+      message: within48h
+        ? "Pickup time missing -- driver doesn't know when to leave the kitchen."
+        : "Pickup time still unset for this run.",
+      severity: within48h ? "error" : "warning",
+    });
+  }
+
+  // Wave 66.6 -- setup_time blocker. Setup_time is a client
+  // commitment (we said we'd arrive at 16:00 to set up); when it's
+  // null and the event is approaching, the venue crew has no
+  // arrival target. Fires from ready_for_dispatch onwards so it
+  // doesn't shout during early booking.
+  if (
+    currentKey
+    && ["ready_for_dispatch", "driver_assigned_delivery", "in_transit"].includes(currentKey)
+    && !input.order?.setup_time
+  ) {
+    const within24h = msToEvent != null && msToEvent >= 0 && msToEvent <= 24 * 3_600_000;
+    crossSystemBlockers.push({
+      kind: "setup_time_missing",
+      message: within24h
+        ? "Setup time missing -- crew doesn't know when to start at the venue."
+        : "Setup time still unset.",
+      severity: within24h ? "error" : "warning",
+    });
   }
 
   return {
