@@ -397,7 +397,12 @@ function ProvidersList() {
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-lg font-semibold text-slate-900">{p.provider_name}</h3>
+                            <Link
+                              href={`/admin/outsource-providers/${p.id}`}
+                              className="text-lg font-semibold text-slate-900 hover:text-blue-700 hover:underline"
+                            >
+                              {p.provider_name}
+                            </Link>
                             {!p.is_active && (
                               <Badge className="bg-slate-200 text-slate-700 text-[10px]">Inactive</Badge>
                             )}
