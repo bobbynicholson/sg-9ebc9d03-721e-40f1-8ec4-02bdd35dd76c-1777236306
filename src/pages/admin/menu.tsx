@@ -23,7 +23,7 @@ import {
 import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
-  Upload, X, ShoppingBag, Download, RefreshCw,
+  Upload, X, ShoppingBag, Download, RefreshCw, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -65,6 +65,14 @@ interface ItemDraft {
   // dashboard counts menu-item units instead of recipe ingredients.
   is_buy_and_sell: boolean;
   linked_inventory_item_id: string | null;
+  // Wave 67 Phase C: outsource fulfilment. When fulfilment_type is
+  // 'outsourced' or 'hybrid', the menu item is partly/fully fulfilled
+  // by an external provider on the day. Drives auto-assignment of
+  // outsource_assignments rows when this item is added to an order.
+  fulfilment_type: "in_house" | "outsourced" | "hybrid";
+  default_outsource_provider_id: string | null;
+  outsource_unit_cost: string;
+  outsource_lead_hours: string;
 }
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
@@ -92,6 +100,10 @@ const EMPTY_ITEM: ItemDraft = {
   is_available: true,
   is_buy_and_sell: false,
   linked_inventory_item_id: null,
+  fulfilment_type: "in_house",
+  default_outsource_provider_id: null,
+  outsource_unit_cost: "",
+  outsource_lead_hours: "",
 };
 
 const EMPTY_RECIPE: RecipeDraft = {
@@ -167,17 +179,33 @@ function MenuPage() {
     category: string | null; cost_per_unit: number | null; current_stock: number | null;
     allergen_codes: string[] | null;
   }>>([]);
+  // Wave 67 Phase C -- outsource provider pool for the fulfilment
+  // picker. Loaded alongside inventory in the same Promise.all so the
+  // dialog opens with both ready. Active-only since the admin
+  // shouldn't be assigning new orders to a deactivated provider.
+  const [providerPool, setProviderPool] = useState<Array<{
+    id: string; provider_name: string; default_rate: number | null;
+    default_rate_type: string; provider_roles: string[];
+  }>>([]);
 
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const [list, inv] = await Promise.all([
+      const [list, inv, providersRes] = await Promise.all([
         menuService.list(companyId, /* includeArchived */ true),
         menuService.listInventoryItemsForPicker(companyId),
+        (supabase as any)
+          .from("outsource_providers")
+          .select("id, provider_name, default_rate, default_rate_type, provider_roles")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("provider_name", { ascending: true }),
       ]);
       setItems(list);
       setInventoryPool(inv);
+      setProviderPool((providersRes?.data || []) as typeof providerPool);
     } catch (e: any) {
       toast({ title: "Could not load menu", description: e?.message, variant: "destructive" });
     } finally {
@@ -301,6 +329,11 @@ function MenuPage() {
       is_available: it.is_available !== false,
       is_buy_and_sell: !!(it as any).is_buy_and_sell,
       linked_inventory_item_id: (it as any).linked_inventory_item_id ?? null,
+      // Wave 67 Phase C -- seed outsource fields off the menu_item row.
+      fulfilment_type: ((it as any).fulfilment_type as ItemDraft["fulfilment_type"]) || "in_house",
+      default_outsource_provider_id: (it as any).default_outsource_provider_id ?? null,
+      outsource_unit_cost: (it as any).outsource_unit_cost != null ? String((it as any).outsource_unit_cost) : "",
+      outsource_lead_hours: (it as any).outsource_lead_hours != null ? String((it as any).outsource_lead_hours) : "",
     });
     setRecipeDraft({ ...EMPTY_RECIPE, ingredients: [] });
     const full = await menuService.getFull(it.id);
@@ -497,6 +530,20 @@ function MenuPage() {
         linked_inventory_item_id: itemDraft.is_buy_and_sell
           ? itemDraft.linked_inventory_item_id
           : null,
+        // Wave 67 Phase C -- outsource fulfilment persistence.
+        // Setting fulfilment_type back to 'in_house' clears the
+        // provider link so a future outsourced flip doesn't inherit
+        // a stale default.
+        fulfilment_type: itemDraft.fulfilment_type,
+        default_outsource_provider_id: itemDraft.fulfilment_type === "in_house"
+          ? null
+          : (itemDraft.default_outsource_provider_id || null),
+        outsource_unit_cost: itemDraft.fulfilment_type === "in_house"
+          ? null
+          : (itemDraft.outsource_unit_cost.trim() ? Number(itemDraft.outsource_unit_cost) : null),
+        outsource_lead_hours: itemDraft.fulfilment_type === "in_house"
+          ? null
+          : (itemDraft.outsource_lead_hours.trim() ? parseInt(itemDraft.outsource_lead_hours, 10) : null),
         // Phase 2 #7: saving the menu item IS the allergen review --
         // the staffer just confirmed the codes, dietary tags, etc.
         // Stamp the review state so AllergenReviewBadge stops nagging.
@@ -1239,8 +1286,146 @@ function MenuPage() {
             )}
           </div>
 
-          {/* Recipe block, hidden for buy-and-sell items */}
+          {/* Wave 67 Phase C -- Outsource fulfilment block. Sits
+              between buy-and-sell and recipe so the operator reads
+              the three "who actually makes/serves this" choices in
+              one flow:
+                in_house   -> we make it (recipe applies)
+                outsourced -> external provider fulfils end-to-end
+                              (Lamb Spit on-site chef, florist
+                              delivers flowers, photographer)
+                hybrid     -> we provide the goods, they fulfil
+                              on the day (we prep salads, they cook
+                              the spit at the venue)
+              When set to outsourced/hybrid the operator picks a
+              default provider, expected unit cost, and minimum lead
+              hours. These wire through to Phase D (per-order
+              assignment row + comms) and Phase E (timeline + COGS). */}
           {!itemDraft.is_buy_and_sell && (
+          <div className="space-y-3 border-t pt-4">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Fulfilment
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {itemDraft.fulfilment_type === "in_house"
+                  ? "Made by your kitchen. Recipe + prep tasks apply normally."
+                  : itemDraft.fulfilment_type === "outsourced"
+                    ? "Fulfilled end-to-end by an external provider. They'll get a request per order with magic-link accept."
+                    : "You provide the goods; an external provider serves / cooks on the day. Recipe + provider both apply."}
+              </p>
+            </div>
+
+            <div className="inline-flex rounded-md border border-slate-200 overflow-hidden text-sm w-full">
+              {(["in_house", "outsourced", "hybrid"] as const).map((value) => {
+                const label = value === "in_house" ? "In-house" : value === "outsourced" ? "Outsourced" : "Hybrid";
+                const active = itemDraft.fulfilment_type === value;
+                return (
+                  <button
+                    type="button"
+                    key={value}
+                    onClick={() => setItemDraft({ ...itemDraft, fulfilment_type: value })}
+                    className={`flex-1 px-3 py-1.5 text-xs font-medium transition border-l first:border-l-0 border-slate-200 ${
+                      active
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {itemDraft.fulfilment_type !== "in_house" && (
+              <div className="space-y-3 pl-1">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    Default provider
+                    <InfoTooltip content="When this item lands on an order, this provider is auto-suggested. Operator can override per-order in the assignment dialog (Phase D)." />
+                  </Label>
+                  {providerPool.length === 0 ? (
+                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                      No outsource providers on file yet.{" "}
+                      <a
+                        href="/admin/outsource-providers"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-medium"
+                      >
+                        Add one here
+                      </a>{" "}
+                      then come back and pick them.
+                    </div>
+                  ) : (
+                    <select
+                      value={itemDraft.default_outsource_provider_id || ""}
+                      onChange={(e) =>
+                        setItemDraft({
+                          ...itemDraft,
+                          default_outsource_provider_id: e.target.value || null,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
+                    >
+                      <option value="">No default -- pick per order</option>
+                      {providerPool.map((p) => {
+                        const rateBit = p.default_rate != null
+                          ? ` · R${Number(p.default_rate).toLocaleString("en-ZA")} ${p.default_rate_type.replace("_", " ")}`
+                          : "";
+                        const rolesBit = p.provider_roles?.length
+                          ? ` · ${p.provider_roles.slice(0, 2).join(", ")}`
+                          : "";
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {p.provider_name}{rolesBit}{rateBit}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1">
+                      Expected cost (R)
+                      <InfoTooltip content="What you typically pay the provider for this item (per event / per hour / per guest depending on the provider's rate type). Surfaces on the quote builder so the operator sees margin live." />
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={itemDraft.outsource_unit_cost}
+                      onChange={(e) => setItemDraft({ ...itemDraft, outsource_unit_cost: e.target.value })}
+                      placeholder="e.g. 1500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1">
+                      Lead time (hours)
+                      <InfoTooltip content="Minimum notice this provider needs. Used by the readiness chip and quote acceptance soft-block when an order's event is closer than this." />
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={itemDraft.outsource_lead_hours}
+                      onChange={(e) => setItemDraft({ ...itemDraft, outsource_lead_hours: e.target.value })}
+                      placeholder="e.g. 48"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* Recipe block, hidden for buy-and-sell items.
+              For hybrid items the recipe still applies (we make some
+              of it) -- only fully outsourced items skip the recipe
+              section to keep the form focused. */}
+          {!itemDraft.is_buy_and_sell && itemDraft.fulfilment_type !== "outsourced" && (
           <div className="space-y-3 border-t pt-4">
             <button
               type="button"
