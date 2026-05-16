@@ -50,6 +50,7 @@ import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/Equip
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
+import { OutsourcedFulfilmentPanel } from "@/components/admin/orders/OutsourcedFulfilmentPanel";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
@@ -2884,6 +2885,24 @@ function OrderProcessDashboard() {
                     placeholder="Internal notes for the team. Not shown to the client."
                   />
                 </div>
+
+                {/* Wave 67 Phase D -- outsourced fulfilment panel.
+                    Lists every outsource_assignments row for this
+                    order with inline actions: send request via
+                    mailto/wa.me, copy magic-link, mark accepted on
+                    their behalf, advance status, cancel. */}
+                {selectedOrder?.id && (
+                  <OutsourcedFulfilmentPanel
+                    orderId={selectedOrder.id}
+                    orderNumber={(selectedOrder as any).order_number || null}
+                    companyId={(selectedOrder as any).company_id || ""}
+                    eventDate={(selectedOrder as any).event_date || null}
+                    eventTime={(selectedOrder as any).event_time || null}
+                    clientName={(selectedOrder as any).client_name || null}
+                    venueAddress={(selectedOrder as any).venue_address || null}
+                    guestCount={(selectedOrder as any).guest_count ?? null}
+                  />
+                )}
 
                 {/* Phase 9 #6: chronological notes thread. The
                     single-string internal_notes above is the

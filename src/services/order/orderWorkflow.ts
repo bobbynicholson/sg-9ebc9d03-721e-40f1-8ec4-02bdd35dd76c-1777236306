@@ -1029,6 +1029,27 @@ export async function cancelOrder(
       }
     })();
 
+    // Wave 67 Phase D -- void outsource assignments on cancellation.
+    // Same cascade pattern as the Wave 28.9 invoice void: anything
+    // not already completed or cancelled flips to cancelled with
+    // cancelled_at stamped. Operator-side comms (telling the
+    // provider) is a manual follow-up via the Outsourced fulfilment
+    // panel; we don't auto-email here because the previous accept
+    // links would otherwise serve a confusing "this booking was
+    // cancelled" page silently.
+    void (async () => {
+      try {
+        await sb
+          .from("outsource_assignments")
+          .update({ status: "cancelled", cancelled_at: nowIso, updated_at: nowIso } as any)
+          .eq("order_id", orderId)
+          .in("status", ["requested", "accepted", "en_route", "on_site"])
+          .is("deleted_at", null);
+      } catch (e) {
+        console.warn("[cancelOrder] outsource_assignments cascade failed:", e);
+      }
+    })();
+
     // order_status_history row + notification fan-out happens via the
     // status-update side-effect block fed below by callers that go
     // through updateOrderStatus. cancelOrder writes directly so we
