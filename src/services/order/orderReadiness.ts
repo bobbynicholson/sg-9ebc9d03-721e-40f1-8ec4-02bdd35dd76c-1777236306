@@ -248,20 +248,29 @@ export function computeOrderReadiness(
 
   // ---- Wave 47 -- additional HIGH signals -------------------------------
 
-  // 7. Booking confirmation email sent to client.
+  // 7. Client has been emailed about this booking.
+  // Wave 64.5 -- pre-Wave-64.5 the signal only counted rows where
+  // template_type='booking_confirmation', but nothing in the codebase
+  // ever writes that template_type to email_automation_log. The
+  // system fires order_status_update + driver_assigned + the
+  // aftersales_/pre_event_ template families, none of which matched.
+  // Net effect: the signal was always-failing on every order, the
+  // chip read "client hasn't been told" even after multiple status
+  // emails went out, and the Fix it link sent operators to a modal
+  // with nothing to click. Now: pass if ANY email about this order
+  // has been sent or delivered. If they've heard from us, they
+  // know about the booking.
   const emailLog = input.emailLog || [];
   const confirmationSent = emailLog.some(
-    (r: any) =>
-      r?.template_type === "booking_confirmation"
-      && ["sent", "delivered"].includes(String(r?.status || "")),
+    (r: any) => ["sent", "delivered"].includes(String(r?.status || "")),
   );
   signals.push({
     key: "confirmation_email_sent",
     severity: "high",
     passing: confirmationSent,
     message: confirmationSent
-      ? "Booking confirmation sent to client."
-      : `${clientName || "Client"} hasn't received a booking confirmation -- send one before the event.`,
+      ? "Client has been emailed about this booking."
+      : `${clientName || "Client"} hasn't received any email about this booking yet -- send a confirmation.`,
     actionLink: orderLink,
   });
 
@@ -315,7 +324,11 @@ export function computeOrderReadiness(
       message: allHireBooked
         ? "Hire supplier pickups booked."
         : `Hire supplier pickup not booked for ${missingCount} item${missingCount === 1 ? "" : "s"}.`,
-      actionLink: orderLink,
+      // Wave 64.5 -- deep-link to the Equipment tab where the hire
+      // rows live, not the default Details tab. The pickup-date
+      // editor still ships in a future wave; for now the operator
+      // at least lands on the correct tab and sees the hire list.
+      actionLink: `${orderLink}&tab=equipment`,
     });
   }
 
