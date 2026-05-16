@@ -834,6 +834,7 @@ function OrderProcessDashboard() {
             invoicesRes,
             emailLogRes,
             deliveryShiftsRes,
+            outsourceRes,
             orderItemsRes,
             kitchenShiftsEventDayRes,
             vehiclesRes,
@@ -848,6 +849,14 @@ function OrderProcessDashboard() {
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
             supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
+            // Wave 67 Phase E -- outsource assignments joined with
+            // provider name so the timeline's outsource_pending blocker
+            // can name who hasn't responded.
+            (supabase as any)
+              .from("outsource_assignments")
+              .select("id, order_id, provider_id, status, quoted_cost, provider:provider_id(provider_name)")
+              .in("order_id", orderIds)
+              .is("deleted_at", null),
             supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds),
             supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
             (supabase as any)
@@ -938,6 +947,23 @@ function OrderProcessDashboard() {
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
           const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
+          // Wave 67 Phase E -- outsource assignments bucketed by order_id
+          // with provider_name flattened for the timeline blocker chip.
+          const outsourceByOrder = (() => {
+            const m = new Map<string, any[]>();
+            for (const row of ((outsourceRes as any).data || []) as any[]) {
+              const flat = {
+                id: row.id,
+                provider_id: row.provider_id,
+                status: row.status,
+                quoted_cost: row.quoted_cost,
+                provider_name: row.provider?.provider_name || null,
+              };
+              const arr = m.get(row.order_id);
+              if (arr) arr.push(flat); else m.set(row.order_id, [flat]);
+            }
+            return m;
+          })();
 
           // For cleaningJobsActive: scope per-order by intersecting
           // its equipment_bookings.equipment_id set with the active
@@ -1013,6 +1039,7 @@ function OrderProcessDashboard() {
               emailLog: emailLogByOrder.get(o.id) || [],
               cleaningJobsActive,
               deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
+              outsourceAssignments: outsourceByOrder.get(o.id) || [],
               tenantTimezone,
             };
             const tl = computeOrderTimeline(timelineInput);

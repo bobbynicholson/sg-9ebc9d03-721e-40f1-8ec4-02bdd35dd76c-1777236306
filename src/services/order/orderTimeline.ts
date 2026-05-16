@@ -169,7 +169,9 @@ export interface CrossSystemBlocker {
     // Wave 66.6 -- new blockers for the dispatch leg.
     | "vehicle_not_booked"
     | "pickup_time_missing"
-    | "setup_time_missing";
+    | "setup_time_missing"
+    // Wave 67 Phase E -- outsource provider hasn't responded yet.
+    | "outsource_pending";
   message: string;
   severity: "warning" | "error";
 }
@@ -206,6 +208,17 @@ export interface OrderTimelineInput {
    *  current stage and this is empty, surface "No driver claimed
    *  yet". */
   deliveryShifts?: Array<{ id: string; staff_id?: string | null; planned_start?: string | null; actual_start?: string | null }>;
+  /** Wave 67 Phase E -- outsource_assignments rows for this order.
+   *  Drives the new outsource_pending blocker on the dispatch leg
+   *  when the event is close + at least one provider hasn't
+   *  responded yet. Empty array when not joined. */
+  outsourceAssignments?: Array<{
+    id: string;
+    provider_id: string;
+    status: string;
+    quoted_cost?: number | string | null;
+    provider_name?: string | null;
+  }>;
   /** Wave 46 T1 -- tenant timezone (IANA). Used for calendar-day
    *  comparison when bucketing the urgency tier so "tomorrow" doesn't
    *  collapse to "today" just because the event is <24h away.
@@ -974,6 +987,47 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
         ? "Setup time missing -- crew doesn't know when to start at the venue."
         : "Setup time still unset.",
       severity: within24h ? "error" : "warning",
+    });
+  }
+
+  // Wave 67 Phase E -- outsource provider hasn't responded yet. The
+  // blocker is real (you can't run the event if the on-site chef
+  // didn't accept), so severity escalates aggressively as the event
+  // approaches. Fires regardless of the current stage because an
+  // unresponded outsource matters at booking time and at delivery
+  // time -- there's no "later" for this gap to surface.
+  const outsourceRows = input.outsourceAssignments || [];
+  const pendingOutsource = outsourceRows.filter((a) => a?.status === "requested");
+  if (pendingOutsource.length > 0) {
+    const within72h = msToEvent != null && msToEvent >= 0 && msToEvent <= 72 * 3_600_000;
+    const within7d = msToEvent != null && msToEvent >= 0 && msToEvent <= 7 * 24 * 3_600_000;
+    const severity: "warning" | "error" = within72h ? "error" : "warning";
+    const namesPreview = Array.from(
+      new Set(pendingOutsource.map((a) => a.provider_name).filter((x): x is string => !!x)),
+    ).slice(0, 2);
+    const namePart = namesPreview.length > 0 ? ` (${namesPreview.join(", ")}${pendingOutsource.length > namesPreview.length ? "..." : ""})` : "";
+    crossSystemBlockers.push({
+      kind: "outsource_pending",
+      message: within72h
+        ? `${pendingOutsource.length} outsource provider${pendingOutsource.length === 1 ? "" : "s"}${namePart} haven't responded -- chase or reassign.`
+        : within7d
+          ? `${pendingOutsource.length} outsource provider${pendingOutsource.length === 1 ? "" : "s"}${namePart} still to confirm.`
+          : `${pendingOutsource.length} outsource provider request${pendingOutsource.length === 1 ? "" : "s"} pending.`,
+      severity,
+    });
+  }
+  // Outsource decline alert -- this needs the operator's attention
+  // immediately regardless of timing because they need to find an
+  // alternative.
+  const declinedOutsource = outsourceRows.filter((a) => a?.status === "declined");
+  if (declinedOutsource.length > 0) {
+    const names = Array.from(
+      new Set(declinedOutsource.map((a) => a.provider_name).filter((x): x is string => !!x)),
+    ).slice(0, 2);
+    crossSystemBlockers.push({
+      kind: "outsource_pending",
+      message: `${declinedOutsource.length} outsource provider${declinedOutsource.length === 1 ? "" : "s"}${names.length > 0 ? ` (${names.join(", ")})` : ""} declined -- assign someone else.`,
+      severity: "error",
     });
   }
 

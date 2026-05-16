@@ -59,6 +59,10 @@ export interface PostOrderCascadeReceipt {
   equipment: { ok: boolean; bookingsCreated?: number; reason?: string; skipped?: boolean };
   conflicts: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
   shopping: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
+  // Wave 67 Phase E -- outsource provider auto-assignment step.
+  // Fires for every order_items line whose menu_item is fulfilment_type
+  // 'outsourced' or 'hybrid' with a default_outsource_provider_id set.
+  outsource?: { ok: boolean; assignmentsCreated?: number; reason?: string; skipped?: boolean };
 }
 
 /**
@@ -453,6 +457,135 @@ export async function postOrderCreationCascade(
     }
   } else {
     receipt.equipment = { ok: true, bookingsCreated: 0, skipped: true, reason: "skipped_by_caller" };
+  }
+
+  // ── Step 4.5: Outsource provider auto-assignment (Wave 67 Phase E) ──
+  // For every order_items line whose menu_item is fulfilment_type
+  // 'outsourced' or 'hybrid' AND has default_outsource_provider_id set,
+  // mint an outsource_assignments row. Operator still needs to send
+  // the request (mailto/wa.me from the panel) -- this just removes the
+  // "click Add provider for every spit braai" repetition.
+  //
+  // Idempotency: skip when an assignment already exists for the same
+  // (order_id, provider_id, menu_item_id) triple so a retry doesn't
+  // double-fire. Status starts as 'requested' with manually_marked
+  // false. Cost comes from menu_items.outsource_unit_cost when set,
+  // otherwise the provider's default_rate.
+  try {
+    // Pull every order_items row with its joined menu_item fulfilment
+    // metadata. Cast to any -- the joined select isn't in the
+    // generated types yet.
+    const { data: orderItemsRaw, error: oiErr } = await (client as any)
+      .from("order_items")
+      .select(`
+        id, order_id, menu_item_id,
+        menu_item:menu_item_id (
+          id, item_name, fulfilment_type, default_outsource_provider_id,
+          outsource_unit_cost, outsource_lead_hours
+        )
+      `)
+      .eq("order_id", orderId);
+    if (oiErr) {
+      receipt.outsource = { ok: false, assignmentsCreated: 0, reason: oiErr.message };
+    } else {
+      const candidates = (orderItemsRaw || []).filter((row: any) => {
+        const mi = row.menu_item;
+        if (!mi) return false;
+        if (mi.fulfilment_type !== "outsourced" && mi.fulfilment_type !== "hybrid") return false;
+        if (!mi.default_outsource_provider_id) return false;
+        return true;
+      });
+
+      if (candidates.length === 0) {
+        receipt.outsource = { ok: true, assignmentsCreated: 0, reason: "no_outsourced_items_with_default_provider" };
+      } else {
+        // Resolve provider rate defaults so the assignment lands with a
+        // sensible quoted_cost when the menu item doesn't override.
+        const providerIds = Array.from(new Set(candidates.map((c: any) => c.menu_item.default_outsource_provider_id)));
+        const { data: providers } = await (client as any)
+          .from("outsource_providers")
+          .select("id, default_rate, default_rate_type, default_currency")
+          .in("id", providerIds);
+        const providersById = new Map<string, any>();
+        for (const p of (providers || [])) providersById.set(p.id, p);
+
+        // Idempotency: pull existing assignments first so we skip dupes.
+        const { data: existing } = await (client as any)
+          .from("outsource_assignments")
+          .select("provider_id, menu_item_id")
+          .eq("order_id", orderId)
+          .is("deleted_at", null);
+        const existingKeys = new Set<string>(
+          (existing || []).map((e: any) => `${e.provider_id}|${e.menu_item_id || ""}`),
+        );
+
+        // Order event_date + event_time used for the token expiry +
+        // the required_on_site_at default.
+        const { data: ordRow } = await (client as any)
+          .from("orders")
+          .select("event_date, event_time")
+          .eq("id", orderId)
+          .maybeSingle();
+        const eventIso = (ordRow as any)?.event_date as string | null;
+        const eventTime = (ordRow as any)?.event_time as string | null;
+        const requiredOnSiteAt = eventIso
+          ? new Date(`${eventIso}T${(eventTime || "12:00").slice(0, 5)}:00`).toISOString()
+          : null;
+        const expiresAt = eventIso
+          ? new Date(new Date(eventIso).getTime() + 24 * 60 * 60 * 1000).toISOString()
+          : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        let created = 0;
+        for (const row of candidates) {
+          const mi = row.menu_item;
+          const key = `${mi.default_outsource_provider_id}|${mi.id || ""}`;
+          if (existingKeys.has(key)) continue;
+
+          const provider = providersById.get(mi.default_outsource_provider_id) || {};
+          const cost = mi.outsource_unit_cost != null
+            ? Number(mi.outsource_unit_cost)
+            : (provider.default_rate != null ? Number(provider.default_rate) : 0);
+          if (!Number.isFinite(cost)) continue;
+
+          // Crypto-safe token. Node `crypto` is available in the cron
+          // + API surfaces this cascade runs from; the browser supabase
+          // client never hits this path (postCreationCascade is called
+          // server-side via the leads + quote conversion routes).
+          let token: string;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const nodeCrypto = require("crypto");
+            token = nodeCrypto.randomBytes(32).toString("hex");
+          } catch {
+            token = `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+          }
+
+          const { error: insErr } = await (client as any)
+            .from("outsource_assignments")
+            .insert({
+              company_id: companyId,
+              order_id: orderId,
+              provider_id: mi.default_outsource_provider_id,
+              order_item_id: row.id,
+              menu_item_id: mi.id,
+              service_description: `${mi.item_name || "Service"} for this booking`,
+              required_on_site_at: requiredOnSiteAt,
+              quoted_cost: Number(cost.toFixed(2)),
+              cost_currency: provider.default_currency || "ZAR",
+              rate_type: provider.default_rate_type || "per_event",
+              accept_token: token,
+              accept_token_expires_at: expiresAt,
+              requested_by: actorUserId || null,
+            });
+          if (!insErr) created += 1;
+          else console.warn("[postOrderCreationCascade] outsource auto-create failed:", insErr);
+        }
+        receipt.outsource = { ok: true, assignmentsCreated: created };
+      }
+    }
+  } catch (e: any) {
+    receipt.outsource = { ok: false, assignmentsCreated: 0, reason: e?.message || "outsource step crashed" };
+    console.warn("[postOrderCreationCascade] outsource step crashed:", { orderId, companyId, error: e });
   }
 
   // ── Step 5: Equipment conflict check ─────────────────────────────

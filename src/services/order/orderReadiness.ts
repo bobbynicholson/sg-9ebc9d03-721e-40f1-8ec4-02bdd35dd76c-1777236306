@@ -329,6 +329,42 @@ export function computeOrderReadiness(
       : orderLink,
   });
 
+  // Wave 67 Phase E -- outsource provider confirmed.
+  // Skips when the order has no outsource assignments. Otherwise
+  // passes when every assignment is in an accepted / en_route /
+  // on_site / completed state. Fires high-severity because an
+  // unconfirmed on-site chef is an event-killer.
+  const outsourceRows = (input as any).outsourceAssignments as Array<{
+    id: string; status: string; provider_name?: string | null;
+  }> | undefined;
+  if (Array.isArray(outsourceRows) && outsourceRows.length > 0) {
+    const live = outsourceRows.filter((a) => a.status !== "cancelled");
+    const allConfirmed = live.length > 0 && live.every(
+      (a) => ["accepted", "en_route", "on_site", "completed"].includes(a.status),
+    );
+    const declined = live.filter((a) => a.status === "declined");
+    const pending = live.filter((a) => a.status === "requested");
+    let message: string;
+    if (allConfirmed) {
+      message = `${live.length} outsource provider${live.length === 1 ? "" : "s"} confirmed.`;
+    } else if (declined.length > 0) {
+      const namesList = Array.from(new Set(declined.map((a) => a.provider_name).filter((x): x is string => !!x))).slice(0, 2);
+      message = `${declined.length} provider${declined.length === 1 ? "" : "s"} declined${namesList.length ? ` (${namesList.join(", ")})` : ""} -- assign someone else.`;
+    } else if (pending.length > 0) {
+      const namesList = Array.from(new Set(pending.map((a) => a.provider_name).filter((x): x is string => !!x))).slice(0, 2);
+      message = `${pending.length} outsource provider${pending.length === 1 ? "" : "s"}${namesList.length ? ` (${namesList.join(", ")})` : ""} haven't responded yet -- chase or reassign.`;
+    } else {
+      message = `${live.length} outsource provider${live.length === 1 ? "" : "s"} in flight.`;
+    }
+    signals.push({
+      key: "outsource_confirmed",
+      severity: "high",
+      passing: allConfirmed,
+      message,
+      actionLink: orderLink,
+    });
+  }
+
   // 10. Hire pickup dates set (n/a-skip when no hire orders).
   const hireRows = input.equipmentHireOrders || [];
   if (hireRows.length > 0) {
@@ -609,6 +645,10 @@ function _signalWeight(key: string): number {
     driver_assigned: 90,
     kitchen_shift_event_day: 85,
     kitchen_prep_tasks_present: 80,
+    // Wave 67 Phase E -- outsource provider rank. Unconfirmed
+    // on-site chef is as event-killing as missing the kitchen
+    // roster, so it sits in the same tier.
+    outsource_confirmed: 82,
     pre_event_cleaning: 75,
     requires_two_drivers_covered: 70,
     setup_pickup_times_set: 65,
