@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
@@ -2337,19 +2337,42 @@ function OrderProcessDashboard() {
         }}
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-2xl flex items-center gap-2 flex-wrap">
-                  Order Details
+          {/* Wave 64.3 -- header redesign. Audit (full UI team) found
+              the old layout fought itself: a 4xl dialog was split
+              flex-justify-between, leaving the left side ~250px to
+              hold 9 stacked chips. They wrapped into a vertical
+              column instead of the intended horizontal strip. Six
+              chip hues (blue/green/emerald/amber/yellow/slate) broke
+              the Wave 56 3-tone semantic. Pause appeared twice.
+              "Order Details" / DialogTitle / "View order details"
+              said the same thing three times.
+              Now: 3 stacked full-width rows. Row 1 = identity (ORD +
+              status pill + subtitle) and primary action (Edit + a
+              "More" overflow menu collecting Pause, Duplicate, Kitchen
+              ticket, Calendar, Cancel). Row 2 = uniform slate
+              quick-link toolbar (Quote, Client view, Copy link,
+              Invoice). Row 3 = contact strip with Lucide icons, only
+              when client_phone / client_email present. RATE hides
+              unless status is completed (post-event quality lives
+              with the closure, not the navigation strip). */}
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="sr-only">
+              {(selectedOrder as any)?.order_number
+                ? `Order ${(selectedOrder as any).order_number}`
+                : "Order details"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editMode ? "Editing order" : "Viewing order"}
+            </DialogDescription>
+
+            {/* Row 1: identity + primary action */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
                   {(selectedOrder as any)?.order_number && (
                     <button
                       type="button"
                       onClick={async () => {
-                        // Phase 20 #8: click-to-copy order number.
-                        // Ops chats and supplier emails reach for
-                        // this constantly -- one click beats select
-                        // + ctrl+c every time.
                         const num = String((selectedOrder as any).order_number);
                         try {
                           await navigator.clipboard.writeText(num);
@@ -2358,329 +2381,166 @@ function OrderProcessDashboard() {
                           toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                         }
                       }}
-                      className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-2 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
+                      className="inline-flex items-center gap-1.5 font-mono text-base font-semibold text-slate-900 bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1 hover:bg-slate-200 transition"
                       title="Copy order number"
                     >
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
                       {(selectedOrder as any).order_number}
                     </button>
                   )}
-                </DialogTitle>
-                <DialogDescription className="mt-1">
-                  {editMode ? "Edit order information" : "View order details"}
-                </DialogDescription>
-                {/* Wave 58 -- contact action strip. Pre-Wave-58 the
-                    operator could see the client phone in the modal's
-                    edit fields but couldn't tap-to-call or open
-                    WhatsApp from the platform. Now: small action
-                    chips next to the quick-links so contacting the
-                    client about anything (deposit, change of plan,
-                    confirm headcount) is one tap. */}
-                {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email) && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {(selectedOrder as any).client_phone && (
-                      <>
-                        <a
-                          href={`tel:${String((selectedOrder as any).client_phone).replace(/[^+\d]/g, "")}`}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded px-2 py-1 hover:bg-slate-200"
-                          title={`Call ${(selectedOrder as any).client_phone}`}
-                        >
-                          📞 Call {(selectedOrder as any).client_phone}
-                        </a>
-                        <a
-                          href={`https://wa.me/${String((selectedOrder as any).client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-green-800 bg-green-50 border border-green-200 rounded px-2 py-1 hover:bg-green-100"
-                          title="Open WhatsApp pre-filled"
-                        >
-                          💬 WhatsApp
-                        </a>
-                      </>
-                    )}
-                    {(selectedOrder as any).client_email && (
-                      <a
-                        href={`mailto:${(selectedOrder as any).client_email}?subject=${encodeURIComponent(`Booking ${(selectedOrder as any).order_number || "your order"}`)}`}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded px-2 py-1 hover:bg-slate-200"
-                        title={`Email ${(selectedOrder as any).client_email}`}
-                      >
-                        ✉️ Email
-                      </a>
-                    )}
-                  </div>
-                )}
-                {/* Quick links: source quote, client-facing order view,
-                    invoice. The "View as client sees it" link opens the
-                    public-ish customer order view in a new tab so the
-                    operator can sanity-check that everything they just
-                    edited (items, totals, venue, date) propagated
-                    through. */}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {(selectedOrder as any).quote_id && (() => {
-                    // Wave 27.1: route to /q/{public_token} (polished
-                    // client view) when available; fall back to the
-                    // admin editor for legacy quotes without a token.
-                    const tok = (selectedOrder as any).quote?.public_token;
-                    const href = tok
-                      ? `/q/${tok}`
-                      : withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`);
+                  {selectedOrder && (() => {
+                    const s = String((selectedOrder as any).status || "");
+                    // Wave 56 3-tone semantic. Amber = waiting on
+                    // the operator. Blue = active / in motion. Slate
+                    // = closed. Rose = alert.
+                    const cls =
+                      s === "pending" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                      s === "cancelled" ? "bg-rose-50 text-rose-800 border-rose-200" :
+                      ["delivered", "completed"].includes(s) ? "bg-slate-100 text-slate-700 border-slate-200" :
+                      "bg-blue-50 text-blue-800 border-blue-200";
+                    const label =
+                      s === "preparing" ? "In prep" :
+                      s === "in_transit" ? "In transit" :
+                      s ? s[0].toUpperCase() + s.slice(1) : "";
                     return (
-                      <Link
-                        href={href}
-                        target={tok ? "_blank" : undefined}
-                        rel={tok ? "noopener noreferrer" : undefined}
-                        onClick={() => setIsModalOpen(false)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
-                        title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
-                      >
-                        <FileText className="w-3 h-3" />
-                        Source quote
-                        <ChevronRight className="w-3 h-3" />
-                      </Link>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+                        {label}
+                      </span>
                     );
                   })()}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      // The /c/order/[id] page expects a client access
-                      // token in the URL. Mint a fresh one for the
-                      // admin via the preview endpoint, then open the
-                      // tokenised URL in a new tab.
-                      try {
-                        const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                        });
-                        const j = await r.json();
-                        if (!r.ok) throw new Error(j.error || "Could not generate preview link");
-                        window.open(j.url, "_blank", "noopener,noreferrer");
-                      } catch (e: any) {
-                        toast({
-                          title: "Couldn't open preview",
-                          description: e?.message || "Try again",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
-                  >
-                    <ChevronRight className="w-3 h-3" />
-                    View as client sees it
-                  </button>
-                  {/* Phase 22 #6: copy the tokenised public link.
-                      Same mint endpoint as 'View as client'; instead
-                      of opening a tab we drop the URL onto the
-                      clipboard so the operator can paste it into a
-                      WhatsApp / email message to the client. Tokens
-                      auto-expire after 60 days so this is safe. */}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                        });
-                        const j = await r.json();
-                        if (!r.ok) throw new Error(j.error || "Could not mint link");
-                        await navigator.clipboard.writeText(String(j.url));
-                        toast({ title: "Client link copied", description: "Paste it into your WhatsApp or email." });
-                      } catch (e: any) {
-                        toast({
-                          title: "Couldn't copy link",
-                          description: e?.message || "Try again",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
-                    title="Copy a tokenised client-view link"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy client link
-                  </button>
-                  {/* Wave 54.4 -- include ?orderId so the invoice
-                      list opens filtered to this order. Pre-Wave-54
-                      this dropped the operator on the unfiltered
-                      list -- the readiness chip's deeplink had the
-                      filter, the modal button didn't. */}
-                  <Link
-                    href={withSlug(`/admin/invoices?orderId=${selectedOrder.id}`)}
-                    onClick={() => setIsModalOpen(false)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100"
-                  >
-                    <Receipt className="w-3 h-3" />
-                    Open invoice
-                    <ChevronRight className="w-3 h-3" />
-                  </Link>
-                  {/* Phase 18 #10: quick rating capture. One-tap stars
-                      write to audit_logs so the value flows back
-                      through the timeline tab and survives reloads. */}
-                  {/* Wave 57 -- a11y. Stars now wrapped in
-                      role="radiogroup" with aria-label so SR users
-                      hear "Order rating: 1 of 5" instead of five
-                      separate "Rate 1 star button" announcements.
-                      yellow-700 -> yellow-800 to clear WCAG AA on
-                      yellow-50. focus-visible ring on each star. */}
-                  <div
-                    role="radiogroup"
-                    aria-label="Order rating"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1"
-                    title={orderRating ? `Rated ${orderRating}/5. Tap a star to change.` : "Tap a star to rate this order (1-5)"}
-                  >
-                    <span className="text-[10px] uppercase tracking-wide text-yellow-800" aria-hidden="true">Rate</span>
-                    {[1, 2, 3, 4, 5].map((n) => {
-                      const filled = orderRating != null && n <= orderRating;
-                      return (
-                        <button
-                          key={n}
-                          type="button"
-                          role="radio"
-                          aria-checked={orderRating === n}
-                          onClick={() => setQuickRating(n)}
-                          disabled={ratingBusy}
-                          className="hover:scale-110 transition-transform disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-1 rounded-sm"
-                          aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${filled ? "fill-yellow-500 text-yellow-500" : "text-yellow-400"}`}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* Post-event rating chip. Only shows once the order
+                      reaches delivered/completed -- on a confirmed
+                      booking three weeks out a star widget is noise. */}
+                  {selectedOrder && ["delivered", "completed"].includes(String((selectedOrder as any).status)) && (
+                    <div
+                      role="radiogroup"
+                      aria-label="Order rating"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-full px-2 py-0.5"
+                      title={orderRating ? `Rated ${orderRating}/5. Tap a star to change.` : "Rate this order"}
+                    >
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const filled = orderRating != null && n <= orderRating;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            role="radio"
+                            aria-checked={orderRating === n}
+                            onClick={() => setQuickRating(n)}
+                            disabled={ratingBusy}
+                            className="hover:scale-110 transition-transform disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 rounded-sm"
+                            aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
+                          >
+                            <Star className={`w-3.5 h-3.5 ${filled ? "fill-amber-500 text-amber-500" : "text-slate-300"}`} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+                {selectedOrder && (
+                  <p className="text-sm text-slate-600 mt-1.5 truncate">
+                    {(selectedOrder as any).client_name || "Client"}
+                    {(selectedOrder as any).event_date && (
+                      <> &middot; {formatDate((selectedOrder as any).event_date)}</>
+                    )}
+                  </p>
+                )}
               </div>
+
               {!editMode ? (
-                <div className="flex gap-2">
-                  {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
-                    <Button
-                      onClick={() => {
-                        // Close the Order Details modal first so the
-                        // Cancel dialog isn't stacked behind it. The
-                        // selectedOrder state stays so the cancel
-                        // dialog still has the order id to work with.
-                        setIsModalOpen(false);
-                        setCancelDialogOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Cancel order
-                    </Button>
-                  )}
-                  {/* Phase 8 #9: duplicate order quick action.
-                      Prompts for the new event date (default: 1 week
-                      out), clones the row + order_items via
-                      orderService.duplicateOrder, then opens the new
-                      order in edit mode so the operator can refine
-                      it. Equipment bookings deliberately don't carry
-                      over so we don't create phantom reservations. */}
-                  {selectedOrder && (
-                    <Button
-                      onClick={() => {
-                        // Wave 55 -- replaces window.prompt() with a
-                        // proper Dialog. Default to today + 7 days.
-                        const todayPlus7 = (() => {
-                          const d = new Date();
-                          d.setDate(d.getDate() + 7);
-                          return toLocalISO(d);
-                        })();
-                        setDuplicateDate(todayPlus7);
-                        setDuplicateDialogOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Duplicate
-                    </Button>
-                  )}
-                  {/* Wave 55 -- Pause + Resume promoted out of edit
-                      mode. Pre-Wave-55 Pause was buried inside
-                      Edit -> Status field, four clicks deep for a
-                      daily-driver action. Resume used window.confirm.
-                      Both now sit alongside Cancel / Duplicate /
-                      Kitchen ticket as first-class verbs. */}
-                  {selectedOrder && ["confirmed", "preparing", "ready"].includes(String((selectedOrder as any).status)) && (
-                    <Button
-                      onClick={() => setPauseDialogOrderId(selectedOrder.id)}
-                      variant="outline"
-                      size="sm"
-                      className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                      title="Client called to hold? Pauses reminders + prep without losing them."
-                    >
-                      <Pause className="w-4 h-4 mr-2" />
-                      Pause order
-                    </Button>
-                  )}
-                  {selectedOrder && (selectedOrder as any).status === "paused" && (
-                    <Button
-                      onClick={async () => {
-                        if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
-                        try {
-                          const res = await fetch(`/api/orders/${selectedOrder.id}/resume`, { method: "POST" });
-                          const json = await res.json().catch(() => ({}));
-                          if (!res.ok) { toast({ title: "Resume failed", description: json?.error, variant: "destructive" }); return; }
-                          toast({ title: "Order resumed", description: `Back to ${json.order?.status}. Reminders + prep restored.` });
-                          await loadOrders();
-                          setSelectedOrder(json.order);
-                          setEditedOrder(json.order);
-                        } catch (e: any) {
-                          toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
-                        }
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Resume order
-                    </Button>
-                  )}
-                  {/* Phase 12 #1: print kitchen ticket. Opens the
-                      stripped /admin/orders/{id}/ticket route in a
-                      new tab and auto-fires window.print() so the
-                      head chef gets a clean A5-ish layout with
-                      menu items + allergens but no money. */}
-                  {selectedOrder && (
-                    <Link href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)} target="_blank">
-                      <Button variant="outline" size="sm">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Kitchen ticket
-                      </Button>
-                    </Link>
-                  )}
-                  {/* Phase 17 #1: download an .ics so the dispatch
-                      lead can drop the event into Outlook / Google /
-                      Apple Calendar alongside personal commitments.
-                      Single VEVENT, no recurrence, floating local
-                      time so it pins to the recipient's clock. */}
-                  {selectedOrder && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadOrderIcs(selectedOrder as any)}
-                      title="Download an .ics calendar invite for this event"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Calendar
-                    </Button>
-                  )}
-                  <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button onClick={() => setEditMode(true)} size="sm">
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="px-2" aria-label="More actions">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {selectedOrder && ["confirmed", "preparing", "ready"].includes(String((selectedOrder as any).status)) && (
+                        <DropdownMenuItem
+                          onClick={() => setPauseDialogOrderId(selectedOrder.id)}
+                          className="text-blue-700 focus:text-blue-800"
+                        >
+                          <Pause className="w-4 h-4 mr-2" />
+                          Pause order
+                        </DropdownMenuItem>
+                      )}
+                      {selectedOrder && (selectedOrder as any).status === "paused" && (
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
+                            try {
+                              const res = await fetch(`/api/orders/${selectedOrder.id}/resume`, { method: "POST" });
+                              const json = await res.json().catch(() => ({}));
+                              if (!res.ok) { toast({ title: "Resume failed", description: json?.error, variant: "destructive" }); return; }
+                              toast({ title: "Order resumed", description: `Back to ${json.order?.status}. Reminders + prep restored.` });
+                              await loadOrders();
+                              setSelectedOrder(json.order);
+                              setEditedOrder(json.order);
+                            } catch (e: any) {
+                              toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          Resume order
+                        </DropdownMenuItem>
+                      )}
+                      {selectedOrder && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const todayPlus7 = (() => {
+                              const d = new Date();
+                              d.setDate(d.getDate() + 7);
+                              return toLocalISO(d);
+                            })();
+                            setDuplicateDate(todayPlus7);
+                            setDuplicateDialogOpen(true);
+                          }}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                      )}
+                      {selectedOrder && (
+                        <DropdownMenuItem asChild>
+                          <Link href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)} target="_blank">
+                            <FileText className="w-4 h-4 mr-2" />
+                            Kitchen ticket
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      {selectedOrder && (
+                        <DropdownMenuItem onClick={() => downloadOrderIcs(selectedOrder as any)}>
+                          <Calendar className="w-4 h-4 mr-2" />
+                          Add to calendar
+                        </DropdownMenuItem>
+                      )}
+                      {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setIsModalOpen(false);
+                              setCancelDialogOpen(true);
+                            }}
+                            className="text-rose-700 focus:text-rose-800 focus:bg-rose-50"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Cancel order
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  {/* In edit mode, "Cancel order" stays accessible so
-                      the operator doesn't have to discard their edit
-                      first to get to it. The edit-discard button is
-                      relabelled "Discard" so it's clearly distinct
-                      from cancelling the order itself. */}
+                <div className="flex gap-2 shrink-0">
                   {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                     <Button
                       onClick={() => {
@@ -2724,6 +2584,133 @@ function OrderProcessDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Row 2: navigation toolbar -- uniform slate chips so the
+                operator scans them as "go look at this" rather than
+                six competing CTAs. */}
+            {selectedOrder && (
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedOrder as any).quote_id && (() => {
+                  const tok = (selectedOrder as any).quote?.public_token;
+                  const href = tok
+                    ? `/q/${tok}`
+                    : withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`);
+                  return (
+                    <Link
+                      href={href}
+                      target={tok ? "_blank" : undefined}
+                      rel={tok ? "noopener noreferrer" : undefined}
+                      onClick={() => setIsModalOpen(false)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                      title={tok ? "Open the polished client view of this quote" : "Open the source quote"}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Quote
+                    </Link>
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                      });
+                      const j = await r.json();
+                      if (!r.ok) throw new Error(j.error || "Could not generate preview link");
+                      window.open(j.url, "_blank", "noopener,noreferrer");
+                    } catch (e: any) {
+                      toast({
+                        title: "Couldn't open preview",
+                        description: e?.message || "Try again",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                  title="Open the page the client sees in a new tab"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Client view
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                      });
+                      const j = await r.json();
+                      if (!r.ok) throw new Error(j.error || "Could not mint link");
+                      await navigator.clipboard.writeText(String(j.url));
+                      toast({ title: "Client link copied", description: "Paste it into your WhatsApp or email." });
+                    } catch (e: any) {
+                      toast({
+                        title: "Couldn't copy link",
+                        description: e?.message || "Try again",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                  title="Copy a tokenised client-view link"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy link
+                </button>
+                <Link
+                  href={withSlug(`/admin/invoices?orderId=${selectedOrder.id}`)}
+                  onClick={() => setIsModalOpen(false)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                  title="Open the invoice list filtered to this order"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  Invoice
+                </Link>
+              </div>
+            )}
+
+            {/* Row 3: contact strip. WhatsApp keeps its brand-green
+                accent because operators scan for it specifically;
+                Call + Email stay slate so the row reads cleanly. */}
+            {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email) && (
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedOrder as any).client_phone && (
+                  <>
+                    <a
+                      href={`tel:${String((selectedOrder as any).client_phone).replace(/[^+\d]/g, "")}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                      title={`Call ${(selectedOrder as any).client_phone}`}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Call {(selectedOrder as any).client_phone}
+                    </a>
+                    <a
+                      href={`https://wa.me/${String((selectedOrder as any).client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2 py-1 hover:bg-green-100 transition"
+                      title="Open WhatsApp pre-filled"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      WhatsApp
+                    </a>
+                  </>
+                )}
+                {(selectedOrder as any).client_email && (
+                  <a
+                    href={`mailto:${(selectedOrder as any).client_email}?subject=${encodeURIComponent(`Booking ${(selectedOrder as any).order_number || "your order"}`)}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                    title={`Email ${(selectedOrder as any).client_email}`}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    Email
+                  </a>
+                )}
+              </div>
+            )}
           </DialogHeader>
 
           {/* Wave 54.3 -- controlled Tabs that honour ?tab= query
@@ -2787,48 +2774,13 @@ function OrderProcessDashboard() {
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
-                  {/* Pause / Resume routed through dedicated handlers
-                      so the cascades (email queue suspend, prep tasks
-                      hide, audit log) actually fire. The dropdown
-                      itself doesn't carry 'paused' to keep operators
-                      out of the silent-bypass trap. */}
-                  <div className="flex gap-2 pt-1">
-                    {editedOrder.status === "paused" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
-                          try {
-                            const res = await fetch(`/api/orders/${editedOrder.id}/resume`, { method: "POST" });
-                            const json = await res.json().catch(() => ({}));
-                            if (!res.ok) { toast({ title: "Resume failed", description: json?.error, variant: "destructive" }); return; }
-                            toast({ title: "Order resumed", description: `Back to ${json.order?.status}. Reminders + prep restored.` });
-                            await loadOrders();
-                            setSelectedOrder(json.order);
-                            setEditedOrder(json.order);
-                          } catch (e: any) {
-                            toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
-                          }
-                        }}
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1.5"
-                      >
-                        <Play className="w-3.5 h-3.5" /> Resume order
-                      </Button>
-                    ) : (
-                      ["confirmed", "preparing", "ready"].includes(String(editedOrder.status)) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPauseDialogOrderId(editedOrder.id)}
-                          className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-1.5"
-                          title="Client called to hold? Pauses reminders + prep without losing them."
-                        >
-                          <Pause className="w-3.5 h-3.5" /> Pause order
-                        </Button>
-                      )
-                    )}
-                  </div>
+                  {/* Wave 64.3 -- Pause/Resume CTAs removed from
+                      under the Status field; they now live in the
+                      header overflow menu (single source of truth)
+                      so the operator doesn't see "Pause order" twice
+                      in the same modal. The paused-reason context
+                      stays here because it's status metadata, not an
+                      action. */}
                   {editedOrder.status === "paused" && (
                     <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5 mt-1">
                       Paused{(editedOrder as any).paused_reason_category ? ` · ${String((editedOrder as any).paused_reason_category).replace(/_/g, " ")}` : ""}
