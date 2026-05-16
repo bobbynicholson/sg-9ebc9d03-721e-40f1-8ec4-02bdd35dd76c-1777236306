@@ -295,9 +295,24 @@ export function computeOrderReadiness(
   }
 
   // 9. Setup + pickup times set.
+  // Wave 66.3 -- copy was "driver doesn't know when to head back",
+  // which ambiguously read as "head back to base after the run".
+  // The field semantics are actually "when the driver LEAVES the
+  // kitchen with the order to head out to the venue" -- it's the
+  // start-of-day pickup, not the end-of-day collection. New copy
+  // says "leave the kitchen" so there's no interpretation drift.
+  // Action routing: setup_time is a client-facing commitment ("we'll
+  // be there at 16:00 to set up") and stays on the order modal where
+  // the operator manages the booking. pickup_time is a logistics
+  // decision (dispatcher sets it based on driver availability, route,
+  // prep readiness) so when ONLY pickup is missing the Fix it link
+  // jumps to /admin/order-assignments?orderId=X where the dispatcher
+  // can edit it inline. Order modal also gained an inline editor in
+  // the same wave so the both-missing case stays on the modal.
   const setupTime = (o.setup_time as string | null | undefined) || null;
   const pickupTime = (o.pickup_time as string | null | undefined) || null;
   const timesPresent = !!setupTime && !!pickupTime;
+  const onlyPickupMissing = !!setupTime && !pickupTime;
   signals.push({
     key: "setup_pickup_times_set",
     severity: "high",
@@ -305,11 +320,13 @@ export function computeOrderReadiness(
     message: timesPresent
       ? "Setup + pickup times set."
       : !setupTime && !pickupTime
-        ? "Setup + pickup times missing -- driver doesn't know when to arrive or head back."
+        ? "Setup + pickup times missing -- crew doesn't know when to start and driver doesn't know when to leave the kitchen."
         : !pickupTime
-          ? "Pickup time missing -- driver doesn't know when to head back."
+          ? "Pickup time missing -- driver doesn't know when to leave the kitchen."
           : "Setup time missing -- crew doesn't know when to start.",
-    actionLink: orderLink,
+    actionLink: onlyPickupMissing
+      ? `/admin/order-assignments?orderId=${orderId}`
+      : orderLink,
   });
 
   // 10. Hire pickup dates set (n/a-skip when no hire orders).

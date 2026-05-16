@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -68,6 +69,13 @@ interface OrderRow {
   requires_refrigeration: boolean;
   requires_waiter: boolean;
   guest_count: number | null;
+  // Wave 66.3 -- pickup_time is the time the driver leaves the
+  // kitchen with the order. Used by kitchenPrepService to backplan
+  // prep tasks. Now editable inline in the dispatch expanded drawer
+  // because the readiness chip's "Pickup time missing" Fix-it link
+  // routes here when only pickup is missing (it's a dispatch
+  // decision, not an order detail).
+  pickup_time: string | null;
 }
 
 const STATUSES: Array<{ value: string; label: string }> = [
@@ -78,6 +86,7 @@ const STATUSES: Array<{ value: string; label: string }> = [
 ];
 
 function DispatchQueuePage() {
+  const router = useRouter();
   const { user, profile } = useAuth() as any;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -103,6 +112,12 @@ function DispatchQueuePage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // Wave 66.3 -- inline pickup_time editor state. Per-row local draft
+  // so multiple drawers can be open in series without state collision;
+  // savingId is set while the supabase update is in-flight to dim
+  // the save button.
+  const [pickupDraft, setPickupDraft] = useState<Record<string, string>>({});
+  const [pickupSavingId, setPickupSavingId] = useState<string | null>(null);
 
   // Assign dialog
   const [assignOpen, setAssignOpen] = useState(false);
@@ -142,7 +157,7 @@ function DispatchQueuePage() {
       const { data: rows, error } = await supabase
         .from("orders")
         .select(`
-          id, client_id, client_name, event_date, event_time, status, total_amount,
+          id, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
           venue_lat, venue_lng, venue_name, venue_address,
           confirmed_at, assigned_driver_id, assigned_at, assignment_score,
           assigned_chef_id,
@@ -192,6 +207,7 @@ function DispatchQueuePage() {
         requires_refrigeration: !!r.requires_refrigeration,
         requires_waiter: !!r.requires_waiter,
         guest_count: r.guest_count ?? null,
+        pickup_time: r.pickup_time ?? null,
       }));
       setOrders(mapped);
     } finally {
@@ -211,6 +227,54 @@ function DispatchQueuePage() {
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [companyId, loadAll]);
+
+  // Wave 66.3 -- deeplink detection. When the URL carries
+  // ?orderId=X (the readiness chip's "Pickup time missing -- Fix
+  // it" link points here when only pickup is missing), auto-expand
+  // that row once orders have loaded so the operator lands on the
+  // inline editor instead of a generic queue page. Self-clears the
+  // pickupDraft when navigating away.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const targetId = typeof router.query.orderId === "string" ? router.query.orderId : null;
+    if (!targetId || orders.length === 0) return;
+    if (orders.some((o) => o.id === targetId)) {
+      setExpandedRowId(targetId);
+      // Scroll the row into view after the next paint so the expansion
+      // animation doesn't fight the scroll position.
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`dispatch-row-${targetId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }, [router.isReady, router.query.orderId, orders]);
+
+  // Wave 66.3 -- persist pickup_time inline. Direct supabase update
+  // keeps the round-trip tight (no orderService.updateOrder cascades
+  // are wanted here -- pickup_time changes don't ripple to invoices
+  // or quotes). Empty input clears to NULL so kitchenPrepService
+  // falls back to event_time defaults.
+  const savePickupTime = async (orderId: string) => {
+    const draft = pickupDraft[orderId] ?? "";
+    const next = draft.trim() || null;
+    setPickupSavingId(orderId);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ pickup_time: next })
+        .eq("id", orderId);
+      if (error) {
+        toast({ title: "Could not save", description: error.message, variant: "destructive" });
+        return;
+      }
+      // Optimistic local update so the operator sees the saved time
+      // immediately without a full requeue refetch.
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, pickup_time: next } : o));
+      toast({ title: "Pickup time saved", description: next ? `Driver leaves the kitchen at ${next}.` : "Pickup time cleared." });
+    } finally {
+      setPickupSavingId(null);
+    }
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -776,7 +840,7 @@ function DispatchQueuePage() {
                 const isExpanded = expandedRowId === order.id;
 
                 return (
-                  <div key={order.id} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
+                  <div key={order.id} id={`dispatch-row-${order.id}`} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
                     {/* Desktop row */}
                     <div
                       className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer ${
@@ -1023,6 +1087,45 @@ function DispatchQueuePage() {
                             <p className="text-slate-900 tabular-nums">
                               {C}{order.total_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </p>
+                          </div>
+                        </div>
+
+                        {/* Wave 66.3 -- inline pickup_time editor. The
+                            readiness chip's "Pickup time missing -- Fix
+                            it" link routes here when only pickup is
+                            missing (it's a dispatch decision: when to
+                            send the driver out, given route + prep
+                            readiness + driver availability). Rose-tinted
+                            warning when the value is missing so the
+                            operator sees the gap inside the drawer. */}
+                        <div className={`rounded-md border p-3 ${order.pickup_time ? "border-slate-200 bg-white" : "border-rose-200 bg-rose-50/40"}`}>
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                                Pickup from kitchen
+                              </p>
+                              <p className="text-[11px] text-slate-600 mt-0.5">
+                                {order.pickup_time
+                                  ? `Driver leaves the kitchen at ${order.pickup_time}.`
+                                  : "Driver doesn't know when to leave the kitchen yet -- set the time below."}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={pickupDraft[order.id] ?? order.pickup_time ?? ""}
+                                onChange={(e) => setPickupDraft((p) => ({ ...p, [order.id]: e.target.value }))}
+                                className="h-8 w-32"
+                                aria-label="Pickup time from kitchen"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => savePickupTime(order.id)}
+                                disabled={pickupSavingId === order.id || (pickupDraft[order.id] ?? order.pickup_time ?? "") === (order.pickup_time ?? "")}
+                              >
+                                {pickupSavingId === order.id ? "Saving..." : "Save"}
+                              </Button>
+                            </div>
                           </div>
                         </div>
 

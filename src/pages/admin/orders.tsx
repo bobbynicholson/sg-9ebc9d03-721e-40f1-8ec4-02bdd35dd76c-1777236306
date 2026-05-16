@@ -2269,7 +2269,14 @@ function OrderProcessDashboard() {
           // row + downstream invoice via the syncOrderArtifacts
           // call below. null = clear the discount.
           discount_amount: (editedOrder as any).discount_amount ?? null,
-        });
+          // Wave 66.3 -- operational times are now editable inline.
+          // Empty string from the time input means "cleared"; persist
+          // as null so kitchenPrepService falls back to its event_date
+          // default rather than a zero-length string.
+          event_time: ((editedOrder as any).event_time || null) || null,
+          setup_time: ((editedOrder as any).setup_time || null) || null,
+          pickup_time: ((editedOrder as any).pickup_time || null) || null,
+        } as any);
         if (result && result.success === false) {
           throw new Error(result.error || "Update failed");
         }
@@ -2817,6 +2824,54 @@ function OrderProcessDashboard() {
                     onChange={(e) => setEditedOrder({ ...editedOrder, guest_count: parseInt(e.target.value) || 0 })}
                     disabled={!editMode}
                   />
+                </div>
+
+                {/* Wave 66.3 -- operational times block. Pre-Wave-66.3
+                    event_time, setup_time and pickup_time existed on
+                    the orders row, were read by kitchenPrepService to
+                    backplan prep tasks, and were surfaced on the
+                    kitchen ticket + driver dashboard -- but they had
+                    no admin editor anywhere. The readiness chip's
+                    "Pickup time missing -- Fix it" link sent the
+                    operator to this modal where the field wasn't
+                    rendered. Now: three time inputs grouped under a
+                    clear header so the operator can set start-of-day
+                    pickup, on-site setup, and event start in one
+                    place. handleSave below now persists all three. */}
+                <div id="op-times" className="space-y-2 col-span-2 pt-2 border-t border-slate-200">
+                  <Label className="text-xs uppercase tracking-wide text-slate-500">Operational times</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-600">Event start</Label>
+                      <Input
+                        type="time"
+                        value={(editedOrder as any).event_time || ""}
+                        onChange={(e) => setEditedOrder({ ...editedOrder, event_time: e.target.value } as any)}
+                        disabled={!editMode}
+                      />
+                      <p className="text-[10px] text-slate-500">When guests arrive.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-600">Setup time</Label>
+                      <Input
+                        type="time"
+                        value={(editedOrder as any).setup_time || ""}
+                        onChange={(e) => setEditedOrder({ ...editedOrder, setup_time: e.target.value } as any)}
+                        disabled={!editMode}
+                      />
+                      <p className="text-[10px] text-slate-500">When the crew arrives at the venue to set up.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-600">Pickup from kitchen</Label>
+                      <Input
+                        type="time"
+                        value={(editedOrder as any).pickup_time || ""}
+                        onChange={(e) => setEditedOrder({ ...editedOrder, pickup_time: e.target.value } as any)}
+                        disabled={!editMode}
+                      />
+                      <p className="text-[10px] text-slate-500">When the driver leaves the kitchen with the order. Drives prep backplanning.</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2 col-span-2">
