@@ -383,6 +383,14 @@ export default function KitchenDashboard() {
 
                     return (
                       <div key={order.id} className={`p-2 sm:p-3 rounded-lg border-l-4 ${urgency.color}`}>
+                        {/* Wave 70.20 -- restructured row. Right column
+                            now stacks status badge + action buttons
+                            inline with the title block, matching the
+                            screenshot Bobby drew. Collection time chip
+                            renders inline with guests / event time so
+                            the kitchen knows when the driver will pick
+                            up from the kitchen, not just when guests
+                            eat. */}
                         <div className="flex items-start justify-between gap-2 sm:gap-3">
                           <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
                             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
@@ -393,10 +401,12 @@ export default function KitchenDashboard() {
                                 {order.event_name || (order as any).client_name || "Event"}
                               </p>
                               <p className="text-xs text-slate-600 dark:text-slate-400">
-                                {order.guest_count} guests • {eventTime}
-                                {/* Wave 46 T4 -- show client name + venue inline so the
-                                    chef knows who's eating + where it's going. Previously
-                                    only event_name + guest_count + time appeared. */}
+                                {order.guest_count} guests • Eat {eventTime}
+                                {(order as any).pickup_time && (
+                                  <span className="ml-1 text-amber-700 dark:text-amber-400 font-medium">
+                                    · Collect {String((order as any).pickup_time).slice(0, 5)}
+                                  </span>
+                                )}
                                 {(order as any).client_name && order.event_name && (
                                   <span> · for <span className="font-medium text-slate-700 dark:text-slate-300">{(order as any).client_name}</span></span>
                                 )}
@@ -413,34 +423,32 @@ export default function KitchenDashboard() {
                               )}
                             </div>
                           </div>
-                          <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
-                        </div>
-
-                        {/* Wave 70.19 -- action buttons mirror the active-
-                            orders cards so the chef can open the kitchen
-                            ticket straight from the priority row. Kitchen
-                            ticket goes to the kitchen-portal-namespaced
-                            URL so middleware allows it for kitchen staff.
-                            Order detail (admin) gated by role. */}
-                        <div className={`mt-2 grid gap-1.5 ${canSeeAdminOrderDetail ? "grid-cols-2" : "grid-cols-1"}`}>
-                          <Link
-                            href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                            className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
-                            title="Open the printable kitchen ticket"
-                          >
-                            <ChefHat className="w-3.5 h-3.5" />
-                            Kitchen ticket
-                          </Link>
-                          {canSeeAdminOrderDetail && (
+                          {/* Right column: action buttons + status badge.
+                              Desktop: buttons sit alongside the badge.
+                              Mobile: stacks under the title so the
+                              tap targets stay big-thumb friendly. */}
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
                             <Link
-                              href={withSlug(`/admin/orders?orderId=${order.id}`)}
-                              className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
-                              title="Open the order detail in admin"
+                              href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                              className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
+                              title="Open the printable kitchen ticket"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Order detail
+                              <ChefHat className="w-3.5 h-3.5" />
+                              <span className="hidden xs:inline sm:inline">Kitchen ticket</span>
+                              <span className="xs:hidden sm:hidden">Ticket</span>
                             </Link>
-                          )}
+                            {canSeeAdminOrderDetail && (
+                              <Link
+                                href={withSlug(`/admin/orders?orderId=${order.id}`)}
+                                className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                                title="Open the order detail in admin"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span className="hidden xs:inline sm:inline">Order</span>
+                              </Link>
+                            )}
+                            <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
+                          </div>
                         </div>
                       </div>
                     );
