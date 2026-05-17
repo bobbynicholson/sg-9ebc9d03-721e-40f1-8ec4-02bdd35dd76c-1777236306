@@ -419,13 +419,13 @@ export const kitchenPrepService = {
     performedBy?: string,
     client?: typeof supabase,
     opts: { force?: boolean } = {},
-  ): Promise<{ created: number }> {
+  ): Promise<{ created: number; skippedReason?: string }> {
     // Server-safe injection. Browser callers pass nothing and get the
     // global anon client (RLS-gated). Server callers (post-order
     // cascade, leads route) inject a service-role client.
     const sb: any = client || supabase;
     const settings = await this.getKitchenSettings(companyId);
-    if (!settings.autoGeneratePrepTasks) return { created: 0 };
+    if (!settings.autoGeneratePrepTasks) return { created: 0, skippedReason: "auto_generate_disabled" };
 
     // Quarantine guard. Imported orders (rows brought in from a prior
     // system at onboarding time) must not spin up kitchen prep tasks
@@ -445,28 +445,27 @@ export const kitchenPrepService = {
       const isPaused = paused && new Date(paused) > new Date();
       if (importedAt || isPaused) {
         console.log(`[kitchenPrep] order ${orderId} is in import quarantine -- skipping prep generation`);
-        return { created: 0 };
+        return { created: 0, skippedReason: importedAt ? "import_quarantine" : "comms_paused" };
       }
       // Also skip if the event_date is in the past -- even fresh
       // status changes on historical orders shouldn't trigger prep.
       //
-      // Wave 70.9 -- BUGFIX: previously this compared
-      //   new Date(event_date) < new Date()
-      // which parses event_date as midnight UTC of that date and
-      // compares against the current instant. Any order whose event
-      // is TODAY would be treated as past the moment the clock
-      // ticked past 00:00 of event day -- so prep tasks never
-      // generated for same-day events. The production timeline came
-      // up empty even though the chef had an event at 14:30.
-      // Now: compare YYYY-MM-DD strings lexicographically (correct
-      // because ISO dates are lexically sortable). Today's event
-      // passes; yesterday's does not.
-      if ((orderMeta as any).event_date) {
+      // Wave 70.9 -- compare YYYY-MM-DD strings lexicographically
+      // (ISO dates are lexically sortable). Today's event passes;
+      // yesterday's does not.
+      //
+      // Wave 70.11 -- opts.force now also bypasses the past-date
+      // guard. A manual operator-triggered regen (e.g. an admin
+      // recovering a seed-data order in dev, or backfilling a
+      // historical order that needs paperwork) is an explicit
+      // override; auto-cascades still respect the date check via
+      // force=false.
+      if ((orderMeta as any).event_date && !opts.force) {
         const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
         const todayIso = new Date().toISOString().slice(0, 10);
         if (eventDateIso < todayIso) {
-          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} -- skipping prep generation`);
-          return { created: 0 };
+          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} -- skipping prep generation (pass force=true to override)`);
+          return { created: 0, skippedReason: "event_in_past" };
         }
       }
     }
@@ -503,12 +502,12 @@ export const kitchenPrepService = {
         // Continue to re-plan below.
       } else {
         console.log(`[kitchenPrep] order ${orderId} already has pending tasks -- skipping regen`);
-        return { created: 0 };
+        return { created: 0, skippedReason: "already_has_pending_tasks" };
       }
     }
 
     const planned = await this.planTasksForOrder(companyId, orderId);
-    if (planned.length === 0) return { created: 0 };
+    if (planned.length === 0) return { created: 0, skippedReason: "no_menu_items_or_no_pickup_time" };
 
     // Phase 2: load stations once and auto-assign each task to the right one.
     // Defaults from the migration mean every tenant has Prep / Cook / Cold /
@@ -532,7 +531,7 @@ export const kitchenPrepService = {
     const { error } = await sb.from("kitchen_prep_tasks").insert(rows);
     if (error) {
       console.error("Error inserting prep tasks:", error);
-      return { created: 0 };
+      return { created: 0, skippedReason: `insert_failed:${error.message}` };
     }
     return { created: rows.length };
   },

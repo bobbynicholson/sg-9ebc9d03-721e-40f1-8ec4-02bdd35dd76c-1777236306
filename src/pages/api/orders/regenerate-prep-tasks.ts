@@ -63,6 +63,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Wrong company" });
     }
 
+    // Wave 70.11 -- manual operator-initiated regen always uses
+    // force=true. That:
+    //   - bypasses the past-date guard (so an admin can backfill
+    //     prep tasks for a historical order, e.g. seed data)
+    //   - soft-deletes existing pending tasks and re-plans against
+    //     the current order state (so a guest-count or menu change
+    //     gets picked up)
+    // Auto-cascade calls (postCreationCascade, amendment-review,
+    // etc) keep their own force flag for their own reasons.
+    const effectiveForce = force === undefined ? true : !!force;
+
     // Run the regen via the service-role client so RLS doesn't block
     // the insert (the helper falls back to the browser anon client
     // by default).
@@ -71,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       order_id,
       user.id,
       admin,
-      { force: !!force },
+      { force: effectiveForce },
     );
 
     try {
@@ -83,7 +94,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         entity_id: order_id,
         details: {
           created: result.created,
-          force: !!force,
+          skippedReason: result.skippedReason || null,
+          force: effectiveForce,
           event_date: (order as any).event_date,
           event_time: (order as any).event_time,
         },
@@ -92,12 +104,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[orders/regenerate-prep-tasks] audit insert failed:", auditErr);
     }
 
+    // Wave 70.11 -- precise per-reason message so the operator
+    // knows WHY no tasks were generated instead of getting the
+    // generic "may have X, Y, or Z" fallback.
+    let message: string;
+    if (result.created > 0) {
+      message = `Generated ${result.created} prep task${result.created === 1 ? "" : "s"}. Refresh the kitchen production page to see them.`;
+    } else {
+      switch (result.skippedReason) {
+        case "auto_generate_disabled":
+          message = "Auto-generate prep tasks is turned off for this tenant. Switch it on under /admin/kitchen-settings and try again.";
+          break;
+        case "import_quarantine":
+          message = "Order is in import quarantine (imported from a prior system). Quarantine clears automatically; manual override available via the order's pause/imported flags.";
+          break;
+        case "comms_paused":
+          message = "Order has communications paused. Resume comms on the order before regenerating prep.";
+          break;
+        case "event_in_past":
+          message = "Event is in the past. Manual regen normally bypasses this; if you're seeing this message the force flag was overridden -- contact support.";
+          break;
+        case "already_has_pending_tasks":
+          message = "Order already has pending prep tasks. Open Production to see them, or pass force=true to wipe and replan.";
+          break;
+        case "no_menu_items_or_no_pickup_time":
+          message = "Could not plan tasks. Either the order has no menu items, the menu items have no name field, or there's no pickup_time / event_time / event_date set.";
+          break;
+        default:
+          if (result.skippedReason?.startsWith("insert_failed:")) {
+            message = `Insert failed: ${result.skippedReason.slice("insert_failed:".length)}`;
+          } else {
+            message = `No tasks generated${result.skippedReason ? ` (${result.skippedReason})` : ""}.`;
+          }
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       created: result.created,
-      message: result.created > 0
-        ? `Generated ${result.created} prep task${result.created === 1 ? "" : "s"}. Refresh the kitchen production page to see them.`
-        : "No tasks generated. The order may have no menu items, already have pending tasks, or be in import quarantine.",
+      skippedReason: result.skippedReason || null,
+      message,
     });
   } catch (err: any) {
     console.error("[orders/regenerate-prep-tasks] crashed:", err);
