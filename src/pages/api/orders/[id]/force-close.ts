@@ -14,7 +14,7 @@
  *   1. Mark every kitchen_prep_task that's still pending / in
  *      progress as 'done'. Preserves rows (no soft-delete) so
  *      the timeline + reporting keep the audit trail.
- *   2. Stamp orders.ready_at + picked_up_at + actual_delivery_time
+ *   2. Stamp orders.ready_at + picked_up_at + delivered_at
  *      if they weren't set (uses event_time on event_date as the
  *      best-guess clock for historical orders, else now).
  *   3. Flip order status straight to 'delivered' via the canonical
@@ -96,7 +96,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wave 70.33 -- accept either a UUID `id` or an order_number
     // ("ORD-003829"). OrderReadinessChip passes UUID; defensive
     // fallback catches callers that pass the wrong field.
-    const lookupSelect = "id, order_number, company_id, status, event_date, event_time, ready_at, picked_up_at, actual_delivery_time";
+    // Wave 70.48c -- dropped phantom `actual_delivery_time` column.
+    // It does not exist on `orders` (the real columns are delivered_at +
+    // completed_at). Every prior force-close attempt was silently
+    // PGRST204-erroring on the SELECT, which is why this endpoint had
+    // been quietly broken alongside the other bugs the smoke surfaced.
+    const lookupSelect = "id, order_number, company_id, status, event_date, event_time, ready_at, picked_up_at, delivered_at";
     const { data: byId, error: byIdErr } = await ssr
       .from("orders")
       .select(lookupSelect)
@@ -210,7 +215,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const stamps: Record<string, string> = {};
     if (!(order as any).ready_at) stamps.ready_at = bestGuessIso;
     if (!(order as any).picked_up_at) stamps.picked_up_at = bestGuessIso;
-    if (!(order as any).actual_delivery_time) stamps.actual_delivery_time = bestGuessIso;
+    if (!(order as any).delivered_at) stamps.delivered_at = bestGuessIso;
     if (Object.keys(stamps).length > 0) {
       await admin.from("orders").update(stamps).eq("id", resolvedOrderId);
     }

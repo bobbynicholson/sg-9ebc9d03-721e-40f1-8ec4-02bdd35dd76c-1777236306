@@ -242,7 +242,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await run("A5_start_prep",    () => flipStatus("preparing", { prep_started_at: new Date().toISOString() }));
     await run("A6_mark_ready",    () => flipStatus("ready",     { ready_at: new Date().toISOString() }));
     await run("A7_start_delivery",() => flipStatus("in_transit",{ picked_up_at: new Date().toISOString() }));
-    await run("A8_mark_delivered",() => flipStatus("delivered", { delivered_at: new Date().toISOString(), actual_delivery_time: new Date().toISOString() }));
+    // Wave 70.48c -- dropped the phantom `actual_delivery_time` field.
+    // The column does not exist on `orders`; the legacy code that
+    // referenced it (force-close.ts) was silently PGRST204-ing on
+    // every force-close attempt. delivered_at is the real column.
+    await run("A8_mark_delivered",() => flipStatus("delivered", { delivered_at: new Date().toISOString() }));
     // A8b -- delivered -> completed. The auto-invoice trigger
     // (auto_create_invoice_on_completion) only fires on the
     // transition INTO 'completed', not 'delivered'. Operators

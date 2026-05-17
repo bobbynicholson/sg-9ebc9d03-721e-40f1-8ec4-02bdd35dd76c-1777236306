@@ -191,23 +191,40 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         /* hide block */
       }
 
-      // Active tokenised client link (so admin can preview the client view)
+      // Wave 70.48c -- the eager DB lookup for an existing token
+      // previously set tokenLink to the bare `/c/order/{id}` URL with
+      // NO ?t= token, on the theory that the page would "redirect to
+      // login or the client view depending on session state". It
+      // doesn't -- the page POSTs to /api/client-tokens/view, finds no
+      // cookie (the admin's browser was never validated against this
+      // order), and rejects with "We couldn't verify this booking link".
+      // Bobby hit this in production immediately after Wave 70.47 ship.
+      //
+      // Fix: tokenLink is always non-null when an active token exists,
+      // and on click we POST to /api/orders/{id}/preview-as-client to
+      // mint a FRESH raw token + open the returned URL (which has
+      // `?t={token}` baked in -- the page's validate flow then sets
+      // the cookie and renders). The mint endpoint is admin-only,
+      // tokens auto-expire in 60 days, safe to call repeatedly.
       try {
         const { data } = await supabase
           .from("client_access_tokens")
-          .select("token_prefix, expires_at, revoked_at")
+          .select("id")
           .eq("order_id", order.id)
           .is("revoked_at", null)
           .gt("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!cancelled && data) {
-          // We can't reconstruct the raw token; route the admin to the
-          // bare /c/order/{id} which will redirect them to login or the
-          // client view depending on session state.
-          const origin = typeof window !== "undefined" ? window.location.origin : "";
-          setTokenLink(`${origin}/c/order/${order.id}`);
+        // Show the button regardless of whether an existing token row
+        // is present -- the preview endpoint mints fresh on demand.
+        // The lookup is now just a "does the order have ANY history of
+        // client tokens" hint (kept so the button doesn't surface on
+        // orders that were never client-facing, e.g. internal
+        // placeholders). For brand-new orders without a token row, we
+        // still show the button so admins can mint one on demand.
+        if (!cancelled) {
+          setTokenLink("__preview__"); // sentinel -- triggers onClick mint
         }
       } catch {
         /* hide block */
@@ -460,11 +477,36 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               </a>
             )}
             {tokenLink && (
-              <a href={tokenLink} target="_blank" rel="noopener">
-                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
-                  <Eye className="h-3 w-3" /> Client view
-                </Button>
-              </a>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 h-7 text-xs"
+                onClick={async () => {
+                  // Wave 70.48c -- mint a fresh raw token via the admin
+                  // preview endpoint, then open the URL it returns
+                  // (already has ?t= baked in). The /c/order/{id} page
+                  // will validate, set the cookie, and render the
+                  // client view. Endpoint is admin-only; tokens
+                  // auto-expire in 60 days, safe to spam.
+                  try {
+                    const r = await fetch(`/api/orders/${order.id}/preview-as-client`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                    });
+                    const data = await r.json();
+                    if (!r.ok || !data?.url) {
+                      alert(data?.error || "Could not generate client preview link");
+                      return;
+                    }
+                    window.open(data.url, "_blank", "noopener");
+                  } catch (err: any) {
+                    alert(err?.message || "Could not generate client preview link");
+                  }
+                }}
+              >
+                <Eye className="h-3 w-3" /> Client view
+              </Button>
             )}
           </div>
         </CardContent>
