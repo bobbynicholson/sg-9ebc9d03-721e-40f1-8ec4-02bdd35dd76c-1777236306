@@ -425,9 +425,25 @@ export const kitchenPrepService = {
       }
       // Also skip if the event_date is in the past -- even fresh
       // status changes on historical orders shouldn't trigger prep.
-      if ((orderMeta as any).event_date && new Date((orderMeta as any).event_date) < new Date()) {
-        console.log(`[kitchenPrep] order ${orderId} is in the past -- skipping prep generation`);
-        return { created: 0 };
+      //
+      // Wave 70.9 -- BUGFIX: previously this compared
+      //   new Date(event_date) < new Date()
+      // which parses event_date as midnight UTC of that date and
+      // compares against the current instant. Any order whose event
+      // is TODAY would be treated as past the moment the clock
+      // ticked past 00:00 of event day -- so prep tasks never
+      // generated for same-day events. The production timeline came
+      // up empty even though the chef had an event at 14:30.
+      // Now: compare YYYY-MM-DD strings lexicographically (correct
+      // because ISO dates are lexically sortable). Today's event
+      // passes; yesterday's does not.
+      if ((orderMeta as any).event_date) {
+        const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
+        const todayIso = new Date().toISOString().slice(0, 10);
+        if (eventDateIso < todayIso) {
+          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} -- skipping prep generation`);
+          return { created: 0 };
+        }
       }
     }
 

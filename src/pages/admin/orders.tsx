@@ -17,6 +17,7 @@ import { computeOrderReadiness, type OrderReadiness } from "@/services/order/ord
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPanel";
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
+import { OrderTimesStrip } from "@/components/admin/orders/OrderTimesStrip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import Head from "next/head";
 import Link from "next/link";
@@ -1681,6 +1682,17 @@ function OrderProcessDashboard() {
                       })}
                     </span>
                   </div>
+                  {/* Wave 70.9 -- day-of-event times strip. Slots
+                      into the previously-empty space to the right
+                      of the price. Renders nothing when the order
+                      has no timing data at all. */}
+                  <OrderTimesStrip
+                    event_time={(order as any).event_time}
+                    pickup_time={(order as any).pickup_time}
+                    setup_time={(order as any).setup_time}
+                    delivery_time={(order as any).delivery_time}
+                    className="ml-auto"
+                  />
                 </div>
               </div>
             </div>
@@ -1703,7 +1715,13 @@ function OrderProcessDashboard() {
             {(() => {
               const r = readinessById.get((order as any).id);
               if (!r) return null;
-              return <OrderReadinessChip readiness={r} />;
+              return (
+                <OrderReadinessChip
+                  readiness={r}
+                  orderId={(order as any).id}
+                  onActionComplete={() => { void loadOrders(); }}
+                />
+              );
             })()}
             {(() => {
               const tl = timelinesById.get((order as any).id);

@@ -14,9 +14,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderReadiness";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useToast } from "@/hooks/use-toast";
 
 // Wave 56 -- emerald retired in favour of green per the existing
 // TimelineTrack docstring: "green-500 (not emerald-500) is the
@@ -60,9 +61,15 @@ interface Props {
   /** Optional click target for the headline -- typically opens the
    *  order detail drawer. */
   onOpen?: () => void;
+  /** Wave 70.9 -- order id so action buttons can POST to the
+   *  right entity (e.g. regenerate-prep-tasks). */
+  orderId?: string;
+  /** Wave 70.9 -- called after a successful action so the page
+   *  can refetch / refresh state. */
+  onActionComplete?: () => void;
 }
 
-export function OrderReadinessChip({ readiness, onOpen }: Props) {
+export function OrderReadinessChip({ readiness, onOpen, orderId, onActionComplete }: Props) {
   const [open, setOpen] = useState(false);
   const { withSlug } = useTenantHref();
   const tone = TONE[readiness.chip];
@@ -118,7 +125,13 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
       {open && failingCount > 0 && (
         <ul className="mt-2 space-y-1 border-t border-white/40 pt-2">
           {[...readiness.failingHigh, ...readiness.failingMedium].map((sig) => (
-            <SignalRow key={sig.key} signal={sig} withSlug={withSlug} />
+            <SignalRow
+              key={sig.key}
+              signal={sig}
+              withSlug={withSlug}
+              orderId={orderId}
+              onActionComplete={onActionComplete}
+            />
           ))}
         </ul>
       )}
@@ -129,16 +142,66 @@ export function OrderReadinessChip({ readiness, onOpen }: Props) {
 function SignalRow({
   signal,
   withSlug,
+  orderId,
+  onActionComplete,
 }: {
   signal: ReadinessSignal;
   withSlug: (href: string) => string;
+  orderId?: string;
+  onActionComplete?: () => void;
 }) {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
   const dotTone = signal.severity === "high" ? "bg-rose-500" : "bg-amber-500";
+
+  // Wave 70.9 -- inline action handler for regenerate-prep-tasks.
+  // Other action types can land here later.
+  const runAction = async () => {
+    if (!orderId || !signal.actionType) return;
+    setBusy(true);
+    try {
+      if (signal.actionType === "regenerate_prep_tasks") {
+        const r = await fetch("/api/orders/regenerate-prep-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ order_id: orderId, force: false }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          toast({ title: "Couldn't generate prep tasks", description: data.error || "Server error", variant: "destructive" });
+          return;
+        }
+        toast({
+          title: data.created > 0 ? "Prep tasks generated" : "No tasks generated",
+          description: data.message,
+        });
+        onActionComplete?.();
+      }
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const label = signal.actionLabel || "Fix it";
+
   return (
     <li className="flex items-start gap-2 text-xs">
       <span className={`mt-1 inline-block w-1.5 h-1.5 rounded-full shrink-0 ${dotTone}`} aria-hidden="true" />
       <span className="flex-1 text-slate-800">{signal.message}</span>
-      {signal.actionLink && (
+      {signal.actionType ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); void runAction(); }}
+          disabled={busy}
+          className="text-xs font-semibold text-orange-700 hover:text-orange-900 inline-flex items-center gap-1 shrink-0 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+          {busy ? "Generating..." : label}
+        </button>
+      ) : signal.actionLink ? (
         <Link
           href={withSlug(signal.actionLink)}
           onClick={(e) => e.stopPropagation()}
@@ -147,7 +210,7 @@ function SignalRow({
         >
           Fix it <ExternalLink className="w-3 h-3" />
         </Link>
-      )}
+      ) : null}
     </li>
   );
 }

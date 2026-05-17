@@ -38,6 +38,14 @@ export interface ReadinessSignal {
   message: string;
   /** Optional deep-link to the page that fixes this signal. */
   actionLink?: string | null;
+  /** Wave 70.9 -- when set, the chip renders an inline action
+   *  button instead of a deep-link. The chip dispatches the
+   *  action to the page-level handler (e.g. POST a regenerate
+   *  endpoint and refresh). */
+  actionType?: "regenerate_prep_tasks" | null;
+  /** Optional override for the action button label when actionType
+   *  is set. Defaults to "Fix it". */
+  actionLabel?: string | null;
 }
 
 export interface OrderReadiness {
@@ -240,10 +248,15 @@ export function computeOrderReadiness(
     message: prepReady
       ? `${prepTasks.length} prep tasks generated.`
       : "No prep tasks on the chef's board yet.",
-    // Wave 54.3 -- the modal has no "kitchen" tab; the canonical
-    // surface for prep tasks is /admin/kitchen-schedule. Mirrors the
-    // kitchen_shift_event_day signal's destination.
-    actionLink: `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`,
+    // Wave 70.9 -- when failing, the action is a direct
+    // regenerate (POST /api/orders/regenerate-prep-tasks) so the
+    // owner can recover stuck orders in one click. When passing,
+    // the deep-link points to the kitchen schedule for inspection.
+    actionLink: prepReady
+      ? `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`
+      : null,
+    actionType: prepReady ? null : "regenerate_prep_tasks",
+    actionLabel: prepReady ? null : "Generate now",
   });
 
   // ---- Wave 47 -- additional HIGH signals -------------------------------
