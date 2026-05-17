@@ -123,6 +123,18 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
 
+  // Wave 70.7c -- external open trigger. The kitchen service FAB
+  // sits at the bottom-left during service hours and dispatches
+  // this event to open the same drawer the top-burger opens. Other
+  // portal-specific FABs can use the same pattern.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setOpen(true);
+    const eventName = `${config.role}-fab:open-nav`;
+    window.addEventListener(eventName, handler);
+    return () => window.removeEventListener(eventName, handler);
+  }, [config.role]);
+
   const collapseKey = `${config.role}Nav-collapsed`;
 
   useEffect(() => {
@@ -289,6 +301,17 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
   return (
     <>
+      {/* Wave 70.7c -- skip-to-content link for keyboard / screen
+          reader users. Visible only on focus. Targets #main-content
+          which page layouts can opt into by adding the id to their
+          main wrapper. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-orange-600 focus:text-white focus:px-3 focus:py-2 focus:rounded-md focus:shadow-lg focus:outline-none"
+      >
+        Skip to content
+      </a>
+
       {/* Mobile header */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"

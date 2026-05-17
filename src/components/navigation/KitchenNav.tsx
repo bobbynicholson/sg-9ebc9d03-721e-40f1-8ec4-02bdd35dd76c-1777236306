@@ -42,6 +42,7 @@ import { usePortalServiceMode } from "@/hooks/usePortalServiceMode";
 import { KitchenServiceModeBadge } from "@/components/kitchen/KitchenServiceModeBadge";
 import { KitchenLiveStateStrip } from "@/components/kitchen/KitchenLiveStateStrip";
 import { KitchenSmartQuickActions } from "@/components/kitchen/KitchenSmartQuickActions";
+import { useServiceModeToast } from "@/hooks/useServiceModeToast";
 
 interface KitchenNavProps {
   className?: string;
@@ -54,6 +55,11 @@ export function KitchenNav(_: KitchenNavProps = {}) {
   // these closures via per-item `badge` / `iconOverlay` functions.
   const counts = useKitchenLiveCounts();
   const serviceMode = usePortalServiceMode();
+
+  // Wave 70.7c -- fires a single toast on the first transition to
+  // service mode each browser session. Mounted at the nav level so
+  // it runs on every kitchen portal page.
+  useServiceModeToast();
 
   const isService = serviceMode.mode === "service";
 

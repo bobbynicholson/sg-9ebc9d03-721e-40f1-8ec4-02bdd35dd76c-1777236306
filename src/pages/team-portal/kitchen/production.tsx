@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -673,6 +674,9 @@ export default function KitchenProductionPage() {
           )}
         </div>
       </main>
+
+      {/* Wave 70.7c -- bottom-left FAB during service hours */}
+      <KitchenServiceFAB />
     </>
   );
 }

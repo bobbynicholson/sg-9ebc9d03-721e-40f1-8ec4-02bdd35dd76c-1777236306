@@ -22,6 +22,7 @@ import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ChatBot } from "@/components/ChatBot";
+import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
 // Wave 49 B3 -- kitchen-to-driver handover surface. Mounts on every
@@ -824,6 +825,12 @@ export default function KitchenDashboard() {
 
         <Footer />
       </div>
+
+      {/* Wave 70.7c -- service-mode FAB at bottom-left so a chef
+          one-handed during service can reach the nav without
+          stretching to the top-left corner. Self-gates on service
+          mode, mobile only. */}
+      <KitchenServiceFAB />
 
       {/* AI Chatbot */}
       <ChatBot userRole="kitchen" companyId={user?.company_id} />
