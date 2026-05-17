@@ -32,7 +32,6 @@ import {
   Package,
   Users,
   Bell,
-  Settings,
   BookOpen,
   Flame,
 } from "lucide-react";
@@ -159,11 +158,11 @@ export function KitchenNav(_: KitchenNavProps = {}) {
               ? { text: String(counts.notifications), tone: "critical" }
               : null,
           },
-          {
-            title: "Settings",
-            href: "/team-portal/kitchen/settings",
-            icon: Settings,
-          },
+          // Wave 70.8 -- Settings removed from the kitchen nav.
+          // Kitchen prep + shift policy is now tuned at
+          // /admin/kitchen-settings by the owner / admin only.
+          // BCEA thresholds and dietary alert sensitivity are
+          // management decisions, not chef-tunable.
         ],
       },
     ],

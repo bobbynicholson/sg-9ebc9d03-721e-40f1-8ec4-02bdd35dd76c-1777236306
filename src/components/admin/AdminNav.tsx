@@ -250,7 +250,12 @@ export function AdminNav({ className }: AdminNavProps) {
       defaultOpen: false,
       items: [
         { title: "Teams Hub", href: "/admin/teams",           icon: Briefcase,   description: "Monday-morning glance across every team" },
-        { title: "Kitchen",   href: "/admin/teams/kitchen",   icon: ChefHat,     description: "Kitchen staff, duties, recipes" },
+        { title: "Kitchen",          href: "/admin/teams/kitchen",  icon: ChefHat,     description: "Kitchen staff, duties, recipes" },
+        // Wave 70.8 -- kitchen prep + shift policy moved from the
+        // kitchen portal so BCEA thresholds + prep defaults are
+        // tuned by management, not the chef. Settings the kitchen
+        // runtime reads, but only owner / admin can change.
+        { title: "Kitchen Settings", href: "/admin/kitchen-settings", icon: ChefHat,    description: "Prep timing, BCEA shift thresholds, dietary alerts" },
         { title: "Drivers",   href: "/admin/teams/drivers",   icon: Truck,       description: "Driver roster, settlement, routes, vehicles" },
         { title: "Shopping",  href: "/admin/shopping",        icon: ShoppingBag, description: "Procurement: buy now, plan ahead, scan slips" },
         { title: "Cleaning",  href: "/admin/teams/cleaning",  icon: Sparkles,    description: "Cleaning roster + workflows" },
