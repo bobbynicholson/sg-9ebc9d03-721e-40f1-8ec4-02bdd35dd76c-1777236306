@@ -588,25 +588,57 @@ export async function updateOrderStatus(
     // for (order_id, equipment_id). Non-blocking on failure.
     if (newStatus === "delivered" && order.company_id) {
       try {
+        // Wave 70.24 -- pull equipment_bookings WITH the cleaning
+        // flags so we can filter out items that don't need cleaning
+        // (disposables, tables, supplier-cleaned hire-in). Without
+        // this filter the trigger spawned a cleaning_jobs row for
+        // every booking, flooding the queue with noise.
         const { data: bookings } = await supabase
           .from("equipment_bookings")
-          .select("id, equipment_id, quantity")
-          .eq("order_id", order.id);
+          .select(`
+            id, equipment_id, quantity,
+            equipment:equipment_id (
+              requires_cleaning, dishwasher_safe, is_hire_in, supplier_cleans
+            )
+          `)
+          .eq("order_id", (order as any).id);
+
+        // Wave 70.24 -- ensure the cleaning_event_handover row
+        // exists + flip it to 'in_progress'. The handover is the
+        // event-level container the cleaning portal groups jobs
+        // under. Done BEFORE the cleaning_jobs insert so the
+        // linking event_handover_id is available.
+        let handoverId: string | null = null;
+        try {
+          const { markHandoverReturned } = await import("@/services/cleaningHandoverService");
+          const result = await markHandoverReturned(supabase as any, {
+            companyId: (order as any).company_id,
+            orderId: (order as any).id,
+            eventDate: (order as any).event_date || null,
+            eventTime: (order as any).event_time || null,
+          });
+          handoverId = result.ok && result.handoverId ? result.handoverId : null;
+          if (!result.ok) {
+            console.warn("[orderWorkflow] markHandoverReturned failed (non-blocking):", result.error);
+          }
+        } catch (he: any) {
+          console.warn("[orderWorkflow] handover step crashed (non-blocking):", he);
+        }
 
         if (bookings && bookings.length > 0) {
           // Wave 45 D3: switched the auto-insert from the legacy
           // equipment_cleaning_status table to the canonical
-          // cleaning_jobs ledger (Wave 41 P2). Default method is
-          // 'manual' -- the cleaning team can flip to dishwasher
-          // via the LogCleaningJobModal if appropriate.
+          // cleaning_jobs ledger (Wave 41 P2).
           //
-          // Idempotency key changed from (order_id, equipment_id)
-          // to (triggered_by_event_id, equipment_id) -- a re-run
-          // of the delivered transition won't double-insert.
+          // Wave 70.24: filter by requires_cleaning + skip
+          // supplier-cleaned hire-in. Method now defaults to
+          // 'dishwasher' when dishwasher_safe=true, else 'manual'.
+          //
+          // Idempotency key: (triggered_by_event_id, equipment_id).
           const { data: existing } = await supabase
             .from("cleaning_jobs")
             .select("equipment_id")
-            .eq("triggered_by_event_id", order.id);
+            .eq("triggered_by_event_id", (order as any).id);
           const taken = new Set(
             ((existing || []) as any[])
               .map((r) => r.equipment_id)
@@ -619,17 +651,30 @@ export async function updateOrderStatus(
           const oneHourLater = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
           const rows = (bookings as any[])
-            .filter((b) => b.equipment_id && !taken.has(b.equipment_id))
-            .map((b) => ({
-              company_id: order.company_id,
-              equipment_id: b.equipment_id,
-              quantity: Math.max(1, Number(b.quantity || 1)),
-              method: "manual",
-              status: "queued",
-              triggered_by_event_id: order.id,
-              planned_start: nowIso,
-              planned_end: oneHourLater,
-            }));
+            .filter((b) => {
+              if (!b.equipment_id || taken.has(b.equipment_id)) return false;
+              const eq = (b.equipment as any) || {};
+              // Skip items that don't need cleaning.
+              if (eq.requires_cleaning === false) return false;
+              // Skip hire-in items the supplier cleans.
+              if (eq.is_hire_in === true && eq.supplier_cleans === true) return false;
+              return true;
+            })
+            .map((b) => {
+              const eq = (b.equipment as any) || {};
+              const method = eq.dishwasher_safe === true ? "dishwasher" : "manual";
+              return {
+                company_id: (order as any).company_id,
+                equipment_id: b.equipment_id,
+                quantity: Math.max(1, Number(b.quantity || 1)),
+                method,
+                status: "queued",
+                triggered_by_event_id: (order as any).id,
+                event_handover_id: handoverId,
+                planned_start: nowIso,
+                planned_end: oneHourLater,
+              };
+            });
 
           if (rows.length > 0) {
             const { error: cleanErr } = await (supabase as any)
@@ -645,6 +690,25 @@ export async function updateOrderStatus(
         }
       } catch (e: any) {
         console.warn("[orderWorkflow] cleaning rows insert crashed (non-blocking):", e);
+      }
+    }
+
+    // Wave 70.24 -- create the 'expected' handover row when the
+    // order moves to 'confirmed'. Gives the cleaning team
+    // ANTICIPATION (the queue sees "Brown lunch returns at 14:00,
+    // expect 80 items") instead of the previous reactive-only
+    // flow. Idempotent on (company_id, order_id).
+    if (newStatus === "confirmed" && (order as any).company_id) {
+      try {
+        const { createExpectedHandover } = await import("@/services/cleaningHandoverService");
+        await createExpectedHandover(supabase as any, {
+          companyId: (order as any).company_id,
+          orderId: (order as any).id,
+          eventDate: (order as any).event_date || null,
+          eventTime: (order as any).event_time || null,
+        });
+      } catch (e: any) {
+        console.warn("[orderWorkflow] createExpectedHandover crashed (non-blocking):", e);
       }
     }
 
@@ -1089,6 +1153,16 @@ export async function cancelOrder(
       await sendStatusNotifications(data);
     } catch (e) {
       console.warn("[cancelOrder] notifications failed:", e);
+    }
+
+    // Wave 70.24 -- cancel any pending cleaning_event_handover for
+    // this order so the cleaning portal doesn't keep showing
+    // expected items that aren't coming back.
+    try {
+      const { cancelHandoverForOrder } = await import("@/services/cleaningHandoverService");
+      await cancelHandoverForOrder(sb, orderId);
+    } catch (e) {
+      console.warn("[cancelOrder] cancel cleaning handover failed (non-blocking):", e);
     }
 
     return { success: true, data };
