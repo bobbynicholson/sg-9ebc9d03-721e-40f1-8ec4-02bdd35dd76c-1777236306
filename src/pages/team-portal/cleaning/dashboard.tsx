@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +39,30 @@ interface EquipmentRow {
 
 function CleaningDashboardInner() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("verification");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
+
+  // Wave 70.28 -- the new cleaning nav deep-links to #returns and
+  // #washing on this page. Next.js handles hash navigation but the
+  // initial paint can race the scroll, so re-scroll after a short
+  // delay to make sure the anchor target is in view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = router.asPath.split("#")[1];
+    if (!hash) return;
+    const scroll = () => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    // Two passes -- first immediate, second after data has settled.
+    scroll();
+    const t = setTimeout(scroll, 400);
+    return () => clearTimeout(t);
+  }, [router.asPath]);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -140,15 +162,23 @@ function CleaningDashboardInner() {
           {/* Wave 70.24 -- new event-grouped board is the primary
               cleaning surface. Shows expected handovers (anticipation),
               in-progress (active work), done-today (throughput).
-              Tap a card to open the per-event detail. */}
-          <CleaningEventBoard />
+              Tap a card to open the per-event detail.
+              Wave 70.28 -- id="returns" is the deep-link target from
+              the cleaning nav "Returns" item + live state strip. */}
+          <div id="returns" className="scroll-mt-20 lg:scroll-mt-6">
+            <CleaningEventBoard />
+          </div>
 
           {/* Wave 41 Phase 2: equipment-availability ledger. Lists
               every active cleaning_jobs row with method chip + ETA
               back into inventory + start/complete actions. Kept as
               the flat-by-item power-user fallback below the new
-              event-grouped board. */}
-          <CleaningJobsQueue />
+              event-grouped board.
+              Wave 70.28 -- id="washing" is the deep-link target from
+              the cleaning nav "Washing" item + live state strip. */}
+          <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
+            <CleaningJobsQueue />
+          </div>
 
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
             <CardHeader className="pb-3">
