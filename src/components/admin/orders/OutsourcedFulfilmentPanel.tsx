@@ -46,6 +46,7 @@ import {
   Loader2,
   Pencil,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -451,12 +452,28 @@ export function OutsourcedFulfilmentPanel({
                         {a.routing_group_id && (() => {
                           const groupSize = assignments.filter((x) => x.routing_group_id === a.routing_group_id).length;
                           if (groupSize < 2) return null;
+                          // Wave 70.5 -- if this row is the winner
+                          // (accepted) in a routing group, badge it
+                          // emerald so it's obvious it beat the
+                          // others. Cancelled siblings get a muted
+                          // slate badge so the chain is still
+                          // visually traceable.
+                          const isWinner = a.status === "accepted";
+                          const isCancelledSibling = a.status === "cancelled";
+                          const cls = isWinner
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : isCancelledSibling
+                              ? "bg-slate-100 text-slate-500 border-slate-200"
+                              : "bg-blue-50 text-blue-800 border-blue-200";
+                          const label = isWinner
+                            ? `Won (1 of ${groupSize})`
+                            : `1 of ${groupSize}`;
                           return (
                             <span
-                              className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-semibold bg-blue-50 text-blue-800 border-blue-200"
-                              title={`${groupSize} candidates -- first to accept wins; others auto-cancel`}
+                              className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-semibold ${cls}`}
+                              title={`${groupSize} candidates in this routing group -- first to accept wins; others auto-cancel`}
                             >
-                              1 of {groupSize}
+                              {label}
                             </span>
                           );
                         })()}
@@ -465,6 +482,36 @@ export function OutsourcedFulfilmentPanel({
                       {a.scope_notes && (
                         <p className="text-[11px] text-slate-500 mt-0.5 italic">{a.scope_notes}</p>
                       )}
+                      {/* Wave 70.5 -- cancellation reason on cancelled
+                          rows. When the DB trigger auto-cancels a
+                          sibling because another provider accepted
+                          first, decline_reason is set to the
+                          standard "Another provider accepted first"
+                          string. Surface it so operators don't have
+                          to wonder why a row that was 'requested'
+                          earlier is now greyed out. Falls back to
+                          the operator's manual cancel reason if set. */}
+                      {a.status === "cancelled" && (a as any).decline_reason && (() => {
+                        const reason = (a as any).decline_reason as string;
+                        const isAutoCancel = a.routing_group_id && /another provider accepted/i.test(reason);
+                        if (isAutoCancel) {
+                          // Find the sibling that won so we can name them.
+                          const winner = assignments.find(
+                            (x) => x.routing_group_id === a.routing_group_id && x.status === "accepted",
+                          );
+                          return (
+                            <p className="text-[11px] mt-1 text-amber-700 inline-flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Auto-cancelled: {winner?.provider?.provider_name || "another provider"} accepted first.
+                            </p>
+                          );
+                        }
+                        return (
+                          <p className="text-[11px] mt-1 text-rose-700">
+                            Cancelled: {reason}
+                          </p>
+                        );
+                      })()}
                       <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 flex-wrap">
                         <span className="tabular-nums">{fmtMoney(Number(a.quoted_cost), a.cost_currency)} <span className="text-slate-400">/ {a.rate_type.replace(/_/g, " ")}</span></span>
                         {a.required_on_site_at && (
