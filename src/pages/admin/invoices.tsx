@@ -33,7 +33,7 @@ import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawe
 import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2 } from "lucide-react";
+import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -406,6 +406,33 @@ export default function InvoicesPage() {
       loadOrders();
     }
   }, [user]);
+
+  // Wave 70.38 -- live refresh on cross-page order edits + tab focus.
+  // Before this, editing an order's event_date in /admin/orders didn't
+  // propagate to the invoice row's "Event {date}" caption because the
+  // invoices page only refetched on mount / company_id change.
+  //
+  // Two listeners:
+  //   - cateringms:order-updated (window event dispatched by the
+  //     /admin/orders save handler in Wave 70.37)
+  //   - window focus (covers cross-tab edits + general "I switched
+  //     away and came back" expectation)
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const refetch = () => {
+      loadInvoices();
+      loadOrders();
+    };
+    const onFocus = () => { refetch(); };
+    const onOrderUpdated = () => { refetch(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("cateringms:order-updated", onOrderUpdated);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("cateringms:order-updated", onOrderUpdated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   // Wave 65 -- realtime UPDATE + DELETE subscription on invoices +
   // payments. Pre-Wave-65 the page only refreshed on manual click or
@@ -1939,6 +1966,23 @@ export default function InvoicesPage() {
                             ? format(new Date(invoice.invoice_date), "dd MMM yyyy")
                             : "No date"}
                         </div>
+                        {/* Wave 70.38 -- surface the event date from
+                            the linked order so the bookkeeper sees
+                            WHEN the event happens, not just when the
+                            invoice was issued. The two dates can
+                            differ (deposit invoice issued months
+                            ahead of the event). Bobby flagged that
+                            when he changed an order's date, the
+                            invoice row didn't reflect it -- root
+                            cause: row only showed invoice.invoice_date
+                            and never surfaced orders.event_date even
+                            though it was already joined and loaded. */}
+                        {(invoice as any).orders?.event_date && (
+                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                            <CalendarIcon className="w-3 h-3 text-slate-400" />
+                            Event {format(new Date((invoice as any).orders.event_date), "dd MMM yyyy")}
+                          </div>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
