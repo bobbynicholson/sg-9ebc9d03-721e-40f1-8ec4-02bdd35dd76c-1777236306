@@ -20,7 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Sparkles, CheckCircle2, Package, Calendar, Clock, MapPin, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Package, Loader2, AlertTriangle } from "lucide-react";
+import { BookingHeader } from "@/components/booking/BookingHeader";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
@@ -130,7 +131,10 @@ function HandoverDetailInner() {
     }
   };
 
-  const eventLabel = handover?.event_name || handover?.client_name || "Event";
+  // Wave 70.41: eventLabel + the bespoke header band were folded
+  // into the shared <BookingHeader variant="cleaning" /> below. The
+  // header reads event_name / client_name from the booking prop
+  // directly so we no longer maintain a local fallback string here.
   const phaseMeta = handover ? PHASE_LABELS[handover.status] : null;
   const allJobsDone = jobs.length > 0 && jobs.every((j) => j.status === "complete" || j.status === "cancelled");
   const canComplete = handover && handover.status !== "complete" && handover.status !== "cancelled";
@@ -163,69 +167,57 @@ function HandoverDetailInner() {
             </CardContent></Card>
           ) : (
             <>
-              {/* Event header */}
-              <Card className="border-0 shadow-md mb-4">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <Sparkles className="w-5 h-5 text-cyan-600" />
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                          {eventLabel}
-                        </h1>
-                        {phaseMeta && (
-                          <Badge variant="outline" className={`text-[10px] ${phaseMeta.tone}`}>
-                            {phaseMeta.label}
-                          </Badge>
-                        )}
-                      </div>
-                      {handover.event_name && handover.client_name && (
-                        <p className="text-sm text-slate-600">for {handover.client_name}</p>
-                      )}
-                      {handover.order_number && (
-                        <p className="text-xs text-slate-500 mt-1 tabular-nums">{handover.order_number}</p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-slate-700">
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {handover.event_date || "TBD"}
-                          {handover.event_time && (
-                            <>
-                              <Clock className="w-3.5 h-3.5 ml-1" />
-                              <span className="tabular-nums">{String(handover.event_time).slice(0, 5)}</span>
-                            </>
-                          )}
-                        </span>
-                        {handover.venue_address && (
-                          <span className="inline-flex items-center gap-1 truncate max-w-md">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {handover.venue_address}
-                          </span>
-                        )}
-                        <span className="inline-flex items-center gap-1">
-                          <Package className="w-3.5 h-3.5" />
-                          {handover.total_items_expected} item{handover.total_items_expected === 1 ? "" : "s"} expected
-                        </span>
-                      </div>
-                      {handover.expected_at && handover.status === "expected" && (
-                        <p className="text-[11px] text-amber-700 mt-2">
-                          Expected back by {fmtDateTime(handover.expected_at)}
-                        </p>
-                      )}
-                      {handover.in_progress_at && (
-                        <p className="text-[11px] text-cyan-700 mt-2">
-                          Returned {fmtDateTime(handover.in_progress_at)}
-                        </p>
-                      )}
-                      {handover.completed_at && (
-                        <p className="text-[11px] text-emerald-700 mt-2">
-                          Signed off {fmtDateTime(handover.completed_at)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Wave 70.41 -- canonical event-document header. The
+                  previous bespoke header band rendered the same
+                  client/date/venue/order_number facts every other
+                  surface had to re-implement. Now: shared
+                  <BookingHeader variant="cleaning"> with the tenant
+                  brand gradient, role-aware framing ("Cleaning
+                  handover" label, no money fields surfaced). Per-
+                  handover lifecycle timestamps below the header are
+                  cleaning-specific intelligence -- they stay. */}
+              <BookingHeader
+                variant="cleaning"
+                booking={{
+                  id: handover.order_id ?? handover.id,
+                  order_number: handover.order_number ?? null,
+                  event_name: handover.event_name ?? null,
+                  event_date: handover.event_date ?? null,
+                  event_time: handover.event_time ?? null,
+                  client_name: handover.client_name ?? null,
+                  venue_address: handover.venue_address ?? null,
+                  status: handover.status ?? null,
+                }}
+                rightSlot={
+                  <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[11px] gap-1">
+                    <Package className="w-3 h-3" />
+                    {handover.total_items_expected} item{handover.total_items_expected === 1 ? "" : "s"}
+                  </Badge>
+                }
+              />
+
+              {/* Per-handover lifecycle timestamps -- cleaning-specific
+                  intelligence not modelled in the shared header. */}
+              {(handover.expected_at || handover.in_progress_at || handover.completed_at) && (
+                <Card className="border-0 shadow-sm mb-4">
+                  <CardContent className="px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+                    {handover.expected_at && handover.status === "expected" && (
+                      <span className="text-amber-700">Expected back by {fmtDateTime(handover.expected_at)}</span>
+                    )}
+                    {handover.in_progress_at && (
+                      <span className="text-cyan-700">Returned {fmtDateTime(handover.in_progress_at)}</span>
+                    )}
+                    {handover.completed_at && (
+                      <span className="text-emerald-700">Signed off {fmtDateTime(handover.completed_at)}</span>
+                    )}
+                    {phaseMeta && (
+                      <Badge variant="outline" className={`text-[10px] ml-auto ${phaseMeta.tone}`}>
+                        {phaseMeta.label}
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Cleaning jobs list */}
               <Card className="border-0 shadow-md mb-4">

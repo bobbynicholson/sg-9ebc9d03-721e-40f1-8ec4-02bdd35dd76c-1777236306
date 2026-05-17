@@ -1977,32 +1977,103 @@ export default function InvoicesPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-slate-600">
-                          {/* Wave 61 -- null guard. Pre-Wave-61
-                              new Date(null) returned Unix epoch and
-                              the row rendered "01 Jan 1970" for any
-                              imported invoice with no invoice_date. */}
-                          {invoice.invoice_date
-                            ? format(new Date(invoice.invoice_date), "dd MMM yyyy")
-                            : "No date"}
-                        </div>
-                        {/* Wave 70.38 -- surface the event date from
-                            the linked order so the bookkeeper sees
-                            WHEN the event happens, not just when the
-                            invoice was issued. The two dates can
-                            differ (deposit invoice issued months
-                            ahead of the event). Bobby flagged that
-                            when he changed an order's date, the
-                            invoice row didn't reflect it -- root
-                            cause: row only showed invoice.invoice_date
-                            and never surfaced orders.event_date even
-                            though it was already joined and loaded. */}
-                        {(invoice as any).orders?.event_date && (
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
-                            <CalendarIcon className="w-3 h-3 text-slate-400" />
-                            Event {format(new Date((invoice as any).orders.event_date), "dd MMM yyyy")}
-                          </div>
-                        )}
+                        {/* Wave 70.41a -- intelligent date display.
+                            Bobby flagged: showing invoice_date + event_
+                            date stacked with equal weight is confusing.
+                            The bookkeeper actually asks: "when is the
+                            event?" (urgency to chase) -- so we lead with
+                            that. Invoice issue date becomes contextual
+                            ("Invoiced 5 days before event"). When both
+                            dates are the same (immediate-issue invoices)
+                            we collapse to a single line.
+
+                            Hierarchy:
+                              Big line  -> event date with relative
+                                            phrase ("in 3 days" / "today"
+                                            / "5 days ago")
+                              Small line -> "Invoiced N days before"
+                                            (relationship between the
+                                            two dates -- the actually
+                                            meaningful signal). */}
+                        {(() => {
+                          const evt = (invoice as any).orders?.event_date
+                            ? new Date((invoice as any).orders.event_date)
+                            : null;
+                          const iss = invoice.invoice_date
+                            ? new Date(invoice.invoice_date)
+                            : null;
+
+                          // No event date at all -- fall back to issue date only.
+                          if (!evt || isNaN(evt.getTime())) {
+                            return (
+                              <div className="text-sm text-slate-600">
+                                {iss && !isNaN(iss.getTime())
+                                  ? `Invoiced ${format(iss, "dd MMM yyyy")}`
+                                  : "No date"}
+                              </div>
+                            );
+                          }
+
+                          // Relative event phrase. Compares date-only
+                          // (midnight) so "today" doesn't flip to
+                          // "yesterday" at midnight on the event day.
+                          const todayMid = new Date();
+                          todayMid.setHours(0, 0, 0, 0);
+                          const evtMid = new Date(evt);
+                          evtMid.setHours(0, 0, 0, 0);
+                          const daysDiff = Math.round((evtMid.getTime() - todayMid.getTime()) / 86400000);
+                          let relative: string;
+                          let tone: string;
+                          if (daysDiff === 0) {
+                            relative = "Event today";
+                            tone = "text-orange-700 font-semibold";
+                          } else if (daysDiff === 1) {
+                            relative = "Event tomorrow";
+                            tone = "text-amber-700 font-semibold";
+                          } else if (daysDiff > 1 && daysDiff <= 7) {
+                            relative = `Event in ${daysDiff} days`;
+                            tone = "text-blue-700";
+                          } else if (daysDiff > 7) {
+                            relative = `Event in ${daysDiff} days`;
+                            tone = "text-slate-700";
+                          } else if (daysDiff === -1) {
+                            relative = "Event was yesterday";
+                            tone = "text-slate-500";
+                          } else {
+                            relative = `Event ${Math.abs(daysDiff)} days ago`;
+                            tone = "text-slate-500";
+                          }
+
+                          // Issue-vs-event gap. Surface ONLY when it
+                          // tells the operator something interesting:
+                          // - issue == event -> no extra line (collapsed)
+                          // - issue before event -> "Invoiced Xd before"
+                          // - issue after event -> "Invoiced Xd after"
+                          let gapLine: string | null = null;
+                          if (iss && !isNaN(iss.getTime())) {
+                            const issMid = new Date(iss);
+                            issMid.setHours(0, 0, 0, 0);
+                            const gap = Math.round((evtMid.getTime() - issMid.getTime()) / 86400000);
+                            if (gap > 0) gapLine = `Invoiced ${gap} day${gap === 1 ? "" : "s"} before`;
+                            else if (gap < 0) gapLine = `Invoiced ${Math.abs(gap)} day${Math.abs(gap) === 1 ? "" : "s"} after`;
+                            // gap === 0 -> collapse (same-day issue, no extra line)
+                          }
+
+                          return (
+                            <>
+                              <div className="text-sm text-slate-800 flex items-center gap-1.5">
+                                <CalendarIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <span>{format(evt, "dd MMM yyyy")}</span>
+                                <span className={`text-[11px] ${tone}`}>· {relative}</span>
+                              </div>
+                              {gapLine && (
+                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                  {gapLine}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
