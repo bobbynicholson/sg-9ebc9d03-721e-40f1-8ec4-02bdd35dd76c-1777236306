@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ClipboardList, ChefHat, Loader2, Calendar, Users, MapPin, Clock,
-  AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info,
+  AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
 } from "lucide-react";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -88,6 +88,13 @@ export default function KitchenPrepListPage() {
   // matches the orderWorkflow lead-time warning.
   const [kitchenLeadHours, setKitchenLeadHours] = useState(12);
 
+  // Wave 70.10 -- separate count of confirmed orders in the same
+  // window so the empty state can tell the chef "there's a job
+  // booked but the menu items have no recipes attached" instead of
+  // the misleading "Nothing booked yet" -- the data shape that
+  // previously hid the real cause.
+  const [confirmedOrdersInWindow, setConfirmedOrdersInWindow] = useState(0);
+
   useEffect(() => {
     const companyId = profile?.company_id;
     if (!companyId) return;
@@ -153,6 +160,22 @@ export default function KitchenPrepListPage() {
         }
       } catch (e) {
         // Default already set; not worth toast-ing the user.
+      }
+
+      // Wave 70.10 -- separate count of confirmed orders in the
+      // window so the empty state can distinguish "no orders" from
+      // "orders exist but no recipes attached".
+      try {
+        const { count } = await (supabase as any)
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("event_date", todayStr)
+          .lte("event_date", horizon)
+          .in("status", ["confirmed", "preparing", "ready"]);
+        if (!cancelled) setConfirmedOrdersInWindow(count || 0);
+      } catch (e) {
+        console.warn("orders count failed:", e);
       }
 
       setLoading(false);
@@ -451,13 +474,35 @@ export default function KitchenPrepListPage() {
           ) : view === "by_ingredient" ? (
             // ── BY INGREDIENT view (aggregated demand across all orders) ──
             aggregated.length === 0 ? (
-              <Card className="border-0 shadow">
-                <CardContent className="py-16 text-center">
-                  <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                  <p className="font-semibold text-slate-700 mb-1">Nothing to pull</p>
-                  <p className="text-sm text-slate-500">No confirmed orders need ingredients right now.</p>
-                </CardContent>
-              </Card>
+              // Wave 70.10 -- smarter empty state. If there are
+              // confirmed orders in the window but zero demand
+              // rows, it's because the menu items have no recipes
+              // attached. Tell the chef what's missing instead of
+              // "no orders".
+              confirmedOrdersInWindow > 0 ? (
+                <Card className="border-0 shadow border-amber-200 bg-amber-50/30">
+                  <CardContent className="py-12 text-center">
+                    <AlertTriangle className="w-10 h-10 mx-auto text-amber-500 mb-3" />
+                    <p className="font-semibold text-slate-800 mb-1">
+                      {confirmedOrdersInWindow} order{confirmedOrdersInWindow === 1 ? "" : "s"} booked, but no ingredient demand yet
+                    </p>
+                    <p className="text-sm text-slate-600 max-w-md mx-auto">
+                      The menu items on these orders don&apos;t have recipes attached. Recipes drive the prep + ingredient lists. Ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe section</span>.
+                    </p>
+                    <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline mt-3 font-semibold">
+                      Open menu editor <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-0 shadow">
+                  <CardContent className="py-16 text-center">
+                    <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+                    <p className="font-semibold text-slate-700 mb-1">Nothing to pull</p>
+                    <p className="text-sm text-slate-500">No confirmed orders need ingredients right now.</p>
+                  </CardContent>
+                </Card>
+              )
             ) : (
               <Card className="border-0 shadow-lg">
                 <CardHeader className="pb-3">
@@ -531,13 +576,38 @@ export default function KitchenPrepListPage() {
               </Card>
             )
           ) : grouped.length === 0 ? (
-            <Card className="border-0 shadow">
-              <CardContent className="py-16 text-center">
-                <ChefHat className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                <p className="font-semibold text-slate-700 mb-1">Nothing booked yet</p>
-                <p className="text-sm text-slate-500">Confirmed orders land here once sales locks them in.</p>
-              </CardContent>
-            </Card>
+            // Wave 70.10 -- same smart empty state as the by-
+            // ingredient view: tell the chef what's actually wrong
+            // when orders exist but the demand view is empty.
+            confirmedOrdersInWindow > 0 ? (
+              <Card className="border-0 shadow border-amber-200 bg-amber-50/30">
+                <CardContent className="py-12 text-center">
+                  <AlertTriangle className="w-10 h-10 mx-auto text-amber-500 mb-3" />
+                  <p className="font-semibold text-slate-800 mb-1">
+                    {confirmedOrdersInWindow} order{confirmedOrdersInWindow === 1 ? "" : "s"} booked, but nothing to prep
+                  </p>
+                  <p className="text-sm text-slate-600 max-w-md mx-auto">
+                    The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open the Production grid to see prep tasks (which use simpler timing fields), or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
+                  </p>
+                  <div className="inline-flex items-center gap-3 mt-3">
+                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline font-semibold">
+                      Open production <ExternalLink className="w-3 h-3" />
+                    </Link>
+                    <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-semibold">
+                      Add recipes <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow">
+                <CardContent className="py-16 text-center">
+                  <ChefHat className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+                  <p className="font-semibold text-slate-700 mb-1">Nothing booked yet</p>
+                  <p className="text-sm text-slate-500">Confirmed orders land here once sales locks them in.</p>
+                </CardContent>
+              </Card>
+            )
           ) : (
             // ── BY ORDER view (existing) ──
             <div className="space-y-8">

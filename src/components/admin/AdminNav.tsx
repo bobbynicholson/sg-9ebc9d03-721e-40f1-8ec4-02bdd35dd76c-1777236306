@@ -56,6 +56,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { DigitalClock } from "@/components/portal/DigitalClock";
 import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
@@ -634,6 +635,10 @@ export function AdminNav({ className }: AdminNavProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            {/* Wave 70.10 -- digital clock in mobile header. Hidden
+                on the smallest screens so the brand + bell + theme
+                still fit comfortably. */}
+            <DigitalClock variant="mobile" className="hidden sm:inline-flex" />
             <RegionFilterDropdown />
             <NotificationBell />
             <ThemeSwitch />
@@ -647,9 +652,10 @@ export function AdminNav({ className }: AdminNavProps) {
       }`}>
         <div className="flex flex-col flex-1 min-h-0">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
+                <div className="flex items-center justify-between gap-2">
                 <Link href={withSlug("/admin/dashboard")} className="flex items-center gap-3 min-w-0">
                   <div
                     className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
@@ -686,6 +692,12 @@ export function AdminNav({ className }: AdminNavProps) {
                   {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
                   <ThemeSwitch />
                 </div>
+                </div>
+                {/* Wave 70.10 -- digital clock under the brand row.
+                    Two-line variant: HH:mm + day/date, ticking
+                    every second so the admin sees current time
+                    without checking their phone. */}
+                <DigitalClock variant="sidebar" />
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">

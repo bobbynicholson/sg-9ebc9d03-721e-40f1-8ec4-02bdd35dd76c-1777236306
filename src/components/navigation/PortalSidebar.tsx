@@ -28,6 +28,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
+import { DigitalClock } from "@/components/portal/DigitalClock";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 import { buildIsActive } from "@/lib/navActiveMatcher";
 
@@ -367,6 +368,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            {/* Wave 70.10 -- digital clock in the mobile header.
+                Compact variant so it fits next to the bell + theme
+                switch without crowding. */}
+            <DigitalClock variant="mobile" className="hidden xs:inline-flex sm:inline-flex" />
             <NotificationBell />
             <ThemeSwitch />
           </div>
@@ -381,27 +386,35 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
       >
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href={config.dashboardHref} className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-10 h-10 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-lg",
-                      config.accentGradientDark,
-                    )}
-                  >
-                    <BrandIcon className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-between">
+                  <Link href={config.dashboardHref} className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "w-10 h-10 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-lg",
+                        config.accentGradientDark,
+                      )}
+                    >
+                      <BrandIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h1 className="font-bold text-slate-900 dark:text-white">{config.title}</h1>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <ThemeSwitch />
                   </div>
-                  <div>
-                    <h1 className="font-bold text-slate-900 dark:text-white">{config.title}</h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
-                  </div>
-                </Link>
-                <div className="flex items-center gap-2">
-                  <NotificationBell />
-                  <ThemeSwitch />
                 </div>
+                {/* Wave 70.10 -- digital clock under the brand on
+                    the desktop sidebar. Two-line variant: HH:mm
+                    bold on top, day + date underneath. Live-ticking
+                    every second so the operator always sees current
+                    time without checking their phone. */}
+                <DigitalClock variant="sidebar" />
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">

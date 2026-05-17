@@ -12,7 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -57,6 +59,7 @@ function formatCountdown(mins: number): string {
 export default function KitchenDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<Order[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -663,24 +666,38 @@ export default function KitchenDashboard() {
                                 key={order.id}
                                 className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
                               >
+                                {/* Wave 70.10 -- card title is now a link
+                                    to the kitchen ticket. Chef taps the
+                                    name or the order number and lands on
+                                    the full ticket (allergens, prep
+                                    backplan, equipment, instructions).
+                                    The interactive buttons below
+                                    (Mark ready, Tasks, Handover) live
+                                    OUTSIDE the link so they don't
+                                    navigate when tapped. */}
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 truncate">
+                                  <Link
+                                    href={withSlug(`/admin/orders/${order.id}/ticket`)}
+                                    className="flex-1 min-w-0 group/title rounded -mx-1 px-1 hover:bg-slate-50"
+                                    title="Open kitchen ticket"
+                                  >
+                                    <p className="text-sm font-semibold text-slate-900 truncate inline-flex items-center gap-1 group-hover/title:text-orange-700">
                                       {order.event_name || order.client_name || "Order"}
+                                      <ExternalLink className="w-3 h-3 opacity-0 group-hover/title:opacity-70 flex-shrink-0" />
                                     </p>
-                                    {/* Wave 46 T4 -- show client name when event_name
-                                        was the headline + venue address. The chef
-                                        previously had to dig through the order modal
-                                        to know who the food is for and where it goes. */}
                                     {order.event_name && order.client_name && (
                                       <p className="text-[11px] text-slate-500 truncate">
                                         for {order.client_name}
                                       </p>
                                     )}
-                                  </div>
-                                  <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
+                                  </Link>
+                                  <Link
+                                    href={withSlug(`/admin/orders/${order.id}/ticket`)}
+                                    className="text-[10px] text-slate-500 hover:text-orange-700 tabular-nums shrink-0 hover:underline"
+                                    title="Open kitchen ticket"
+                                  >
                                     {order.order_number}
-                                  </span>
+                                  </Link>
                                 </div>
                                 {(order as any).venue_address && (
                                   <p className="text-[11px] text-slate-500 truncate mb-1">

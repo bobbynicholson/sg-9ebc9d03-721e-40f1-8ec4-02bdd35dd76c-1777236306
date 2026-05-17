@@ -1,3 +1,15 @@
+/**
+ * CleaningNav -- Wave 70.10
+ *
+ * Restructured into the kitchen-style 3-section + footer pattern.
+ * Cleaning is the simplest of the staff portals -- the team mostly
+ * uses Tasks + Equipment. Old structure had 4 sections, one of
+ * which (Settings) had a single item.
+ *
+ *   LIVE NOW       -- Today, Tasks, Schedules
+ *   EQUIPMENT      -- Verification, Damage Reports, Supplies
+ *   Footer         -- Notifications, Settings
+ */
 import {
   LayoutDashboard,
   Sparkles,
@@ -25,28 +37,19 @@ const config: PortalSidebarConfig = {
   searchHint: "Search jobs, equipment...",
   dashboardHref: "/team-portal/cleaning/dashboard",
   mobileQuickActions: [
-    { href: "/team-portal/cleaning/jobs",      label: "Today's jobs", sub: "Active cleans",   icon: ClipboardCheck, accent: "from-cyan-500 to-blue-500" },
-    { href: "/team-portal/cleaning/schedule",  label: "Schedule",     sub: "Upcoming events", icon: Calendar,       accent: "from-purple-500 to-pink-500" },
-    { href: "/team-portal/cleaning/equipment", label: "Equipment",    sub: "Check + return",  icon: Wrench,         accent: "from-amber-500 to-orange-500" },
+    { href: "/team-portal/cleaning/tasks",     label: "Today's tasks", sub: "Active cleans",   icon: ClipboardCheck, accent: "from-cyan-500 to-blue-500" },
+    { href: "/team-portal/cleaning/schedules", label: "Schedule",      sub: "Upcoming events", icon: Calendar,       accent: "from-purple-500 to-pink-500" },
+    { href: "/team-portal/cleaning/equipment", label: "Equipment",     sub: "Check + return",  icon: Wrench,         accent: "from-amber-500 to-orange-500" },
   ],
   sections: [
     {
-      id: "dashboard",
-      title: "Dashboard",
+      id: "live-now",
+      title: "Live now",
       defaultOpen: true,
       items: [
-        { title: "Overview",      href: "/team-portal/cleaning/dashboard",     icon: LayoutDashboard, description: "Today's tasks" },
-        { title: "Notifications", href: "/team-portal/cleaning/notifications", icon: Bell,            description: "Cleaning alerts" },
-      ],
-    },
-    {
-      id: "tasks",
-      title: "Tasks & Schedules",
-      defaultOpen: true,
-      items: [
-        { title: "Cleaning Tasks", href: "/team-portal/cleaning/tasks",     icon: ClipboardCheck, description: "Task list" },
-        { title: "Schedules",      href: "/team-portal/cleaning/schedules", icon: Calendar,       description: "Cleaning schedules" },
-        { title: "Workflows",      href: "/team-portal/cleaning/workflows", icon: Sparkles,       description: "Standard procedures" },
+        { title: "Today",     href: "/team-portal/cleaning/dashboard",  icon: LayoutDashboard, description: "Today's tasks" },
+        { title: "Tasks",     href: "/team-portal/cleaning/tasks",      icon: ClipboardCheck,  description: "Active cleans" },
+        { title: "Schedules", href: "/team-portal/cleaning/schedules",  icon: Calendar,        description: "Upcoming events" },
       ],
     },
     {
@@ -54,17 +57,20 @@ const config: PortalSidebarConfig = {
       title: "Equipment",
       defaultOpen: false,
       items: [
-        { title: "Equipment Verification", href: "/team-portal/cleaning/equipment", icon: Package,      description: "Verify equipment" },
-        { title: "Damage Reports",         href: "/team-portal/cleaning/damage",    icon: AlertCircle,  description: "Report damage" },
-        { title: "Supplies",               href: "/team-portal/cleaning/supplies",  icon: Wrench,       description: "Cleaning supplies" },
+        { title: "Verification",   href: "/team-portal/cleaning/equipment", icon: Package,     description: "Check equipment in/out" },
+        { title: "Damage Reports", href: "/team-portal/cleaning/damage",    icon: AlertCircle, description: "Flag broken kit" },
+        { title: "Supplies",       href: "/team-portal/cleaning/supplies",  icon: Wrench,      description: "Cleaning supplies" },
+        { title: "Workflows",      href: "/team-portal/cleaning/workflows", icon: Sparkles,    description: "Standard procedures" },
       ],
     },
     {
-      id: "settings",
-      title: "Settings",
-      defaultOpen: false,
+      id: "footer",
+      title: "",
+      defaultOpen: true,
+      footerTreatment: true,
       items: [
-        { title: "Cleaning Settings", href: "/team-portal/cleaning/settings", icon: Settings, description: "Configure settings" },
+        { title: "Notifications", href: "/team-portal/cleaning/notifications", icon: Bell },
+        { title: "Settings",      href: "/team-portal/cleaning/settings",      icon: Settings },
       ],
     },
   ],

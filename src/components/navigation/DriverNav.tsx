@@ -1,3 +1,19 @@
+/**
+ * DriverNav -- Wave 70.10
+ *
+ * Restructured into the kitchen-style 3-section + footer pattern.
+ * A driver's mental model is "what am I driving today / where have
+ * I been / how much have I earned / account stuff" -- the original
+ * 4 sections gave Notifications + Profile their own sections with
+ * one item each, wasting hierarchy on quiet items.
+ *
+ * Now:
+ *   LIVE NOW    -- Today (was Overview), Routes, GPS Tracking
+ *   HISTORY     -- All Deliveries, Earnings, Schedule
+ *   Footer      -- Notifications, Profile
+ *
+ * Digital clock + skip-to-content land for free via PortalSidebar.
+ */
 import {
   LayoutDashboard,
   Truck,
@@ -30,39 +46,33 @@ const config: PortalSidebarConfig = {
   ],
   sections: [
     {
-      id: "dashboard",
-      title: "Dashboard",
+      id: "live-now",
+      title: "Live now",
       defaultOpen: true,
       items: [
-        { title: "Overview",      href: "/team-portal/driver/dashboard",     icon: LayoutDashboard, description: "Today's summary" },
-        { title: "Notifications", href: "/team-portal/driver/notifications", icon: Bell,            description: "View alerts" },
+        { title: "Today",        href: "/team-portal/driver/dashboard", icon: LayoutDashboard, description: "Today's deliveries" },
+        { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving" },
+        { title: "GPS Tracking", href: "/team-portal/driver/tracking",  icon: MapPin,          description: "Live status updates" },
       ],
     },
     {
-      id: "deliveries",
-      title: "Deliveries",
+      id: "history",
+      title: "History",
+      defaultOpen: false,
+      items: [
+        { title: "All Deliveries", href: "/team-portal/driver/deliveries", icon: Truck,      description: "Past trips" },
+        { title: "Earnings",       href: "/team-portal/driver/earnings",   icon: DollarSign, description: "Hours + pay" },
+        { title: "Schedule",       href: "/team-portal/driver/schedule",   icon: Calendar,   description: "Work schedule" },
+      ],
+    },
+    {
+      id: "footer",
+      title: "",
       defaultOpen: true,
+      footerTreatment: true,
       items: [
-        { title: "Today's Routes",   href: "/team-portal/driver/routes",     icon: Navigation, description: "Your delivery routes" },
-        { title: "All Deliveries",   href: "/team-portal/driver/deliveries", icon: Truck,      description: "Delivery history" },
-        { title: "GPS Tracking",     href: "/team-portal/driver/tracking",   icon: MapPin,     description: "Live tracking" },
-      ],
-    },
-    {
-      id: "earnings",
-      title: "Earnings",
-      defaultOpen: false,
-      items: [
-        { title: "My Earnings", href: "/team-portal/driver/earnings", icon: DollarSign, description: "View your earnings" },
-        { title: "Schedule",    href: "/team-portal/driver/schedule", icon: Calendar,   description: "Work schedule" },
-      ],
-    },
-    {
-      id: "account",
-      title: "Account",
-      defaultOpen: false,
-      items: [
-        { title: "My Profile", href: "/account/settings", icon: User, description: "Update profile" },
+        { title: "Notifications", href: "/team-portal/driver/notifications", icon: Bell },
+        { title: "Profile",       href: "/account/settings",                  icon: User },
       ],
     },
   ],

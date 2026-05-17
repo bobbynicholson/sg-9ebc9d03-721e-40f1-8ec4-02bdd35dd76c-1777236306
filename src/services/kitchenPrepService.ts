@@ -306,7 +306,31 @@ export const kitchenPrepService = {
     if (!pickupAt) return [];
 
     const guestCount = Number(order.final_guest_count || order.guest_count || 1);
-    const items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
+
+    // Wave 70.10 -- the planner used to only read orders.menu_items
+    // (the jsonb snapshot column). For quote-derived orders the
+    // canonical line items often live in the order_items table and
+    // the jsonb is null until orderSyncService fires -- so the
+    // planner returned [] and the regen API reported "no menu
+    // items" on every same-day order from a quote. Now: if the
+    // jsonb is empty, fall back to order_items so the planner
+    // works regardless of which write path created the order.
+    let items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
+    if (items.length === 0) {
+      const { data: relRows, error: relErr } = await supabase
+        .from("order_items")
+        .select("item_name, menu_item_id, quantity, unit_price, line_total, special_instructions")
+        .eq("order_id", orderId);
+      if (relErr) {
+        console.error("[kitchenPrepService] order_items fallback fetch failed:", relErr);
+      }
+      items = (relRows as any[] || []).map((r) => ({
+        id: r.menu_item_id,
+        name: r.item_name,
+        quantity: Number(r.quantity || 0),
+        unit_price: Number(r.unit_price || 0),
+      }));
+    }
 
     const tasks: PrepTask[] = [];
     for (const item of items) {
