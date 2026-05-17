@@ -22,8 +22,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Clock, Loader2, Check } from "lucide-react";
+import { AlertCircle, Clock, Loader2, Check, Trash2 } from "lucide-react";
 import { driverPayService } from "@/services/driverPayService";
+
+/**
+ * Wave 70.12 -- shape of a shift the modal can pre-fill from when
+ * opened in EDIT mode. Pass nothing -> CREATE mode (original
+ * behaviour, used by the empty cell + button).
+ */
+export interface ExistingShiftForEdit {
+  id: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  notes: string | null;
+  rate_multiplier: number | null;
+}
 
 interface Props {
   open: boolean;
@@ -35,11 +48,28 @@ interface Props {
   onCreated?: () => void;
   /** Optional: the user creating the shift (for audit). */
   actorUserId?: string | null;
+  /** Wave 70.12 -- pass an existing shift to open the modal in
+   *  edit mode (pre-fills the inputs, shows Update + Delete
+   *  instead of Save). Leave undefined for the original create
+   *  flow. */
+  existingShift?: ExistingShiftForEdit | null;
 }
 
 function isoLocalNow(offsetMinutes = 0): string {
   // datetime-local input wants YYYY-MM-DDThh:mm in local time, no zone.
   const d = new Date(Date.now() + offsetMinutes * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Convert an ISO datetime string -> "YYYY-MM-DDThh:mm" in local
+ * time for a datetime-local input. Pre-fills the modal in edit mode.
+ */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -52,8 +82,10 @@ export function LogDriverShiftModal({
   driverName,
   onCreated,
   actorUserId,
+  existingShift,
 }: Props) {
   const { toast } = useToast();
+  const isEdit = !!existingShift;
   const [start, setStart] = useState(isoLocalNow(-60 * 4));
   const [end, setEnd] = useState(isoLocalNow());
   const [notes, setNotes] = useState("");
@@ -65,18 +97,32 @@ export function LogDriverShiftModal({
   // override button when the backend returned a conflict (vs. a
   // generic validation error which should NOT offer the override).
   const [conflict, setConflict] = useState(false);
+  // Wave 70.12 -- confirm-delete two-step so a rogue click doesn't
+  // wipe a logged shift.
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (existingShift) {
+      // Edit mode: pre-fill from the row.
+      setStart(isoToLocalInput(existingShift.actual_start));
+      setEnd(isoToLocalInput(existingShift.actual_end));
+      setNotes(existingShift.notes || "");
+      const m = existingShift.rate_multiplier;
+      setMultiplier(m === 1.5 ? "1.5" : m === 2 ? "2" : "1");
+    } else {
+      // Create mode: original defaults (4h-ago to now).
       setStart(isoLocalNow(-60 * 4));
       setEnd(isoLocalNow());
       setNotes("");
       setMultiplier("1");
-      setBusy(false);
-      setError(null);
-      setDone(false);
     }
-  }, [open]);
+    setBusy(false);
+    setError(null);
+    setDone(false);
+    setConflict(false);
+    setConfirmDelete(false);
+  }, [open, existingShift]);
 
   // Hours preview, computed off the inputs so the operator sees what
   // they're about to log before they hit save.
@@ -87,6 +133,60 @@ export function LogDriverShiftModal({
     const h = (e.getTime() - s.getTime()) / 1000 / 3600;
     return Math.round(h * 100) / 100;
   })();
+
+  // Wave 70.12 -- update existing shift (edit mode).
+  const submitUpdate = async () => {
+    if (!existingShift) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const startIso = new Date(start).toISOString();
+      const endIso = new Date(end).toISOString();
+      const result = await driverPayService.updateShift(
+        existingShift.id,
+        {
+          actual_start: startIso,
+          actual_end: endIso,
+          notes: notes.trim() || null,
+          rate_multiplier: multiplier === "1" ? null : Number(multiplier),
+        },
+        undefined,
+        actorUserId ?? null,
+      );
+      if (!result.ok) throw new Error(result.error || "Failed to update shift");
+      setDone(true);
+      toast({ title: "Shift updated", description: `${driverName}'s hours adjusted.` });
+      if (onCreated) onCreated();
+      setTimeout(() => onOpenChange(false), 700);
+    } catch (e: any) {
+      setError(e?.message || "Failed to update shift");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Wave 70.12 -- soft delete the shift (edit mode).
+  const submitDelete = async () => {
+    if (!existingShift) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await driverPayService.deleteShift(
+        existingShift.id,
+        undefined,
+        actorUserId ?? null,
+      );
+      if (!result.ok) throw new Error(result.error || "Failed to delete shift");
+      setDone(true);
+      toast({ title: "Shift removed", description: `${driverName}'s shift removed from the roster.` });
+      if (onCreated) onCreated();
+      setTimeout(() => onOpenChange(false), 700);
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete shift");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submit = async (opts: { allowOverlap?: boolean } = {}) => {
     setError(null);
@@ -163,11 +263,12 @@ export function LogDriverShiftModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-orange-600" />
-            Log shift -- {driverName}
+            {isEdit ? "Edit shift" : "Log shift"} -- {driverName}
           </DialogTitle>
           <DialogDescription>
-            Manually record hours worked. Used for hourly-rate pay
-            calculation.
+            {isEdit
+              ? "Adjust this driver's actual hours, change the multiplier, or remove the shift entirely. Edits are audit-logged."
+              : "Manually record hours worked. Used for hourly-rate pay calculation."}
           </DialogDescription>
         </DialogHeader>
 
@@ -246,29 +347,73 @@ export function LogDriverShiftModal({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
-          </Button>
-          {conflict ? (
-            <Button
-              onClick={() => submit({ allowOverlap: true })}
-              disabled={busy}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-              Log anyway
-            </Button>
-          ) : (
-            <Button
-              onClick={() => submit()}
-              disabled={busy || previewHours === null}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-              Save shift
-            </Button>
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-2">
+          {/* Delete affordance lives on the LEFT in edit mode so the
+              primary action (Update) stays bottom-right where the
+              eye lands. Two-step confirm to prevent accidental wipe. */}
+          {isEdit && (
+            confirmDelete ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-rose-700">Sure?</span>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)} disabled={busy}>
+                  No
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => void submitDelete()}
+                  disabled={busy}
+                  className="bg-rose-600 hover:bg-rose-700"
+                >
+                  {busy ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+                  Delete shift
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy}
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                Delete shift
+              </Button>
+            )
           )}
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+              Cancel
+            </Button>
+            {isEdit ? (
+              <Button
+                onClick={() => void submitUpdate()}
+                disabled={busy || previewHours === null}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Update shift
+              </Button>
+            ) : conflict ? (
+              <Button
+                onClick={() => submit({ allowOverlap: true })}
+                disabled={busy}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Log anyway
+              </Button>
+            ) : (
+              <Button
+                onClick={() => submit()}
+                disabled={busy || previewHours === null}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Save shift
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

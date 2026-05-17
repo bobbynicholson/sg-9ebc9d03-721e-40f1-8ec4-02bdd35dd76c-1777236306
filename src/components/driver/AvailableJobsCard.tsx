@@ -76,11 +76,37 @@ export function AvailableJobsCard({ onClaimed }: Props) {
       .is("assigned_driver_id", null)
       .gte("event_date", todayIso)
       .order("event_date", { ascending: true })
-      .limit(20);
+      .limit(50);
     if (error) {
       console.error("[AvailableJobsCard] orders fetch failed:", error);
     }
-    setRows((data || []) as OpenOrder[]);
+
+    // Wave 70.12 -- additional client-side time filter. The DB query
+    // is event_date >= today, but for SAME-DAY orders the event
+    // might already have happened (e.g. event_time was 14:30 and
+    // it's now 16:30). Claiming a job that's already passed is
+    // pointless and confusing -- drop them here. We allow a 30-min
+    // grace window past event_time so a driver who arrived late but
+    // hasn't been formally assigned can still claim. After grace,
+    // the job disappears from "Available" -- admin can still
+    // manually assign from /admin/orders if recovery is needed.
+    const GRACE_MIN = 30;
+    const now = new Date();
+    const nowMs = now.getTime();
+    const todayStr = todayIso;
+    const filtered = ((data || []) as OpenOrder[]).filter((o) => {
+      if (!o.event_date) return true;
+      if (o.event_date !== todayStr) return true; // future date always shows
+      // Same-day: compare event_time to now + grace.
+      if (!o.event_time) return true; // no time set, can't time-filter
+      const [h, m] = o.event_time.slice(0, 5).split(":").map(Number);
+      if (!Number.isFinite(h) || !Number.isFinite(m)) return true;
+      const eventMs = new Date(o.event_date + "T" + o.event_time.slice(0, 5) + ":00").getTime();
+      if (!Number.isFinite(eventMs)) return true;
+      return eventMs + GRACE_MIN * 60_000 >= nowMs;
+    });
+
+    setRows(filtered);
     setLoading(false);
   }, [companyId, userId]);
 

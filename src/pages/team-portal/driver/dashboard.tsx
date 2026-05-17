@@ -102,6 +102,43 @@ export default function DriverDashboard() {
     return () => { cancelled = true; };
   }, [user?.id, user?.company_id]);
 
+  // Wave 70.12 -- today's clocked hours so the earnings widget can
+  // include the hourly portion (clocked_hours x hourly_rate) on top
+  // of the per-delivery callout + km calc. Bobby's reality: drivers
+  // get paid for showing up even when no jobs land, so a clocked
+  // 0.2h shift should not display as R0 earnings.
+  const [hoursWorkedToday, setHoursWorkedToday] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const fetchHours = async () => {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const { data, error } = await (supabase as any)
+        .from("driver_shifts")
+        .select("actual_start, actual_end, status")
+        .eq("driver_id", user.id)
+        .eq("shift_date", todayIso)
+        .is("deleted_at", null);
+      if (error || cancelled) return;
+      const now = new Date();
+      let totalMs = 0;
+      for (const s of (data || []) as Array<{ actual_start: string | null; actual_end: string | null; status: string }>) {
+        if (!s.actual_start) continue;
+        const start = new Date(s.actual_start).getTime();
+        const end = s.actual_end ? new Date(s.actual_end).getTime() : now.getTime();
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+          totalMs += (end - start);
+        }
+      }
+      setHoursWorkedToday(totalMs / 3_600_000);
+    };
+    void fetchHours();
+    // Re-tick every 60s so an active shift's running hours update
+    // without a page refresh.
+    const t = setInterval(fetchHours, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [user?.id]);
+
   // Phase 5: POD capture + decline dialogs
   const [podJob, setPodJob] = useState<Job | null>(null);
   const [declineCtx, setDeclineCtx] = useState<{ assignmentId: string; orderId: string; clientName?: string } | null>(null);
@@ -374,10 +411,17 @@ export default function DriverDashboard() {
     (j) => j.event_date === new Date().toISOString().split("T")[0]
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
-  // Potential earnings = sum over today's jobs of (callout + round-trip
-  // distance pay). Mirrors driverPayService.calculateDeliveryPay so the
-  // figure on the dashboard matches what actually lands on the payslip.
-  const todaysPotentialEarnings = (() => {
+  // Wave 70.12 -- Potential earnings now includes THREE components:
+  //   1. Per-delivery callout fee (one flat charge per job)
+  //   2. Per-delivery round-trip distance pay (km x rate)
+  //   3. Hourly portion = hours_clocked_today x hourly_rate
+  //
+  // The hourly portion fires for ANY clocked-in driver, even with
+  // zero jobs claimed -- so a driver who clocks in to wait around
+  // sees R earned for time, not R0. Pre-Wave-70.12 only the
+  // delivery components counted, so a 0.2h shift with 0 deliveries
+  // rendered R0 -- which Bobby flagged as wrong.
+  const todaysDeliveryEarnings = (() => {
     if (!payRates) return 0;
     return todaysJobs.reduce((sum, j) => {
       const oneWay = Number(j.delivery_distance_km || 0);
@@ -385,6 +429,10 @@ export default function DriverDashboard() {
       return sum + payRates.base_callout_fee + distancePay;
     }, 0);
   })();
+  const todaysHourlyEarnings = payRates && hoursWorkedToday > 0
+    ? hoursWorkedToday * payRates.hourly_rate
+    : 0;
+  const todaysPotentialEarnings = todaysDeliveryEarnings + todaysHourlyEarnings;
 
   /**
    * Open Google Maps with kitchen as origin and the venue as destination.
@@ -582,6 +630,27 @@ export default function DriverDashboard() {
                       {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled •{" "}
                       {completedToday} completed
                     </p>
+                    {/* Wave 70.12 -- breakdown so the driver sees how
+                        the number is built. Hides when there's
+                        nothing to break down. */}
+                    {(todaysHourlyEarnings > 0 || todaysDeliveryEarnings > 0) && payRates && (
+                      <div className="mt-2 pt-2 border-t border-green-200/60 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                        {todaysHourlyEarnings > 0 && (
+                          <span className="inline-flex items-center gap-1" title={`${hoursWorkedToday.toFixed(2)}h x ${tenantCurrency.format(payRates.hourly_rate, 0)}/h`}>
+                            <Clock className="w-3 h-3" />
+                            <span className="tabular-nums">{hoursWorkedToday.toFixed(2)}h</span> &middot;
+                            <span className="font-semibold tabular-nums">{tenantCurrency.format(todaysHourlyEarnings, 0)}</span>
+                          </span>
+                        )}
+                        {todaysDeliveryEarnings > 0 && (
+                          <span className="inline-flex items-center gap-1" title="Callout + round-trip km">
+                            <Truck className="w-3 h-3" />
+                            <span>{todaysJobs.length} drop{todaysJobs.length === 1 ? "" : "s"}</span> &middot;
+                            <span className="font-semibold tabular-nums">{tenantCurrency.format(todaysDeliveryEarnings, 0)}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="text-left sm:text-right w-full sm:w-auto">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 flex items-center justify-center mb-2 mx-auto sm:mx-0">

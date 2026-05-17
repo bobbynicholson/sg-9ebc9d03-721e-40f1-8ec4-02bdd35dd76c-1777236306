@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
-import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
+import { LogDriverShiftModal, type ExistingShiftForEdit } from "@/components/admin/LogDriverShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
@@ -101,6 +101,14 @@ function DriverScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ driverId: string; driverName: string } | null>(null);
+  // Wave 70.12 -- edit-mode target. When set, opens LogDriverShiftModal
+  // pre-filled with the existing shift's actual_start / actual_end /
+  // notes / multiplier so an admin can adjust or delete the row.
+  const [editTarget, setEditTarget] = useState<{
+    driverId: string;
+    driverName: string;
+    shift: ExistingShiftForEdit;
+  } | null>(null);
   // Wave 42 Tier 2: per-shift task chips. Mirrors kitchen + cleaning
   // schedule grids so a driver shift can carry typed tasks
   // (delivery / waitering / setup / breakdown / etc).
@@ -363,7 +371,37 @@ function DriverScheduleGrid() {
                                           return (
                                             <div
                                               key={s.id}
-                                              className={`rounded-md border px-2 py-1.5 text-left ${
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() => setEditTarget({
+                                                driverId: d.id,
+                                                driverName: d.full_name || d.email,
+                                                shift: {
+                                                  id: s.id,
+                                                  actual_start: s.actual_start,
+                                                  actual_end: s.actual_end,
+                                                  notes: s.notes,
+                                                  rate_multiplier: s.rate_multiplier,
+                                                },
+                                              })}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                  e.preventDefault();
+                                                  setEditTarget({
+                                                    driverId: d.id,
+                                                    driverName: d.full_name || d.email,
+                                                    shift: {
+                                                      id: s.id,
+                                                      actual_start: s.actual_start,
+                                                      actual_end: s.actual_end,
+                                                      notes: s.notes,
+                                                      rate_multiplier: s.rate_multiplier,
+                                                    },
+                                                  });
+                                                }
+                                              }}
+                                              title="Click to edit or delete this shift"
+                                              className={`rounded-md border px-2 py-1.5 text-left cursor-pointer hover:shadow-sm hover:brightness-105 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                                                 isMissed
                                                   ? "border-red-200 bg-red-50"
                                                   : hasActual
@@ -400,11 +438,13 @@ function DriverScheduleGrid() {
                                                   {pHours.toFixed(1)}h planned
                                                 </div>
                                               )}
-                                              <ShiftTasksChips
-                                                tasks={tasksByShift.get(s.id) || []}
-                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
-                                                onChanged={refreshTasks}
-                                              />
+                                              <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                <ShiftTasksChips
+                                                  tasks={tasksByShift.get(s.id) || []}
+                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
+                                                  onChanged={refreshTasks}
+                                                />
+                                              </div>
                                             </div>
                                           );
                                         })}
@@ -463,6 +503,22 @@ function DriverScheduleGrid() {
           driverName={logTarget.driverName}
           actorUserId={user?.id ?? null}
           onCreated={() => { setLogTarget(null); void load(); }}
+        />
+      )}
+
+      {/* Wave 70.12 -- edit mode for an existing shift. Admin tap
+          any non-empty cell on the grid -> modal opens pre-filled
+          with that shift's actuals -> Update or Delete. */}
+      {editTarget && companyId && (
+        <LogDriverShiftModal
+          open={!!editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          companyId={companyId}
+          driverId={editTarget.driverId}
+          driverName={editTarget.driverName}
+          actorUserId={user?.id ?? null}
+          existingShift={editTarget.shift}
+          onCreated={() => { setEditTarget(null); void load(); }}
         />
       )}
 
