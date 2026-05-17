@@ -239,24 +239,44 @@ export function computeOrderReadiness(
   });
 
   // 5. Kitchen prep tasks generated.
+  //
+  // Wave 70.17 -- suppress the "no prep tasks" warning (and the
+  // Generate now button) when the order is already past the
+  // point where prep is meaningful:
+  //   - event is in the past (hoursToEvent < 0): the food was
+  //     either made or wasn't, generating prep now is pointless
+  //   - status is terminal (delivered / completed / cancelled):
+  //     the job is closed, prep is no longer applicable
+  // In those cases we still emit the signal but flip it to passing
+  // with a context-appropriate message so the chip doesn't render
+  // a misleading "high severity, action required" row.
   const prepTasks = input.kitchenPrepTasks || [];
   const prepReady = prepTasks.length > 0;
+  const orderStatus = (o.status || "").toString().toLowerCase();
+  const isTerminalStatus = ["delivered", "completed", "cancelled", "refunded"].includes(orderStatus);
+  const isEventPast = hoursToEvent != null && hoursToEvent < 0;
+  const prepNotApplicable = isTerminalStatus || isEventPast;
   signals.push({
     key: "kitchen_prep_tasks_present",
     severity: "high",
-    passing: prepReady,
+    passing: prepReady || prepNotApplicable,
     message: prepReady
       ? `${prepTasks.length} prep tasks generated.`
-      : "No prep tasks on the chef's board yet.",
-    // Wave 70.9 -- when failing, the action is a direct
-    // regenerate (POST /api/orders/regenerate-prep-tasks) so the
-    // owner can recover stuck orders in one click. When passing,
-    // the deep-link points to the kitchen schedule for inspection.
-    actionLink: prepReady
+      : isTerminalStatus
+        ? `Order ${orderStatus} -- prep no longer applicable.`
+        : isEventPast
+          ? "Event has passed -- prep no longer applicable."
+          : "No prep tasks on the chef's board yet.",
+    // Wave 70.9 / 70.17 -- when failing AND prep is still
+    // applicable, the action is a direct regenerate so the
+    // owner can recover stuck orders in one click. When the
+    // signal is passing (real or by-context), no action link
+    // and no Generate-now button.
+    actionLink: prepReady && !prepNotApplicable
       ? `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`
       : null,
-    actionType: prepReady ? null : "regenerate_prep_tasks",
-    actionLabel: prepReady ? null : "Generate now",
+    actionType: prepReady || prepNotApplicable ? null : "regenerate_prep_tasks",
+    actionLabel: prepReady || prepNotApplicable ? null : "Generate now",
   });
 
   // ---- Wave 47 -- additional HIGH signals -------------------------------
