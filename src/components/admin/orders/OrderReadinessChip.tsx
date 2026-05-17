@@ -161,11 +161,17 @@ function SignalRow({
     setBusy(true);
     try {
       if (signal.actionType === "regenerate_prep_tasks") {
+        // Wave 70.15 -- omit force so the API's default-true for
+        // manual triggers kicks in. Previously sent force=false
+        // which the API correctly honoured -> past-date guard
+        // wasn't bypassed -> "Event is in the past" message on
+        // any historical order (seed data, late paperwork).
+        // Manual operator-initiated regen should always force.
         const r = await fetch("/api/orders/regenerate-prep-tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ order_id: orderId, force: false }),
+          body: JSON.stringify({ order_id: orderId, force: true }),
         });
         const data = await r.json();
         if (!r.ok) {
