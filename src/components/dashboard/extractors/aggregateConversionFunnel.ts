@@ -38,6 +38,27 @@ export interface ConversionFunnelResult {
   stages: ConversionStage[];
   /** Convenience top-line number for the empty-state guard. */
   totalLeads: number;
+  /**
+   * Wave 70.50b -- "won then churned" -- quotes that were accepted in
+   * the window AND whose child order was subsequently cancelled. NOT
+   * a 6th funnel stage (would break the drop-off math); rendered as
+   * a SIDEBAR stat alongside the main funnel.
+   *
+   * count = how many accepted-quote events fell over
+   * value = rand value of the cancelled quotes
+   * pctOfAccepted = churn rate vs accepted (null when accepted=0)
+   *
+   * Why this matters: previously a cancelled-after-acceptance looked
+   * identical to "never accepted" in the funnel. Sales scorecards
+   * couldn't see churn. The "won the pitch, lost the gig" pattern was
+   * invisible. Salespeople could claim 100% conversion while operators
+   * watched 30% of those wins cancel.
+   */
+  churned: {
+    count: number;
+    value: number;
+    pctOfAccepted: number | null;
+  };
 }
 
 const inWindow = (s: string | null | undefined, start: Date, end: Date): boolean => {
@@ -113,12 +134,23 @@ export function aggregateConversionFunnel(
   // status='completed'). delivered also counts as a successful outcome.
   let ordersCompleted = 0;
   let valueCompleted = 0;
+  // Wave 70.50b -- churned bucket: orders in the window whose status
+  // ended up 'cancelled'. We anchor on event_date so the churn shows
+  // up in the same period the event WOULD have happened, which is
+  // the natural sales-scorecard window. value uses total_amount as
+  // a proxy for "lost gross" -- the rand we won then lost.
+  let ordersChurned = 0;
+  let valueChurned = 0;
   for (const o of orders) {
     if (!o.event_date) continue;
     if (!inDateWindow(o.event_date, rangeStart, rangeEnd)) continue;
-    if (o.status !== "completed" && o.status !== "delivered") continue;
-    ordersCompleted += 1;
-    valueCompleted += Number(o.total_amount || 0);
+    if (o.status === "completed" || o.status === "delivered") {
+      ordersCompleted += 1;
+      valueCompleted += Number(o.total_amount || 0);
+    } else if (o.status === "cancelled") {
+      ordersChurned += 1;
+      valueChurned += Number(o.total_amount || 0);
+    }
   }
 
   const stages: ConversionStage[] = [
@@ -129,5 +161,13 @@ export function aggregateConversionFunnel(
     { key: "orders_completed", label: "Orders completed", count: ordersCompleted, value: valueCompleted, dropOffPct: dropOffPct(ordersCompleted, quotesAccepted), vsLeadsPct: ratioPct(ordersCompleted, leadsCount) },
   ];
 
-  return { stages, totalLeads: leadsCount };
+  return {
+    stages,
+    totalLeads: leadsCount,
+    churned: {
+      count: ordersChurned,
+      value: valueChurned,
+      pctOfAccepted: ratioPct(ordersChurned, quotesAccepted),
+    },
+  };
 }

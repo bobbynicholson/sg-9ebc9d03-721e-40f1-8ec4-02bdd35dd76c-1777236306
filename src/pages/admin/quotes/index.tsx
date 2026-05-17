@@ -17,6 +17,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+// Wave 70.50b -- structured Mark-lost dialog (replaces window.prompt).
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
@@ -902,51 +920,63 @@ export default function AdminQuotes() {
    * still in draft, status flips to 'sent' so the suggester picks it
    * up like any normal sent quote.
    */
-  // Phase 11 #6: mark a quote as lost / rejected. Captures an
-  // optional reason in audit_logs so the sales lead can later
-  // review why deals fell through. No order is created.
-  const handleMarkAsLost = async (quote: Quote) => {
-    if (typeof window === "undefined") return;
-    const reason = window.prompt(
-      `Mark ${quote.client_name}'s quote as rejected? This moves it out of 'In play' and into 'Lost'. Add a quick reason (optional):`,
-      "",
-    );
-    if (reason === null) return; // cancel
+  // Wave 70.50b -- Mark-lost dialog state. The previous handler used
+  // window.prompt for a free-text reason, then bare-updated quotes
+  // and inserted an audit row. That diverged from the client-decline
+  // path which DID flip the linked lead, send the operator
+  // notification, send a client confirmation email, etc. Sales
+  // managers were seeing "lost" quotes that left the linked lead at
+  // 'quoted' indefinitely. Now: every loss goes through the same
+  // markQuoteAsLost() helper via /api/admin/quotes/[id]/mark-lost.
+  const [markLostQuote, setMarkLostQuote] = useState<Quote | null>(null);
+  const [markLostReason, setMarkLostReason] = useState<string>("no_response");
+  const [markLostNote, setMarkLostNote] = useState<string>("");
+  const [markLostBusy, setMarkLostBusy] = useState(false);
+
+  const handleMarkAsLost = (quote: Quote) => {
+    // Open the dialog instead of running inline. Default reason is
+    // 'no_response' -- the most common admin-side loss path (operator
+    // closing out ghosted quotes).
+    setMarkLostQuote(quote);
+    setMarkLostReason("no_response");
+    setMarkLostNote("");
+  };
+
+  const submitMarkLost = async () => {
+    if (!markLostQuote) return;
+    setMarkLostBusy(true);
     try {
-      const { error } = await (supabase as any)
-        .from("quotes")
-        .update({ status: "rejected" })
-        .eq("id", quote.id);
-      if (error) throw error;
-      setQuotes((prev) => prev.map((q) =>
-        q.id === quote.id ? ({ ...q, status: "rejected" } as Quote) : q,
-      ));
-      // Best-effort audit log so /admin/audit-logs shows the loss
-      // reason. Non-blocking if it trips.
-      if (user?.company_id) {
-        try {
-          await (supabase as any).from("audit_logs").insert({
-            company_id: user.company_id,
-            user_id: (user as any)?.id ?? null,
-            action: "quote_marked_lost",
-            entity_type: "quote",
-            entity_id: quote.id,
-            details: {
-              client_name: quote.client_name,
-              total: quote.total,
-              reason: reason.trim() || null,
-            },
-          });
-        } catch {
-          /* non-blocking */
-        }
-      }
-      toast({
-        title: "Marked as rejected",
-        description: reason.trim()
-          ? `Reason: ${reason.trim()}. Moved out of 'In play' into 'Lost'.`
-          : "Moved out of 'In play' into 'Lost'. No reason recorded.",
+      const r = await fetch(`/api/admin/quotes/${markLostQuote.id}/mark-lost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lost_reason: markLostReason,
+          reason_note: markLostNote.trim() || null,
+        }),
       });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Mark-lost failed");
+
+      setQuotes((prev) => prev.map((q) =>
+        q.id === markLostQuote.id ? ({ ...q, status: "rejected" } as Quote) : q,
+      ));
+
+      // Surface what landed -- the receipt tells us whether the lead
+      // also flipped, whether the operator was notified, etc. If a
+      // side-effect failed silently the audit log captures it, but
+      // we still mention it here so the operator isn't surprised.
+      const r2 = data.receipt || {};
+      const sideEffects: string[] = [];
+      if (r2.lead_flipped) sideEffects.push("lead -> lost");
+      if (r2.operator_notified) sideEffects.push("operator notified");
+      if (r2.audit_logged) sideEffects.push("audit logged");
+      toast({
+        title: data.already_terminal ? "Already closed" : "Marked as lost",
+        description: data.already_terminal
+          ? "This quote was already in a terminal state."
+          : `Reason: ${markLostReason.replace(/_/g, " ")}. ${sideEffects.join(" · ")}`,
+      });
+      setMarkLostQuote(null);
     } catch (err: any) {
       console.error("Mark as lost failed:", err);
       toast({
@@ -954,6 +984,8 @@ export default function AdminQuotes() {
         description: err?.message || "Try again.",
         variant: "destructive",
       });
+    } finally {
+      setMarkLostBusy(false);
     }
   };
 
@@ -2585,6 +2617,64 @@ export default function AdminQuotes() {
         quote={sendDialogQuote as QuoteSendDialogQuote | null}
         onSent={handleQuoteSent}
       />
+
+      {/* Wave 70.50b -- Mark-lost dialog. Replaces the old window.prompt
+          flow. Captures the structured lost_reason enum + an optional
+          note. Submission goes through markQuoteAsLost() so the lead
+          flip + operator notification + audit row fire identically to
+          the client-decline path. */}
+      <Dialog open={!!markLostQuote} onOpenChange={(o) => { if (!o) setMarkLostQuote(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark quote as lost</DialogTitle>
+            <DialogDescription>
+              {markLostQuote
+                ? `${markLostQuote.client_name}'s quote will be marked rejected. The linked lead (if any) flips to lost, the team is notified, and the loss reason is logged for the funnel.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="lost-reason">Why are we losing this?</Label>
+              <Select value={markLostReason} onValueChange={setMarkLostReason}>
+                <SelectTrigger id="lost-reason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_response">No response (ghosted)</SelectItem>
+                  <SelectItem value="price">Price -- went with someone cheaper</SelectItem>
+                  <SelectItem value="timing">Timing -- date didn't work</SelectItem>
+                  <SelectItem value="capacity">Capacity -- we couldn't take it</SelectItem>
+                  <SelectItem value="won_by_competitor">Won by a specific competitor</SelectItem>
+                  <SelectItem value="client_changed_plans">Client cancelled the event entirely</SelectItem>
+                  <SelectItem value="weather">Weather</SelectItem>
+                  <SelectItem value="force_majeure">Force majeure / act of god</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="lost-note">Notes (optional)</Label>
+              <Textarea
+                id="lost-note"
+                value={markLostNote}
+                onChange={(e) => setMarkLostNote(e.target.value)}
+                placeholder="e.g. 'Quoted R12k vs competitor R8.5k', 'Client postponed wedding indefinitely'"
+                rows={3}
+                maxLength={1000}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMarkLostQuote(null)} disabled={markLostBusy}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={submitMarkLost} disabled={markLostBusy}>
+              {markLostBusy ? "Marking..." : "Mark as lost"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

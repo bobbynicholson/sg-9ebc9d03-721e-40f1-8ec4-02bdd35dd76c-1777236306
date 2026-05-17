@@ -121,6 +121,34 @@ export function ConversionFunnelChart({ data, loading }: Props) {
                 </div>
               );
             })}
+
+            {/* Wave 70.50b -- "won then churned" sidebar row. Renders
+                below the main funnel because it represents a DIFFERENT
+                cohort lifecycle (events that DID get accepted -> THEN
+                cancelled), not another step in the same drop-off
+                chain. Hidden when no churn happened in the window. */}
+            {data.churned.count > 0 && (
+              <div className="mt-4 pt-3 border-t border-slate-200">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-rose-700 font-semibold flex items-center gap-1">
+                    <ArrowDown className="w-3 h-3" />
+                    Won then churned
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-slate-500">
+                      {data.churned.value > 0 ? fmtR(data.churned.value) : ""}
+                    </span>
+                    <span className="text-rose-700 font-semibold">{fmtCount(data.churned.count)}</span>
+                    {data.churned.pctOfAccepted !== null && (
+                      <span className="text-rose-500 tabular-nums w-12 text-right">{fmtPct(data.churned.pctOfAccepted)}</span>
+                    )}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Accepted-quote events in this window whose order was later cancelled. Real churn -- not "never accepted".
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
