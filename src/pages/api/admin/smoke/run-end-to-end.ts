@@ -524,6 +524,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Wave 70.50a -- linked quote + lead flips.
         "quotes.linked_lost",
         "leads.linked_lost",
+        // Wave 70.51a -- shopping list items soft-remove.
+        "shopping_list_items",
       ];
       const missing = expected.filter((r) => !got.includes(r));
       if (missing.length > 0) {

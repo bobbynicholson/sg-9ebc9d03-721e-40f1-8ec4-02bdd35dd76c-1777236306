@@ -189,15 +189,22 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
 
   // ── 4. invoices (void unpaid) ──────────────────────────────────────
   // Only on cancel -- postpone keeps the invoice live against the new
-  // event date. NOTE: 'written_off' is currently the closest enum value
-  // for "voided" (Wave 28.9 documented this). Wave 70.51 will add a
-  // proper 'voided' enum value and switch this helper to use it.
+  // event date.
+  //
+  // Wave 70.51a -- switched status target from 'written_off' to the
+  // new 'voided' enum value. 'written_off' was the closest existing
+  // value pre-migration but conflates "the order never happened" with
+  // "bad debt" in accounting -- the bookkeeper saw cancelled-order
+  // invoices on the write-off expense report, polluting the actual
+  // bad-debt line. 'voided' is now distinct (Wave 70.51 migration).
+  // The deleted_at + balance_due=0 + status flip combination still
+  // ensures the invoice drops off active receivables.
   if (mode === "cancel") {
     await tryUpdate("invoices", "voided", async () => {
       const { count, error } = await sb
         .from("invoices")
         .update({
-          status: "written_off",
+          status: "voided",
           balance_due: 0,
           deleted_at: nowIso,
           updated_at: nowIso,
@@ -497,11 +504,54 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
     lines.push({ resource: "leads.linked_lost", action: "skipped (mode!=cancel)" });
   }
 
+  // ── 13. shopping_list_items soft-remove (Wave 70.51a) ──────────────
+  // Audit gap (Tier 1 #2 in the cascade audit): shopping list items
+  // pushed into a list were the highest perishable-waste leak after
+  // hire-in -- operators kept buying groceries for events that no
+  // longer existed because there was no order_id linkage. Wave 70.51
+  // migration added shopping_list_items.source_order_id + removed_at
+  // + removed_reason. Now: soft-remove every un-purchased item tied
+  // to this order with reason='order_cancelled'.
+  //
+  // Soft-remove not hard-delete because:
+  //   - Operators may want to see the historical "we WOULD have
+  //     bought X" record for cost-of-loss reporting.
+  //   - If the cancel is reversed (rare, but happens), restoring is
+  //     a single column flip vs re-inserting rows.
+  //   - The UI already filters on removed_at IS NULL for the active
+  //     shop view.
+  //
+  // Already-purchased items are left alone -- the spend is sunk; the
+  // operator can mark them for re-use or write-off via the usual
+  // inventory flow (Wave 70.51b will surface a "consumed for
+  // cancelled order X" reconciliation panel).
+  if (mode === "cancel" || mode === "reject") {
+    await tryUpdate("shopping_list_items", "removed", async () => {
+      // `purchased` is nullable in the schema -- `eq("purchased", false)`
+      // would skip NULL rows. We need to soft-remove NULL-purchased
+      // items too (NULL = "not yet recorded as purchased" = still in
+      // the shop queue). Use `.not("purchased", "is", true)` to catch
+      // both false AND null.
+      const { count, error } = await sb
+        .from("shopping_list_items")
+        .update({
+          removed_at: nowIso,
+          removed_reason: "order_cancelled",
+        }, { count: "exact" })
+        .eq("source_order_id", orderId)
+        .is("removed_at", null)
+        .not("purchased", "is", true);
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "shopping_list_items", action: "skipped (mode!=cancel/reject)" });
+  }
+
   // ────────────────────────────────────────────────────────────────────
-  // Wave 70.51 hooks land here: shopping_list_items.source_order_id
-  // cascade, invoices 'voided' status (vs current 'written_off'),
-  // Xero original-invoice void, structured cancellation_reason_category
-  // enum at the DB level.
+  // Wave 70.51b hooks land here: Xero original-invoice void (extend
+  // the cancel API's existing credit-note push to also void the
+  // original invoice in Xero so the catering company's accounting
+  // ledger doesn't end up with parallel invoice + credit-note rows).
   // ────────────────────────────────────────────────────────────────────
 
   return {
