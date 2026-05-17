@@ -19,28 +19,33 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChefHat, Truck, Users, Sparkles, ShoppingBag, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { ChefHat, Truck, Users, Sparkles, ShoppingBag, AlertCircle, CheckCircle2, Clock, MapPin, Phone, FileText, Package } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
-import type { BookingFacts as BookingFactsData, BookingFactsAdmin } from "@/services/booking/bookingFacts";
+import type {
+  BookingFacts as BookingFactsData,
+  BookingFactsAdmin,
+  BookingFactsClient,
+  BookingFactsKitchen,
+  BookingFactsDriver,
+  BookingFactsCleaning,
+  BookingFactsShopping,
+} from "@/services/booking/bookingFacts";
 
 interface BookingFactsProps {
   facts: BookingFactsData;
 }
 
 export function BookingFacts({ facts }: BookingFactsProps) {
-  if (facts.role === "admin") return <AdminFacts facts={facts} />;
-  // Other variants land in a follow-up commit. For now render a
-  // sensible placeholder so a misconfigured call site doesn't
-  // break the page.
-  return (
-    <Card className="border-0 shadow-sm">
-      <CardContent className="p-4 text-sm text-slate-500">
-        Booking facts view for &quot;{facts.role}&quot; role lands in Wave 70.42b.
-      </CardContent>
-    </Card>
-  );
+  if (facts.role === "admin")    return <AdminFacts facts={facts} />;
+  if (facts.role === "client")   return <ClientFacts facts={facts} />;
+  if (facts.role === "kitchen")  return <KitchenFacts facts={facts} />;
+  if (facts.role === "driver")   return <DriverFacts facts={facts} />;
+  if (facts.role === "cleaning") return <CleaningFacts facts={facts} />;
+  if (facts.role === "shopping") return <ShoppingFacts facts={facts} />;
+  // Exhaustive fallback for an unknown role -- should be unreachable.
+  return null;
 }
 
 // ── Admin: conductor view ────────────────────────────────────────────────
@@ -185,5 +190,256 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
         </Card>
       )}
     </div>
+  );
+}
+
+// ── Client: their booking from their perspective ────────────────────────
+
+function ClientFacts({ facts }: { facts: BookingFactsClient }) {
+  const { user } = useAuth();
+  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  return (
+    <div className="space-y-3">
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
+        <CardContent className="p-4">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Your order</p>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Total</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">
+                {facts.total_amount != null ? tenantCurrency.format(Number(facts.total_amount)) : "--"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">VAT included</p>
+              <p className="text-sm tabular-nums text-slate-700">
+                {facts.tax_amount != null ? tenantCurrency.format(Number(facts.tax_amount)) : "--"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Balance to pay</p>
+              <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                {facts.balance_due != null ? tenantCurrency.format(Number(facts.balance_due)) : "--"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {facts.items.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Items ordered</p>
+            <ul className="divide-y divide-slate-100">
+              {facts.items.map((it, i) => (
+                <li key={i} className="py-2 flex items-center justify-between gap-3">
+                  <span className="text-sm text-slate-800">
+                    <span className="font-medium">{it.quantity}×</span> {it.item_name || "Item"}
+                  </span>
+                  {it.line_total != null && it.line_total > 0 && (
+                    <span className="text-sm tabular-nums text-slate-700">{tenantCurrency.format(Number(it.line_total))}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── Kitchen: what to cook, when to be ready ─────────────────────────────
+
+function KitchenFacts({ facts }: { facts: BookingFactsKitchen }) {
+  return (
+    <div className="space-y-3">
+      {/* Timing strip -- kitchen's primary fact: when does it need
+          to be ready? Driver pickup_time is the deadline; setup_time
+          is the kitchen's setup window. NO money fields anywhere on
+          the kitchen variant -- stripped server-side. */}
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-red-50">
+        <CardContent className="p-4">
+          <p className="text-[10px] uppercase tracking-widest text-orange-700 font-bold mb-2">Kitchen timing</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Event time</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.event_time?.slice(0, 5) || "--"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Setup</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.setup_time?.slice(0, 5) || "--"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Driver collects</p>
+              <p className="text-lg font-bold tabular-nums text-orange-700">{facts.pickup_time?.slice(0, 5) || "--"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {facts.items.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2 flex items-center gap-1.5">
+              <ChefHat className="w-3 h-3" />
+              Menu ({facts.items.length} items)
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {facts.items.map((it, i) => (
+                <li key={i} className="py-2">
+                  <div className="flex items-baseline gap-2 mb-0.5">
+                    <span className="text-base font-bold tabular-nums text-slate-900">{it.quantity}×</span>
+                    <span className="text-sm font-medium text-slate-800">{it.item_name || "Item"}</span>
+                  </div>
+                  {it.description && (
+                    <p className="text-[11px] text-slate-500 mt-0.5 pl-6">{it.description}</p>
+                  )}
+                  {it.special_instructions && (
+                    <p className="text-[11px] text-amber-700 mt-0.5 pl-6 italic">
+                      Note: {it.special_instructions}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── Driver: where, when, who ─────────────────────────────────────────────
+
+function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
+  const phoneHref = facts.client_phone
+    ? `tel:${facts.client_phone.replace(/[^+\d]/g, "")}`
+    : null;
+  return (
+    <div className="space-y-3">
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="p-4">
+          <p className="text-[10px] uppercase tracking-widest text-blue-700 font-bold mb-2">Run sheet</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Pickup</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.pickup_time?.slice(0, 5) || "--"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Setup</p>
+              <p className="text-sm tabular-nums text-slate-700">{facts.setup_time?.slice(0, 5) || "--"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">Delivery</p>
+              <p className="text-lg font-bold tabular-nums text-blue-700">{facts.event_time?.slice(0, 5) || "--"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4 space-y-2.5">
+          {facts.venue_address && (
+            <div className="flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(facts.venue_address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-700 hover:underline"
+              >
+                {facts.venue_address}
+              </a>
+            </div>
+          )}
+          {phoneHref && (
+            <div className="flex items-start gap-2">
+              <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <a href={phoneHref} className="text-sm text-blue-700 hover:underline">
+                {facts.client_phone}
+              </a>
+            </div>
+          )}
+          {facts.special_instructions && (
+            <div className="flex items-start gap-2 pt-2 border-t border-slate-100">
+              <FileText className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-700">{facts.special_instructions}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Cleaning: what's coming back, when ──────────────────────────────────
+
+function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
+  const handoverHref = facts.handover.id ? `/team-portal/cleaning/handovers/${facts.handover.id}` : null;
+  return (
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-cyan-50 to-blue-50">
+      <CardContent className="p-4">
+        <p className="text-[10px] uppercase tracking-widest text-cyan-700 font-bold mb-2 flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" />
+          Cleaning handover
+        </p>
+        {facts.handover.id ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Status</p>
+                <p className="text-sm font-semibold text-slate-900 capitalize">{facts.handover.status?.replace("_", " ") || "--"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">Items expected back</p>
+                <p className="text-lg font-bold tabular-nums text-slate-900">{facts.handover.items_expected}</p>
+              </div>
+            </div>
+            {facts.handover.expected_at && (
+              <p className="text-xs text-cyan-700">
+                Expected back by {new Date(facts.handover.expected_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+              </p>
+            )}
+            {handoverHref && (
+              <Link href={handoverHref} className="inline-flex items-center gap-1 text-xs text-cyan-700 hover:text-cyan-900 mt-2 font-medium">
+                Open handover detail →
+              </Link>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-slate-600">No handover scheduled yet for this booking.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Shopping: ingredient demand ──────────────────────────────────────────
+
+function ShoppingFacts({ facts }: { facts: BookingFactsShopping }) {
+  return (
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50">
+      <CardContent className="p-4">
+        <p className="text-[10px] uppercase tracking-widest text-emerald-700 font-bold mb-2 flex items-center gap-1.5">
+          <ShoppingBag className="w-3 h-3" />
+          Items to procure ({facts.items.length})
+        </p>
+        {facts.items.length === 0 ? (
+          <p className="text-sm text-slate-600">No line items on this booking yet.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {facts.items.map((it, i) => (
+              <li key={i} className="py-1.5 flex items-center gap-2">
+                <Package className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span className="text-sm text-slate-800 flex-1">{it.item_name || "Item"}</span>
+                <span className="text-sm font-semibold tabular-nums text-slate-900">{it.quantity}×</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-[10px] text-slate-500 mt-3">
+          Tip: open the Shopping portal &gt; Buy list for ingredient-level demand across all upcoming events.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
