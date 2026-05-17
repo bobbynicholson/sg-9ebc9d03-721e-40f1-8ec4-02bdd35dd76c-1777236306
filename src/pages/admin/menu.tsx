@@ -172,6 +172,85 @@ function MenuPage() {
   const [error, setError] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<MenuItemWithRecipeSummary | null>(null);
 
+  // Wave 70.2 -- recipe-completeness chip quick-edit.
+  // The chip on the menu list flags how many of the 4 backplanning
+  // fields are populated (prep / cook / base servings / notice
+  // hours). Clicking it pops this mini-dialog with just those 4
+  // fields so an operator can fix the amber/rose state in 5 seconds
+  // without opening the full menu-item editor. Updates both the
+  // menu_items denormalised columns and, when a recipe row exists,
+  // the recipe row itself so a later full edit doesn't clobber the
+  // values.
+  const [timingTarget, setTimingTarget] = useState<MenuItemWithRecipeSummary | null>(null);
+  const [timingDraft, setTimingDraft] = useState<{
+    prep_time_minutes: string;
+    cook_time_minutes: string;
+    base_servings: string;
+    requires_advance_notice_hours: string;
+  }>({ prep_time_minutes: "", cook_time_minutes: "", base_servings: "", requires_advance_notice_hours: "" });
+  const [timingSaving, setTimingSaving] = useState(false);
+
+  const openTimingEdit = (it: MenuItemWithRecipeSummary) => {
+    setTimingTarget(it);
+    setTimingDraft({
+      prep_time_minutes: (it as any).prep_time_minutes != null ? String((it as any).prep_time_minutes) : "",
+      cook_time_minutes: (it as any).cook_time_minutes != null ? String((it as any).cook_time_minutes) : "",
+      base_servings: (it as any).base_servings != null ? String((it as any).base_servings) : "",
+      requires_advance_notice_hours: it.requires_advance_notice_hours != null
+        ? String(it.requires_advance_notice_hours) : "0",
+    });
+  };
+
+  const saveTimingEdit = async () => {
+    if (!timingTarget || !companyId) return;
+    setTimingSaving(true);
+    try {
+      const prep = timingDraft.prep_time_minutes ? Number(timingDraft.prep_time_minutes) : null;
+      const cook = timingDraft.cook_time_minutes ? Number(timingDraft.cook_time_minutes) : null;
+      const base = timingDraft.base_servings ? Number(timingDraft.base_servings) : null;
+      const notice = Number(timingDraft.requires_advance_notice_hours || 0);
+
+      // 1. Update the menu_item denormalised columns. Direct PATCH
+      //    via the supabase client -- upsertMenuItem requires the
+      //    full row shape; we only want to touch the 4 columns.
+      const itemPatch: any = {
+        requires_advance_notice_hours: notice,
+      };
+      if (prep != null) itemPatch.prep_time_minutes = prep;
+      if (cook != null) itemPatch.cook_time_minutes = cook;
+      if (base != null) itemPatch.base_servings = base;
+      const { error: itemErr } = await (supabase as any)
+        .from("menu_items")
+        .update(itemPatch)
+        .eq("id", timingTarget.id);
+      if (itemErr) throw itemErr;
+
+      // 2. If a recipe row exists, mirror the prep / cook / base
+      //    so the next full-dialog save doesn't overwrite us.
+      if (timingTarget.recipe_id) {
+        const recipePatch: any = {};
+        if (prep != null) recipePatch.prep_time_minutes = prep;
+        if (cook != null) recipePatch.cook_time_minutes = cook;
+        if (base != null) recipePatch.base_servings = base;
+        if (Object.keys(recipePatch).length > 0) {
+          const { error: rErr } = await (supabase as any)
+            .from("recipes")
+            .update(recipePatch)
+            .eq("id", timingTarget.recipe_id);
+          if (rErr) throw rErr;
+        }
+      }
+
+      toast({ title: "Timing saved", description: `${timingTarget.item_name} prep timing updated.` });
+      setTimingTarget(null);
+      await load();
+    } catch (e: any) {
+      toast({ title: "Couldn't save timing", description: e?.message, variant: "destructive" });
+    } finally {
+      setTimingSaving(false);
+    }
+  };
+
   // Inventory pool for the recipe-builder picker -- fetched once when the
   // page mounts so the autocomplete doesn't lag on each new ingredient row.
   const [inventoryPool, setInventoryPool] = useState<Array<{
@@ -968,13 +1047,20 @@ function MenuPage() {
                                       ? "Prep timing complete"
                                       : `Prep timing ${filled}/${total}`;
                                     return (
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-[10px] ${tone}`}
-                                        title={`Backplanning fields filled: prep_time_minutes, cook_time_minutes, base_servings, requires_advance_notice_hours. Kitchen ticket can ${filled === total ? "fully backplan" : "only partially backplan"} this item.`}
+                                      <button
+                                        type="button"
+                                        onClick={() => openTimingEdit(it)}
+                                        title={`Backplanning fields filled: prep_time_minutes, cook_time_minutes, base_servings, requires_advance_notice_hours. Kitchen ticket can ${filled === total ? "fully backplan" : "only partially backplan"} this item. Click to edit.`}
+                                        className="inline-flex"
                                       >
-                                        {label}
-                                      </Badge>
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] ${tone} cursor-pointer hover:opacity-80 transition-opacity`}
+                                        >
+                                          {label}
+                                          <Pencil className="w-2.5 h-2.5 ml-1 opacity-60" />
+                                        </Badge>
+                                      </button>
                                     );
                                   })()}
                                   {/* Wave 66.9 Phase 3 -- outsourced fulfilment chip
@@ -1737,6 +1823,86 @@ function MenuPage() {
       </AlertDialog>
 
       {/* Archive confirm */}
+      {/* Wave 70.2 -- recipe-completeness chip quick-edit dialog.
+          Four fields, save updates menu_items + recipe (if present)
+          so the chip flips green right away. */}
+      <Dialog open={!!timingTarget} onOpenChange={(open) => { if (!open) setTimingTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit prep timing</DialogTitle>
+            <DialogDescription>
+              {timingTarget?.item_name}. Fill these so the kitchen ticket can backplan when to start cooking.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="t_prep">Prep time (min)</Label>
+                <Input
+                  id="t_prep"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={timingDraft.prep_time_minutes}
+                  onChange={(e) => setTimingDraft({ ...timingDraft, prep_time_minutes: e.target.value })}
+                  placeholder="20"
+                />
+                <p className="text-[10px] text-slate-500">Active hands-on time.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="t_cook">Cook time (min)</Label>
+                <Input
+                  id="t_cook"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={timingDraft.cook_time_minutes}
+                  onChange={(e) => setTimingDraft({ ...timingDraft, cook_time_minutes: e.target.value })}
+                  placeholder="45"
+                />
+                <p className="text-[10px] text-slate-500">Oven / stove time.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="t_base">Base servings</Label>
+                <Input
+                  id="t_base"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={timingDraft.base_servings}
+                  onChange={(e) => setTimingDraft({ ...timingDraft, base_servings: e.target.value })}
+                  placeholder="10"
+                />
+                <p className="text-[10px] text-slate-500">Portions per recipe yield.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="t_notice">Advance notice (hours)</Label>
+                <Input
+                  id="t_notice"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={timingDraft.requires_advance_notice_hours}
+                  onChange={(e) => setTimingDraft({ ...timingDraft, requires_advance_notice_hours: e.target.value })}
+                  placeholder="0"
+                />
+                <p className="text-[10px] text-slate-500">Lead time before service.</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-snug">
+              Saving updates the menu item and, when a recipe exists, the recipe row too -- so the chip flips green and the next full edit doesn't clobber these numbers.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTimingTarget(null)}>Cancel</Button>
+            <Button onClick={saveTimingEdit} disabled={timingSaving} className="gap-1.5">
+              {timingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {timingSaving ? "Saving" : "Save timing"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!archiveTarget} onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
