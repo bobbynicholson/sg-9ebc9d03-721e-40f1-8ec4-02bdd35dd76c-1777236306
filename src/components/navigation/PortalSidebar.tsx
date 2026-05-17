@@ -36,6 +36,18 @@ export interface PortalSidebarNavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
+  /** Optional badge text shown on the right of the row. The value is
+   *  read from this function so the badge can be live (e.g. count of
+   *  overdue tasks) without the config object having to know how to
+   *  fetch state. Return null to hide the badge. Wave 70.7. */
+  badge?: (() => { text: string; tone?: "default" | "warning" | "critical" | "info"; pulse?: boolean } | null);
+  /** Optional dynamic description override. Lets the nav item show
+   *  "Nothing on today" instead of the static description when count
+   *  is zero. Wave 70.7. */
+  liveDescription?: (() => string | null);
+  /** Optional icon overlay -- e.g. small flame badge on top-right of
+   *  the base icon during service hours. Wave 70.7. */
+  iconOverlay?: (() => React.ReactNode);
 }
 
 export interface PortalSidebarSection {
@@ -44,6 +56,11 @@ export interface PortalSidebarSection {
   title: string;
   defaultOpen: boolean;
   items: PortalSidebarNavItem[];
+  /** When true, this section renders as a footer treatment: no
+   *  collapsible header, smaller items, muted styling, sits below
+   *  the main sections separated by a divider. Used for "less
+   *  frequent" items like Notifications + Settings. Wave 70.7. */
+  footerTreatment?: boolean;
 }
 
 export interface PortalSidebarMobileQuickAction {
@@ -80,6 +97,17 @@ export interface PortalSidebarConfig {
   mobileQuickActions: PortalSidebarMobileQuickAction[];
   dashboardHref: string;
   sections: PortalSidebarSection[];
+  /** Wave 70.7 -- optional render slot for "live state" content
+   *  (mode badge + count strip) that mounts above the nav sections
+   *  on both desktop + mobile. Kept as a render function so the
+   *  config can be statically declared and the live-fetching
+   *  components mount inside the sidebar's React tree. */
+  renderTopSlot?: () => React.ReactNode;
+  /** Wave 70.7 -- optional smart quick action provider for the
+   *  mobile drawer. When supplied, overrides the static
+   *  mobileQuickActions list with a context-aware set (e.g.
+   *  rotating by service mode). */
+  renderMobileQuickActions?: () => React.ReactNode;
 }
 
 interface PortalSidebarProps {
@@ -113,6 +141,85 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const BrandIcon = config.brandIcon;
 
+  // Wave 70.7 -- shared row renderer so the same row treatment is
+  // used in the mobile drawer + desktop expanded + desktop collapsed
+  // modes. Honours per-item badge, live description, icon overlay,
+  // and footer treatment (smaller font, muted, no description).
+  const renderNavRow = (
+    item: PortalSidebarNavItem,
+    {
+      active,
+      collapsed = false,
+      footer = false,
+      onClickAfterNav,
+    }: { active: boolean; collapsed?: boolean; footer?: boolean; onClickAfterNav?: () => void },
+  ) => {
+    const Icon = item.icon;
+    const badge = item.badge ? item.badge() : null;
+    const liveDesc = item.liveDescription ? item.liveDescription() : null;
+    const overlay = item.iconOverlay ? item.iconOverlay() : null;
+    const description = liveDesc !== null ? liveDesc : (item.description || null);
+
+    const badgeTone =
+      badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200" :
+      badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200" :
+      badge?.tone === "info"     ? "bg-blue-100 text-blue-800 border-blue-200" :
+      "bg-slate-100 text-slate-700 border-slate-200";
+
+    return (
+      <Link
+        key={item.href}
+        href={withSlug(item.href)}
+        onClick={onClickAfterNav}
+        className={cn(
+          "group flex items-center gap-3 rounded-lg transition-all",
+          footer ? "px-3 py-2 text-[13px] font-medium" : "px-4 py-3 text-sm font-medium",
+          config.hoverClasses,
+          active
+            ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-md`
+            : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700",
+          collapsed ? "justify-center" : "",
+        )}
+        title={collapsed ? item.title : ""}
+      >
+        <span className="relative flex-shrink-0">
+          <Icon
+            className={cn(
+              footer ? "h-4 w-4" : "h-5 w-5",
+              active ? "text-white" : footer ? "text-slate-500" : "text-slate-600",
+            )}
+          />
+          {overlay && (
+            <span className="absolute -top-1 -right-1 pointer-events-none">{overlay}</span>
+          )}
+        </span>
+        {!collapsed && (
+          <>
+            <div className="flex-1 min-w-0">
+              <div className="truncate">{item.title}</div>
+              {description && !active && !footer && (
+                <div className="text-[11px] text-slate-500/80 truncate">{description}</div>
+              )}
+            </div>
+            {badge && !active && (
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums",
+                  badgeTone,
+                  badge.pulse ? "motion-safe:animate-pulse" : "",
+                )}
+                aria-label={badge.text}
+              >
+                {badge.text}
+              </span>
+            )}
+            {active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+          </>
+        )}
+      </Link>
+    );
+  };
+
   const NavBody = ({
     mobile = false,
     hideSignOut = false,
@@ -125,17 +232,38 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         {mobile && (
           <div className="space-y-3">
             <MobileSearchTrigger accent={config.searchAccent} hint={config.searchHint} />
-            <MobileQuickActions
-              onNavigate={() => setOpen(false)}
-              actions={config.mobileQuickActions.map((a) => ({
-                ...a,
-                href: withSlug(a.href),
-              }))}
-            />
+            {config.renderMobileQuickActions ? (
+              config.renderMobileQuickActions()
+            ) : (
+              <MobileQuickActions
+                onNavigate={() => setOpen(false)}
+                actions={config.mobileQuickActions.map((a) => ({
+                  ...a,
+                  href: withSlug(a.href),
+                }))}
+              />
+            )}
           </div>
+        )}
+        {/* Wave 70.7 -- top slot (service mode + live state strip) */}
+        {config.renderTopSlot && (
+          <div>{config.renderTopSlot()}</div>
         )}
         {config.sections.map((section) => {
           const containsActive = section.items.some((i) => isActive(i.href));
+          if (section.footerTreatment) {
+            // Footer sections render flat with a top divider, no
+            // accordion. Visually deprioritised relative to main nav.
+            return (
+              <div key={section.id} className="pt-3 mt-2 border-t border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+                {section.items.map((item) => renderNavRow(item, {
+                  active: isActive(item.href),
+                  footer: true,
+                  onClickAfterNav: () => setOpen(false),
+                }))}
+              </div>
+            );
+          }
           return (
             <CollapsibleNavSection
               key={section.id}
@@ -144,38 +272,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               defaultOpen={section.defaultOpen}
               containsActiveRoute={containsActive}
             >
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={withSlug(item.href)}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
-                      config.hoverClasses,
-                      active
-                        ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-md`
-                        : "text-slate-700",
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-5 w-5 flex-shrink-0",
-                        active ? "text-white" : "text-slate-600",
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{item.title}</div>
-                      {item.description && !active && (
-                        <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                      )}
-                    </div>
-                    {active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                  </Link>
-                );
-              })}
+              {section.items.map((item) => renderNavRow(item, {
+                active: isActive(item.href),
+                onClickAfterNav: () => setOpen(false),
+              }))}
             </CollapsibleNavSection>
           );
         })}
@@ -295,44 +395,32 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           </div>
 
           <ScrollArea className="flex-1 p-4">
-            <div className="space-y-6">
+            <div className="space-y-5">
+              {/* Wave 70.7 -- desktop top slot (service mode + live state) */}
+              {config.renderTopSlot && !isCollapsed && (
+                <div>{config.renderTopSlot()}</div>
+              )}
               {config.sections.map((section) => {
                 const containsActive = section.items.some((i) => isActive(i.href));
-                const linkRows = section.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
+                const linkRows = section.items.map((item) =>
+                  renderNavRow(item, {
+                    active: isActive(item.href),
+                    collapsed: isCollapsed,
+                  }),
+                );
+                if (section.footerTreatment) {
                   return (
-                    <Link
-                      key={item.href}
-                      href={withSlug(item.href)}
+                    <div
+                      key={section.id}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
-                        config.hoverClasses,
-                        active
-                          ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-md`
-                          : "text-slate-700",
-                        isCollapsed ? "justify-center" : "",
+                        "pt-3 mt-2 border-t border-slate-200/80 dark:border-slate-700/60 space-y-0.5",
+                        isCollapsed ? "" : "",
                       )}
-                      title={isCollapsed ? item.title : ""}
                     >
-                      <Icon
-                        className={cn(
-                          "h-5 w-5 flex-shrink-0",
-                          active ? "text-white" : "text-slate-600",
-                        )}
-                      />
-                      {!isCollapsed && (
-                        <div className="flex-1 min-w-0">
-                          <div className="truncate">{item.title}</div>
-                          {item.description && !active && (
-                            <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                          )}
-                        </div>
-                      )}
-                      {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                    </Link>
+                      {linkRows}
+                    </div>
                   );
-                });
+                }
                 return (
                   <CollapsibleNavSection
                     key={section.id}
