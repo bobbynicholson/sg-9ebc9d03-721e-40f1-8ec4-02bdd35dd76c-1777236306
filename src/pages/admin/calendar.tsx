@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw, AlertCircle } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -294,6 +294,106 @@ function AdminCalendar() {
   const dayQuotes = selectedDate
     ? quotesByDay[toLocalISO(selectedDate)] || []
     : [];
+
+  // Wave 70.36 -- day intelligence aggregator. The previous popout
+  // listed events as a flat array with no day-level read-out -- the
+  // operator had to add up revenue + guests in their head and had
+  // no signal on operational risk. This computes everything we can
+  // derive from already-loaded orders (no extra DB hits):
+  //   - mode: quiet / relaxed / busy / packed / conflict
+  //   - aggregates: totalGuests, totalRevenue, timeSpread
+  //   - per-event lightweight readiness: missing driver / time /
+  //     pickup, past-event-not-delivered, pending-within-3-days
+  //   - day-level issues: count of events with issues, count past-due
+  //   - timeline buckets for the mini chart
+  const dayIntel = useMemo(() => {
+    if (!selectedDate) return null;
+    const now = Date.now();
+    const isPastDay = selectedDate.getTime() < new Date(toLocalISO(new Date())).getTime();
+
+    let totalGuests = 0;
+    let totalRevenue = 0;
+    const times: number[] = []; // minutes-of-day for each event
+    let eventsWithIssues = 0;
+    let pastDue = 0;
+    let conflictMarker = false; // overlapping same time-of-day
+
+    // Per-event lightweight issue list. Heavy signals (prep tasks,
+    // invoice sent_at, kitchen rostered) need joins -- those live on
+    // the OrderReadinessChip on /admin/orders. Here we surface what's
+    // computable from the order row alone.
+    const perEventIssues = new Map<string, string[]>();
+
+    for (const e of dayEvents) {
+      totalGuests += Number((e as any).guest_count || 0);
+      totalRevenue += Number((e as any).total_amount || 0);
+
+      const issues: string[] = [];
+      if (!(e as any).assigned_driver_id) issues.push("No driver assigned");
+      if (!(e as any).event_time) issues.push("No event start time");
+      if (!(e as any).pickup_time) issues.push("No driver pickup time");
+      const status = String((e as any).status || "").toLowerCase();
+      if (isPastDay && !["delivered", "completed", "cancelled"].includes(status)) {
+        issues.push("Past event, not yet delivered");
+        pastDue += 1;
+      }
+      if (!isPastDay && status === "pending") {
+        const daysToEvent = Math.ceil((selectedDate.getTime() - now) / 86400000);
+        if (daysToEvent <= 3) issues.push("Unconfirmed within 3 days of event");
+      }
+      if (issues.length > 0) {
+        eventsWithIssues += 1;
+        perEventIssues.set((e as any).id, issues);
+      }
+
+      if ((e as any).event_time) {
+        const [h, m] = String((e as any).event_time).slice(0, 5).split(":").map(Number);
+        if (Number.isFinite(h) && Number.isFinite(m)) times.push(h * 60 + m);
+      }
+    }
+
+    // Conflict detection: any two events within 60 minutes of each other.
+    times.sort((a, b) => a - b);
+    for (let i = 1; i < times.length; i += 1) {
+      if (times[i] - times[i - 1] < 60) { conflictMarker = true; break; }
+    }
+
+    // Mode: ordered priority -- conflict beats packed beats busy etc.
+    type Mode = "quiet" | "relaxed" | "busy" | "packed" | "conflict";
+    let mode: Mode = "quiet";
+    if (dayEvents.length === 0) mode = "quiet";
+    else if (conflictMarker) mode = "conflict";
+    else if (dayEvents.length >= 6) mode = "packed";
+    else if (dayEvents.length >= 3) mode = "busy";
+    else mode = "relaxed";
+
+    const earliestMin = times.length ? times[0] : null;
+    const latestMin = times.length ? times[times.length - 1] : null;
+
+    return {
+      mode,
+      isPastDay,
+      totalEvents: dayEvents.length,
+      totalGuests,
+      totalRevenue,
+      eventsWithIssues,
+      pastDue,
+      earliestMin,
+      latestMin,
+      times,
+      perEventIssues,
+    };
+  }, [selectedDate, dayEvents]);
+
+  // Mode metadata -- mirrors the portal nav mode badge pattern from
+  // Waves 70.28 / 70.29 / 70.31 for visual consistency.
+  const DAY_MODE_META: Record<string, { label: string; sublabel: string; bg: string; text: string; pulse: boolean }> = {
+    quiet:    { label: "Quiet",    sublabel: "Open diary, easy to win extra bookings", bg: "bg-slate-100 border-slate-200", text: "text-slate-700", pulse: false },
+    relaxed:  { label: "Relaxed",  sublabel: "Light day, room to focus on prep",       bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", pulse: false },
+    busy:     { label: "Busy",     sublabel: "Solid run -- keep the team aligned",     bg: "bg-blue-50 border-blue-200", text: "text-blue-800", pulse: false },
+    packed:   { label: "Packed",   sublabel: "Heavy load -- watch capacity + drivers", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
+    conflict: { label: "Conflicts","sublabel": "Multiple events within 60 min of each other -- review", bg: "bg-rose-50 border-rose-200", text: "text-rose-800", pulse: true },
+  };
 
   return (
     <>
@@ -738,6 +838,104 @@ function AdminCalendar() {
                 </SheetDescription>
               </SheetHeader>
 
+              {/* Wave 70.36 -- intelligence layer at the top of the
+                  popout. Mode badge + day aggregates + mini timeline
+                  + health pills + quick actions. Computed entirely
+                  from already-loaded orders state -- no extra DB
+                  hits. */}
+              {dayIntel && (dayIntel.totalEvents > 0 || dayIntel.isPastDay) && (
+                <div className="mt-4 space-y-3">
+                  {/* Mode badge */}
+                  {(() => {
+                    const meta = DAY_MODE_META[dayIntel.mode];
+                    return (
+                      <div className={cn("rounded-xl border px-3 py-2.5 flex items-start gap-2.5", meta.bg, meta.text, meta.pulse ? "motion-safe:animate-pulse" : "")}>
+                        <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.08em] leading-none">
+                            {dayIntel.isPastDay && dayIntel.mode === "quiet" ? "Past · Quiet" : meta.label}
+                          </p>
+                          <p className="text-[11px] mt-1 opacity-90 leading-snug">{meta.sublabel}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Day aggregates -- 4 mini pills */}
+                  <div className="grid grid-cols-4 gap-1.5">
+                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalEvents}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Events</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalGuests}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Guests</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{fmtMoney.format(dayIntel.totalRevenue).replace(/\s/g, "")}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Revenue</p>
+                    </div>
+                    <div className={cn(
+                      "rounded-lg border px-2 py-1.5",
+                      dayIntel.eventsWithIssues > 0 ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50",
+                    )}>
+                      <p className={cn(
+                        "text-[14px] font-bold tabular-nums leading-none",
+                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
+                      )}>
+                        {dayIntel.eventsWithIssues}
+                      </p>
+                      <p className={cn(
+                        "text-[9px] uppercase tracking-wider mt-0.5 leading-none",
+                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
+                      )}>
+                        {dayIntel.eventsWithIssues > 0 ? "To fix" : "All set"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mini timeline -- shows event start times on a
+                      7am-11pm bar so the operator sees the day's
+                      spread at a glance. Tightly clustered events
+                      = potential conflict; spread out = relaxed. */}
+                  {dayIntel.times.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">
+                        <span>Timeline</span>
+                        <span>
+                          {dayIntel.earliestMin !== null && dayIntel.latestMin !== null
+                            ? `${String(Math.floor(dayIntel.earliestMin / 60)).padStart(2, "0")}:${String(dayIntel.earliestMin % 60).padStart(2, "0")} → ${String(Math.floor(dayIntel.latestMin / 60)).padStart(2, "0")}:${String(dayIntel.latestMin % 60).padStart(2, "0")}`
+                            : ""}
+                        </span>
+                      </div>
+                      <div className="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                        {/* Each event is a small block at its start time.
+                            Window: 7am (420 min) to 11pm (1380 min) = 960 min wide. */}
+                        {dayIntel.times.map((t, i) => {
+                          const startMin = 420;
+                          const windowMin = 960;
+                          const leftPct = Math.max(0, Math.min(100, ((t - startMin) / windowMin) * 100));
+                          return (
+                            <span
+                              key={i}
+                              className="absolute top-0 bottom-0 w-1.5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-sm shadow-sm"
+                              style={{ left: `calc(${leftPct}% - 3px)` }}
+                              title={`Event at ${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between text-[8px] text-slate-400 mt-1 tabular-nums">
+                        <span>07:00</span>
+                        <span>12:00</span>
+                        <span>17:00</span>
+                        <span>23:00</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 space-y-3">
                 {/* Floating quotes for this day -- listed before events so
                     the operator sees the opportunity first when the day
@@ -790,19 +988,36 @@ function AdminCalendar() {
                 ) : dayEvents.length === 0 ? null : (
                   dayEvents.map((e: any) => {
                     const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;
+                    // Wave 70.36 -- inline lightweight readiness list
+                    // surfaced as a small badge + bullet list at the
+                    // bottom of the card. Tells the operator AT A
+                    // GLANCE which events need attention without
+                    // forcing a navigation to the order page.
+                    const issues = dayIntel?.perEventIssues.get(e.id) || [];
                     return (
                       <Link
                         key={e.id}
                         href={withSlug(`/admin/orders?id=${e.id}`)}
                         className="block"
                       >
-                        <Card className="border-0 shadow hover:shadow-lg transition-all hover:-translate-y-0.5">
+                        <Card className={cn(
+                          "border-0 shadow hover:shadow-lg transition-all hover:-translate-y-0.5",
+                          issues.length > 0 ? "ring-1 ring-rose-200" : "",
+                        )}>
                           <CardContent className="py-4 px-4">
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <h4 className="font-semibold text-slate-900">{e.client_name || "Event"}</h4>
-                              <Badge variant="outline" className={`${tone} border text-[10px] capitalize`}>
-                                {String(e.status).replace("_", " ")}
-                              </Badge>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {issues.length > 0 && (
+                                  <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {issues.length} to fix
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className={`${tone} border text-[10px] capitalize`}>
+                                  {String(e.status).replace("_", " ")}
+                                </Badge>
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
                               <span className="flex items-center gap-1.5">
@@ -818,6 +1033,16 @@ function AdminCalendar() {
                                 <span className="truncate">{e.venue_address || "Venue TBD"}</span>
                               </span>
                             </div>
+                            {issues.length > 0 && (
+                              <ul className="mt-2 pt-2 border-t border-rose-100 space-y-0.5">
+                                {issues.map((issue, i) => (
+                                  <li key={i} className="text-[11px] text-rose-700 flex items-start gap-1.5">
+                                    <span className="text-rose-400 mt-0.5">•</span>
+                                    <span>{issue}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 gap-2">
                               <span className="text-sm font-bold text-slate-900 tabular-nums">
                                 {fmtMoney.format(Number(e.total_amount || 0))}
