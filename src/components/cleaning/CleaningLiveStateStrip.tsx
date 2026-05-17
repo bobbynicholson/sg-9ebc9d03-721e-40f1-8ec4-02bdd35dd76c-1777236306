@@ -76,6 +76,9 @@ export function CleaningLiveStateStrip() {
     );
   }
 
+  // Wave 70.28a -- per-pill tooltip strings. The screen-reader
+  // `aria` field used to be the only context the user got; sighted
+  // users now also see the same hint on hover via `title`.
   const pills: Pill[] = [
     {
       key: "returns",
@@ -85,7 +88,7 @@ export function CleaningLiveStateStrip() {
       tone: counts.returnsDue > 0 ? "critical" : "muted",
       pulse: counts.returnsDue > 0,
       href: "/team-portal/cleaning/dashboard#returns",
-      aria: `${counts.returnsDue} returns due in the next 4 hours. Tap to view.`,
+      aria: `${counts.returnsDue} returns due in the next 4 hours. Tap to open the returns board.`,
     },
     {
       key: "washing",
@@ -94,7 +97,7 @@ export function CleaningLiveStateStrip() {
       icon: Droplets,
       tone: counts.inProgress > 0 ? "default" : "muted",
       href: "/team-portal/cleaning/dashboard#washing",
-      aria: `${counts.inProgress} handovers being washed right now. Tap to view.`,
+      aria: `${counts.inProgress} handovers being washed right now. Tap to open the active jobs queue.`,
     },
     {
       key: "damages",
@@ -103,7 +106,7 @@ export function CleaningLiveStateStrip() {
       icon: AlertTriangle,
       tone: counts.openDamages > 0 ? "warning" : "muted",
       href: "/team-portal/cleaning/damage",
-      aria: `${counts.openDamages} open damage reports. Tap to view.`,
+      aria: `${counts.openDamages} open damage reports. Tap to open the damage register.`,
     },
     {
       key: "on-duty",
@@ -112,7 +115,7 @@ export function CleaningLiveStateStrip() {
       icon: Users,
       tone: counts.onDutyNow > 0 ? "info" : "muted",
       href: "/team-portal/cleaning/dashboard",
-      aria: `${counts.onDutyNow} cleaning staff on duty. Tap to view the team board.`,
+      aria: `${counts.onDutyNow} cleaning staff on duty right now. Tap to open the team board.`,
     },
   ];
 
@@ -130,6 +133,7 @@ export function CleaningLiveStateStrip() {
             key={p.key}
             href={withSlug(p.href)}
             aria-label={p.aria}
+            title={p.aria}
             className={cn(
               "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-all active:scale-[0.98]",
               TONE_BG[p.tone],

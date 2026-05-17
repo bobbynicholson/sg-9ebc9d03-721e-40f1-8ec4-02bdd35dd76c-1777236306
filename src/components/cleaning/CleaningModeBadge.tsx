@@ -27,6 +27,7 @@ import { useCleaningPortalMode, type CleaningPortalMode } from "@/hooks/useClean
 const MODE_META: Record<CleaningPortalMode, {
   label: string;
   shortLabel: string;
+  description: string;
   icon: React.ComponentType<{ className?: string }>;
   bg: string;
   text: string;
@@ -35,6 +36,7 @@ const MODE_META: Record<CleaningPortalMode, {
   quiet: {
     label: "All clear",
     shortLabel: "Quiet",
+    description: "No events out, nothing returning. Quiet day for catch-up.",
     icon: Moon,
     bg: "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
     text: "text-slate-700 dark:text-slate-300",
@@ -43,6 +45,7 @@ const MODE_META: Record<CleaningPortalMode, {
   dispatch: {
     label: "Going out",
     shortLabel: "Dispatch",
+    description: "Events going out today. Verify equipment before it leaves.",
     icon: Truck,
     bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
     text: "text-amber-800 dark:text-amber-300",
@@ -51,6 +54,7 @@ const MODE_META: Record<CleaningPortalMode, {
   returns: {
     label: "Returns active",
     shortLabel: "Returns",
+    description: "Equipment is coming back. Verify each handover as it lands.",
     icon: PackageOpen,
     bg: "bg-gradient-to-r from-cyan-500 to-blue-500 border-cyan-600",
     text: "text-white",
@@ -59,6 +63,7 @@ const MODE_META: Record<CleaningPortalMode, {
   wrap: {
     label: "Wrap up",
     shortLabel: "Wrap",
+    description: "Last washes of the day. Sign off jobs and clock out.",
     icon: CheckCircle2,
     bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800",
     text: "text-emerald-800 dark:text-emerald-300",
@@ -139,55 +144,103 @@ export function CleaningModeBadge() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-64 p-3" side="bottom" align="start">
-        <div className="space-y-2">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Mode</p>
-            <p className="text-xs text-slate-600">
-              Auto-detected: <span className="font-semibold capitalize">{state.autoMode}</span>
-              {state.override && (
-                <> &middot; <span className="text-amber-700">overridden</span></>
-              )}
-            </p>
+      <PopoverContent className="w-80 p-0" side="bottom" align="start">
+        {/* Wave 70.28a -- redesigned popover. The previous version
+            showed four 8-char tiles with no explanation of what
+            tapping each does. Now: a header that names the concept,
+            full-width tiles per mode with description, an obvious
+            active state, and a footnote that distinguishes
+            auto-detect from manual override. */}
+        <div className="p-3 border-b border-slate-100">
+          <p className="text-[13px] font-semibold text-slate-900">Cleaning mode</p>
+          <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+            The portal picks the right mode for the time of day. Tap one below to lock the portal into that mode for this browser session.
+          </p>
+          <div className="mt-2 flex items-center gap-1.5 text-[10px]">
+            <span className="text-slate-500">Auto-detected:</span>
+            <span className="font-semibold capitalize text-slate-700">{MODE_META[state.autoMode].shortLabel}</span>
+            {state.override && (
+              <>
+                <span className="text-slate-400">·</span>
+                <span className="text-amber-700 font-medium">manually overridden</span>
+              </>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(["quiet", "dispatch", "returns", "wrap"] as CleaningPortalMode[]).map((m) => {
-              const M = MODE_META[m];
-              const MIcon = M.icon;
-              const active = state.mode === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => {
-                    state.setOverride(state.autoMode === m ? null : m);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-all",
-                    active
-                      ? "border-cyan-500 bg-cyan-50 text-cyan-800"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                  )}
-                >
-                  <MIcon className="h-3 w-3" />
-                  <span className="capitalize">{M.shortLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-          {state.override && (
+        </div>
+
+        <div className="p-2 space-y-1">
+          {(["quiet", "dispatch", "returns", "wrap"] as CleaningPortalMode[]).map((m) => {
+            const M = MODE_META[m];
+            const MIcon = M.icon;
+            const active = state.mode === m;
+            const isAuto = state.autoMode === m && !state.override;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  // Tap the current auto-mode -> clear override
+                  // (back to auto). Tap any other mode -> set override.
+                  state.setOverride(state.autoMode === m ? null : m);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
+                  active
+                    ? "border-cyan-500 bg-cyan-50"
+                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
+                )}
+              >
+                <span className={cn(
+                  "flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center mt-0.5",
+                  active ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600",
+                )}>
+                  <MIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn(
+                      "text-[12px] font-semibold",
+                      active ? "text-cyan-900" : "text-slate-800",
+                    )}>
+                      {M.shortLabel}
+                    </span>
+                    {active && (
+                      <span className="text-[9px] uppercase tracking-wider bg-cyan-500 text-white px-1.5 py-0.5 rounded font-bold">
+                        Active
+                      </span>
+                    )}
+                    {isAuto && !active && (
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-medium">
+                        Auto
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-[11px] text-slate-600 leading-snug mt-0.5">
+                    {M.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {state.override && (
+          <div className="px-2 pb-2">
             <button
               type="button"
               onClick={() => { state.setOverride(null); setOpen(false); }}
-              className="w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 mt-1 py-1"
+              className="w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md py-1.5 font-medium"
             >
               <RotateCcw className="h-3 w-3" />
-              Clear override
+              Back to auto-detect ({MODE_META[state.autoMode].shortLabel})
             </button>
-          )}
-          <p className="text-[10px] text-slate-500 leading-snug pt-1 border-t border-slate-100">
-            Auto mode reads outbound events, expected returns, and active washes. Override sticks for this browser session only.
+          </div>
+        )}
+
+        <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/50">
+          <p className="text-[10px] text-slate-500 leading-snug">
+            Auto mode reads today's outbound events, returns due in the next 4 hours, and active washes. Overrides only stick until you close the tab.
           </p>
         </div>
       </PopoverContent>
