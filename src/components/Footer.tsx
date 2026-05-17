@@ -103,6 +103,11 @@ function SlimInternalFooter({
 }
 
 export function Footer() {
+  // Wave 70.23 fix -- ALL hooks must run unconditionally and in the
+  // same order every render (React rules-of-hooks). The previous
+  // version returned the slim footer early BEFORE the auth/ref/
+  // state/effect hooks ran, which the linter correctly rejected.
+  // Now: run every hook first, decide which variant to render last.
   const currentYear = new Date().getFullYear();
   const branding = useBrandingRow();
   const isWhiteLabeled = isWhiteLabelRow(branding);
@@ -110,30 +115,25 @@ export function Footer() {
   const variant = classifyRoute(router?.pathname || "/");
   const displayNameForSlim = branding?.companyName || "CateringMS";
 
-  // Wave 70.23 -- internal routes get the slim footer and bail out
-  // before any of the marketing copy renders. Public / marketing
-  // routes keep the existing rich footer below.
-  if (variant === "internal") {
-    return <SlimInternalFooter displayName={displayNameForSlim} isWhiteLabeled={isWhiteLabeled} />;
-  }
   // Auth state drives whether we show the "Sign in" CTA card. The
   // block doesn't help anyone who's already inside their portal --
   // it just adds noise to authenticated dashboards. Hidden when
-  // signed in.
+  // signed in. (Moved up so the hook always runs.)
   const { user } = useAuth() as any;
   const isSignedIn = !!user;
 
-  // Footer-below-the-fold: on signed-in dashboards the footer was
-  // showing in the viewport on short pages (e.g. /admin/onboarding).
-  // We dynamically measure how much vertical space the page would have
-  // without the footer, and add a spacer above the footer so its top
-  // edge sits at >=100vh from the page top. Long pages get spacer = 0
-  // and look identical to before.
+  // Footer-below-the-fold spacer hooks. Always declared so the
+  // hook order is stable across renders, even when the slim
+  // internal footer takes over below.
   const footerRef = useRef<HTMLElement | null>(null);
   const spacerRef = useRef(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
 
   useEffect(() => {
+    // Spacer only matters for the marketing footer + signed-in
+    // dashboards. Slim internal footer doesn't need the spacer
+    // because internal pages have their own bottom padding.
+    if (variant !== "marketing") return;
     if (!isSignedIn) return;
 
     const recompute = () => {
@@ -143,8 +143,6 @@ export function Footer() {
       const winH = window.innerHeight;
       const currentTop = rect.top + window.scrollY;
       const targetTop = winH;
-      // Read the live spacer via ref so retries after async content
-      // settles use fresh state, not the stale closure value.
       const naturalTop = currentTop - spacerRef.current;
       const needed = Math.max(0, Math.round(targetTop - naturalTop));
       if (Math.abs(spacerRef.current - needed) >= 2) {
@@ -160,7 +158,14 @@ export function Footer() {
       timers.forEach(clearTimeout);
       window.removeEventListener("resize", recompute);
     };
-  }, [isSignedIn]);
+  }, [isSignedIn, variant]);
+
+  // Wave 70.23 -- internal routes get the slim footer. Decided
+  // here (after every hook has run) so React's hook order stays
+  // identical between renders.
+  if (variant === "internal") {
+    return <SlimInternalFooter displayName={displayNameForSlim} isWhiteLabeled={isWhiteLabeled} />;
+  }
 
   const displayName = branding?.companyName || "CateringMS";
   const displayLogo = branding?.logoUrl;
