@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, CalendarX, Calendar, Receipt } from "lucide-react";
+// Wave 70.49c -- surfaces "manual follow-ups required" alongside the
+// requests list so operators see hire-in / outsource notifications
+// they still need to action without leaving the cancellation tab.
+import { OrderManualFollowupsPanel } from "@/components/admin/OrderManualFollowupsPanel";
 
 interface CancellationRequest {
   id: string;
@@ -103,12 +107,25 @@ export function CancellationRequestsTab({ orderId, onActioned }: Props) {
   if (loading) {
     return <div className="text-sm text-slate-500 p-4">Loading...</div>;
   }
+
+  // Wave 70.49c -- the manual follow-ups panel renders WHENEVER an
+  // order has been cancelled with pending hire/outsource follow-ups,
+  // even if there are no cancellation_requests rows (e.g. admin-side
+  // direct cancel via /api/orders/[id]/cancel, which writes the
+  // audit_logs row but NOT a cancellation_requests row). So the panel
+  // sits above the requests list rather than being gated by it.
   if (rows.length === 0) {
-    return <div className="text-sm text-slate-500 p-4">No cancellation or postponement requests on this order.</div>;
+    return (
+      <div className="space-y-3">
+        <OrderManualFollowupsPanel orderId={orderId} />
+        <div className="text-sm text-slate-500 p-4">No cancellation or postponement requests on this order.</div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
+      <OrderManualFollowupsPanel orderId={orderId} />
       {rows.map((req) => {
         const isPending = req.status === "pending";
         const Icon = req.request_type === "postpone" ? Calendar : CalendarX;

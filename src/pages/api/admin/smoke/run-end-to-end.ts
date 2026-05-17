@@ -70,6 +70,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const t0 = Date.now();
   const stages: Stage[] = [];
   const created: Created = { client_ids: [], order_ids: [], package_ids: [], payment_ids: [] };
+  // Wave 70.49c D-stage state -- minted token + order used for the
+  // client-view RPC smoke. Closure-scoped so D2 can read what D1
+  // produced without threading through a shared receipt object.
+  let smokeMintedToken: string | null = null;
+  let smokeMintTargetOrder: string | null = null;
 
   // Single helper so every stage has identical bookkeeping. Captures
   // timing + short-circuit semantics so the caller can read a stage
@@ -569,6 +574,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return checks.join(" ") || "no child rows to verify";
     });
+
+    // ════════════════════════════════════════════════════════════════
+    // Stage D: Wave 70.49c -- client-view RPC path
+    //
+    // Catches the family of bug that hid in Wave 70.49b: the
+    // `client_view_order` RPC silently 42703-erroring because it
+    // referenced a non-existent column on a joined table. That bug
+    // bricked every magic-link client view for who-knows-how-long
+    // before Bobby happened to click "Client view" and notice.
+    //
+    // This stage mints a real token via mint_client_order_token,
+    // hashes the raw token (Postgres digest = Node crypto sha256;
+    // verified equivalent in Wave 70.49b debug), then calls
+    // client_view_order with that hash. ok=true means the entire
+    // RPC body executed without column / type / RLS surprises.
+    // ════════════════════════════════════════════════════════════════
+
+    if (!(await run("D1_mint_client_token", async () => {
+      // Use any cascade-test order created earlier (C1) -- we already
+      // own + clean it up. Falls back to the package's first child if
+      // C1 short-circuited.
+      const targetOrderId = cascadeOrderId || pkgOrderIds[0] || orderId;
+      if (!targetOrderId) throw new Error("No order available to mint a token against");
+      const { data, error } = await sb.rpc("mint_client_order_token", {
+        p_company_id: companyId,
+        p_order_id: targetOrderId,
+        p_label: `${runTag}-smoke`,
+      });
+      if (error) throw new Error(error.message);
+      const raw = (data as any)?.raw_token;
+      if (!raw) throw new Error("RPC returned no raw_token");
+      // Smuggle the token + target order id forward via closure
+      // variables -- the stage chain doesn't have a shared state bag
+      // and threading via `created.*` would muddle the cleanup logic.
+      smokeMintedToken = String(raw);
+      smokeMintTargetOrder = targetOrderId;
+      return `order=${targetOrderId.slice(0, 8)} token_prefix=${String(raw).slice(0, 14)}`;
+    }))) throw new ShortCircuit();
+
+    await run("D2_call_client_view_order_rpc", async () => {
+      if (!smokeMintedToken || !smokeMintTargetOrder) {
+        throw new Error("No token to validate (D1 didn't seed)");
+      }
+      // SHA-256 of the raw token, matching what the validate.ts
+      // endpoint computes server-side. Postgres + Node hashes are
+      // byte-identical for identical inputs (verified Wave 70.49b).
+      const { createHash } = await import("node:crypto");
+      const hash = createHash("sha256").update(smokeMintedToken).digest("hex");
+      const { data, error } = await sb.rpc("client_view_order", {
+        p_token_hash: hash,
+        p_order_id: smokeMintTargetOrder,
+        p_ip: "127.0.0.1",
+        p_user_agent: "cms-smoke",
+      });
+      if (error) {
+        throw new Error(`RPC errored: ${error.message}`);
+      }
+      const result = data as any;
+      if (!result?.ok) {
+        throw new Error(`RPC returned not-ok: code=${result?.code || "unknown"}`);
+      }
+      // Spot-check the shape so a future RPC that returns ok=true but
+      // forgets a key (e.g. drops 'order' from the response) is also
+      // caught.
+      const expectedKeys = ["order", "items", "company", "payments", "driver_assignments", "kitchen_prep_tasks", "equipment_bookings", "token"];
+      const missing = expectedKeys.filter((k) => !(k in result));
+      if (missing.length > 0) {
+        throw new Error(`RPC response missing keys: ${missing.join(", ")}`);
+      }
+      return `ok=true order=${result.order?.order_number || "?"} keys=${Object.keys(result).length}`;
+    });
   } catch (err: any) {
     if (!(err instanceof ShortCircuit)) {
       stages.push({ name: "uncaught", ok: false, ms: 0, error: err?.message || String(err) });
@@ -607,11 +683,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Order-related side-effect tables that may have rows the
       // triggers created. Best-effort -- ignore failures.
+      // Wave 70.49c: added client_access_tokens + client_access_log to
+      // capture rows produced by the D-stage (token mint + the RPC's
+      // log insert on successful validation).
       for (const tbl of [
         "order_status_history",
         "kitchen_prep_tasks",
         "audit_logs",
         "notifications",
+        "client_access_tokens",
+        "client_access_log",
       ]) {
         try {
           const filter = tbl === "audit_logs" || tbl === "notifications" ? "entity_id" : "order_id";
