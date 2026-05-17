@@ -485,63 +485,14 @@ function OrderProcessDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.id, isModalOpen]);
 
-  // Phase 18 #10: per-order quick rating. Ops wants a one-tap way to
-  // capture how an event went (1-5 stars) without leaving the order
-  // drawer. Persists via audit_logs (entity_type='order',
-  // action='order_rating_set') so no new table or migration is needed
-  // -- the timeline already pulls these in. Latest entry wins.
-  const [orderRating, setOrderRating] = useState<number | null>(null);
-  const [ratingBusy, setRatingBusy] = useState(false);
-  useEffect(() => {
-    if (!selectedOrder?.id || !isModalOpen) { setOrderRating(null); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await (supabase as any)
-          .from("audit_logs")
-          .select("details, created_at")
-          .eq("entity_type", "order")
-          .eq("entity_id", selectedOrder.id)
-          .eq("action", "order_rating_set")
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (cancelled) return;
-        const r = Number((data?.[0] as any)?.details?.rating);
-        setOrderRating(Number.isFinite(r) && r >= 1 && r <= 5 ? r : null);
-      } catch { /* non-blocking */ }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedOrder?.id, isModalOpen]);
-  const setQuickRating = async (rating: number) => {
-    if (!selectedOrder?.id || ratingBusy) return;
-    if (rating === orderRating) return;
-    setRatingBusy(true);
-    const prev = orderRating;
-    setOrderRating(rating); // optimistic
-    try {
-      const { error } = await (supabase as any).from("audit_logs").insert({
-        entity_type: "order",
-        entity_id: selectedOrder.id,
-        action: "order_rating_set",
-        company_id: (selectedOrder as any).company_id || null,
-        user_id: (user as any)?.id || null,
-        details: {
-          rating,
-          author_name: (user as any)?.full_name || (user as any)?.email || null,
-          order_number: (selectedOrder as any).order_number || null,
-        },
-      });
-      if (error) throw error;
-      toast({ title: "Rating saved", description: `Recorded ${rating} star${rating === 1 ? "" : "s"} for this order.` });
-    } catch (e: any) {
-      setOrderRating(prev); // rollback
-      toast({ title: "Couldn't save rating", description: e?.message || "Try again", variant: "destructive" });
-    } finally {
-      setRatingBusy(false);
-    }
-  };
-
-  const [editMode, setEditMode] = useState(false);
+  // Wave 70.34 -- moved orderRating + ratingBusy + editMode into
+  // the OrderDetailsModal's internal state. These were parent-level
+  // useStates that were ONLY ever read from inside the modal, but
+  // any update to them caused a parent re-render -- which then
+  // remounted the nested OrderDetailsModal component, wiping its
+  // state and flashing the UI on every click of Edit / a rating
+  // star. Hoisting them into modal-internal state keeps the parent
+  // stable when the modal updates its own UI.
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
   // Wave 55 -- duplicate-order dialog state. Replaces the
@@ -1981,6 +1932,69 @@ function OrderProcessDashboard() {
     // "Hey, the price won't scale automatically" confirmation when
     // guest_count is being changed in edit mode.
     const [priceAdjustOpen, setPriceAdjustOpen] = useState(false);
+
+    // Wave 70.34 -- moved from parent-level state. Click Edit /
+    // click a rating star used to setState at parent, which
+    // re-rendered the page and remounted this nested component,
+    // wiping all internal state and flashing the UI. Keeping these
+    // local means the parent stays still when only the modal needs
+    // to update.
+    const [editMode, setEditMode] = useState(false);
+    const [orderRating, setOrderRating] = useState<number | null>(null);
+    const [ratingBusy, setRatingBusy] = useState(false);
+
+    // Rating fetch + setter (Phase 18 #10). Audit_logs is the
+    // source-of-truth ledger for per-order ratings -- latest entry
+    // wins. Reads on modal open, writes optimistically with rollback.
+    useEffect(() => {
+      if (!selectedOrder?.id || !isModalOpen) { setOrderRating(null); return; }
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data } = await (supabase as any)
+            .from("audit_logs")
+            .select("details, created_at")
+            .eq("entity_type", "order")
+            .eq("entity_id", selectedOrder.id)
+            .eq("action", "order_rating_set")
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (cancelled) return;
+          const r = Number((data?.[0] as any)?.details?.rating);
+          setOrderRating(Number.isFinite(r) && r >= 1 && r <= 5 ? r : null);
+        } catch { /* non-blocking */ }
+      })();
+      return () => { cancelled = true; };
+    }, [selectedOrder?.id, isModalOpen]);
+
+    const setQuickRating = async (rating: number) => {
+      if (!selectedOrder?.id || ratingBusy) return;
+      if (rating === orderRating) return;
+      setRatingBusy(true);
+      const prev = orderRating;
+      setOrderRating(rating); // optimistic
+      try {
+        const { error } = await (supabase as any).from("audit_logs").insert({
+          entity_type: "order",
+          entity_id: selectedOrder.id,
+          action: "order_rating_set",
+          company_id: (selectedOrder as any).company_id || null,
+          user_id: (user as any)?.id || null,
+          details: {
+            rating,
+            author_name: (user as any)?.full_name || (user as any)?.email || null,
+            order_number: (selectedOrder as any).order_number || null,
+          },
+        });
+        if (error) throw error;
+        toast({ title: "Rating saved", description: `Recorded ${rating} star${rating === 1 ? "" : "s"} for this order.` });
+      } catch (e: any) {
+        setOrderRating(prev); // rollback
+        toast({ title: "Couldn't save rating", description: e?.message || "Try again", variant: "destructive" });
+      } finally {
+        setRatingBusy(false);
+      }
+    };
     // Joined data the dashboard's getAllOrders fetch returns alongside
     // the order row but the type doesn't expose. We also fetch
     // order_items directly when the modal opens as a belt-and-braces
