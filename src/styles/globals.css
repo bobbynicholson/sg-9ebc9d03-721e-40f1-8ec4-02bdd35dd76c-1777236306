@@ -86,7 +86,19 @@
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    /* Wave 70.34 -- match the start colour of every admin / portal
+       page's gradient (from-slate-50). The previous bg-background
+       (white) produced a visible white flash between route mounts,
+       because new pages take a moment to apply their own wrapper
+       background and the body bg shows through in the meantime.
+       slate-50 matches the gradient start, so the flash disappears
+       on internal routes and is barely perceptible on marketing
+       pages (which use bg-white wrappers that paint over this). */
+    background-color: rgb(248 250 252); /* slate-50 */
+  }
+  .dark body {
+    background-color: rgb(15 23 42);    /* slate-900 -- dark-mode equivalent */
   }
 }
 
