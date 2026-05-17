@@ -205,7 +205,10 @@ function ProviderDetail() {
       <Head><title>{provider?.provider_name || "Provider"} | CateringMS</title></Head>
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="py-8 px-4 max-w-5xl">
+        {/* Wave 70.6 -- mobile pass. pt-20 clears the mobile
+            AdminNav top bar (lg: nav is the left sidebar so pt-6 is
+            enough). max-w-5xl with mx-auto centres on big screens. */}
+        <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 max-w-5xl mx-auto">
           <Link
             href={withSlug("/admin/outsource-providers")}
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
@@ -223,12 +226,14 @@ function ProviderDetail() {
             </CardContent></Card>
           ) : (
             <>
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-                <div>
-                  <h1 className="text-3xl font-bold text-slate-900 inline-flex items-center gap-2">
-                    <HardHat className="w-7 h-7 text-blue-600" />
-                    {provider.provider_name}
+              {/* Header. On mobile the rate tile stacks below the
+                  title block and right-aligns. md+ they sit side by
+                  side. */}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+                <div className="min-w-0">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 inline-flex items-center gap-2">
+                    <HardHat className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 shrink-0" />
+                    <span className="break-words">{provider.provider_name}</span>
                   </h1>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     {!provider.is_active && (
@@ -252,25 +257,28 @@ function ProviderDetail() {
                   {provider.contact_person && (
                     <p className="text-sm text-slate-700 mt-1">Contact: {provider.contact_person}</p>
                   )}
+                  {/* Mobile-friendly tap targets: min-h on the pills
+                      so they're comfortably tappable on touch. Email
+                      truncates long addresses with break-all. */}
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {provider.email && (
-                      <a href={`mailto:${provider.email}`} className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50">
-                        <Mail className="w-3 h-3" /> {provider.email}
+                      <a href={`mailto:${provider.email}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-slate-50 max-w-full">
+                        <Mail className="w-3 h-3 shrink-0" /> <span className="break-all">{provider.email}</span>
                       </a>
                     )}
                     {provider.whatsapp_number && (
-                      <a href={`https://wa.me/${provider.whatsapp_number.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2 py-1 hover:bg-green-100">
-                        <MessageCircle className="w-3 h-3" /> {provider.whatsapp_number}
+                      <a href={`https://wa.me/${provider.whatsapp_number.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-green-100">
+                        <MessageCircle className="w-3 h-3 shrink-0" /> {provider.whatsapp_number}
                       </a>
                     )}
                     {provider.phone && (
-                      <a href={`tel:${provider.phone.replace(/[^+\d]/g, "")}`} className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50">
-                        <Phone className="w-3 h-3" /> {provider.phone}
+                      <a href={`tel:${provider.phone.replace(/[^+\d]/g, "")}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-slate-50">
+                        <Phone className="w-3 h-3 shrink-0" /> {provider.phone}
                       </a>
                     )}
                   </div>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-left md:text-right shrink-0 md:pl-4 md:border-l md:border-slate-200">
                   {provider.default_rate != null && (
                     <>
                       <p className="text-xs text-slate-500 uppercase tracking-wide">Default rate</p>
@@ -286,12 +294,13 @@ function ProviderDetail() {
                 </div>
               </div>
 
-              {/* Performance stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {/* Performance stats. 2-up on mobile, 4-up md+. p-3 on
+                  mobile so the long money values don't overflow. */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-6">
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Accept rate</p>
-                    <p className={`text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-emerald-700" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
+                    <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-emerald-700" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
                       {stats.acceptRate == null ? "—" : `${stats.acceptRate}%`}
                     </p>
                     <p className="text-[10px] text-slate-500 mt-1">
@@ -300,9 +309,9 @@ function ProviderDetail() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Avg response</p>
-                    <p className="text-2xl font-bold text-slate-900 tabular-nums">
+                    <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">
                       {stats.avgResponseMinutes == null
                         ? "—"
                         : stats.avgResponseMinutes < 60
@@ -317,18 +326,18 @@ function ProviderDetail() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Completed jobs</p>
-                    <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.completed}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{stats.completed}</p>
                     <p className="text-[10px] text-slate-500 mt-1">
                       of {stats.total} request{stats.total === 1 ? "" : "s"}
                     </p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Total billed</p>
-                    <p className="text-lg font-bold text-slate-900 tabular-nums">
+                    <p className="text-base sm:text-lg font-bold text-slate-900 tabular-nums break-words">
                       {fmtMoney(stats.totalBilled, provider.default_currency)}
                     </p>
                     {stats.outstanding > 0 && (
@@ -383,7 +392,10 @@ function ProviderDetail() {
                     return (
                       <Card key={a.id} className="hover:shadow-sm transition">
                         <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                          {/* Mobile: cost stacks under the info block.
+                              sm+: cost floats right. Avoids the cost
+                              column getting cramped on phones. */}
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Link
@@ -406,16 +418,16 @@ function ProviderDetail() {
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-slate-600 mt-0.5">{clientName} {eventDate ? `· ${fmtDate(eventDate)}` : ""}</p>
-                              <p className="text-xs text-slate-700 mt-1">{a.service_description}</p>
+                              <p className="text-xs text-slate-600 mt-0.5 break-words">{clientName} {eventDate ? `· ${fmtDate(eventDate)}` : ""}</p>
+                              <p className="text-xs text-slate-700 mt-1 break-words">{a.service_description}</p>
                               {a.decline_reason && (
-                                <p className="text-[11px] text-rose-700 italic mt-1">&ldquo;{a.decline_reason}&rdquo;</p>
+                                <p className="text-[11px] text-rose-700 italic mt-1 break-words">&ldquo;{a.decline_reason}&rdquo;</p>
                               )}
                             </div>
-                            <div className="text-right shrink-0">
+                            <div className="text-left sm:text-right shrink-0 flex flex-wrap sm:block items-baseline gap-x-3 sm:gap-x-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                               <p className="text-sm font-semibold text-slate-900 tabular-nums">{fmtMoney(cost, a.cost_currency)}</p>
                               <p className="text-[10px] text-slate-500">{a.rate_type.replace(/_/g, " ")}</p>
-                              <p className="text-[10px] text-slate-500 mt-1 tabular-nums">
+                              <p className="text-[10px] text-slate-500 sm:mt-1 tabular-nums">
                                 requested {fmtDate(a.requested_at)}
                               </p>
                               {a.responded_at && (
