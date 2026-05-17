@@ -790,35 +790,63 @@ export default function AdminLeads() {
     });
   }, [leads, regionFilterId]);
 
+  // Wave 70.43b -- lead is considered archived (out of "Active")
+  // when EITHER its own status is in (won/converted/lost) OR its
+  // linked order has been cancelled. Bobby flagged a lead with a
+  // cancelled order still showing in the Active tab -- the lead's
+  // own status was "quoted" so the previous filter let it through,
+  // even though the order it converted to had been cancelled.
+  // Same logic as Wave 70.42b on the quotes page.
+  const isLeadArchived = (lead: any, links: LeadLinks | undefined): boolean => {
+    const s = (lead?.status || "new") as string;
+    if (s === "won" || s === "converted" || s === "lost") return true;
+    const orderStatus = (links?.orderStatus || "").toLowerCase();
+    if (orderStatus === "cancelled" || orderStatus === "rejected") return true;
+    return false;
+  };
+
   const statusFilteredLeads = useMemo(() => {
     if (statusFilter === "all") return regionFilteredLeads;
     if (statusFilter === "active") {
-      const archived = new Set(["won", "converted", "lost"]);
-      return regionFilteredLeads.filter((l) => !archived.has(l.status || "new"));
+      return regionFilteredLeads.filter((l) => !isLeadArchived(l, linksByLeadId.get(l.id)));
+    }
+    if (statusFilter === "lost") {
+      // Lost now includes leads whose linked order was cancelled.
+      return regionFilteredLeads.filter((l) => {
+        if (l.status === "lost") return true;
+        const orderStatus = (linksByLeadId.get(l.id)?.orderStatus || "").toLowerCase();
+        return orderStatus === "cancelled" || orderStatus === "rejected";
+      });
     }
     if (statusFilter === "won") {
       // Single chip covers both legacy "converted" rows and the new "won".
       return regionFilteredLeads.filter((l) => l.status === "won" || l.status === "converted");
     }
     return regionFilteredLeads.filter((l) => l.status === statusFilter);
-  }, [regionFilteredLeads, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionFilteredLeads, statusFilter, linksByLeadId]);
 
   // Counts for the chip strip. Computed once so chips render with live
   // pipeline weight without re-walking the array per chip.
   const statusCounts = useMemo(() => {
-    const archived = new Set(["won", "converted", "lost"]);
     let active = 0, neu = 0, qualified = 0, quoted = 0, won = 0, lost = 0;
     for (const l of regionFilteredLeads) {
       const s = l.status || "new";
-      if (!archived.has(s)) active += 1;
-      if (s === "new") neu += 1;
-      if (s === "qualified") qualified += 1;
-      if (s === "quoted") quoted += 1;
+      const links = linksByLeadId.get(l.id);
+      const cancelledOrder = (links?.orderStatus || "").toLowerCase() === "cancelled"
+        || (links?.orderStatus || "").toLowerCase() === "rejected";
+      if (!isLeadArchived(l, links)) active += 1;
+      if (s === "new" && !cancelledOrder) neu += 1;
+      if (s === "qualified" && !cancelledOrder) qualified += 1;
+      if (s === "quoted" && !cancelledOrder) quoted += 1;
       if (s === "won" || s === "converted") won += 1;
-      if (s === "lost") lost += 1;
+      // Lost count also includes cancelled-order leads (mirrors the
+      // statusFilteredLeads "lost" branch).
+      if (s === "lost" || cancelledOrder) lost += 1;
     }
     return { all: regionFilteredLeads.length, active, new: neu, qualified, quoted, won, lost };
-  }, [regionFilteredLeads]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionFilteredLeads, linksByLeadId]);
 
   const filteredLeads = useFuzzyItems(
     statusFilteredLeads,

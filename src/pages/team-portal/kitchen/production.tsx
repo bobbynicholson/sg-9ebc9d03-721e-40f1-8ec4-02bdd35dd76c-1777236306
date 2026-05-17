@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type KitchenStation } from "@/services/kitchenPrepService";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Order {
   id: string;
@@ -86,6 +88,7 @@ type ViewMode = "day" | "week";
 export default function KitchenProductionPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [view, setView] = useState<ViewMode>("day");
   const [anchor, setAnchor] = useState<Date>(startOfDay(new Date())); // pivots both views
@@ -545,12 +548,23 @@ export default function KitchenProductionPage() {
                           const lineItems = itemsByOrder[o.id] || [];
                           const orderTasks = tasks.filter((t: any) => t.order_id === o.id);
                           const tasksDone = orderTasks.filter((t: any) => t.status === "done").length;
+                          // Wave 70.43c -- whole card becomes a link to
+                          // the print-friendly kitchen ticket. Bobby's
+                          // brief: "when I see the order, user must be
+                          // able to click on the order to see the kitchen
+                          // ticket". Hover lift + ring give the affordance.
                           return (
-                            <Card key={o.id} className={isToday ? "border-orange-200" : ""}>
+                            <Link
+                              key={o.id}
+                              href={withSlug(`/team-portal/kitchen/orders/${o.id}/ticket`)}
+                              className="block group"
+                              title="Open kitchen ticket"
+                            >
+                            <Card className={`${isToday ? "border-orange-200" : ""} group-hover:border-orange-400 group-hover:shadow-md transition-all cursor-pointer`}>
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-slate-900 truncate">{o.event_name ?? o.order_number ?? "Event"}</div>
+                                    <div className="font-medium text-slate-900 truncate group-hover:text-orange-700 transition-colors">{o.event_name ?? o.order_number ?? "Event"}</div>
                                     <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                                       {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count} guests</span>}
@@ -596,8 +610,12 @@ export default function KitchenProductionPage() {
                                     {o.special_instructions}
                                   </p>
                                 )}
+                                <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-orange-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Open kitchen ticket →
+                                </div>
                               </CardContent>
                             </Card>
+                            </Link>
                           );
                         })}
                       </div>
