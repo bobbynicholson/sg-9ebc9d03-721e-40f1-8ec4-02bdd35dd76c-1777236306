@@ -71,11 +71,23 @@ export function SlimInternalFooter({
   isWhiteLabeled: boolean;
 }) {
   const currentYear = new Date().getFullYear();
+  // Wave 70.27 -- pinned to the bottom of the viewport with `fixed`
+  // so it never leaves dead whitespace between content and footer
+  // on short admin pages (the page wrappers use min-h-screen which
+  // forces them to 100vh tall even when content is short -- if the
+  // footer were a normal block, that whole 100vh would render
+  // before the footer hit the page bottom). Offsets for the
+  // admin / portal sidebars on lg+ so the footer doesn't render
+  // under the nav. backdrop-blur + 95% bg so content scrolling
+  // underneath stays legible.
   return (
-    <footer className="mt-8 border-t border-slate-200 dark:border-slate-700 bg-transparent">
-      <div className="container mx-auto px-4 py-4 max-w-7xl">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <footer
+      className="fixed bottom-0 left-0 right-0 lg:left-64 xl:left-72 z-30 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className="px-4 py-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
             <span>© {currentYear} {displayName}.</span>
             {isWhiteLabeled && (
               <Link
