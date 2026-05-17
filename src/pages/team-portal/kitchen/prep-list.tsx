@@ -14,6 +14,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { canAccessAdminDashboard } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPrepService";
@@ -71,6 +73,14 @@ type ViewMode = "by_order" | "by_ingredient";
 
 export default function KitchenPrepListPage() {
   const { profile } = useAuth();
+  // Wave 70.44b -- only show the "Open menu editor" / "Add recipes"
+  // links to users who can actually open /admin/menu. Kitchen staff
+  // get Access denied by the middleware (admin routes are gated to
+  // admin roles). Bobby's brief: "Kitchen doesn't need an 'add recipe'
+  // button. That is an admin/owner function". Admin users who
+  // view-switch into the kitchen portal still see the link so they
+  // can fix recipes inline.
+  const canEditMenu = canAccessAdminDashboard((profile?.role || "") as UserRole);
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [rows, setRows] = useState<DemandRow[]>([]);
@@ -489,9 +499,16 @@ export default function KitchenPrepListPage() {
                     <p className="text-sm text-slate-600 max-w-md mx-auto">
                       The menu items on these orders don&apos;t have recipes attached. Recipes drive the prep + ingredient lists. Ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe section</span>.
                     </p>
-                    <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline mt-3 font-semibold">
-                      Open menu editor <ExternalLink className="w-3 h-3" />
-                    </Link>
+                    {/* Wave 70.44b -- role-gated. Kitchen role
+                        gets Access denied on /admin/menu so we hide
+                        the link entirely. Admin / owner who
+                        view-switched into the kitchen portal still
+                        see it so they can fix recipes inline. */}
+                    {canEditMenu && (
+                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline mt-3 font-semibold">
+                        Open menu editor <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
@@ -593,9 +610,12 @@ export default function KitchenPrepListPage() {
                     <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline font-semibold">
                       Open production <ExternalLink className="w-3 h-3" />
                     </Link>
-                    <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-semibold">
-                      Add recipes <ExternalLink className="w-3 h-3" />
-                    </Link>
+                    {/* Wave 70.44b -- role-gated; see comment above. */}
+                    {canEditMenu && (
+                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-semibold">
+                        Add recipes <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
