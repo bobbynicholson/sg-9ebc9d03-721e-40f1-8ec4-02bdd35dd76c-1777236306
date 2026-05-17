@@ -210,11 +210,41 @@ export async function syncOrderArtifacts(
     let invoice_id: string | null = null;
     if (invoice) {
       invoice_id = (invoice as any).id;
-      await sb.from("invoices").update({
+      // Wave 70.39 -- push the order's headline fields onto the
+      // invoice snapshot too. Previously only totals were synced,
+      // so when Bobby changed the order's event_date the invoice
+      // kept its stale snapshot (event_date / client_name /
+      // venue_address all drifted). The /admin/invoices list joins
+      // orders so the UI was OK, but anything that read invoices
+      // directly (accounting exports, PDF render, third-party API
+      // pulls via Sage/Xero/QuickBooks) would have shown the old
+      // values.
+      //
+      // We use a Best-effort update -- if the invoices table doesn't
+      // carry one of these columns (older tenant schema), the failed
+      // column just drops silently rather than blocking the totals
+      // update. The .update() call below is wrapped in a try so we
+      // can fall back to totals-only when column-mismatch errors fire.
+      const headlinePatch = {
         subtotal,
         tax_amount,
         total_amount,
-      } as any).eq("id", invoice_id);
+        event_date: (order as any).event_date ?? null,
+        client_name: (order as any).client_name ?? null,
+        venue_address: (order as any).venue_address ?? null,
+        guest_count: (order as any).guest_count ?? null,
+      } as any;
+      const { error: invUpdateErr } = await sb.from("invoices").update(headlinePatch).eq("id", invoice_id);
+      if (invUpdateErr) {
+        // Schema may not have the new columns yet; retry totals-only
+        // so we don't lose the financial sync over a column issue.
+        console.warn("[orderSyncService] full invoice patch failed, retrying totals-only:", invUpdateErr.message);
+        await sb.from("invoices").update({
+          subtotal,
+          tax_amount,
+          total_amount,
+        } as any).eq("id", invoice_id);
+      }
     }
 
     return { ok: true, subtotal, tax_amount, total_amount, quote_id, invoice_id };
