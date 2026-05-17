@@ -17,9 +17,32 @@ interface TrialStatus {
 // trial against companies.subscription_status (no subscriptions row exists),
 // so the banner never appeared. This now matches the rest of the codebase
 // which treats companies as the source of truth for subscription state.
+//
+// Wave 70.14 -- role gate added so the trial countdown only renders
+// for the tenant owner / admin who is actually responsible for
+// upgrading. Kitchen / driver / cleaning / shopping staff (and any
+// other staff role) no longer see the trial banner -- they shouldn't
+// know whether the boss is still on trial or whether the company
+// is about to lose access. Internally we self-gate so every caller
+// (Layout.tsx, any future mount) is automatically safe without
+// having to pass props.
+const ADMIN_ROLES_THAT_SEE_TRIAL = new Set([
+  "super_admin",
+  "company_admin",
+  "admin",
+  "owner",
+]);
+
 export function TrialExpiryBanner() {
   const { profile, company } = useAuth() as any;
   const [dismissed, setDismissed] = useState(false);
+
+  // Staff roles never see the trial banner. Bobby's brief: kitchen /
+  // driver / cleaning / shopping staff shouldn't know about the
+  // subscription state. The banner exists for the person who can
+  // actually fix it.
+  const role: string = (profile?.active_role || profile?.role || "").toString().toLowerCase();
+  const canSeeTrialBanner = ADMIN_ROLES_THAT_SEE_TRIAL.has(role);
 
   const trialStatus: TrialStatus | null = (() => {
     if (!company) return null;
@@ -59,7 +82,7 @@ export function TrialExpiryBanner() {
     }
   }, [trialStatus?.daysRemaining]);
 
-  if (!trialStatus || !trialStatus.isInTrial || dismissed) {
+  if (!canSeeTrialBanner || !trialStatus || !trialStatus.isInTrial || dismissed) {
     return null;
   }
 
