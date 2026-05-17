@@ -213,7 +213,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           deposit_paid: true,
           deposit_paid_at: new Date().toISOString(),
           amount_paid: 5000,
-          payment_status: "partially_paid",
+          // Wave 70.48b: was "partially_paid" which is NOT in the
+          // payment_status enum. Real values: pending, processing,
+          // completed, failed, refunded, partially_refunded, disputed,
+          // partial, paid. "partial" is the right one for deposit-paid-
+          // balance-outstanding state.
+          payment_status: "partial",
         })
         .eq("id", orderId);
       if (updErr) throw new Error(`order update: ${updErr.message}`);
@@ -252,7 +257,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await run("A9_verify_invoice_created", async () => {
       const { data: inv, error } = await sb
         .from("invoices")
-        .select("id, status, amount")
+        // Wave 70.48b: column is total_amount, not amount.
+        .select("id, status, total_amount")
         .eq("order_id", orderId);
       if (error) throw new Error(error.message);
       const list = (inv as any[]) || [];
@@ -538,10 +544,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .select("status")
           .eq("id", cascadePrepTaskId)
           .maybeSingle();
-        if ((data as any)?.status !== "cancelled") {
-          throw new Error(`prep_task still '${(data as any)?.status}'`);
+        // Wave 70.48b: the cascade now flips prep tasks to 'skipped'
+        // (the kitchen_prep_tasks_status_check enum doesn't include
+        // 'cancelled'). 'skipped' = "this task isn't going to happen"
+        // which is the correct semantics for a cancelled parent order.
+        if ((data as any)?.status !== "skipped") {
+          throw new Error(`prep_task still '${(data as any)?.status}' (expected 'skipped')`);
         }
-        checks.push("prep_task=cancelled");
+        checks.push("prep_task=skipped");
       }
       return checks.join(" ") || "no child rows to verify";
     });

@@ -118,14 +118,28 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   });
 
   // ── 2. kitchen_prep_tasks ───────────────────────────────────────────
-  // For cancel / reject -- mark cancelled.
+  // For cancel / reject -- mark skipped.
   // For postpone -- leave alone; they'll re-schedule against the new date.
+  //
+  // Wave 70.48b: was status='cancelled' which is NOT in the
+  // kitchen_prep_tasks_status_check enum (allowed: pending,
+  // in_progress, done, skipped). Every previous cancellation since
+  // this shipped silently 23514-errored on the prep task flip,
+  // leaving tasks stuck on 'pending' and the chef's prep view
+  // showing ghost tasks for cancelled events. Discovered by the
+  // Wave 70.47 smoke test on the first live run -- the structured
+  // release receipt now reports per-resource success/failure where
+  // the old fire-and-forget void(async)() blocks just logged a
+  // warn that nobody read. 'skipped' is the enum value semantically
+  // closest to "this task isn't going to happen" (the chef chose
+  // not to do it -- in this case because the event was cancelled).
   if (mode === "cancel" || mode === "reject") {
-    await tryUpdate("kitchen_prep_tasks", "cancelled", async () => {
+    await tryUpdate("kitchen_prep_tasks", "skipped", async () => {
       const { count, error } = await sb
         .from("kitchen_prep_tasks")
-        .update({ status: "cancelled" }, { count: "exact" })
-        .eq("order_id", orderId);
+        .update({ status: "skipped" }, { count: "exact" })
+        .eq("order_id", orderId)
+        .in("status", ["pending", "in_progress"]);
       return { error, count };
     });
   } else {
@@ -184,10 +198,20 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // All three modes -- pending emails for the original date are now
   // wrong regardless of whether the event was cancelled, postponed
   // (will re-schedule for new date), or the quote rejected.
+  //
+  // Wave 70.48b: dropped the `updated_at` field from the UPDATE.
+  // The table has no updated_at column (only created_at + sent_at +
+  // paused_at + scheduled_for). Every previous cancellation since
+  // this shipped silently PGRST204-errored ("could not find the
+  // updated_at column"), leaving pending emails un-cancelled.
+  // Real symptom: clients receiving "see you tomorrow!" reminder
+  // emails the day before a cancelled event. Status flip alone is
+  // sufficient -- the email cron worker only fires on
+  // status='pending', so changing status is the whole job.
   await tryUpdate("outgoing_email_queue", "cancelled", async () => {
     const { count, error } = await sb
       .from("outgoing_email_queue")
-      .update({ status: "cancelled", updated_at: nowIso }, { count: "exact" })
+      .update({ status: "cancelled" }, { count: "exact" })
       .eq("trigger_ref_id", orderId)
       .eq("status", "pending");
     return { error, count };
