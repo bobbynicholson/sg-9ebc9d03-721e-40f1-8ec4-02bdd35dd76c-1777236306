@@ -12,7 +12,7 @@
  * Callum feel held, not policed.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderReadiness";
@@ -67,14 +67,91 @@ interface Props {
   /** Wave 70.9 -- called after a successful action so the page
    *  can refetch / refresh state. */
   onActionComplete?: () => void;
+  /** Wave 70.16 -- event date in ISO YYYY-MM-DD. When supplied,
+   *  enables silent auto-heal of missing prep tasks on future
+   *  events so admin never has to manually click "Generate now"
+   *  on a fresh order. Past events still require explicit manual
+   *  override (the operator must consciously backfill history). */
+  eventDate?: string | null;
 }
 
-export function OrderReadinessChip({ readiness, onOpen, orderId, onActionComplete }: Props) {
+const AUTOHEAL_SESSION_KEY = "orderReadinessChip:autoHealAttempted";
+
+function wasAutoHealAttempted(orderId: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = sessionStorage.getItem(AUTOHEAL_SESSION_KEY);
+    if (!raw) return false;
+    const set = new Set(JSON.parse(raw) as string[]);
+    return set.has(orderId);
+  } catch { return false; }
+}
+
+function markAutoHealAttempted(orderId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = sessionStorage.getItem(AUTOHEAL_SESSION_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    if (!arr.includes(orderId)) arr.push(orderId);
+    sessionStorage.setItem(AUTOHEAL_SESSION_KEY, JSON.stringify(arr.slice(-200)));
+  } catch { /* ignore */ }
+}
+
+export function OrderReadinessChip({ readiness, onOpen, orderId, onActionComplete, eventDate }: Props) {
   const [open, setOpen] = useState(false);
   const { withSlug } = useTenantHref();
   const tone = TONE[readiness.chip];
   const Icon = tone.Icon;
   const failingCount = readiness.failingHigh.length + readiness.failingMedium.length;
+  const autoHealFiredRef = useRef(false);
+
+  // Wave 70.16 -- silent auto-heal of missing prep tasks. When the
+  // chip detects the kitchen_prep_tasks_present signal failing AND
+  // the order event is in the future (today or later), silently
+  // fire the regen endpoint exactly ONCE per orderId per session.
+  // The operator never has to click Generate now on a fresh order
+  // -- the chip recovers it itself. Past events still require
+  // explicit manual override (a Generate now click) because the
+  // operator should consciously decide to backfill history.
+  useEffect(() => {
+    if (!orderId) return;
+    if (autoHealFiredRef.current) return;
+    if (wasAutoHealAttempted(orderId)) return;
+
+    const prepSignal = readiness.failingHigh.find((s) => s.key === "kitchen_prep_tasks_present");
+    if (!prepSignal || prepSignal.actionType !== "regenerate_prep_tasks") return;
+
+    // Gate: only auto-heal future events. Past events stay manual.
+    if (eventDate) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      if (String(eventDate).slice(0, 10) < todayIso) return;
+    } else {
+      // No eventDate passed -> safer to not auto-fire.
+      return;
+    }
+
+    autoHealFiredRef.current = true;
+    markAutoHealAttempted(orderId);
+
+    void (async () => {
+      try {
+        const r = await fetch("/api/orders/regenerate-prep-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ order_id: orderId, force: true }),
+        });
+        const data = await r.json();
+        if (r.ok && data?.created > 0) {
+          onActionComplete?.();
+        }
+        // Silent on failure -- the manual Generate now button stays
+        // visible inside the expanded chip as the fallback path.
+      } catch {
+        /* silent -- manual button remains as fallback */
+      }
+    })();
+  }, [orderId, eventDate, readiness.failingHigh, onActionComplete]);
 
   // Wave 57 -- shared focus-visible utility for the raw <button>
   // elements inside the chip. Pre-Wave-57 keyboard users got

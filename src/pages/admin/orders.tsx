@@ -1719,6 +1719,7 @@ function OrderProcessDashboard() {
                 <OrderReadinessChip
                   readiness={r}
                   orderId={(order as any).id}
+                  eventDate={(order as any).event_date || null}
                   onActionComplete={() => { void loadOrders(); }}
                 />
               );
