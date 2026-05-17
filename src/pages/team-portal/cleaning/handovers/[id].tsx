@@ -1,0 +1,353 @@
+/**
+ * /team-portal/cleaning/handovers/[id] -- Wave 70.24 (Commit 3)
+ *
+ * Per-event handover detail page. Opens from a card on the
+ * CleaningEventBoard. Shows:
+ *
+ *   - Event header (client, venue, date, expected return time)
+ *   - Status + phase progression
+ *   - Flat list of every cleaning_job linked to this handover
+ *     (preserves the legacy per-item workflow as a power-user view)
+ *   - "Mark all done" button to flip the handover to complete
+ *   - Notes field for cleaner sign-off
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Sparkles, CheckCircle2, Package, Calendar, Clock, MapPin, Loader2, AlertTriangle } from "lucide-react";
+import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Footer } from "@/components/Footer";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getHandoverDetail,
+  completeHandover,
+  type HandoverWithOrderMeta,
+} from "@/services/cleaningHandoverService";
+import { completeJob, startJob } from "@/services/cleaningJobsService";
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "--";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "--";
+  return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+const PHASE_LABELS: Record<string, { label: string; tone: string }> = {
+  expected:    { label: "Expected",    tone: "bg-amber-100 text-amber-800 border-amber-200" },
+  in_progress: { label: "In progress", tone: "bg-cyan-100 text-cyan-800 border-cyan-200" },
+  complete:    { label: "Complete",    tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  cancelled:   { label: "Cancelled",   tone: "bg-slate-100 text-slate-600 border-slate-200" },
+};
+
+const JOB_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
+  queued:      { label: "Queued",      tone: "bg-slate-100 text-slate-700 border-slate-200" },
+  in_progress: { label: "In progress", tone: "bg-blue-100 text-blue-800 border-blue-200" },
+  complete:    { label: "Done",        tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  cancelled:   { label: "Cancelled",   tone: "bg-rose-100 text-rose-700 border-rose-200" },
+};
+
+function HandoverDetailInner() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  const handoverId = typeof router.query.id === "string" ? router.query.id : null;
+
+  const [handover, setHandover] = useState<HandoverWithOrderMeta | null>(null);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState(false);
+  const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+
+  const load = async () => {
+    if (!handoverId) return;
+    setLoading(true);
+    try {
+      const { handover: h, jobs: j } = await getHandoverDetail(supabase as any, handoverId);
+      setHandover(h);
+      setJobs(j);
+      if (h?.notes) setNotes(h.notes);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [handoverId]);
+
+  const handleStartJob = async (jobId: string) => {
+    setBusyJobId(jobId);
+    const r = await startJob(supabase as any, jobId);
+    setBusyJobId(null);
+    if (!r.ok) {
+      toast({ title: "Couldn't start", description: r.error, variant: "destructive" });
+      return;
+    }
+    void load();
+  };
+
+  const handleCompleteJob = async (jobId: string) => {
+    setBusyJobId(jobId);
+    const r = await completeJob(supabase as any, jobId);
+    setBusyJobId(null);
+    if (!r.ok) {
+      toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });
+      return;
+    }
+    void load();
+  };
+
+  const handleCompleteHandover = async () => {
+    if (!handover) return;
+    if (!confirm("Mark this entire handover complete? Any unfinished cleaning jobs stay open underneath.")) return;
+    setCompleting(true);
+    try {
+      const totalReturned = jobs.reduce((sum, j) => sum + Number(j.quantity || 0), 0);
+      const r = await completeHandover(supabase as any, handover.id, {
+        totalReturned,
+        notes: notes.trim() || undefined,
+      });
+      if (!r.ok) {
+        toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Handover complete", description: "The event has been signed off." });
+      void load();
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const eventLabel = handover?.event_name || handover?.client_name || "Event";
+  const phaseMeta = handover ? PHASE_LABELS[handover.status] : null;
+  const allJobsDone = jobs.length > 0 && jobs.every((j) => j.status === "complete" || j.status === "cancelled");
+  const canComplete = handover && handover.status !== "complete" && handover.status !== "cancelled";
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head>
+        <title>Cleaning handover {handover?.order_number || ""} - CateringMS</title>
+      </Head>
+      <CleaningNav />
+
+      <main className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+        <div className="pt-20 lg:pt-6 px-3 sm:px-4 md:px-6 pb-6 max-w-4xl mx-auto">
+          <Link
+            href={withSlug("/team-portal/cleaning/dashboard")}
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to cleaning dashboard
+          </Link>
+
+          {loading ? (
+            <Card><CardContent className="py-16 text-center text-slate-500">
+              <Loader2 className="w-6 h-6 mx-auto animate-spin mb-2" />
+              Loading handover...
+            </CardContent></Card>
+          ) : !handover ? (
+            <Card><CardContent className="py-16 text-center text-slate-500">
+              Handover not found.
+            </CardContent></Card>
+          ) : (
+            <>
+              {/* Event header */}
+              <Card className="border-0 shadow-md mb-4">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <Sparkles className="w-5 h-5 text-cyan-600" />
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                          {eventLabel}
+                        </h1>
+                        {phaseMeta && (
+                          <Badge variant="outline" className={`text-[10px] ${phaseMeta.tone}`}>
+                            {phaseMeta.label}
+                          </Badge>
+                        )}
+                      </div>
+                      {handover.event_name && handover.client_name && (
+                        <p className="text-sm text-slate-600">for {handover.client_name}</p>
+                      )}
+                      {handover.order_number && (
+                        <p className="text-xs text-slate-500 mt-1 tabular-nums">{handover.order_number}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-slate-700">
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {handover.event_date || "TBD"}
+                          {handover.event_time && (
+                            <>
+                              <Clock className="w-3.5 h-3.5 ml-1" />
+                              <span className="tabular-nums">{String(handover.event_time).slice(0, 5)}</span>
+                            </>
+                          )}
+                        </span>
+                        {handover.venue_address && (
+                          <span className="inline-flex items-center gap-1 truncate max-w-md">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {handover.venue_address}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <Package className="w-3.5 h-3.5" />
+                          {handover.total_items_expected} item{handover.total_items_expected === 1 ? "" : "s"} expected
+                        </span>
+                      </div>
+                      {handover.expected_at && handover.status === "expected" && (
+                        <p className="text-[11px] text-amber-700 mt-2">
+                          Expected back by {fmtDateTime(handover.expected_at)}
+                        </p>
+                      )}
+                      {handover.in_progress_at && (
+                        <p className="text-[11px] text-cyan-700 mt-2">
+                          Returned {fmtDateTime(handover.in_progress_at)}
+                        </p>
+                      )}
+                      {handover.completed_at && (
+                        <p className="text-[11px] text-emerald-700 mt-2">
+                          Signed off {fmtDateTime(handover.completed_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cleaning jobs list */}
+              <Card className="border-0 shadow-md mb-4">
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Cleaning jobs ({jobs.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {jobs.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-6">
+                      No cleaning jobs linked to this handover yet.
+                      {handover.status === "expected" && " They'll appear once the order delivers."}
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {jobs.map((j) => {
+                        const statusMeta = JOB_STATUS_LABEL[j.status] || JOB_STATUS_LABEL.queued;
+                        const itemName = j.equipment_name || "(equipment)";
+                        return (
+                          <li key={j.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-slate-900">{itemName}</span>
+                                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
+                                  x{j.quantity}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {j.method}
+                                </Badge>
+                                <Badge variant="outline" className={`text-[10px] ${statusMeta.tone}`}>
+                                  {statusMeta.label}
+                                </Badge>
+                              </div>
+                              {j.notes && (
+                                <p className="text-[11px] text-slate-500 italic mt-1">{j.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {j.status === "queued" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={busyJobId === j.id}
+                                  onClick={() => handleStartJob(j.id)}
+                                  className="text-xs h-8"
+                                >
+                                  {busyJobId === j.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Start"}
+                                </Button>
+                              )}
+                              {(j.status === "queued" || j.status === "in_progress") && (
+                                <Button
+                                  size="sm"
+                                  disabled={busyJobId === j.id}
+                                  onClick={() => handleCompleteJob(j.id)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-xs h-8 gap-1"
+                                >
+                                  {busyJobId === j.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                  Done
+                                </Button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Sign-off */}
+              {canComplete && (
+                <Card className="border-0 shadow-md mb-4 border-l-4 border-l-emerald-500 bg-emerald-50/30">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-900">Sign off this handover</p>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Mark the event complete when all cleaning is done and equipment is back in storage. Records the count + any notes for the next cleaner.
+                        </p>
+                      </div>
+                    </div>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Optional handover notes (e.g. 2 plates broken, 4 forks missing -- check next event)"
+                      className="text-sm bg-white"
+                      rows={2}
+                    />
+                    {!allJobsDone && jobs.length > 0 && (
+                      <p className="text-[11px] text-amber-700 inline-flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {jobs.filter((j) => j.status !== "complete" && j.status !== "cancelled").length} job{jobs.filter((j) => j.status !== "complete" && j.status !== "cancelled").length === 1 ? "" : "s"} still open. Force-complete will leave them as is.
+                      </p>
+                    )}
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleCompleteHandover}
+                        disabled={completing}
+                        className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                      >
+                        {completing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                        {completing ? "Signing off..." : "Mark handover complete"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
+        <Footer />
+      </main>
+    </>
+  );
+}
+
+export default function ProtectedHandoverDetailPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_STAFF]}>
+      <HandoverDetailInner />
+    </ProtectedRoute>
+  );
+}

@@ -11,6 +11,7 @@ import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
+import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
@@ -136,10 +137,17 @@ function CleaningDashboardInner() {
               wrong, missing schema columns added via migration). */}
           <CleaningDutyWidget />
 
+          {/* Wave 70.24 -- new event-grouped board is the primary
+              cleaning surface. Shows expected handovers (anticipation),
+              in-progress (active work), done-today (throughput).
+              Tap a card to open the per-event detail. */}
+          <CleaningEventBoard />
+
           {/* Wave 41 Phase 2: equipment-availability ledger. Lists
               every active cleaning_jobs row with method chip + ETA
-              back into inventory + start/complete actions. Operator
-              also gets a "New job" button to log fresh batches. */}
+              back into inventory + start/complete actions. Kept as
+              the flat-by-item power-user fallback below the new
+              event-grouped board. */}
           <CleaningJobsQueue />
 
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
