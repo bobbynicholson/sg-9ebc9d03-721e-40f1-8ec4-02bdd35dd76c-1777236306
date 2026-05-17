@@ -71,12 +71,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const admin: any = getServiceSupabase();
 
-    const { data: order } = await admin
+    // Wave 70.33 -- accept either a UUID `id` or an order_number like
+    // "ORD-003829". The OrderReadinessChip passes `id` (UUID), but the
+    // endpoint used to 404 with "Order not found" if a UUID lookup
+    // came back empty, which masked the actual cause (caller passing
+    // the wrong identifier, stale page state, etc). Try id first;
+    // if nothing matches and the value looks like an order_number,
+    // fall back to that lookup -- scoped to the caller's company so
+    // we never accidentally cross tenants.
+    const lookupSelect = "id, order_number, company_id, status, event_date, event_time, ready_at, picked_up_at, actual_delivery_time";
+    const { data: byId, error: byIdErr } = await admin
       .from("orders")
-      .select("id, company_id, status, event_date, event_time, ready_at, picked_up_at, actual_delivery_time")
+      .select(lookupSelect)
       .eq("id", orderId)
       .maybeSingle();
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (byIdErr) {
+      console.warn("[orders/force-close] id lookup error:", byIdErr, "orderId=", orderId);
+    }
+    let order = byId;
+    if (!order && callerCompanyId) {
+      // Defensive fallback: maybe the chip / page is passing a string
+      // that isn't a UUID. Try order_number scoped to the caller's
+      // company (RLS bypass means service role sees all -- the
+      // company scope is the safety net against cross-tenant leaks).
+      const { data: byNumber, error: byNumberErr } = await admin
+        .from("orders")
+        .select(lookupSelect)
+        .eq("order_number", orderId)
+        .eq("company_id", callerCompanyId)
+        .maybeSingle();
+      if (byNumberErr) {
+        console.warn("[orders/force-close] order_number fallback error:", byNumberErr, "orderId=", orderId);
+      }
+      if (byNumber) {
+        console.warn(`[orders/force-close] resolved orderId='${orderId}' via order_number fallback -> ${byNumber.id}. Caller passed the wrong field.`);
+        order = byNumber;
+      }
+    }
+    if (!order) {
+      // Surface the orderId in the error so the operator + console
+      // both see what was attempted. Previously the bare "Order not
+      // found" gave the operator nothing to act on.
+      console.warn(`[orders/force-close] no order matched orderId='${orderId}' for company='${callerCompanyId}'`);
+      return res.status(404).json({
+        error: `Order not found: '${orderId}'. Try refreshing the page -- if it persists, the order may have been deleted.`,
+        orderId,
+      });
+    }
+    // From this point on, prefer the resolved row's real UUID so
+    // every downstream write (prep tasks, stamps, status flip, audit
+    // log) is keyed by the canonical id even if the caller passed
+    // an order_number.
+    const resolvedOrderId = (order as any).id as string;
     if (role !== "super_admin" && callerCompanyId && callerCompanyId !== (order as any).company_id) {
       return res.status(403).json({ error: "Wrong company" });
     }
@@ -94,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { count: tasksFlipped } = await admin
       .from("kitchen_prep_tasks")
       .update({ status: "done", completed_at: new Date().toISOString() }, { count: "exact" })
-      .eq("order_id", orderId)
+      .eq("order_id", resolvedOrderId)
       .in("status", ["pending", "in_progress"]);
 
     // 2. Best-guess clock for historical orders: event_time on
@@ -116,14 +162,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!(order as any).picked_up_at) stamps.picked_up_at = bestGuessIso;
     if (!(order as any).actual_delivery_time) stamps.actual_delivery_time = bestGuessIso;
     if (Object.keys(stamps).length > 0) {
-      await admin.from("orders").update(stamps).eq("id", orderId);
+      await admin.from("orders").update(stamps).eq("id", resolvedOrderId);
     }
 
     // 3. Run the canonical status transition so order_status_history
     //    + notifications + downstream cascades fire normally. We use
     //    the workflow helper rather than a bare update so behaviour
     //    matches a "real" delivery being recorded.
-    const statusResult = await updateOrderStatus(orderId, targetStatus as any, {
+    const statusResult = await updateOrderStatus(resolvedOrderId, targetStatus as any, {
       actorUserId: user.id,
       // Pass a marker so the history row records this was forced.
       note: reason
@@ -144,7 +190,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         user_id: user.id,
         action: "order_force_closed",
         entity_type: "order",
-        entity_id: orderId,
+        entity_id: resolvedOrderId,
         details: {
           from_status: currentStatus,
           to_status: targetStatus,
