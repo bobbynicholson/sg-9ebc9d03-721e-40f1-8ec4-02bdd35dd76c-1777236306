@@ -1075,7 +1075,12 @@ export async function cancelOrder(
     // call. The helper records the cancel in releaseReceipt.lines
     // alongside every other cascade so the audit trail is complete.
 
-    return { success: true, data };
+    // Wave 70.49 -- return the release receipt alongside the order so
+    // API callers (the cancel.ts endpoint -> CancelOrderDialog) can
+    // surface "N manual follow-ups required" to the operator without
+    // a second round-trip to read audit_logs. Existing callers that
+    // only consume {success, data} ignore the extra field.
+    return { success: true, data, release_receipt: releaseReceipt };
   } catch (error: any) {
     console.error("Error cancelling order:", error);
     return { success: false, error: error.message };

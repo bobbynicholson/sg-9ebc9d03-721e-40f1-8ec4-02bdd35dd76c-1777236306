@@ -392,6 +392,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     })();
 
+    // Wave 70.49 -- include the release receipt so the calling UI
+    // (CancelOrderDialog -> toast) can surface "N manual follow-ups
+    // required" the moment the cancel returns. Follow-ups currently
+    // captured: notify_hire_supplier (3rd-party rentals we cancelled
+    // in our DB but the supplier still needs to be told), and
+    // notify_outsource_provider (outsourced caterers we cancelled but
+    // who still need a phone call so they don't show up). The full
+    // receipt is also embedded in audit_logs.details.release_receipt
+    // for any later forensics.
+    const followups = ((result as any)?.release_receipt?.lines || [])
+      .flatMap((l: any) => (l.followups || []).map((f: any) => ({ ...f, resource: l.resource })));
+
     return res.status(200).json({
       ok: true,
       payout_choice,
@@ -401,6 +413,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       credit_payment_id: creditPaymentId,
       cancellation_request_id: (requestRow as any)?.id || null,
       snapshot: snap,
+      release_receipt: (result as any)?.release_receipt || null,
+      manual_followups: followups,
     });
   } catch (err: any) {
     console.error("[orders/cancel] crashed:", err);

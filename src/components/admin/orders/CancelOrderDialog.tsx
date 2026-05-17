@@ -180,6 +180,24 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
               ? `Refund of ${fmt.format(json.refund_amount)} pending. Mark it paid once the EFT is sent.`
               : "No payout due (forfeit tier).",
       });
+      // Wave 70.49 -- if the release cascade flagged manual follow-ups
+      // (3rd-party hire suppliers, outsource providers) surface a second
+      // toast with the count + names so the operator can act before
+      // closing the dialog. We don't auto-email these contacts (per
+      // Bobby's call -- supplier cancellation fees aren't tracked,
+      // automated cancel emails could trigger fees we didn't authorise).
+      const followups = Array.isArray(json.manual_followups) ? json.manual_followups : [];
+      if (followups.length > 0) {
+        const namesFirst3 = followups.slice(0, 3).map((f: any) => f.label).join(", ");
+        const more = followups.length > 3 ? ` +${followups.length - 3} more` : "";
+        toast({
+          title: `${followups.length} manual follow-up${followups.length === 1 ? "" : "s"} required`,
+          description: `Phone / email these 3rd parties so they don't show up: ${namesFirst3}${more}.`,
+          // Use the destructive variant so it's visually distinct from
+          // the "success" toast and harder to dismiss without reading.
+          variant: "destructive",
+        });
+      }
       onCancelled?.({
         refund_amount: json.refund_amount,
         refund_payment_id: json.refund_payment_id,

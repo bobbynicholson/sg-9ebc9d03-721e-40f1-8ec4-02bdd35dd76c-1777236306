@@ -506,7 +506,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sb,
         silent: true,
       });
-      // Expect at least the core resources to appear in the receipt.
+      // Expect every resource to appear in the receipt. Wave 70.49
+      // added equipment_hire_orders, driver_assignments, and the
+      // orders.secondary_assignments null cascade.
       const got = receipt.lines.map((l) => l.resource);
       const expected = [
         "equipment_bookings",
@@ -516,6 +518,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         "outgoing_email_queue",
         "outsource_assignments",
         "cleaning_event_handover",
+        "equipment_hire_orders",
+        "driver_assignments",
+        "orders.secondary_assignments",
       ];
       const missing = expected.filter((r) => !got.includes(r));
       if (missing.length > 0) {

@@ -42,6 +42,23 @@ export interface ReleaseLine {
   count?: number;
   /** Error message if this resource failed. Other resources still run. */
   error?: string;
+  /**
+   * Wave 70.49 -- operator-action follow-ups the system can't do itself.
+   * Examples: "notify supplier {name}/{contact} that hire is cancelled",
+   * "notify outsource provider {name} that the job is off". These get
+   * embedded in the audit_logs row + can be surfaced via a "Manual
+   * follow-ups required" panel on the cancellation review screen.
+   *
+   * Bobby's call (audit Q1): cancel in DB + queue manual follow-up
+   * rather than auto-emailing 3rd parties (cancel fees etc. we don't
+   * track). This field is the queue.
+   */
+  followups?: Array<{
+    kind: "notify_hire_supplier" | "notify_outsource_provider";
+    label: string;
+    contact?: string | null;
+    ref_id?: string;
+  }>;
 }
 
 export interface ReleaseReceipt {
@@ -220,18 +237,177 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // ── 6. outsource_assignments ────────────────────────────────────────
   // Cancel cascade. Postpone is a special case (the assignment date
   // changes too) -- caller handles that path separately.
+  //
+  // Wave 70.49 -- before flipping status, read the active assignments
+  // so we can capture supplier identity into the receipt as a manual
+  // follow-up. Provider is NOT auto-notified (per the audit -- accept
+  // links serving silent cancelled pages is worse UX than the operator
+  // making a 30-second phone call). The receipt feeds the cancellation
+  // review screen's "Manual follow-ups required" panel.
   if (mode === "cancel") {
-    await tryUpdate("outsource_assignments", "cancelled", async () => {
+    const followups: NonNullable<ReleaseLine["followups"]> = [];
+    try {
+      // Wave 70.49 -- read active assignments + join outsource_providers
+      // for the human-readable name. provider_id is the only FK on
+      // outsource_assignments; the parent name lives on the provider
+      // row. Embed join: `outsource_providers ( name, contact_phone,
+      // contact_email )` so the UI can show "notify {name}" without a
+      // second round-trip.
+      const { data: active } = await sb
+        .from("outsource_assignments")
+        .select("id, provider_id, outsource_providers ( provider_name, phone, email )")
+        .eq("order_id", orderId)
+        .in("status", ["requested", "accepted", "en_route", "on_site"])
+        .is("deleted_at", null);
+      ((active as any[]) || []).forEach((row) => {
+        const provider = row.outsource_providers || {};
+        const contact = provider.phone || provider.email || null;
+        followups.push({
+          kind: "notify_outsource_provider",
+          label: provider.provider_name || "Outsource provider",
+          contact,
+          ref_id: row.id,
+        });
+      });
+    } catch (e) {
+      if (!silent) console.warn("[releaseOrderResources] outsource read for followups failed:", e);
+    }
+    const tStage = Date.now();
+    try {
       const { count, error } = await sb
         .from("outsource_assignments")
         .update({ status: "cancelled", cancelled_at: nowIso, updated_at: nowIso }, { count: "exact" })
         .eq("order_id", orderId)
         .in("status", ["requested", "accepted", "en_route", "on_site"])
         .is("deleted_at", null);
+      if (error) {
+        lines.push({ resource: "outsource_assignments", action: "failed", error: error.message });
+      } else {
+        lines.push({
+          resource: "outsource_assignments",
+          action: "cancelled",
+          count: count ?? undefined,
+          followups: followups.length > 0 ? followups : undefined,
+        });
+      }
+    } catch (e: any) {
+      lines.push({ resource: "outsource_assignments", action: "failed", error: e?.message || String(e) });
+    }
+    void tStage; // timing folded into the per-line ms; not separately tracked yet
+  } else {
+    lines.push({ resource: "outsource_assignments", action: "skipped (mode!=cancel)" });
+  }
+
+  // ── 8. equipment_hire_orders (Wave 70.49) ──────────────────────────
+  // 3rd-party rental cancellation. Highest direct rand cost per
+  // cancellation per the audit -- catering company keeps paying for
+  // a marquee/generator/extra chairs for an event that's not happening.
+  //
+  // Per Bobby's call: mark cancelled in our DB + queue a manual
+  // operator follow-up (rather than auto-emailing the supplier; we
+  // don't track cancellation-fee policies and an automated "we're
+  // cancelling" email can trigger fees we didn't intend to authorise).
+  // The receipt's `followups` field carries the supplier name +
+  // contact so the operator can act from one place.
+  //
+  // Filters to non-terminal statuses only (draft, confirmed) -- a
+  // hire already in picked_up/returned is a real allocation that
+  // can't be "un-cancelled" by us.
+  if (mode === "cancel" || mode === "reject") {
+    const followups: NonNullable<ReleaseLine["followups"]> = [];
+    try {
+      const { data: active } = await sb
+        .from("equipment_hire_orders")
+        .select("id, supplier_name, supplier_contact, equipment_name, quantity, total_cost")
+        .eq(mode === "reject" ? "quote_id" : "order_id", orderId)
+        .in("status", ["draft", "confirmed"]);
+      ((active as any[]) || []).forEach((row) => {
+        followups.push({
+          kind: "notify_hire_supplier",
+          label: `${row.supplier_name || "Unknown supplier"} -- ${row.equipment_name || "equipment"} x${row.quantity}`,
+          contact: row.supplier_contact || null,
+          ref_id: row.id,
+        });
+      });
+    } catch (e) {
+      if (!silent) console.warn("[releaseOrderResources] hire-in read for followups failed:", e);
+    }
+    try {
+      const { count, error } = await sb
+        .from("equipment_hire_orders")
+        .update({ status: "cancelled", updated_at: nowIso }, { count: "exact" })
+        .eq(mode === "reject" ? "quote_id" : "order_id", orderId)
+        .in("status", ["draft", "confirmed"]);
+      if (error) {
+        lines.push({ resource: "equipment_hire_orders", action: "failed", error: error.message });
+      } else {
+        lines.push({
+          resource: "equipment_hire_orders",
+          action: "cancelled",
+          count: count ?? undefined,
+          followups: followups.length > 0 ? followups : undefined,
+        });
+      }
+    } catch (e: any) {
+      lines.push({ resource: "equipment_hire_orders", action: "failed", error: e?.message || String(e) });
+    }
+  } else {
+    lines.push({ resource: "equipment_hire_orders", action: "skipped (mode!=cancel/reject)" });
+  }
+
+  // ── 9. driver_assignments + earnings reset (Wave 70.49) ─────────────
+  // Audit gap: `orders.assigned_driver_id` was nulled by cancelOrder
+  // (caller's UPDATE) but the separate `driver_assignments` rows were
+  // never touched. Symptom: driver pay run could pay out for cancelled
+  // gigs; assignment-based dashboards / AvailableJobsCard could keep
+  // surfacing the job. Pre-snapshotted earnings columns (base_fee,
+  // distance_fee, total_earnings, waiter_earnings) need to be zeroed
+  // so payroll roll-ups don't double-count.
+  //
+  // Filters to non-terminal statuses (anything not already
+  // completed/cancelled). Status table has no DB check constraint so
+  // freeform 'cancelled' is safe.
+  if (mode === "cancel") {
+    await tryUpdate("driver_assignments", "cancelled+zeroed", async () => {
+      const { count, error } = await sb
+        .from("driver_assignments")
+        .update({
+          status: "cancelled",
+          base_fee: 0,
+          distance_fee: 0,
+          total_earnings: 0,
+          waiter_earnings: 0,
+          updated_at: nowIso,
+        }, { count: "exact" })
+        .eq("order_id", orderId)
+        .not("status", "in", "(completed,cancelled)");
       return { error, count };
     });
   } else {
-    lines.push({ resource: "outsource_assignments", action: "skipped (mode!=cancel)" });
+    lines.push({ resource: "driver_assignments", action: "skipped (mode!=cancel)" });
+  }
+
+  // ── 10. orders.secondary_* nulling (Wave 70.49) ────────────────────
+  // Audit gap: cancelOrder's parent UPDATE only nulled assigned_driver_id
+  // / assigned_chef_id / assigned_vehicle_id (primary). The
+  // secondary_driver_id + secondary_vehicle_id columns (two-driver
+  // weddings, swap-vehicle dispatches) survived the cancel. Symptom:
+  // ghost-booked secondary driver/vehicle on the next dispatch's
+  // availability check -> double-booking on the day. Now nulled here
+  // as part of the release cascade.
+  if (mode === "cancel") {
+    await tryUpdate("orders.secondary_assignments", "nulled", async () => {
+      const { count, error } = await sb
+        .from("orders")
+        .update({
+          secondary_driver_id: null,
+          secondary_vehicle_id: null,
+        }, { count: "exact" })
+        .eq("id", orderId);
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "orders.secondary_assignments", action: "skipped (mode!=cancel)" });
   }
 
   // ── 7. cleaning_event_handover ─────────────────────────────────────
