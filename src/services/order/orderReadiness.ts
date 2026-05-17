@@ -284,7 +284,11 @@ export function computeOrderReadiness(
       ? `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`
       : null,
     actionType: prepReady || prepNotApplicable ? null : "regenerate_prep_tasks",
-    actionLabel: prepReady || prepNotApplicable ? null : "Generate now",
+    // Wave 70.37 -- relabelled from cryptic "Generate now" to
+    // "Generate prep tasks" so the operator knows WHAT is being
+    // generated. The chip also surfaces a hover tooltip explaining
+    // the auto-create behaviour.
+    actionLabel: prepReady || prepNotApplicable ? null : "Generate prep tasks",
   });
 
   // ---- Wave 47 -- additional HIGH signals -------------------------------

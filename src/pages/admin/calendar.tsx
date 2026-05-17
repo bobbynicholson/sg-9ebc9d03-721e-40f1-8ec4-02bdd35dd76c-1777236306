@@ -95,6 +95,34 @@ function AdminCalendar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
+  // Wave 70.37 -- live refresh hooks. The calendar previously only
+  // refetched on mount and on company_id change. When Bobby edited
+  // an order's date on /admin/orders, the calendar continued to
+  // show the old date until he hard-refreshed. Two fixes:
+  //   1. Tab focus -- coming back to the calendar tab refetches.
+  //      Covers cross-tab edits (admin/orders open in tab A, edit,
+  //      switch to tab B = calendar -> refresh fires).
+  //   2. Custom event 'cateringms:order-updated' -- in-tab cross-
+  //      page edits (same browser tab, e.g. drawer was opened
+  //      from a different surface). Dispatched by every order
+  //      save handler in /admin/orders.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const refetch = () => {
+      loadOrders();
+      loadOpenQuotes();
+    };
+    const onFocus = () => { refetch(); };
+    const onOrderUpdated = () => { refetch(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("cateringms:order-updated", onOrderUpdated);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("cateringms:order-updated", onOrderUpdated);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
   const loadOrders = async () => {
     setLoading(true);
     try {

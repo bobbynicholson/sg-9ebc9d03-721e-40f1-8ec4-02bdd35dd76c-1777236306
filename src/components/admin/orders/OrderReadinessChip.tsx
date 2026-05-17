@@ -362,6 +362,17 @@ function SignalRow({
 
   const label = signal.actionLabel || "Fix it";
 
+  // Wave 70.37 -- per-action hover tooltip so the operator
+  // understands WHAT the button does before they tap it.
+  // Previously "Generate now" gave zero context and the only way
+  // to find out was to click and read the resulting toast.
+  const actionTooltip = (() => {
+    if (signal.actionType === "regenerate_prep_tasks") {
+      return "Auto-creates the chef's prep checklist from this order's menu items. Reads recipes, scales by guest count, and schedules each task to finish before pickup time. Safe to re-run -- it wipes pending tasks first.";
+    }
+    return undefined;
+  })();
+
   return (
     <li className="flex items-start gap-2 text-xs">
       <span className={`mt-1 inline-block w-1.5 h-1.5 rounded-full shrink-0 ${dotTone}`} aria-hidden="true" />
@@ -371,6 +382,7 @@ function SignalRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); void runAction(); }}
           disabled={busy}
+          title={actionTooltip}
           className="text-xs font-semibold text-orange-700 hover:text-orange-900 inline-flex items-center gap-1 shrink-0 disabled:opacity-50"
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}

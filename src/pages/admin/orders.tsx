@@ -2402,6 +2402,19 @@ function OrderProcessDashboard() {
         setEditMode(false);
         setPriceAdjustOpen(false);
         loadOrders();
+        // Wave 70.37 -- broadcast a window-level event so other
+        // open surfaces (calendar, dashboard widgets, etc.) can
+        // refetch and pick up the change. Without this, Bobby's
+        // date edit only updated /admin/orders -- the calendar
+        // continued to show the old date until he hard-refreshed
+        // or navigated away and back. Listeners just call their
+        // own loadOrders(); the payload is the order id so they
+        // can do targeted refreshes later if they want.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("cateringms:order-updated", {
+            detail: { orderId: editedOrder.id, source: "admin/orders" },
+          }));
+        }
       } catch (error: any) {
         toast({
           title: "Error",
