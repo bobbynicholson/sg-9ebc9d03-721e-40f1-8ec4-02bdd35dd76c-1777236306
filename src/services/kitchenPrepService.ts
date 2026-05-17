@@ -104,8 +104,13 @@ export interface KitchenStation {
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const kitchenPrepService = {
-  async getKitchenSettings(companyId: string): Promise<KitchenSettings> {
-    const { data, error: error2 } = await supabase
+  // Wave 70.13 -- accept an optional client so server-side callers
+  // (regen API, cron, post-creation cascade) can inject the
+  // service-role client. Without this, the global anon supabase
+  // import has no session on the server and RLS hides every read.
+  async getKitchenSettings(companyId: string, client?: typeof supabase): Promise<KitchenSettings> {
+    const sb: any = client || supabase;
+    const { data, error: error2 } = await sb
       .from("companies")
       .select("kitchen_settings")
       .eq("id", companyId)
@@ -146,16 +151,19 @@ export const kitchenPrepService = {
    * inventoryDeductionService for tenants whose data hasn't been migrated.
    * Returns null when neither path has the recipe.
    */
-  async lookupRecipe(companyId: string, menuItemName: string): Promise<{
+  async lookupRecipe(companyId: string, menuItemName: string, client?: typeof supabase): Promise<{
     base_servings: number;
     prep_time_min: number;
     cook_time_min: number;
     ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
   } | null> {
-    const settings = await this.getKitchenSettings(companyId);
+    // Wave 70.13 -- thread the optional client through so server-
+    // side regen API + cron callers can read without RLS blocking.
+    const sb: any = client || supabase;
+    const settings = await this.getKitchenSettings(companyId, client);
 
     // Try DB: menu_items by name -> recipes -> recipe_ingredients
-    const { data: menuItem, error: menuItemErr } = await supabase
+    const { data: menuItem, error: menuItemErr } = await sb
       .from("menu_items")
       .select("id, item_name, base_servings, prep_time_minutes, cook_time_minutes")
       .eq("company_id", companyId)
@@ -167,7 +175,7 @@ export const kitchenPrepService = {
     }
 
     if (menuItem?.id) {
-      const { data: recipe, error: recipeErr } = await supabase
+      const { data: recipe, error: recipeErr } = await sb
         .from("recipes")
         .select("id, base_servings, prep_time_minutes, cook_time_minutes")
         .eq("menu_item_id", menuItem.id)
@@ -177,7 +185,7 @@ export const kitchenPrepService = {
       }
 
       if (recipe?.id) {
-        const { data: ings, error: ingsErr } = await supabase
+        const { data: ings, error: ingsErr } = await sb
           .from("recipe_ingredients")
           .select("ingredient_name, quantity, unit, inventory_item_id")
           .eq("recipe_id", recipe.id);
@@ -273,10 +281,19 @@ export const kitchenPrepService = {
    * Pure compute -- doesn't write anything. Caller decides what to do
    * with the result.
    */
-  async planTasksForOrder(companyId: string, orderId: string): Promise<PrepTask[]> {
-    const settings = await this.getKitchenSettings(companyId);
+  async planTasksForOrder(companyId: string, orderId: string, client?: typeof supabase): Promise<PrepTask[]> {
+    // Wave 70.13 -- accept the optional client. Pre-Wave-70.13 the
+    // planner always used the global browser supabase import, which
+    // has no session when called from a server-side context (regen
+    // API, cron, postCreationCascade). RLS then hid every read and
+    // the planner returned [] -- ensurePrepTasksForOrder reported
+    // "no menu items" even when items existed. Now: thread the
+    // client through so the service-role client passed by the API
+    // bypasses RLS.
+    const sb: any = client || supabase;
+    const settings = await this.getKitchenSettings(companyId, client);
 
-    const { data: order, error: orderErr } = await supabase
+    const { data: order, error: orderErr } = await sb
       .from("orders")
       .select("id, company_id, region_id, menu_items, guest_count, final_guest_count, event_date, event_time, pickup_time")
       .eq("id", orderId)
@@ -317,7 +334,9 @@ export const kitchenPrepService = {
     // works regardless of which write path created the order.
     let items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
     if (items.length === 0) {
-      const { data: relRows, error: relErr } = await supabase
+      // Wave 70.13 -- also use the threaded client so this read
+      // works server-side.
+      const { data: relRows, error: relErr } = await sb
         .from("order_items")
         .select("item_name, menu_item_id, quantity, unit_price, line_total, special_instructions")
         .eq("order_id", orderId);
@@ -337,7 +356,7 @@ export const kitchenPrepService = {
       const name = item?.name || item?.item_name || item?.menu_item_name;
       if (!name) continue;
 
-      const recipe = await this.lookupRecipe(companyId, name);
+      const recipe = await this.lookupRecipe(companyId, name, client);
       const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
       const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
 
@@ -424,7 +443,10 @@ export const kitchenPrepService = {
     // global anon client (RLS-gated). Server callers (post-order
     // cascade, leads route) inject a service-role client.
     const sb: any = client || supabase;
-    const settings = await this.getKitchenSettings(companyId);
+    // Wave 70.13 -- thread the client through to every nested
+    // helper so server-side callers (regen API, cron, cascade)
+    // bypass RLS the same way the orderMeta + tasks reads do.
+    const settings = await this.getKitchenSettings(companyId, client);
     if (!settings.autoGeneratePrepTasks) return { created: 0, skippedReason: "auto_generate_disabled" };
 
     // Quarantine guard. Imported orders (rows brought in from a prior
@@ -506,13 +528,13 @@ export const kitchenPrepService = {
       }
     }
 
-    const planned = await this.planTasksForOrder(companyId, orderId);
+    const planned = await this.planTasksForOrder(companyId, orderId, client);
     if (planned.length === 0) return { created: 0, skippedReason: "no_menu_items_or_no_pickup_time" };
 
     // Phase 2: load stations once and auto-assign each task to the right one.
     // Defaults from the migration mean every tenant has Prep / Cook / Cold /
     // Pack out of the box, so this works without admin setup.
-    const stations = await this.getStationsForCompany(companyId);
+    const stations = await this.getStationsForCompany(companyId, client);
 
     const rows = planned.map(t => ({
       company_id: companyId,
@@ -887,8 +909,10 @@ export const kitchenPrepService = {
    * stations yet, returns an empty array and the production page handles
    * "no stations configured" gracefully.
    */
-  async getStationsForCompany(companyId: string): Promise<KitchenStation[]> {
-    const { data, error } = await supabase
+  async getStationsForCompany(companyId: string, client?: typeof supabase): Promise<KitchenStation[]> {
+    // Wave 70.13 -- thread the client through for server-side callers.
+    const sb: any = client || supabase;
+    const { data, error } = await sb
       .from("kitchen_stations")
       .select("*")
       .eq("company_id", companyId)
