@@ -465,51 +465,13 @@ function IntegrationsPage() {
             </CardContent>
           </Card>
 
-          {/* Wave 70 -- Sage Business Cloud (the SA market's accounting
-              default). OAuth flow + callback wired; invoice + payment
-              sync mapping is the next wave (Sage's API shape differs
-              from Xero/QB so it needs proper per-payload mapping). */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-blue-600" />
-                Sage Business Cloud (Pastel)
-                <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">Native OAuth</Badge>
-                <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 border-amber-300">OAuth ready, sync mapping in next wave</Badge>
-              </CardTitle>
-              <CardDescription>
-                Sage is the SA market default -- SARS-aware out of the box, comma-decimal money, ZAR currency. Once invoice + payment payload mapping lands you can push CateringMS invoices into Sage just like Xero / QuickBooks.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="bg-white rounded-lg p-3 border border-blue-100 text-xs space-y-1">
-                <p className="font-semibold text-slate-900">What works today</p>
-                <ul className="list-disc list-inside text-slate-700 space-y-0.5">
-                  <li>OAuth connection to your Sage tenant (consent flow + token storage).</li>
-                  <li>Auto token refresh so the connection stays live.</li>
-                </ul>
-                <p className="font-semibold text-slate-900 mt-2">Pending in the next wave</p>
-                <ul className="list-disc list-inside text-slate-700 space-y-0.5">
-                  <li>Invoice push (Sage's invoice API + per-tenant business_id resolution).</li>
-                  <li>Payment push (Sage's payment / allocation endpoint).</li>
-                  <li>Customer mapping (match by email or VAT number).</li>
-                </ul>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-900 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold mb-1">Connect Sage Business Cloud</p>
-                  <p>Sign in once with your Sage account. CateringMS stores the OAuth tokens; sync wires up automatically the moment the mapping wave lands.</p>
-                </div>
-                <a
-                  href="/api/accounting/sage/authorize"
-                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
-                >
-                  Connect Sage
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Wave 70.1 -- Sage Business Cloud sync mapping is live.
+              Once an admin picks the four defaults (ledger, tax, bank,
+              payment method) below the invoice + payment sync
+              endpoints stop 412'ing and start pushing for real. */}
+          <SageCard companyId={companyId} />
+
+          {/* Legacy outsource-fulfilment recipes block stays untouched. */}
 
           {/* Outbound webhooks */}
           <Card className="border-0 shadow-lg mb-6">
@@ -790,6 +752,246 @@ function IntegrationsPage() {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Wave 70.1 -- Sage Business Cloud settings card.
+ *
+ * Two-state card:
+ *   Not connected: shows the OAuth "Connect Sage" CTA + a primer on
+ *                  what works once connected.
+ *   Connected:     shows the four defaults the sync endpoints need
+ *                  (ledger account, tax rate, bank account, payment
+ *                  method) + a "prices include tax" toggle. Save
+ *                  writes to accounting_integrations.metadata. The
+ *                  picker lists are pulled live from the Sage tenant
+ *                  on mount so the ids are always current.
+ *
+ * Without this panel the sync endpoints return 412 with a "configure
+ * it on /admin/integrations" pointer. With it, an admin can finish
+ * the wave 70.1 setup in 30 seconds and the auto-invoice + auto-
+ * payment flows light up.
+ */
+interface SageOption { id: string; label: string }
+interface SageOptions {
+  ledger_accounts: SageOption[];
+  tax_rates: SageOption[];
+  bank_accounts: SageOption[];
+  payment_methods: SageOption[];
+}
+interface SageMetadata {
+  default_ledger_account_id?: string;
+  default_tax_rate_id?: string;
+  default_bank_account_id?: string;
+  default_payment_method_id?: string;
+  prices_include_tax?: boolean;
+}
+
+function SageCard({ companyId }: { companyId: string | null | undefined }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [options, setOptions] = useState<SageOptions>({ ledger_accounts: [], tax_rates: [], bank_accounts: [], payment_methods: [] });
+  const [metadata, setMetadata] = useState<SageMetadata>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await fetch("/api/accounting/sage/settings", { credentials: "include" });
+        const data = await r.json();
+        if (cancelled) return;
+        setConnected(!!data.connected);
+        setTokenError(data.tokenError || null);
+        setOptions(data.options || { ledger_accounts: [], tax_rates: [], bank_accounts: [], payment_methods: [] });
+        setMetadata(data.metadata || {});
+      } catch (e: any) {
+        if (!cancelled) toast({ title: "Couldn't load Sage settings", description: e?.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, toast]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch("/api/accounting/sage/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(metadata),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ title: "Couldn't save Sage settings", description: data.error || "Server error", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Sage settings saved", description: "Invoice + payment sync will use these defaults." });
+    } catch (e: any) {
+      toast({ title: "Couldn't save Sage settings", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const allFourSet = !!(metadata.default_ledger_account_id && metadata.default_tax_rate_id && metadata.default_bank_account_id);
+
+  return (
+    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 flex-wrap">
+          <Receipt className="w-5 h-5 text-blue-600" />
+          Sage Business Cloud (Pastel)
+          <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">Native OAuth</Badge>
+          {connected && allFourSet && (
+            <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">Sync ready</Badge>
+          )}
+          {connected && !allFourSet && (
+            <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 border-amber-300">Needs defaults</Badge>
+          )}
+        </CardTitle>
+        <CardDescription>
+          Sage is the SA market default -- SARS-aware, ZAR currency, comma-decimal money. Pick the four defaults below and CateringMS pushes invoices + payments straight in.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? (
+          <div className="py-6 text-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+        ) : !connected ? (
+          <>
+            <div className="bg-white rounded-lg p-3 border border-blue-100 text-xs space-y-1">
+              <p className="font-semibold text-slate-900">Once connected you'll be able to</p>
+              <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                <li>Push CateringMS invoices to Sage as sales invoices (idempotent on external_id).</li>
+                <li>Push CateringMS payments to Sage as customer receipts allocated to the matching invoice.</li>
+                <li>Auto-match Sage contacts by email; create them if absent.</li>
+                <li>Tokens auto-refresh so you don't reconnect every hour.</li>
+              </ul>
+              {tokenError && (
+                <p className="text-rose-700 mt-2"><AlertTriangle className="w-3 h-3 inline mr-1" />{tokenError}</p>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-900 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold mb-1">Connect Sage Business Cloud</p>
+                <p>Sign in once with your Sage account. CateringMS stores the OAuth tokens; pick your defaults below the moment you're back.</p>
+              </div>
+              <a
+                href={`/api/accounting/sage/authorize?companyId=${encodeURIComponent(companyId || "")}`}
+                className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
+              >
+                Connect Sage
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-white rounded-lg p-4 border border-blue-100 space-y-3">
+              <p className="text-xs text-slate-600">
+                The four defaults below tell Sage which accounts to slot CateringMS invoices + payments into. Pick once; every future sync uses them. Pulled live from your Sage tenant.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <Label htmlFor="sage_ledger">Default sales ledger account <span className="text-rose-600">*</span></Label>
+                  <select
+                    id="sage_ledger"
+                    value={metadata.default_ledger_account_id || ""}
+                    onChange={(e) => setMetadata({ ...metadata, default_ledger_account_id: e.target.value })}
+                    className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                  >
+                    <option value="">-- Pick a sales account --</option>
+                    {options.ledger_accounts.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="sage_tax">Default tax rate <span className="text-rose-600">*</span></Label>
+                  <select
+                    id="sage_tax"
+                    value={metadata.default_tax_rate_id || ""}
+                    onChange={(e) => setMetadata({ ...metadata, default_tax_rate_id: e.target.value })}
+                    className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                  >
+                    <option value="">-- Pick a tax rate (VAT 15% etc) --</option>
+                    {options.tax_rates.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="sage_bank">Default bank account (for payments) <span className="text-rose-600">*</span></Label>
+                  <select
+                    id="sage_bank"
+                    value={metadata.default_bank_account_id || ""}
+                    onChange={(e) => setMetadata({ ...metadata, default_bank_account_id: e.target.value })}
+                    className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                  >
+                    <option value="">-- Pick a bank account --</option>
+                    {options.bank_accounts.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="sage_method">Default payment method</Label>
+                  <select
+                    id="sage_method"
+                    value={metadata.default_payment_method_id || ""}
+                    onChange={(e) => setMetadata({ ...metadata, default_payment_method_id: e.target.value })}
+                    className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                  >
+                    <option value="">-- Optional, Sage picks default --</option>
+                    {options.payment_methods.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-slate-700 mt-2">
+                <input
+                  type="checkbox"
+                  checked={metadata.prices_include_tax === true}
+                  onChange={(e) => setMetadata({ ...metadata, prices_include_tax: e.target.checked })}
+                  className="rounded border-slate-300"
+                />
+                Prices on my CateringMS invoices already include tax (tick if your line prices are VAT-inclusive)
+              </label>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <a
+                  href={`/api/accounting/sage/authorize?companyId=${encodeURIComponent(companyId || "")}`}
+                  className="text-xs text-slate-500 hover:underline"
+                >
+                  Reconnect Sage
+                </a>
+                <Button onClick={save} disabled={saving || !allFourSet} className="gap-1.5">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {saving ? "Saving" : "Save defaults"}
+                </Button>
+              </div>
+              {!allFourSet && (
+                <p className="text-[11px] text-amber-700 -mt-1">
+                  Sales account, tax rate and bank account are required before the sync endpoints can push anything.
+                </p>
+              )}
+              {options.ledger_accounts.length === 0 && (
+                <p className="text-[11px] text-rose-700">
+                  No ledger accounts returned from Sage -- the token may have lost the right scope. Try "Reconnect Sage".
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
