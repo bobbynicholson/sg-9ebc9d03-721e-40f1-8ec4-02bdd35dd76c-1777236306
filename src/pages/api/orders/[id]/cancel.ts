@@ -349,6 +349,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Wave 70.51b -- Xero original-invoice void. Fires UNCONDITIONALLY
+    // for cancelled orders (not just refund-path) because the local
+    // cascade marked unpaid invoices status='voided' regardless of
+    // payout choice, and the Xero side needs to mirror that.
+    //
+    // The /void-invoices endpoint:
+    //   - Reads invoices for this order with status='voided' and
+    //     external_id set
+    //   - Skips any with amount_paid > 0 (Xero rejects VOID on paid
+    //     invoices -- credit-note path handles those)
+    //   - POSTs Xero VOID for the rest, stamps xero_voided_at
+    //
+    // Together with the credit-note push (which runs only on the
+    // refund branch above), this closes the audit gap:
+    //   - Paid + refund: credit-note (existing path) + invoice stays
+    //     AUTHORISED in Xero (correct -- it WAS issued and paid;
+    //     credit-note is the offset)
+    //   - Unpaid: Xero invoice VOIDED (new) -- ledger now matches
+    //     CateringMS's "this never happened" intent
+    //
+    // Fire-and-forget on CRON_SECRET like sync-credit-note. Re-reading
+    // the env here (rather than reusing the locally-scoped const above)
+    // because that one lives inside the refund-payout block.
+    const voidCronSecret = process.env.CRON_SECRET;
+    if (voidCronSecret) {
+      const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+      const host = req.headers.host;
+      const baseUrl = host ? `${proto}://${host}` : "";
+      if (baseUrl) {
+        void fetch(`${baseUrl}/api/accounting/xero/void-invoices`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-cms-internal": voidCronSecret },
+          body: JSON.stringify({ order_id: orderId }),
+        }).catch((e) => console.warn("[orders/cancel] xero void-invoices fire failed:", e));
+      }
+    }
+
     // Templated cancellation email -- swap to credit-paragraph variant
     // when the client picked credit, otherwise keep the refund copy.
     // bypassQuarantine=true so a quarantined client still hears about
