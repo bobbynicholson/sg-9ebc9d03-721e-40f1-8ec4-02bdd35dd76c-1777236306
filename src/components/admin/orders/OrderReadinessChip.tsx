@@ -18,6 +18,7 @@ import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, Exter
 import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderReadiness";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 
 // Wave 56 -- emerald retired in favour of green per the existing
 // TimelineTrack docstring: "green-500 (not emerald-500) is the
@@ -165,6 +166,12 @@ export function OrderReadinessChip({
         return;
       }
       toast({ title: "Order closed", description: data.message });
+      // Wave 70.40: notify every listening surface (calendar,
+      // invoices, dashboard widgets) so they refetch without a
+      // hard refresh. force-close changes status + stamps + may
+      // mark prep tasks done -- big enough state delta to ping
+      // everyone.
+      emitOrderUpdated(orderId, "readiness-chip:force-close", ["status", "prep"]);
       onActionComplete?.();
     } catch (e: any) {
       toast({ title: "Close failed", description: e?.message, variant: "destructive" });
@@ -351,6 +358,13 @@ function SignalRow({
           title: data.created > 0 ? "Prep tasks generated" : "No tasks generated",
           description: data.message,
         });
+        // Wave 70.40: only emit when something actually changed --
+        // a no-op regen (e.g. tasks already present, no menu items)
+        // shouldn't ping listeners since nothing on screen needs to
+        // refresh. created > 0 means we wrote rows.
+        if (data.created > 0) {
+          emitOrderUpdated(orderId, "readiness-chip:regenerate-prep-tasks", ["prep"]);
+        }
         onActionComplete?.();
       }
     } catch (e: any) {

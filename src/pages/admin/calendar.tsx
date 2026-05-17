@@ -30,6 +30,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { onOrderUpdated } from "@/lib/events/orderEvents";
 
 export default function ProtectedCalendarPage() {
   return (
@@ -113,12 +114,12 @@ function AdminCalendar() {
       loadOpenQuotes();
     };
     const onFocus = () => { refetch(); };
-    const onOrderUpdated = () => { refetch(); };
     window.addEventListener("focus", onFocus);
-    window.addEventListener("cateringms:order-updated", onOrderUpdated);
+    // Wave 70.40: shared helper from src/lib/events/orderEvents.
+    const offOrderUpdated = onOrderUpdated(() => { refetch(); });
     return () => {
       window.removeEventListener("focus", onFocus);
-      window.removeEventListener("cateringms:order-updated", onOrderUpdated);
+      offOrderUpdated();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);

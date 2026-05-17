@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pause } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 
 interface Props {
   open: boolean;
@@ -77,6 +78,9 @@ export function PauseOrderDialog({ open, onOpenChange, orderId, orderNumber, cli
         title: "Order paused",
         description: `${orderNumber || "Order"} is on hold. Reminders + kitchen prep are suspended; one click to resume.`,
       });
+      // Wave 70.40 -- pause flips status + suspends prep + kills
+      // email queue; ping every surface.
+      if (orderId) emitOrderUpdated(orderId, "pause-dialog:confirm", ["status", "prep"]);
       onOpenChange(false);
       if (onPaused) onPaused();
     } catch (e: any) {

@@ -34,6 +34,7 @@ import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -374,6 +375,18 @@ export default function InvoicesPage() {
       }
       clearBulkMarkPaid();
       loadInvoices();
+      // Wave 70.40 -- ping each affected order so the readiness
+      // chip's "balance_not_overdue" signal flips on /admin/orders
+      // without a refresh.
+      const affectedOrderIds = new Set<string>();
+      for (const id of ids) {
+        const inv = invoices.find((i: any) => i.id === id);
+        const orderId = inv?.order_id as string | undefined;
+        if (orderId) affectedOrderIds.add(orderId);
+      }
+      for (const orderId of affectedOrderIds) {
+        emitOrderUpdated(orderId, "admin/invoices:bulk-mark-paid", ["payments"]);
+      }
     } catch (e: any) {
       toast({
         title: "Bulk mark-paid failed",
@@ -424,12 +437,12 @@ export default function InvoicesPage() {
       loadOrders();
     };
     const onFocus = () => { refetch(); };
-    const onOrderUpdated = () => { refetch(); };
     window.addEventListener("focus", onFocus);
-    window.addEventListener("cateringms:order-updated", onOrderUpdated);
+    // Wave 70.40: shared helper from src/lib/events/orderEvents.
+    const offOrderUpdated = onOrderUpdated(() => { refetch(); });
     return () => {
       window.removeEventListener("focus", onFocus);
-      window.removeEventListener("cateringms:order-updated", onOrderUpdated);
+      offOrderUpdated();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
@@ -896,6 +909,13 @@ export default function InvoicesPage() {
         });
       }
       loadInvoices();
+      // Wave 70.40 -- invoice send touches sent_at + status, both of
+      // which drive the OrderReadinessChip's "invoice_sent" signal
+      // on /admin/orders. Emit so that page lights up the chip in
+      // real time when the user comes back.
+      if (invoice.order_id) {
+        emitOrderUpdated(invoice.order_id, "admin/invoices:send");
+      }
     } catch (e: any) {
       toast({
         title: "Email sent, but status didn't update",
@@ -2250,7 +2270,14 @@ export default function InvoicesPage() {
         open={!!markPaidInvoice}
         invoice={markPaidInvoice}
         onOpenChange={(o) => { if (!o) setMarkPaidInvoice(null); }}
-        onPaid={() => loadInvoices()}
+        onPaid={() => {
+          // Wave 70.40 -- ping the order so the readiness chip's
+          // "balance_not_overdue" signal flips on /admin/orders +
+          // dashboard widgets pick up the new paid state.
+          const orderId = (markPaidInvoice as any)?.order_id;
+          if (orderId) emitOrderUpdated(orderId, "admin/invoices:row-mark-paid", ["payments"]);
+          loadInvoices();
+        }}
         formatMoney={tenantMoney.format}
       />
     </div>

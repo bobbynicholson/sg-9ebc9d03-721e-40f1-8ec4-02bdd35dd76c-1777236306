@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Camera, FileSignature, AlertCircle, X, Eraser } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
@@ -181,6 +182,10 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       }
 
       toast({ title: "Delivery confirmed", description: clientName ? `${clientName} marked delivered.` : "Order marked delivered." });
+      // Wave 70.40 -- POD upload flips status to delivered, stamps
+      // delivery time, may cascade equipment-cleaning rows. Big
+      // delta -- ping every listener.
+      emitOrderUpdated(orderId, "driver:pod-upload", ["status"]);
       onOpenChange(false);
       onSaved?.();
     } catch (e: any) {

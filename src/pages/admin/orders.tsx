@@ -19,6 +19,7 @@ import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPan
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
 import { OrderTimesStrip } from "@/components/admin/orders/OrderTimesStrip";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -2402,19 +2403,11 @@ function OrderProcessDashboard() {
         setEditMode(false);
         setPriceAdjustOpen(false);
         loadOrders();
-        // Wave 70.37 -- broadcast a window-level event so other
-        // open surfaces (calendar, dashboard widgets, etc.) can
-        // refetch and pick up the change. Without this, Bobby's
-        // date edit only updated /admin/orders -- the calendar
-        // continued to show the old date until he hard-refreshed
-        // or navigated away and back. Listeners just call their
-        // own loadOrders(); the payload is the order id so they
-        // can do targeted refreshes later if they want.
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("cateringms:order-updated", {
-            detail: { orderId: editedOrder.id, source: "admin/orders" },
-          }));
-        }
+        // Wave 70.37 / 70.40 -- broadcast via the shared helper so
+        // all listening surfaces (calendar, invoices, dashboard
+        // widgets) refetch automatically. See src/lib/events/
+        // orderEvents.ts for the listener pattern.
+        emitOrderUpdated(editedOrder.id, "admin/orders:save");
       } catch (error: any) {
         toast({
           title: "Error",
@@ -2600,6 +2593,8 @@ function OrderProcessDashboard() {
                               await loadOrders();
                               setSelectedOrder(json.order);
                               setEditedOrder(json.order);
+                              // Wave 70.40 -- broadcast for cross-page listeners.
+                              emitOrderUpdated(selectedOrder.id, "admin/orders:resume", ["status", "prep"]);
                             } catch (e: any) {
                               toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
                             }
@@ -4275,6 +4270,12 @@ function OrderProcessDashboard() {
               onCancelled={() => {
                 setIsModalOpen(false);
                 loadOrders();
+                // Wave 70.40 -- cancel cascades (status flip + refund
+                // payments row + equipment release + comms stop).
+                // Every listener that shows this order needs to refetch.
+                if (selectedOrder?.id) {
+                  emitOrderUpdated(selectedOrder.id, "admin/orders:cancel", ["status", "payments"]);
+                }
               }}
             />
 

@@ -39,6 +39,7 @@ import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 
 interface OrderRow {
   id: string;
@@ -429,12 +430,18 @@ function DispatchQueuePage() {
               });
               loadAll();
               toast({ title: "Reverted", description: assignTarget.client_name });
+              // Wave 70.40 -- ping listeners; driver was unassigned.
+              emitOrderUpdated(assignTarget.id, "dispatch:unassign-driver", ["driver"]);
             }}
           >Undo</ToastAction>
         ),
       });
       setAssignOpen(false);
       loadAll();
+      // Wave 70.40 -- broadcast so the calendar's per-event "No
+      // driver assigned" issue badge clears + readiness chip on
+      // /admin/orders flips green without a refresh.
+      emitOrderUpdated(assignTarget.id, "dispatch:assign-driver", ["driver"]);
     } finally {
       setAssignSaving(false);
     }
@@ -471,6 +478,11 @@ function DispatchQueuePage() {
       setSelected(new Set());
       setBulkOpen(false);
       loadAll();
+      // Wave 70.40 -- broadcast for every successfully-assigned order.
+      const successIds = ids.filter(id => !r.errors.some((e: any) => e.orderId === id));
+      for (const id of successIds) {
+        emitOrderUpdated(id, "dispatch:bulk-assign", ["driver"]);
+      }
     } finally {
       setBulkSaving(false);
     }
@@ -493,6 +505,8 @@ function DispatchQueuePage() {
           : "Order is back in the unassigned queue.",
       });
       loadAll();
+      // Wave 70.40 -- ping listeners; driver was unassigned.
+      emitOrderUpdated(order.id, "dispatch:unassign-driver", ["driver"]);
     } catch (e: any) {
       toast({
         title: "Could not remove driver",
