@@ -424,14 +424,84 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
     lines.push({ resource: "cleaning_event_handover", action: "skipped (mode!=cancel)" });
   }
 
+  // ── 11. Linked quote -> rejected with structured lost_reason (Wave 70.50a) ──
+  // Audit gap: a cancelled order's parent quote stayed `accepted`
+  // forever, inflating conversion-rate stats permanently (you won the
+  // pitch on paper even though the gig never happened). Now: when an
+  // order is cancelled, find its quote via orders.quote_id and flip
+  // it to status='rejected' + lost_reason='order_cancelled' +
+  // rejected_at=now. The won_then_cancelled_quotes view picks these
+  // up for the "churned" bucket on the conversion funnel (Wave 70.50b).
+  //
+  // Only fires on mode='cancel' -- postpone keeps the quote alive
+  // (the same event happens on a new date), reject mode doesn't apply
+  // (no order to read quote_id from).
+  if (mode === "cancel") {
+    await tryUpdate("quotes.linked_lost", "rejected", async () => {
+      // Need the order's quote_id first. Single-row lookup; tolerant
+      // of missing FK (order may have been entered manually without
+      // a quote, in which case nothing to flip).
+      const { data: orderRow } = await sb
+        .from("orders")
+        .select("quote_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      const quoteId = (orderRow as any)?.quote_id;
+      if (!quoteId) {
+        // Treat as a no-op success -- not every order has a quote.
+        return { count: 0 };
+      }
+      // Only flip if quote is still in a non-terminal state. A quote
+      // that was already rejected / expired stays as-is so we don't
+      // clobber a more-specific lost_reason set by an earlier
+      // workflow.
+      const { count, error } = await sb
+        .from("quotes")
+        .update({
+          status: "rejected",
+          lost_reason: "order_cancelled",
+          rejected_at: nowIso,
+        }, { count: "exact" })
+        .eq("id", quoteId)
+        .in("status", ["draft", "sent", "accepted"]);
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "quotes.linked_lost", action: "skipped (mode!=cancel)" });
+  }
+
+  // ── 12. Linked lead -> lost (Wave 70.50a) ───────────────────────────
+  // Audit gap: quote-rejection (client decline) DID auto-flip the
+  // parent lead to 'lost' (see /api/public/quotes/[token]/reject.ts)
+  // but order-cancellation did NOT, leaving an inconsistent state
+  // where a "won" lead's order could be cancelled and the lead would
+  // still show in the sales scorecard as won. Now: walk lead links
+  // via leads.source_order_id and flip to 'lost' +
+  // lost_reason='order_cancelled' + lost_at=now.
+  if (mode === "cancel") {
+    await tryUpdate("leads.linked_lost", "lost", async () => {
+      const { count, error } = await sb
+        .from("leads")
+        .update({
+          status: "lost",
+          lost_reason: "order_cancelled",
+          lost_at: nowIso,
+        }, { count: "exact" })
+        .eq("source_order_id", orderId)
+        // Skip leads already in a terminal state -- don't clobber
+        // a manually-set lost_reason or won_at.
+        .not("status", "in", "(lost,won)");
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "leads.linked_lost", action: "skipped (mode!=cancel)" });
+  }
+
   // ────────────────────────────────────────────────────────────────────
-  // Wave 70.49 hooks land here -- driver_assignments cascade,
-  // equipment_hire_orders cascade, secondary_*_id nulling helper,
-  // outsource provider notification queue. They get appended to this
-  // function so cancelOrder() never has to change again.
-  // Wave 70.50 hooks: markLinkedQuoteAsLost, lead -> 'lost' flip.
-  // Wave 70.51 hooks: shopping_list_items.source_order_id cascade,
-  // invoices 'voided' status, Xero original-invoice void.
+  // Wave 70.51 hooks land here: shopping_list_items.source_order_id
+  // cascade, invoices 'voided' status (vs current 'written_off'),
+  // Xero original-invoice void, structured cancellation_reason_category
+  // enum at the DB level.
   // ────────────────────────────────────────────────────────────────────
 
   return {

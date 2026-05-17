@@ -521,6 +521,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         "equipment_hire_orders",
         "driver_assignments",
         "orders.secondary_assignments",
+        // Wave 70.50a -- linked quote + lead flips.
+        "quotes.linked_lost",
+        "leads.linked_lost",
       ];
       const missing = expected.filter((r) => !got.includes(r));
       if (missing.length > 0) {
