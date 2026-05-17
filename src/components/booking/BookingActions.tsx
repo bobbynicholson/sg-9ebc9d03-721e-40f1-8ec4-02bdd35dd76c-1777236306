@@ -102,10 +102,16 @@ export function BookingActions({ variant, actions, sticky = false }: BookingActi
 
   return (
     <div
+      // Wave 70.44 -- no-print hides the action bar on PDF / paper
+      // output. Action buttons are useless on a printed page (no
+      // one's clicking "Mark paid" on a sheet of paper), and the
+      // sticky variant in particular would print as a stuck banner
+      // on every page. Surfaces that want the bar on print can
+      // override by mounting their own copy without the class.
       className={
         sticky
-          ? "fixed bottom-0 left-0 right-0 lg:left-64 xl:left-72 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-lg"
-          : "rounded-lg border border-slate-200 bg-white"
+          ? "no-print fixed bottom-0 left-0 right-0 lg:left-64 xl:left-72 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-lg"
+          : "no-print rounded-lg border border-slate-200 bg-white"
       }
     >
       <div className={sticky ? "max-w-screen-2xl mx-auto px-4 py-3" : "px-4 py-3"}>

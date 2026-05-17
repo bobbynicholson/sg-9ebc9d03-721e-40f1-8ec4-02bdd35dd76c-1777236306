@@ -56,8 +56,12 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
   const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
 
   // Money summary -- the admin always sees totals.
+  // Wave 70.44 -- print-mode: gradients flatten to white, shadows
+  // drop, border becomes a thin slate-400 line for cleaner PDF
+  // output. Same treatment applied to every Card in the admin
+  // variant below.
   const moneyBlock = (
-    <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
+    <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Money</p>
         <div className="grid grid-cols-3 gap-3">
@@ -143,7 +147,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
             <Link
               key={p.key}
               href={withSlug(p.href)}
-              className={`block rounded-lg border ${tone.card} p-3 hover:brightness-105 transition-all`}
+              className={`block rounded-lg border ${tone.card} p-3 hover:brightness-105 transition-all print:bg-white print:border-slate-300 print:hover:brightness-100`}
               title={`${p.title}: ${p.status.label}`}
             >
               <div className="flex items-start gap-2 mb-1.5">
@@ -200,7 +204,7 @@ function ClientFacts({ facts }: { facts: BookingFactsClient }) {
   const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
   return (
     <div className="space-y-3">
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Your order</p>
           <div className="grid grid-cols-3 gap-3 mb-3">
@@ -257,7 +261,7 @@ function KitchenFacts({ facts }: { facts: BookingFactsKitchen }) {
           to be ready? Driver pickup_time is the deadline; setup_time
           is the kitchen's setup window. NO money fields anywhere on
           the kitchen variant -- stripped server-side. */}
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-red-50">
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-red-50 print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-orange-700 font-bold mb-2">Kitchen timing</p>
           <div className="grid grid-cols-3 gap-3">
@@ -317,7 +321,7 @@ function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
     : null;
   return (
     <div className="space-y-3">
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-blue-700 font-bold mb-2">Run sheet</p>
           <div className="grid grid-cols-3 gap-3">
@@ -376,7 +380,7 @@ function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
 function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
   const handoverHref = facts.handover.id ? `/team-portal/cleaning/handovers/${facts.handover.id}` : null;
   return (
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-cyan-50 to-blue-50">
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-cyan-50 to-blue-50 print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-widest text-cyan-700 font-bold mb-2 flex items-center gap-1.5">
           <Sparkles className="w-3 h-3" />
@@ -417,7 +421,7 @@ function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
 
 function ShoppingFacts({ facts }: { facts: BookingFactsShopping }) {
   return (
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50">
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-widest text-emerald-700 font-bold mb-2 flex items-center gap-1.5">
           <ShoppingBag className="w-3 h-3" />

@@ -145,13 +145,21 @@ export function BookingHeader({
   return (
     <div
       className={cn(
-        "relative w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white",
+        // Wave 70.44 -- print-clean by default. shadow-sm is dropped
+        // on print (browsers ignore box-shadow anyway, but explicit
+        // for clarity) and the rounded corners flatten to sharp on
+        // paper for a cleaner header band on PDFs.
+        "relative w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white print:rounded-none print:shadow-none print:border-slate-400",
         compact ? "" : "",
       )}
     >
       {/* Branded gradient bar -- the only place the tenant's primary
           + secondary colours surface in this header. Slim on compact,
-          full hero on default. */}
+          full hero on default.
+          Wave 70.44 -- on print, the gradient flattens to the brand
+          primary as a solid colour (browsers render gradients
+          inconsistently in print contexts; a flat colour is reliable
+          and still tenant-branded). */}
       <div
         className={cn("w-full", compact ? "h-1.5" : "h-2")}
         style={{ background: `linear-gradient(90deg, ${primary} 0%, ${secondary} 100%)` }}

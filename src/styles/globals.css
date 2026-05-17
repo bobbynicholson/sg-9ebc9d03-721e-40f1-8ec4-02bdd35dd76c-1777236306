@@ -102,6 +102,24 @@
   }
 }
 
+/* Wave 70.44 -- shared print utilities.
+   The codebase has 5+ surfaces that print (kitchen ticket, delivery
+   sheet, invoice, quote, payment). Each owns its own page-level
+   @media print rules. These two utilities give every surface a
+   consistent escape hatch:
+     .no-print  -> hide on print (action bars, sticky FABs, edit
+                   buttons, anything that needs a tap to be useful)
+     .print-only -> show only when printing (e.g. a small "Printed
+                    on" footer that's irrelevant on screen)
+   The Booking* components (Wave 70.41-70.43) use .no-print on the
+   action bar so printed pages don't carry buttons no one will tap. */
+@media print {
+  .no-print { display: none !important; }
+}
+@media not print {
+  .print-only { display: none !important; }
+}
+
 /* Mobile-First Responsive Utilities */
 @layer utilities {
   /* Touch-friendly tap targets (minimum 44x44px) */
