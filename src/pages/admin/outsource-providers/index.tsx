@@ -78,6 +78,9 @@ import {
   ExternalLink,
   Star,
   Loader2,
+  Send,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
 interface FormState {
@@ -323,6 +326,13 @@ function ProvidersList() {
               Add provider
             </Button>
           </div>
+
+          {/* Wave 70.4 -- cron dry-run tester. Hits both outsource
+              comms crons with dryRun=1 so an admin can verify the
+              window logic + dedup + recipient resolution on prod
+              data without sending a single email. Surfaces who
+              would have been notified in the next firing window. */}
+          <CronDryRunPanel />
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -726,6 +736,141 @@ function ProvidersList() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+/**
+ * Wave 70.4 -- E2E test panel for the two outsource-comms crons.
+ *
+ * Hits both crons with ?dryRun=1 and renders who would have been
+ * emailed in the next firing window (24-36h ahead for pre-event,
+ * 24-72h behind for post-event thanks). No emails go out; no
+ * email_automation_log rows get written; cron auth bypassed in
+ * favour of SSR owner/admin gating.
+ *
+ * Lets ops sanity-check the window logic + dedup on prod data
+ * without committing to a real send. If the candidate set comes
+ * back empty when it shouldn't (or non-empty when it shouldn't),
+ * we catch it here before Vercel's cron fires the real thing
+ * at the top of the hour.
+ */
+interface DryRunResult {
+  ok?: boolean;
+  dryRun?: boolean;
+  windowStart?: string;
+  windowEnd?: string;
+  candidates?: number;
+  sent?: number;
+  skipped?: number;
+  errors?: string[];
+  preview?: Array<{ assignment_id: string; provider_email: string; order_id: string; subject: string }>;
+  error?: string;
+}
+
+function CronDryRunPanel() {
+  const { toast } = useToast();
+  const [pre, setPre] = useState<DryRunResult | null>(null);
+  const [post, setPost] = useState<DryRunResult | null>(null);
+  const [busy, setBusy] = useState<"pre" | "post" | null>(null);
+
+  const run = async (kind: "pre" | "post") => {
+    setBusy(kind);
+    const path = kind === "pre"
+      ? "/api/cron/outsource-pre-event-reminder?dryRun=1"
+      : "/api/cron/outsource-post-event-thanks?dryRun=1";
+    try {
+      const r = await fetch(path, { credentials: "include" });
+      const data = (await r.json()) as DryRunResult;
+      if (kind === "pre") setPre(data);
+      else setPost(data);
+      if (!r.ok) {
+        toast({ title: "Dry-run failed", description: data.error || `HTTP ${r.status}`, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Dry-run failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const renderResult = (r: DryRunResult | null) => {
+    if (!r) return null;
+    if (r.error) {
+      return <p className="text-xs text-rose-700"><AlertTriangle className="w-3 h-3 inline mr-1" />{r.error}</p>;
+    }
+    return (
+      <div className="text-xs text-slate-700 space-y-1">
+        <p>
+          Window: <span className="font-mono">{r.windowStart?.slice(0, 16)}</span> &rarr; <span className="font-mono">{r.windowEnd?.slice(0, 16)}</span>
+        </p>
+        <p>
+          Candidates in window: <span className="font-semibold">{r.candidates ?? 0}</span>. Would email: <span className="font-semibold text-emerald-700">{r.sent ?? 0}</span>. Skipped (dedup / no email): <span className="font-semibold text-slate-500">{r.skipped ?? 0}</span>.
+        </p>
+        {r.preview && r.preview.length > 0 && (
+          <div className="mt-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md bg-white">
+            <table className="w-full text-[11px]">
+              <thead className="text-slate-500 bg-slate-50">
+                <tr>
+                  <th className="text-left px-2 py-1">Provider email</th>
+                  <th className="text-left px-2 py-1">Subject</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.preview.map((p) => (
+                  <tr key={p.assignment_id} className="border-t border-slate-100">
+                    <td className="px-2 py-1 font-mono">{p.provider_email}</td>
+                    <td className="px-2 py-1 truncate max-w-md" title={p.subject}>{p.subject}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {r.errors && r.errors.length > 0 && (
+          <p className="text-rose-700 text-[11px]"><AlertTriangle className="w-3 h-3 inline mr-1" />{r.errors.length} error(s): {r.errors.slice(0, 2).join("; ")}</p>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Card className="mb-4 border-amber-200 bg-amber-50">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start gap-3 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-900 inline-flex items-center gap-1.5">
+              <Send className="w-4 h-4 text-amber-700" />
+              Cron dry-run (no emails sent)
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Preview who the pre-event reminder + post-event thanks crons would email on their next firing. Useful right before going live with provider comms.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => run("pre")} disabled={busy !== null} className="gap-1.5 bg-white">
+              {busy === "pre" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              Test pre-event (24-36h ahead)
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => run("post")} disabled={busy !== null} className="gap-1.5 bg-white">
+              {busy === "post" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              Test post-event (24-72h behind)
+            </Button>
+          </div>
+        </div>
+        {pre && (
+          <div className="rounded-md bg-white border border-amber-200 p-3">
+            <p className="text-xs font-semibold text-slate-900 mb-1">Pre-event reminder</p>
+            {renderResult(pre)}
+          </div>
+        )}
+        {post && (
+          <div className="rounded-md bg-white border border-amber-200 p-3">
+            <p className="text-xs font-semibold text-slate-900 mb-1">Post-event thanks + invoice nudge</p>
+            {renderResult(post)}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

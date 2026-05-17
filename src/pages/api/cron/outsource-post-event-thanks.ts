@@ -19,10 +19,31 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
+  // Wave 70.4 -- dry-run mode for E2E verification. See the sibling
+  // pre-event reminder cron for the full rationale. Auth: SSR owner /
+  // admin in dry-run, CRON_SECRET in production.
+  const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
+
+  if (!dryRun) {
+    const provided = req.headers.authorization || "";
+    const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+    if (expected && provided !== expected) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  } else {
+    try {
+      const { createPagesServerClient } = await import("@/lib/supabase/server");
+      const ssr = createPagesServerClient({ req, res });
+      const { data: { user } } = await ssr.auth.getUser();
+      if (!user) return res.status(401).json({ error: "Sign in required for dry-run" });
+      const { data: profile } = await ssr.from("profiles").select("role, active_role").eq("id", user.id).maybeSingle();
+      const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
+      if (!new Set(["super_admin", "company_admin", "admin", "owner"]).has(role)) {
+        return res.status(403).json({ error: "Owner / admin only" });
+      }
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message || "auth check failed" });
+    }
   }
 
   try {
@@ -57,12 +78,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    const { emailService } = await import("@/services/emailService");
+    const { emailService } = dryRun
+      ? { emailService: { sendEmail: async (_args: any) => true } as { sendEmail: (args: any) => Promise<boolean> } }
+      : await import("@/services/emailService");
     const recentIso = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     let sent = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const preview: Array<{ assignment_id: string; provider_email: string; order_id: string; subject: string }> = [];
 
     for (const a of assignments as any[]) {
       try {
@@ -115,6 +139,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           `Cheers!`,
         ].filter(Boolean).join("\n");
 
+        if (dryRun) {
+          preview.push({ assignment_id: a.id, provider_email: providerEmail, order_id: a.order_id, subject });
+          sent += 1;
+          continue;
+        }
+
         const result = await emailService.sendEmail({
           companyId: a.company_id,
           to: providerEmail,
@@ -132,7 +162,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    return res.status(200).json({ ok: true, sent, skipped, errors });
+    return res.status(200).json({
+      ok: true,
+      dryRun,
+      windowStart,
+      windowEnd,
+      candidates: assignments.length,
+      sent,
+      skipped,
+      errors,
+      ...(dryRun ? { preview } : {}),
+    });
   } catch (err: any) {
     console.error("[outsource-post-event-thanks] crashed:", err);
     return res.status(500).json({ error: err?.message || "Cron crashed" });
