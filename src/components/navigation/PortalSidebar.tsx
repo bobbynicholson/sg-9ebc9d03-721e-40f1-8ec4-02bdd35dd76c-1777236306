@@ -106,8 +106,9 @@ export interface PortalSidebarConfig {
   /** Wave 70.7 -- optional smart quick action provider for the
    *  mobile drawer. When supplied, overrides the static
    *  mobileQuickActions list with a context-aware set (e.g.
-   *  rotating by service mode). */
-  renderMobileQuickActions?: () => React.ReactNode;
+   *  rotating by service mode). Receives `onNavigate` so the
+   *  custom component can close the drawer after a tap. */
+  renderMobileQuickActions?: (ctx: { onNavigate: () => void }) => React.ReactNode;
 }
 
 interface PortalSidebarProps {
@@ -233,7 +234,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div className="space-y-3">
             <MobileSearchTrigger accent={config.searchAccent} hint={config.searchHint} />
             {config.renderMobileQuickActions ? (
-              config.renderMobileQuickActions()
+              config.renderMobileQuickActions({ onNavigate: () => setOpen(false) })
             ) : (
               <MobileQuickActions
                 onNavigate={() => setOpen(false)}

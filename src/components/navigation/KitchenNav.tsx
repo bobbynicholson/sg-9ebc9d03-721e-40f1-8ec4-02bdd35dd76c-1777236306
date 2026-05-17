@@ -39,6 +39,9 @@ import {
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 import { useKitchenLiveCounts } from "@/hooks/useKitchenLiveCounts";
 import { usePortalServiceMode } from "@/hooks/usePortalServiceMode";
+import { KitchenServiceModeBadge } from "@/components/kitchen/KitchenServiceModeBadge";
+import { KitchenLiveStateStrip } from "@/components/kitchen/KitchenLiveStateStrip";
+import { KitchenSmartQuickActions } from "@/components/kitchen/KitchenSmartQuickActions";
 
 interface KitchenNavProps {
   className?: string;
@@ -72,6 +75,15 @@ export function KitchenNav(_: KitchenNavProps = {}) {
       { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
       { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: "from-emerald-500 to-teal-500" },
     ],
+    renderTopSlot: () => (
+      <div className="space-y-2">
+        <KitchenServiceModeBadge />
+        <KitchenLiveStateStrip />
+      </div>
+    ),
+    renderMobileQuickActions: ({ onNavigate }) => (
+      <KitchenSmartQuickActions onNavigate={onNavigate} />
+    ),
     sections: [
       {
         id: "live-now",
