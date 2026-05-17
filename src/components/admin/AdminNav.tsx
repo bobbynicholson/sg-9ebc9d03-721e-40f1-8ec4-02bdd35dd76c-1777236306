@@ -550,7 +550,12 @@ export function AdminNav({ className }: AdminNavProps) {
         data-active={opts.active ? "true" : undefined}
         title={opts.collapsed ? item.title : ""}
         className={cn(
-          "group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          // Wave 70.41b -- overflow-hidden so badges + descriptions
+          // never bleed outside the sidebar's right edge (Bobby
+          // flagged the "1 gap" badge on Dispatch leaking into the
+          // main content area). Combined with the badge max-width
+          // below this caps the row content within the row width.
+          "group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
           opts.active
             ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-sm"
             : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
@@ -569,11 +574,16 @@ export function AdminNav({ className }: AdminNavProps) {
             {badge && !opts.active && (
               <span
                 className={cn(
-                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums flex-shrink-0",
+                  // Wave 70.41b -- max-width + truncate cap badge
+                  // width so badges with long text ("12 overdue")
+                  // don't push the row past the sidebar edge.
+                  // title attribute preserves the full text on hover.
+                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
                   badgeTone,
                   badge.pulse ? "motion-safe:animate-pulse" : "",
                 )}
                 aria-label={badge.text}
+                title={badge.text}
               >
                 {badge.text}
               </span>

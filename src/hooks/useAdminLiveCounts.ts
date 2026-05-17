@@ -175,14 +175,28 @@ export function useAdminLiveCounts(): AdminLiveCounts {
           })()
         : Promise.resolve({ data: [] });
 
+      // Wave 70.41b -- fixed three bugs in the previous query:
+      //   1. Wrong column: was amount_due, real column is balance_due.
+      //   2. Wrong status: no "unpaid" value exists in the
+      //      invoice_status enum (draft / sent / paid / partially_paid
+      //      / overdue / written_off). The canonical "outstanding"
+      //      set is (sent, partially_paid, overdue) with balance > 0,
+      //      matching how /admin/invoices's own Outstanding tile
+      //      computes the number.
+      //   3. Wrong date filter: .lt("due_date", todayIso) only caught
+      //      overdue invoices. Bobby's screenshot showed R6,113 owed
+      //      on invoices with future event dates -- our pill said R0.
+      //      Dropping the date filter so the pill now matches the
+      //      page's Outstanding total. (Overdue can still surface as
+      //      its own pill in a future wave if useful.)
       const unpaidQ = canSeeFinance
         ? (() => {
             const q = sb
               .from("invoices")
-              .select("amount_due")
+              .select("balance_due")
               .eq("company_id", companyId)
-              .eq("status", "unpaid")
-              .lt("due_date", todayIso);
+              .in("status", ["sent", "partially_paid", "overdue"])
+              .gt("balance_due", 0);
             if (regionFilterId) q.eq("region_id", regionFilterId);
             return q;
           })()
@@ -212,8 +226,8 @@ export function useAdminLiveCounts(): AdminLiveCounts {
       const revRows = (revenueRes?.data as Array<{ total_amount: number | null }> | null) || [];
       setRevenueToday(revRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0));
 
-      const unpaidRows = (unpaidRes?.data as Array<{ amount_due: number | null }> | null) || [];
-      setUnpaidValue(unpaidRows.reduce((sum, r) => sum + Number(r.amount_due || 0), 0));
+      const unpaidRows = (unpaidRes?.data as Array<{ balance_due: number | null }> | null) || [];
+      setUnpaidValue(unpaidRows.reduce((sum, r) => sum + Number(r.balance_due || 0), 0));
 
       setRefreshedAt(new Date().toISOString());
       setError(null);

@@ -100,7 +100,12 @@ export function AdminLiveStateStrip() {
     return tenantCurrency.format(Math.round(n), 0);
   };
 
-  // Row 1: ops signals (always shown).
+  // Wave 70.41b -- shortened labels so they fit the 256-288px sidebar
+  // without truncating to "OVER..." / "REVEN..." / "ALERT..." which
+  // Bobby flagged as confusing. Each label now <= 6 chars, fits the
+  // pill's ~70-80px column at 9px text comfortably. Full meaning is
+  // surfaced via the aria/title tooltip so hovering gives the long
+  // form ("Quotes overdue > 48h", "Today's revenue", etc).
   const row1: Pill[] = [
     {
       key: "events",
@@ -124,12 +129,12 @@ export function AdminLiveStateStrip() {
     },
     {
       key: "quotes",
-      label: "Overdue",
+      label: "Quotes",
       value: counts.loading ? "…" : String(counts.quotesOverdue),
       icon: FileSpreadsheet,
       tone: counts.quotesOverdue > 0 ? "warning" : "muted",
       href: "/admin/quotes",
-      aria: `${counts.quotesOverdue} quote${counts.quotesOverdue === 1 ? "" : "s"} unanswered for > 48h. Tap to follow up.`,
+      aria: `${counts.quotesOverdue} quote${counts.quotesOverdue === 1 ? "" : "s"} overdue (> 48h with no client response). Tap to follow up.`,
     },
   ];
 
@@ -138,12 +143,12 @@ export function AdminLiveStateStrip() {
   if (counts.canSeeFinance) {
     row2.push({
       key: "revenue",
-      label: "Revenue",
+      label: "Today",
       value: counts.loading ? "…" : fmtMoney(counts.revenueToday),
       icon: DollarSign,
       tone: counts.revenueToday > 0 ? "info" : "muted",
       href: "/admin/financial-dashboard",
-      aria: `Revenue today: ${tenantCurrency.format(counts.revenueToday)}. Tap to open the financial dashboard.`,
+      aria: `Today's revenue: ${tenantCurrency.format(counts.revenueToday)}. Tap to open the financial dashboard.`,
     });
     row2.push({
       key: "unpaid",
@@ -152,14 +157,16 @@ export function AdminLiveStateStrip() {
       icon: Wallet,
       tone: counts.unpaidValue > 0 ? "warning" : "muted",
       href: "/admin/invoices",
-      aria: `Overdue invoices total: ${tenantCurrency.format(counts.unpaidValue)}. Tap to chase.`,
+      // Wave 70.41b -- aria text updated to match the new query
+      // semantics (all outstanding, not just past-due overdue).
+      aria: `Outstanding invoices total: ${tenantCurrency.format(counts.unpaidValue)}. Tap to chase.`,
     });
   } else {
     // Non-finance: replace money pills with new-leads + dispatch-gaps
     // so the row still earns its space.
     row2.push({
       key: "leads",
-      label: "New leads",
+      label: "Leads",
       value: counts.loading ? "…" : String(counts.newLeadsToday),
       icon: UserPlus,
       tone: counts.newLeadsToday > 0 ? "info" : "muted",
@@ -210,7 +217,12 @@ export function AdminLiveStateStrip() {
         </span>
         <span className="min-w-0">
           <span className="block text-[14px] font-bold tabular-nums leading-none">{p.value}</span>
-          <span className="block text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none truncate">{p.label}</span>
+          {/* Wave 70.41b -- dropped truncate so labels that don't fit
+              break to a second line rather than collapsing to
+              "OVER..." / "REVEN...". With the shortened labels above
+              this should only trigger on the very narrow xl-collapsed
+              sidebar state, and a 2-line label still reads correctly. */}
+          <span className="block text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none">{p.label}</span>
         </span>
       </Link>
     );

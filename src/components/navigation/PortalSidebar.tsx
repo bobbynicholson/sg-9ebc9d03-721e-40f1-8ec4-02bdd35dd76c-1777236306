@@ -186,7 +186,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         href={withSlug(item.href)}
         onClick={onClickAfterNav}
         className={cn(
-          "group flex items-center gap-3 rounded-lg transition-all",
+          // Wave 70.41b -- overflow-hidden so long badges + descriptions
+          // never bleed outside the sidebar's right edge. Matches the
+          // AdminNav fix Bobby flagged on "1 gap" badge overflow.
+          "group flex items-center gap-3 rounded-lg transition-all overflow-hidden",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-4 py-3 text-sm font-medium",
           config.hoverClasses,
           active
@@ -218,11 +221,17 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             {badge && !active && (
               <span
                 className={cn(
-                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums",
+                  // Wave 70.41b -- max-width + truncate so long badge
+                  // text doesn't push the row past the sidebar edge.
+                  // flex-shrink-0 keeps the badge from being squashed
+                  // when the title is short; max-w + truncate cap it
+                  // when the title is long.
+                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
                   badgeTone,
                   badge.pulse ? "motion-safe:animate-pulse" : "",
                 )}
                 aria-label={badge.text}
+                title={badge.text}
               >
                 {badge.text}
               </span>

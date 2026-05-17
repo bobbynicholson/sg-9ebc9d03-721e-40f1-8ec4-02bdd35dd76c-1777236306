@@ -152,7 +152,7 @@ export function CleaningLiveStateStrip() {
               <span className="block text-[14px] font-bold tabular-nums leading-none">
                 {p.value}
               </span>
-              <span className="block text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none truncate">
+              <span className="block text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none">
                 {p.label}
               </span>
             </span>
