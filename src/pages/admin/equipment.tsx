@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X, RefreshCw,
+  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X, RefreshCw, Sparkles,
 } from "lucide-react";
 import {
   listUpcomingReservations, getEquipmentAvailability,
@@ -75,6 +75,15 @@ interface EquipmentRow {
   image_url?: string | null;
   replacement_cost?: number | null;
   cleaning_time_hours?: number | null;
+  // Wave 70.24 -- per-equipment cleaning flags. Drive the cleaning
+  // portal's filtering + the auto-trigger that creates
+  // cleaning_jobs on order delivery.
+  requires_cleaning?: boolean | null;
+  dishwasher_safe?: boolean | null;
+  cleaning_time_manual_minutes?: number | null;
+  cleaning_time_dishwasher_minutes?: number | null;
+  is_hire_in?: boolean | null;
+  supplier_cleans?: boolean | null;
   // Phase 5 #1: maintenance log fields. Backed by Phase 4 #6
   // schema. service_interval_days NULL means "no recurring
   // schedule"; the cron leaves these alone.
@@ -82,6 +91,29 @@ interface EquipmentRow {
   last_serviced_at?: string | null;
   next_service_due?: string | null;
 }
+
+// Wave 70.24 -- category-driven smart defaults for the cleaning
+// flags. Mirrors the migration's backfill SQL so a fresh tenant
+// picking a category gets sensible defaults without having to
+// understand every checkbox.
+const CLEANING_DEFAULTS_BY_CATEGORY: Record<string, {
+  requires_cleaning: boolean;
+  dishwasher_safe: boolean;
+  cleaning_time_manual_minutes: number | null;
+  cleaning_time_dishwasher_minutes: number | null;
+}> = {
+  cutlery:   { requires_cleaning: true,  dishwasher_safe: true,  cleaning_time_manual_minutes: 0.5, cleaning_time_dishwasher_minutes: 0.2 },
+  crockery:  { requires_cleaning: true,  dishwasher_safe: true,  cleaning_time_manual_minutes: 1,   cleaning_time_dishwasher_minutes: 0.5 },
+  glassware: { requires_cleaning: true,  dishwasher_safe: true,  cleaning_time_manual_minutes: 1.5, cleaning_time_dishwasher_minutes: 0.5 },
+  chafing:   { requires_cleaning: true,  dishwasher_safe: false, cleaning_time_manual_minutes: 10,  cleaning_time_dishwasher_minutes: null },
+  serving:   { requires_cleaning: true,  dishwasher_safe: false, cleaning_time_manual_minutes: 10,  cleaning_time_dishwasher_minutes: null },
+  linen:     { requires_cleaning: true,  dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+  tables:    { requires_cleaning: false, dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+  chairs:    { requires_cleaning: false, dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+  lighting:  { requires_cleaning: false, dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+  gas:       { requires_cleaning: false, dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+  decor:     { requires_cleaning: false, dishwasher_safe: false, cleaning_time_manual_minutes: null, cleaning_time_dishwasher_minutes: null },
+};
 
 const SUGGESTED_CATEGORIES = [
   "chafing", "tables", "chairs", "linen", "crockery", "cutlery",
@@ -344,6 +376,21 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         is_available: editing.is_available !== false,
         replacement_cost: editing.replacement_cost != null ? safeNum(editing.replacement_cost) : null,
         cleaning_time_hours: editing.cleaning_time_hours != null ? safeNum(editing.cleaning_time_hours) : null,
+        // Wave 70.24 -- per-equipment cleaning flags. requires_cleaning
+        // defaults to true to preserve the existing trigger behaviour
+        // when a tenant doesn't touch the toggle. Per-piece times
+        // default to null (the service falls back to the coarse
+        // cleaning_time_hours, then to its own per-method defaults).
+        requires_cleaning: editing.requires_cleaning !== false,
+        dishwasher_safe: editing.dishwasher_safe === true,
+        cleaning_time_manual_minutes:
+          editing.cleaning_time_manual_minutes != null && String(editing.cleaning_time_manual_minutes) !== ""
+            ? safeNum(editing.cleaning_time_manual_minutes) : null,
+        cleaning_time_dishwasher_minutes:
+          editing.cleaning_time_dishwasher_minutes != null && String(editing.cleaning_time_dishwasher_minutes) !== ""
+            ? safeNum(editing.cleaning_time_dishwasher_minutes) : null,
+        is_hire_in: editing.is_hire_in === true,
+        supplier_cleans: editing.is_hire_in === true && editing.supplier_cleans === true,
         image_url: editing.image_url || null,
         // Phase 5 #1: maintenance schedule. service_interval_days
         // empty -> NULL means no recurring service. The cron only
@@ -681,6 +728,36 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             {r.condition && r.condition !== "good" && (
                               <Badge variant="outline" className="text-[10px]">{r.condition}</Badge>
                             )}
+                            {/* Wave 70.24 -- cleaning chip so admin can
+                                spot at-a-glance which items hit the
+                                cleaning queue on return. */}
+                            {r.requires_cleaning === false ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-slate-50 text-slate-500 border-slate-200"
+                                title="Does not go to cleaning team on return (disposable / non-cleanable)"
+                              >
+                                no cleaning
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200"
+                                title={r.dishwasher_safe ? "Dishwasher-safe -- defaults to dishwasher method" : "Hand-wash item -- defaults to manual method"}
+                              >
+                                <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                                {r.dishwasher_safe ? "dishwasher" : "hand-wash"}
+                              </Badge>
+                            )}
+                            {r.is_hire_in === true && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                                title={r.supplier_cleans ? "Hire-in; supplier handles cleaning" : "Hire-in equipment"}
+                              >
+                                hire-in{r.supplier_cleans ? " · supplier cleans" : ""}
+                              </Badge>
+                            )}
                           </div>
                           {r.description && (
                             <p className="text-xs text-slate-500 mt-1 line-clamp-1">{r.description}</p>
@@ -744,7 +821,28 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                   <Input
                     value={editing.category || ""}
                     list="cat-suggest"
-                    onChange={(e) => setEditing({ ...editing, category: e.target.value })}
+                    onChange={(e) => {
+                      const newCategory = e.target.value;
+                      // Wave 70.24 -- when the category changes,
+                      // apply the cleaning defaults for the new
+                      // category UNLESS the operator already
+                      // explicitly set them (existing edit). Only
+                      // applied when the cleaning fields are still
+                      // at their default-null state, so we don't
+                      // clobber tenant choices.
+                      const defaults = CLEANING_DEFAULTS_BY_CATEGORY[newCategory.toLowerCase()];
+                      const cleaningFieldsUntouched =
+                        editing.cleaning_time_manual_minutes == null &&
+                        editing.cleaning_time_dishwasher_minutes == null;
+                      const next: any = { ...editing, category: newCategory };
+                      if (defaults && cleaningFieldsUntouched) {
+                        next.requires_cleaning = defaults.requires_cleaning;
+                        next.dishwasher_safe = defaults.dishwasher_safe;
+                        next.cleaning_time_manual_minutes = defaults.cleaning_time_manual_minutes;
+                        next.cleaning_time_dishwasher_minutes = defaults.cleaning_time_dishwasher_minutes;
+                      }
+                      setEditing(next);
+                    }}
                     placeholder="e.g. chafing, tables, lighting"
                   />
                   <datalist id="cat-suggest">
@@ -858,6 +956,110 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                     />
                     Show in quote builder
                   </label>
+                </div>
+              </div>
+
+              {/* Wave 70.24 -- per-equipment cleaning flags. Drives
+                  whether the cleaning queue picks up this item when
+                  it comes back from an event. Defaults pre-applied
+                  by category (cutlery / glassware = dishwasher-safe,
+                  tables / chairs = no cleaning), tenant edits per
+                  item. */}
+              <div className="border-t border-slate-200 pt-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-600" />
+                    Cleaning
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Drives the cleaning queue. When an order delivers, items marked here generate a cleaning job for the cleaning team.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-start gap-2 text-sm border border-slate-200 rounded-md px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                    <Switch
+                      checked={editing.requires_cleaning !== false}
+                      onCheckedChange={(c) => setEditing({ ...editing, requires_cleaning: c })}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium">Needs cleaning</div>
+                      <div className="text-[11px] text-slate-500">Off for disposables, signage, gas burners and the like.</div>
+                    </div>
+                  </label>
+                  {editing.requires_cleaning !== false && (
+                    <label className="flex items-start gap-2 text-sm border border-slate-200 rounded-md px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                      <Switch
+                        checked={editing.dishwasher_safe === true}
+                        onCheckedChange={(c) => setEditing({ ...editing, dishwasher_safe: c })}
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <div className="font-medium">Dishwasher safe</div>
+                        <div className="text-[11px] text-slate-500">Cleaning jobs default to dishwasher method.</div>
+                      </div>
+                    </label>
+                  )}
+                </div>
+                {editing.requires_cleaning !== false && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Manual wash time per piece (min, optional)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        value={editing.cleaning_time_manual_minutes ?? ""}
+                        onChange={(e) => setEditing({
+                          ...editing,
+                          cleaning_time_manual_minutes: e.target.value === "" ? null : safeNum(e.target.value),
+                        })}
+                        placeholder="e.g. 1.5"
+                      />
+                    </div>
+                    {editing.dishwasher_safe === true && (
+                      <div>
+                        <Label className="text-xs">Dishwasher time per piece (min, optional)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.5"
+                          value={editing.cleaning_time_dishwasher_minutes ?? ""}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            cleaning_time_dishwasher_minutes: e.target.value === "" ? null : safeNum(e.target.value),
+                          })}
+                          placeholder="e.g. 0.5"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-start gap-2 text-sm border border-slate-200 rounded-md px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                    <Switch
+                      checked={editing.is_hire_in === true}
+                      onCheckedChange={(c) => setEditing({ ...editing, is_hire_in: c })}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium">Hire-in from supplier</div>
+                      <div className="text-[11px] text-slate-500">Equipment rented in (vs your own stock).</div>
+                    </div>
+                  </label>
+                  {editing.is_hire_in === true && (
+                    <label className="flex items-start gap-2 text-sm border border-slate-200 rounded-md px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                      <Switch
+                        checked={editing.supplier_cleans === true}
+                        onCheckedChange={(c) => setEditing({ ...editing, supplier_cleans: c })}
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <div className="font-medium">Supplier handles cleaning</div>
+                        <div className="text-[11px] text-slate-500">Skip the cleaning queue; supplier cleans on return.</div>
+                      </div>
+                    </label>
+                  )}
                 </div>
               </div>
 
