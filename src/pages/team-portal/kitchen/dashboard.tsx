@@ -415,6 +415,33 @@ export default function KitchenDashboard() {
                           </div>
                           <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
                         </div>
+
+                        {/* Wave 70.19 -- action buttons mirror the active-
+                            orders cards so the chef can open the kitchen
+                            ticket straight from the priority row. Kitchen
+                            ticket goes to the kitchen-portal-namespaced
+                            URL so middleware allows it for kitchen staff.
+                            Order detail (admin) gated by role. */}
+                        <div className={`mt-2 grid gap-1.5 ${canSeeAdminOrderDetail ? "grid-cols-2" : "grid-cols-1"}`}>
+                          <Link
+                            href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                            className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
+                            title="Open the printable kitchen ticket"
+                          >
+                            <ChefHat className="w-3.5 h-3.5" />
+                            Kitchen ticket
+                          </Link>
+                          {canSeeAdminOrderDetail && (
+                            <Link
+                              href={withSlug(`/admin/orders?orderId=${order.id}`)}
+                              className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                              title="Open the order detail in admin"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Order detail
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
