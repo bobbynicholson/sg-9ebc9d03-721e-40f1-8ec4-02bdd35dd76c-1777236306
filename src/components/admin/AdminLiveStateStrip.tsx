@@ -228,6 +228,26 @@ export function AdminLiveStateStrip() {
     );
   };
 
+  // Wave 70.41c -- restructured from 3-col to 2-col grid. Bobby
+  // flagged that even after the Wave 70.41b label shortening, 6-
+  // char labels (QUOTES / UNPAID / ALERTS) still truncated to
+  // "QUOTI..." / "ALERT..." because each pill column in the 256-
+  // 288px sidebar was only ~70-80px wide -- not enough room for
+  // both the value AND a 6-char label without one collapsing.
+  //
+  // Going 2-col gives ~110px per pill. Labels fit cleanly, no
+  // ellipsis, no wrapping. Three rows of two are paired by intent:
+  //   Row 1: today-live signals (Events / Live)
+  //   Row 2: action items     (Quotes / Alerts)
+  //   Row 3: money            (Today / Unpaid)   -- finance only
+  //          or alternates    (Leads / Gaps)     -- non-finance
+  //
+  // Matches the 2x2 grid pattern already used on Cleaning + Shopping
+  // strips for consistency across the tool.
+  const pair1: Pill[] = [row1[0], row1[1]];                       // Events + Live
+  const pair2: Pill[] = [row1[2], row2[row2.length - 1]];         // Quotes + Alerts (always last in row2)
+  const pair3: Pill[] = [row2[0], row2[1]];                       // Today + Unpaid (finance) OR Leads + Gaps (non-finance)
+
   return (
     <div
       className="space-y-1.5"
@@ -235,11 +255,14 @@ export function AdminLiveStateStrip() {
       aria-atomic="false"
       aria-label="Admin live state"
     >
-      <div className="grid grid-cols-3 gap-1.5">
-        {row1.map(renderPill)}
+      <div className="grid grid-cols-2 gap-1.5">
+        {pair1.map(renderPill)}
       </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {row2.map(renderPill)}
+      <div className="grid grid-cols-2 gap-1.5">
+        {pair2.map(renderPill)}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {pair3.map(renderPill)}
       </div>
     </div>
   );
