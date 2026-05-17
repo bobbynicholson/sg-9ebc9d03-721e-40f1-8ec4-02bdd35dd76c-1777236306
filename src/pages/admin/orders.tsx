@@ -19,7 +19,9 @@ import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPan
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
 import { OrderTimesStrip } from "@/components/admin/orders/OrderTimesStrip";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
+import { BookingFacts } from "@/components/booking/BookingFacts";
+import type { BookingFacts as BookingFactsType } from "@/services/booking/bookingFacts";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -1930,6 +1932,31 @@ function OrderProcessDashboard() {
   const OrderDetailsModal = () => {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // Wave 70.42 -- conductor view facts. Fetched from the role-
+    // scoped API endpoint when the modal opens for an order.
+    // Refetches on cateringms:order-updated so the cross-role
+    // panels stay in sync when other surfaces mutate things
+    // (driver assigned via dispatch, prep tasks generated, etc).
+    const [bookingFacts, setBookingFacts] = useState<BookingFactsType | null>(null);
+    useEffect(() => {
+      if (!selectedOrder?.id || !isModalOpen) { setBookingFacts(null); return; }
+      let cancelled = false;
+      const load = async () => {
+        try {
+          const r = await fetch(`/api/bookings/${selectedOrder.id}/facts`, { credentials: "include" });
+          if (!r.ok) return;
+          const data = await r.json();
+          if (cancelled) return;
+          if (data?.facts) setBookingFacts(data.facts as BookingFactsType);
+        } catch { /* non-blocking */ }
+      };
+      void load();
+      // Refetch on cross-page mutation events. Per-order filter so
+      // we don't spam refetches when other orders update.
+      const off = onOrderUpdated(() => { void load(); }, { orderId: selectedOrder.id });
+      return () => { cancelled = true; off(); };
+    }, [selectedOrder?.id, isModalOpen]);
     // "Hey, the price won't scale automatically" confirmation when
     // guest_count is being changed in edit mode.
     const [priceAdjustOpen, setPriceAdjustOpen] = useState(false);
@@ -2825,6 +2852,21 @@ function OrderProcessDashboard() {
               </div>
             )}
           </DialogHeader>
+
+          {/* Wave 70.42 -- conductor view. Bobby's brief: the owner
+              is NOT just a bookkeeper. They need kitchen / driver /
+              staff / cleaning / shopping status at a glance, not
+              click through five tabs. <BookingFacts variant="admin">
+              renders a 5-panel cross-role status grid + money
+              summary above the tabbed detail below. Facts come from
+              the role-scoped /api/bookings/[id]/facts endpoint and
+              refetch on cateringms:order-updated so the panels stay
+              live when other surfaces mutate things. */}
+          {bookingFacts && bookingFacts.role === "admin" && (
+            <div className="mb-4">
+              <BookingFacts facts={bookingFacts} />
+            </div>
+          )}
 
           {/* Wave 54.3 -- controlled Tabs that honour ?tab= query
               param. The readiness chip's "Fix it" deep-links append
