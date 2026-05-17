@@ -69,55 +69,105 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const reason = (body.reason || "").trim().slice(0, 500) || null;
     const targetStatus = body.target_status === "completed" ? "completed" : "delivered";
 
-    const admin: any = getServiceSupabase();
-
-    // Wave 70.33 -- accept either a UUID `id` or an order_number like
-    // "ORD-003829". The OrderReadinessChip passes `id` (UUID), but the
-    // endpoint used to 404 with "Order not found" if a UUID lookup
-    // came back empty, which masked the actual cause (caller passing
-    // the wrong identifier, stale page state, etc). Try id first;
-    // if nothing matches and the value looks like an order_number,
-    // fall back to that lookup -- scoped to the caller's company so
-    // we never accidentally cross tenants.
+    // Wave 70.46 -- the lookup now uses the SSR client (the
+    // authenticated user's session) rather than the service-role
+    // client. RLS lets an admin/owner see their own company's orders,
+    // so this is the right tool for the job. Why we changed:
+    //
+    //   Previously: service-role lookup. If the deployed env had a
+    //   misconfigured key (e.g. anon JWT pasted into
+    //   SUPABASE_SERVICE_ROLE_KEY -- which has happened) the service
+    //   client would silently behave like an anon client, RLS would
+    //   deny every SELECT, and the endpoint returned 404 "Order not
+    //   found" for orders that clearly existed. Operators chased
+    //   ghosts; the audit log showed nothing because the misconfig
+    //   was upstream of any business logic.
+    //
+    //   Now: the SSR client carries the user's session. RLS allows
+    //   the read. If the read FAILS, the failure mode is
+    //   diagnostically honest: either auth missing (handled above),
+    //   wrong company (clear "Wrong company" 403), or genuinely not
+    //   in the database. The service-role client is still used below
+    //   for the privileged writes (kitchen_prep_tasks update +
+    //   audit_logs insert) where bypassing RLS is the intended
+    //   behaviour. getServiceSupabase() now also validates the role
+    //   claim on first call so an anon-key misconfig fails loudly.
+    //
+    // Wave 70.33 -- accept either a UUID `id` or an order_number
+    // ("ORD-003829"). OrderReadinessChip passes UUID; defensive
+    // fallback catches callers that pass the wrong field.
     const lookupSelect = "id, order_number, company_id, status, event_date, event_time, ready_at, picked_up_at, actual_delivery_time";
-    const { data: byId, error: byIdErr } = await admin
+    const { data: byId, error: byIdErr } = await ssr
       .from("orders")
       .select(lookupSelect)
       .eq("id", orderId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (byIdErr) {
       console.warn("[orders/force-close] id lookup error:", byIdErr, "orderId=", orderId);
     }
-    let order = byId;
+    let order: any = byId;
     if (!order && callerCompanyId) {
-      // Defensive fallback: maybe the chip / page is passing a string
-      // that isn't a UUID. Try order_number scoped to the caller's
-      // company (RLS bypass means service role sees all -- the
-      // company scope is the safety net against cross-tenant leaks).
-      const { data: byNumber, error: byNumberErr } = await admin
+      const { data: byNumber, error: byNumberErr } = await ssr
         .from("orders")
         .select(lookupSelect)
         .eq("order_number", orderId)
         .eq("company_id", callerCompanyId)
+        .is("deleted_at", null)
         .maybeSingle();
       if (byNumberErr) {
         console.warn("[orders/force-close] order_number fallback error:", byNumberErr, "orderId=", orderId);
       }
       if (byNumber) {
-        console.warn(`[orders/force-close] resolved orderId='${orderId}' via order_number fallback -> ${byNumber.id}. Caller passed the wrong field.`);
+        console.warn(`[orders/force-close] resolved orderId='${orderId}' via order_number fallback -> ${(byNumber as any).id}. Caller passed the wrong field.`);
         order = byNumber;
       }
     }
     if (!order) {
-      // Surface the orderId in the error so the operator + console
-      // both see what was attempted. Previously the bare "Order not
-      // found" gave the operator nothing to act on.
+      // Wave 70.46 -- before declaring 404, sanity-check via the
+      // service-role client whether the row exists at all. If it
+      // DOES exist but the SSR client couldn't see it, that's a
+      // tenant-scope problem (wrong company), not a missing-row
+      // problem. The two are wildly different to operate, so we
+      // give a wildly different error message.
+      try {
+        const admin: any = getServiceSupabase();
+        const { data: shadow } = await admin
+          .from("orders")
+          .select("id, company_id, deleted_at")
+          .eq("id", orderId)
+          .maybeSingle();
+        if (shadow) {
+          if ((shadow as any).deleted_at) {
+            console.warn(`[orders/force-close] order '${orderId}' is soft-deleted (deleted_at=${(shadow as any).deleted_at})`);
+            return res.status(410).json({
+              error: `Order '${orderId}' was deleted. Restore it before force-closing.`,
+              orderId,
+            });
+          }
+          console.warn(`[orders/force-close] order '${orderId}' exists (company=${(shadow as any).company_id}) but caller (company=${callerCompanyId}) can't see it via RLS. Cross-tenant request.`);
+          return res.status(403).json({
+            error: `Order belongs to a different company. You can only close orders from your own company.`,
+            orderId,
+          });
+        }
+      } catch (shadowErr) {
+        // Shadow check is diagnostic-only; never let it crash the
+        // request. The original 404 path still fires below if shadow
+        // also returned empty (= genuinely no such row).
+        console.warn("[orders/force-close] shadow lookup failed (non-fatal):", shadowErr);
+      }
       console.warn(`[orders/force-close] no order matched orderId='${orderId}' for company='${callerCompanyId}'`);
       return res.status(404).json({
         error: `Order not found: '${orderId}'. Try refreshing the page -- if it persists, the order may have been deleted.`,
         orderId,
       });
     }
+    // Service client for the privileged writes downstream (prep tasks
+    // bulk update, audit log insert). Pull it AFTER the lookup so any
+    // env misconfig is now caught by the hardened helper rather than
+    // silently producing empty SELECTs.
+    const admin: any = getServiceSupabase();
     // From this point on, prefer the resolved row's real UUID so
     // every downstream write (prep tasks, stamps, status flip, audit
     // log) is keyed by the canonical id even if the caller passed

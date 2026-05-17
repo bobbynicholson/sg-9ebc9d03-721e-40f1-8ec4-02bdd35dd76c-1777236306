@@ -26,12 +26,17 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 // be recorded. Mounting here on each active delivery surfaces every
 // stage button per order in the driver's natural flow.
 import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
+import { BookingHeader } from "@/components/booking/BookingHeader";
 import { logPiiAccess } from "@/services/piiAccessLogService";
 
 interface DriverOrder {
   id: string;
   /** Wave 48 A1 -- order_number drives the panel header. */
   order_number?: string | null;
+  /** Wave 70.45c -- event_name feeds the canonical BookingHeader so
+   *  the driver sees the client-facing event label (not just a
+   *  numbered order). */
+  event_name?: string | null;
   event_date: string;
   event_time?: string;
   venue_address: string;
@@ -100,7 +105,7 @@ export default function DriverDeliveriesPage() {
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
-        .select("id, order_number, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
+        .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -229,27 +234,35 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
         const menu = Array.isArray(o.menu_items) ? o.menu_items : [];
         return (
           <div key={o.id} className="flex flex-col gap-3 p-4 rounded-lg border bg-white hover:shadow-md transition-shadow">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* Wave 70.45c -- canonical BookingHeader (driver variant,
+                compact). Carries the tenant brand bar + status + date +
+                time + venue + guest count, replacing the bespoke top
+                strip that this card had per-instance. Driver-specific
+                actions (Open in Maps, comms bridge) live in the row
+                below so the header stays the SAME shared component
+                that every event document uses. */}
+            <BookingHeader
+              variant="driver"
+              compact
+              booking={{
+                id: o.id,
+                order_number: o.order_number ?? null,
+                event_name: o.event_name ?? null,
+                event_date: o.event_date,
+                event_time: o.event_time ?? null,
+                guest_count: o.guest_count,
+                status: o.status,
+                client_name: o.client_name ?? null,
+                venue_address: o.venue_address,
+              }}
+            />
+
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge className={`border ${statusBadge(o.status)}`}>{o.status}</Badge>
-                  <span className="text-sm text-slate-500">
-                    <Calendar className="inline w-3.5 h-3.5 mr-1" />
-                    {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-                    {o.event_time ? ` · ${o.event_time}` : ""}
-                  </span>
-                </div>
-                <p className="font-semibold text-slate-900 truncate">{o.client_name || "Order"}</p>
-                <p className="text-sm text-slate-600 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="truncate">{o.venue_address}</span>
-                </p>
-                {/* Open the venue in Google Maps in one tap. The driver's
-                    deliveries history page is mobile-first and the row
-                    already reads as "what + where + who", so a single
-                    icon button keeps the action close to the address
-                    without crowding the layout. Closes the audit gap
-                    "row shows venue, driver still has to copy/paste". */}
+                {/* Driver-specific actions: Maps + comms bridge.
+                    Header above shows the venue text; this row gives
+                    the driver the tap-to-navigate / tap-to-call links
+                    that aren't part of the shared header component. */}
                 {o.venue_address && (
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
@@ -324,13 +337,12 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                   </div>
                 )}
               </div>
-              <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
-                <span className="text-sm text-slate-500">{o.guest_count} pax</span>
-                {/* Order total intentionally hidden -- drivers should see
-                    their own payout, not what the catering company charged
-                    the client. Driver earnings live on /team-portal/driver/
-                    earnings + /dashboard. */}
-              </div>
+              {/* Wave 70.45c -- guest-count "X pax" chip used to live
+                  here on the right; it now renders inside the
+                  BookingHeader driver variant above (which formats it
+                  as "N pax" automatically). Order total stays hidden
+                  -- drivers see payout on /earnings, not what the
+                  catering company charged the client. */}
             </div>
 
             {/* What to load, pulled from orders.equipment_items + menu_items.

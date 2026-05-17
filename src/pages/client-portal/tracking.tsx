@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { BookingHeader } from "@/components/booking/BookingHeader";
 import { supabase } from "@/integrations/supabase/client";
 
 const ClientTrackingMap = dynamic(
@@ -24,6 +25,14 @@ const ClientTrackingMap = dynamic(
 interface OrderDetails {
   id: string;
   order_number?: string | null;
+  // Wave 70.45c -- canonical BookingHeader fields. The orders select
+  // is `*` so these come down for free; declaring them on the type
+  // lets the header read them without `as any` shenanigans.
+  event_name?: string | null;
+  event_date?: string | null;
+  event_time?: string | null;
+  guest_count?: number | null;
+  total_amount?: number | null;
   client_name: string;
   venue_address: string;
   venue_lat?: number;
@@ -376,7 +385,31 @@ export default function ClientTracking() {
           }
         />
 
-        <div className={`${innerPadding} py-8`}>
+        <div className={`${innerPadding} py-8 space-y-6`}>
+          {/* Wave 70.45c -- canonical BookingHeader (client variant).
+              Same component the client sees on every event document
+              (quote, order tracking, order detail). Replaces the
+              implicit "selected order context" that was previously
+              spread across the Live Tracking card title + driver
+              info card -- those still render, this is the top-level
+              identity strip for the order being tracked. */}
+          {selectedOrder && (
+            <BookingHeader
+              variant="client"
+              booking={{
+                id: selectedOrder.id,
+                order_number: selectedOrder.order_number ?? null,
+                event_name: selectedOrder.event_name ?? null,
+                event_date: selectedOrder.event_date ?? null,
+                event_time: selectedOrder.event_time ?? null,
+                guest_count: selectedOrder.guest_count ?? null,
+                status: selectedOrder.status,
+                client_name: selectedOrder.client_name,
+                venue_address: selectedOrder.venue_address,
+                total_amount: selectedOrder.total_amount ?? null,
+              }}
+            />
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Live Map */}
             <div className="lg:col-span-2">

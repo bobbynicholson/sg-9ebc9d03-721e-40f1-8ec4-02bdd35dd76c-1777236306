@@ -22,7 +22,6 @@ export interface BookingPackage {
   company_id: string;
   name: string;
   primary_client_id: string | null;
-  primary_contact_id: string | null;
   status: BookingPackageStatus;
   notes: string | null;
   venue_summary: string | null;
@@ -58,7 +57,6 @@ export async function createPackage(
     company_id: string;
     name: string;
     primary_client_id?: string | null;
-    primary_contact_id?: string | null;
     venue_summary?: string | null;
     starts_at?: string | null;
     ends_at?: string | null;
@@ -74,7 +72,6 @@ export async function createPackage(
       company_id: input.company_id,
       name: input.name,
       primary_client_id: input.primary_client_id ?? null,
-      primary_contact_id: input.primary_contact_id ?? null,
       venue_summary: input.venue_summary ?? null,
       starts_at: input.starts_at ?? null,
       ends_at: input.ends_at ?? null,
@@ -200,6 +197,7 @@ export async function cancelPackage(
   packageId: string,
   reason: string,
   client?: any,
+  actorUserId?: string | null,
 ): Promise<{ ok: boolean; ordersCancelled: number; error?: string }> {
   const sb = client || defaultSb;
   // Flip package status first so the UI reflects the cancellation
@@ -227,16 +225,16 @@ export async function cancelPackage(
   // get the full audit trail. For batch use in the API endpoint
   // below, we call the workflow directly.
   let cancelled = 0;
+  const { cancelOrder } = await import("@/services/order/orderWorkflow");
   for (const o of cancellable as Array<{ id: string }>) {
     try {
-      const { cancelOrder } = await import("@/services/order/orderWorkflow");
-      const r = await cancelOrder({
-        orderId: o.id,
-        actorUserId: null,
-        reasonCategory: "package_cancelled",
+      const r = await cancelOrder(o.id, {
         reason: `Package cancelled: ${reason}`,
+        reason_category: "force_majeure", // closest match in the existing enum
+        cancelled_by_user_id: actorUserId ?? undefined,
+        client: sb,
       } as any);
-      if (r && ((r as any).success || (r as any).ok)) cancelled += 1;
+      if (r && (r as any).success) cancelled += 1;
     } catch (err) {
       console.warn("[bookingPackageService] cancel child order failed:", err);
     }
@@ -270,7 +268,7 @@ export async function deletePackage(
  */
 export async function updatePackage(
   packageId: string,
-  patch: Partial<Pick<BookingPackage, "name" | "notes" | "venue_summary" | "starts_at" | "ends_at" | "primary_client_id" | "primary_contact_id">>,
+  patch: Partial<Pick<BookingPackage, "name" | "notes" | "venue_summary" | "starts_at" | "ends_at" | "primary_client_id">>,
   client?: any,
 ): Promise<{ ok: boolean; error?: string }> {
   const sb = client || defaultSb;

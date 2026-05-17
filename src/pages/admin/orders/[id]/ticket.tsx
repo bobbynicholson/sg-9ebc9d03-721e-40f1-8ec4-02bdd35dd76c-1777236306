@@ -36,6 +36,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft, Loader2, AlertCircle, ChefHat, Truck, Package, Clock, Edit3, ExternalLink } from "lucide-react";
+import { BookingHeader } from "@/components/booking/BookingHeader";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,10 @@ import { useTenantHref } from "@/lib/tenantUrl";
 interface OrderRow {
   id: string;
   order_number: string | null;
+  // Wave 70.45c -- event_name added so the canonical BookingHeader can
+  // surface the client-facing event label (the chef knows which event
+  // they're cooking for, not just the internal order number).
+  event_name: string | null;
   client_name: string | null;
   client_phone: string | null;
   event_date: string | null;
@@ -250,7 +255,7 @@ function KitchenTicketPage() {
           // silently null-rendered as "Order not found". Same trap as
           // Wave 43. Use guest_count alone; if the column ever ships,
           // re-add it here AND read it in the BackplannedItem helper.
-          .select("id, order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
+          .select("id, order_number, event_name, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
           .eq("id", orderId)
           .is("deleted_at", null);
         if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
@@ -449,23 +454,32 @@ function KitchenTicketPage() {
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
           <div className="bg-white border border-slate-300 rounded-lg p-6 print:border-0 print:rounded-none print:p-0 space-y-4">
-            {/* Header band */}
-            <div className="flex items-start justify-between gap-4 pb-3 border-b-2 border-slate-900">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Kitchen ticket</p>
-                <h1 className="text-3xl font-bold text-slate-900 tabular-nums">{order.order_number || "—"}</h1>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-slate-600">{fmtDate(order.event_date)}</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{fmtTime(order.event_time)}</p>
-                {setupAt && (
-                  <p className="text-[11px] text-slate-500">setup {fmtClock(setupAt)}</p>
-                )}
-                {pickupAt && (
-                  <p className="text-[11px] text-slate-500">pickup {fmtClock(pickupAt)}</p>
-                )}
-              </div>
-            </div>
+            {/* Wave 70.45c -- canonical BookingHeader (kitchen variant).
+                Replaces the bespoke header band so this surface inherits
+                the tenant brand bar + variant ribbon + facts row that
+                every other event document now shares. Setup/pickup live
+                in the rightSlot so chefs still get the at-a-glance
+                operational timestamps that the bespoke header showed. */}
+            <BookingHeader
+              variant="kitchen"
+              booking={{
+                id: order.id,
+                order_number: order.order_number,
+                event_name: order.event_name,
+                event_date: order.event_date,
+                event_time: order.event_time,
+                guest_count: guestCount,
+                status: order.status,
+                client_name: order.client_name,
+                venue_address: order.venue_address,
+              }}
+              rightSlot={(setupAt || pickupAt) ? (
+                <div className="text-right text-[11px] text-slate-600 leading-tight">
+                  {setupAt && <div>setup <span className="tabular-nums font-semibold text-slate-900">{fmtClock(setupAt)}</span></div>}
+                  {pickupAt && <div>pickup <span className="tabular-nums font-semibold text-slate-900">{fmtClock(pickupAt)}</span></div>}
+                </div>
+              ) : undefined}
+            />
 
             {/* Wave 66.9 -- backplanned timeline ribbon. Single line so
                 the chef sees the day's choreography at the top of the
@@ -514,24 +528,14 @@ function KitchenTicketPage() {
               </div>
             )}
 
-            {/* Client + venue + guests */}
-            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-slate-200">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Client</p>
-                <p className="text-base font-semibold text-slate-900">{order.client_name || "—"}</p>
-                {order.client_phone && (
-                  <p className="text-xs text-slate-600 tabular-nums">{order.client_phone}</p>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Guests</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{guestCount || "—"}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Venue</p>
-                <p className="text-sm text-slate-900">{order.venue_address || "—"}</p>
-              </div>
-            </div>
+            {/* Wave 70.45c -- client / guests / venue used to live here as
+                a 3-cell grid; they now render inside <BookingHeader> above
+                so the same facts row appears on every event document. The
+                only thing not in the header is the client phone -- chefs
+                rarely need it, and when they do it's on the order page;
+                keeping it off the printed ticket avoids leaking client
+                PII onto a piece of paper that gets handled by multiple
+                staff. */}
 
             {/* Wave 66.9 -- driver / collection band. Chef needs to
                 know exactly who's collecting + when so they can hand

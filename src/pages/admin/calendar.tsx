@@ -918,7 +918,14 @@ function AdminCalendar() {
                         "text-[9px] uppercase tracking-wider mt-0.5 leading-none",
                         dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
                       )}>
-                        {dayIntel.eventsWithIssues > 0 ? "To fix" : "All set"}
+                        {/* Day-level scale = events at risk (NOT issue
+                            count -- per-event cards below show "N to
+                            fix" as the issue count, so we use a
+                            distinct word here to avoid confusing the
+                            two scales). */}
+                        {dayIntel.eventsWithIssues > 0
+                          ? (dayIntel.eventsWithIssues === 1 ? "Event at risk" : "Events at risk")
+                          : "All set"}
                       </p>
                     </div>
                   </div>

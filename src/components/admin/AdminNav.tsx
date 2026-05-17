@@ -57,6 +57,7 @@ import {
   Activity,
   Shield,
   CookingPot,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -272,6 +273,8 @@ export function AdminNav({ className }: AdminNavProps) {
             : null,
         },
         { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "All orders" },
+        // Wave 70.45b -- booking packages (multi-day event grouping).
+        { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
       ],
     },
@@ -362,6 +365,9 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Lifecycle emails",    href: "/admin/email-templates",       icon: Sparkles,      description: "After-sales follow-ups + automation" },
         { title: "Notifications",       href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
         { title: "Audit log",           href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail -- who did what" },
+        // Wave 70.47 -- end-to-end smoke test. One-click regression net
+        // covering the full lifecycle + package cancel cascade.
+        { title: "Smoke test",          href: "/admin/smoke-test",            icon: FlaskConical,  description: "Run end-to-end regression" },
         { title: "System",              href: "/admin/settings",              icon: Settings,      description: "General configuration" },
       ],
     }] : []),

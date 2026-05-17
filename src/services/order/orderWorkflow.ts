@@ -999,120 +999,31 @@ export async function cancelOrder(
 
     if (error) throw error;
 
-    // Resource cascades. Fire-and-forget so a bad row doesn't undo the
-    // cancel itself.
-    void (async () => {
-      try {
-        await sb
-          .from("equipment_bookings")
-          .update({ status: "cancelled" } as any)
-          .eq("order_id", orderId);
-      } catch (e) {
-        console.warn("[cancelOrder] equipment_bookings release failed:", e);
-      }
-    })();
-
-    void (async () => {
-      try {
-        await sb
-          .from("kitchen_prep_tasks")
-          .update({ status: "cancelled" } as any)
-          .eq("order_id", orderId);
-      } catch (e) {
-        console.warn("[cancelOrder] kitchen_prep_tasks release failed:", e);
-      }
-    })();
-
-    // Audit (May 2026, Wave 4): cancellation previously left every
-    // inventory deduction in place. A 200-guest cancellation
-    // permanently removed 40kg of lamb from the books. Reverse the
-    // prior 'usage' transactions and restore stock so reorder
-    // thresholds + COGS reports stay honest.
-    void (async () => {
-      try {
-        if (!orderCompanyId) return;
-        const { reverseInventoryForOrder } = await import("@/services/inventoryDeductionService");
-        await reverseInventoryForOrder(
-          orderId,
-          orderCompanyId,
-          opts.cancelled_by_user_id || orderUserId || "system",
-        );
-      } catch (e) {
-        console.warn("[cancelOrder] inventory reverse failed:", e);
-      }
-    })();
-
-    // Flow audit Leg C P0-5: cancelOrder used to leave the invoice
-    // sitting in `sent` / `overdue`. The bookkeeper kept seeing it on
-    // the receivables aging report, the bulk-remind sweep kept emailing
-    // the client about it, and finance's outstanding total was wrong
-    // until somebody manually voided it. Void any unpaid invoices for
-    // the cancelled order. Anything already paid stays as-is so the
-    // refund cascade in cancellation-review.ts can record the credit.
-    //
-    // Wave 28.9: was status:'cancelled' which doesn't exist in the
-    // invoice_status enum (allowed: draft|sent|paid|partially_paid|
-    // overdue|written_off). Every previous cancellation since this
-    // shipped silently 22P02-errored on the void, leaving live
-    // invoices on the receivables report. Switched to 'written_off'
-    // -- the closest existing enum value -- and added deleted_at so
-    // the row drops off active queries entirely.
-    void (async () => {
-      try {
-        await sb
-          .from("invoices")
-          .update({
-            status: "written_off",
-            balance_due: 0,
-            deleted_at: nowIso,
-            updated_at: nowIso,
-          } as any)
-          .eq("order_id", orderId)
-          .is("deleted_at", null)
-          .in("status", ["draft", "sent", "overdue", "partially_paid"]);
-      } catch (e) {
-        console.warn("[cancelOrder] invoice void failed:", e);
-      }
-    })();
-
-    // Flow audit Leg C P0-5 (continued): the pre_event + aftersales
-    // schedulers fan a stack of outgoing_email_queue rows out for
-    // every confirmed order. Cancellation never touched the queue,
-    // so the client kept getting "see you tomorrow!" the day before
-    // an event that wasn't happening. Cancel any pending queue rows
-    // for this order so the cron worker skips them.
-    void (async () => {
-      try {
-        await sb
-          .from("outgoing_email_queue")
-          .update({ status: "cancelled", updated_at: nowIso } as any)
-          .eq("trigger_ref_id", orderId)
-          .eq("status", "pending");
-      } catch (e) {
-        console.warn("[cancelOrder] outgoing_email_queue cancel failed:", e);
-      }
-    })();
-
-    // Wave 67 Phase D -- void outsource assignments on cancellation.
-    // Same cascade pattern as the Wave 28.9 invoice void: anything
-    // not already completed or cancelled flips to cancelled with
-    // cancelled_at stamped. Operator-side comms (telling the
-    // provider) is a manual follow-up via the Outsourced fulfilment
-    // panel; we don't auto-email here because the previous accept
-    // links would otherwise serve a confusing "this booking was
-    // cancelled" page silently.
-    void (async () => {
-      try {
-        await sb
-          .from("outsource_assignments")
-          .update({ status: "cancelled", cancelled_at: nowIso, updated_at: nowIso } as any)
-          .eq("order_id", orderId)
-          .in("status", ["requested", "accepted", "en_route", "on_site"])
-          .is("deleted_at", null);
-      } catch (e) {
-        console.warn("[cancelOrder] outsource_assignments cascade failed:", e);
-      }
-    })();
+    // Wave 70.48 -- centralised resource release. The cascade that used
+    // to live inline here (equipment_bookings, kitchen_prep_tasks,
+    // inventory reversal, invoice void, outgoing_email_queue cancel,
+    // outsource_assignments, cleaning_event_handover) now lives in
+    // releaseOrderResources(). Why we changed:
+    //   - Adding new resources to release (driver_assignments,
+    //     equipment_hire_orders, shopping_list_items -- coming in
+    //     waves 70.49-70.51) used to require touching this function,
+    //     the postpone branch in cancellation-review.ts, and the
+    //     magic-link cancel path -- three copies in sync.
+    //   - The release receipt returned by the helper is now audit-
+    //     logged so we can see EXACTLY what was released for any
+    //     given cancellation (vs grepping multiple console.warns).
+    //   - The helper runs sequentially (not fire-and-forget) so the
+    //     order_cancelled audit log can include the full receipt.
+    //     Each individual resource still tolerates its own failure
+    //     without unwinding siblings -- the helper catches per-resource.
+    const { releaseOrderResources } = await import("./releaseResources");
+    const releaseReceipt = await releaseOrderResources({
+      orderId,
+      companyId: orderCompanyId,
+      actorUserId: opts.cancelled_by_user_id || orderUserId || null,
+      mode: "cancel",
+      sb,
+    });
 
     // order_status_history row + notification fan-out happens via the
     // status-update side-effect block fed below by callers that go
@@ -1127,9 +1038,11 @@ export async function cancelOrder(
           ? `Cancelled: ${opts.reason_category || "other"} -- ${opts.reason}`
           : `Cancelled: ${opts.reason_category || "other"}`,
       } as any);
-      // Wave 11 #12: cross-cutting audit row so cancellations show up
-      // in the platform-wide audit feed alongside everything else
-      // touching this order.
+      // Wave 11 #12 + Wave 70.48: cross-cutting audit row. Now also
+      // carries the full release receipt so the audit feed shows
+      // EXACTLY which downstream resources were touched (counts +
+      // per-resource success/failure). Replaces having to grep three
+      // separate console.warns to see what cancelled vs what stuck.
       if (orderCompanyId) {
         await (sb as any).from("audit_logs").insert({
           company_id: orderCompanyId,
@@ -1141,6 +1054,7 @@ export async function cancelOrder(
             from_status: currentStatus,
             reason_category: opts.reason_category || null,
             reason: opts.reason || null,
+            release_receipt: releaseReceipt,
           },
         });
       }
@@ -1155,15 +1069,11 @@ export async function cancelOrder(
       console.warn("[cancelOrder] notifications failed:", e);
     }
 
-    // Wave 70.24 -- cancel any pending cleaning_event_handover for
-    // this order so the cleaning portal doesn't keep showing
-    // expected items that aren't coming back.
-    try {
-      const { cancelHandoverForOrder } = await import("@/services/cleaningHandoverService");
-      await cancelHandoverForOrder(sb, orderId);
-    } catch (e) {
-      console.warn("[cancelOrder] cancel cleaning handover failed (non-blocking):", e);
-    }
+    // Wave 70.48 -- the cleaning_event_handover cancel previously lived
+    // inline here as a separate try/catch. It now runs inside the
+    // releaseOrderResources() helper above, so removing the duplicate
+    // call. The helper records the cancel in releaseReceipt.lines
+    // alongside every other cascade so the audit trail is complete.
 
     return { success: true, data };
   } catch (error: any) {

@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS public.booking_packages (
   -- (operator may have intentionally diverged a child); the UI
   -- offers an explicit "apply to all" action when needed.
   primary_client_id uuid REFERENCES public.clients(id) ON DELETE SET NULL,
-  primary_contact_id uuid REFERENCES public.contacts(id) ON DELETE SET NULL,
+  -- Note: no primary_contact_id -- this schema doesn't yet have a
+  -- separate contacts table (client-as-contact pattern). When/if a
+  -- contacts table lands, add primary_contact_id in a follow-up
+  -- migration with a default-NULL backfill.
 
   -- Lifecycle. Mirrors the order status discipline so a package's
   -- effective state is at-a-glance:
