@@ -1,0 +1,326 @@
+/**
+ * useActiveShoppingList -- Wave 70.30
+ *
+ * Returns the current user's active shopping_list with its items,
+ * plus mutation helpers (toggle purchased, add item, create new
+ * list, complete). One canonical source of truth for everything
+ * that wants to read or mutate "the list I'm working on".
+ *
+ * Resolution order (one-shopper-per-tenant is the dominant case):
+ *   1. shopping_lists with shopper_id = current user AND status in
+ *      (draft, pending, in_progress, shopping) -- most recent
+ *   2. shopping_lists with shopper_id IS NULL AND status above --
+ *      fallback for lists created by /buy-list before assignment
+ *   3. null -- no active list yet
+ *
+ * Auto-refresh on tab focus so a list created on phone surfaces on
+ * desktop without manual reload. No polling -- the hook is meant
+ * for view-level reads, not background tickers.
+ */
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toLocalISO } from "@/lib/localDate";
+
+export interface ActiveListItem {
+  id: string;
+  shopping_list_id: string;
+  item_id: string | null;
+  name: string;
+  quantity: number;
+  unit: string | null;
+  purchased: boolean;
+  notes: string | null;
+  created_at: string | null;
+}
+
+export interface ActiveList {
+  id: string;
+  list_date: string | null;
+  status: string;
+  title: string | null;
+  notes: string | null;
+  shopper_id: string | null;
+  user_id: string | null;
+  estimated_total: number | null;
+  actual_total: number | null;
+  receipt_url: string | null;
+  source: string | null;
+  /** True when shopper_id matches the current user. Drives the
+   *  "Your list" vs "Team list" framing in nav + dashboard. */
+  isYours: boolean;
+}
+
+export interface UseActiveShoppingList {
+  list: ActiveList | null;
+  items: ActiveListItem[];
+  loading: boolean;
+  error: string | null;
+  /** Reload list + items from the server. */
+  refresh: () => void;
+  /** Toggle the purchased flag on a single item. Optimistic update,
+   *  rolls back on failure. */
+  togglePurchased: (itemId: string, nextValue: boolean) => Promise<void>;
+  /** Add an item to the current list, or start a new list if there
+   *  isn't one. Returns the created/updated item. */
+  addItem: (input: {
+    name: string;
+    quantity: number;
+    unit?: string | null;
+    item_id?: string | null;
+    notes?: string | null;
+  }) => Promise<ActiveListItem | null>;
+  /** Bulk-add items. Creates a new list if none active. Auto-assigns
+   *  shopper_id to current user on creation. */
+  addItems: (inputs: Array<{
+    name: string;
+    quantity: number;
+    unit?: string | null;
+    item_id?: string | null;
+    notes?: string | null;
+  }>) => Promise<{ listId: string; itemCount: number } | null>;
+  /** Mark the entire list complete (records actual_total, sets
+   *  status='completed', stamps completed_at). */
+  completeList: (actualTotal?: number) => Promise<void>;
+}
+
+const ACTIVE_STATUSES = ["draft", "pending", "in_progress", "shopping", "open"];
+
+export function useActiveShoppingList(): UseActiveShoppingList {
+  const { user } = useAuth();
+  const companyId = (user as { company_id?: string } | null)?.company_id;
+  const userId = (user as { id?: string } | null)?.id;
+
+  const [list, setList] = useState<ActiveList | null>(null);
+  const [items, setItems] = useState<ActiveListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!companyId || !userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+
+      // 1. Try lists assigned to the current shopper first.
+      const { data: mineRows } = await sb
+        .from("shopping_lists")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("shopper_id", userId)
+        .in("status", ACTIVE_STATUSES)
+        .order("list_date", { ascending: false })
+        .limit(1);
+
+      let row = mineRows?.[0] || null;
+      let isYours = !!row;
+
+      // 2. Fallback to unassigned lists (created by /buy-list without
+      //    a shopper picked yet).
+      if (!row) {
+        const { data: unassignedRows } = await sb
+          .from("shopping_lists")
+          .select("*")
+          .eq("company_id", companyId)
+          .is("shopper_id", null)
+          .in("status", ACTIVE_STATUSES)
+          .order("list_date", { ascending: false })
+          .limit(1);
+        row = unassignedRows?.[0] || null;
+        isYours = false;
+      }
+
+      if (!row) {
+        setList(null);
+        setItems([]);
+        setError(null);
+        return;
+      }
+
+      setList({
+        id: row.id,
+        list_date: row.list_date,
+        status: row.status,
+        title: row.title,
+        notes: row.notes,
+        shopper_id: row.shopper_id,
+        user_id: row.user_id,
+        estimated_total: row.estimated_total ?? null,
+        actual_total: row.actual_total ?? null,
+        receipt_url: row.receipt_url ?? null,
+        source: row.source ?? null,
+        isYours,
+      });
+
+      const { data: itemRows, error: itemsErr } = await sb
+        .from("shopping_list_items")
+        .select("*")
+        .eq("shopping_list_id", row.id)
+        .order("purchased", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (itemsErr) {
+        setError(itemsErr.message || "Could not load list items");
+        setItems([]);
+      } else {
+        setItems((itemRows || []) as ActiveListItem[]);
+        setError(null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load active list");
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, userId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const onFocus = () => { void load(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [load]);
+
+  const togglePurchased = useCallback(async (itemId: string, nextValue: boolean) => {
+    // Optimistic update for instant feedback.
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: nextValue } : i));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { error: updErr } = await sb
+      .from("shopping_list_items")
+      .update({ purchased: nextValue })
+      .eq("id", itemId);
+    if (updErr) {
+      // Rollback on failure.
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !nextValue } : i));
+      setError(updErr.message || "Could not save");
+    }
+  }, []);
+
+  // Create a fresh list, auto-assigning shopper_id to current user.
+  const ensureList = useCallback(async (): Promise<string | null> => {
+    if (list) return list.id;
+    if (!companyId || !userId) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { data: created, error: cErr } = await sb
+      .from("shopping_lists")
+      .insert([{
+        company_id: companyId,
+        user_id: userId,
+        shopper_id: userId,
+        list_date: toLocalISO(new Date()),
+        status: "in_progress",
+        source: "manual",
+        title: `Shopping ${toLocalISO(new Date())}`,
+      }])
+      .select()
+      .single();
+    if (cErr || !created) {
+      setError(cErr?.message || "Could not create list");
+      return null;
+    }
+    return created.id as string;
+  }, [list, companyId, userId]);
+
+  const addItem = useCallback(async (input: {
+    name: string;
+    quantity: number;
+    unit?: string | null;
+    item_id?: string | null;
+    notes?: string | null;
+  }): Promise<ActiveListItem | null> => {
+    const listId = await ensureList();
+    if (!listId) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { data, error: iErr } = await sb
+      .from("shopping_list_items")
+      .insert([{
+        shopping_list_id: listId,
+        user_id: userId,
+        name: input.name,
+        quantity: input.quantity,
+        unit: input.unit ?? null,
+        item_id: input.item_id ?? null,
+        notes: input.notes ?? null,
+        purchased: false,
+      }])
+      .select()
+      .single();
+    if (iErr) {
+      setError(iErr.message || "Could not add item");
+      return null;
+    }
+    await load();
+    return data as ActiveListItem;
+  }, [ensureList, userId, load]);
+
+  const addItems = useCallback(async (inputs: Array<{
+    name: string;
+    quantity: number;
+    unit?: string | null;
+    item_id?: string | null;
+    notes?: string | null;
+  }>): Promise<{ listId: string; itemCount: number } | null> => {
+    if (inputs.length === 0) return null;
+    const listId = await ensureList();
+    if (!listId) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const rows = inputs.map(input => ({
+      shopping_list_id: listId,
+      user_id: userId,
+      name: input.name,
+      quantity: input.quantity,
+      unit: input.unit ?? null,
+      item_id: input.item_id ?? null,
+      notes: input.notes ?? null,
+      purchased: false,
+    }));
+    const { error: iErr } = await sb.from("shopping_list_items").insert(rows);
+    if (iErr) {
+      setError(iErr.message || "Could not add items");
+      return null;
+    }
+    await load();
+    return { listId, itemCount: rows.length };
+  }, [ensureList, userId, load]);
+
+  const completeList = useCallback(async (actualTotal?: number) => {
+    if (!list) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const patch: Record<string, unknown> = {
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (typeof actualTotal === "number") patch.actual_total = actualTotal;
+    const { error: cErr } = await sb
+      .from("shopping_lists")
+      .update(patch)
+      .eq("id", list.id);
+    if (cErr) {
+      setError(cErr.message || "Could not complete list");
+      return;
+    }
+    await load();
+  }, [list, load]);
+
+  return {
+    list,
+    items,
+    loading,
+    error,
+    refresh: () => { void load(); },
+    togglePurchased,
+    addItem,
+    addItems,
+    completeList,
+  };
+}

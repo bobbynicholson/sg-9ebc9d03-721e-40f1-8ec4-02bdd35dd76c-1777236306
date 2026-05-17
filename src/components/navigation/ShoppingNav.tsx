@@ -54,6 +54,7 @@ import {
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 import { useShoppingLiveCounts } from "@/hooks/useShoppingLiveCounts";
 import { useShoppingPortalMode } from "@/hooks/useShoppingPortalMode";
+import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { ShoppingModeBadge } from "@/components/shopping/ShoppingModeBadge";
 import { ShoppingLiveStateStrip } from "@/components/shopping/ShoppingLiveStateStrip";
 import { ShoppingSmartQuickActions } from "@/components/shopping/ShoppingSmartQuickActions";
@@ -68,11 +69,18 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
   // Hooks at the top, stable order across renders.
   const counts = useShoppingLiveCounts();
   const mode = useShoppingPortalMode();
+  // Wave 70.30: the active-list hook drives "Your list" framing
+  // on the Active shop nav item + live item counts. One-shopper-
+  // per-tenant assumption -- we surface "yours" when the list is
+  // assigned to the current user, "team" otherwise.
+  const activeList = useActiveShoppingList();
 
   // One-shot toast on auto-transition into run mode.
   useShoppingModeToast();
 
   const isRunActive = mode.mode === "run";
+  const yourList = activeList.list?.isYours ? activeList.list : null;
+  const remainingOnList = activeList.items.filter(i => !i.purchased).length;
 
   const config: PortalSidebarConfig = {
     role: "shopping",
@@ -123,7 +131,10 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
           },
           {
             title: "Buy list",
-            href: "/team-portal/shopping/alerts",
+            // Wave 70.30: re-pointed from /alerts to the canonical
+            // /buy-list page (action-first surface). /alerts stays
+            // live for backwards compat.
+            href: "/team-portal/shopping/buy-list",
             icon: TrendingDown,
             description: "Shortfall + low-stock",
             badge: () => counts.shortItems > 0
@@ -134,16 +145,31 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               : null,
           },
           {
-            title: "Active shop",
-            href: "/team-portal/shopping/orders",
+            // Wave 70.30: "Your list" framing when the active list
+            // is assigned to the current shopper. Falls back to
+            // "Team list" when it's an unassigned company list.
+            title: yourList ? "Your list" : "Team list",
+            href: "/team-portal/shopping/dashboard",
             icon: ShoppingCart,
-            description: "Lists in progress",
-            badge: () => counts.activeListItems > 0
-              ? { text: `${counts.activeListItems} live`, tone: "default", pulse: isRunActive }
-              : null,
-            liveDescription: () => counts.activeListItems === 0 && !counts.loading
-              ? "No list running -- start one"
-              : null,
+            description: yourList
+              ? `${remainingOnList} item${remainingOnList === 1 ? "" : "s"} left to buy`
+              : "Start a shop or join the team list",
+            badge: () => {
+              if (remainingOnList > 0) {
+                return { text: `${remainingOnList} left`, tone: "default", pulse: isRunActive };
+              }
+              if (activeList.list && remainingOnList === 0 && activeList.items.length > 0) {
+                return { text: "All bought", tone: "info" };
+              }
+              return null;
+            },
+            liveDescription: () => {
+              if (!activeList.list) return "No list running -- open Buy list";
+              if (remainingOnList === 0 && activeList.items.length > 0) {
+                return "Ready to file receipt";
+              }
+              return null;
+            },
           },
           {
             title: "Receipts",

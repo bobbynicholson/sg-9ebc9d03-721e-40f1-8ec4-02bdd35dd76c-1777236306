@@ -84,6 +84,7 @@ function computeAutoMode(
 export function useShoppingPortalMode(): ShoppingPortalModeState {
   const { user } = useAuth();
   const companyId = (user as { company_id?: string } | null)?.company_id;
+  const userId = (user as { id?: string } | null)?.id;
 
   const [shortfallCount, setShortfallCount] = useState(0);
   const [upcomingEvents48h, setUpcomingEvents48h] = useState(0);
@@ -117,11 +118,21 @@ export function useShoppingPortalMode(): ShoppingPortalModeState {
           .gte("event_date", todayIso)
           .lte("event_date", in48h)
           .in("status", ["confirmed", "preparing", "ready"]),
-        sb
-          .from("shopping_lists")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .in("status", ["draft", "pending", "in_progress", "shopping"]),
+        // Wave 70.30: prefer lists owned by the current shopper
+        // (one-shopper-per-tenant dominant case). Falls back to
+        // unassigned lists when no personal list exists.
+        userId
+          ? sb
+              .from("shopping_lists")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .in("status", ["draft", "pending", "in_progress", "shopping"])
+              .or(`shopper_id.eq.${userId},shopper_id.is.null`)
+          : sb
+              .from("shopping_lists")
+              .select("id", { count: "exact", head: true })
+              .eq("company_id", companyId)
+              .in("status", ["draft", "pending", "in_progress", "shopping"]),
         sb
           .from("shopping_lists")
           .select("id", { count: "exact", head: true })
@@ -141,7 +152,7 @@ export function useShoppingPortalMode(): ShoppingPortalModeState {
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchSignals();

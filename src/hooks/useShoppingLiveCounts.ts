@@ -73,14 +73,22 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
           .select("inventory_item_id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("status", "shortfall"),
-        // Active shopping_list rows. We don't have an "items on the
-        // list" head-count without a join, so fetch the lists then
-        // tally below. Bounded by company + status so this is cheap.
-        sb
-          .from("shopping_lists")
-          .select("id, estimated_total")
-          .eq("company_id", companyId)
-          .in("status", ["draft", "pending", "in_progress", "shopping"]),
+        // Active shopping_list rows. Prefer lists assigned to the
+        // current shopper -- "your list" beats "team list" for the
+        // one-shopper-per-tenant dominant case (Wave 70.30). Fall
+        // back to unassigned lists when there's no personal list.
+        userId
+          ? sb
+              .from("shopping_lists")
+              .select("id, estimated_total, shopper_id")
+              .eq("company_id", companyId)
+              .in("status", ["draft", "pending", "in_progress", "shopping"])
+              .or(`shopper_id.eq.${userId},shopper_id.is.null`)
+          : sb
+              .from("shopping_lists")
+              .select("id, estimated_total, shopper_id")
+              .eq("company_id", companyId)
+              .in("status", ["draft", "pending", "in_progress", "shopping"]),
         // Receipts to file: completed TODAY with no receipt url. The
         // today-scoping prevents the count from accumulating forever.
         sb

@@ -99,8 +99,9 @@ export function ShoppingLiveStateStrip() {
       icon: TrendingDown,
       tone: counts.shortItems > 0 ? "critical" : "muted",
       pulse: counts.shortItems > 0,
-      href: "/team-portal/shopping/alerts",
-      aria: `${counts.shortItems} items short in the next 7 days. Tap to open stock alerts.`,
+      // Wave 70.30: re-pointed to /buy-list (canonical action surface).
+      href: "/team-portal/shopping/buy-list",
+      aria: `${counts.shortItems} items short in the next 7 days. Tap to open the buy list.`,
     },
     {
       key: "list",
@@ -108,8 +109,10 @@ export function ShoppingLiveStateStrip() {
       value: counts.loading ? "…" : String(counts.activeListItems),
       icon: ShoppingCart,
       tone: counts.activeListItems > 0 ? "default" : "muted",
-      href: "/team-portal/shopping/orders",
-      aria: `${counts.activeListItems} active shopping list${counts.activeListItems === 1 ? "" : "s"}. Tap to open the active shop view.`,
+      // Wave 70.30: dashboard becomes the canonical "your active
+      // list" view in commit 2 of this wave.
+      href: "/team-portal/shopping/dashboard",
+      aria: `${counts.activeListItems} active shopping list${counts.activeListItems === 1 ? "" : "s"}. Tap to open your list.`,
     },
     {
       key: "receipts",

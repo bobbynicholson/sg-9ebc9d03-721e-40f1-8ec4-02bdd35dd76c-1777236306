@@ -44,14 +44,16 @@ export function ShoppingSmartQuickActions({ onNavigate }: ShoppingSmartQuickActi
       { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "What's coming up",      icon: ChefHat,   accent: "from-amber-500 to-orange-500" },
     ],
     plan: [
-      { href: "/team-portal/shopping/alerts",         label: "Build buy list", sub: "Shortfall first",       icon: ListChecks, accent: "from-green-500 to-emerald-500" },
+      // Wave 70.30: re-pointed at the canonical /buy-list page.
+      { href: "/team-portal/shopping/buy-list",       label: "Build buy list", sub: "Shortfall first",       icon: ListChecks, accent: "from-green-500 to-emerald-500" },
       { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "Recipe pull",           icon: ChefHat,    accent: "from-amber-500 to-orange-500" },
       { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Check par levels",      icon: Warehouse,  accent: "from-emerald-500 to-teal-500" },
     ],
     run: [
       { href: "/team-portal/shopping/receipts",       label: "Snap a receipt", sub: "Photo the slip",        icon: Camera,      accent: "from-green-500 to-emerald-500" },
-      { href: "/team-portal/shopping/orders",         label: "Active list",    sub: "Tick items off",        icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
-      { href: "/team-portal/shopping/inventory",      label: "Quick add",      sub: "Log an extra buy",      icon: Plus,         accent: "from-purple-500 to-pink-500" },
+      // Wave 70.30: "Active list" now lives on the dashboard.
+      { href: "/team-portal/shopping/dashboard",      label: "Your list",      sub: "Tick items off",        icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+      { href: "/team-portal/shopping/buy-list",       label: "Quick add",      sub: "Add more from shortfall", icon: Plus,       accent: "from-purple-500 to-pink-500" },
     ],
     reconcile: [
       { href: "/team-portal/shopping/receipts",       label: "File receipts",  sub: "Upload today's slips",  icon: Receipt,   accent: "from-amber-500 to-orange-500" },
