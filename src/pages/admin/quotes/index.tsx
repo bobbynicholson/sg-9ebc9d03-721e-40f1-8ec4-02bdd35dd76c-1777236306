@@ -82,6 +82,38 @@ import { toLocalISO } from "@/lib/localDate";
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
 /**
+ * Wave 70.32 -- maps the linked order's status to a short pill label
+ * + colour tone for the "this quote was converted" badge. Previously
+ * the badge said a blanket "booked" no matter what state the order
+ * was in -- misleading when the order was still pending / draft /
+ * cancelled. This returns the real state instead.
+ *
+ * Returns null when the status is unknown so the caller can fall
+ * back to a neutral "converted" label.
+ */
+function orderStatusBadge(status: string | null | undefined): { label: string; classes: string } | null {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  // Pending / draft -- order exists but client hasn't confirmed.
+  if (s === "pending" || s === "draft" || s === "quote") {
+    return { label: "Pending", classes: "text-amber-700 border-amber-200 bg-amber-50" };
+  }
+  // Cancelled / declined -- terminal failure.
+  if (s === "cancelled" || s === "declined" || s === "rejected") {
+    return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
+  }
+  // Active production states.
+  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  // Unknown -- show the raw status capitalised so we never invent a meaning.
+  return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
+}
+
+/**
  * Maps a Quote row -> the QuoteStatus our compose templates know about.
  * Folds in an "expired" check based on valid_until so an old "sent" quote
  * gets the urgency template instead of the default follow-up.
@@ -376,6 +408,9 @@ export default function AdminQuotes() {
     guestCount: number | null;
     totalAmount: number | null;
     venueName: string | null;
+    /** Wave 70.32: actual order status so badge + caption tell the
+     *  truth instead of saying a blanket "booked". */
+    status: string | null;
   }>>(new Map());
 
   // Deep-link target from notifications + email links: clicking a
@@ -646,7 +681,10 @@ export default function AdminQuotes() {
         }
         const { data: orderRows } = await supabase
           .from("orders")
-          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name")
+          // Wave 70.32: pull status too so the badge can show the
+          // accurate state of the linked order, not a blanket "booked"
+          // word that's wrong when the order is still pending.
+          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name, status")
           .eq("company_id", companyId)
           .in("id", orderIds);
         const byOrderId = new Map<string, any>();
@@ -665,6 +703,7 @@ export default function AdminQuotes() {
             guestCount: o.guest_count ?? null,
             totalAmount: o.total_amount ?? null,
             venueName: o.venue_name ?? null,
+            status: o.status ?? null,
           });
         }
         if (!cancelled) setResolvedByQuoteId(next);
@@ -1631,11 +1670,27 @@ export default function AdminQuotes() {
                                 from lead
                               </Badge>
                             )}
-                            {(quote as any).converted_to_order_id && (
-                              <Badge variant="outline" className="text-[11px] text-emerald-700 border-emerald-200 bg-emerald-50">
-                                booked
-                              </Badge>
-                            )}
+                            {/* Wave 70.32 -- show the linked order's actual
+                                status, not a blanket "booked" word. Falls
+                                back to "Converted" when the order row
+                                hasn't hydrated yet (resolved is null on
+                                first render). */}
+                            {(quote as any).converted_to_order_id && (() => {
+                              const status = resolved?.status as string | null | undefined;
+                              const meta = orderStatusBadge(status);
+                              if (meta) {
+                                return (
+                                  <Badge variant="outline" className={`text-[11px] ${meta.classes}`}>
+                                    {meta.label}
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Badge variant="outline" className="text-[11px] text-slate-600 border-slate-200 bg-slate-50">
+                                  converted
+                                </Badge>
+                              );
+                            })()}
                             {/* Sent-at pill -- the timing anchor for
                                 follow-ups. Reads 'Sent today' /
                                 'Sent 3d ago' / 'Sent 12 May' depending
@@ -1745,14 +1800,32 @@ export default function AdminQuotes() {
                               linked order overrode the headline event
                               details. Stops the operator second-guessing
                               the numbers when the order has drifted from
-                              the original quote. */}
-                          {resolved && (
-                            <div className="mb-4 text-[11px] text-emerald-700">
-                              Pulled from booked order
-                              {resolved.orderNumber ? ` ${resolved.orderNumber}` : ""}
-                              {resolved.venueName ? ` · ${resolved.venueName}` : ""}
-                            </div>
-                          )}
+                              the original quote.
+                              Wave 70.32 -- caption colour + verb mirror
+                              the linked order's actual status. "Booked"
+                              only when the order really is confirmed-or-
+                              later. Pending/cancelled etc. get an
+                              honest label so the operator isn't misled. */}
+                          {resolved && (() => {
+                            const meta = orderStatusBadge(resolved.status as string | null | undefined);
+                            const verb = !meta
+                              ? "Linked to order"
+                              : meta.label === "Booked"     ? "Pulled from booked order"
+                              : meta.label === "Pending"    ? "Linked to pending order"
+                              : meta.label === "Cancelled"  ? "Linked to cancelled order"
+                              : `Linked to ${meta.label.toLowerCase()} order`;
+                            const tone = meta?.label === "Booked"     ? "text-emerald-700"
+                                       : meta?.label === "Cancelled"  ? "text-rose-700"
+                                       : meta?.label === "Pending"    ? "text-amber-700"
+                                       : "text-slate-600";
+                            return (
+                              <div className={`mb-4 text-[11px] ${tone}`}>
+                                {verb}
+                                {resolved.orderNumber ? ` ${resolved.orderNumber}` : ""}
+                                {resolved.venueName ? ` · ${resolved.venueName}` : ""}
+                              </div>
+                            );
+                          })()}
 
                           {/*
                             Diary signal, "do we have a gap that day?"

@@ -78,6 +78,31 @@ function formatQuoteLabel(q: LeadQuoteSummary): string {
   return [head, status, total].filter(Boolean).join(" · ");
 }
 
+/**
+ * Wave 70.32 -- maps the linked order's status to a short pill label
+ * + colour tone for the "this lead converted" pill on lead rows.
+ * Previously the pill said a blanket "booked" no matter what state
+ * the order was in -- misleading when the order was still pending
+ * or cancelled.
+ */
+function orderStatusBadge(status: string | null | undefined): { label: string; classes: string } | null {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  if (s === "pending" || s === "draft" || s === "quote") {
+    return { label: "Pending", classes: "text-amber-700 border-amber-200 bg-amber-50" };
+  }
+  if (s === "cancelled" || s === "declined" || s === "rejected") {
+    return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
+  }
+  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
+}
+
 interface LeadLinks {
   quoteCount: number;
   /** Every quote attached to this lead, newest first. */
@@ -87,6 +112,10 @@ interface LeadLinks {
   latestQuoteStatus: string | null;
   /** Order id if any quote off this lead converted into an order. */
   orderId: string | null;
+  /** Wave 70.32 -- the linked order's status (pending / confirmed /
+   *  preparing / etc). Lets the UI show the real state instead of
+   *  saying a blanket "booked" when the order is still pending. */
+  orderStatus: string | null;
   clientId: string | null;
   /**
    * Resolved event details, sourced (in priority order) from the linked
@@ -141,7 +170,15 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   const status = (lead.status || "new") as string;
 
   if (links.orderId) {
-    return { tone: "neutral", label: "Open order", reason: "Already booked", kind: "view_order" };
+    // Wave 70.32 -- reason mirrors the order's real status so a
+    // pending order doesn't show "Already booked" misleadingly.
+    const meta = orderStatusBadge(links.orderStatus);
+    const reason = meta?.label === "Booked"     ? "Already booked"
+                 : meta?.label === "Pending"    ? "Order pending confirmation"
+                 : meta?.label === "Cancelled"  ? "Order cancelled"
+                 : meta?.label                  ? `Order ${meta.label.toLowerCase()}`
+                 : "Linked to order";
+    return { tone: "neutral", label: "Open order", reason, kind: "view_order" };
   }
   if (links.quoteCount > 0) {
     if (links.latestQuoteStatus === "accepted") {
@@ -533,6 +570,7 @@ export default function AdminLeads() {
           latestQuoteId: null,
           latestQuoteStatus: null,
           orderId: null,
+          orderStatus: null,
           clientId: l.converted_to_client_id ?? null,
           // Default the resolved view to the lead row -- keeps things
           // working for brand-new leads with no quote/order yet. We
@@ -667,7 +705,11 @@ export default function AdminLeads() {
           orderIds.length > 0
             ? supabase
                 .from("orders")
-                .select("id, order_number, event_name, event_date, guest_count, venue_name, total_amount")
+                // Wave 70.32: pull status so the badge / subtitle can
+                // tell the truth about the order's real state (was a
+                // blanket "booked" before, misleading for pending /
+                // cancelled orders).
+                .select("id, order_number, event_name, event_date, guest_count, venue_name, total_amount, status")
                 .in("id", orderIds)
             : Promise.resolve({ data: [] as any[] }),
           latestQuoteIds.length > 0
@@ -687,6 +729,10 @@ export default function AdminLeads() {
           const lead = data.find((l: any) => l.id === leadId);
           if (cur.orderId && ordersById.has(cur.orderId)) {
             const o = ordersById.get(cur.orderId);
+            // Wave 70.32: capture the actual order status so the
+            // badge + provenance caption can show the real state
+            // rather than a misleading "booked" word.
+            cur.orderStatus = o.status ?? null;
             cur.resolved = {
               source: "order",
               sourceLabel: o.order_number || cur.orderId.slice(0, 8),
@@ -1090,6 +1136,7 @@ export default function AdminLeads() {
                       latestQuoteId: null,
                       latestQuoteStatus: null,
                       orderId: null,
+                      orderStatus: null,
                       clientId: lead.converted_to_client_id ?? null,
                       resolved: {
                         source: "lead",
@@ -1170,15 +1217,32 @@ export default function AdminLeads() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
-                            {links.orderId && (
-                              <Link
-                                href={withSlug(`/admin/orders?orderId=${links.orderId}`)}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-100"
-                              >
-                                <ShoppingCart className="w-3 h-3" />
-                                booked
-                              </Link>
-                            )}
+                            {links.orderId && (() => {
+                              // Wave 70.32 -- pill colour + label
+                              // reflect the order's actual status.
+                              // Falls back to "linked order" when
+                              // status hasn't hydrated yet.
+                              const meta = orderStatusBadge(links.orderStatus);
+                              const label = meta?.label ?? "Linked";
+                              const classes = meta?.classes ?? "text-slate-700 border-slate-200 bg-slate-50 hover:bg-slate-100";
+                              const hoverClasses = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed"
+                                ? "hover:bg-emerald-100"
+                                : meta?.label === "Pending"   ? "hover:bg-amber-100"
+                                : meta?.label === "Cancelled" ? "hover:bg-rose-100"
+                                : meta?.label === "In prep"   ? "hover:bg-purple-100"
+                                : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-blue-100"
+                                : "hover:bg-slate-100";
+                              return (
+                                <Link
+                                  href={withSlug(`/admin/orders?orderId=${links.orderId}`)}
+                                  className={`inline-flex items-center gap-1 text-[11px] font-medium border rounded px-1.5 py-0.5 ${classes} ${hoverClasses}`}
+                                  title={`Linked order is ${label.toLowerCase()}. Click to open.`}
+                                >
+                                  <ShoppingCart className="w-3 h-3" />
+                                  {label.toLowerCase()}
+                                </Link>
+                              );
+                            })()}
                             {links.clientId && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
                                 <UserCheck className="w-3 h-3" />
@@ -1370,7 +1434,21 @@ export default function AdminLeads() {
                               knows immediately. */}
                           <p className="text-xs text-slate-500 mb-3">
                             {links.resolved.source === "order"
-                              ? `Pulled from booked order ${links.resolved.sourceLabel || ""}`.trim()
+                              // Wave 70.32 -- caption verb reflects
+                              // the order's real status. "Booked" only
+                              // when the order really is confirmed-or-
+                              // later. Pending/cancelled etc. read
+                              // honestly so the operator isn't misled.
+                              ? (() => {
+                                  const meta = orderStatusBadge(links.orderStatus);
+                                  const verb = !meta
+                                    ? "Pulled from order"
+                                    : meta.label === "Booked"     ? "Pulled from booked order"
+                                    : meta.label === "Pending"    ? "Pulled from pending order"
+                                    : meta.label === "Cancelled"  ? "Pulled from cancelled order"
+                                    : `Pulled from ${meta.label.toLowerCase()} order`;
+                                  return `${verb} ${links.resolved.sourceLabel || ""}`.trim();
+                                })()
                               : links.resolved.source === "quote"
                                 ? `Pulled from quote ${links.resolved.sourceLabel || ""}`.trim()
                                 : "From the original enquiry"}
