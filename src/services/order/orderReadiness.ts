@@ -176,7 +176,10 @@ export function computeOrderReadiness(
     message: balanceOverdue
       ? _formatOverdueBalanceMessage(invoiceDueDate as string, now)
       : "Balance on track.",
-    actionLink: `/admin/invoices?orderId=${orderId}`,
+    // Wave 70.35: &action=chase tells the invoices page to scroll
+    // to + highlight the invoice for this order so the operator
+    // can pick Mark paid / Send reminder without hunting the list.
+    actionLink: `/admin/invoices?orderId=${orderId}&action=chase`,
   });
 
   // 3. Driver assigned (Wave 47 simplification).
@@ -491,7 +494,11 @@ export function computeOrderReadiness(
     message: invoiceSent
       ? "Invoice delivered."
       : "Invoice never sent to the client.",
-    actionLink: `/admin/invoices?orderId=${orderId}`,
+    // Wave 70.35: &action=send tells the invoices page to scroll
+    // to the row AND auto-open the Send dialog so the operator
+    // can fix it in one click instead of hunting and clicking
+    // Send themselves.
+    actionLink: `/admin/invoices?orderId=${orderId}&action=send`,
   });
 
   // 6. Menu items + venue present.

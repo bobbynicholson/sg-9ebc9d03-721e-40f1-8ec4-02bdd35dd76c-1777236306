@@ -489,6 +489,93 @@ export default function InvoicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
 
+  // Wave 70.35 -- deep-link target from the order readiness chip.
+  // "Fix it" links from /admin/orders pass ?orderId=<UUID> and
+  // optionally &action=send|chase. Pre-Wave-70.35 the page ignored
+  // these and the operator landed on the full invoice list with no
+  // signal of which invoice was the one to fix. Now: scroll the
+  // matching invoice into view, ring-highlight it, reset filters
+  // that might hide it, and auto-open the Send dialog when the
+  // caller asked for action=send.
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
+  const deepLinkHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (invoices.length === 0) return; // wait for first fetch
+    const qsOrderId = typeof router.query.orderId === "string" ? router.query.orderId : null;
+    if (!qsOrderId) return;
+    // Skip re-firing if we already handled this orderId in this session.
+    // Without this guard the effect would re-run every render and re-
+    // scroll / re-fire dialogs.
+    if (deepLinkHandledRef.current === qsOrderId) return;
+    deepLinkHandledRef.current = qsOrderId;
+
+    const qsAction = typeof router.query.action === "string" ? router.query.action : null;
+
+    // Find the most-recent invoice for that order. Prefer unsent /
+    // unpaid -- those are the ones the operator likely came here
+    // to fix.
+    const matches = invoices.filter((inv: any) => inv.order_id === qsOrderId);
+    if (matches.length === 0) {
+      toast({
+        title: "No invoice for that order yet",
+        description: "Open the order and use 'Generate invoice' to create one, then come back here.",
+        variant: "destructive",
+      });
+      // Strip the query so a refresh doesn't keep firing the toast.
+      const { orderId: _drop, action: _drop2, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true, scroll: false });
+      return;
+    }
+    // Picker: action=send -> first invoice with no sent_at, else newest.
+    //         action=chase -> first invoice with balance > 0, else newest.
+    //         otherwise   -> newest by created_at.
+    const sortByCreatedDesc = (a: any, b: any) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    const sorted = [...matches].sort(sortByCreatedDesc);
+    let target: any = sorted[0];
+    if (qsAction === "send") {
+      target = sorted.find((i: any) => !i.sent_at) || sorted[0];
+    } else if (qsAction === "chase") {
+      target = sorted.find((i: any) => Number(i.balance_due || 0) > 0) || sorted[0];
+    }
+    if (!target) return;
+
+    // Reset status filter if it would hide the target -- e.g. the
+    // operator was on "Unpaid" but the target is "draft".
+    setStatusFilter("all");
+
+    setHighlightedInvoiceId(target.id);
+    // Scroll the row into view after the next paint (filter reset
+    // needs to render first). 400ms follow-up handles late renders.
+    const scrollTo = () => {
+      const el = document.getElementById(`invoice-row-${target.id}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    setTimeout(scrollTo, 80);
+    setTimeout(scrollTo, 400);
+
+    // Fire the Send dialog when the readiness signal was "invoice
+    // never sent". Only auto-fire when the invoice actually has no
+    // sent_at -- the operator may have manually marked it sent in
+    // the meantime and we don't want to re-send.
+    if (qsAction === "send" && !target.sent_at) {
+      // Delay slightly so the scroll lands before the dialog mounts.
+      setTimeout(() => handleSendInvoice(target.id), 600);
+    }
+
+    // Clear the highlight after a few seconds so subsequent navigations
+    // through the list aren't visually contaminated.
+    const clearHi = setTimeout(() => setHighlightedInvoiceId(null), 4500);
+
+    // Strip query params so a refresh doesn't re-fire scroll / dialog.
+    const { orderId: _drop, action: _drop2, ...rest } = router.query;
+    router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true, scroll: false });
+
+    return () => clearTimeout(clearHi);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.orderId, router.query.action, invoices.length]);
+
   useEffect(() => {
     if (!router.isReady) return;
     const clientId = typeof router.query.clientId === "string" ? router.query.clientId : null;
@@ -1750,6 +1837,11 @@ export default function InvoicesPage() {
                   return (
                   <div
                     key={invoice.id}
+                    // Wave 70.35: stable id for the deep-link handler
+                    // above to scrollIntoView the row when arriving
+                    // via "Fix it" from /admin/orders. Also drives
+                    // the temporary highlight ring below.
+                    id={`invoice-row-${invoice.id}`}
                     className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
                     } ${
@@ -1757,6 +1849,12 @@ export default function InvoicesPage() {
                          they read as closed-loop at a glance even when
                          the operator has chosen to include them. */
                       invoice.status === "written_off" ? "opacity-60 bg-slate-50/50" : ""
+                    } ${
+                      /* Wave 70.35 -- highlight ring on the row the
+                         operator landed on via "Fix it". Auto-clears
+                         after ~4.5s so subsequent navigation isn't
+                         visually contaminated. */
+                      highlightedInvoiceId === invoice.id ? "ring-2 ring-blue-400 ring-offset-2 bg-blue-50/40 motion-safe:animate-pulse" : ""
                     }`}
                   >
                     {/* Wave 66.1 -- mobile-first row layout. Pre-Wave
