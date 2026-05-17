@@ -119,6 +119,14 @@ export function computeOrderReadiness(
   const within48h = hoursToEvent != null && hoursToEvent <= RED_HOURS_WINDOW && hoursToEvent >= 0;
   const within24h = hoursToEvent != null && hoursToEvent <= RED_MEDIUM_WINDOW && hoursToEvent >= 0;
 
+  // Wave 70.17 / 70.22 -- past-event + terminal-status derived
+  // flags. Hoisted to function scope so both the prep-signal
+  // emit-time check and the post-process operational suppression
+  // pass can read them without re-deriving.
+  const orderStatus = (o.status || "").toString().toLowerCase();
+  const isTerminalStatus = ["delivered", "completed", "cancelled", "refunded"].includes(orderStatus);
+  const isEventPast = hoursToEvent != null && hoursToEvent < 0;
+
   // ---- HIGH signals (MVP set) -------------------------------------------
 
   // 1. Client section is contactable + venue is set.
@@ -252,9 +260,6 @@ export function computeOrderReadiness(
   // a misleading "high severity, action required" row.
   const prepTasks = input.kitchenPrepTasks || [];
   const prepReady = prepTasks.length > 0;
-  const orderStatus = (o.status || "").toString().toLowerCase();
-  const isTerminalStatus = ["delivered", "completed", "cancelled", "refunded"].includes(orderStatus);
-  const isEventPast = hoursToEvent != null && hoursToEvent < 0;
   const prepNotApplicable = isTerminalStatus || isEventPast;
   signals.push({
     key: "kitchen_prep_tasks_present",
@@ -541,6 +546,57 @@ export function computeOrderReadiness(
   const failingMedium = signals
     .filter((s) => s.severity === "medium" && !s.passing)
     .sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
+
+  // Wave 70.22 -- post-process: on past-event / terminal-status
+  // orders, suppress operational signals that are no longer
+  // actionable. A "no driver assigned" warning on an event that
+  // happened yesterday is noise -- the event already happened;
+  // there's nothing to assign. We KEEP signals that are still
+  // actionable on past orders (balance_not_overdue, invoice_sent,
+  // client_contactable) so chase-the-client / send-the-invoice
+  // workflows stay visible.
+  //
+  // Wave 70.17 already handled the prep signal at emit time;
+  // this central post-process catches the other operational
+  // signals without forcing every push() to know the rule.
+  // (isTerminalStatus + isEventPast hoisted to function scope.)
+  if (isTerminalStatus || isEventPast) {
+    const operationalKeys = new Set([
+      "driver_assigned",
+      "driver_acknowledged",
+      "kitchen_shift_event_day",
+      "setup_pickup_times_set",
+      "outsource_confirmed",
+      "hire_pickup_dates_set",
+      "pre_event_cleaning",
+      "requires_two_drivers_covered",
+      "vehicle_service_ok",
+      "menu_items_present",
+    ]);
+    const suppressMsg = isTerminalStatus
+      ? `Order ${orderStatus} -- no longer applicable.`
+      : "Event has passed -- no longer applicable.";
+    for (const sig of signals) {
+      if (!operationalKeys.has(sig.key)) continue;
+      if (sig.passing) continue;
+      sig.passing = true;
+      sig.message = suppressMsg;
+      sig.actionLink = null;
+      sig.actionType = null;
+      sig.actionLabel = null;
+    }
+    // Recompute failing arrays after the suppression pass.
+    failingHigh.length = 0;
+    failingMedium.length = 0;
+    for (const s of signals) {
+      if (s.passing) continue;
+      if (s.severity === "high") failingHigh.push(s);
+      else if (s.severity === "medium") failingMedium.push(s);
+    }
+    failingHigh.sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
+    failingMedium.sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
+  }
+
   const stageBlocked = !!timeline.blocked;
   const hasErrorBlocker = (timeline.crossSystemBlockers || []).some((b) => b.severity === "error");
 

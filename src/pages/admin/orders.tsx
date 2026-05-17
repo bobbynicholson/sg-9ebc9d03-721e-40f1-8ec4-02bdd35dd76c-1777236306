@@ -1720,6 +1720,9 @@ function OrderProcessDashboard() {
                   readiness={r}
                   orderId={(order as any).id}
                   eventDate={(order as any).event_date || null}
+                  eventTime={(order as any).event_time || null}
+                  status={(order as any).status || null}
+                  canShowCloseOut={true}
                   onActionComplete={() => { void loadOrders(); }}
                 />
               );

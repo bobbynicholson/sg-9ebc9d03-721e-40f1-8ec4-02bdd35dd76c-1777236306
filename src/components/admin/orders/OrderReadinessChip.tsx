@@ -14,7 +14,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink, Loader2, Sparkles, Flag } from "lucide-react";
 import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderReadiness";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
@@ -73,6 +73,16 @@ interface Props {
    *  on a fresh order. Past events still require explicit manual
    *  override (the operator must consciously backfill history). */
   eventDate?: string | null;
+  /** Wave 70.22 -- order status + event_time so the chip can
+   *  surface a Close out button when the order is past its
+   *  event but still in a non-terminal state. Admin gates the
+   *  button visibility at the page level via canShowCloseOut. */
+  eventTime?: string | null;
+  status?: string | null;
+  /** Wave 70.22 -- when true, the chip renders a Close out
+   *  button on past-event non-terminal orders that fires the
+   *  force-close API. Page-level role gate (admin / owner). */
+  canShowCloseOut?: boolean;
 }
 
 const AUTOHEAL_SESSION_KEY = "orderReadinessChip:autoHealAttempted";
@@ -97,13 +107,72 @@ function markAutoHealAttempted(orderId: string) {
   } catch { /* ignore */ }
 }
 
-export function OrderReadinessChip({ readiness, onOpen, orderId, onActionComplete, eventDate }: Props) {
+export function OrderReadinessChip({
+  readiness,
+  onOpen,
+  orderId,
+  onActionComplete,
+  eventDate,
+  eventTime,
+  status,
+  canShowCloseOut,
+}: Props) {
   const [open, setOpen] = useState(false);
   const { withSlug } = useTenantHref();
+  const { toast } = useToast();
   const tone = TONE[readiness.chip];
   const Icon = tone.Icon;
   const failingCount = readiness.failingHigh.length + readiness.failingMedium.length;
   const autoHealFiredRef = useRef(false);
+  const [closingOut, setClosingOut] = useState(false);
+  const [closeConfirm, setCloseConfirm] = useState(false);
+
+  // Wave 70.22 -- decide whether to surface the Close out button.
+  // Three conditions: caller opted-in (admin/owner page), order
+  // status is non-terminal, event is in the past.
+  const showCloseOut = (() => {
+    if (!canShowCloseOut || !orderId) return false;
+    const s = (status || "").toString().toLowerCase();
+    if (["delivered", "completed", "cancelled", "refunded"].includes(s)) return false;
+    if (!eventDate) return false;
+    const dt = eventTime
+      ? new Date(`${eventDate}T${String(eventTime).slice(0, 8)}`)
+      : new Date(`${eventDate}T12:00:00`);
+    if (isNaN(dt.getTime())) return false;
+    return dt.getTime() < Date.now();
+  })();
+
+  const handleCloseOut = async () => {
+    if (!orderId) return;
+    if (!closeConfirm) {
+      setCloseConfirm(true);
+      // Auto-clear confirm after 5s if not acted on, so the
+      // button doesn't stay in confirm-pending forever.
+      setTimeout(() => setCloseConfirm(false), 5000);
+      return;
+    }
+    setClosingOut(true);
+    try {
+      const r = await fetch(`/api/orders/${orderId}/force-close`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason: "Closed from order readiness chip" }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ title: "Couldn't close order", description: data.error || "Server error", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Order closed", description: data.message });
+      onActionComplete?.();
+    } catch (e: any) {
+      toast({ title: "Close failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setClosingOut(false);
+      setCloseConfirm(false);
+    }
+  };
 
   // Wave 70.16 -- silent auto-heal of missing prep tasks. When the
   // chip detects the kitchen_prep_tasks_present signal failing AND
@@ -176,6 +245,29 @@ export function OrderReadinessChip({ readiness, onOpen, orderId, onActionComplet
             {readiness.subhead}
           </div>
         </div>
+        {/* Wave 70.22 -- Close out button on past-event non-terminal
+            orders so admin can tidy up paperwork without leaving the
+            chip. Two-step confirm pattern: first tap arms it ("Sure?"
+            label), second tap fires the API. Auto-clears after 5s
+            so the button doesn't stay armed forever. */}
+        {showCloseOut && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); void handleCloseOut(); }}
+            disabled={closingOut}
+            className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-all ${focusRing} ${
+              closeConfirm
+                ? "bg-rose-600 text-white hover:bg-rose-700"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
+            title={closeConfirm ? "Tap again to confirm" : "Force-close: marks prep done + stamps delivery + flips status"}
+          >
+            {closingOut
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Flag className="w-3.5 h-3.5" />}
+            {closingOut ? "Closing..." : closeConfirm ? "Sure? Tap again" : "Close out"}
+          </button>
+        )}
         {onOpen && (
           <button
             type="button"
