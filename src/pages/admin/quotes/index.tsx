@@ -444,7 +444,43 @@ export default function AdminQuotes() {
     const autoMap = summariseAutoEmailsByQuote(autoEmailRows as any);
     return quotes
       .map((q) => {
-        const intelligence = deriveQuoteIntelligence(q);
+        const baseIntel = deriveQuoteIntelligence(q);
+        // Wave 70.42b -- linked-order status override. deriveQuote
+        // Intelligence only sees the quote row, so a quote whose
+        // converted_to_order_id points at a CANCELLED order would
+        // stay in_play because quote.status is still "sent". Bobby
+        // flagged this: cancelled / rejected quotes must never
+        // appear in In play. We look up the resolved order's
+        // status (hydrated by the orders-join effect below) and
+        // override the bucket here.
+        const resolved = resolvedByQuoteId.get(q.id);
+        const orderStatus = (resolved?.status || "").toString().toLowerCase();
+        let intelligence = baseIntel;
+        if (orderStatus === "cancelled" || orderStatus === "rejected") {
+          intelligence = {
+            ...baseIntel,
+            bucket: "lost",
+            tone: "neutral",
+            label: "Order cancelled",
+            reason: `Linked order ${resolved?.orderNumber || ""} was cancelled -- quote is no longer in play`,
+          };
+        } else if (
+          orderStatus === "delivered"
+          || orderStatus === "completed"
+          || orderStatus === "paid"
+        ) {
+          // Defensive: a confirmed-and-onward order means the quote
+          // is definitively won, regardless of what quote.status
+          // says. (Most flows already mark accepted but some imports
+          // skip the step.)
+          intelligence = {
+            ...baseIntel,
+            bucket: "won",
+            tone: "neutral",
+            label: "Won + booked",
+            reason: `Linked order ${resolved?.orderNumber || ""} is ${orderStatus}`,
+          };
+        }
         const autoEmail =
           autoMap.get(q.id) || { queued: 0, sent: 0, latest: null };
         return {
@@ -455,7 +491,7 @@ export default function AdminQuotes() {
         };
       })
       .sort((a, b) => a.sortKey - b.sortKey);
-  }, [quotes, autoEmailRows]);
+  }, [quotes, autoEmailRows, resolvedByQuoteId]);
 
   // Apply the global branch filter before bucketing so the bucket
   // counts reflect only the branch the operator is scoped to.
@@ -872,7 +908,7 @@ export default function AdminQuotes() {
   const handleMarkAsLost = async (quote: Quote) => {
     if (typeof window === "undefined") return;
     const reason = window.prompt(
-      `Mark ${quote.client_name}'s quote as lost? Add a quick reason (optional):`,
+      `Mark ${quote.client_name}'s quote as rejected? This moves it out of 'In play' and into 'Lost'. Add a quick reason (optional):`,
       "",
     );
     if (reason === null) return; // cancel
@@ -906,8 +942,10 @@ export default function AdminQuotes() {
         }
       }
       toast({
-        title: "Marked as lost",
-        description: reason.trim() ? `Reason: ${reason.trim()}` : "No reason recorded.",
+        title: "Marked as rejected",
+        description: reason.trim()
+          ? `Reason: ${reason.trim()}. Moved out of 'In play' into 'Lost'.`
+          : "Moved out of 'In play' into 'Lost'. No reason recorded.",
       });
     } catch (err: any) {
       console.error("Mark as lost failed:", err);
@@ -1807,21 +1845,33 @@ export default function AdminQuotes() {
                               later. Pending/cancelled etc. get an
                               honest label so the operator isn't misled. */}
                           {resolved && (() => {
+                            // Wave 70.42b -- active phrasing + explicit
+                            // consequence. Bobby flagged "Linked to
+                            // cancelled order" as confusing -- it didn't
+                            // say WHO cancelled it or what it meant for
+                            // the quote. Now: subject + verb + object +
+                            // a one-line consequence so the operator
+                            // reads it as a complete sentence.
                             const meta = orderStatusBadge(resolved.status as string | null | undefined);
-                            const verb = !meta
-                              ? "Linked to order"
-                              : meta.label === "Booked"     ? "Pulled from booked order"
-                              : meta.label === "Pending"    ? "Linked to pending order"
-                              : meta.label === "Cancelled"  ? "Linked to cancelled order"
-                              : `Linked to ${meta.label.toLowerCase()} order`;
-                            const tone = meta?.label === "Booked"     ? "text-emerald-700"
+                            const orderRef = resolved.orderNumber ? `Order ${resolved.orderNumber}` : "The linked order";
+                            const sentence = !meta
+                              ? `${orderRef} -- status unknown`
+                              : meta.label === "Booked"     ? `${orderRef} is booked -- this quote converted successfully`
+                              : meta.label === "Pending"    ? `${orderRef} is pending confirmation`
+                              : meta.label === "Cancelled"  ? `${orderRef} was cancelled -- this quote is no longer in play`
+                              : meta.label === "In prep"    ? `${orderRef} is in prep -- food is being made`
+                              : meta.label === "Ready"      ? `${orderRef} is ready for dispatch`
+                              : meta.label === "Driving"    ? `${orderRef} is on the way`
+                              : meta.label === "Delivered"  ? `${orderRef} has been delivered`
+                              : meta.label === "Completed"  ? `${orderRef} is completed`
+                              : `${orderRef} -- ${meta.label.toLowerCase()}`;
+                            const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-emerald-700"
                                        : meta?.label === "Cancelled"  ? "text-rose-700"
                                        : meta?.label === "Pending"    ? "text-amber-700"
                                        : "text-slate-600";
                             return (
                               <div className={`mb-4 text-[11px] ${tone}`}>
-                                {verb}
-                                {resolved.orderNumber ? ` ${resolved.orderNumber}` : ""}
+                                {sentence}
                                 {resolved.venueName ? ` · ${resolved.venueName}` : ""}
                               </div>
                             );
@@ -2129,12 +2179,20 @@ export default function AdminQuotes() {
                                     <Clock className="w-4 h-4 mr-2" />
                                     {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
                                   </DropdownMenuItem>
+                                  {/* Wave 70.42b -- relabelled to "Mark rejected"
+                                      to match the DB status value + Bobby's
+                                      terminology. The handler is unchanged
+                                      (still sets status='rejected' + audits
+                                      the reason). title attribute clarifies
+                                      that this also drops the quote out of
+                                      the In play bucket. */}
                                   <DropdownMenuItem
                                     onClick={() => handleMarkAsLost(quote)}
                                     className="text-rose-700 focus:text-rose-700 focus:bg-rose-50"
+                                    title="Mark this quote rejected. Moves it out of 'In play' and into 'Lost'. Captures an optional reason for your audit trail."
                                   >
                                     <X className="w-4 h-4 mr-2" />
-                                    Mark lost
+                                    Mark rejected
                                   </DropdownMenuItem>
                                 </>
                               )}
