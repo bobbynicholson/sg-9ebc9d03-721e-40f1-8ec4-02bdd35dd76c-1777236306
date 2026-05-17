@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { Footer } from "@/components/Footer";
@@ -225,6 +225,17 @@ export default function KitchenDashboard() {
   // Find the next pickup across active orders. Drives the headline card --
   // we keep the original event Date alongside the minutes-away so the UI can
   // format it as a real human day + time instead of a T-minus code.
+  //
+  // Wave 70.21 -- a stuck order (confirmed/preparing whose event is
+  // hours in the past) was hijacking the "Next Pickup" headline and
+  // showing "3h 27m late" for a job that was actually finished
+  // (just not ticked through). The card no longer picks orders
+  // whose event is more than 4 hours in the past -- those land in
+  // the "Needs closure" list below where admin can force-close.
+  // 4h grace keeps actually-late orders visible (so a chef who
+  // ran 1h over still sees the late marker) without letting
+  // forgotten paperwork dominate the dashboard.
+  const PAST_PICKUP_GRACE_MIN = 4 * 60; // 4 hours
   const nextPickup = useMemo(() => {
     const live = orders.filter(o => o.status === "confirmed" || o.status === "preparing");
     if (live.length === 0) return null;
@@ -242,6 +253,8 @@ export default function KitchenDashboard() {
         : new Date(`${o.event_date}T12:00`);
       if (isNaN(dt.getTime())) continue;
       const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
+      // Skip stuck orders more than the grace window past event time.
+      if (minutesAway < -PAST_PICKUP_GRACE_MIN) continue;
       if (!earliest || minutesAway < earliest.minutesAway) {
         earliest = {
           id: o.id,
@@ -255,6 +268,58 @@ export default function KitchenDashboard() {
     }
     return earliest;
   }, [orders, now]);
+
+  // Wave 70.21 -- separate "Needs closure" list for orders the
+  // grace window skipped above. Admin / owner can one-click force-
+  // close each one to tidy up the dashboard. Sorted oldest-first
+  // so the longest-outstanding shows top.
+  const needsClosureOrders = useMemo(() => {
+    return orders
+      .filter((o: any) => {
+        const status = (o.status || "").toLowerCase();
+        if (!["confirmed", "preparing"].includes(status)) return false;
+        if (!o.event_date) return false;
+        const dt = o.event_time
+          ? new Date(`${o.event_date}T${o.event_time}`)
+          : new Date(`${o.event_date}T12:00`);
+        if (isNaN(dt.getTime())) return false;
+        const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
+        return minutesAway < -PAST_PICKUP_GRACE_MIN;
+      })
+      .sort((a: any, b: any) => {
+        const aDt = new Date(`${a.event_date}T${a.event_time || "12:00"}`).getTime();
+        const bDt = new Date(`${b.event_date}T${b.event_time || "12:00"}`).getTime();
+        return aDt - bDt;
+      });
+  }, [orders, now]);
+
+  // Wave 70.21 -- force-close handler. Hits the API, refreshes the
+  // dashboard on success so the closed order disappears.
+  const [forceClosingId, setForceClosingId] = useState<string | null>(null);
+  const handleForceClose = async (orderId: string, orderLabel: string) => {
+    if (forceClosingId) return;
+    if (!confirm(`Close out ${orderLabel}? This marks all prep tasks as done and flips the order to delivered. It can't be undone.`)) return;
+    setForceClosingId(orderId);
+    try {
+      const r = await fetch(`/api/orders/${orderId}/force-close`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason: "Closed from kitchen dashboard" }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ title: "Couldn't close order", description: data.error || "Server error", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Order closed", description: data.message });
+      await loadDashboardData();
+    } catch (e: any) {
+      toast({ title: "Close failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setForceClosingId(null);
+    }
+  };
 
   // Human-friendly day label: Today / Tomorrow / weekday name / dated for
   // anything more than a week out. Plain English, no T-minus codes.
@@ -571,6 +636,65 @@ export default function KitchenDashboard() {
               </Card>
             );
           })()}
+
+          {/* Wave 70.21 -- Needs closure panel for past-event orders
+              stuck in confirmed / preparing because the team didn't
+              tick them through in real time. Admin / owner only --
+              kitchen staff shouldn't be force-closing orders. Each
+              row has a single Close out button that cascades through
+              prep + ready + collect + delivery + audit in one call. */}
+          {canSeeAdminOrderDetail && needsClosureOrders.length > 0 && (
+            <Card className="border-0 shadow-md mb-4 sm:mb-6 border-l-4 border-l-amber-500 bg-amber-50/40">
+              <CardHeader className="px-3 sm:px-4 md:px-6 pb-2">
+                <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  Needs closure
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                    {needsClosureOrders.length}
+                  </Badge>
+                  <InfoTooltip content="Orders whose event was hours ago but the team didn't tick them through. Force-close cascades all the prep tasks + ready + collected + delivered stamps in one click. Audit-logged. Owner / admin only." />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-4 md:px-6 pb-3">
+                <ul className="space-y-2">
+                  {needsClosureOrders.map((o: any) => {
+                    const dt = new Date(`${o.event_date}T${o.event_time || "12:00"}`);
+                    const ago = Math.floor((now.getTime() - dt.getTime()) / 3_600_000);
+                    const label = `${o.event_name || o.client_name || "Event"}${o.order_number ? ` (${o.order_number})` : ""}`;
+                    return (
+                      <li key={o.id} className="flex items-center justify-between gap-2 bg-white border border-amber-200 rounded-md px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {o.event_name || o.client_name || "Event"}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {o.order_number && <span className="tabular-nums mr-1">{o.order_number}</span>}
+                            {o.event_date} {o.event_time?.slice(0, 5) || ""} &middot; {ago > 24 ? `${Math.floor(ago / 24)}d` : `${ago}h`} ago &middot; still {o.status}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleForceClose(o.id, label)}
+                          disabled={forceClosingId === o.id}
+                          className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-xs h-8 flex-shrink-0"
+                        >
+                          {forceClosingId === o.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          )}
+                          Close out
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Force-close marks all prep tasks done, stamps the delivery/collect times, and flips the order to delivered. Audit-logged. Use for paperwork tidy-up after a real-world event the team forgot to tick.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Phase 4: tomorrow + day-after preview. Quiet glance card so the
               kitchen sees what's brewing before it lands as "Active orders".
