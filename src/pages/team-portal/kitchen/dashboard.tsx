@@ -60,6 +60,12 @@ export default function KitchenDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
+  // Wave 70.18 -- whether the signed-in user can open admin routes.
+  // Admins viewing-as-kitchen still have role=admin so they get the
+  // "Order detail" button; real kitchen_staff get just "Kitchen
+  // ticket" (the middleware would 403 them on /admin/orders).
+  const userRole = ((user as any)?.role || "").toString().toLowerCase();
+  const canSeeAdminOrderDetail = ["super_admin", "company_admin", "admin", "owner", "region_admin", "sales_admin"].includes(userRole);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -666,38 +672,24 @@ export default function KitchenDashboard() {
                                 key={order.id}
                                 className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
                               >
-                                {/* Wave 70.10 -- card title is now a link
-                                    to the kitchen ticket. Chef taps the
-                                    name or the order number and lands on
-                                    the full ticket (allergens, prep
-                                    backplan, equipment, instructions).
-                                    The interactive buttons below
-                                    (Mark ready, Tasks, Handover) live
-                                    OUTSIDE the link so they don't
-                                    navigate when tapped. */}
+                                {/* Wave 70.18 -- card title block + order
+                                    number. No longer a tiny link --
+                                    proper action buttons live below
+                                    (View ticket + View order). */}
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                  <Link
-                                    href={withSlug(`/admin/orders/${order.id}/ticket`)}
-                                    className="flex-1 min-w-0 group/title rounded -mx-1 px-1 hover:bg-slate-50"
-                                    title="Open kitchen ticket"
-                                  >
-                                    <p className="text-sm font-semibold text-slate-900 truncate inline-flex items-center gap-1 group-hover/title:text-orange-700">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 truncate">
                                       {order.event_name || order.client_name || "Order"}
-                                      <ExternalLink className="w-3 h-3 opacity-0 group-hover/title:opacity-70 flex-shrink-0" />
                                     </p>
                                     {order.event_name && order.client_name && (
                                       <p className="text-[11px] text-slate-500 truncate">
                                         for {order.client_name}
                                       </p>
                                     )}
-                                  </Link>
-                                  <Link
-                                    href={withSlug(`/admin/orders/${order.id}/ticket`)}
-                                    className="text-[10px] text-slate-500 hover:text-orange-700 tabular-nums shrink-0 hover:underline"
-                                    title="Open kitchen ticket"
-                                  >
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
                                     {order.order_number}
-                                  </Link>
+                                  </span>
                                 </div>
                                 {(order as any).venue_address && (
                                   <p className="text-[11px] text-slate-500 truncate mb-1">
@@ -748,6 +740,40 @@ export default function KitchenDashboard() {
                                     {order.kitchen_instructions}
                                   </p>
                                 )}
+
+                                {/* Wave 70.18 -- proper action button row.
+                                    Replaces the previous small text link
+                                    on the title. Two clear targets:
+                                      "Kitchen ticket" -- the printable
+                                        prep sheet with allergens, prep
+                                        backplan, equipment, instructions.
+                                      "Order detail" -- the full admin
+                                        order modal (for kitchen leads who
+                                        need the wider context, e.g.
+                                        payment + driver + handover).
+                                    Routes to the team-portal/kitchen URL
+                                    space so the middleware doesn't block
+                                    real kitchen-staff users. */}
+                                <div className={`mt-2 grid gap-1.5 ${canSeeAdminOrderDetail ? "grid-cols-2" : "grid-cols-1"}`}>
+                                  <Link
+                                    href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                                    className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
+                                    title="Open the printable kitchen ticket"
+                                  >
+                                    <ChefHat className="w-3.5 h-3.5" />
+                                    Kitchen ticket
+                                  </Link>
+                                  {canSeeAdminOrderDetail && (
+                                    <Link
+                                      href={withSlug(`/admin/orders?orderId=${order.id}`)}
+                                      className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                                      title="Open the order detail in admin"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                      Order detail
+                                    </Link>
+                                  )}
+                                </div>
 
                                 {/* Mark ready, one click, only when In prep */}
                                 {col.key === "preparing" && (
