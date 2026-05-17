@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -14,10 +15,107 @@ import { useBrandingRow } from "@/lib/branding/useBranding";
 import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
 import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * Wave 70.23 -- route classification. The Footer is mounted on every
+ * page (83 import sites) but the marketing footer makes no sense on
+ * internal tools like /admin, /team-portal/* and the client portal.
+ *
+ * Public / marketing routes -> full marketing footer (existing)
+ * Internal routes           -> slim footer (tenant attribution +
+ *                              legal links only)
+ *
+ * The detection strips any tenant slug prefix (/{slug}/admin/...)
+ * before matching, mirroring what the middleware does.
+ */
+function classifyRoute(pathname: string): "marketing" | "internal" {
+  // Strip leading /{slug} if it precedes a known internal namespace.
+  const stripped = pathname.replace(
+    /^\/[^/]+(?=\/(?:admin|team-portal|client-portal|client|c|account|subscription|auth)(?:\/|$))/,
+    "",
+  );
+  const isInternal =
+    stripped === "/admin" ||
+    stripped.startsWith("/admin/") ||
+    stripped.startsWith("/team-portal/") ||
+    stripped.startsWith("/client-portal/") ||
+    stripped.startsWith("/client/") ||
+    stripped.startsWith("/c/") ||
+    stripped.startsWith("/account/") ||
+    stripped.startsWith("/subscription/") ||
+    stripped.startsWith("/auth/");
+  return isInternal ? "internal" : "marketing";
+}
+
+/**
+ * Slim internal footer for /admin, /team-portal/* and /client-portal/*.
+ *
+ * Bobby's rule: backend / staff tools don't need "About / Features /
+ * Pricing / Blog / Help Center / Documentation / Video Tutorials" --
+ * those are sales surfaces. What an internal user actually needs in a
+ * footer is: tenant attribution, © year, and the legal links POPIA
+ * requires (Privacy + Terms). That's it.
+ *
+ * No big slate-gradient block, no contact details, no resources list.
+ * Single calm hairline divider, slate-500 text, sits flush at the
+ * bottom of the page content.
+ */
+function SlimInternalFooter({
+  displayName,
+  isWhiteLabeled,
+}: {
+  displayName: string;
+  isWhiteLabeled: boolean;
+}) {
+  const currentYear = new Date().getFullYear();
+  return (
+    <footer className="mt-8 border-t border-slate-200 dark:border-slate-700 bg-transparent">
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>© {currentYear} {displayName}.</span>
+            {isWhiteLabeled && (
+              <Link
+                href="https://cateringms.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>Powered by CateringMS</span>
+              </Link>
+            )}
+          </div>
+          <div className="flex gap-4">
+            <Link href="/privacy" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+              Terms
+            </Link>
+            <Link href="/cookies" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+              Cookies
+            </Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 export function Footer() {
   const currentYear = new Date().getFullYear();
   const branding = useBrandingRow();
   const isWhiteLabeled = isWhiteLabelRow(branding);
+  const router = useRouter();
+  const variant = classifyRoute(router?.pathname || "/");
+  const displayNameForSlim = branding?.companyName || "CateringMS";
+
+  // Wave 70.23 -- internal routes get the slim footer and bail out
+  // before any of the marketing copy renders. Public / marketing
+  // routes keep the existing rich footer below.
+  if (variant === "internal") {
+    return <SlimInternalFooter displayName={displayNameForSlim} isWhiteLabeled={isWhiteLabeled} />;
+  }
   // Auth state drives whether we show the "Sign in" CTA card. The
   // block doesn't help anyone who's already inside their portal --
   // it just adds noise to authenticated dashboards. Hidden when
