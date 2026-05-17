@@ -49,6 +49,7 @@ import { CancellationRequestsTab } from "@/components/admin/CancellationRequests
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
+import { logPiiAccess } from "@/services/piiAccessLogService";
 import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
 import { OutsourcedFulfilmentPanel } from "@/components/admin/orders/OutsourcedFulfilmentPanel";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
@@ -452,6 +453,33 @@ function OrderProcessDashboard() {
       type: "order",
       label: `${(selectedOrder as any).order_number || ""} -- ${selectedOrder.client_name || "Unknown"}`,
       href: `/admin/orders?orderId=${selectedOrder.id}`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.id, isModalOpen]);
+
+  // Wave 70.3 -- POPIA logPiiAccess on order modal open. The order
+  // modal exposes the client name, phone, email and (for buy-and-
+  // sell) billing address every time it's opened. POPIA needs a
+  // who/what/when trail of PII reads, so we fire a fire-and-forget
+  // log when the modal goes from closed -> open with a selected
+  // order. Fires once per modal-open; subsequent re-renders of the
+  // same order don't re-log because the effect depends only on the
+  // open-state transition and the order id.
+  useEffect(() => {
+    if (!selectedOrder?.id || !isModalOpen) return;
+    const hasPhone = !!(selectedOrder as any).client_phone;
+    const hasEmail = !!(selectedOrder as any).client_email;
+    if (!hasPhone && !hasEmail) return; // nothing PII-sensitive surfaced
+    const fields = [
+      "client name",
+      hasPhone && "client phone",
+      hasEmail && "client email",
+    ].filter(Boolean).join(", ");
+    void logPiiAccess({
+      entityType: "order",
+      entityId: selectedOrder.id,
+      category: "contact_details",
+      fields: `opened order detail modal: ${fields}`,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.id, isModalOpen]);

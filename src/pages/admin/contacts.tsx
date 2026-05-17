@@ -893,6 +893,20 @@ function ClientsCRM() {
                   a.download = `contacts_${stamp}.csv`;
                   a.click();
                   URL.revokeObjectURL(url);
+
+                  // Wave 70.3 -- POPIA. CSV export of contacts is
+                  // a bulk PII read: every row name + email + phone
+                  // + spend goes to disk. Log a single audit row
+                  // covering the whole export so the SAR trail can
+                  // reconstruct "who exported what set, when". Per-
+                  // row logging would be 500+ rows of noise.
+                  void logPiiAccess({
+                    entityType: "client",
+                    entityId: "bulk-export",
+                    category: "contact_details",
+                    fields: `bulk CSV export of ${rows.length} contacts: name, email, phone, lifetime spend, outstanding balance, tags`,
+                    reason: "operator-initiated contacts CSV export",
+                  });
                 }}
                 className="gap-1.5"
                 title="Export the currently filtered contact list as CSV"
@@ -2140,6 +2154,20 @@ function ClientFormDialog({
                   a.click();
                   URL.revokeObjectURL(url);
                   toast({ title: "Client data exported", description: "CSV download started." });
+
+                  // Wave 70.3 -- POPIA. Per-client SAR-style export
+                  // dumps every PII field + the full order / quote /
+                  // invoice history. This is the highest-impact PII
+                  // event we record; log with category "identifying"
+                  // when a tax number is present, else
+                  // "contact_details".
+                  void logPiiAccess({
+                    entityType: "client",
+                    entityId: editing?.clientId || "unknown",
+                    category: form.tax_number ? "identifying" : "contact_details",
+                    fields: `per-client CSV export: name, email, phone, billing address, tax number, notes, tags + full orders/quotes/invoices history`,
+                    reason: "operator-initiated client data export (SAR-style)",
+                  });
                 } catch (e: any) {
                   toast({
                     title: "Export failed",

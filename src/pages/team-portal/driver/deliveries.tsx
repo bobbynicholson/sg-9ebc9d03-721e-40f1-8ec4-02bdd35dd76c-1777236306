@@ -26,6 +26,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 // be recorded. Mounting here on each active delivery surfaces every
 // stage button per order in the driver's natural flow.
 import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
+import { logPiiAccess } from "@/services/piiAccessLogService";
 
 interface DriverOrder {
   id: string;
@@ -274,6 +275,13 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                           href={`tel:${String(o.client_phone).replace(/[^+\d]/g, "")}`}
                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
                           title={`Call ${o.client_phone}`}
+                          onClick={() => void logPiiAccess({
+                            entityType: "order",
+                            entityId: o.id,
+                            category: "contact_details",
+                            fields: "driver tap-to-call client phone from deliveries list",
+                            reason: "driver outbound call for active delivery",
+                          })}
                         >
                           📞 Call
                         </a>
@@ -285,6 +293,13 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
                           title="Open WhatsApp"
+                          onClick={() => void logPiiAccess({
+                            entityType: "order",
+                            entityId: o.id,
+                            category: "contact_details",
+                            fields: "driver opened WhatsApp deep link to client phone",
+                            reason: "driver outbound WhatsApp for active delivery",
+                          })}
                         >
                           💬 WhatsApp
                         </a>
@@ -295,6 +310,13 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                         href={`mailto:${o.client_email}`}
                         className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
                         title={`Email ${o.client_email}`}
+                        onClick={() => void logPiiAccess({
+                          entityType: "order",
+                          entityId: o.id,
+                          category: "contact_details",
+                          fields: "driver tap-to-email client",
+                          reason: "driver outbound email for active delivery",
+                        })}
                       >
                         ✉️ Email
                       </a>

@@ -28,6 +28,7 @@ import {
 import { InvoicePreview } from "@/components/InvoicePreview";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
+import { logPiiAccess } from "@/services/piiAccessLogService";
 import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawer";
 import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
@@ -724,6 +725,18 @@ export default function InvoicesPage() {
         href: `/admin/invoices?invoiceId=${invoiceId}`,
       });
     } catch { /* non-blocking */ }
+
+    // Wave 70.3 -- POPIA. Opening an invoice preview surfaces the
+    // client's billing details: name, billing address, payment
+    // ledger. Category "financial" because the invoice value + line
+    // items are personal financial data under POPIA's special-
+    // category bucket. Fire-and-forget.
+    void logPiiAccess({
+      entityType: "invoice",
+      entityId: invoiceId,
+      category: "financial",
+      fields: "opened invoice preview: client name, billing address, invoice total, line items, payment ledger",
+    });
   };
 
   // First click of the paper-plane icon opens the review-before-send
