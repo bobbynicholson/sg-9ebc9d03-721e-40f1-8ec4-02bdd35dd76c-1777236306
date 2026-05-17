@@ -27,6 +27,10 @@ import { useAuth } from "@/contexts/AuthContext";
  * The detection strips any tenant slug prefix (/{slug}/admin/...)
  * before matching, mirroring what the middleware does.
  */
+export function classifyFooterRoute(pathname: string): "marketing" | "internal" {
+  return classifyRoute(pathname);
+}
+
 function classifyRoute(pathname: string): "marketing" | "internal" {
   // Strip leading /{slug} if it precedes a known internal namespace.
   const stripped = pathname.replace(
@@ -59,7 +63,7 @@ function classifyRoute(pathname: string): "marketing" | "internal" {
  * Single calm hairline divider, slate-500 text, sits flush at the
  * bottom of the page content.
  */
-function SlimInternalFooter({
+export function SlimInternalFooter({
   displayName,
   isWhiteLabeled,
 }: {
@@ -113,7 +117,6 @@ export function Footer() {
   const isWhiteLabeled = isWhiteLabelRow(branding);
   const router = useRouter();
   const variant = classifyRoute(router?.pathname || "/");
-  const displayNameForSlim = branding?.companyName || "CateringMS";
 
   // Auth state drives whether we show the "Sign in" CTA card. The
   // block doesn't help anyone who's already inside their portal --
@@ -160,11 +163,18 @@ export function Footer() {
     };
   }, [isSignedIn, variant]);
 
-  // Wave 70.23 -- internal routes get the slim footer. Decided
-  // here (after every hook has run) so React's hook order stays
-  // identical between renders.
+  // Wave 70.26 -- on internal routes the slim footer is mounted
+  // globally via _app.tsx (GlobalInternalFooter) so every admin /
+  // team-portal / client-portal page gets it automatically, even
+  // the 30+ pages that never imported <Footer /> in the first place.
+  //
+  // Per-page <Footer /> mounts on internal routes therefore become
+  // no-ops to avoid double-rendering. The global mount wins.
+  //
+  // Marketing routes still render the per-page Footer because the
+  // marketing pages explicitly mount it.
   if (variant === "internal") {
-    return <SlimInternalFooter displayName={displayNameForSlim} isWhiteLabeled={isWhiteLabeled} />;
+    return null;
   }
 
   const displayName = branding?.companyName || "CateringMS";

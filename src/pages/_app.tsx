@@ -11,6 +11,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { VersionWatcher } from "@/components/VersionWatcher";
+import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import "@/styles/globals.css";
 
 // Note: P2-14 originally tried to skip AuthProvider on public pages
@@ -66,6 +67,12 @@ export default function App({ Component, pageProps }: AppProps) {
           <TenantBrandingApplier initialBranding={initialBranding} />
           <RegionFilterProvider>
             <Component {...pageProps} />
+            {/* Wave 70.26 -- slim internal footer mounted globally
+                so every admin / team-portal / client-portal page
+                shows it, branded to the active tenant. Self-hides
+                on marketing routes; per-page <Footer /> components
+                self-hide on internal routes so we never double up. */}
+            <GlobalInternalFooter />
             <CommandPalette />
             <MiddlewareErrorToast />
             <VersionWatcher />
