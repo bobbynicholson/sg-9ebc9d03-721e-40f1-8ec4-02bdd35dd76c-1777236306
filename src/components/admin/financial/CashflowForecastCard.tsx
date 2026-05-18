@@ -21,11 +21,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Banknote, Pencil, Save, X, AlertTriangle } from "lucide-react";
+import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as currencyUtils from "@/lib/currencyUtils";
+import { useTenantHref } from "@/lib/tenantUrl";
 import type { Order } from "@/types";
 
 interface Props {
@@ -81,6 +89,7 @@ export function CashflowForecastCard({
   userId,
 }: Props) {
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [horizonDays, setHorizonDays] = useState<number>(30);
   const [cashOnHand, setCashOnHand] = useState<number>(0);
   const [cashUpdatedAt, setCashUpdatedAt] = useState<string | null>(null);
@@ -88,6 +97,37 @@ export function CashflowForecastCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  // Phase 3: owner-typed contingency the forecast subtracts from the
+  // closing balance. Captures "stuff that's not on the books yet but
+  // I know I'll spend" (last-minute shopping, fuel, an emergency
+  // rental). Persisted to localStorage per-company so it survives
+  // reload without needing a new DB column.
+  const [probableSpend, setProbableSpend] = useState<number>(0);
+  // Phase 3: detail drawer state. Tapping a chart day opens the
+  // sheet with the day's full order list (the hover tooltip only
+  // shows top 4).
+  const [drillDay, setDrillDay] = useState<number | null>(null);
+
+  // Phase 3: load + persist the probable-spend override under a
+  // per-company localStorage key. Survives reload, lives client-side
+  // only (it's a personal scratchpad number, not something the team
+  // needs to share or audit).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`cateringms.cashflow.probableSpend.${companyId}`);
+      if (raw) setProbableSpend(Number(raw) || 0);
+    } catch { /* storage blocked */ }
+  }, [companyId]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        `cateringms.cashflow.probableSpend.${companyId}`,
+        String(probableSpend),
+      );
+    } catch { /* storage blocked */ }
+  }, [companyId, probableSpend]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,10 +189,11 @@ export function CashflowForecastCard({
     }
 
     // Walk forward. Day 0 opening balance = cash_on_hand minus the
-    // wages-owed liability (which is already-due, treated as a
-    // same-day cash-out so the chart starts at the actually-available
-    // figure not the gross bank balance).
-    const opening = cashOnHand - staffPaymentsOwed;
+    // wages-owed liability AND minus the owner-typed probable-spend
+    // contingency. Both are already-due / committed cash-out, treated
+    // as same-day so the chart starts at the actually-available
+    // figure not the gross bank balance.
+    const opening = cashOnHand - staffPaymentsOwed - (probableSpend || 0);
     let running = opening;
     const out: Array<{
       day: number;
@@ -175,7 +216,7 @@ export function CashflowForecastCard({
       });
     }
     return out;
-  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed]);
+  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed, probableSpend]);
 
   const projectedRevenueForWindow = useMemo(() => {
     return series.reduce((sum, p) => sum + p.income, 0);
@@ -395,6 +436,27 @@ export function CashflowForecastCard({
                   -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
                 </span>
               </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span className="flex items-center gap-1">
+                  Contingency
+                  <InfoTooltip
+                    content={
+                      "Owner-typed buffer for spend that's not on the books yet but you know you'll have - last-minute shopping, fuel, an emergency rental. Subtracted from the forecast. Saved per-user in your browser; not shared with the team."
+                    }
+                  />
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="text-slate-400 text-[10px]">-</span>
+                  <Input
+                    type="number"
+                    step="100"
+                    value={probableSpend || ""}
+                    onChange={(e) => setProbableSpend(Number(e.target.value) || 0)}
+                    placeholder="0"
+                    className="h-6 w-20 text-[11px] text-right tabular-nums px-1.5 py-0"
+                  />
+                </span>
+              </div>
               {goesNegativeAt !== undefined && (
                 <div className="mt-1 flex items-center gap-1 text-amber-700">
                   <AlertTriangle className="w-3 h-3" />
@@ -420,7 +482,18 @@ export function CashflowForecastCard({
           </div>
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart
+                data={series}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                onClick={(e: any) => {
+                  // Phase 3: click a point to open the per-day detail
+                  // drawer with the full contributing-orders list
+                  // (tooltip only shows top 4).
+                  const day = e?.activePayload?.[0]?.payload?.day;
+                  if (typeof day === "number") setDrillDay(day);
+                }}
+                style={{ cursor: "pointer" }}
+              >
                 <defs>
                   <linearGradient id="cashflowFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
@@ -464,8 +537,82 @@ export function CashflowForecastCard({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <p className="mt-2 text-[10px] text-slate-400">
+            Tap a day on the chart to see the full order breakdown.
+          </p>
         </div>
       </CardContent>
+
+      {/* Phase 3: detail drawer. Opens on chart click. Shows the
+          day's projected balance, the income contribution, every
+          order firing that day with quick-jump links to the order
+          dialog. Side sheet keeps the dashboard underneath visible
+          so the owner can compare the drilled day with the chart. */}
+      <Sheet open={drillDay !== null} onOpenChange={(o) => !o && setDrillDay(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {drillDay !== null && (() => {
+            const point = series[drillDay];
+            if (!point) return null;
+            const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+            return (
+              <>
+                <SheetHeader>
+                  <SheetTitle>{point.label} - {point.date}</SheetTitle>
+                  <SheetDescription>
+                    Projected balance + everything firing on this day.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs text-slate-500">Projected balance</div>
+                    <div
+                      className={`text-2xl font-bold tabular-nums ${
+                        point.balance < 0 ? "text-red-700" : "text-slate-900"
+                      }`}
+                    >
+                      {fmt(point.balance, currency)}
+                    </div>
+                    {point.income > 0 && (
+                      <div className="mt-1 text-xs text-green-700 tabular-nums">
+                        +{fmt(point.income, currency)} income today
+                      </div>
+                    )}
+                  </div>
+
+                  {point.orders.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-6 text-center">
+                      No orders firing on this day.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-slate-600">
+                        {point.orders.length === 1
+                          ? "1 order"
+                          : `${point.orders.length} orders`}
+                      </div>
+                      {point.orders.map((o) => (
+                        <a
+                          key={o.id}
+                          href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                          className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50"
+                        >
+                          <span className="text-sm text-slate-900 truncate flex-1">
+                            {o.client}
+                          </span>
+                          <span className="ml-3 tabular-nums text-sm text-slate-900">
+                            {fmt(o.amount, currency)}
+                          </span>
+                          <ArrowUpRight className="w-3.5 h-3.5 ml-2 text-slate-400" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }
