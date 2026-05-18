@@ -31,11 +31,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const sb: any = getServiceSupabase();
   try {
+    // `order_status` enum is (pending, confirmed, preparing, ready,
+    // in_transit, delivered, completed, cancelled, paused). Prior
+    // code listed "draft" alongside "pending", but draft isn't in
+    // the enum - the .in filter raised a CHECK violation at the DB
+    // layer and the sweeper returned 500 with no rows processed.
+    // Deposits-paid-but-stuck only happens at status='pending'
+    // anyway (orders never spend time at 'draft' between pay + flip).
     const { data: stuck, error } = await sb
       .from("orders")
       .select("id")
       .eq("deposit_paid", true)
-      .in("status", ["pending", "draft"])
+      .eq("status", "pending")
       .is("deleted_at", null)
       .limit(100);
     if (error) {
