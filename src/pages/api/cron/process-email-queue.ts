@@ -23,11 +23,13 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { createPagesServerClient } from "@/lib/supabase/server";
 import { emailService } from "@/services/emailService";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
+const CRON_NAME = "process-email-queue";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Vercel Cron sends GET. Reject anything else early.
@@ -35,38 +37,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Auth path 1: Vercel Cron carries the shared-secret bearer token.
-  // Auth path 2: an authenticated super_admin (manual operator trigger
-  // from the browser) can fire the cron on demand, useful when the
-  // Vercel cron schedule isn't firing or when the operator wants to
-  // drain a backed-up queue immediately rather than waiting for the
-  // 15-min tick. Returns the same JSON summary either way.
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  const isCronBearer = expected && auth === `Bearer ${expected}`;
-
-  let isSuperAdmin = false;
-  if (!isCronBearer) {
-    try {
-      const ssr = createPagesServerClient({ req, res });
-      const { data: { user } } = await ssr.auth.getUser();
-      if (user) {
-        const { data: profile } = await ssr
-          .from("profiles")
-          .select("role, active_role")
-          .eq("id", user.id)
-          .maybeSingle();
-        const role = (profile as any)?.active_role || (profile as any)?.role;
-        isSuperAdmin = role === "super_admin";
-      }
-    } catch {
-      // fall through to 401
-    }
-  }
-
-  if (!isCronBearer && !isSuperAdmin) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  // Auth: Vercel cron bearer OR authenticated super_admin session.
+  // See src/lib/cronAuth.ts for the shared policy.
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const supabase: any = getServiceSupabase();
   const nowIso = new Date().toISOString();
@@ -83,6 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .eq("auto_followups_enabled", true);
   const allowList = ((optedIn || []) as any[]).map((c) => c.id);
   if (allowList.length === 0) {
+    await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
+      source: auth.source, sent: 0, failed: 0, skipped: 0,
+      note: "no_opted_in_tenants",
+    });
     return res.status(200).json({
       ok: true,
       sent: 0, failed: 0, skipped: 0,
@@ -110,6 +88,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (readErr) {
     console.error("[cron/process-email-queue] claim failed:", readErr);
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
+      source: auth.source, error_message: readErr.message,
+    });
     return res.status(500).json({ error: readErr.message });
   }
 
@@ -167,6 +148,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
+    source: auth.source,
+    processed: (due || []).length,
+    sent, failed, skipped,
+  });
   return res.status(200).json({
     ok: true,
     processed: (due || []).length,
