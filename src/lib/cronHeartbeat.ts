@@ -40,8 +40,18 @@
  * operator looking at function logs sees why heartbeats stopped.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { TablesInsert } from "@/integrations/supabase/types";
 
 export type CronHeartbeatStatus = "ok" | "error";
+
+/**
+ * Typed insert shape for the heartbeat row. Sourced from the
+ * Supabase-generated types so a schema migration that renames
+ * `details` (or changes `entity_type` from required to nullable,
+ * etc.) fails compilation here rather than silently failing at
+ * runtime - which was exactly the PR #33 incident.
+ */
+type AuditLogInsert = TablesInsert<"audit_logs">;
 
 export async function recordCronHeartbeat(
   supabase: any,
@@ -49,16 +59,22 @@ export async function recordCronHeartbeat(
   status: CronHeartbeatStatus,
   metadata?: Record<string, any>,
 ): Promise<void> {
+  // Build the payload through the generated insert type. If the
+  // audit_logs schema drifts (column renamed, removed, retyped), the
+  // type-check below fails compile-time instead of silently breaking
+  // every cron's telemetry at runtime.
+  const payload: AuditLogInsert = {
+    action: `cron.${cronName}`,
+    entity_type: "cron",
+    details: {
+      cron_name: cronName,
+      status,
+      ...(metadata || {}),
+    },
+  };
+
   try {
-    const { error } = await supabase.from("audit_logs").insert({
-      action: `cron.${cronName}`,
-      entity_type: "cron",
-      details: {
-        cron_name: cronName,
-        status,
-        ...(metadata || {}),
-      },
-    });
+    const { error } = await supabase.from("audit_logs").insert(payload);
     if (error) {
       console.warn(`[cronHeartbeat] insert error for ${cronName}:`, error);
     }
