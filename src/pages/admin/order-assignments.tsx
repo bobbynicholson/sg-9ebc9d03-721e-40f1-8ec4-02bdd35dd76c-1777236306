@@ -270,6 +270,11 @@ function DispatchQueuePage() {
       // Optimistic local update so the operator sees the saved time
       // immediately without a full requeue refetch.
       setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, pickup_time: next } : o));
+      // DI-D: kitchen prep backplans from pickup_time. Without this
+      // broadcast the kitchen lead won't see the new ready-by until
+      // their next refresh. Listeners on /kitchen and the readiness
+      // chip refetch on this event.
+      emitOrderUpdated(orderId, "dispatch:pickup-time", ["prep"]);
       toast({ title: "Pickup time saved", description: next ? `Driver leaves the kitchen at ${next}.` : "Pickup time cleared." });
     } finally {
       setPickupSavingId(null);
@@ -1111,7 +1116,16 @@ function DispatchQueuePage() {
                             <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Status</p>
                             <p className="text-slate-900 capitalize">{order.status.replace(/_/g, " ")}</p>
                             {order.assignment_score && (
-                              <p className="text-slate-600">Match score: {order.assignment_score}/100</p>
+                              <p className="text-slate-600 flex items-center gap-1">
+                                Match score: {order.assignment_score}/100
+                                {/* DI-D: tooltip explaining the assignment_score
+                                    scale. Operator can see the number but no
+                                    way to read good/bad without this. Mirrors
+                                    the dispatchService.scoreDriverForOrder
+                                    weighting (distance + load + region +
+                                    on-time + rating). */}
+                                <InfoTooltip content={"Score 0-100. Weighted blend of distance to venue, jobs already booked today, region match, on-time rate, and driver rating. 70+ is a strong match; under 50 is worth a manual override."} />
+                              </p>
                             )}
                           </div>
                           <div>
