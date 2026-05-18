@@ -40,14 +40,7 @@ import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSet
 import { CompanySettingsTab } from "@/components/admin/settings/CompanySettingsTab";
 import { EmailAutomationSettingsTab } from "@/components/admin/settings/EmailAutomationSettingsTab";
 import { FinancialSettingsTab } from "@/components/admin/settings/FinancialSettingsTab";
-import type {
-  NotificationSettings,
-  AutomationSettings,
-  PricingSettings,
-  OperationsSettings,
-  CompanySettings,
-  FinancialSettings,
-} from "@/components/admin/settings/types";
+import type { AdminSettings } from "@/components/admin/settings/types";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedSettingsPage() {
@@ -65,7 +58,7 @@ function SettingsPage() {
   // Snapshot of the last persisted settings, used to derive a clean
   // 'unsaved changes' state. Updated after a successful save.
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<AdminSettings>({
     company: {
       name: "Your Catering Company",
       email: "info@yourcatering.com",
@@ -580,35 +573,35 @@ function SettingsPage() {
 
             <TabsContent value="company">
               <CompanySettingsTab
-                settings={settings.company as CompanySettings}
+                settings={settings.company}
                 onUpdate={(key, value) => updateSetting("company", key, value)}
               />
             </TabsContent>
 
             <TabsContent value="notifications">
               <NotificationsSettingsTab
-                settings={settings.notifications as NotificationSettings}
+                settings={settings.notifications}
                 onUpdate={(key, value) => updateSetting("notifications", key, value)}
               />
             </TabsContent>
 
             <TabsContent value="automation">
               <AutomationSettingsTab
-                settings={settings.automation as AutomationSettings}
+                settings={settings.automation}
                 onUpdate={(key, value) => updateSetting("automation", key, value)}
               />
             </TabsContent>
 
             <TabsContent value="pricing">
               <PricingSettingsTab
-                settings={settings.pricing as PricingSettings}
+                settings={settings.pricing}
                 onUpdate={(key, value) => updateSetting("pricing", key, value)}
               />
             </TabsContent>
 
             <TabsContent value="operations">
               <OperationsSettingsTab
-                settings={settings.operations as OperationsSettings}
+                settings={settings.operations}
                 onUpdate={(key, value) => updateSetting("operations", key, value)}
               />
             </TabsContent>
@@ -627,7 +620,7 @@ function SettingsPage() {
 
             <TabsContent value="financial">
               <FinancialSettingsTab
-                settings={settings.financial as FinancialSettings}
+                settings={settings.financial}
                 onUpdate={(key, value) => updateSetting("financial", key, value)}
               />
             </TabsContent>
