@@ -2095,10 +2095,15 @@ follow-up to investigate / fix:
    intended target). The cleaning portal's event-handover flow
    silently fails today.
 
-2. **`chat_sessions` / `chat_messages` (4 refs in chatBotService)**.
-   ChatBot persistence is silently failing - every conversation
-   is in-memory only. Either the two tables need creating, or
-   the chatbot needs a different persistence model.
+2. **`chat_sessions` / `chat_messages` (4 refs in chatBotService)**
+   - **resolved**. Migration
+   `20260518750000_chat_sessions_and_messages.sql` creates both
+   tables with the schema chatBotService.ts has expected since
+   the ChatBot feature shipped. Tenant-scoped RLS (same shape as
+   cleaning_event_handovers PR #71): operators in a tenant can
+   read every chat across staff, only the session/message owner
+   can insert + update. Migration applied to live DB.
+   Conversations now survive page reload.
 
 3. **`invoice_line_items` (1 ref, Sage sync)**.
    `/api/accounting/sage/sync-invoice` fans out invoice lines to
