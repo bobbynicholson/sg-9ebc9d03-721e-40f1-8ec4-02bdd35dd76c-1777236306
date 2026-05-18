@@ -53,6 +53,8 @@ import {
 import { DuplicateOrderDialog } from "@/components/admin/orders/DuplicateOrderDialog";
 import { OrderKpiPills } from "@/components/admin/orders/OrderKpiPills";
 import { OrderFiltersBar } from "@/components/admin/orders/OrderFiltersBar";
+import { OrdersBulkActionsBar } from "@/components/admin/orders/OrdersBulkActionsBar";
+import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
@@ -3871,96 +3873,26 @@ function OrderProcessDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Phase 7 #6: bulk action toolbar. Sticky at the
-                    top of the timeline list when at least one row
-                    is ticked. Bulk status update routes through
-                    bulkUpdateStatus which fans out a single UPDATE
-                    .. WHERE id IN (...) query. Cancellation is left
-                    to the per-order cancel dialog - it has refund
-                    semantics that don't suit a quick fan-out. */}
-                {selectedIds.size > 0 && (
-                  <div className="sticky top-0 z-10 bg-white border border-blue-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-medium text-blue-900">
-                      {selectedIds.size} selected
-                    </span>
-                    <div className="flex items-center gap-2 ml-auto flex-wrap">
-                      <Select
-                        onValueChange={(v) => bulkUpdateStatus(v)}
-                        disabled={bulkBusy}
-                      >
-                        <SelectTrigger className="w-48 h-9">
-                          <SelectValue placeholder="Move to status..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="preparing">In prep</SelectItem>
-                          <SelectItem value="ready">Ready</SelectItem>
-                          <SelectItem value="in_transit">In transit</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllVisible}
-                        disabled={bulkBusy}
-                      >
-                        Select all visible
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearSelection}
-                        disabled={bulkBusy}
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Clear
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <OrdersBulkActionsBar
+                  selectedCount={selectedIds.size}
+                  busy={bulkBusy}
+                  onBulkUpdateStatus={bulkUpdateStatus}
+                  onSelectAllVisible={selectAllVisible}
+                  onClearSelection={clearSelection}
+                />
                 {getFilteredOrders().length === 0 ? (
-                  <Card className="border-0 shadow-lg">
-                    <CardContent className="py-24">
-                      {/* Wave 55 - empty state names the active filter
-                          set + offers a one-click clear so the operator
-                          stops guessing which filter is hiding rows. */}
-                      <div className="text-center text-slate-400">
-                        <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p className="text-lg font-medium text-slate-500">No orders match these filters</p>
-                        {(() => {
-                          const active: string[] = [];
-                          if (searchTerm) active.push(`search "${searchTerm}"`);
-                          if (statusFilter !== "all") active.push(`status: ${statusFilter.replace(/_/g, " ")}`);
-                          if (dateFilter !== "all") active.push(`date: ${dateFilter.replace(/_/g, " ")}`);
-                          if (myOrdersOnly) active.push("mine only");
-                          if (active.length === 0) {
-                            return <p className="text-sm mt-1">No orders in this view yet.</p>;
-                          }
-                          return (
-                            <>
-                              <p className="text-sm mt-1 text-slate-600">
-                                Filtered by {active.join(", ")}.
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSearchTerm("");
-                                  setStatusFilter("all");
-                                  setDateFilter("all");
-                                  setMyOrdersOnly(false);
-                                }}
-                                className="mt-3 text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
-                              >
-                                Clear all filters
-                              </button>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <OrdersListEmptyState
+                    searchTerm={searchTerm}
+                    statusFilter={statusFilter}
+                    dateFilter={dateFilter}
+                    myOrdersOnly={myOrdersOnly}
+                    onClearAll={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                      setDateFilter("all");
+                      setMyOrdersOnly(false);
+                    }}
+                  />
                 ) : (() => {
                   const sorted = getFilteredOrders()
                     .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
