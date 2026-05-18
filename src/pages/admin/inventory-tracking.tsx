@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Dialog + Label imports were only used by the inline AddItem /
+// StockMovement dialogs that now live in
+// @/components/admin/inventory-tracking/. Keep the page imports lean.
 import { useToast } from "@/hooks/use-toast";
 import {
   Package,
@@ -30,39 +31,9 @@ import {
   Download,
 } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-
-interface InventoryItem {
-  id: string;
-  item_name: string;
-  category: string;
-  current_stock: number;
-  minimum_stock: number;
-  maximum_stock: number;
-  unit_of_measure: string;
-  preferred_supplier_id?: string;
-  cost_per_unit: number;
-  supplier_name?: string;
-}
-
-interface Supplier {
-  id: string;
-  supplier_name: string;
-  contact_person: string;
-  email: string;
-  phone: string;
-}
-
-interface StockMovement {
-  id: string;
-  inventory_item_id: string;
-  item_name: string;
-  transaction_type: 'purchase' | 'usage' | 'waste' | 'adjustment' | 'transfer' | 'return';
-  quantity: number;
-  notes: string;
-  performed_by: string;
-  created_at: string;
-  staff_name?: string;
-}
+import { AddInventoryItemDialog } from "@/components/admin/inventory-tracking/AddInventoryItemDialog";
+import { StockMovementDialog } from "@/components/admin/inventory-tracking/StockMovementDialog";
+import type { InventoryItem, Supplier, StockMovement } from "@/components/admin/inventory-tracking/types";
 
 export default function InventoryTracking() {
   const { profile } = useAuth();
@@ -558,115 +529,14 @@ export default function InventoryTracking() {
               <ShoppingCart className="h-4 w-4 mr-2" />
               Generate Shopping List
             </Button>
-            <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add Inventory Item</DialogTitle>
-                  <DialogDescription>Add a new item to track in your inventory</DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label>Item Name</Label>
-                    <Input
-                      value={formData.item_name}
-                      onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
-                      placeholder="e.g., Tomatoes"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="produce">Produce</SelectItem>
-                        <SelectItem value="meat">Meat</SelectItem>
-                        <SelectItem value="dairy">Dairy</SelectItem>
-                        <SelectItem value="dry_goods">Dry Goods</SelectItem>
-                        <SelectItem value="beverages">Beverages</SelectItem>
-                        <SelectItem value="condiments">Condiments</SelectItem>
-                        <SelectItem value="supplies">Supplies</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Current Stock</Label>
-                    <Input
-                      type="number"
-                      value={formData.current_stock}
-                      onChange={(e) => setFormData({ ...formData, current_stock: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Unit</Label>
-                    <Select value={formData.unit_of_measure} onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                        <SelectItem value="g">Grams (g)</SelectItem>
-                        <SelectItem value="l">Liters (L)</SelectItem>
-                        <SelectItem value="ml">Milliliters (ml)</SelectItem>
-                        <SelectItem value="units">Units</SelectItem>
-                        <SelectItem value="boxes">Boxes</SelectItem>
-                        <SelectItem value="packs">Packs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Minimum Stock Level</Label>
-                    <Input
-                      type="number"
-                      value={formData.minimum_stock}
-                      onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Maximum Stock Level</Label>
-                    <Input
-                      type="number"
-                      value={formData.maximum_stock}
-                      onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Cost Per Unit</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.cost_per_unit}
-                      onChange={(e) => setFormData({ ...formData, cost_per_unit: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Supplier</Label>
-                    <Select value={formData.preferred_supplier_id} onValueChange={(value) => setFormData({ ...formData, preferred_supplier_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select supplier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {suppliers.map(supplier => (
-                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.supplier_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-6">
-                  <Button variant="outline" onClick={() => setIsAddItemOpen(false)}>Cancel</Button>
-                  <Button onClick={handleAddItem}>Add Item</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <AddInventoryItemDialog
+              open={isAddItemOpen}
+              onOpenChange={setIsAddItemOpen}
+              suppliers={suppliers}
+              formData={formData}
+              setFormData={setFormData}
+              onSubmit={handleAddItem}
+            />
           </div>
         </div>
 
@@ -930,58 +800,14 @@ export default function InventoryTracking() {
         </Tabs>
 
         {/* Add/Remove Stock Dialog */}
-        <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {stockMovementData.transaction_type === 'purchase' ? 'Add' : 'Remove'} Stock
-              </DialogTitle>
-              <DialogDescription>
-                Update stock for {selectedItem?.item_name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label>Current Stock</Label>
-                <div className="text-2xl font-bold mt-1">
-                  {selectedItem?.current_stock} {selectedItem?.unit_of_measure}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Quantity to {stockMovementData.transaction_type === 'purchase' ? 'Add' : 'Remove'}</Label>
-                <Input
-                  type="number"
-                  value={stockMovementData.quantity}
-                  onChange={(e) => setStockMovementData({ ...stockMovementData, quantity: parseFloat(e.target.value) })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Notes (optional)</Label>
-                <Input
-                  value={stockMovementData.notes}
-                  onChange={(e) => setStockMovementData({ ...stockMovementData, notes: e.target.value })}
-                  placeholder="e.g., Delivery received, Used for order #123"
-                />
-              </div>
-              {selectedItem && (
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <div className="text-sm text-slate-600">New Stock Level</div>
-                  <div className="text-xl font-bold mt-1">
-                    {stockMovementData.transaction_type === 'purchase'
-                      ? selectedItem.current_stock + stockMovementData.quantity
-                      : selectedItem.current_stock - stockMovementData.quantity
-                    } {selectedItem.unit_of_measure}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" onClick={() => setIsAddStockOpen(false)}>Cancel</Button>
-              <Button onClick={handleStockMovement}>Update Stock</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <StockMovementDialog
+          open={isAddStockOpen}
+          onOpenChange={setIsAddStockOpen}
+          selectedItem={selectedItem}
+          stockMovementData={stockMovementData}
+          setStockMovementData={setStockMovementData}
+          onSubmit={handleStockMovement}
+        />
       </div>
     </div>
   );
