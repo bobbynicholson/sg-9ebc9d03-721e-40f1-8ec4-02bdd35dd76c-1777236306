@@ -422,8 +422,7 @@ export default function FinancialDashboardPage() {
               <CashflowForecastCard
                 companyId={user.company_id}
                 loadedAt={loadedAt}
-                projectedRevenue30Days={metrics?.projectedRevenue30Days || 0}
-                projectedRevenue90Days={metrics?.projectedRevenue90Days || 0}
+                orders={orders}
                 staffPaymentsOwed={metrics?.staffPaymentsOwed || 0}
                 currency={(user as any)?.currency || "ZAR"}
                 userId={user.id}
