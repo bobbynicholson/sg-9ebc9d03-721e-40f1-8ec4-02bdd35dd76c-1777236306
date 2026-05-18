@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
@@ -41,7 +40,7 @@ export const leadService = {
       .from("leads")
       .select("*")
       .eq("company_id", companyId)
-      .eq("status", status)
+      .eq("status", status as any)
       .is("deleted_at", null)
       .order("event_date", { ascending: true });
 
@@ -469,7 +468,7 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       // Wave 11 #2: 'won' is the canonical terminal value. Old data
       // may still carry 'converted'; count it here so legacy rows
       // don't silently fall out of the funnel total.
-      won: data?.filter(l => l.status === "won" || l.status === "converted").length || 0,
+      won: data?.filter(l => l.status === "won" || (l.status as any) === "converted").length || 0,
       lost: data?.filter(l => l.status === "lost").length || 0,
     };
 

@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
@@ -32,7 +31,7 @@ export const deliveryService = {
       .order("delivery_time", { ascending: true });
 
     if (error) throw error;
-    return data as (Delivery & {
+    return data as unknown as (Delivery & {
       orders: { id: string; client_name: string; event_date: string; user_id: string };
       profiles: { id: string; full_name: string; email: string; phone_number: string } | null;
     })[];
@@ -122,7 +121,7 @@ export const deliveryService = {
   async updateDelivery(id: string, updates: DeliveryUpdate) {
     const { data, error } = await supabase
       .from("deliveries")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...updates, updated_at: new Date().toISOString() } as any)
       .eq("id", id)
       .select()
       .single();

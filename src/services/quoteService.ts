@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
@@ -160,7 +159,7 @@ export const quoteService = {
       // the row count and any error so a caller / dashboard can spot
       // funnel drift instead of discovering it months later.
       const advancable = ["new", "contacted", "qualified"];
-      const { data: updated, error: leadErr, count } = await supabase
+      const { data: updated, error: leadErr, count } = await (supabase as any)
         .from("leads")
         .update({ status: "quoted" })
         .eq("id", (quote as any).lead_id)
