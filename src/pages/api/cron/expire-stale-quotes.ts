@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "expire-stale-quotes";
 
 /**
  * Wave 50 C3 - nightly stale-quote expiry sweep.
@@ -15,20 +19,17 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * valid_until has passed to status='expired'. Idempotent and
  * narrow.
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const todayIso = new Date().toISOString().slice(0, 10);
 
-    const { data: stale, error: selErr } = await (sb as any)
+    const { data: stale, error: selErr } = await sb
       .from("quotes")
       .select("id")
       .lt("valid_until", todayIso)
@@ -37,26 +38,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(500);
     if (selErr) {
       console.error("[expire-stale-quotes] select failed:", selErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
     const ids = ((stale as any[]) || []).map((r) => r.id);
     if (ids.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0 });
       return res.status(200).json({ ok: true, expired: 0 });
     }
 
-    const { error: updErr } = await (sb as any)
+    const { error: updErr } = await sb
       .from("quotes")
       .update({ status: "expired", updated_at: new Date().toISOString() })
       .in("id", ids);
     if (updErr) {
       console.error("[expire-stale-quotes] update failed:", updErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: updErr.message });
       return res.status(500).json({ error: updErr.message });
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length });
     return res.status(200).json({ ok: true, expired: ids.length });
   } catch (e: any) {
     console.error("[expire-stale-quotes] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

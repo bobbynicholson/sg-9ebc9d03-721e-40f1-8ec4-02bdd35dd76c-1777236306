@@ -25,7 +25,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 
+const CRON_NAME = "process-pending-reviews";
 const BATCH_LIMIT = 200;
 const RUNTIME_CAP_MS = 5 * 60 * 1000;
 
@@ -46,11 +49,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  if (expected && auth !== `Bearer ${expected}`) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const supabase: any = getServiceSupabase();
   const startedAt = Date.now();
@@ -67,6 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (error) {
     console.error("[cron/process-pending-reviews] read failed:", error);
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: error.message });
     return res.status(500).json({ error: error.message });
   }
 
@@ -220,6 +221,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  await recordCronHeartbeat(supabase, CRON_NAME, failed > 0 ? "error" : "ok", {
+    source: auth.source,
+    checked: (due || []).length,
+    sent, failed, bailed,
+    runtime_ms: Date.now() - startedAt,
+  });
   return res.status(200).json({
     ok: true,
     checked: (due || []).length,

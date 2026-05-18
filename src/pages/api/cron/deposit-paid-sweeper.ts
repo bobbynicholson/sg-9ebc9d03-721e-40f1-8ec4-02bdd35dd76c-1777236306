@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "deposit-paid-sweeper";
 
 /**
  * Wave 50 C8 - safety-net sweeper for deposit_paid-but-still-pending orders.
@@ -19,19 +23,15 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * confirmation email all run. Idempotent (the status filter excludes
  * already-confirmed orders).
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
-
-    const { data: stuck, error } = await (sb as any)
+    const { data: stuck, error } = await sb
       .from("orders")
       .select("id")
       .eq("deposit_paid", true)
@@ -40,9 +40,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(100);
     if (error) {
       console.error("[deposit-paid-sweeper] fetch failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!stuck || stuck.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, swept: 0 });
       return res.status(200).json({ ok: true, swept: 0 });
     }
 
@@ -63,6 +65,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: auth.source,
+      considered: stuck.length,
+      swept,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       considered: stuck.length,
@@ -71,6 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[deposit-paid-sweeper] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }
