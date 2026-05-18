@@ -55,6 +55,14 @@ interface ItemDraft {
   category: string;
   description: string;
   base_price: string;
+  /**
+   * Per-unit COGS for this menu item. Owner-only field; staff
+   * roles never see it (Skylight finance-visibility rule).
+   * Drives the Cashflow Forecast Card, the Profit Margin tile,
+   * and the per-order COGS panel on the Order Details modal.
+   * See docs/audits/cashflow-cost-mapping-plan.md.
+   */
+  cost_per_unit: string;
   image_url: string;
   dietary_tags: string[];
   allergen_codes: string[];
@@ -93,6 +101,7 @@ const EMPTY_ITEM: ItemDraft = {
   category: "Mains",
   description: "",
   base_price: "",
+  cost_per_unit: "",
   image_url: "",
   dietary_tags: [],
   allergen_codes: [],
@@ -123,6 +132,14 @@ function MenuPage() {
   const pricingMode = usePricingMode();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id as string | undefined;
+  // Skylight finance-visibility rule: cost_per_unit is owner/admin
+  // only. Kitchen and shopping roles can edit the menu (item name,
+  // description, recipes) but never see the cost number.
+  const role = String(
+    (profile as any)?.active_role || (profile as any)?.role || "",
+  ).toLowerCase();
+  const canSeeCost =
+    role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -400,6 +417,7 @@ function MenuPage() {
       category: it.category || "Mains",
       description: it.description || "",
       base_price: it.base_price != null ? String(it.base_price) : "",
+      cost_per_unit: (it as any).cost_per_unit != null ? String((it as any).cost_per_unit) : "",
       image_url: it.image_url || "",
       dietary_tags: it.dietary_tags || [],
       allergen_codes: it.allergen_codes || [],
@@ -599,6 +617,19 @@ function MenuPage() {
         category: itemDraft.category || null,
         description: itemDraft.description.trim() || null,
         base_price: price,
+        // Skylight finance-visibility rule: only write the cost
+        // field when the editor is owner/admin. A staff member
+        // editing other fields on the same item must not blank the
+        // cost out by submitting an empty string back. Persist null
+        // only when the field was explicitly cleared by a permitted
+        // role.
+        ...(canSeeCost
+          ? {
+              cost_per_unit: itemDraft.cost_per_unit.trim() === ""
+                ? null
+                : Number(itemDraft.cost_per_unit),
+            }
+          : {}),
         image_url: itemDraft.image_url.trim() || null,
         dietary_tags: itemDraft.dietary_tags.length ? itemDraft.dietary_tags : null,
         allergen_codes: itemDraft.allergen_codes.length ? itemDraft.allergen_codes : null,
@@ -1217,6 +1248,41 @@ function MenuPage() {
                       ? `= R${toExVat(Number(itemDraft.base_price), 0.15).toFixed(2)} ex VAT`
                       : `= R${toIncVat(Number(itemDraft.base_price), 0.15).toFixed(2)} inc VAT`}
                   </p>
+                )}
+                {/* Cost per unit (Skylight finance-visibility rule:
+                    owner / admin only). Drives the Profit Margin
+                    tile + Cashflow Forecast Card. Snapshotted onto
+                    order_items at quote-accept so a later edit
+                    doesn't retroactively change history. */}
+                {canSeeCost && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+                    <Label className="flex items-center gap-1 text-xs text-slate-600">
+                      Cost per unit (R)
+                      <InfoTooltip content="Per-unit COGS for this menu item - food cost, packaging, anything you spend to deliver one serving. Owner / admin only; staff never see this number. Drives the Profit Margin tile + Cashflow Forecast on /admin/financial-dashboard. Saved at quote-accept time so historical reports stay stable." />
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={itemDraft.cost_per_unit}
+                      onChange={(e) => setItemDraft({ ...itemDraft, cost_per_unit: e.target.value })}
+                      placeholder="e.g. 65.00"
+                      className="text-sm"
+                    />
+                    {Number(itemDraft.base_price) > 0 && Number(itemDraft.cost_per_unit) > 0 && (() => {
+                      const price = Number(itemDraft.base_price);
+                      const cost = Number(itemDraft.cost_per_unit);
+                      const margin = ((price - cost) / price) * 100;
+                      const tone = margin >= 60 ? "text-emerald-700"
+                        : margin >= 30 ? "text-amber-700"
+                        : "text-red-700";
+                      return (
+                        <p className={`text-[11px] ${tone}`}>
+                          Margin {margin.toFixed(1)}% (R{(price - cost).toFixed(2)} per unit)
+                        </p>
+                      );
+                    })()}
+                  </div>
                 )}
               </div>
 
