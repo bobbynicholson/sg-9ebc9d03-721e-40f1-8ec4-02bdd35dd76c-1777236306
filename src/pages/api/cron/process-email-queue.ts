@@ -127,23 +127,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (dispatchOk) {
-      await supabase
+      const { error: sentUpdErr } = await supabase
         .from("outgoing_email_queue")
         .update({ status: "sent", sent_at: new Date().toISOString(), error_message: null })
         .eq("id", row.id);
+      if (sentUpdErr) {
+        console.error("[cron/process-email-queue] sent-status update failed:", row.id, sentUpdErr);
+      }
       sent += 1;
     } else {
       // Hit the cap -> mark failed permanently. Otherwise return to
-      // pending so the next cron tick retries.
-      const newAttempts = row.attempts + 1;
-      const finalStatus = newAttempts >= MAX_ATTEMPTS ? "failed" : "pending";
-      await supabase
+      // 'queued' so the next cron tick retries. Prior code wrote
+      // 'pending' here, which isn't in the CHECK constraint - every
+      // retry-eligible failure silently failed the UPDATE and the
+      // row stayed at 'in_progress' forever, blocking subsequent
+      // cron runs from re-claiming it (the RPC filters on 'queued').
+      const newAttempts = row.attempts; // already incremented by claim_email_batch
+      const finalStatus = newAttempts >= MAX_ATTEMPTS ? "failed" : "queued";
+      const captured = errorMessage || `Dispatch returned false (attempt ${newAttempts}/${MAX_ATTEMPTS})`;
+      const { error: failUpdErr } = await supabase
         .from("outgoing_email_queue")
         .update({
           status: finalStatus,
-          error_message: errorMessage || `Dispatch returned false (attempt ${newAttempts}/${MAX_ATTEMPTS})`,
+          error_message: captured,
         })
         .eq("id", row.id);
+      if (failUpdErr) {
+        // The row is now orphaned at 'in_progress'. Log loudly - a
+        // CHECK violation here means the lifecycle and the schema
+        // have drifted again. Heartbeat will record the error count
+        // so the operator sees the trend.
+        console.error("[cron/process-email-queue] fail-status update failed:", row.id, failUpdErr, "tried:", finalStatus);
+      }
       failed += 1;
     }
   }
