@@ -1519,10 +1519,10 @@ phase closeout for the full narrative and the per-finding context.
 | P2-04 | fixed | P6 `ce02f46` |
 | P2-05 | fixed | P3 `e616118` |
 | P2-06 | fixed | P3 `dee9fe2` |
-| P2-07 | still-open | not addressed by any phase |
+| P2-07 | fixed | 2026-05-18 `8b58643` (post-phase-10 sweep, PR #13) |
 | P2-08 | fixed | P4 `44401f3` |
 | P2-09 | fixed | P6 `d1d2722` |
-| P2-10 | partial (profileService, roleService); 12 services still-open | P5 `9e53759` |
+| P2-10 | fixed | P5 `9e53759` + 2026-05-18 PRs #14, #15, #16, #17, #18, #19, #20, #21 (all 47 remaining services cleared) |
 | P2-11 | fixed | P6 `e41310c` |
 | P2-12 | fixed | P4 `2421d06` |
 | P2-13 | still-open | deferred (five-file splits) |
@@ -1554,10 +1554,12 @@ No fresh `P-NN` tags were introduced beyond the P2F-1..6 series.
   rotation).
 - **P1:** P1-29 (react-hook-form + zod sweep, L-effort, deferred outside
   the megaprogramme scope).
-- **P2:** P2-13 (five-file splits), the P2-10 remainder (12 services
-  still carrying `@ts-nocheck`), the cleaning-dashboard MetricCard upgrade
-  (gated on a UX call), P2-01 Safari manual QA on a real Mac, plus P2-03
-  and P2-07 which were never picked up by any phase.
+- **P2:** P2-13 (five-file splits - note `admin/orders.tsx` has grown to
+  4,443 lines since the audit and now needs a deeper plan, not a quick
+  split), the cleaning-dashboard MetricCard upgrade (gated on a UX call),
+  P2-01 Safari manual QA on a real Mac, plus P2-03 which was never
+  picked up by any phase. **P2-07 and P2-10 cleared 2026-05-18 in the
+  post-phase-10 sweep (PRs #13, #14-#21).**
 - **P3 (14 strategic items, P3-01..P3-14):** untouched. The closeouts
   confirm phases 1-10 ran through P0 / P1 / P2 + P2F follow-ups only;
   every strategic upgrade in section 8.4 is still open.
@@ -1596,3 +1598,39 @@ state, not a refresh of the prior ledger) would be the right next move
 before the next implementation programme. That is **not** what this
 document is. This document is the historical Phase 0 plus a status
 overlay.
+
+## A.9 Post-phase-10 sweep, 2026-05-18
+
+Closed two findings that the phase 1-10 closeouts had left open:
+
+- **P2-07** (soft-delete filter sweep). 15 query sites across
+  `dispatchService.ts`, `orderWorkflow.ts`, `orderFinancials.ts`,
+  `postCreationCascade.ts` now filter `.is("deleted_at", null)` on
+  `orders` / `invoices` / `quotes` reads. Cancelled-and-soft-deleted
+  rows no longer leak into driver-load counts, double-booking checks,
+  KPI tiles, batchable-order discovery, or the post-order cascade.
+  Scope intentionally limited to tables with a verified `deleted_at`
+  column. PR #13.
+
+- **P2-10** (the @ts-nocheck removal). All 47 services still carrying
+  the suppression after Phase 5 have been cleared - 22 were already
+  implicitly type-safe; 25 needed targeted `as any` casts at column /
+  value sites where the generated `database.types.ts` is tighter than
+  the application code. `clientManagementService` also surfaced a real
+  bug (the `loadCompanyClients` query was selecting `orders.total`,
+  which doesn't exist - column is `total_amount`); fixed in PR #18.
+  PRs #14, #15, #16, #17, #18, #19, #20, #21.
+
+Two follow-ups worth flagging from the sweep:
+
+1. **proximityService.ts** writes and reads `driver_assignments.status`
+   with values (`"arrived"`, `"in_transit"`) that aren't in the current
+   TypeScript enum. Either the DB column has no CHECK constraint and
+   silently accepts the legacy values, or these writes are failing
+   silently. Tracked in PR #16's commit message; needs a follow-up
+   investigation (DB schema check + decide which side has drifted).
+
+2. `admin/orders.tsx` has grown from 2,427 lines to 4,443 lines. The
+   P2-13 split plan needs to be rethought - a clean modular split at
+   that size is a multi-day refactor with real regression risk, not the
+   small-effort item the audit graded it as.
