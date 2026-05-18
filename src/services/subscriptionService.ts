@@ -1,4 +1,48 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Platform-subscription service. CateringMS-level billing (catering
+ * companies paying us for SaaS access), NOT order-level payments
+ * (which flow through orderService.recordPayment + the `payments`
+ * table).
+ *
+ * A.17 #3 (2026-05-18 audit): two columns track subscription state
+ * and they are purpose-distinct, not redundant:
+ *
+ *   companies.subscription_status (enum, NOT NULL)
+ *     - Denormalised snapshot on the tenant row. JOIN-free filter
+ *       for "which tenants are in trial / active / past_due /
+ *       cancelled / suspended". Drives the trial banner, the
+ *       financial-dashboard tile, every gate that asks "can this
+ *       tenant use feature X".
+ *     - Always populated (default 'trial' on company insert).
+ *
+ *   subscriptions (table, currently 0 rows)
+ *     - The ledger - one row per subscription instance with
+ *       period start/end, stripe ids, billing cycle, plan
+ *       lineage, cancellation feedback. The source of truth for
+ *       "what is this tenant actually being billed for".
+ *     - Populated by the future Stripe / PayFast platform-
+ *       subscription webhook (the one that fires on
+ *       customer.subscription.created etc). That webhook is the
+ *       intended caller of createSubscription + createBillingRecord
+ *       below; until it ships, both functions are deliberate dead
+ *       code (the scaffold is correct, just unfed).
+ *
+ * Invariant the future webhook MUST maintain: every write to
+ * subscriptions also bumps companies.subscription_status atomically
+ * (transaction or DB trigger). The application code consistently
+ * reads companies.subscription_status as the "current" answer; if
+ * the two diverge, the trial banner / feature gates / KPIs all
+ * lie. Treat companies.subscription_status as the cache and
+ * subscriptions as the canonical record - the cache must be
+ * refreshed every time the canonical changes.
+ *
+ * subscriptions.status is a TEXT column with a CHECK constraint
+ * for (trial, active, past_due, cancelled, suspended); it
+ * intentionally mirrors the companies.subscription_status enum
+ * values so a future migration could fold them onto the same
+ * type without renaming literals.
+ */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
