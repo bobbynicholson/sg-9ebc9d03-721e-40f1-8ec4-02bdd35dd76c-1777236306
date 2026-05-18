@@ -159,7 +159,7 @@ const KNOWN_TABLES = new Set([
   "embed_rate_limits","equipment","equipment_bookings","equipment_damages",
   "equipment_handovers","equipment_hire_orders","equipment_kit_items","equipment_kits",
   "equipment_maintenance","equipment_maintenance_log","equipment_shortage_flags",
-  "exchange_rates","financial_depreciation","financial_predictions",
+  "exchange_rates","financial_depreciation","financial_predictions","fixed_costs",
   "floor_safety_inspections","fuel_stockpile","gamification_achievements",
   "gamification_points","gps_tracking","health_certificates","import_events",
   "import_jobs","import_rows","ingredient_substitutions","insurance_policies",

@@ -311,6 +311,7 @@ export function AdminNav({ className }: AdminNavProps) {
             : null,
         },
         { title: "Payables",            href: "/admin/payables",            icon: FileText,      description: "Supplier invoices owed - feeds cashflow forecast" },
+        { title: "Fixed costs",         href: "/admin/fixed-costs",         icon: Wallet,        description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
         { title: "Refunds",             href: "/admin/refunds",             icon: CreditCard,    description: "Cancellation refunds" },
         { title: "Wages dashboard",     href: "/admin/wages",               icon: Wallet,        description: "Hours x rates with overtime split" },
         { title: "Staff & rates",       href: "/admin/staff",               icon: Users,         description: "Pay rates per staff member" },
