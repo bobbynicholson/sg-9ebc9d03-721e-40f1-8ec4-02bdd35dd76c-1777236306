@@ -1,5 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,15 +26,14 @@ import { Banknote, Pencil, Save, X, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as currencyUtils from "@/lib/currencyUtils";
+import type { Order } from "@/types";
 
 interface Props {
   companyId: string;
   /** ISO timestamp the page last refreshed - lets us tag stale-data warnings. */
   loadedAt: number;
-  /** Existing 30-day projection from the page's metrics. */
-  projectedRevenue30Days: number;
-  /** Existing 90-day projection from the page's metrics. */
-  projectedRevenue90Days: number;
+  /** Orders array from the page's loadFinancialData. Drives the per-day projection. */
+  orders: Order[];
   /** Wages still owed to staff (paymentLedgerService.totalOwed). */
   staffPaymentsOwed: number;
   /** Currency code from the company (ZAR / USD / GBP / EUR). */
@@ -66,8 +75,7 @@ const HORIZON_OPTIONS: Array<{ label: string; days: number }> = [
 export function CashflowForecastCard({
   companyId,
   loadedAt,
-  projectedRevenue30Days,
-  projectedRevenue90Days,
+  orders,
   staffPaymentsOwed,
   currency,
   userId,
@@ -106,26 +114,78 @@ export function CashflowForecastCard({
     };
   }, [companyId, loadedAt]);
 
-  // Income side scales linearly between the 30d and 90d projections
-  // we already compute. Crude but fit-for-purpose at this phase - the
-  // page would need to compute per-day projections to be exact, and
-  // that's a deeper refactor than the running-todo plan calls for now.
-  const projectedRevenueForWindow = useMemo(() => {
-    if (horizonDays <= 30) {
-      return projectedRevenue30Days * (horizonDays / 30);
-    }
-    const beyond30 = horizonDays - 30;
-    const slope = (projectedRevenue90Days - projectedRevenue30Days) / 60;
-    return projectedRevenue30Days + slope * beyond30;
-  }, [horizonDays, projectedRevenue30Days, projectedRevenue90Days]);
+  // Per-day projection. Walk the orders array, bucket each upcoming
+  // order's total_amount onto its event_date, then accumulate a
+  // running balance from day 0 (cash_on_hand minus wages-owed-today)
+  // forward to the horizon. Output is the data series for the chart
+  // AND the bucket of per-day income that the tooltip drills into.
+  //
+  // Phase 2 simplification: an order's full total_amount lands on
+  // its event_date. Phase 3 will split deposit + balance into their
+  // separate due-dates (deposit at quote-accept; balance N days
+  // before event per company settings) for sharper timing.
+  const series = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const bucketsByDay: Record<number, { income: number; orders: Array<{ id: string; client: string; amount: number }> }> = {};
+    for (let d = 0; d <= horizonDays; d++) bucketsByDay[d] = { income: 0, orders: [] };
 
-  // Costs side - PR-1 covers wages owed only. Future phases add the
-  // other 4 cost categories listed in the running-todo card.
+    for (const o of orders || []) {
+      if (!o.event_date) continue;
+      if ((o as any).status === "cancelled") continue;
+      const eventDate = new Date(o.event_date);
+      if (isNaN(eventDate.getTime())) continue;
+      eventDate.setHours(0, 0, 0, 0);
+      const dayOffset = Math.floor((eventDate.getTime() - today.getTime()) / dayMs);
+      if (dayOffset < 0 || dayOffset > horizonDays) continue;
+      const amount = Number(o.total_amount) || 0;
+      bucketsByDay[dayOffset].income += amount;
+      bucketsByDay[dayOffset].orders.push({
+        id: o.id,
+        client: (o as any).client_name || "Unknown client",
+        amount,
+      });
+    }
+
+    // Walk forward. Day 0 opening balance = cash_on_hand minus the
+    // wages-owed liability (which is already-due, treated as a
+    // same-day cash-out so the chart starts at the actually-available
+    // figure not the gross bank balance).
+    const opening = cashOnHand - staffPaymentsOwed;
+    let running = opening;
+    const out: Array<{
+      day: number;
+      date: string;
+      label: string;
+      balance: number;
+      income: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+    }> = [];
+    for (let d = 0; d <= horizonDays; d++) {
+      running += bucketsByDay[d].income;
+      const dt = new Date(today.getTime() + d * dayMs);
+      out.push({
+        day: d,
+        date: dt.toISOString().slice(0, 10),
+        label: d === 0 ? "Today" : `+${d}d`,
+        balance: Math.round(running),
+        income: bucketsByDay[d].income,
+        orders: bucketsByDay[d].orders,
+      });
+    }
+    return out;
+  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed]);
+
+  const projectedRevenueForWindow = useMemo(() => {
+    return series.reduce((sum, p) => sum + p.income, 0);
+  }, [series]);
   const projectedCostsForWindow = staffPaymentsOwed;
 
-  const forecast = cashOnHand + projectedRevenueForWindow - projectedCostsForWindow;
+  const forecast = series.length > 0 ? series[series.length - 1].balance : cashOnHand;
   const isPositive = forecast > 0;
   const isTight = forecast >= 0 && forecast < Math.max(staffPaymentsOwed, 10000);
+  const goesNegativeAt = series.find((p) => p.balance < 0)?.day;
 
   const updatedAgeHours = cashUpdatedAt
     ? (Date.now() - new Date(cashUpdatedAt).getTime()) / (60 * 60 * 1000)
@@ -335,12 +395,156 @@ export function CashflowForecastCard({
                   -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
                 </span>
               </div>
+              {goesNegativeAt !== undefined && (
+                <div className="mt-1 flex items-center gap-1 text-amber-700">
+                  <AlertTriangle className="w-3 h-3" />
+                  Balance dips below R0 on +{goesNegativeAt}d
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+
+        {/* Phase 2: per-day running-balance chart. Hover any point
+            to see that day's opening balance + the orders firing
+            income that day. The chart's zero line is drawn dashed
+            so the owner can eyeball where they go red. */}
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-600">
+              Projected balance, day-by-day
+            </span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">
+              {series.length} days
+            </span>
+          </div>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="cashflowFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  interval="preserveStartEnd"
+                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) =>
+                    compactCurrency(Number(v) || 0, currency)
+                  }
+                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={60}
+                />
+                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 4" />
+                <Tooltip
+                  content={(props) => (
+                    <CashflowTooltip
+                      {...(props as any)}
+                      currency={currency}
+                    />
+                  )}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#cashflowFill)"
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </CardContent>
     </Card>
   );
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      day: number;
+      date: string;
+      label: string;
+      balance: number;
+      income: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+    };
+  }>;
+  currency: string;
+}
+
+function CashflowTooltip({ active, payload, currency }: TooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg max-w-[260px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-semibold text-slate-900">{row.label}</span>
+        <span className="text-[10px] text-slate-500">{row.date}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <span className="text-slate-600">Balance</span>
+        <span
+          className={`tabular-nums font-semibold ${
+            row.balance < 0 ? "text-red-700" : "text-slate-900"
+          }`}
+        >
+          {fmt(row.balance, currency)}
+        </span>
+      </div>
+      {row.income > 0 && (
+        <div className="mt-0.5 flex items-center justify-between gap-3">
+          <span className="text-slate-600">Income in</span>
+          <span className="tabular-nums text-green-700">
+            +{fmt(row.income, currency)}
+          </span>
+        </div>
+      )}
+      {row.orders.length > 0 && (
+        <div className="mt-2 border-t border-slate-100 pt-1 space-y-0.5">
+          <div className="text-[10px] uppercase tracking-wide text-slate-400">
+            {row.orders.length === 1 ? "1 order" : `${row.orders.length} orders`}
+          </div>
+          {row.orders.slice(0, 4).map((o) => (
+            <div key={o.id} className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="text-slate-700 truncate">{o.client}</span>
+              <span className="tabular-nums text-slate-900">
+                {fmt(o.amount, currency)}
+              </span>
+            </div>
+          ))}
+          {row.orders.length > 4 && (
+            <div className="text-[10px] text-slate-400">
+              +{row.orders.length - 4} more
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function compactCurrency(amount: number, currency: string): string {
+  const symbol =
+    currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "R";
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}${symbol}${Math.round(abs / 1_000)}k`;
+  return `${sign}${symbol}${Math.round(abs)}`;
 }
 
 function formatRelativeTime(iso: string): string {
