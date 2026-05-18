@@ -67,11 +67,22 @@ export default function SuperAdminManagementDashboard() {
         .select("id", { count: "exact", head: true })
         .is("deleted_at", null)
         .eq("subscription_status", "trial"),
+      // A.17 #2 (2026-05-18): was querying subscription_invoices
+      // (table doesn't exist), filtering on paid_at (column doesn't
+      // exist) and status='paid' (not in billing_history's CHECK).
+      // Three drift bugs at once - the as-any cast hid them all and
+      // monthlyRevenue silently always read 0. The actual platform-
+      // subscription ledger is billing_history; status='completed'
+      // is the CHECK-allowed success terminal; created_at is the
+      // event timestamp. Empty today (the subscription-billing
+      // webhook path hasn't shipped yet) but at least the query
+      // now hits the right table so it'll work the moment rows
+      // start landing.
       (supabase as any)
-        .from("subscription_invoices")
-        .select("amount, paid_at")
-        .eq("status", "paid")
-        .gte("paid_at", firstOfMonth.toISOString()),
+        .from("billing_history")
+        .select("amount, created_at")
+        .eq("status", "completed")
+        .gte("created_at", firstOfMonth.toISOString()),
     ]);
 
     const monthlyRevenue = ((subInvRes as any)?.data || []).reduce(

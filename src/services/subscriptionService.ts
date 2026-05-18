@@ -208,6 +208,22 @@ export const subscriptionService = {
     return data || [];
   },
 
+  /**
+   * Insert a row into billing_history. A.17 #2 (2026-05-18 audit):
+   * no production code path currently calls this. The function is
+   * the intended write-side for a future Stripe / PayFast platform-
+   * subscription webhook (the one that captures CateringMS-platform
+   * payments - catering companies paying us for SaaS access, NOT
+   * order-level payments which already flow through orderService
+   * .recordPayment + the payments table).
+   *
+   * Until that webhook ships, billing_history stays empty and
+   * /super-admin/admin/dashboard's monthly-revenue tile reads 0.
+   * Don't remove this function - it's the right shape for the
+   * future caller and removing it just costs us a re-build later.
+   * Status literals must be in (pending, completed, failed,
+   * refunded) per the billing_history_status_check constraint.
+   */
   async createBillingRecord(record: Database["public"]["Tables"]["billing_history"]["Insert"]): Promise<BillingHistory | null> {
     const { data, error } = await supabase
       .from("billing_history")
