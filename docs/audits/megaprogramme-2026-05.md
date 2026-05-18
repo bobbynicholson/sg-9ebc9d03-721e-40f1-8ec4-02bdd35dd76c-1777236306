@@ -1525,7 +1525,7 @@ phase closeout for the full narrative and the per-finding context.
 | P2-10 | fixed | P5 `9e53759` + 2026-05-18 PRs #14, #15, #16, #17, #18, #19, #20, #21 (all 47 remaining services cleared) |
 | P2-11 | fixed | P6 `e41310c` |
 | P2-12 | fixed | P4 `2421d06` |
-| P2-13 | partial | admin/settings.tsx fully split (PRs #49-#55, A.14); admin/orders.tsx Phase A/B done; Phase C/D deferred; account/settings still pending |
+| P2-13 | partial | admin/settings.tsx fully split (PRs #49-#55, A.14); account/settings.tsx fully split (PR #57); admin/orders.tsx Phase A/B/D1/D2 + D3 (partial) shipped; Phase C + remaining D3 (TimelineRow / KanbanColumn) deferred to paired-smoke session |
 | P2-14 | fixed | P3 `6e4cb40` + P4 reframe `2fbb555` |
 | P2-15 | fixed | P9 `9afe16c` |
 | P2-16 | fixed (three of four dashboards) | P6 `e5613a9`; cleaning dashboard gated on UX call |
@@ -1906,3 +1906,110 @@ P2-13 lines are:
    to update on the parent if a tab gains a new field. Worth a CI
    check that `keyof XSettings` and the literal keys in the
    parent's default-state object stay in sync.
+
+## A.16 Wider enum/CHECK drift sweep closeout (2026-05-18)
+
+A.13 #3 ("wider enum/CHECK drift sweep on the remaining status
+columns") executed across `subscriptions.status`,
+`kitchen_shifts.status`, `outsource_assignments.status`,
+`billing_history.status`, `cleaning_jobs.status`, and
+`kitchen_prep_tasks.status`. Five real production bugs surfaced -
+same root pattern as A.10 (TS-typed-string vs DB-CHECK drift
+silenced by `as any` casts or supabase-js's `{error}` return
+shape).
+
+Bug-by-bug (all fixed in PR #63):
+
+- **`companyService.createCompany`** wrote
+  `companies.subscription_status = 'trialing'` (Stripe convention).
+  Every reader filtered on `'trial'` - analyticsService,
+  /admin/platform/financial-dashboard, TrialExpiryBanner, the
+  'trial' badge on company-database, `subscriptionService.isInTrial`.
+  Result: any new tenant signed up via that path would silently
+  never appear in any platform-dashboard trial count.
+  Fix: write `'trial'`. Migration
+  `20260518740000_subscription_status_drop_trialing.sql` drops
+  `'trialing'` from the `subscription_status` enum so the DB
+  enforces the convergence (live had 0 rows with it; non-destructive).
+  The partial index `idx_companies_trial_expiry` had pinned the
+  rename target so it's dropped + recreated as part of the
+  migration. Defensive normalisations in trial-management,
+  subscription-management, super-admin/admin/dashboard and
+  TrialExpiryBanner all removed - workaround is now unreachable
+  and was masking the underlying bug.
+
+- **`analyticsService.getRevenueByPeriod`** filtered
+  `billing_history` on `status='succeeded'`. CHECK is
+  `(pending, completed, failed, refunded)`. The filter never
+  matched, so the revenue-by-period report always read R0 across
+  every period regardless of actual payments.
+  Fix: filter on `'completed'`.
+
+- **`releaseOrderResources` (cancel cascade)** filtered
+  `outgoing_email_queue` on `status='pending'`. Queue's CHECK is
+  `(queued, in_progress, paused, sent, failed, cancelled)` per
+  migration 20260518720000. Cancel cascade therefore never
+  flipped queued pre-event reminders to cancelled - clients of a
+  cancelled event still received the "see you tomorrow!" reminder.
+  Fix: `.in("status", ["queued", "paused"])`.
+
+- **`propagateQuoteEdit._restampPendingPreEventReminders`** same
+  drift - filter on `'pending'`. After a post-dispatch event_date
+  edit, queued reminders never got re-stamped to the new date and
+  the client received the reminder against the original date.
+  Fix: filter on `'queued'`.
+
+- **`/api/orders/cancellation-review` (postpone path)** double-
+  broken: wrote `{ status: 'cancelled', updated_at: nowIso }` to
+  `outgoing_email_queue`. `updated_at` doesn't exist on the table
+  (PGRST204 every time), AND the filter was on `'pending'` (not
+  in CHECK). Postponed events therefore kept original pre-event
+  reminders queued against the old date.
+  Fix: drop `updated_at`, `.in("status", ["queued", "paused"])`.
+
+Net for this sweep:
+- **5 production bugs** fixed (1 silent zero-revenue analytics,
+  2 client-spam-on-cancelled-event, 1 stale-reminder-on-postpone,
+  1 silent-trial-not-counted).
+- **1 migration** applied to live DB.
+- **1 enum value** dropped (subscription_status no longer
+  permits 'trialing'); generated TS types trimmed to match.
+
+Pattern observation (third time this session): the cron sweep
+fixed `outgoing_email_queue` writers; this sweep found that
+several READERS still filtered on the pre-migration vocabulary.
+A migration that changes vocabulary is not "done" until every
+filter site has been audited too. The eslint rule from PR #61
+flags the `as any` writes but doesn't catch literal-string filter
+sites. Worth a follow-up: extend the rule (or add a new one) to
+flag `.eq("status", "X")` / `.in("status", [...])` where the
+literal isn't in the table's CHECK / enum.
+
+## A.17 Open follow-ups after the A.16 sweep
+
+1. **Static-analysis rule for stale status filters**. The current
+   eslint rule (PR #61) covers `as any` on write payloads.
+   Reader filters (`.eq("status", "literal")`,
+   `.in("status", ["literal", ...])`) on supabase queries can
+   still drift without warning. A typed Supabase client (or a
+   custom rule that introspects the generated DB types) would
+   close the loop. Defer until the wider TypeScript-supabase
+   typing strategy is decided.
+
+2. **`createBillingRecord` has no callers**. Found while sweeping
+   billing_history.status writers. The function exists in
+   subscriptionService but no production code path invokes it.
+   Either remove (and rely on the future Stripe webhook handler
+   to write rows directly) or wire it into the webhook receivers
+   that should be persisting payment outcomes. Investigate
+   alongside the live-cron audit when Stripe + PayFast webhooks
+   are stress-tested.
+
+3. **`subscriptions` table**. The TS `subscriptions.status` is
+   typed as a CHECK-constrained text column, not the
+   `subscription_status` enum. The A.16 migration guarded
+   against the day they converge. Worth a deliberate decision:
+   keep them separate (company-level status vs subscription-row
+   status) or fold subscriptions.status into the enum and drop
+   the CHECK. Defer to whoever finishes the subscription/billing
+   build.
