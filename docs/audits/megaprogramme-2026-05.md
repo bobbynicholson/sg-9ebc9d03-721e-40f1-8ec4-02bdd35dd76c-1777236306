@@ -2013,3 +2013,48 @@ literal isn't in the table's CHECK / enum.
    status) or fold subscriptions.status into the enum and drop
    the CHECK. Defer to whoever finishes the subscription/billing
    build.
+
+## A.18 A.17 follow-up closeout (2026-05-18)
+
+All three A.17 follow-ups landed:
+
+- **A.17 #1 (PR #66)** ships `scripts/check-status-filters.mjs` -
+  a Node script wired into the typecheck.yml CI workflow that
+  fails the build on any `.eq("status", "X")` /
+  `.in("status", [...])` / `status: "X"` payload literal that
+  isn't in the table's CHECK / enum. Covers 9 tables. Self-test:
+  temporarily reverting PR #63's 'succeeded' -> 'completed' fix
+  correctly trips the check.
+
+- **A.17 #2 (PR #67)** fixes a triple-drift bug surfaced while
+  auditing the dead `createBillingRecord` function. The
+  /super-admin/admin/dashboard monthly-revenue tile was querying
+  `subscription_invoices` (table doesn't exist), filtering on
+  `paid_at` (column doesn't exist) and `status='paid'` (not in
+  billing_history's CHECK). The as-any cast hid all three;
+  monthlyRevenue silently always read 0. Re-targeted at
+  `billing_history` with `status='completed'` + `created_at`
+  filter. Empty today (no platform-subscription webhook yet) but
+  the query is correct - revenue appears the moment rows land.
+  `subscriptionService.createBillingRecord` gains a comment
+  block explaining its intentional dead-code status (the
+  scaffold for the future Stripe / PayFast platform-subscription
+  webhook).
+
+- **A.17 #3** documented in `subscriptionService.ts`'s file
+  header. The `companies.subscription_status` enum and the
+  `subscriptions` table are purpose-distinct, not redundant -
+  one is the denormalised snapshot on the tenant row (drives
+  JOIN-free feature gates + the trial banner), the other is the
+  ledger of subscription instances with period boundaries and
+  Stripe ids. The future platform-subscription webhook must
+  write both atomically; the invariant is captured in the file
+  header so the next person to touch the path doesn't break it.
+
+Cumulative pattern observation across A.10 / A.16 / A.18: every
+production bug in this 2026-05-18 session traced back to one
+class of problem - TypeScript-typed-string vs DB enum/CHECK drift
+silenced by `as any` casts and supabase-js's `{error}` return
+shape. Twelve distinct bugs fixed; two layers of static-analysis
+now guard against regressions (PR #61 covers the write side,
+PR #66 covers the read side).
