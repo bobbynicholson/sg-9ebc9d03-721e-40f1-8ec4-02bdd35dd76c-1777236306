@@ -1186,16 +1186,20 @@ export async function pauseOrder(
       .single();
     if (error) throw error;
 
-    // Pause the email queue. Cron filters on status='pending' so a
+    // Pause the email queue. Cron filters on status='queued' so a
     // 'paused' row is inert until we flip it back. paused_at lets
     // us audit how long sends sat on hold.
+    // (Wave 70.49j fix: this used to filter on 'pending' and write
+    // 'paused', but neither was in the CHECK constraint - pause was
+    // a no-op for years. CHECK extended in migration
+    // 20260518720000.)
     void (async () => {
       try {
         await sb
           .from("outgoing_email_queue")
           .update({ status: "paused", paused_at: nowIso } as any)
           .eq("trigger_ref_id", orderId)
-          .eq("status", "pending")
+          .eq("status", "queued")
           .in("trigger_event", ["aftersales", "pre_event"]);
       } catch (e) {
         console.warn("[pauseOrder] email queue pause failed:", e);
@@ -1309,11 +1313,14 @@ export async function resumeOrder(
 
     // Un-pause the email queue. Anything still scheduled for the
     // future fires when its scheduled_for time arrives.
+    // (Wave 70.49j fix: this used to write 'pending', which wasn't
+    // in the CHECK constraint. Now writes 'queued' to match the
+    // canonical claimable state.)
     void (async () => {
       try {
         await sb
           .from("outgoing_email_queue")
-          .update({ status: "pending", paused_at: null } as any)
+          .update({ status: "queued", paused_at: null } as any)
           .eq("trigger_ref_id", orderId)
           .eq("status", "paused");
       } catch (e) {
