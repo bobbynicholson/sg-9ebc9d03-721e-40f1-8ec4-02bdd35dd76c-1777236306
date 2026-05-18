@@ -57,6 +57,8 @@ import { OrdersBulkActionsBar } from "@/components/admin/orders/OrdersBulkAction
 import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyState";
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
 import { OrderDetailsModal } from "@/components/admin/orders/OrderDetailsModal";
+import { TimelineRow } from "@/components/admin/orders/TimelineRow";
+import { KanbanColumn } from "@/components/admin/orders/KanbanBoard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
@@ -1220,431 +1222,10 @@ function OrderProcessDashboard() {
     return ordersByStatus[status] || [];
   };
 
-  const OrderCard = ({ order }: { order: AppOrder }) => {
-    const config = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
-    const Icon = config.icon;
-    const eventDate = new Date(order.event_date);
-    const isToday = eventDate.toDateString() === new Date().toDateString();
-    const isPast = eventDate < new Date();
-
-    // Derived intelligence + automation summary - the card surfaces
-    // both so the catering team sees, at a glance, what's at risk.
-    const intel = deriveOrderIntelligence(order);
-    const auto = autoEmailMap.get((order as any).id) || { sent: 0, latest: null, postEventSent: false } as OrderAutoEmailSummary;
-    // Wave 28.6: cancelled orders get a thicker red top strip + faint
-    // wash so they're unmissable in the kanban / list. The left
-    // border alone wasn't enough - a cancelled card sat among
-    // confirmed ones and read as just another tone of red.
-    const isCancelled = order.status === "cancelled";
-    const ringClass = isCancelled
-      ? "ring-2 ring-rose-400 bg-rose-50/40"
-      : intel.tone === "urgent"
-        ? "ring-2 ring-rose-300"
-        : intel.bucket === "today"
-          ? "ring-2 ring-blue-200"
-          : "";
-
-    return (
-      <Card
-        className={`hover:shadow-md transition-shadow cursor-pointer ${
-          isCancelled ? "border-t-4 border-t-rose-500" : "border-l-4"
-        } ${ringClass}`}
-        style={
-          isCancelled
-            ? undefined
-            : { borderLeftColor: config.dotColor.replace('bg-', '#') }
-        }
-      >
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 min-w-0">
-                  <h4 className="font-semibold text-slate-900 truncate">{order.client_name}</h4>
-                  <RegionBadge regionId={(order as any).region_id} />
-                </div>
-                <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
-                  {order.venue_address}
-                </p>
-                {/* Quote backlink - Wave 27.1: routes to the polished
-                    public /q/{public_token} client view (the same
-                    branded surface the client sees) instead of the
-                    bare /admin/quotes/{id} editor screen. Operator
-                    gets a one-click window into "what does the client
-                    actually see for this order". Falls back to the
-                    admin editor when the linked quote has no
-                    public_token (legacy quotes pre-token migration).
-                    Opens in a new tab so the operator doesn't lose
-                    their place in /admin/orders. */}
-                {/* Wave 56 - "from quote" pill removed from kanban
-                    OrderCard. Pre-Wave-56 it appeared on this card +
-                    on the TimelineRow + in the modal - triplicate.
-                    Kanban is a secondary view; the modal still
-                    surfaces the cross-reference on click, and the
-                    TimelineRow keeps its pill for default-view
-                    scannability. Net: 3x -> 2x per order. */}
-              </div>
-              <Badge
-                variant="outline"
-                className={`${config.color} border flex-shrink-0 whitespace-nowrap`}
-              >
-                {config.label}
-              </Badge>
-            </div>
-
-            {/* Suggested action, the headline intelligence row */}
-            <div
-              className={`flex items-center gap-1.5 text-xs font-semibold ${
-                intel.tone === "urgent"
-                  ? "text-rose-600"
-                  : intel.tone === "warm"
-                    ? "text-amber-600"
-                    : "text-slate-500"
-              }`}
-              title={intel.reason}
-            >
-              <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{intel.label}</span>
-            </div>
-
-            {/* Event Details */}
-            <div className="flex items-center gap-4 text-sm text-slate-600">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                <span className={isToday ? "font-semibold text-blue-600" : ""}>
-                  {formatDate(eventDate)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
-                <span>{order.guest_count} guests</span>
-              </div>
-            </div>
-
-            {/* Automation status strip, only renders when there is
-                something to say. */}
-            {(auto.sent > 0 || (intel.bucket === "done" && !auto.postEventSent)) && (
-              <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                {auto.sent > 0 && (
-                  <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
-                    {auto.sent} auto email{auto.sent === 1 ? "" : "s"} sent
-                  </span>
-                )}
-                {auto.postEventSent && (
-                  <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
-                    Review email sent
-                  </span>
-                )}
-                {intel.bucket === "done" && !auto.postEventSent && (
-                  <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
-                    Review email pending
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <span className="font-semibold text-slate-900">
-                {C}{Number(order.total_amount || 0).toLocaleString()}
-              </span>
-              <div className="flex items-center gap-1">
-                <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1"
-                  onClick={() => {
-                    setSelectedOrder(order);
-                    setIsModalOpen(true);
-                  }}
-                >
-                  <Eye className="w-3 h-3" />
-                  View
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const TimelineRow = ({ order }: { order: AppOrder }) => {
-    const eventDate = new Date(order.event_date);
-    const isToday = eventDate.toDateString() === new Date().toDateString();
-    const isPast = eventDate < new Date();
-    // Wave 25: nextStage / getNextStage are no longer used here --
-    // the new TimelineTrack surfaces the current + next stage inline
-    // with full label + timestamp + click-through.
-    const isSelected = selectedIds.has((order as any).id);
-    // Wave 25.1 polish: row-level signal for blocked orders. The
-    // operator scanning the list should spot a blocked card from
-    // 6 ft away without having to read the timeline. A 4px red left
-    // border + faint red wash on the card gives the unmistakable
-    // "this needs attention" cue, mirroring the red dot inside the
-    // timeline. Healthy orders keep their default styling.
-    const tl = timelinesById.get((order as any).id);
-    const isBlocked = !!tl?.blocked;
-    // Wave 28.6: cancelled rows get a thicker red top strip + wash
-    // so they're visually unmistakable in the timeline view too.
-    const isCancelled = order.status === "cancelled";
-
-    return (
-      <Card
-        className={`hover:shadow-md transition-shadow cursor-pointer ${
-          isSelected ? "ring-2 ring-blue-400" : ""
-        } ${
-          isCancelled
-            ? "border-t-4 border-t-rose-500 bg-rose-50/40"
-            : isBlocked
-              ? "border-l-4 border-l-red-500 bg-red-50/30"
-              : ""
-        }`}
-        onClick={() => {
-          setSelectedOrder(order);
-          setIsModalOpen(true);
-        }}
-      >
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {/* Order Header */}
-            <div className="flex items-start justify-between gap-3">
-              {/* Phase 7 #6: bulk-select checkbox. Click stops
-                  propagation so we don't open the details modal. */}
-              <div
-                className="pt-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleSelected((order as any).id)}
-                  aria-label={`Select order ${(order as any).order_number || order.client_name}`}
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
-                  {(order as any).order_number && (
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        // Phase 20 #10: row-level click-to-copy.
-                        // Same UX as Phase 20 #8 in the drawer but
-                        // without having to open the drawer first --
-                        // useful when triaging a long list.
-                        e.stopPropagation();
-                        const num = String((order as any).order_number);
-                        try {
-                          await navigator.clipboard.writeText(num);
-                          toast({ title: "Copied", description: `${num} on clipboard.` });
-                        } catch {
-                          toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 hover:bg-slate-200 hover:text-slate-900 transition"
-                      title="Copy order number"
-                    >
-                      <Copy className="w-3 h-3" />
-                      {(order as any).order_number}
-                    </button>
-                  )}
-                  <RegionBadge regionId={(order as any).region_id} />
-                  {isToday && (
-                    <Badge className="bg-blue-500">Today</Badge>
-                  )}
-                  {isPast && order.status !== "completed" && (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Overdue
-                    </Badge>
-                  )}
-                  {/* Wave 54.5 - paused + cancelled visible at row
-                      level. Pre-Wave-54 the operator could only learn
-                      "this order is paused" by opening the modal,
-                      meaning paused orders blended into the live
-                      stream and operators chased deposits on orders
-                      they paused themselves. Cancelled orders were
-                      excluded from default views and unreachable
-                      from this page entirely. */}
-                  {order.status === "paused" && (
-                    <Badge className="bg-slate-400 text-white gap-1">
-                      <Pause className="w-3 h-3" />
-                      Paused
-                    </Badge>
-                  )}
-                  {order.status === "cancelled" && (
-                    <Badge variant="outline" className="text-slate-500 border-slate-300 gap-1">
-                      Cancelled
-                    </Badge>
-                  )}
-                  {(order as any).quote_id && (() => {
-                    // Wave 27.1: routes to /q/{public_token} - the
-                    // polished client view - instead of the admin
-                    // editor screen.
-                    const tok = (order as any).quote?.public_token;
-                    const href = tok ? `/q/${tok}` : withSlug(`/admin/quotes/${(order as any).quote_id}`);
-                    return (
-                      <Link
-                        href={href}
-                        target={tok ? "_blank" : undefined}
-                        rel={tok ? "noopener noreferrer" : undefined}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
-                        title={tok ? "Open the polished client view of this quote" : "Open the quote this order was built from"}
-                      >
-                        <FileText className="w-3 h-3" />
-                        from quote
-                      </Link>
-                    );
-                  })()}
-                </div>
-                <div className="flex items-center gap-4 text-sm text-slate-600">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(eventDate)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    <span className="truncate max-w-xs">{order.venue_address}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>{order.guest_count} guests</span>
-                  </div>
-                  {/* Wave 53 - drop the misleading dollar icon (was
-                      rendering "$" in front of ZAR / GBP / EUR
-                      amounts). Currency code lives in the C prefix
-                      already. Force 2 dp so 9223.5 renders as
-                      9 223.50, matching how every invoice line
-                      reads. */}
-                  <div className="flex items-center gap-1 font-semibold text-slate-900">
-                    <span>
-                      {C}{Number(order.total_amount || 0).toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                  {/* Wave 70.9 - day-of-event times strip. Slots
-                      into the previously-empty space to the right
-                      of the price. Renders nothing when the order
-                      has no timing data at all. */}
-                  <OrderTimesStrip
-                    event_time={(order as any).event_time}
-                    pickup_time={(order as any).pickup_time}
-                    setup_time={(order as any).setup_time}
-                    delivery_time={(order as any).delivery_time}
-                    className="ml-auto"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Wave 25: replaces the legacy 7-dot WORKFLOW_STAGES row
-                with the 22-stage / 5-cluster TimelineTrack derived
-                from the batch-fetched related rows. Falls back to a
-                compact loading placeholder when the timeline batch
-                fetch hasn't returned yet for this order (rare - the
-                batch fires immediately after the orders list loads).
-                The legacy nextStage label above is no longer needed
-                because the TimelineTrack surfaces the current stage
-                inline with richer detail. */}
-            {/* Wave 46 T2 - readiness chip ABOVE the timeline.
-                Headline + subhead = the operator's TLDR; expand
-                chevron drops the per-signal breakdown with deep
-                links. The chip is the source of truth for "what's
-                missing"; the timeline below remains the source of
-                truth for "where we are in the pipeline". */}
-            {(() => {
-              const r = readinessById.get((order as any).id);
-              if (!r) return null;
-              return (
-                <OrderReadinessChip
-                  readiness={r}
-                  orderId={(order as any).id}
-                  eventDate={(order as any).event_date || null}
-                  eventTime={(order as any).event_time || null}
-                  status={(order as any).status || null}
-                  canShowCloseOut={true}
-                  onActionComplete={() => { void loadOrders(); }}
-                />
-              );
-            })()}
-            {(() => {
-              const tl = timelinesById.get((order as any).id);
-              if (!tl) {
-                return (
-                  <div className="text-xs text-slate-400 italic">
-                    Loading timeline...
-                  </div>
-                );
-              }
-              return <TimelineTrack timeline={tl} hideOperatorBanner />;
-            })()}
-
-            {/* Wave 43 T1: surface every kitchen_shifts row linked
-                to this order via order_id. Wave 41 Phase 4 added
-                the column but nothing read it. Self-hides when no
-                shifts are assigned. */}
-            {((order as any).company_id) && (
-              <AssignedShiftsPanel
-                orderId={(order as any).id}
-                companyId={(order as any).company_id}
-                preloadedShifts={allShiftsByOrder.get((order as any).id) || []}
-                preloadedProfiles={staffProfilesById}
-              />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
 
 
-  const KanbanColumn = ({ status, title }: { status: string; title: string }) => {
-    const ordersInStatus = getOrdersByStatus(status);
-    const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-    // Phase 17 #5: per-column revenue sum. Lets the operator see
-    // both 'how many' and 'how much' in the column header without
-    // opening each card.
-    const columnRevenue = ordersInStatus.reduce(
-      (acc, o) => acc + Number((o as any).total_amount || 0), 0,
-    );
 
-    return (
-      <div className="flex flex-col w-[88vw] sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] flex-shrink-0">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className={`w-3 h-3 rounded-full shrink-0 ${config.dotColor}`} />
-            <h3 className="font-semibold text-slate-900 truncate">{title}</h3>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {columnRevenue > 0 && (
-              <span className="text-[11px] tabular-nums font-semibold text-slate-600">
-                {C}{(columnRevenue / 1000).toFixed(columnRevenue >= 100_000 ? 0 : 1)}k
-              </span>
-            )}
-            <Badge variant="secondary" className="font-semibold">
-              {ordersInStatus.length}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-2">
-          {ordersInStatus.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No orders</p>
-            </div>
-          ) : (
-            ordersInStatus.map((order) => <OrderCard key={order.id} order={order} />)
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // Wave 64.2 - deeplink flicker fix. When a sibling page (e.g. the
   // invoices list "Open order" link) lands here as
@@ -1938,13 +1519,69 @@ function OrderProcessDashboard() {
             ) : viewMode === "kanban" ? (
               <div className="overflow-x-auto pb-4">
                 <div className="flex gap-6 min-w-max px-1">
-                  <KanbanColumn status="pending" title="Pending" />
-                  <KanbanColumn status="confirmed" title="Confirmed" />
-                  <KanbanColumn status="preparing" title="In Prep" />
-                  <KanbanColumn status="ready" title="Ready" />
-                  <KanbanColumn status="in_transit" title="In Transit" />
-                  <KanbanColumn status="delivered" title="Delivered" />
-                  <KanbanColumn status="completed" title="Completed" />
+                  <KanbanColumn
+                    status="pending"
+                    title="Pending"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="confirmed"
+                    title="Confirmed"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="preparing"
+                    title="In Prep"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="ready"
+                    title="Ready"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="in_transit"
+                    title="In Transit"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="delivered"
+                    title="Delivered"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
+                  <KanbanColumn
+                    status="completed"
+                    title="Completed"
+                    getOrdersByStatus={getOrdersByStatus}
+                    autoEmailMap={autoEmailMap}
+                    currencySymbol={C}
+                    setSelectedOrder={setSelectedOrder}
+                    setIsModalOpen={setIsModalOpen}
+                  />
                 </div>
               </div>
             ) : (
@@ -1990,7 +1627,22 @@ function OrderProcessDashboard() {
                           </button>
                         </div>
                       )}
-                      {cappedToRender.map((order) => <TimelineRow key={order.id} order={order} />)}
+                      {cappedToRender.map((order) => <TimelineRow
+                          key={order.id}
+                          order={order}
+                          selectedIds={selectedIds}
+                          timelinesById={timelinesById}
+                          readinessById={readinessById}
+                          allShiftsByOrder={allShiftsByOrder}
+                          staffProfilesById={staffProfilesById}
+                          currencySymbol={C}
+                          companyId={user?.company_id || null}
+                          loadOrders={loadOrders}
+                          toggleSelected={toggleSelected}
+                          setSelectedOrder={setSelectedOrder}
+                          setIsModalOpen={setIsModalOpen}
+                          withSlug={withSlug}
+                        />)}
                     </>
                   );
                 })()}
