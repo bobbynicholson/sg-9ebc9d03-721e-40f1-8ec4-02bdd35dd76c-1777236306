@@ -82,17 +82,6 @@ const IGNORE_FILES = new Set([
 // new occurrences. The check still fails for any new (file,
 // table) combo not on this list.
 const BASELINE_PHANTOM_TABLES = new Set([
-  // A.20 #3 - chat_sessions / chat_messages: chatBotService
-  // expects two persistence tables that don't exist. ChatBot
-  // sessions are effectively in-memory only - conversations
-  // don't survive a page reload. Either the tables get created
-  // (heavier lift), or chatBotService falls back to localStorage
-  // / no-persistence with a clear flag. Tracked as a follow-up;
-  // not urgent because the ChatBot is a polish feature, not on
-  // any critical path.
-  "src/services/chatBotService.ts::chat_sessions",
-  "src/services/chatBotService.ts::chat_messages",
-
   // A.20 #5 - invoice_line_items: Sage accounting sync references
   // a table that doesn't exist. The Sage adapter is post-launch
   // deferred per running-todo ("Sync-quote endpoints for Xero /
@@ -157,7 +146,7 @@ const KNOWN_TABLES = new Set([
   "account_deletion_requests","accounting_integrations","admin_notifications","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
-  "cancellation_requests","cleaning_duty_logs","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
+  "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
   "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
   "companies","company_number_settings","company_number_settings_audit","complaints",
   "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
