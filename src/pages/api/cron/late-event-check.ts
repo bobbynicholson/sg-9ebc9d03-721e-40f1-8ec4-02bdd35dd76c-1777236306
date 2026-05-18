@@ -22,6 +22,10 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "late-event-check";
 
 const ALERT_TYPE = "order_late_alert";
 
@@ -30,11 +34,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  if (expected && auth !== `Bearer ${expected}`) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const supabase: any = getServiceSupabase();
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -50,6 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .limit(500);
   if (error) {
     console.error("[cron/late-event-check] read failed:", error);
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
+      source: auth.source, error_message: error.message,
+    });
     return res.status(500).json({ error: error.message });
   }
 
@@ -115,6 +119,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.warn("[cron/late-event-check] per-row errors:", errors);
   }
 
+  await recordCronHeartbeat(supabase, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+    source: auth.source,
+    checked: (late || []).length,
+    alerted,
+    skipped,
+    errors_count: errors.length,
+  });
   return res.status(200).json({
     ok: true,
     checked: (late || []).length,
