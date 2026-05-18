@@ -110,6 +110,11 @@ function DispatchQueuePage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // DI-E: server-side date window. Default 30 days ahead - covers
+  // the dispatcher's planning horizon without dragging back hundreds
+  // of rows on a busy tenant. Selectable to 14 / 30 / 90 from the
+  // toolbar when the dispatcher needs to look further out.
+  const [daysAhead, setDaysAhead] = useState<14 | 30 | 90>(30);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   // Wave 66.3 - inline pickup_time editor state. Per-row local draft
@@ -154,6 +159,15 @@ function DispatchQueuePage() {
       setKpis(k);
 
       const todayISO = toLocalISO(new Date());
+      // DI-E: server-side upper bound. Previously the query was
+      // .gte today onwards with no ceiling - a tenant with 500
+      // confirmed events booked months ahead would haul all 500
+      // back to the client even though dispatch only acts on the
+      // next few weeks. The selectable horizon (14 / 30 / 90)
+      // keeps the wire payload predictable.
+      const horizon = new Date();
+      horizon.setDate(horizon.getDate() + daysAhead);
+      const horizonISO = toLocalISO(horizon);
       const { data: rows, error } = await supabase
         .from("orders")
         .select(`
@@ -171,6 +185,7 @@ function DispatchQueuePage() {
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("event_date", todayISO)
+        .lte("event_date", horizonISO)
         .in("status", ["confirmed", "preparing", "ready", "in_transit"])
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true, nullsFirst: false });
@@ -213,7 +228,7 @@ function DispatchQueuePage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, daysAhead]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -558,6 +573,21 @@ function DispatchQueuePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* DI-E: server-side date window selector. Default 30
+                  days covers the dispatcher's planning horizon. 90
+                  is for the "look ahead a quarter" planning view;
+                  14 trims to a tight today + fortnight on busy
+                  tenants. */}
+              <select
+                value={daysAhead}
+                onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
+                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                title="Date window"
+              >
+                <option value={14}>Next 14 days</option>
+                <option value={30}>Next 30 days</option>
+                <option value={90}>Next 90 days</option>
+              </select>
               <Button
                 variant="ghost"
                 size="sm"
