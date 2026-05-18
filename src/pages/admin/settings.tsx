@@ -9,11 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { 
-  Settings, 
-  Bell, 
-  Mail, 
-  DollarSign, 
-  Clock, 
+  Settings,
+  Bell,
+  Mail,
+  DollarSign,
   Truck,
   ChefHat,
   Save,
@@ -42,7 +41,11 @@ import { InventorySettingsTab } from "@/components/admin/inventory/InventorySett
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
 import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
 import { NotificationsSettingsTab } from "@/components/admin/settings/NotificationsSettingsTab";
-import type { NotificationSettings } from "@/components/admin/settings/types";
+import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSettingsTab";
+import type {
+  NotificationSettings,
+  AutomationSettings,
+} from "@/components/admin/settings/types";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useTenantHref } from "@/lib/tenantUrl";
 
@@ -675,109 +678,10 @@ function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="automation">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <Clock className="w-4 h-4 md:w-5 md:h-5" />
-                    Automation Rules
-                    <InfoTooltip content={"How long the system waits before nudging clients with follow-ups, reminders and review requests after a quote is sent or an event ends.\n\nValues you set here are saved against your company. The email engine reads them when scheduling each automated send."} />
-                  </CardTitle>
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
-                    Heads up: these timings are stored against your company but the live cron-driven sender is still on the engineering backlog. Set them now. The moment the sender ships, your timings are already live.
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4 px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        First Follow-up (days)
-                        <InfoTooltip content={"How many days after a quote is sent (and not yet accepted) the first follow-up email goes out.\n\nLeave at 5 to nudge gently a working week later. Lower it for shorter sales cycles."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.automation.autoFollowUpDays}
-                        onChange={(e) =>
-                          updateSetting("automation", "autoFollowUpDays", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Second Follow-up (days)
-                        <InfoTooltip content={"How many days after the quote was sent the second (final) follow-up goes out.\n\nThis is the email that can carry a small discount to nudge a stalled quote across the line."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.automation.secondFollowUpDays}
-                        onChange={(e) =>
-                          updateSetting("automation", "secondFollowUpDays", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base flex items-center gap-1">
-                      Follow-up Discount (%)
-                      <InfoTooltip content={"Discount baked into the second follow-up email. The template substitutes {{discount}} with this value, so editing it here updates every queued send.\n\nSet to 0 to disable the discount and keep the second follow-up as a plain reminder."} />
-                    </Label>
-                    <Input
-                      type="number"
-                      value={settings.automation.autoDiscountPercent}
-                      onChange={(e) =>
-                        updateSetting("automation", "autoDiscountPercent", parseInt(e.target.value))
-                      }
-                    />
-                    <p className="text-xs md:text-sm text-slate-600">Discount offered in second follow-up email.</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base flex items-center gap-1">
-                      Event Reminder Days
-                      <InfoTooltip content={"Comma-separated days BEFORE the event when reminder emails fire to the client.\n\nDefault 14, 7, 3, 1 means: a fortnight out, a week out, three days out and the day before.\n\nLeave blank to disable client-facing reminders."} />
-                    </Label>
-                    <Input
-                      value={settings.automation.reminderDays.join(", ")}
-                      onChange={(e) =>
-                        updateSetting(
-                          "automation",
-                          "reminderDays",
-                          e.target.value.split(",").map((d) => parseInt(d.trim()))
-                        )
-                      }
-                    />
-                    <p className="text-xs md:text-sm text-slate-600">Comma-separated (e.g., 14, 7, 3, 1).</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base flex items-center gap-1">
-                      Review Request (days after)
-                      <InfoTooltip content={"How many days AFTER the event date the review-request email goes out.\n\n1 = next morning, while the experience is fresh. Set higher if your post-event communications run later."} />
-                    </Label>
-                    <Input
-                      type="number"
-                      value={settings.automation.reviewRequestDays}
-                      onChange={(e) =>
-                        updateSetting("automation", "reviewRequestDays", parseInt(e.target.value))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base flex items-center gap-1">
-                      Complaint Response SLA (hours)
-                      <InfoTooltip content={"Internal target for how quickly the team responds to a customer complaint.\n\nWhen breached, the complaint surfaces with an amber 'overdue' badge on the dashboard so it stops slipping. Does not auto-reply."} />
-                    </Label>
-                    <Input
-                      type="number"
-                      value={settings.automation.complaintResponseHours}
-                      onChange={(e) =>
-                        updateSetting("automation", "complaintResponseHours", parseInt(e.target.value))
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <AutomationSettingsTab
+                settings={settings.automation as AutomationSettings}
+                onUpdate={(key, value) => updateSetting("automation", key, value)}
+              />
             </TabsContent>
 
             <TabsContent value="pricing">

@@ -18,6 +18,15 @@ export interface NotificationSettings {
   emailDailyReport: boolean;
 }
 
+export interface AutomationSettings {
+  autoFollowUpDays: number;
+  secondFollowUpDays: number;
+  reminderDays: number[];
+  autoDiscountPercent: number;
+  reviewRequestDays: number;
+  complaintResponseHours: number;
+}
+
 /**
  * Per-key updater partial-applied for one settings category. The
  * parent's full `updateSetting(category, key, value)` is too wide
@@ -27,4 +36,9 @@ export interface NotificationSettings {
 export type UpdateNotificationSetting = (
   key: keyof NotificationSettings,
   value: boolean,
+) => void;
+
+export type UpdateAutomationSetting = (
+  key: keyof AutomationSettings,
+  value: number | number[],
 ) => void;
