@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, Truck, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";
@@ -51,6 +51,7 @@ import {
   getNextStage,
 } from "@/components/admin/orders/statusConfig";
 import { DuplicateOrderDialog } from "@/components/admin/orders/DuplicateOrderDialog";
+import { OrderKpiPills } from "@/components/admin/orders/OrderKpiPills";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
@@ -3811,52 +3812,7 @@ function OrderProcessDashboard() {
               </div>
             </div>
 
-            {/* Wave 56 - design system collapse.
-                The 6 gradient stats tiles consumed the top third of the
-                viewport with near-zero actionability per the audit team.
-                The page is "where every order is in its lifecycle" --
-                show orders first, summaries second.
-                Booked revenue + Realised tiles removed entirely per
-                Bobby's Skylight finance-visibility rule (staff
-                shouldn't see invoiced amounts; that lives in director-
-                only Cashflow / DashDog surfaces).
-                Total Orders + Upcoming + In Progress reduced to a
-                single thin pill strip. Pending + In Transit kept
-                because they're the two action-signal counts an
-                operator scans for. */}
-            <div className="flex flex-wrap gap-2 text-sm">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
-                <ShoppingCart className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                <span className="font-semibold text-slate-900">{stats.total}</span>
-                <span className="text-slate-500">{stats.total === 1 ? "order" : "orders"}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                <span className="font-semibold text-slate-900">{stats.upcoming}</span>
-                <span className="text-slate-500">upcoming</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700">
-                <Package className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                <span className="font-semibold text-slate-900">{stats.inProgress}</span>
-                <span className="text-slate-500">in progress</span>
-              </span>
-              {/* Pending = action signal - amber */}
-              {(stats.byStatus.pending || 0) > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
-                  <span className="font-semibold">{stats.byStatus.pending}</span>
-                  <span>pending</span>
-                </span>
-              )}
-              {/* In transit = live signal - blue */}
-              {(stats.byStatus.in_transit || 0) > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800">
-                  <Truck className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-                  <span className="font-semibold">{stats.byStatus.in_transit}</span>
-                  <span>in transit</span>
-                </span>
-              )}
-            </div>
+            <OrderKpiPills stats={stats} />
 
             {/* Client filter pill - shows when /admin/orders was opened
                 with ?clientId. Click X to clear back to the unfiltered
