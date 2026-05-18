@@ -137,8 +137,11 @@ function PlatformSubscriptionManagement() {
       const rows: CompanySubscription[] = (companies || []).map((c: any) => {
         const owner = c.owner_id ? ownersById.get(c.owner_id) : null;
         const plan = resolvePlanPricing(c.subscription_plan);
-        // Normalise legacy 'trialing' to 'trial' for filter UX.
-        const status = c.subscription_status === "trialing" ? "trial" : (c.subscription_status || "trial");
+        // A.13 #3 sweep: was a defensive 'trialing' -> 'trial'
+        // normalisation. Migration 20260518740000 dropped 'trialing'
+        // from the subscription_status enum so this branch can no
+        // longer fire; coalesce to 'trial' for null-rows only.
+        const status = c.subscription_status || "trial";
         return {
           id: c.id,
           company_id: c.id,

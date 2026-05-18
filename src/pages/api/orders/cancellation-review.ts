@@ -302,20 +302,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (e) {
           console.warn("[postpone] driver_assignments shift failed:", e);
         }
-        // Pending pre-event reminders - cancel the old ones, the
+        // Queued pre-event reminders - cancel the old ones, the
         // ensureScheduledPreEventReminders cron will queue fresh ones
         // against the new event_date the next time the order is
         // touched. We don't try to recompute them inline here because
         // the original sender uses a fully-rendered email body and
         // recomputing it server-side would diverge from the queued
         // copy.
+        //
+        // A.13 #3 (2026-05-18 sweep): two drift bugs on this UPDATE.
+        // (1) `updated_at` is not a column on outgoing_email_queue
+        //     (schema only has created_at + sent_at + paused_at +
+        //     scheduled_for) so the write PGRST204'd every time.
+        // (2) the status filter was 'pending' which isn't in the
+        //     queue's CHECK (queued, in_progress, paused, sent,
+        //     failed, cancelled). Postponed events were therefore
+        //     leaving the original pre-event reminders queued
+        //     against the old date and clients got the wrong-day
+        //     "see you tomorrow!" emails after a postpone.
         try {
           await ssr
             .from("outgoing_email_queue")
-            .update({ status: "cancelled", updated_at: nowIso } as any)
+            .update({ status: "cancelled" } as any)
             .eq("trigger_ref_id", (request as any).order_id)
             .eq("trigger_event", "pre_event")
-            .eq("status", "pending");
+            .in("status", ["queued", "paused"]);
         } catch (e) {
           console.warn("[postpone] pre_event email cancel failed:", e);
         }

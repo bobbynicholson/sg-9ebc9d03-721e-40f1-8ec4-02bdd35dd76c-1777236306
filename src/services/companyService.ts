@@ -309,7 +309,13 @@ export const companyService = {
           slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           email: email,
           subscription_plan: planId,
-          subscription_status: 'trialing',
+          // A.13 #3 sweep: was 'trialing' (Stripe convention) which
+          // every reader filter missed - analyticsService,
+          // financial-dashboard, TrialExpiryBanner,
+          // subscriptionService.isInTrial all compare against 'trial'.
+          // Migration 20260518740000 dropped 'trialing' from the
+          // enum so 'trial' is now the only legal value.
+          subscription_status: 'trial',
           trial_ends_at: trialEndsAt.toISOString(),
         } as any,
       ])

@@ -9910,7 +9910,6 @@ export type Database = {
         | "past_due"
         | "cancelled"
         | "suspended"
-        | "trialing"
       transaction_type:
         | "purchase"
         | "usage"
@@ -10159,7 +10158,6 @@ export const Constants = {
         "past_due",
         "cancelled",
         "suspended",
-        "trialing",
       ],
       transaction_type: [
         "purchase",

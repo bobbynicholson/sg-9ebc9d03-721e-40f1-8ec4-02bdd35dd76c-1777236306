@@ -408,10 +408,16 @@ export const analyticsService = {
 
   async getRevenueByPeriod(period: "day" | "week" | "month" | "quarter"): Promise<RevenueByPeriod[]> {
     try {
+      // billing_history.status CHECK allows (pending, completed,
+      // failed, refunded). Was 'succeeded' (Stripe webhook
+      // vocabulary) which isn't in the CHECK - this query always
+      // returned zero rows. Symptom: getRevenueByPeriod always
+      // reported R0 across every period regardless of how many
+      // payments had landed.
       const { data: billingHistory, error } = await supabase
         .from("billing_history")
         .select("created_at, amount, status, user_id")
-        .eq("status", "succeeded")
+        .eq("status", "completed")
         .order("created_at", { ascending: true });
 
       if (error) {
