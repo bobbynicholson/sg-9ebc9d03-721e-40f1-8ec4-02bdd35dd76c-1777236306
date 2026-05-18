@@ -34,23 +34,9 @@ import {
 import { ROLE_NAMES } from "@/lib/authGuards";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-interface NotificationPreferences {
-  email_notifications: boolean;
-  sms_notifications: boolean;
-  push_notifications: boolean;
-  order_updates: boolean;
-  delivery_updates: boolean;
-  marketing_emails: boolean;
-  weekly_summary: boolean;
-}
-
-interface PrivacySettings {
-  profile_visibility: "public" | "private" | "team";
-  show_email: boolean;
-  show_phone: boolean;
-  allow_analytics: boolean;
-}
+import { NotificationsTab } from "@/components/account/settings/NotificationsTab";
+import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
+import type { NotificationPreferences, PrivacySettings } from "@/components/account/settings/types";
 
 function ProfileSettingsPage() {
   // Pull `company` alongside `profile` so we can show the canonical
@@ -884,193 +870,20 @@ function ProfileSettingsPage() {
 
             {/* Notifications Tab */}
             <TabsContent value="notifications" className="space-y-6">
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <Bell className="w-5 h-5" />
-                    Notification Preferences
-                  </CardTitle>
-                  <CardDescription className="dark:text-slate-400">Choose how you want to be notified</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Email Notifications</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Receive notifications via email</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.email_notifications}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, email_notifications: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">SMS Notifications</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Receive important updates via SMS</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.sms_notifications}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, sms_notifications: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Push Notifications</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Receive push notifications in your browser</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.push_notifications}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, push_notifications: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Order Updates</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Get notified about order status changes</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.order_updates}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, order_updates: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Delivery Updates</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Track delivery progress in real-time</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.delivery_updates}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, delivery_updates: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Marketing Emails</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Receive promotional offers and updates</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.marketing_emails}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, marketing_emails: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Weekly Summary</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Get a weekly summary of your activity</p>
-                      </div>
-                      <Switch
-                        checked={notificationPrefs.weekly_summary}
-                        onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, weekly_summary: checked})}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button onClick={handleNotificationPrefsUpdate} className="bg-orange-600 hover:bg-orange-700">
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Notification Preferences
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <NotificationsTab
+                notificationPrefs={notificationPrefs}
+                setNotificationPrefs={setNotificationPrefs}
+                onSave={handleNotificationPrefsUpdate}
+              />
             </TabsContent>
 
             {/* Privacy Tab */}
             <TabsContent value="privacy" className="space-y-6">
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <Shield className="w-5 h-5" />
-                    Privacy Settings
-                  </CardTitle>
-                  <CardDescription className="dark:text-slate-400">Control your privacy and data sharing preferences</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Profile Visibility</Label>
-                      <Select 
-                        value={privacySettings.profile_visibility} 
-                        onValueChange={(value: "public" | "private" | "team") => setPrivacySettings({...privacySettings, profile_visibility: value})}
-                      >
-                        <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">Public - Visible to everyone</SelectItem>
-                          <SelectItem value="team">Team - Visible to team members only</SelectItem>
-                          <SelectItem value="private">Private - Only visible to you</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Show Email Address</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Display your email on your profile</p>
-                      </div>
-                      <Switch
-                        checked={privacySettings.show_email}
-                        onCheckedChange={(checked) => setPrivacySettings({...privacySettings, show_email: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Show Phone Number</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Display your phone number on your profile</p>
-                      </div>
-                      <Switch
-                        checked={privacySettings.show_phone}
-                        onCheckedChange={(checked) => setPrivacySettings({...privacySettings, show_phone: checked})}
-                      />
-                    </div>
-
-                    <Separator className="dark:bg-slate-700" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base dark:text-slate-200">Allow Analytics</Label>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Help us improve by sharing anonymous usage data</p>
-                      </div>
-                      <Switch
-                        checked={privacySettings.allow_analytics}
-                        onCheckedChange={(checked) => setPrivacySettings({...privacySettings, allow_analytics: checked})}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button onClick={handlePrivacySettingsUpdate} className="bg-orange-600 hover:bg-orange-700">
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Privacy Settings
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <PrivacyTab
+                privacySettings={privacySettings}
+                setPrivacySettings={setPrivacySettings}
+                onSave={handlePrivacySettingsUpdate}
+              />
             </TabsContent>
           </Tabs>
         </div>
