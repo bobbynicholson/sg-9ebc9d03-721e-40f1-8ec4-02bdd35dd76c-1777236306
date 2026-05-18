@@ -19,16 +19,25 @@
  *   });
  *
  * Querying:
- *   SELECT action, max(created_at), count(*)
+ *   SELECT action, max(created_at), count(*), max(details::text) AS last_meta
  *     FROM audit_logs
  *    WHERE action LIKE 'cron.%'
  *      AND created_at > now() - interval '24 hours'
  *    GROUP BY action
  *    ORDER BY action;
  *
+ * Schema gotchas (audit_logs):
+ *   - The jsonb column is `details`, not `metadata`. Earlier versions
+ *     of this helper wrote `metadata` and failed silently because the
+ *     supabase-js insert error was caught and swallowed.
+ *   - `entity_id` is a uuid column - cannot hold a cron name string.
+ *     We leave it null and put the cron name in details so the row
+ *     inserts cleanly.
+ *
  * Insert is best-effort - a failure here never propagates to the
  * cron's response. We do not want a heartbeat outage to look like a
- * cron outage.
+ * cron outage. But we DO log the error to console so the next
+ * operator looking at function logs sees why heartbeats stopped.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -41,16 +50,19 @@ export async function recordCronHeartbeat(
   metadata?: Record<string, any>,
 ): Promise<void> {
   try {
-    await supabase.from("audit_logs").insert({
+    const { error } = await supabase.from("audit_logs").insert({
       action: `cron.${cronName}`,
       entity_type: "cron",
-      entity_id: cronName,
-      metadata: {
+      details: {
+        cron_name: cronName,
         status,
         ...(metadata || {}),
       },
     });
+    if (error) {
+      console.warn(`[cronHeartbeat] insert error for ${cronName}:`, error);
+    }
   } catch (e) {
-    console.warn(`[cronHeartbeat] failed to record heartbeat for ${cronName}:`, e);
+    console.warn(`[cronHeartbeat] threw recording heartbeat for ${cronName}:`, e);
   }
 }
