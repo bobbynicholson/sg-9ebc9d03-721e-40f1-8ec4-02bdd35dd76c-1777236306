@@ -44,13 +44,14 @@ import { NotificationsSettingsTab } from "@/components/admin/settings/Notificati
 import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSettingsTab";
 import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
 import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSettingsTab";
+import { CompanySettingsTab } from "@/components/admin/settings/CompanySettingsTab";
 import type {
   NotificationSettings,
   AutomationSettings,
   PricingSettings,
   OperationsSettings,
+  CompanySettings,
 } from "@/components/admin/settings/types";
-import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedSettingsPage() {
@@ -582,96 +583,10 @@ function SettingsPage() {
             </div>
 
             <TabsContent value="company">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <Settings className="w-4 h-4 md:w-5 md:h-5" />
-                    Company Information
-                    <InfoTooltip content={"Your display name, contact details, and kitchen location used in quotes and route planning.\n\nNote: there is a separate Company Profile page that holds the master record, those values take priority."} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 px-4 md:px-6">
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Company Name</Label>
-                    <Input
-                      value={settings.company.name}
-                      onChange={(e) => updateSetting("company", "name", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Email Address</Label>
-                    <Input
-                      type="email"
-                      value={settings.company.email}
-                      onChange={(e) => updateSetting("company", "email", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Phone Number</Label>
-                    <Input
-                      value={settings.company.phone}
-                      onChange={(e) => updateSetting("company", "phone", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Physical Address</Label>
-                    <Input
-                      value={settings.company.address}
-                      onChange={(e) => updateSetting("company", "address", e.target.value)}
-                    />
-                  </div>
-                  <div className="border-t pt-4 mt-4">
-                    <h3 className="font-semibold text-base mb-1 flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Kitchen / HQ Location
-                    </h3>
-                    <p className="text-xs text-slate-600 mb-3">
-                      Used as the navigation start point for drivers and as the origin for delivery distance + fee calculations.
-                      For multi-branch operations, set per-branch kitchens under <strong>Operations → Regions</strong>.
-                    </p>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-sm md:text-base">Kitchen address</Label>
-                        <AddressAutocomplete
-                          value={settings.company.kitchenAddress}
-                          onChange={(pick) => {
-                            updateSetting("company", "kitchenAddress", pick.address);
-                            if (pick.lat != null) updateSetting("company", "kitchenLat", pick.lat);
-                            if (pick.lng != null) updateSetting("company", "kitchenLng", pick.lng);
-                          }}
-                          placeholder="Search the kitchen / HQ address"
-                          hint="Pick from the list to lock the precise pin, this is what Google Maps uses as the start point."
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-sm">Latitude</Label>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            value={settings.company.kitchenLat || ""}
-                            onChange={(e) => updateSetting("company", "kitchenLat", parseFloat(e.target.value))}
-                            placeholder="auto-filled from address"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm">Longitude</Label>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            value={settings.company.kitchenLng || ""}
-                            onChange={(e) => updateSetting("company", "kitchenLng", parseFloat(e.target.value))}
-                            placeholder="auto-filled from address"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                        <strong>Tip:</strong> Pick from the dropdown to lock the exact pin. Manual coords drift the route Google Maps draws.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <CompanySettingsTab
+                settings={settings.company as CompanySettings}
+                onUpdate={(key, value) => updateSetting("company", key, value)}
+              />
             </TabsContent>
 
             <TabsContent value="notifications">

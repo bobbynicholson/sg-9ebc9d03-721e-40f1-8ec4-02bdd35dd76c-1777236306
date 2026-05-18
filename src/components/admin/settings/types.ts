@@ -45,6 +45,17 @@ export interface OperationsSettings {
   deliveryCostPerKm: number;
 }
 
+export interface CompanySettings {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  logo: string;
+  kitchenAddress: string;
+  kitchenLat: number;
+  kitchenLng: number;
+}
+
 /**
  * Per-key updater partial-applied for one settings category. The
  * parent's full `updateSetting(category, key, value)` is too wide
@@ -69,4 +80,9 @@ export type UpdatePricingSetting = (
 export type UpdateOperationsSetting = (
   key: keyof OperationsSettings,
   value: number,
+) => void;
+
+export type UpdateCompanySetting = (
+  key: keyof CompanySettings,
+  value: string | number,
 ) => void;
