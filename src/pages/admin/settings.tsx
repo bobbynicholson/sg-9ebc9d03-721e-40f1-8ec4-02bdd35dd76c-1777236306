@@ -43,10 +43,12 @@ import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPol
 import { NotificationsSettingsTab } from "@/components/admin/settings/NotificationsSettingsTab";
 import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSettingsTab";
 import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
+import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSettingsTab";
 import type {
   NotificationSettings,
   AutomationSettings,
   PricingSettings,
+  OperationsSettings,
 } from "@/components/admin/settings/types";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -694,105 +696,10 @@ function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="operations">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <ChefHat className="w-4 h-4 md:w-5 md:h-5" />
-                    Operational Settings
-                    <InfoTooltip content={"Lead times, prep buffers, driver radius and per-kilometre rate.\n\nThese feed the delivery fee calculation on every quote."} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Equipment Cleaning (hours)
-                        <InfoTooltip content={"How many hours of cleaning time the dispatcher reserves between an event ending and the equipment being available again.\n\nKeeps a piece of equipment from being double-booked across two events that finish + start back-to-back."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.operations.equipmentCleaningHours}
-                        onChange={(e) =>
-                          updateSetting("operations", "equipmentCleaningHours", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Kitchen Prep Lead Time (hours)
-                        <InfoTooltip content={"How many hours before the event starts the kitchen needs to begin prep.\n\nDrives the prep-task scheduler. A 6 hour lead means a 17:00 event has a 11:00 prep start."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.operations.kitchenPrepHours}
-                        onChange={(e) =>
-                          updateSetting("operations", "kitchenPrepHours", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Delivery Buffer (minutes)
-                        <InfoTooltip content={"Minutes the driver should arrive at the venue BEFORE the event start time, so setup is done by the time guests arrive.\n\n45 means the driver leaves the kitchen with 45 min spare on top of the Google-Maps route time."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.operations.deliveryBufferMinutes}
-                        onChange={(e) =>
-                          updateSetting("operations", "deliveryBufferMinutes", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Max Concurrent Events
-                        <InfoTooltip content={"Hard cap on the number of events your team will accept on the same day.\n\nQuote builder warns when the cap would be exceeded so you don't overbook your kitchen capacity."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.operations.maxConcurrentEvents}
-                        onChange={(e) =>
-                          updateSetting("operations", "maxConcurrentEvents", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Driver Service Radius (km)
-                        <InfoTooltip content={"How far from the kitchen / HQ you're willing to deliver.\n\nQuotes outside this radius surface a warning at save time. Doesn't block manual override. You can still take a one-off long-distance booking."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.operations.driverRadius}
-                        onChange={(e) =>
-                          updateSetting("operations", "driverRadius", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Delivery Cost Per Kilometer (R)
-                        <InfoTooltip content={"Rand per kilometre used by the quote builder to auto-calculate the delivery fee from kitchen to venue.\n\nThe operator can manually override the fee on the quote. This is just the default rate."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        step="0.50"
-                        value={settings.operations.deliveryCostPerKm}
-                        onChange={(e) =>
-                          updateSetting("operations", "deliveryCostPerKm", parseFloat(e.target.value))
-                        }
-                      />
-                      <p className="text-xs text-slate-600">This rate will be used to automatically calculate delivery fees in quotes.</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <OperationsSettingsTab
+                settings={settings.operations as OperationsSettings}
+                onUpdate={(key, value) => updateSetting("operations", key, value)}
+              />
             </TabsContent>
 
             <TabsContent value="inventory">
