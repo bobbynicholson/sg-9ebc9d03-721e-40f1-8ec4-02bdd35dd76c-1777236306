@@ -32,3 +32,13 @@ jobs:
 
       - name: Run TypeScript check
         run: npx tsc --noEmit
+
+      - name: Check Supabase status filters
+        # A.17 #1 - guards against the literal-string status-filter
+        # drift that produced 8 production bugs in the 2026-05-18
+        # audit (A.10 + A.16). The eslint rule from PR #61 covers
+        # the write side via `as any`; this script covers the
+        # `.eq("status", "X")` / `.in("status", [...])` /
+        # `status: "X"` payload sites against a hardcoded
+        # table->CHECK/enum vocab map.
+        run: npm run check:status-filters
