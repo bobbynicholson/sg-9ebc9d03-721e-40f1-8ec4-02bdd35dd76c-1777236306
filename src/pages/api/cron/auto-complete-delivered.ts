@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "auto-complete-delivered";
 
 /**
  * Cron: flip delivered orders to completed after the event window
@@ -25,15 +29,11 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Cron can call it but random visitors cannot.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Vercel Cron sends GET with the CRON_SECRET header.
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     // Fetch candidate orders. Service-role bypasses RLS so we see
@@ -53,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (selErr) {
       console.error("[auto-complete-delivered] select failed:", selErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
@@ -106,6 +107,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: auth.source,
+      considered: candidates?.length || 0,
+      eligible: eligible.length,
+      flipped,
+      damagesReconciled,
+      totalRecovered,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       considered: candidates?.length || 0,
@@ -117,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[auto-complete-delivered] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

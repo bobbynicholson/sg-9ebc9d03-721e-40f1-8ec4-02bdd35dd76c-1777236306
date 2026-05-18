@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth, type CronAuthSource } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "outsource-post-event-thanks";
 
 /**
  * Wave 67.3 - outsource provider post-event thanks + invoice nudge.
@@ -24,12 +28,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // admin in dry-run, CRON_SECRET in production.
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
 
+  let authSource: CronAuthSource | "owner_dryrun" = "cron";
   if (!dryRun) {
-    const provided = req.headers.authorization || "";
-    const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-    if (expected && provided !== expected) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    const auth = await requireCronAuth(req, res);
+    if (!auth.ok) return;
+    authSource = auth.source;
   } else {
     try {
       const { createPagesServerClient } = await import("@/lib/supabase/server");
@@ -41,13 +44,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!new Set(["super_admin", "company_admin", "admin", "owner"]).has(role)) {
         return res.status(403).json({ error: "Owner / admin only" });
       }
+      authSource = "owner_dryrun";
     } catch (e: any) {
       return res.status(500).json({ error: e?.message || "auth check failed" });
     }
   }
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const now = new Date();
     // Window: event was between 24-72h ago. Tight enough that we don't
     // hit older completed jobs but loose enough that a missed cron run
@@ -72,9 +76,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) {
       console.error("[outsource-post-event-thanks] fetch failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: authSource, candidates: 0, sent: 0 });
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
@@ -162,6 +168,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: authSource,
+      dryRun,
+      candidates: assignments.length,
+      sent, skipped,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       dryRun,
@@ -175,6 +188,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: any) {
     console.error("[outsource-post-event-thanks] crashed:", err);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: err?.message || "Cron crashed" });
     return res.status(500).json({ error: err?.message || "Cron crashed" });
   }
 }

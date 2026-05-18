@@ -8,55 +8,43 @@ import {
   DEFAULT_FOLLOWUP_CADENCE,
   type FollowupLogRow,
 } from "@/services/quoteFollowupService";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "quote-followup-send";
 
 /**
  * Wave 50 C1 - automated quote follow-up sender.
  *
  * Audit (Specialist 4) found quoteFollowupService computed the
- * traffic-light state per quote (FU 1 ready / FU 2 due in Nd / FU 3
- * overdue), but no cron actually sent the emails. recordFollowupSent
- * was operator-driven only, despite the per-tenant
- * autoFollowUpDays / secondFollowUpDays / thirdFollowUpDays settings
- * being read.
+ * traffic-light state per quote, but no cron actually sent the
+ * emails. recordFollowupSent was operator-driven only.
  *
- * Strategy: every run, walk every active tenant's open quotes
- * (status IN draft/sent/viewed/negotiating with sent_at NOT NULL),
- * load each quote's existing follow-up log, compute the state, and
- * for every quote whose state.light is 'amber' (ready) or 'rose'
- * (overdue) send the next follow-up email + insert the log row.
- * Idempotent via the log row - a re-run after a successful send
- * sees the new log entry and the state flips to slate / green.
+ * Strategy: every run, walk every active tenant's open quotes,
+ * compute the state, fire the next follow-up email for any quote in
+ * 'amber' (ready) or 'rose' (overdue) state.
  *
- * Tenant-gated: only fires when companies.auto_followups_enabled is
- * TRUE (same flag that gates the after-sales drip). Honours quote
- * comms-pause + customer email allow-list via the email service.
- *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const now = new Date();
 
-    // 1. Tenants opted in to auto-followups. Cadence days are a
-    // single platform-wide default today (per-tenant override is
-    // tracked separately in admin localStorage); the global
-    // DEFAULT_FOLLOWUP_CADENCE applies until that lands as a column.
-    const { data: tenants, error: tenantErr } = await (sb as any)
+    const { data: tenants, error: tenantErr } = await sb
       .from("companies")
       .select("id")
       .eq("auto_followups_enabled", true);
     if (tenantErr) {
       console.error("[quote-followup-send] tenant fetch failed:", tenantErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: tenantErr.message });
       return res.status(500).json({ error: tenantErr.message });
     }
     if (!tenants || tenants.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, tenantsConsidered: 0 });
       return res.status(200).json({ ok: true, tenantsConsidered: 0 });
     }
 
@@ -67,15 +55,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const tenant of tenants as any[]) {
       const cadence = DEFAULT_FOLLOWUP_CADENCE;
 
-      // 2. Open quotes for this tenant. We treat any non-terminal
-      // status as eligible - computeFollowupState will skip terminal
-      // states defensively even if the DB filter misses one.
-      const { data: quotes, error: qErr } = await (sb as any)
+      const { data: quotes, error: qErr } = await sb
         .from("quotes")
         .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, event_name")
         .eq("company_id", tenant.id)
         .not("sent_at", "is", null)
-        .not("status", "in", "(accepted,rejected,expired,converted)")
+        .not("status", "in", "(accepted,rejected,expired)")
         .is("deleted_at", null)
         .limit(500);
       if (qErr) {
@@ -86,8 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const quoteIds = quotes.map((q: any) => q.id);
 
-      // 3. Load existing follow-up log for these quotes.
-      const { data: logRowsRaw } = await (sb as any)
+      const { data: logRowsRaw } = await sb
         .from("quote_followup_log")
         .select("id, quote_id, sequence_position, template_key, channel, status, sent_at")
         .in("quote_id", quoteIds);
@@ -96,7 +80,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         (byQuote[r.quote_id] = byQuote[r.quote_id] || []).push(r);
       }
 
-      // 4. Per quote, compute state + fire when ready / overdue.
       for (const quote of quotes as any[]) {
         totalConsidered += 1;
         const state = computeFollowupState(quote, byQuote[quote.id] || [], cadence, now);
@@ -106,7 +89,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const templateKey = templateKeyFor(state.nextPosition, "email");
         try {
-          // Lazy import to keep cold-start light + avoid circular deps.
           const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
           const { emailService } = await import("@/services/emailService");
 
@@ -160,6 +142,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: auth.source,
+      tenantsConsidered: tenants.length,
+      quotesConsidered: totalConsidered,
+      sent: totalSent,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       tenantsConsidered: tenants.length,
@@ -169,6 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[quote-followup-send] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }
