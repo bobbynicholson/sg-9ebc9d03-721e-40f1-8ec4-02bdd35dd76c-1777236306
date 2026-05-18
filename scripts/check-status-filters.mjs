@@ -103,6 +103,7 @@ const BASELINE_PHANTOM_TABLES = new Set([
   "src/pages/api/admin/resend/verify-domain.ts::onboarding_steps",
 ]);
 
+
 function walk(dir, acc = []) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
@@ -215,6 +216,18 @@ function checkFile(path, src) {
       shape: ".from",
     });
   }
+
+  // A.20 #3 - dynamic .from(variableName) detection was prototyped
+  // here and removed after the smoke run produced 22 all-legitimate
+  // matches (module-scope `const TABLE = "..."` constants in
+  // paymentGatewayService, a loop over a literal table-name array
+  // in the smoke test, and a config-driven {table, column} map in
+  // numbering-settings). All three patterns keep the table name as
+  // a near-literal that's still typo-safe at the const / array
+  // definition. The check as designed was all-noise-no-signal, so
+  // it's not run. If a future dynamic .from() lands that isn't a
+  // const-aliased literal, add a one-off lint rule rather than a
+  // codebase-wide grep.
 
   // Pattern 1: .eq("status", "LITERAL")
   for (const m of src.matchAll(/\.eq\(\s*["'`]status["'`]\s*,\s*["'`]([a-z_]+)["'`]/g)) {

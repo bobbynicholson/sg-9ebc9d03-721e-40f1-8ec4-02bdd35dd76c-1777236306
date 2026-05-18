@@ -2166,11 +2166,55 @@ severity.
    `scripts/check-status-filters.mjs`. The cleaning portal's
    event-handover workflow is live.
 
-3. **Wider check: `.update(payload)` / `.insert(payload)`
-   table-existence**. Today the guard only checks `.from("X")`.
-   Direct `supabase.from("X").insert(...)` is covered because
-   `.from` runs first; but if there's any pattern that builds
-   the table name from a variable (e.g.
-   `supabase.from(tableName)`), the check skips it. Worth
-   adding a 'no dynamic table name' rule for the same defensive
-   reason the eslint rule discourages `as any` on writes.
+3. **Wider check: dynamic `.from(variable)`** - **investigated,
+   not worth shipping**. Prototyped a pass in
+   `scripts/check-status-filters.mjs` that flags
+   `.from(identifier)` calls (after filtering JS builtins like
+   `Array.from` and `Buffer.from`). Produced 22 hits across the
+   codebase, every one a deliberate const-aliased pattern:
+   `paymentGatewayService` uses a module-scope
+   `const TABLE = "payment_gateways"` (17 hits, refactor-safe
+   indirection); `smoke/run-end-to-end` loops over a literal
+   table-name array (1 hit); `numbering-settings` uses a
+   config-driven `{table, column}` map (2 hits). All three
+   patterns keep the table name as a typo-safe near-literal at
+   the const / array definition - the dynamic-from check just
+   re-flagged them with no actionable signal. Removed the pass.
+   If a future dynamic `.from()` lands that ISN'T a const-aliased
+   literal, add a one-off lint rule rather than a codebase-wide
+   grep.
+
+## A.21 Audit closeout summary (2026-05-18)
+
+With A.20 #3 resolved as a non-issue, every audit follow-up
+across A.10 / A.13 / A.15 / A.17 / A.19 / A.20 is now in one
+of three states: shipped, deferred to a paired-smoke session,
+or scheduled as a future feature build.
+
+Code-actionable items remaining: **none on the audit ledger**.
+
+Two items remain on the longer-term backlog (tracked outside
+the audit doc):
+- **admin/orders.tsx Phase C + remaining D3** (the closure-
+  heavy `OrderDetailsModal` / `TimelineRow` / `KanbanColumn`
+  trio - daily-driver page, deferred to a session with paired
+  browser smoke).
+- **Cashflow Forecast Card** (logged on
+  /admin/platform/running-todo per Bobby's 2026-05-18 brief,
+  scheduled for execution after the audit closes).
+
+Session totals across the 2026-05-18 audit work:
+- **20 production bugs fixed** (enum/CHECK drift x12 in A.10 +
+  A.16, table-existence drift x5 in A.19 + A.20, settings
+  field-drift loophole closed in A.15 #4, super-admin revenue
+  tile triple-drift in A.17 #2, cron heartbeat schema guarantee
+  in A.13 #4).
+- **6 migrations** applied to live DB.
+- **4 layers of static analysis** now guard against regressions
+  in the dominant foot-gun (PR #61 eslint `as any` on supabase
+  writes; PR #66 status-filter literals; PR #59 cronHeartbeat
+  TablesInsert<> guard; PR #70 table-name existence with
+  baseline allow-list).
+- **8 file-split PRs** for the P2-13 modular split (admin/
+  settings full 7-phase split; account/settings; admin/orders
+  D1 + D2 + partial D3).
