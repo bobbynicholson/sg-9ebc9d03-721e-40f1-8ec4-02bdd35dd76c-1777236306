@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { shiftService } from "./shiftService";
 /**
  * Dispatch service: the math layer behind the order-to-driver flywheel.
@@ -652,8 +651,8 @@ export const dispatchService = {
             metadata: {
               driverId: payload.driverId,
               conflictOrderId: conflict.conflictOrderId,
-            } as any,
-          });
+            },
+          } as any);
         } catch (notifErr) {
           console.warn("[assignDriverWithGate] conflict broadcast failed:", notifErr);
         }
@@ -722,7 +721,7 @@ export const dispatchService = {
     // driver_id) if there's an index, hence DELETE-then-INSERT.
     try {
       if (fromDriverId && fromDriverId !== payload.driverId) {
-        await supabase
+        await (supabase as any)
           .from("driver_assignments")
           .delete()
           .eq("order_id", payload.orderId)
@@ -744,7 +743,7 @@ export const dispatchService = {
       // Idempotent: if the row exists for this driver already (e.g.
       // a self-claim that an admin is "confirming" via assign), skip.
       const nowIso = new Date().toISOString();
-      const { count: existingCount } = await supabase
+      const { count: existingCount } = await (supabase as any)
         .from("driver_assignments")
         .select("id", { count: "exact", head: true })
         .eq("order_id", payload.orderId)
@@ -761,7 +760,7 @@ export const dispatchService = {
             assigned_at: nowIso,
             accepted_at: nowIso,
             assignment_type: "delivery",
-          }]);
+          }] as any);
         if (daErr) {
           console.error("[dispatchService] driver_assignments insert failed:", daErr);
         }
