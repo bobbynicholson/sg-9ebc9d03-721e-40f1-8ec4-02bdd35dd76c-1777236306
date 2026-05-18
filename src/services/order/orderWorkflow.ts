@@ -98,6 +98,7 @@ export async function updateOrderStatus(
       .from("orders")
       .select("status")
       .eq("id", orderId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (currentErr) {
       console.error("[order/orderWorkflow] orders fetch failed:", currentErr);
@@ -147,6 +148,7 @@ export async function updateOrderStatus(
         .from("orders")
         .select("confirmed_at, ready_at, picked_up_at, delivered_at, completed_at")
         .eq("id", orderId)
+        .is("deleted_at", null)
         .maybeSingle();
       if (priorErr) {
         console.error("[order/orderWorkflow] orders fetch failed:", priorErr);
@@ -875,7 +877,7 @@ export async function confirmOrder(orderId: string) {
   // and an admin can regenerate if needed.
   try {
     const { data } = await supabase
-      .from("orders").select("company_id").eq("id", orderId).maybeSingle();
+      .from("orders").select("company_id").eq("id", orderId).is("deleted_at", null).maybeSingle();
     const companyId = (data as any)?.company_id;
     if (companyId) {
       const { kitchenPrepService } = await import("../kitchenPrepService");
