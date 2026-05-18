@@ -51,6 +51,7 @@ const STATUS_VOCAB = {
   outsource_assignments: [
     "requested", "accepted", "declined", "en_route", "on_site", "completed", "cancelled",
   ],
+  supplier_payables: ["pending", "paid", "disputed", "written_off"],
   billing_history: ["pending", "completed", "failed", "refunded"],
   cleaning_jobs: ["queued", "in_progress", "complete", "cancelled"],
   kitchen_prep_tasks: ["pending", "in_progress", "done", "skipped"],
@@ -180,7 +181,7 @@ const KNOWN_TABLES = new Set([
   "sa_tax_deductibility_rules","safety_checks","safety_equipment","shopping_list_items",
   "shopping_lists","staff_invitations","staff_payment_ledger","staff_shift_tasks",
   "staff_work_sessions","storage_locations","storage_racks","subscriptions","suppliers",
-  "support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
+  "supplier_payables","support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
   "training_materials","trial_expiry_notifications","user_departments","user_saved_views",
   "vehicle_bookings","vehicle_maintenance_log","vehicles","waste_logs",
   "webhook_deliveries","webhook_subscriptions","whatsapp_templates",
