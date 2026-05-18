@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, Filter, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download } from "lucide-react";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, Filter, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -627,6 +627,25 @@ function DispatchQueuePage() {
               >
                 <Download className="w-4 h-4" />
                 Export CSV
+              </Button>
+              {/* DI-B: print-friendly day's dispatch sheet. Dispatcher
+                  with a coffee at 6am wants paper. Walks 'filtered'
+                  so the visible status + search + sort all flow
+                  through to the printed sheet. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  if (filtered.length === 0) {
+                    toast({ title: "Nothing to print", description: "Adjust the filter / search until at least one order is visible." });
+                    return;
+                  }
+                  setTimeout(() => window.print(), 100);
+                }}
+              >
+                <Printer className="w-4 h-4" />
+                Print run sheet
               </Button>
             </div>
           </div>
@@ -1356,6 +1375,98 @@ function DispatchQueuePage() {
           onChanged={() => { loadAll(); }}
         />
       )}
+
+      {/* DI-B: print-only view of the day's dispatch sheet. Hidden on
+          screen via the print CSS below; only renders to paper. One
+          row per filtered order with checkbox + driver/vehicle/pickup
+          so the dispatcher can mark off in the field. Walks the same
+          'filtered' list as the on-screen table so what you see is
+          what prints. */}
+      <div id="print-dispatch-sheet" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
+          Dispatch run sheet
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {" - "}
+          {filtered.length} order{filtered.length === 1 ? "" : "s"} on the queue
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ width: "22pt", textAlign: "left", padding: "4pt" }}> </th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Event</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Pickup</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Client</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Venue</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Guests</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Driver</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Vehicle</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Reqs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(filtered as OrderRow[]).map((o) => {
+              const reqs: string[] = [];
+              if (o.requires_two_drivers) reqs.push("2-DRV");
+              if (o.requires_refrigeration) reqs.push("REFRIG");
+              if (o.requires_waiter) reqs.push("WAIT");
+              return (
+                <tr key={o.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid" }}>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    <strong>{o.event_date}</strong>
+                    {o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.pickup_time
+                      ? <strong>{o.pickup_time}</strong>
+                      : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.client_name}</td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.venue || ""}</td>
+                  <td style={{ padding: "6pt 4pt", textAlign: "right" }}>{o.guest_count ?? ""}</td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.assigned_driver_name
+                      ? o.assigned_driver_name
+                      : <span style={{ color: "#dc2626", fontWeight: 700 }}>UNASSIGNED</span>}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.assigned_vehicle_plate || ""}
+                    {o.assigned_vehicle_refrigerated ? <span style={{ marginLeft: "4pt", color: "#0284c7" }}>(refrig)</span> : null}
+                  </td>
+                  <td style={{ padding: "6pt 4pt", fontSize: "8.5pt", color: "#dc2626", fontWeight: 700 }}>
+                    {reqs.join(" ")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Dispatch
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; size: landscape; }
+          body * { visibility: hidden !important; }
+          #print-dispatch-sheet, #print-dispatch-sheet * { visibility: visible !important; }
+          #print-dispatch-sheet {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }
