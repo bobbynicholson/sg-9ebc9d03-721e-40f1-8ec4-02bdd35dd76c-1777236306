@@ -7,16 +7,6 @@ import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -32,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Plus, Search, Users, Calendar, MapPin, Edit, Trash2, UserPlus, Eye, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, AlertCircle, CheckCircle, X } from "lucide-react";
 import { companyService } from "@/services/companyService";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,24 +30,14 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { AddEditCompanyDialog } from "@/components/admin/company-database/AddEditCompanyDialog";
+import { CompanyDetailsModal } from "@/components/admin/company-database/CompanyDetailsModal";
+import { CompanyStatusBadge } from "@/components/admin/company-database/CompanyStatusBadge";
+import type { Company } from "@/components/admin/company-database/types";
 
-interface Company {
-  id: string;
-  company_name: string;
-  company_slug: string;
-  owner_id: string;
-  email: string;
-  phone: string;
-  address_line1: string;
-  city: string;
-  country: string;
-  subscription_status: string;
-  trial_ends_at: string;
-  created_at: string;
-  owner_name?: string;
-  total_users?: number;
-  total_orders?: number;
-}
+// Company + CompanyFormData types now live in
+// @/components/admin/company-database/types so the dialog sub-components
+// can share the same shape without circular imports (P2-13 split).
 
 export default function CompanyDatabasePage() {
   const { user, profile } = useAuth();
@@ -429,21 +409,7 @@ export default function CompanyDatabasePage() {
     setIsAddModalOpen(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      trial: "secondary",
-      active: "default",
-      past_due: "destructive",
-      cancelled: "outline",
-      suspended: "destructive",
-    };
-
-    return (
-      <Badge variant={variants[status] || "outline"}>
-        {status.replace("_", " ").toUpperCase()}
-      </Badge>
-    );
-  };
+  // getStatusBadge moved to CompanyStatusBadge component (P2-13 split).
 
   if (profile?.active_role !== "super_admin") {
     return (
@@ -479,238 +445,20 @@ export default function CompanyDatabasePage() {
             </p>
           </div>
 
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => { resetForm(); setEditingCompany(null); }}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Company
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingCompany ? "Edit Company" : "Add New Company"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingCompany
-                    ? "Update company information"
-                    : "Create a new catering company and admin user"}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6 py-4">
-                {/* Company Information */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    Company Information
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label>Company Name *</Label>
-                      <Input
-                        value={formData.company_name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, company_name: e.target.value })
-                        }
-                        placeholder="e.g., Spit Braai Delivery"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>Company Slug *</Label>
-                      <Input
-                        value={formData.company_slug}
-                        onChange={(e) =>
-                          setFormData({ ...formData, company_slug: e.target.value })
-                        }
-                        placeholder="e.g., spit-braai-delivery"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">
-                        Used in URLs: yoursite.com/{formData.company_slug}/login
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
-                        }
-                        placeholder="contact@company.com"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Phone</Label>
-                      <Input
-                        value={formData.phone}
-                        onChange={(e) =>
-                          setFormData({ ...formData, phone: e.target.value })
-                        }
-                        placeholder="+27 XX XXX XXXX"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>Address Line 1</Label>
-                      <Input
-                        value={formData.address_line1}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address_line1: e.target.value })
-                        }
-                        placeholder="Street address"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <Label>Address Line 2</Label>
-                      <Input
-                        value={formData.address_line2}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address_line2: e.target.value })
-                        }
-                        placeholder="Unit, suite, etc. (optional)"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>City</Label>
-                      <Input
-                        value={formData.city}
-                        onChange={(e) =>
-                          setFormData({ ...formData, city: e.target.value })
-                        }
-                        placeholder="City"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>State/Province</Label>
-                      <Input
-                        value={formData.state}
-                        onChange={(e) =>
-                          setFormData({ ...formData, state: e.target.value })
-                        }
-                        placeholder="State"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Postal Code</Label>
-                      <Input
-                        value={formData.postal_code}
-                        onChange={(e) =>
-                          setFormData({ ...formData, postal_code: e.target.value })
-                        }
-                        placeholder="Postal code"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Country</Label>
-                      <Select
-                        value={formData.country}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, country: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="South Africa">South Africa</SelectItem>
-                          <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                          <SelectItem value="United States">United States</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Billing Currency</Label>
-                      <Select
-                        value={formData.billing_currency}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, billing_currency: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ZAR">ZAR (South Africa)</SelectItem>
-                          <SelectItem value="GBP">GBP (UK)</SelectItem>
-                          <SelectItem value="USD">USD (US)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Admin User (only for new companies) */}
-                {!editingCompany && (
-                  <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                      <UserPlus className="w-4 h-4" />
-                      Company Admin User
-                    </h3>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Admin Name</Label>
-                        <Input
-                          value={formData.admin_name}
-                          onChange={(e) =>
-                            setFormData({ ...formData, admin_name: e.target.value })
-                          }
-                          placeholder="John Doe"
-                        />
-                      </div>
-
-                      <div>
-                        <Label>Admin Email *</Label>
-                        <Input
-                          type="email"
-                          value={formData.admin_email}
-                          onChange={(e) =>
-                            setFormData({ ...formData, admin_email: e.target.value })
-                          }
-                          placeholder="admin@company.com"
-                        />
-                      </div>
-
-                      <div className="col-span-2">
-                        <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-2">
-                          A unique temporary password is generated on save and shown once. Copy it and pass it to the new owner via a secure channel; they must change it on first login.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    setEditingCompany(null);
-                    resetForm();
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={editingCompany ? handleUpdateCompany : handleAddCompany}
-                >
-                  {editingCompany ? "Update Company" : "Create Company"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <AddEditCompanyDialog
+            open={isAddModalOpen}
+            onOpenChange={setIsAddModalOpen}
+            editingCompany={editingCompany}
+            formData={formData}
+            setFormData={setFormData}
+            onTriggerNew={() => { resetForm(); setEditingCompany(null); }}
+            onCancel={() => {
+              setIsAddModalOpen(false);
+              setEditingCompany(null);
+              resetForm();
+            }}
+            onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
+          />
         </div>
 
         {/* Stats Cards */}
@@ -918,7 +666,7 @@ export default function CompanyDatabasePage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getStatusBadge(company.subscription_status)}
+                          <CompanyStatusBadge status={company.subscription_status} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm">
@@ -967,68 +715,12 @@ export default function CompanyDatabasePage() {
         </Card>
 
         {/* Company Details Modal */}
-        <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{selectedCompany?.company_name}</DialogTitle>
-              <DialogDescription>Company details and users</DialogDescription>
-            </DialogHeader>
-
-            {selectedCompany && (
-              <div className="space-y-6 py-4">
-                {/* Company Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-600">Company Slug</Label>
-                    <p className="font-semibold">/{selectedCompany.company_slug}</p>
-                  </div>
-                  <div>
-                    <Label className="text-slate-600">Status</Label>
-                    <div>{getStatusBadge(selectedCompany.subscription_status)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-slate-600">Email</Label>
-                    <p>{selectedCompany.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-slate-600">Phone</Label>
-                    <p>{selectedCompany.phone || "—"}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-slate-600">Address</Label>
-                    <p>
-                      {selectedCompany.address_line1}, {selectedCompany.city},{" "}
-                      {selectedCompany.country}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Company Users */}
-                <div>
-                  <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Company Users ({companyUsers.length})
-                  </h3>
-
-                  <div className="space-y-2">
-                    {companyUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                      >
-                        <div>
-                          <p className="font-semibold">{user.full_name || user.email}</p>
-                          <p className="text-sm text-slate-600">{user.email}</p>
-                        </div>
-                        <Badge>{user.active_role}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <CompanyDetailsModal
+          open={isDetailsModalOpen}
+          onOpenChange={setIsDetailsModalOpen}
+          selectedCompany={selectedCompany}
+          companyUsers={companyUsers}
+        />
       </div>
     </div>
   );
