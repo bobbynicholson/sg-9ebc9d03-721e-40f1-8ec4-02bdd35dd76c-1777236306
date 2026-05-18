@@ -65,6 +65,10 @@ export default function AdminTracking() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState(30);
+  // LO-A (live-ops audit, 2026-05-19): controlled Tabs value so the
+  // "View on Map" button in the list view can switch the active tab.
+  // Default = "map" matches the previous defaultValue.
+  const [activeTab, setActiveTab] = useState<"map" | "list">("map");
 
   // Load dispatch settings once for the arrival buffer (used in at-risk calc).
   useEffect(() => {
@@ -397,7 +401,6 @@ export default function AdminTracking() {
     active: orders.filter((o) => o.status === "in_transit").length,
     preparing: orders.filter((o) => o.status === "preparing").length,
     ready: orders.filter((o) => o.status === "ready").length,
-    total: orders.length,
   };
 
   return (
@@ -587,7 +590,7 @@ export default function AdminTracking() {
           </Card>
 
           {/* Main Content */}
-          <Tabs defaultValue="map" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "map" | "list")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="map">Map View</TabsTrigger>
               <TabsTrigger value="list">List View</TabsTrigger>
@@ -776,7 +779,13 @@ export default function AdminTracking() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedOrder(order)}
+                              onClick={() => {
+                                // LO-A (LO-13): previously only set
+                                // selectedOrder, leaving the user on
+                                // the list tab. Now switches to map.
+                                setSelectedOrder(order);
+                                setActiveTab("map");
+                              }}
                             >
                               View on Map
                             </Button>
