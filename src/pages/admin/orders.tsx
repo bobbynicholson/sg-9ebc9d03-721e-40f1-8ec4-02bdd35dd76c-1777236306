@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Search, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
+import { ShoppingCart, Calendar, Users, DollarSign, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";
@@ -43,7 +43,7 @@ import {
 import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 // P2-13 Phase A+B sibling files. The split plan lives at
 // docs/audits/p2-13-orders-split-plan.md.
-import type { OrderStats } from "@/components/admin/orders/types";
+import type { OrderStats, SavedView } from "@/components/admin/orders/types";
 import {
   STATUS_CONFIG,
   WORKFLOW_STAGES,
@@ -52,6 +52,7 @@ import {
 } from "@/components/admin/orders/statusConfig";
 import { DuplicateOrderDialog } from "@/components/admin/orders/DuplicateOrderDialog";
 import { OrderKpiPills } from "@/components/admin/orders/OrderKpiPills";
+import { OrderFiltersBar } from "@/components/admin/orders/OrderFiltersBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
@@ -233,15 +234,6 @@ function OrderProcessDashboard() {
   // working filters (e.g. 'JHB next 7 days', 'overdue collections')
   // can save the current filter snapshot as a named chip and snap
   // back with one click. Stored in localStorage per browser.
-  interface SavedView {
-    id: string;
-    name: string;
-    searchTerm: string;
-    statusFilter: string;
-    dateFilter: string;
-    dateFrom: string;
-    dateTo: string;
-  }
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3835,178 +3827,25 @@ function OrderProcessDashboard() {
               </div>
             )}
 
-            {/* Filters */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <Input
-                      ref={searchRef}
-                      placeholder="Search by client, order ID, venue or event... (press /)"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {/* Phase 24 #7: clear-search affordance. Common
-                        across SaaS search inputs but missing here --
-                        operators kept selecting + deleting the
-                        whole string by hand to reset the view. */}
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                        title="Clear search"
-                        aria-label="Clear search"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Wave 54.5 - sentence-case + add Paused +
-                          Cancelled so paused orders are filterable
-                          and cancelled orders are reachable from
-                          this page (pre-Wave-54 they were excluded
-                          from default views with no filter route in). */}
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="preparing">In prep</SelectItem>
-                      <SelectItem value="ready">Ready</SelectItem>
-                      <SelectItem value="in_transit">In transit</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <SelectValue placeholder="All Dates" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Dates</SelectItem>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                      <SelectItem value="next30">Next 30 days</SelectItem>
-                      <SelectItem value="past">Past events</SelectItem>
-                      <SelectItem value="custom">Custom range...</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {dateFilter === "custom" && (
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-[150px]"
-                        title="From"
-                      />
-                      <span className="text-slate-400 text-xs">to</span>
-                      <Input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="w-[150px]"
-                        title="To"
-                      />
-                      {(dateFrom || dateTo) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-9 px-2"
-                          onClick={() => { setDateFrom(""); setDateTo(""); }}
-                          title="Clear range"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  <Button variant="outline" className="gap-2">
-                    <Download className="w-4 h-4" />
-                    Export
-                  </Button>
-                </div>
-                {/* Phase 13 #5 + 13 #8: saved views chip strip with
-                    a 'Mine only' toggle. Saved views snap back to
-                    named filter snapshots; mine-only restricts the
-                    list to orders where I'm the chef or driver. */}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {/* Phase 16 #5: quick-filter chips. One-tap shortcuts
-                      to common date scopes - sets dateFilter without
-                      opening the dropdown. Highlights when active so
-                      it doubles as a status indicator. */}
-                  {([
-                    { key: "today",   label: "Today" },
-                    { key: "week",    label: "This week" },
-                    { key: "next30",  label: "Next 30 days" },
-                    { key: "past",    label: "Past events" },
-                  ] as const).map((q) => (
-                    <button
-                      key={q.key}
-                      type="button"
-                      onClick={() => setDateFilter(dateFilter === q.key ? "all" : q.key)}
-                      className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border ${
-                        dateFilter === q.key
-                          ? "border-emerald-500 bg-emerald-100 text-emerald-800"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
-                      }`}
-                      title={`Filter to ${q.label.toLowerCase()}`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setMyOrdersOnly((v) => !v)}
-                    className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
-                      myOrdersOnly
-                        ? "border-blue-500 bg-blue-100 text-blue-800"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
-                    }`}
-                    title="Restrict to orders where I'm the chef or driver"
-                  >
-                    Mine only
-                  </button>
-                  {savedViews.map((v) => (
-                    <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => applySavedView(v)}
-                        className="px-2.5 py-0.5 hover:underline"
-                        title="Apply this saved view"
-                      >
-                        {v.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeSavedView(v.id)}
-                        className="pr-1.5 text-purple-500 hover:text-purple-800"
-                        title="Remove this view"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={saveCurrentView}
-                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
-                    title="Save the current filter combination as a named view"
-                  >
-                    + Save view
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
+            <OrderFiltersBar
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              searchRef={searchRef}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              dateFilter={dateFilter}
+              onDateFilterChange={setDateFilter}
+              dateFrom={dateFrom}
+              onDateFromChange={setDateFrom}
+              dateTo={dateTo}
+              onDateToChange={setDateTo}
+              myOrdersOnly={myOrdersOnly}
+              onMyOrdersOnlyChange={setMyOrdersOnly}
+              savedViews={savedViews}
+              onApplySavedView={applySavedView}
+              onRemoveSavedView={removeSavedView}
+              onSaveCurrentView={saveCurrentView}
+            />
 
             {/* Kanban Board / Timeline View */}
             {loading ? (
