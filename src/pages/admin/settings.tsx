@@ -41,6 +41,8 @@ import {  UserRole  } from "@/types/app";
 import { InventorySettingsTab } from "@/components/admin/inventory/InventorySettingsTab";
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
 import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
+import { NotificationsSettingsTab } from "@/components/admin/settings/NotificationsSettingsTab";
+import type { NotificationSettings } from "@/components/admin/settings/types";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useTenantHref } from "@/lib/tenantUrl";
 
@@ -666,112 +668,10 @@ function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="notifications">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <Bell className="w-4 h-4 md:w-5 md:h-5" />
-                    Notification Preferences
-                    <InfoTooltip content={"Toggle email and SMS alerts on a per-event basis, new bookings, status changes, payments and so on."} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <Mail className="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">New Lead Notification</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">Get notified when a new lead is captured</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.emailNewLead}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "emailNewLead", checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">Quote Accepted</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">Notification when client accepts quote</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.emailQuoteAccepted}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "emailQuoteAccepted", checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">Payment Received</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">Alert when payment is processed</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.emailPaymentReceived}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "emailPaymentReceived", checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <Truck className="w-4 h-4 md:w-5 md:h-5 text-purple-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">Driver Assignment (SMS)</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">SMS to driver when assigned</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.smsDriverAssigned}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "smsDriverAssigned", checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <Bell className="w-4 h-4 md:w-5 md:h-5 text-red-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">Complaint Submitted</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">Immediate alert for new complaints</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.emailComplaint}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "emailComplaint", checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <Mail className="w-4 h-4 md:w-5 md:h-5 text-slate-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base">Daily Summary Report</p>
-                        <p className="text-xs md:text-sm text-slate-600 truncate">Daily email with key metrics</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.notifications.emailDailyReport}
-                      onCheckedChange={(checked) =>
-                        updateSetting("notifications", "emailDailyReport", checked)
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <NotificationsSettingsTab
+                settings={settings.notifications as NotificationSettings}
+                onUpdate={(key, value) => updateSetting("notifications", key, value)}
+              />
             </TabsContent>
 
             <TabsContent value="automation">
