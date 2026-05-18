@@ -13,12 +13,18 @@ interface SimpleOrder {
 }
 
 async function markArrived(assignmentId: string): Promise<any | null> {
+    // `at_venue` is the canonical assignment_status value for "geofence
+    // detected arrival". Prior code wrote `"arrived"`, which isn't in
+    // the assignment_status PG enum and silently failed - leaving the
+    // proximity guard at line 163 always true and the
+    // "Driver Has Arrived!" client notification firing on every poll
+    // while within 50m.
     const { data, error } = await supabase
       .from("driver_assignments")
       .update({
-        status: "arrived",
-        arrived_at: new Date().toISOString(),
-      } as any)
+        status: "at_venue",
+        arrived_at_venue_at: new Date().toISOString(),
+      })
       .eq("id", assignmentId)
       .select()
       .single();
@@ -60,9 +66,12 @@ async function markArrived(assignmentId: string): Promise<any | null> {
           orderUpdateErr,
         );
         try {
+          // Revert to en_route (the "still driving" state in the
+          // assignment_status enum) - `"in_transit"` was a stale value
+          // that wasn't in the enum and silently failed.
           await supabase
             .from("driver_assignments")
-            .update({ status: "in_transit" } as any)
+            .update({ status: "en_route" })
             .eq("id", assignmentId);
         } catch (revertErr) {
           console.error(`[markArrived] revert failed - assignment ${assignmentId} now in inconsistent state:`, revertErr);
@@ -160,7 +169,7 @@ async function checkProximityAndNotify(
 
     const distanceInMeters = distance * 1000;
 
-    if (distanceInMeters <= 50 && (assignment.status as any) !== "arrived") {
+    if (distanceInMeters <= 50 && assignment.status !== "at_venue") {
       await markArrived(assignmentId);
 
       if (order.user_id && order.company_id) {
@@ -183,7 +192,7 @@ async function checkProximityAndNotify(
 
     const estimatedMinutes = (distance / 40) * 60;
 
-    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && (assignment.status as any) === "in_transit") {
+    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "en_route") {
       const { count, error: checkError } = await (supabase as any)
         .from("notifications")
         .select("id", { count: 'exact', head: true })
