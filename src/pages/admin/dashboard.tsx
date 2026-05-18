@@ -23,7 +23,6 @@ import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWid
 import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
 import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
 import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
-import { CleaningQueueWidget } from "@/components/admin/CleaningQueueWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
 import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
@@ -118,6 +117,17 @@ function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // AD-7 (admin-dashboard audit): derived flag for "this tenant
+  // has no data yet". Used both for the hero render at the top
+  // of the page and to suppress the duplicate FirstStepsCard
+  // render at the bottom.
+  const isFreshTenant = !loading
+    && stats.totalOrdersInRange === 0
+    && stats.bookedOrders === 0
+    && stats.upcomingEvents === 0
+    && stats.pendingQuotes === 0
+    && stats.lowStockItems === 0
+    && (stats.activeUsers || 0) <= 1;
   // Phase 14 #2: tenant timezone hint chip in the dashboard
   // header. The date pickers + cron windows interpret event_date
   // in companies.timezone, but multi-region tenants couldn't
@@ -484,6 +494,34 @@ function AdminDashboardPage() {
             </WidgetErrorBoundary>
           ) : null}
 
+          {/* AD-7 (admin-dashboard audit): fresh-tenant empty
+              state. When the tenant has zero data across every
+              dimension the page would normally show, render the
+              FirstStepsCard hero at the top of the page rather
+              than burying it beneath 28 self-hiding widgets.
+              A new tenant (Spit Braai on day one) currently sees
+              a page that reads as broken; this gives them a
+              clear "here's how to start" instead.
+              Detection: no orders / quotes / inventory / team
+              members in the current range AND no rows. */}
+          {(isFreshTenant && companyId) ? (
+            <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                  <LayoutDashboard className="w-6 h-6 text-emerald-600" />
+                  Welcome to CateringMS
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-700 mb-4">
+                  This is your day-zero dashboard. The widgets below populate as you start using
+                  the system. Take the next steps to get your tenant set up:
+                </p>
+                <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Phase 9 #5: Today's pulse - live KPI strip with the
               numbers the dispatch lead actually checks every morning:
               today's confirmed events, in-transit deliveries, drivers
@@ -542,15 +580,14 @@ function AdminDashboardPage() {
               grace window. Self-hides on a fresh tenant. */}
           <WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
 
-          {/* Phase 13 #7: equipment cleaning queue. Items still
-              in pending / cleaning / drying after returning from
-              an event. Self-hides when the queue is empty.
-              Wave 42 hotfix: error-boundary-wrapped because Wave 42
-              Tier 2 rewrote this widget to read cleaning_jobs and a
-              broken render here was wiping the entire dashboard. */}
-          <WidgetErrorBoundary label="Cleaning queue">
-            <CleaningQueueWidget companyId={companyId} />
-          </WidgetErrorBoundary>
+          {/* AD-5 (admin-dashboard audit, 2026-05-19): removed.
+              CleaningQueueWidget is the cleaning lead's surface,
+              not the admin's. /team-portal/cleaning/dashboard
+              already shows the cleaning_jobs queue with row-level
+              actions (Wave 41 Phase 2 made cleaning_jobs the
+              single source of truth there). Keeping a duplicate on
+              /admin/dashboard pollutes the admin view + violates
+              the one-source-of-truth rule. */}
 
           {/* Phase 16 #2: equipment damages waiting on resolution.
               Self-hides when nothing is unresolved. */}
@@ -679,8 +716,10 @@ function AdminDashboardPage() {
           )}
 
           {/* Day-zero "First Steps" card. Self-hides once required steps
-              are in or the owner dismisses / completes onboarding. */}
-          {companyId ? (
+              are in or the owner dismisses / completes onboarding.
+              AD-7: suppress when the fresh-tenant hero at the top of
+              the page is already rendering the same card. */}
+          {companyId && !isFreshTenant ? (
             <WidgetErrorBoundary label="First steps">
               <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
             </WidgetErrorBoundary>
