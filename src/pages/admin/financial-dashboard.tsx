@@ -21,6 +21,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -59,6 +60,18 @@ export default function FinancialDashboardPage() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
+  // Bumped when the metrics finish loading so the Cashflow Forecast
+  // Card refetches its cash_on_hand value alongside the page refresh.
+  const [loadedAt, setLoadedAt] = useState<number>(0);
+
+  // Cashflow Forecast Card is gated to operator / director roles per
+  // the finance-visibility rule. Read off the auth user's active
+  // role; super_admin always sees the card (cross-tenant support).
+  const role = String(
+    (user as any)?.active_role || (user as any)?.role || "",
+  ).toLowerCase();
+  const canSeeFinanceForecast =
+    role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
 
   // Per-branch P&L sources from useCompanyKitchens. Cross-branch
   // operators see a "Branches" tab; single-branch tenants don't get
@@ -120,6 +133,7 @@ export default function FinancialDashboardPage() {
         profitMargin,
         healthScore
       });
+      setLoadedAt(Date.now());
 
       // Generate AI-powered alerts
       const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(ordersData, {
@@ -397,6 +411,25 @@ export default function FinancialDashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Cashflow Forecast Card - operator/director-only forward-
+              looking read. Sits above the backward-looking metrics
+              grid because it answers the question owners actually
+              want answered first ("can I pay this week?"). Gated
+              by useAuth role per the finance-visibility rule. */}
+          {canSeeFinanceForecast && user?.company_id && (
+            <div className="mb-6">
+              <CashflowForecastCard
+                companyId={user.company_id}
+                loadedAt={loadedAt}
+                projectedRevenue30Days={metrics?.projectedRevenue30Days || 0}
+                projectedRevenue90Days={metrics?.projectedRevenue90Days || 0}
+                staffPaymentsOwed={metrics?.staffPaymentsOwed || 0}
+                currency={(user as any)?.currency || "ZAR"}
+                userId={user.id}
+              />
+            </div>
+          )}
 
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
