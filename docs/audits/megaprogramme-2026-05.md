@@ -1621,16 +1621,130 @@ Closed two findings that the phase 1-10 closeouts had left open:
   which doesn't exist - column is `total_amount`); fixed in PR #18.
   PRs #14, #15, #16, #17, #18, #19, #20, #21.
 
-Two follow-ups worth flagging from the sweep:
+`admin/orders.tsx` has grown from 2,427 lines to 4,443 lines. The
+P2-13 split plan needs to be rethought - a clean modular split at
+that size is a multi-day refactor with real regression risk, not the
+small-effort item the audit graded it as.
 
-1. **proximityService.ts** writes and reads `driver_assignments.status`
-   with values (`"arrived"`, `"in_transit"`) that aren't in the current
-   TypeScript enum. Either the DB column has no CHECK constraint and
-   silently accepts the legacy values, or these writes are failing
-   silently. Tracked in PR #16's commit message; needs a follow-up
-   investigation (DB schema check + decide which side has drifted).
+## A.10 Enum / CHECK drift sweep, 2026-05-18
 
-2. `admin/orders.tsx` has grown from 2,427 lines to 4,443 lines. The
-   P2-13 split plan needs to be rethought - a clean modular split at
-   that size is a multi-day refactor with real regression risk, not the
-   small-effort item the audit graded it as.
+The P2-10 cleanup surfaced one suspicious item (`proximityService`
+writing status values not in the assignment_status TS enum). Pulling
+that thread end-to-end found five **real production bugs** where
+application code wrote enum / CHECK values the schema rejected.
+Postgres bounced the writes; the call sites either swallowed the
+error or sat on inert filters that never matched a row. Bugs ranged
+from silent UI confusion to entire features being non-functional.
+
+Bug-by-bug:
+
+- **`proximityService`** (PR #23). Wrote
+  `driver_assignments.status = "arrived"` (not in the enum, valid set
+  is `assigned | accepted | en_route | picked_up | at_venue |
+  delivered | completed | cancelled | rejected`). Also wrote
+  `arrived_at` (column is `arrived_at_venue_at`) and on the revert
+  path wrote `"in_transit"`. The geofence arrival flow was failing at
+  the DB layer; the `!== "arrived"` guard was always true, so the
+  client-facing "Driver Has Arrived!" notification fired on every
+  poll within 50m. The 10-minutes-away nudge (gated on
+  `=== "in_transit"`) never fired at all.
+  Fix: write `"at_venue"` + `arrived_at_venue_at`; revert writes
+  `"en_route"`; guards compare against the correct values.
+
+- **`driverConfirmationService.startCollection`** (PR #24). Filtered
+  on `.eq("status", "pending")` and wrote `"in_progress"` - neither
+  in the enum. Every driver tap on "start collection" was a 100%
+  silent no-op at the DB layer (autoClockIn opened a shift, but
+  dispatch board never saw the assignment go live).
+  Fix: filter on `"accepted"`, write `"en_route"`.
+
+- **`DeclineAssignmentDialog`** (PR #25). Wrote `status = "rejected"`,
+  not in the enum. The dialog's audit row + order unassign still
+  fired, so the UI looked correct, but the driver_assignment row
+  stayed at `"accepted"`.
+  Fix: migration `20260518710000_assignment_status_rejected.sql`
+  added `rejected` as a first-class enum value (semantically
+  distinct from `cancelled`: driver-initiated decline vs.
+  admin/system terminal). Now the write succeeds.
+
+- **`/team-portal/driver/tracking.tsx`** "Mark Arrived" button
+  (PR #25). UI labelled "Mark as Arrived" wrote
+  `status = "picked_up"`. That's a valid enum value, but the wrong
+  lifecycle moment (`picked_up` = driver collected food from kitchen;
+  `at_venue` = driver at delivery venue). Toast said "Status updated
+  to picked up" reinforcing the mistake. Active-assignment filters
+  on `tracking.tsx` and `driver/dashboard.tsx` listed `picked_up`
+  but not `at_venue`, so after the fix an assignment would have
+  dropped off the active view.
+  Fix: write `"at_venue"`, add `"at_venue"` to active filters, gate
+  the button on `!== "at_venue"`.
+
+- **`outgoing_email_queue` end-to-end** (PR #26). The biggest find.
+  The CHECK constraint allowed `(queued, sent, failed, cancelled)`
+  but every code path past the initial INSERT used different
+  vocabulary - the cron drainer (`claim_email_batch` RPC) filtered
+  on `status='pending'` and wrote `'in_progress'`; pause/resume on
+  `orderWorkflow` used `'paused'` / `'pending'`. None of those four
+  values were in the CHECK. **Result: the cron never claimed a
+  single row.** 48 rows were sitting in `'queued'` un-drained on
+  2026-05-18 - all order-confirmation + quote-sent emails for the
+  live tenant, never delivered. Trigger-based queued emails
+  (pre-event reminders, after-sales automation) have effectively
+  been broken since the queue went live; only direct
+  `emailService.sendEmail` calls (Resend / SMTP) worked.
+  Fix: migration `20260518720000_email_queue_status_lifecycle.sql`
+  extends the CHECK to `(queued, in_progress, paused, sent, failed,
+  cancelled)` and re-creates `claim_email_batch` to select `queued`
+  (not `pending`). `orderWorkflow.pauseOrder` / `resumeOrder`
+  re-pointed at `queued`. Migration applied to live DB. Backlog
+  drains on the next 15-min cron tick; no row migration needed.
+
+Net for the day:
+- **5 production bugs** fixed (1 UI confusion, 1 customer-spam, 2
+  silent feature breakage, 1 entire queue subsystem dead).
+- **2 migrations** applied to live DB.
+- **0 services** still carrying `@ts-nocheck`.
+- **0 query sites** missing soft-delete filters (in the audited
+  service files).
+
+Pattern observation: every bug above traces back to
+**TypeScript-generated types vs. database schema drift**, made
+invisible by either silent error swallowing or filters that simply
+never match. The TS column types are tighter than the DB has any
+enforcement of, so wrong values type-check while failing at runtime;
+the eslint `no-explicit-any` allowance compounds it because `as any`
+casts hide the type error too. Worth thinking about a stricter rule
+that flags `as any` on Supabase write payloads in PR review, or a
+sweep that compares all `.eq("status", "X")` literal filters against
+the DB CHECK / enum for that table.
+
+## A.11 Open follow-ups from the 2026-05-18 session
+
+Known issues found but **not** fixed in the session (need product
+direction or wider scope):
+
+1. **`subscriptions.status` / `companies.subscription_status` trial
+   vs trialing**. Running-todo already flags this: two values in use
+   for the same state, normalised in JS. Pick one and migrate the
+   other rows. Cross-references `running-todo.tsx` line 1193.
+
+2. **`admin/orders.tsx` is now 4,443 lines**. P2-13's "modular split"
+   grade is stale. Needs a fresh plan or accepting the size.
+
+3. **Catch-up email burst risk**. With the queue fixed, 48 stale
+   rows drain on the next cron tick (every 15 min). None are >24h
+   past their `scheduled_for`, but the catch-up may surprise the
+   tenant. PR #26's description includes the SQL to manually purge
+   rows older than 24h if the operator wants to suppress the burst.
+
+4. **Cron schedule confirmation**. `vercel.json` schedules
+   `process-email-queue` every 15 min. Confirm Vercel actually runs
+   these in production (the queue being broken for months suggests
+   no one was watching the success metric).
+
+5. **Wider enum / CHECK drift sweep**. The cleanups above audited
+   `assignment_status` and `outgoing_email_queue.status` end-to-end.
+   Other status columns (e.g. `subscriptions.status`,
+   `kitchen_shifts.status`, `outsource_assignments.status`,
+   `billing_history.status`) weren't deep-traced this round. Same
+   pattern of TS-types-vs-DB-schema may yield more silent failures.
