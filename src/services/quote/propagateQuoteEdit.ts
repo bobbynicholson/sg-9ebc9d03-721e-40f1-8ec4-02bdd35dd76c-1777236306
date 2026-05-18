@@ -290,6 +290,33 @@ export async function propagateQuoteEditToOrder(
               ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
               : [];
           const guestCount = Number((quote as any).guest_count || 0);
+
+          // PR-B (cashflow cost mapping): re-snapshot
+          // menu_items.cost_per_unit onto unit_cost when the amendment
+          // rebuilds order_items. Mirrors the postCreationCascade logic.
+          const menuItemIds = Array.from(
+            new Set(
+              (items as any[])
+                .map((it) => it.menu_item_id)
+                .filter((x): x is string => typeof x === "string" && x.length > 0),
+            ),
+          );
+          const costById = new Map<string, number>();
+          if (menuItemIds.length > 0) {
+            try {
+              const { data: menuRows } = await (supabase as any)
+                .from("menu_items")
+                .select("id, cost_per_unit")
+                .in("id", menuItemIds);
+              for (const m of (menuRows || []) as any[]) {
+                const c = Number(m?.cost_per_unit);
+                if (Number.isFinite(c) && c > 0) costById.set(m.id, c);
+              }
+            } catch (e) {
+              receipt.errors.push(`menu_cost_lookup_warn: ${(e as any)?.message || e}`);
+            }
+          }
+
           const rows = items
             .map((it: any) => {
               const name = it.item_name || it.name || "";
@@ -301,13 +328,18 @@ export async function propagateQuoteEditToOrder(
                 : (mode === "flat" ? 1 : baseQty);
               const unit = Number(it.unit_price ?? it.unitPrice ?? it.pricePerPerson ?? 0);
               const lineTotal = Number(it.line_total ?? (qty * unit));
+              const menuItemId = it.menu_item_id || null;
+              const unitCost = menuItemId && costById.has(menuItemId)
+                ? costById.get(menuItemId)!
+                : null;
               return {
                 order_id: receipt.orderId,
-                menu_item_id: it.menu_item_id || null,
+                menu_item_id: menuItemId,
                 item_name: name,
                 description: it.category || it.dietary_tags?.join?.(", ") || null,
                 quantity: qty,
                 unit_price: unit,
+                unit_cost: unitCost,
                 line_total: lineTotal,
               };
             })
