@@ -1,9 +1,9 @@
 /**
- * QuoteFollowupWidget -- dashboard card surfacing the 5 oldest
+ * QuoteFollowupWidget - dashboard card surfacing the 5 oldest
  * still-in-play quotes the team should be chasing.
  *
  * Phase 9 #10. Owners checking /admin/dashboard couldn't tell at
- * a glance which quotes were rotting -- they had to open the
+ * a glance which quotes were rotting - they had to open the
  * Quotes page, switch to the 'Stale' bucket and scroll. This
  * widget puts the 5 quotes with the longest 'sent without
  * reply' window right on the dashboard, with a one-click open

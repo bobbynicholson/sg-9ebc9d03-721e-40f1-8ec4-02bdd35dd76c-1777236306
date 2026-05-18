@@ -90,26 +90,26 @@ export default function InvoicesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [statusFilter, setStatusFilter] = useState("all");
-  // Wave 66.7 -- written-off rows are kept on file (SARS audit trail,
+  // Wave 66.7 - written-off rows are kept on file (SARS audit trail,
   // VAT bad-debt recovery, linked order integrity, client credit
   // history) but they shouldn't clutter the live AR triage view.
   // Default: hide. Operator can flip back on with the toggle pill,
   // and an explicit statusFilter='written_off' selection always wins.
   const [includeWrittenOff, setIncludeWrittenOff] = useState(false);
-  // Wave 65 -- date-range + amount-range filters. Bookkeepers running
+  // Wave 65 - date-range + amount-range filters. Bookkeepers running
   // monthly reconciliation need "April invoices only" or "all
   // invoices over R10k" without scrolling through everything.
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
-  // Wave 65 -- group-by-client toggle so a tenant with the same
+  // Wave 65 - group-by-client toggle so a tenant with the same
   // client owing money on 3 invoices sees a single rolled-up row
   // by default (matches the operator's mental model: "Bobby owes
   // R8 528.50 across 3 invoices" not "row, row, row").
   const [groupByClient, setGroupByClient] = useState(false);
   // Phase 15 #2: saved-view chips on /admin/invoices. Mirrors the
-  // /admin/orders + /admin/quotes pattern -- snapshot search +
+  // /admin/orders + /admin/quotes pattern - snapshot search +
   // status under a named chip. Bookkeepers running monthly close
   // typically want to flip between 'overdue', 'paid this month'
   // and 'unpaid > 30 days' without re-typing each filter.
@@ -120,7 +120,7 @@ export default function InvoicesPage() {
     statusFilter: string;
   }
   const [savedInvoiceViews, setSavedInvoiceViews] = useState<SavedInvoiceView[]>([]);
-  // Wave 66 -- saved views moved from localStorage to user_saved_views
+  // Wave 66 - saved views moved from localStorage to user_saved_views
   // table. Pre-Wave-66 a bookkeeper switching from desktop to laptop
   // lost every chip. Now: per-user persistence, survives device
   // changes. localStorage migration runs once on mount for any
@@ -226,10 +226,10 @@ export default function InvoicesPage() {
     }
   };
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  // Wave 61 -- track the actual id alongside the rehydrated payload.
+  // Wave 61 - track the actual id alongside the rehydrated payload.
   // Pre-Wave-61 the Preview "Send to Client" button looked up the
   // invoice by reference equality (inv.invoice_data === selectedInvoice)
-  // -- but the rehydrate path at line 476 spreads a new object, so
+  // - but the rehydrate path at line 476 spreads a new object, so
   // post-rehydrate the find returned undefined and the Send button
   // silently did nothing.
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -245,20 +245,20 @@ export default function InvoicesPage() {
   // invoice + due dates render in companies.timezone; multi-region
   // tenants couldn't tell which clock the math was using.
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
-  // Wave 66 -- accounting reconnect banner. Probes the OAuth refresh
+  // Wave 66 - accounting reconnect banner. Probes the OAuth refresh
   // for any active integration on mount; surfaces a reconnect banner
   // when the refresh token has died (60-day Xero idle expiry, etc).
   // Pre-Wave-66 the row Sync icon would spin then die silently and
   // the bookkeeper thought sync worked.
   const [accountingReconnectNeeded, setAccountingReconnectNeeded] = useState<{ provider: string; reason?: string } | null>(null);
-  // Wave 67 -- activity log drawer state. Opens per-invoice timeline
+  // Wave 67 - activity log drawer state. Opens per-invoice timeline
   // composed from email_automation_log + payments + invoice scalars.
   const [activityInvoice, setActivityInvoice] = useState<any | null>(null);
-  // Wave 69 -- manual invoice dialog state. Lets the operator create
+  // Wave 69 - manual invoice dialog state. Lets the operator create
   // an invoice with order_id = NULL for deposits / retainers / late
   // fees / damage charges / ad-hoc consultations.
   const [manualInvoiceOpen, setManualInvoiceOpen] = useState(false);
-  // Wave 66.5 -- per-row mark-paid dialog. The bulk toolbar handles
+  // Wave 66.5 - per-row mark-paid dialog. The bulk toolbar handles
   // multi-select settling; this is the focused single-invoice flow
   // with amount / method / reference / note + optional client
   // confirmation send.
@@ -309,10 +309,10 @@ export default function InvoicesPage() {
   const clearBulkMarkPaid = () => setBulkMarkPaidIds(new Set());
   const runBulkMarkPaid = async () => {
     if (bulkMarkPaidIds.size === 0) return;
-    // Wave 61 -- scope selection to currently-visible-filtered rows.
+    // Wave 61 - scope selection to currently-visible-filtered rows.
     // Pre-Wave-61 the selection Set survived filter changes so a
     // bookkeeper could tick rows, change the status filter (hiding
-    // some), then submit -- silently settling invoices that were no
+    // some), then submit - silently settling invoices that were no
     // longer on screen. Now: drop any id not present in
     // filteredInvoices BEFORE submitting; bail with a friendly toast
     // if everything got filtered out.
@@ -336,11 +336,11 @@ export default function InvoicesPage() {
     }
     // Wave 30.4: copy was wrong (and the underlying RPC behaviour
     // it described was wrong too). Marking an invoice paid no longer
-    // touches the order's status -- the order continues through its
+    // touches the order's status - the order continues through its
     // lifecycle (kitchen prep, dispatch, delivery, completion) like
     // it should. Only the order's payment_status is updated here.
     if (typeof window !== "undefined" && !window.confirm(
-      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance and updates the order's payment status. The order stays active for kitchen prep, dispatch, and delivery -- completion happens after the event.`,
+      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance and updates the order's payment status. The order stays active for kitchen prep, dispatch, and delivery - completion happens after the event.`,
     )) return;
     setBulkMarkPaidBusy(true);
     try {
@@ -375,7 +375,7 @@ export default function InvoicesPage() {
       }
       clearBulkMarkPaid();
       loadInvoices();
-      // Wave 70.40 -- ping each affected order so the readiness
+      // Wave 70.40 - ping each affected order so the readiness
       // chip's "balance_not_overdue" signal flips on /admin/orders
       // without a refresh.
       const affectedOrderIds = new Set<string>();
@@ -402,7 +402,7 @@ export default function InvoicesPage() {
   // edits, then clicks Send inside the dialog.
   const [sendDialogInvoice, setSendDialogInvoice] = useState<any | null>(null);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  // Client filter -- when /admin/invoices?clientId=<uuid> lands here
+  // Client filter - when /admin/invoices?clientId=<uuid> lands here
   // from Client Search, narrow the invoice list to invoices for that
   // client (resolved via the order's client_id) and surface a
   // clearable pill. Lives alongside the existing ?invoiceId / ?claimId
@@ -420,7 +420,7 @@ export default function InvoicesPage() {
     }
   }, [user]);
 
-  // Wave 70.38 -- live refresh on cross-page order edits + tab focus.
+  // Wave 70.38 - live refresh on cross-page order edits + tab focus.
   // Before this, editing an order's event_date in /admin/orders didn't
   // propagate to the invoice row's "Event {date}" caption because the
   // invoices page only refetched on mount / company_id change.
@@ -447,9 +447,9 @@ export default function InvoicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  // Wave 65 -- realtime UPDATE + DELETE subscription on invoices +
+  // Wave 65 - realtime UPDATE + DELETE subscription on invoices +
   // payments. Pre-Wave-65 the page only refreshed on manual click or
-  // a full page load -- so a payment captured on the client portal
+  // a full page load - so a payment captured on the client portal
   // (or another bookkeeper in another tab) left the operator's
   // screen stale, leading to duplicate chases. Mirrors the Orders
   // Wave 55 channel pattern: stable channel key per (companyId,
@@ -473,7 +473,7 @@ export default function InvoicesPage() {
       )
       .on("postgres_changes",
         // Payments don't filter by company_id directly (they key
-        // off order_id) -- subscribe to all payment changes and
+        // off order_id) - subscribe to all payment changes and
         // let the reload re-run loadInvoices which already scopes
         // to this tenant. Volume is low; refresh cost is bounded.
         { event: "*", schema: "public", table: "payments" },
@@ -483,7 +483,7 @@ export default function InvoicesPage() {
     return () => { (supabase as any).removeChannel(channel); };
   }, [(user as any)?.company_id]);
 
-  // Wave 65 -- URL persistence of statusFilter, searchTerm,
+  // Wave 65 - URL persistence of statusFilter, searchTerm,
   // dateFrom, dateTo, amountMin, amountMax. Pre-Wave-65 reload lost
   // every filter so a bookkeeper sharing a Slack link couldn't pass
   // their current view to a colleague.
@@ -516,7 +516,7 @@ export default function InvoicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchTerm, dateFrom, dateTo, amountMin, amountMax, router.isReady]);
 
-  // Wave 65 -- hydrate filters from URL on first mount.
+  // Wave 65 - hydrate filters from URL on first mount.
   useEffect(() => {
     if (!router.isReady) return;
     const qs = router.query as Record<string, string | string[] | undefined>;
@@ -529,7 +529,7 @@ export default function InvoicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
 
-  // Wave 70.35 -- deep-link target from the order readiness chip.
+  // Wave 70.35 - deep-link target from the order readiness chip.
   // "Fix it" links from /admin/orders pass ?orderId=<UUID> and
   // optionally &action=send|chase. Pre-Wave-70.35 the page ignored
   // these and the operator landed on the full invoice list with no
@@ -553,7 +553,7 @@ export default function InvoicesPage() {
     const qsAction = typeof router.query.action === "string" ? router.query.action : null;
 
     // Find the most-recent invoice for that order. Prefer unsent /
-    // unpaid -- those are the ones the operator likely came here
+    // unpaid - those are the ones the operator likely came here
     // to fix.
     const matches = invoices.filter((inv: any) => inv.order_id === qsOrderId);
     if (matches.length === 0) {
@@ -581,7 +581,7 @@ export default function InvoicesPage() {
     }
     if (!target) return;
 
-    // Reset status filter if it would hide the target -- e.g. the
+    // Reset status filter if it would hide the target - e.g. the
     // operator was on "Unpaid" but the target is "draft".
     setStatusFilter("all");
 
@@ -597,7 +597,7 @@ export default function InvoicesPage() {
 
     // Fire the Send dialog when the readiness signal was "invoice
     // never sent". Only auto-fire when the invoice actually has no
-    // sent_at -- the operator may have manually marked it sent in
+    // sent_at - the operator may have manually marked it sent in
     // the meantime and we don't want to re-send.
     if (qsAction === "send" && !target.sent_at) {
       // Delay slightly so the scroll lands before the dialog mounts.
@@ -690,7 +690,7 @@ export default function InvoicesPage() {
     if (!user?.company_id) return;
 
     // Pull orders + the company's invoices in parallel. We can't rely
-    // on the `invoices` state here -- this function is bound to the
+    // on the `invoices` state here - this function is bound to the
     // first render and would close over the empty initial value, so
     // newly-created drafts wouldn't show as already-invoiced and the
     // user could click Generate Invoice twice and trip the
@@ -716,7 +716,7 @@ export default function InvoicesPage() {
     ]);
 
     if (!ordersRes.error) {
-      // Any existing invoice counts -- a draft is still an active
+      // Any existing invoice counts - a draft is still an active
       // invoice for that order. The DB's uniq_invoices_active_order_id
       // is the source of truth; this filter just keeps the list clean
       // and stops the user from clicking Generate Invoice on something
@@ -848,12 +848,12 @@ export default function InvoicesPage() {
       trackRecentlyViewed({
         id: invoiceId,
         type: "invoice",
-        label: `${invoiceData?.invoiceNumber || inv?.invoice_number || ""} -- ${inv?.orders?.clients?.client_name || invoiceData?.clientName || "Unknown"}`,
+        label: `${invoiceData?.invoiceNumber || inv?.invoice_number || ""} - ${inv?.orders?.clients?.client_name || invoiceData?.clientName || "Unknown"}`,
         href: `/admin/invoices?invoiceId=${invoiceId}`,
       });
     } catch { /* non-blocking */ }
 
-    // Wave 70.3 -- POPIA. Opening an invoice preview surfaces the
+    // Wave 70.3 - POPIA. Opening an invoice preview surfaces the
     // client's billing details: name, billing address, payment
     // ledger. Category "financial" because the invoice value + line
     // items are personal financial data under POPIA's special-
@@ -868,7 +868,7 @@ export default function InvoicesPage() {
 
   // First click of the paper-plane icon opens the review-before-send
   // composer. The operator edits To / Subject / Body and clicks Send
-  // inside the dialog -- the actual /api/send-email POST happens in
+  // inside the dialog - the actual /api/send-email POST happens in
   // InvoiceSendDialog. We only stamp invoices.sent_at after a
   // confirmed successful send (handled in handleInvoiceSent below).
   const handleSendInvoice = (invoiceId: string) => {
@@ -889,12 +889,12 @@ export default function InvoicesPage() {
   };
 
   const handleInvoiceSent = async (invoice: any) => {
-    // Wave 61 -- surface the UPDATE failure instead of swallowing.
+    // Wave 61 - surface the UPDATE failure instead of swallowing.
     // Pre-Wave-61 a failed sent_at stamp logged a warning + reloaded
     // the list; the row still showed Draft so the operator hit Send
     // again, double-emailing the client. Now: if the UPDATE fails,
     // toast loudly so the operator knows the email DID go out but
-    // the status didn't flip -- they can hit "Mark as sent" or retry
+    // the status didn't flip - they can hit "Mark as sent" or retry
     // without firing a second email.
     try {
       const { error } = await supabase
@@ -909,7 +909,7 @@ export default function InvoicesPage() {
         });
       }
       loadInvoices();
-      // Wave 70.40 -- invoice send touches sent_at + status, both of
+      // Wave 70.40 - invoice send touches sent_at + status, both of
       // which drive the OrderReadinessChip's "invoice_sent" signal
       // on /admin/orders. Emit so that page lights up the chip in
       // real time when the user comes back.
@@ -931,7 +931,7 @@ export default function InvoicesPage() {
     const invoice = invoices.find(inv => inv.id === invoiceId);
     if (!invoice || !invoice.invoice_data) return;
 
-    // Wave 61 -- duplicate-sync guard. Pre-Wave-61 the function would
+    // Wave 61 - duplicate-sync guard. Pre-Wave-61 the function would
     // POST to Xero / QuickBooks every time the operator clicked the
     // sync icon, even on already-synced invoices. Two clicks = two
     // Xero invoices = two emails to the client = a real brand event.
@@ -1021,11 +1021,11 @@ export default function InvoicesPage() {
     }
   };
 
-  // Wave 61 -- full enum coverage. Pre-Wave-61 the map keyed off the
+  // Wave 61 - full enum coverage. Pre-Wave-61 the map keyed off the
   // literal "outstanding" which is NOT in the invoice_status enum
   // ({draft|sent|paid|partially_paid|overdue|written_off}), so sent /
   // partially_paid / written_off rows fell through to the "Draft"
-  // default -- bookkeeper saw a SENT invoice labelled DRAFT and
+  // default - bookkeeper saw a SENT invoice labelled DRAFT and
   // chased the wrong thing. Now: every enum value gets its own
   // badge in the Wave 56 amber/blue/slate/rose 3-tone semantic.
   const getStatusBadge = (status: string) => {
@@ -1075,7 +1075,7 @@ export default function InvoicesPage() {
     if (statusFilter !== "all") {
       rows = rows.filter((inv: any) => inv.status === statusFilter);
     } else if (!includeWrittenOff) {
-      // Wave 66.7 -- with "All statuses" selected and the toggle off,
+      // Wave 66.7 - with "All statuses" selected and the toggle off,
       // strip written_off rows from the default triage view. Explicit
       // statusFilter="written_off" above bypasses this branch so the
       // operator can always pull them up on demand.
@@ -1084,7 +1084,7 @@ export default function InvoicesPage() {
     if (clientFilterId) {
       rows = rows.filter((inv: any) => inv.orders?.client_id === clientFilterId);
     }
-    // Wave 65 -- date-range filter on invoice_date.
+    // Wave 65 - date-range filter on invoice_date.
     if (dateFrom) {
       rows = rows.filter((inv: any) => {
         if (!inv.invoice_date) return false;
@@ -1097,7 +1097,7 @@ export default function InvoicesPage() {
         return String(inv.invoice_date).slice(0, 10) <= dateTo;
       });
     }
-    // Wave 65 -- amount-range filter on total_amount.
+    // Wave 65 - amount-range filter on total_amount.
     if (amountMin) {
       const n = Number(amountMin);
       if (Number.isFinite(n)) {
@@ -1126,7 +1126,7 @@ export default function InvoicesPage() {
 
   // Don't gate-check until auth has finished hydrating, otherwise a
   // brief !user window flashes the Access Denied screen before the
-  // session resolves -- and if the user lands on it before useAuth
+  // session resolves - and if the user lands on it before useAuth
   // emits the authenticated state, they're stuck looking at the
   // denial even though they are an admin.
   if (authLoading) {
@@ -1153,7 +1153,7 @@ export default function InvoicesPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 print:pl-0 print:bg-white">
-      {/* Wave 66 -- print stylesheet for paper invoices. SA municipal
+      {/* Wave 66 - print stylesheet for paper invoices. SA municipal
           + government clients still ask for posted PDFs; bookkeepers
           want clean A4 output without the admin chrome. Hides the
           nav, the filters, the bulk toolbar, and the action icons.
@@ -1174,11 +1174,11 @@ export default function InvoicesPage() {
       <AdminNav />
 
       <div className="py-8 px-4 max-w-full">
-        {/* Wave 66 -- accounting reconnect banner. Surfaces when an
+        {/* Wave 66 - accounting reconnect banner. Surfaces when an
             integration is marked active but its OAuth refresh has
             died (60-day Xero idle, manual revoke). Pre-Wave-66 the
             row Sync icon spun then died silently and the bookkeeper
-            assumed sync worked -- duplicates didn't exist in the
+            assumed sync worked - duplicates didn't exist in the
             accounting tool because the API call never reached it. */}
         {accountingReconnectNeeded && (
           <div data-print-hidden="true" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-center gap-3">
@@ -1263,9 +1263,9 @@ export default function InvoicesPage() {
                   esc(inv.status),
                   esc(inv.invoice_date),
                   esc(inv.due_date),
-                  // Wave 61 -- corrected join. Pre-Wave-61 read
+                  // Wave 61 - corrected join. Pre-Wave-61 read
                   // `inv.client?.*` but the loadInvoices SELECT joins
-                  // via `inv.orders.clients.*` -- so every export
+                  // via `inv.orders.clients.*` - so every export
                   // shipped with blank Client + Email columns.
                   // Bookkeepers reconciling against Xero couldn't
                   // match rows. Fallback to client_name on the
@@ -1304,7 +1304,7 @@ export default function InvoicesPage() {
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          {/* Wave 68 -- recurring invoices entry point. */}
+          {/* Wave 68 - recurring invoices entry point. */}
           <Button
             variant="outline"
             onClick={() => router.push("/admin/recurring-invoices")}
@@ -1313,7 +1313,7 @@ export default function InvoicesPage() {
             <Clock className="w-4 h-4 mr-2" />
             Recurring
           </Button>
-          {/* Wave 69 -- manual invoice creation (no order required).
+          {/* Wave 69 - manual invoice creation (no order required).
               For deposits, retainers, late fees, damage charges, ad-hoc. */}
           <Button
             onClick={() => setManualInvoiceOpen(true)}
@@ -1362,7 +1362,7 @@ export default function InvoicesPage() {
           </div>
         </div>
 
-        {/* Client filter pill -- shows when /admin/invoices was opened
+        {/* Client filter pill - shows when /admin/invoices was opened
             with ?clientId. Click X to clear back to the unfiltered
             view (also strips the param from the URL). */}
         {clientFilterId && (
@@ -1391,7 +1391,7 @@ export default function InvoicesPage() {
             mostly 90+ days. Self-hides when nothing is outstanding. */}
         <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
 
-        {/* Stats Cards. Wave 66.1 -- 2-up on mobile so the operator
+        {/* Stats Cards. Wave 66.1 - 2-up on mobile so the operator
             sees Outstanding + Collected side-by-side instead of
             scrolling through four full-width tiles. */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
@@ -1412,11 +1412,11 @@ export default function InvoicesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Wave 61 -- shows rand value not count, and uses the
+              {/* Wave 61 - shows rand value not count, and uses the
                   correct enum set. Pre-Wave-61 the filter was
                   `i.status === "outstanding"` but the enum is
                   draft|sent|paid|partially_paid|overdue|written_off
-                  -- no "outstanding" value. So this tile read 0
+                  - no "outstanding" value. So this tile read 0
                   forever regardless of how much was actually owed.
                   Now: sum balance_due across the live unpaid set,
                   and surface the count as a subtext. */}
@@ -1464,8 +1464,8 @@ export default function InvoicesPage() {
               <div className="text-2xl font-bold">
                 {tenantMoney.format(invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
               </div>
-              {/* Wave 67 -- VAT collected line. SARS-aware. Sums
-                  tax_amount across PAID invoices only -- that's
+              {/* Wave 67 - VAT collected line. SARS-aware. Sums
+                  tax_amount across PAID invoices only - that's
                   what the operator actually owes SARS this period.
                   Pre-Wave-67 the page had no surface for monthly
                   VAT reconciliation despite the data being on
@@ -1565,7 +1565,7 @@ export default function InvoicesPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-4 py-2 border rounded-md"
               >
-                {/* Wave 61 -- options now match the actual enum:
+                {/* Wave 61 - options now match the actual enum:
                     {draft|sent|paid|partially_paid|overdue|written_off}.
                     Pre-Wave-61 the dropdown offered "outstanding"
                     which matched zero rows, while sent + partially_paid
@@ -1580,7 +1580,7 @@ export default function InvoicesPage() {
               </select>
             </div>
 
-            {/* Wave 66.7 -- written-off toggle. Hidden by default so
+            {/* Wave 66.7 - written-off toggle. Hidden by default so
                 the operator's triage view is just live receivables.
                 The pill appears only when the chase view is active
                 (statusFilter='all'); explicit Written off filter
@@ -1612,11 +1612,11 @@ export default function InvoicesPage() {
               );
             })()}
 
-            {/* Wave 65 -- date-range, amount-range, and group-by-client
+            {/* Wave 65 - date-range, amount-range, and group-by-client
                 filters. Bookkeepers reconciling monthly need
                 "April invoices" or "everything over R10k" without
                 scrolling. Group-by-client rolls up a tenant's
-                multiple invoices into a single row -- matches the
+                multiple invoices into a single row - matches the
                 operator's mental model: "Bobby owes R8 528.50 across
                 3 invoices". */}
             <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-center text-xs">
@@ -1722,7 +1722,7 @@ export default function InvoicesPage() {
             ) : filteredInvoices.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                {/* Wave 65 -- name the active filters + one-click clear,
+                {/* Wave 65 - name the active filters + one-click clear,
                     parity with Orders Wave 55. Pre-Wave-65 the empty
                     state said "No invoices found" with no hint which
                     filter was hiding rows. */}
@@ -1784,7 +1784,7 @@ export default function InvoicesPage() {
                     </div>
                   </div>
                 )}
-                {/* Wave 65 -- group-by-client view. When toggled,
+                {/* Wave 65 - group-by-client view. When toggled,
                     collapses invoices belonging to the same client
                     into a single rolled-up row showing total
                     outstanding, count, and latest invoice date.
@@ -1845,11 +1845,11 @@ export default function InvoicesPage() {
                   ));
                 })()}
                 {!groupByClient && filteredInvoices.map(invoice => {
-                  // Wave 66.8 -- compute overdue / due-soon per row so
+                  // Wave 66.8 - compute overdue / due-soon per row so
                   // the chase view's eye lands on what the bookkeeper
                   // needs to chase first. invoice_status flips to
                   // 'overdue' via cron (eventually) but the visual
-                  // signal has to be live -- we can't make a sent
+                  // signal has to be live - we can't make a sent
                   // invoice with due_date 7 days ago read as normal.
                   // Hierarchy:
                   //   - overdue (red border + RED badge): due_date past
@@ -1892,19 +1892,19 @@ export default function InvoicesPage() {
                     className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
                     } ${
-                      /* Wave 66.7 -- written-off rows fade to 60% so
+                      /* Wave 66.7 - written-off rows fade to 60% so
                          they read as closed-loop at a glance even when
                          the operator has chosen to include them. */
                       invoice.status === "written_off" ? "opacity-60 bg-slate-50/50" : ""
                     } ${
-                      /* Wave 70.35 -- highlight ring on the row the
+                      /* Wave 70.35 - highlight ring on the row the
                          operator landed on via "Fix it". Auto-clears
                          after ~4.5s so subsequent navigation isn't
                          visually contaminated. */
                       highlightedInvoiceId === invoice.id ? "ring-2 ring-blue-400 ring-offset-2 bg-blue-50/40 motion-safe:animate-pulse" : ""
                     }`}
                   >
-                    {/* Wave 66.1 -- mobile-first row layout. Pre-Wave
+                    {/* Wave 66.1 - mobile-first row layout. Pre-Wave
                         66.1 the row used `flex items-center` with a
                         hard `grid grid-cols-4` inside, so below 640px
                         the four columns crushed into ~80px each, the
@@ -1916,11 +1916,11 @@ export default function InvoicesPage() {
                         layout from md and up. */}
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       {/* Phase 14 #10: row checkbox. Only renders for
-                          invoices that aren't already paid -- a paid
+                          invoices that aren't already paid - a paid
                           row has nothing to bulk-action. */}
                       {/* Wave 30.6: invoice_status enum is
                           {draft|sent|paid|partially_paid|overdue|written_off}.
-                          'cancelled' never matches a real row -- the
+                          'cancelled' never matches a real row - the
                           actual void value is 'written_off'. Kept the
                           legacy literal for back-compat just in case
                           any historical row carried it before the enum
@@ -1977,11 +1977,11 @@ export default function InvoicesPage() {
                             </span>
                           )}
                         </div>
-                        {/* Wave 70.41a -- intelligent date display.
+                        {/* Wave 70.41a - intelligent date display.
                             Bobby flagged: showing invoice_date + event_
                             date stacked with equal weight is confusing.
                             The bookkeeper actually asks: "when is the
-                            event?" (urgency to chase) -- so we lead with
+                            event?" (urgency to chase) - so we lead with
                             that. Invoice issue date becomes contextual
                             ("Invoiced 5 days before event"). When both
                             dates are the same (immediate-issue invoices)
@@ -1993,7 +1993,7 @@ export default function InvoicesPage() {
                                             / "5 days ago")
                               Small line -> "Invoiced N days before"
                                             (relationship between the
-                                            two dates -- the actually
+                                            two dates - the actually
                                             meaningful signal). */}
                         {(() => {
                           const evt = (invoice as any).orders?.event_date
@@ -2003,7 +2003,7 @@ export default function InvoicesPage() {
                             ? new Date(invoice.invoice_date)
                             : null;
 
-                          // No event date at all -- fall back to issue date only.
+                          // No event date at all - fall back to issue date only.
                           if (!evt || isNaN(evt.getTime())) {
                             return (
                               <div className="text-sm text-slate-600">
@@ -2079,7 +2079,7 @@ export default function InvoicesPage() {
                         <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
                           {invoice.orders?.clients?.client_name || "Unknown client"}
                         </div>
-                        {/* Wave 62 -- contact strip. Click-to-call,
+                        {/* Wave 62 - contact strip. Click-to-call,
                             click-to-WhatsApp, click-to-email so the
                             bookkeeper can chase money without copy-
                             pasting numbers into another app. */}
@@ -2117,7 +2117,7 @@ export default function InvoicesPage() {
                             </>
                           )}
                         </div>
-                        {/* Wave 62 -- per-row link to the parent order.
+                        {/* Wave 62 - per-row link to the parent order.
                             Pre-Wave-62 the bookkeeper had to memorise
                             the order number then navigate to /admin/orders. */}
                         {invoice.order_id && (
@@ -2141,7 +2141,7 @@ export default function InvoicesPage() {
                         )}
                       </div>
                       <div className="space-y-1">
-                        {/* Wave 66.8 -- overdue + due-soon badges win
+                        {/* Wave 66.8 - overdue + due-soon badges win
                             over the generic status badge so the
                             bookkeeper's eye lands on the chase target
                             first. Falls back to getStatusBadge for
@@ -2166,7 +2166,7 @@ export default function InvoicesPage() {
                     </div>
                     </div>
                     <div className="flex items-center justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
-                      {/* Wave 66.5 -- per-row Mark paid. Surfaced as
+                      {/* Wave 66.5 - per-row Mark paid. Surfaced as
                           a coloured pill rather than a ghost icon so
                           it reads as the primary affordance on the
                           row. Self-hides for fully-paid / written-off
@@ -2202,11 +2202,11 @@ export default function InvoicesPage() {
                       >
                         <Send className="h-4 w-4" />
                       </Button>
-                      {/* Wave 62 -- CloudUpload icon disambiguates
+                      {/* Wave 62 - CloudUpload icon disambiguates
                           from the page-level Refresh button (also
                           RefreshCw). Pre-Wave-62 the same icon
                           meant "reload list" at page-level and
-                          "sync to Xero" at row-level -- new operators
+                          "sync to Xero" at row-level - new operators
                           would click the row icon expecting a row
                           reload and silently push to Xero instead. */}
                       <Button
@@ -2221,7 +2221,7 @@ export default function InvoicesPage() {
                       >
                         <CloudUpload className="h-4 w-4" />
                       </Button>
-                      {/* Wave 67 -- per-row activity log button.
+                      {/* Wave 67 - per-row activity log button.
                           Opens drawer with chronological timeline
                           (generated, sent, opened, paid, synced)
                           composed from existing email_automation_log
@@ -2287,9 +2287,9 @@ export default function InvoicesPage() {
                   Close
                 </Button>
                 <Button onClick={() => {
-                  // Wave 61 -- look up by id (set in handlePreviewInvoice).
+                  // Wave 61 - look up by id (set in handlePreviewInvoice).
                   // Pre-Wave-61 used reference equality on a rehydrated
-                  // object -- find returned undefined, button did nothing.
+                  // object - find returned undefined, button did nothing.
                   if (selectedInvoiceId) handleSendInvoice(selectedInvoiceId);
                   setPreviewOpen(false);
                 }}>
@@ -2316,7 +2316,7 @@ export default function InvoicesPage() {
         onSent={handleInvoiceSent}
       />
 
-      {/* Wave 67 -- per-invoice activity drawer. Opens from the Clock
+      {/* Wave 67 - per-invoice activity drawer. Opens from the Clock
           icon on each row. Composes timeline from existing tables
           so it surfaces what happened without needing a new
           invoice_activity_log table. */}
@@ -2326,7 +2326,7 @@ export default function InvoicesPage() {
         invoice={activityInvoice}
       />
 
-      {/* Wave 69 -- manual invoice creation dialog. Order-less
+      {/* Wave 69 - manual invoice creation dialog. Order-less
           invoices for deposits / retainers / late fees / damage. */}
       <ManualInvoiceDialog
         open={manualInvoiceOpen}
@@ -2334,7 +2334,7 @@ export default function InvoicesPage() {
         onCreated={() => loadInvoices()}
       />
 
-      {/* Wave 66.5 -- single-invoice mark-paid dialog. Captures
+      {/* Wave 66.5 - single-invoice mark-paid dialog. Captures
           amount, method, reference, date, internal note and an
           optional client confirmation send (email or WhatsApp). */}
       <MarkPaidDialog
@@ -2342,7 +2342,7 @@ export default function InvoicesPage() {
         invoice={markPaidInvoice}
         onOpenChange={(o) => { if (!o) setMarkPaidInvoice(null); }}
         onPaid={() => {
-          // Wave 70.40 -- ping the order so the readiness chip's
+          // Wave 70.40 - ping the order so the readiness chip's
           // "balance_not_overdue" signal flips on /admin/orders +
           // dashboard widgets pick up the new paid state.
           const orderId = (markPaidInvoice as any)?.order_id;

@@ -7,12 +7,12 @@
  *
  * We resolve the order behind the invoice, work out whether this is a
  * deposit or balance payment, then call the provider-agnostic
- * `createPaymentSession` -- which routes to PayFast / Yoco / Stripe
+ * `createPaymentSession` - which routes to PayFast / Yoco / Stripe
  * based on whichever gateway the catering company set as active in
  * /admin/payment-gateways.
  *
  * Falls back to legacy env-var PayFast when no tenant gateway has
- * been configured -- preserves current behaviour for existing
+ * been configured - preserves current behaviour for existing
  * deployments.
  *
  * Returns:
@@ -145,7 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wave 29.1: optional credit redemption. Caller passes
     // `apply_credit: true` (use full available, capped at invoice
     // balance) or `apply_credit_amount: <number>` (use up to N).
-    // We call the SECURITY DEFINER RPC -- it serialises concurrent
+    // We call the SECURITY DEFINER RPC - it serialises concurrent
     // redeems for the same wallet behind a per-(company, client)
     // advisory lock so a mash-click can't double-spend.
     const wantsApplyCredit = body.apply_credit === true || body.apply_credit_amount;
@@ -182,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Update the invoice with the credit payment so the invoice
     // balance reflects what credit just paid down. We do this even
-    // when credit doesn't cover everything -- the gateway flow
+    // when credit doesn't cover everything - the gateway flow
     // will record its own payment row + the invoice gets stamped
     // again on webhook confirmation. Status flips to 'paid' only
     // when balance hits 0 (otherwise stays at draft/sent/etc.).
@@ -228,7 +228,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Credit covered the whole bill -- short-circuit. No gateway
+    // Credit covered the whole bill - short-circuit. No gateway
     // call needed; the invoice is paid.
     if (amount <= 0) {
       return res.status(200).json({
@@ -237,7 +237,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         settled: true,
         creditApplied,
         creditPaymentId,
-        message: "Invoice settled with store credit -- no card payment needed.",
+        message: "Invoice settled with store credit - no card payment needed.",
       });
     }
 
@@ -248,7 +248,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const orderIdForSession = orderRow?.id || invoice.order_id || invoice.id;
     const baseDescription = orderRow?.order_number
-      ? `Order ${orderRow.order_number} -- ${isDeposit ? "Deposit" : "Balance"} payment`
+      ? `Order ${orderRow.order_number} - ${isDeposit ? "Deposit" : "Balance"} payment`
       : `Invoice ${invoice.invoice_number}`;
     // Wave 29.1: when partial credit was applied, prepend a short
     // note so the gateway transcript and the client's bank
@@ -302,13 +302,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 /**
  * Webhook URL the gateway should call back. We do NOT pull this from
- * the tenant's saved notify_url (that's for vanity / display) -- the
+ * the tenant's saved notify_url (that's for vanity / display) - the
  * canonical endpoints live under /api/webhooks/{provider}-confirmation
  * and the dispatch logic in there reads metadata.companyId off the
  * event to find the right tenant.
  */
 function notifyUrlFor(baseUrl: string, _companyId: string): string {
-  // PayFast doesn't currently dispatch on metadata.companyId -- it
+  // PayFast doesn't currently dispatch on metadata.companyId - it
   // routes to the legacy /api/webhooks/payment-confirmation handler
   // which Agent boundaries say we cannot touch. Keep that endpoint as
   // the IPN target for PayFast (dispatcher already passes it through

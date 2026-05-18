@@ -1,7 +1,7 @@
 /**
  * POST /api/admin/outsource-assignments/[id]/action
  *
- * Wave 67 Phase D -- admin actions on an existing assignment.
+ * Wave 67 Phase D - admin actions on an existing assignment.
  * Single endpoint, switch by body.action. Cleaner than a separate
  * route per verb when each verb is a small state flip.
  *
@@ -105,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       }
       case "set_routing_group": {
-        // Wave 67.5 -- join this assignment to an existing routing
+        // Wave 67.5 - join this assignment to an existing routing
         // group (or start one). Used by the panel's "Add candidate"
         // flow to promote a single into a multi-provider group when
         // the first candidate is added.

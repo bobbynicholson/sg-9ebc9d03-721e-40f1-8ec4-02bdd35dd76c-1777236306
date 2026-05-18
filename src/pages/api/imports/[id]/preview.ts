@@ -17,7 +17,7 @@ import {
 } from "@/services/importService";
 import { normaliseFieldValue } from "@/lib/importNormalise";
 
-// Preview also iterates every row -- bump the per-route timeout for
+// Preview also iterates every row - bump the per-route timeout for
 // the same reason as commit.ts.
 export const maxDuration = 300;
 
@@ -53,7 +53,7 @@ interface PreviewSummary {
 
 /**
  * Bulk-fetch existing clients + leads for a list of emails. One round
- * trip per target table instead of one per import row -- drops a 3821-
+ * trip per target table instead of one per import row - drops a 3821-
  * row preview from 7600 DB calls down to 2. Returns a lower-cased
  * email -> id map per table.
  *
@@ -92,7 +92,7 @@ async function buildExistingEmailIndex(
 
   if (leadEmails.size > 0) {
     const list = Array.from(leadEmails);
-    // leads has both email + client_email -- match on either.
+    // leads has both email + client_email - match on either.
     const { data: a, error: aErr } = await supabase
       .from("leads")
       .select("id, email")
@@ -253,7 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // (past or no event date) and others are leads (event still
       // ahead). Picking the right type per row saves the operator
       // from running two imports. Skip when the sheet was forced to
-      // orders / quotes / invoices / payments -- those pipelines
+      // orders / quotes / invoices / payments - those pipelines
       // are unrelated.
       if (
         targetTable !== "orders"
@@ -265,7 +265,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (eventDate) {
           // event_date already normalised to ISO yyyy-mm-dd by
           // normaliseFieldValue. Compare lexicographically against
-          // today (also yyyy-mm-dd) -- avoids timezone surprises.
+          // today (also yyyy-mm-dd) - avoids timezone surprises.
           const today = new Date().toISOString().slice(0, 10);
           targetTable = eventDate > today ? "leads" : "clients";
         }
@@ -274,7 +274,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // with no events still lands the right way.
       }
 
-      // leads has dual columns -- both `email` + `client_email` are
+      // leads has dual columns - both `email` + `client_email` are
       // NOT NULL, same for `contact_name` + `client_name`. Templates
       // collect one field; mirror to the other before insert so the
       // commit step doesn't fail on the constraint.
@@ -348,8 +348,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status = "error";
           errorMessage = "Payment is missing a date";
         } else if (!mapped.invoice_number && !mapped.order_number) {
-          // Allowed but warned -- the linker won't tie this to anything.
-          warnings.push("No invoice or order reference -- payment will land unlinked");
+          // Allowed but warned - the linker won't tie this to anything.
+          warnings.push("No invoice or order reference - payment will land unlinked");
         }
       } else if (targetTable === "leads") {
         if (!(mapped.contact_name as string)?.trim()) {

@@ -82,7 +82,7 @@ export default function ShoppingNotificationsPage() {
 
   const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
 
-  // Wave 24: stale notification cleanup -- mirrors the driver,
+  // Wave 24: stale notification cleanup - mirrors the driver,
   // kitchen and cleaning portals.
   const staleCount = useMemo(
     () => notifs.filter((n) => isStaleNotification(n.created_at)).length,

@@ -1,5 +1,5 @@
 /**
- * DigitalClock -- Wave 70.10
+ * DigitalClock - Wave 70.10
  *
  * A compact wall-clock readout for portal sidebars. Bobby's brief:
  * the kitchen / driver / cleaning / shopping staff need to see the
@@ -11,8 +11,8 @@
  * accurate even when the minute rolls over.
  *
  * Variants:
- *   "sidebar" (default) -- two-line compact for desktop sidebars
- *   "mobile"            -- single-line horizontal for mobile drawer
+ *   "sidebar" (default) - two-line compact for desktop sidebars
+ *   "mobile"            - single-line horizontal for mobile drawer
  *                           headers where vertical space is tight
  *
  * Localised to en-ZA (matches the rest of the portal). 24-hour

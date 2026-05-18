@@ -87,7 +87,7 @@ scrolls into view.
 | `driver_10_minutes_away`         | client          | `/client-portal/tracking?orderId={id}`                         | order / orderId          |
 | `delivery_arrived`               | driver          | `/team-portal/driver/deliveries?orderId={id}`                  | order / orderId          |
 | `delivery_*` (status update)     | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
-| `route_assigned`                 | driver          | `/team-portal/driver/routes`                                   | (none -- multi-order)    |
+| `route_assigned`                 | driver          | `/team-portal/driver/routes`                                   | (none - multi-order)    |
 | `driver_replacement_needed`      | admin broadcast | `/admin/orders?orderId={id}&replacementRequest={requestId}`    | order / orderId          |
 | `driver_replacement_offer`       | drivers         | `/team-portal/driver/deliveries?orderId={id}&replacementRequest={requestId}` | order / orderId  |
 | `driver_replacement_accepted`    | admin / driver  | `/admin/orders?orderId={id}` or driver deliveries              | order / orderId          |
@@ -124,11 +124,11 @@ scrolls into view.
 
 ## Antipatterns to avoid
 
-- `recipient_id: 'admin'` -- not a UUID, the row inserts but no auth
+- `recipient_id: 'admin'` - not a UUID, the row inserts but no auth
   user ever reads it. Use `broadcastNotification` with `targetRoles`.
-- `recipient_id` set to the `company_id` -- same problem; treat
+- `recipient_id` set to the `company_id` - same problem; treat
   company-wide broadcasts via `broadcastNotification`.
-- `link: '/orders/{id}'` -- there is no such route. Always use
+- `link: '/orders/{id}'` - there is no such route. Always use
   `/admin/orders?orderId={id}` (or the client / team portal route).
-- Setting `link` without `related_entity_*` -- the notifications page
+- Setting `link` without `related_entity_*` - the notifications page
   loses the contextual CTA and falls back to a generic Open button.

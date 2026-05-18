@@ -1,11 +1,11 @@
 /**
- * CleaningQueueWidget -- active cleaning_jobs for this tenant.
+ * CleaningQueueWidget - active cleaning_jobs for this tenant.
  *
  * Wave 42 Tier 2. Migrated off the legacy equipment_cleaning_status
  * model onto the unified cleaning_jobs ledger introduced in Wave 41
  * Phase 2. Same shape (compact list of equipment in the wash queue,
  * deep-link to the cleaning dashboard) but the data now matches
- * what the cleaning team sees in CleaningJobsQueue -- no more
+ * what the cleaning team sees in CleaningJobsQueue - no more
  * admin-vs-staff contradiction where one surface said "complete"
  * and the other still said "pending".
  *
@@ -65,7 +65,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
     (async () => {
       try {
         const data = await listActiveJobs(supabase as any, companyId);
-        // Cap at 5 to keep the widget compact -- the full queue lives
+        // Cap at 5 to keep the widget compact - the full queue lives
         // on the cleaning dashboard.
         if (!cancelled) setRows(data.slice(0, 5));
       } catch {

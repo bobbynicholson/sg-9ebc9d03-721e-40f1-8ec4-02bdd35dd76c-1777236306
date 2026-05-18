@@ -1,5 +1,5 @@
 /**
- * DispatchGapWidget -- confirmed-and-onwards orders in the next
+ * DispatchGapWidget - confirmed-and-onwards orders in the next
  * 7 days that don't have a driver assigned yet.
  *
  * Phase 14 #8. The dispatch lead had no quick read on which

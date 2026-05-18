@@ -1,5 +1,5 @@
 /**
- * orderToIcs -- build a minimal RFC 5545 .ics file body for a
+ * orderToIcs - build a minimal RFC 5545 .ics file body for a
  * single order so the operator can drop it into Outlook /
  * Google Calendar / Apple Calendar.
  *
@@ -9,7 +9,7 @@
  * order data into a one-click .ics download removes that
  * duplicate work.
  *
- * Single VEVENT, no recurrence, no attendees -- the catering
+ * Single VEVENT, no recurrence, no attendees - the catering
  * team is the audience, not the client. setup_time becomes the
  * VEVENT start when set, otherwise event_time. duration defaults
  * to 4 hours (typical event window) when no end is known.
@@ -28,7 +28,7 @@ interface OrderForIcs {
   internal_notes?: string | null;
 }
 
-// RFC 5545 escape -- backslash, semicolon, comma and newline.
+// RFC 5545 escape - backslash, semicolon, comma and newline.
 const escIcs = (s: string): string =>
   s
     .replace(/\\/g, "\\\\")
@@ -37,7 +37,7 @@ const escIcs = (s: string): string =>
     .replace(/\n/g, "\\n");
 
 const fmtIcsDate = (d: Date): string => {
-  // Local-time DTSTART format YYYYMMDDTHHmmSS (no Z -- floating
+  // Local-time DTSTART format YYYYMMDDTHHmmSS (no Z - floating
   // local time so the calendar app pins it to whatever the
   // recipient's timezone is, which matches the operator's
   // working timezone).

@@ -1,5 +1,5 @@
 /**
- * RecentlyViewedWidget -- last 5 entities the operator opened
+ * RecentlyViewedWidget - last 5 entities the operator opened
  * across orders / quotes / contacts.
  *
  * Phase 17 #8. The dashboard is the entry point but operators
@@ -46,7 +46,7 @@ export function trackRecentlyViewed(item: Omit<RecentlyViewedItem, "viewedAt">):
       ...list.filter((x) => !(x.id === item.id && x.type === item.type)),
     ].slice(0, MAX_ITEMS);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch { /* storage blocked or quota exceeded -- harmless */ }
+  } catch { /* storage blocked or quota exceeded - harmless */ }
 }
 
 const ICON: Record<RecentlyViewedItem["type"], any> = {

@@ -1,5 +1,5 @@
 /**
- * Wave 28.1 -- shared types for the cancellation flow.
+ * Wave 28.1 - shared types for the cancellation flow.
  *
  * The PL/pgSQL function get_refund_for_order is the server-side source
  * of truth for refund maths. These types mirror its inputs/outputs so a
@@ -17,7 +17,7 @@ export type RefundTierLabel = "forfeit" | "partial" | "most" | "full";
 /**
  * Stored on companies.cancellation_policy (jsonb). Editable through
  * Settings -> Cancellation policy. Falls back to companies.cancellation_fee_percent
- * when no tiers are configured -- matches the SQL fallback exactly.
+ * when no tiers are configured - matches the SQL fallback exactly.
  */
 export interface CancellationPolicy {
   deposit_refund_tiers?: Array<{
@@ -31,7 +31,7 @@ export interface CancellationPolicy {
   /** Days notice required to postpone (defaults to 14). */
   postponement_notice_days?: number;
   /**
-   * Cancellations inside this window need owner override -- the wizard
+   * Cancellations inside this window need owner override - the wizard
    * does NOT auto-process them; they queue as cancellation_requests for
    * admin review. Defaults to 3.
    */
@@ -44,7 +44,7 @@ export interface CancellationPolicy {
    * tier becomes 40% credit). Capped at 100.
    */
   credit_bonus_pct?: number;
-  /** Business days the refund takes to settle -- shown in copy. */
+  /** Business days the refund takes to settle - shown in copy. */
   refund_process_days?: number;
 }
 
@@ -101,7 +101,7 @@ export interface CancellationTerms {
    */
   blocked: { reason: string } | null;
 
-  /** Audit trail -- list of decisions made and why, in order. */
+  /** Audit trail - list of decisions made and why, in order. */
   reasoning: string[];
 
   tierLabel: RefundTierLabel;

@@ -42,7 +42,7 @@ const AdminTrackingMap = dynamic(
 );
 
 /**
- * /admin/tracking -- the LIVE operational view.
+ * /admin/tracking - the LIVE operational view.
  *
  * Different from /admin/route-planning which is the PRE-FLIGHT dispatcher
  * view. This page is for the owner / admin watching today's jobs run:
@@ -84,7 +84,7 @@ export default function AdminTracking() {
       const companyId = user.company_id;
 
       // LIVE scope: orders with active statuses AND event_date >= today.
-      // Past events stay off this view -- they belong on the orders page.
+      // Past events stay off this view - they belong on the orders page.
       const allOrders = await orderService.getAllOrders(companyId);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -92,7 +92,7 @@ export default function AdminTracking() {
       const activeStatuses = ["confirmed", "preparing", "ready", "in_transit", "delivered"];
       const activeOrders = allOrders.filter((order: any) => {
         if (!activeStatuses.includes(order.status || "")) return false;
-        // event_date may be null on some legacy rows -- include them so
+        // event_date may be null on some legacy rows - include them so
         // staff can still find the order if they're looking for it.
         if (!order.event_date) return true;
         const eventDate = new Date(order.event_date);
@@ -101,7 +101,7 @@ export default function AdminTracking() {
       });
 
       // Load driver data. Phase 2 #1: enrich with the latest pin from
-      // driver_locations -- profiles.current_lat / current_lng is the
+      // driver_locations - profiles.current_lat / current_lng is the
       // legacy column the foreground pinger no longer writes to, so
       // the initial enrichment below would produce ETA=null on every
       // active order until the first realtime tick. One IN-query keeps
@@ -222,7 +222,7 @@ export default function AdminTracking() {
   }, [loadTrackingData]);
 
   // Phase 3: realtime driver locations. Replaces the 30s polling lag for
-  // pin movement -- when any driver in this company writes a new GPS row,
+  // pin movement - when any driver in this company writes a new GPS row,
   // we patch the affected order's driver_lat/lng and recompute ETA + margin.
   // Falls back to the existing auto-refresh poll for status changes.
   useEffect(() => {
@@ -304,7 +304,7 @@ export default function AdminTracking() {
   }, [user?.company_id, arrivalBufferMinutes, loadTrackingData]);
 
   // Auto-refresh: re-pull every 30s when toggled on. Verifies the toggle
-  // actually does something -- previous build had the state but no timer.
+  // actually does something - previous build had the state but no timer.
   useEffect(() => {
     if (refreshTimerRef.current) {
       clearInterval(refreshTimerRef.current);
@@ -336,7 +336,7 @@ export default function AdminTracking() {
           .maybeSingle();
         if (data?.company_name) setCompanyName(data.company_name);
       } catch {
-        /* fall back to undefined -- compose drawer handles it */
+        /* fall back to undefined - compose drawer handles it */
       }
     })();
   }, [user?.company_id, companyName]);

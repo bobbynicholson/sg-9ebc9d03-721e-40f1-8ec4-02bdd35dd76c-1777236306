@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   // Anything starting more than 15 minutes ago counts as late.
   // Anything starting >4h ago is auto-promoted to status='missed'
-  // (the chef won't be coming -- close it out).
+  // (the chef won't be coming - close it out).
   const cutoff = new Date(now.getTime() - 15 * 60 * 1000);
   const cutoffHM = `${String(cutoff.getHours()).padStart(2, "0")}:${String(cutoff.getMinutes()).padStart(2, "0")}`;
   const farCutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000);

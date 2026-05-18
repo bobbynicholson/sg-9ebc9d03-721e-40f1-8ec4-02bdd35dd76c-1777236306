@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * ReceiptsTab -- the slip log and tax-deductible editor that used to
+ * ReceiptsTab - the slip log and tax-deductible editor that used to
  * live on /admin/tax-purchases. Mounted as the "Receipts" tab on
  * /admin/shopping so admins act in one place.
  *
@@ -100,7 +100,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       toast({
         title: `AI read ${lineCount} line${lineCount === 1 ? "" : "s"}`,
         description: warnings.length > 0
-          ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} -- review carefully.`
+          ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} - review carefully.`
           : "Review the tags and save when you're happy.",
       });
       setRescanResult({ receiptId, mappedData: json.extraction });
@@ -305,7 +305,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
             <h3 className="text-base font-semibold text-slate-900">No slips in this window yet</h3>
             <p className="text-sm text-slate-600 max-w-md mx-auto">
-              Use the till slip scanner above to upload photos -- the AI will extract the lines for you.
+              Use the till slip scanner above to upload photos - the AI will extract the lines for you.
               Or add one by hand with the button up top.
             </p>
           </CardContent>
@@ -481,7 +481,7 @@ function ReceiptRow({
   const slipTotal = Number(receipt.total ?? 0);
   const drift = slipTotal > 0 ? Math.abs(itemsTotal - slipTotal) : 0;
   const driftBig = drift > slipTotal * 0.05 && drift > 1;
-  // Direction matters for the operator -- "lines over slip" means
+  // Direction matters for the operator - "lines over slip" means
   // they probably need to delete a line; "lines under slip" means
   // a line was missed. Surface the signed delta so the wording is
   // unambiguous instead of just saying 'mismatch'.
@@ -565,7 +565,7 @@ function ReceiptRow({
 
         {expanded && (
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
-            {/* Mismatch banner -- shown when sum of line items diverges
+            {/* Mismatch banner - shown when sum of line items diverges
                 from the slip's grand total. Tells the operator the
                 numbers and what to look for, so they can fix the
                 source data instead of trusting bad totals. */}

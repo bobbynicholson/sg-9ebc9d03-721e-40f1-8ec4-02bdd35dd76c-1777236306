@@ -2,14 +2,14 @@
  * POST /api/admin/invoices/bulk-mark-paid
  *
  * Flow audit Leg C P0-1: the operator's bulk mark-paid action in
- * /admin/invoices used to write straight to `invoices` -- it set
+ * /admin/invoices used to write straight to `invoices` - it set
  * status='paid' and amount_paid=total_amount, but never inserted a
  * row in `payments`, never updated `orders.payment_status`, and
  * never closed the source order. Net effect: the finance dashboard
  * either double-counted (if the operator later recorded a payment
  * manually) or under-counted (if the order was still showing
  * unpaid). This endpoint replaces the naked update with the canonical
- * `record_invoice_payment` RPC -- same path the PayFast webhook uses,
+ * `record_invoice_payment` RPC - same path the PayFast webhook uses,
  * so the payments ledger, orders.payment_status, orders.amount_paid,
  * and invoices.status all land in sync inside a single transaction
  * per invoice.
@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       if ((companyRow as any)?.currency) companyCurrency = (companyRow as any).currency;
     } catch {
-      // non-fatal -- fall back to ZAR
+      // non-fatal - fall back to ZAR
     }
 
     let paid = 0;
@@ -152,7 +152,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // One batch audit row -- matches the bulk-remind convention so
+    // One batch audit row - matches the bulk-remind convention so
     // audit_logs stays readable when an operator settles 50 EFTs at once.
     try {
       await admin.from("audit_logs").insert({

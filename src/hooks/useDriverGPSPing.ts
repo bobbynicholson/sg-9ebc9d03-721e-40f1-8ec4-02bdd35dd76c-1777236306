@@ -8,7 +8,7 @@ import { updateDriverLocation } from "@/services/driver/gpsTracking";
  * driver has at least one active job, so the foreground GPS pinger
  * keeps writing location updates instead of going silent the moment
  * the screen times out. Returns null on devices that don't support
- * the Wake Lock API (Safari < 16.4, very old Chrome) -- those drivers
+ * the Wake Lock API (Safari < 16.4, very old Chrome) - those drivers
  * just get the screen-on default behaviour.
  *
  * True background tracking via a service worker is a larger piece of
@@ -147,7 +147,7 @@ export function useDriverGPSPing(
         }
       },
       (err) => {
-        // PERMISSION_DENIED=1 means the driver refused -- there's no
+        // PERMISSION_DENIED=1 means the driver refused - there's no
         // point retrying. Other errors (POSITION_UNAVAILABLE / TIMEOUT)
         // resolve themselves on the next fix, so we leave the watcher
         // running and just surface the latest message.
@@ -160,7 +160,7 @@ export function useDriverGPSPing(
       },
       {
         enableHighAccuracy: true,
-        // High accuracy + a long maximumAge is fine -- we want the
+        // High accuracy + a long maximumAge is fine - we want the
         // most-recent fix the OS has, even if it's a few seconds old.
         maximumAge: 10_000,
         timeout: 30_000,

@@ -148,10 +148,10 @@ export const deliveryService = {
 
     const result = await this.updateDelivery(deliveryId, updates);
 
-    // Wave 49 B7 -- mirror the legacy `deliveries` write into the
+    // Wave 49 B7 - mirror the legacy `deliveries` write into the
     // canonical orderWorkflow path. Pre-Wave-49 the legacy
     // DeliveryStatusModal wrote ONLY to deliveries.actual_delivery_time
-    // -- orders.delivered_at stayed NULL -- so admin dashboards,
+    // - orders.delivered_at stayed NULL - so admin dashboards,
     // driver pay snapshots, and the after-sales drip all read
     // "never delivered" while the legacy table said otherwise.
     // Now route a matching status flip through the same machine
@@ -252,7 +252,7 @@ export const deliveryService = {
 
       // Wave 23.5: subject-line tone polish. "Delivery Completed -
       // Bobby Nicholson" reads templated. The recipient is the client
-      // -- they don't need to see their own name in the subject;
+      // - they don't need to see their own name in the subject;
       // they need to know the catering company finished the delivery.
       // Body now also drops the client-name echo for the same reason.
       const firstName = (order.client_name || "").split(" ")[0] || "there";
@@ -262,8 +262,8 @@ export const deliveryService = {
         body: JSON.stringify({
           to: order.client_email,
           subject: status === "delivered"
-            ? "Your delivery is done -- enjoy the event"
-            : `Delivery update -- ${status.replace(/_/g, " ")}`,
+            ? "Your delivery is done - enjoy the event"
+            : `Delivery update - ${status.replace(/_/g, " ")}`,
           text: status === "delivered"
             ? `Hi ${firstName},\n\nYour delivery is on-site as of ${new Date().toLocaleString("en-ZA")}. Enjoy the event!\n\nReply to this email if anything's not as expected.`
             : `Hi ${firstName},\n\nQuick status update on your delivery: ${status.replace(/_/g, " ")}.\n${notes ? `\nNote from the team: ${notes}\n` : ""}`,
@@ -326,7 +326,7 @@ export const deliveryService = {
     const failed = deliveries?.filter(d => d.status === "failed").length || 0;
     const total = deliveries?.length || 0;
 
-    // Earnings intentionally omitted -- driverPayService is the
+    // Earnings intentionally omitted - driverPayService is the
     // canonical source for what a driver gets paid. A flat R250-per-
     // delivery field here used to be a footgun: any caller that
     // displayed it would lie about real per-driver rates.

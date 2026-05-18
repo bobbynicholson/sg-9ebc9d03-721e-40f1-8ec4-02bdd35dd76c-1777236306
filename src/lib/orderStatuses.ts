@@ -1,5 +1,5 @@
 /**
- * Order status constants + query helpers -- Wave 70.48
+ * Order status constants + query helpers - Wave 70.48
  *
  * Why this exists: prior to this wave, every dashboard widget,
  * intelligence calc, and revenue helper declared its OWN inline
@@ -11,11 +11,11 @@
  * Single source of truth, applied everywhere. New status values land
  * here first; widgets pick them up automatically.
  *
- * Naming convention -- ALL_CAPS_SNAKE for sets, camelCase for helpers.
+ * Naming convention - ALL_CAPS_SNAKE for sets, camelCase for helpers.
  */
 
 /**
- * Every status that represents a "live" order -- something the operator
+ * Every status that represents a "live" order - something the operator
  * still has work in flight on. Excludes both terminal states and
  * cancellation. This is what every revenue/forecast/dashboard widget
  * should use to count "current pipeline" or "active work".
@@ -30,15 +30,15 @@ export const ACTIVE_ORDER_STATUSES = [
 ] as const;
 
 /**
- * Statuses that mean the order is closed permanently -- no more work,
+ * Statuses that mean the order is closed permanently - no more work,
  * no more refunds, no more status flips. Excludes cancelled (which is
- * also terminal but a separate semantic category -- cancelled means
+ * also terminal but a separate semantic category - cancelled means
  * "didn't happen", terminal means "happened and done").
  */
 export const COMPLETED_ORDER_STATUSES = ["delivered", "completed"] as const;
 
 /**
- * Statuses that mean the order is over for any reason -- delivered,
+ * Statuses that mean the order is over for any reason - delivered,
  * completed, cancelled, refunded. Use when you want "not active"
  * regardless of why.
  */
@@ -50,7 +50,7 @@ export const TERMINAL_ORDER_STATUSES = [
 ] as const;
 
 /**
- * Statuses that count as "didn't happen" -- excluded from realised
+ * Statuses that count as "didn't happen" - excluded from realised
  * revenue, lifetime spend, conversion-rate "won" counts.
  */
 export const CANCELLED_LIKE_STATUSES = ["cancelled", "refunded"] as const;

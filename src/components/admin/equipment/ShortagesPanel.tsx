@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ShortagesPanel -- equipment shortage triage UI.
+ * ShortagesPanel - equipment shortage triage UI.
  *
  * Extracted from /admin/equipment-shortages so the same surface can be
  * mounted in the Equipment hub's "Shortages" tab AND keep working as a
  * standalone page for existing bookmarks / notification deep-links.
  *
  * Pure component: no AdminNav / NoIndexMeta / ProtectedRoute wrapping
- * here -- those are page concerns. This is just the content.
+ * here - those are page concerns. This is just the content.
  */
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";

@@ -51,7 +51,7 @@ const STATUS_TONES: Record<string, string> = {
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-// Task block colours -- one tone per status. Soft enough to layer on a
+// Task block colours - one tone per status. Soft enough to layer on a
 // striped grid without screaming.
 const TASK_TONES: Record<string, string> = {
   pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300",
@@ -98,7 +98,7 @@ export default function KitchenProductionPage() {
   const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Phase 4: recipe accuracy report -- always loads the trailing 30 days so
+  // Phase 4: recipe accuracy report - always loads the trailing 30 days so
   // the panel reflects actual yield history, not just the day on screen.
   const [recipeAccuracy, setRecipeAccuracy] = useState<Array<{
     recipe_name: string;
@@ -156,7 +156,7 @@ export default function KitchenProductionPage() {
       }
 
       // Phase 4: pull trailing 30 days of recipe accuracy. Cheap, zero
-      // results when no yields have been logged -- panel stays hidden.
+      // results when no yields have been logged - panel stays hidden.
       try {
         const accFrom = new Date(Date.now() - 30 * 86400000).toISOString();
         const accTo = new Date().toISOString();
@@ -336,7 +336,7 @@ export default function KitchenProductionPage() {
             </CardContent></Card>
           </div>
 
-          {/* Wave 66.9 Phase 2 -- "What to start next" priority queue.
+          {/* Wave 66.9 Phase 2 - "What to start next" priority queue.
               The day-view grid answers "what's the kitchen on right
               now"; this answers "what do I start cooking next" by
               ranking every not-started task in the window by
@@ -366,7 +366,7 @@ export default function KitchenProductionPage() {
                       Start cooking next
                     </p>
                     <p className="text-[11px] text-orange-700/70">
-                      top {queued.length} by deadline -- earliest first
+                      top {queued.length} by deadline - earliest first
                     </p>
                   </div>
                   <ul className="space-y-1.5">
@@ -548,7 +548,7 @@ export default function KitchenProductionPage() {
                           const lineItems = itemsByOrder[o.id] || [];
                           const orderTasks = tasks.filter((t: any) => t.order_id === o.id);
                           const tasksDone = orderTasks.filter((t: any) => t.status === "done").length;
-                          // Wave 70.43c -- whole card becomes a link to
+                          // Wave 70.43c - whole card becomes a link to
                           // the print-friendly kitchen ticket. Bobby's
                           // brief: "when I see the order, user must be
                           // able to click on the order to see the kitchen
@@ -693,7 +693,7 @@ export default function KitchenProductionPage() {
         </div>
       </main>
 
-      {/* Wave 70.7c -- bottom-left FAB during service hours */}
+      {/* Wave 70.7c - bottom-left FAB during service hours */}
       <KitchenServiceFAB />
     </>
   );

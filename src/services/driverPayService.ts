@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * driverPayService -- the single source of truth for "what does this
+ * driverPayService - the single source of truth for "what does this
  * driver get paid?".
  *
  * Three pay components combine into a driver's total earnings:
  *
- *   1. Hourly  -- on-shift hours (from driver_shifts.hours_worked)
+ *   1. Hourly  - on-shift hours (from driver_shifts.hours_worked)
  *                 multiplied by the driver's effective hourly rate.
  *                 BCEA rate_multiplier applied if set (Stage 4
  *                 stamps 2x for Sundays + public holidays).
  *   2. Distance-- delivery_distance_km from the order multiplied by
  *                 the driver's effective per-km rate.
- *   3. Callout -- a flat fee per delivery the driver was dispatched
+ *   3. Callout - a flat fee per delivery the driver was dispatched
  *                 to. Effective fee per driver / company default.
  *
  * "Effective" rate = driver-specific override (profiles.hourly_rate
@@ -111,7 +111,7 @@ export interface DriverPaySummary {
 
 /**
  * Merge per-driver overrides over company defaults. Anything still
- * unset becomes 0 -- the operator hasn't told us a rate, so don't
+ * unset becomes 0 - the operator hasn't told us a rate, so don't
  * invent one. The downstream pay sum just stays low instead of
  * silently using a fabricated default.
  */
@@ -170,7 +170,7 @@ export function calculateShiftPay(
  *
  * Pure: doesn't read from anywhere, takes a (start, end) and emits
  * the bucket list. Always uses the local-time day boundary the way
- * the operator running the company experiences it -- not UTC. The
+ * the operator running the company experiences it - not UTC. The
  * tenant timezone handling is a future Phase 3 item; for now SAST
  * matches every live tenant.
  */
@@ -288,7 +288,7 @@ export function calculateBceaShiftPay(
  * distance (matches what the operator sees on Google Maps). The
  * Phase 29 client-billing change moved the customer-side fee to
  * round-trip (distance * 2 * rate). Driver pay needs the same ×2
- * because the driver actually drives both legs -- otherwise the
+ * because the driver actually drives both legs - otherwise the
  * tenant silently underpays half the kilometres while billing
  * the customer for the lot. distance_km on the receipt also
  * reflects the round-trip total so payslip arithmetic is
@@ -382,7 +382,7 @@ export const driverPayService = {
    * driver_id, actual_start, actual_end. All else optional.
    *
    * Returns a flat shape (`{ ok, shift?, error? }`) rather than a
-   * discriminated union -- TS narrowing across the module boundary
+   * discriminated union - TS narrowing across the module boundary
    * can't track the union into the consumer's reachability check, so
    * `if (!result.ok) throw new Error(result.error)` fails the
    * compiler. Flat is plain.
@@ -423,7 +423,7 @@ export const driverPayService = {
       return { ok: false, error: "Clock-out must be after clock-in" };
     }
     // Phase 6 #6: driver shift overlap check. A driver can't be on
-    // two shifts at the same time -- it's nonsense for hour
+    // two shifts at the same time - it's nonsense for hour
     // tracking and downstream BCEA pay calc would double-count.
     // We refuse the insert unless allow_overlap is set, in which
     // case the operator gets the conflicting shift's id + window
@@ -524,7 +524,7 @@ export const driverPayService = {
     actorUserId?: string | null,
   ): Promise<{ ok: boolean; error?: string }> {
     // Phase 8 #1: snapshot the row before we mutate it so the
-    // audit log can record both before + after. Best-effort -- a
+    // audit log can record both before + after. Best-effort - a
     // missing snapshot doesn't block the edit.
     let before: any = null;
     try {
@@ -565,7 +565,7 @@ export const driverPayService = {
     return { ok: true };
   },
 
-  /** Soft delete -- preserves historical shifts in reports. */
+  /** Soft delete - preserves historical shifts in reports. */
   async deleteShift(
     id: string,
     client: Sb = defaultClient,
@@ -706,7 +706,7 @@ export const driverPayService = {
   },
 
   /**
-   * Auto clock-in -- called from the dispatch flow when a driver
+   * Auto clock-in - called from the dispatch flow when a driver
    * marks an order as picked up. Idempotent: if an open shift
    * already exists for this driver + order, do nothing.
    *
@@ -761,7 +761,7 @@ export const driverPayService = {
   },
 
   /**
-   * Auto clock-out -- called when an order transitions to delivered.
+   * Auto clock-out - called when an order transitions to delivered.
    * Closes the open auto-shift for this order, computes BCEA
    * rate_multiplier based on the day of week + public_holidays
    * table.
@@ -775,7 +775,7 @@ export const driverPayService = {
       companyId: string;
       driverId: string;
       orderId: string;
-      /** Wave 49 B6 -- which leg is closing. Defaults to 'delivery'
+      /** Wave 49 B6 - which leg is closing. Defaults to 'delivery'
        *  for back-compat callers; the collection close-out path
        *  (completeCollection) passes 'collection' so the snapshot
        *  lands in its own driver_assignments row instead of
@@ -834,7 +834,7 @@ export const driverPayService = {
         const endMs = new Date(nowIso).getTime();
         if (Number.isFinite(startMs) && endMs > startMs) {
           hoursWorked = Number(((endMs - startMs) / 3_600_000).toFixed(4));
-          // hourlyRate=1 here -- we only need the dominant multiplier,
+          // hourlyRate=1 here - we only need the dominant multiplier,
           // not the actual pay (rates get applied at summary time).
           const bcea = calculateBceaShiftPay(startIso, nowIso, 1, {
             oneOff: oneOffSet,
@@ -858,7 +858,7 @@ export const driverPayService = {
       // Rate-locking. Snapshot the distance + callout pay onto
       // driver_assignments now that the delivery is closing. Once
       // stamped, getPaySummary prefers these values over the live
-      // calc -- so changing a driver's rates next week doesn't
+      // calc - so changing a driver's rates next week doesn't
       // retroactively shift this delivery's pay.
       try {
         await snapshotDriverAssignmentForOrder(client, {
@@ -919,7 +919,7 @@ export const driverPayService = {
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
-    // Wave 49 B6 -- restrict the join to assignment_type='delivery'.
+    // Wave 49 B6 - restrict the join to assignment_type='delivery'.
     // Without this filter the snapshot from the collection leg
     // (different fee structure) could be picked up as the delivery
     // pay locked total. Now each leg owns its own row.
@@ -965,7 +965,7 @@ export const driverPayService = {
  * Idempotent: looks for an existing assignment row first, updates
  * it; if absent, inserts a fresh one.
  *
- * Wave 49 B6 -- now keyed on (order_id, driver_id, assignment_type).
+ * Wave 49 B6 - now keyed on (order_id, driver_id, assignment_type).
  * Pre-Wave-49 the lookup was (order_id, driver_id) only, which
  * meant the second autoClockOut on the same order overwrote the
  * first leg's snapshot. Same driver doing both delivery and
@@ -982,7 +982,7 @@ async function snapshotDriverAssignmentForOrder(
     companyId: string;
     driverId: string;
     orderId: string;
-    /** Wave 49 B6 -- defaults to 'delivery' for back-compat callers,
+    /** Wave 49 B6 - defaults to 'delivery' for back-compat callers,
      *  but caller should pass explicitly so collection legs land in
      *  their own row. */
     assignmentType?: string;
@@ -1025,7 +1025,7 @@ async function snapshotDriverAssignmentForOrder(
     console.error("[driverPayService] driver_assignments fetch failed:", existingErr2);
   }
 
-  // Wave 49 B6 -- only the delivery leg stamps delivered_at; the
+  // Wave 49 B6 - only the delivery leg stamps delivered_at; the
   // collection leg uses completed_at. Otherwise reading delivered_at
   // would mean "delivery happened" or "collection trip closed",
   // which is a different fact each row.

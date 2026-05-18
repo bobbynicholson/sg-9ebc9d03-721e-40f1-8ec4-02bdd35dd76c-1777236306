@@ -7,13 +7,13 @@
  * on the Contacts / Leads pages or in the onboarding wizard, fill
  * in their data, and upload it back through /api/imports/upload.
  *
- * Always built fresh from the schema -- never served from a static
- * file -- so the template can never drift out of sync with the
+ * Always built fresh from the schema - never served from a static
+ * file - so the template can never drift out of sync with the
  * columns the import engine actually understands.
  *
  * Auth: any signed-in admin / owner / company_admin / super_admin.
  * No tenant data leaks possible because the file is purely the
- * schema -- no rows, no IDs.
+ * schema - no rows, no IDs.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as XLSX from "xlsx";
@@ -57,9 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const def = getTemplateDefinition(type);
 
     // Build a 2D array of cells:
-    //   row 1 -- column headers (with " *" suffix on required columns)
-    //   row 2 -- italic example data, signalling "delete me + replace"
-    //   row 3+ -- left blank for the operator
+    //   row 1 - column headers (with " *" suffix on required columns)
+    //   row 2 - italic example data, signalling "delete me + replace"
+    //   row 3+ - left blank for the operator
     const aoa: any[][] = [
       def.columns.map((c) => c.header),
       def.columns.map((c) => c.example),
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const X = XLSX as any;
     const ws = X.utils.aoa_to_sheet(aoa);
 
-    // Column widths -- slightly wider than the header so things don't
+    // Column widths - slightly wider than the header so things don't
     // clip in Excel's default view. Calibri 11 ~= 7px per character.
     ws["!cols"] = def.columns.map((c) => ({
       wch: Math.max(14, Math.min(40, c.header.length + 4)),

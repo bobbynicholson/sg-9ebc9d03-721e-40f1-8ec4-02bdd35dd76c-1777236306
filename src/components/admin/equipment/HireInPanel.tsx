@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * HireInPanel -- procurement checklist for the auto-generated
+ * HireInPanel - procurement checklist for the auto-generated
  * equipment_hire_orders rows.
  *
  * Extracted from /admin/equipment/hire-orders so the same surface
@@ -72,7 +72,7 @@ export function HireInPanel() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<HireOrder["status"] | "all">("all");
-  // Wave 66.6 -- order-scoped filter. When the URL carries ?orderId=X
+  // Wave 66.6 - order-scoped filter. When the URL carries ?orderId=X
   // (the timeline's equipment_hire_booked / hire_collected deeplinks
   // route here now), filter the list to that order's hire rows and
   // surface a "Filtered to ORD-XXX" chip with a clear button. Without
@@ -126,7 +126,7 @@ export function HireInPanel() {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Cast to any -- equipment_hire_orders not yet in generated types.
+      // Cast to any - equipment_hire_orders not yet in generated types.
       const { data, error } = await (supabase as any)
         .from("equipment_hire_orders")
         .select("*")
@@ -145,7 +145,7 @@ export function HireInPanel() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      // Wave 66.6 -- order-scoped filter takes precedence.
+      // Wave 66.6 - order-scoped filter takes precedence.
       if (orderIdFilter && r.order_id !== orderIdFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (!q) return true;
@@ -224,7 +224,7 @@ export function HireInPanel() {
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Open spend committed</p><p className="text-lg font-bold text-rose-700">{fmtR(totalCommitted)}</p></CardContent></Card>
       </div>
 
-      {/* Wave 66.6 -- order-scoped filter chip. Surfaces when the
+      {/* Wave 66.6 - order-scoped filter chip. Surfaces when the
           URL carries ?orderId=X so the operator clicking from the
           order timeline lands on a focused view, not the full list. */}
       {orderIdFilter && (

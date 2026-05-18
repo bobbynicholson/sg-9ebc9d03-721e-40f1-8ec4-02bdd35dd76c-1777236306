@@ -1,5 +1,5 @@
 /**
- * PWAInstallPrompt -- driver portal Add-to-Home-Screen banner.
+ * PWAInstallPrompt - driver portal Add-to-Home-Screen banner.
  *
  * Phase 7 #4. The driver portal already ships a manifest (see
  * _document.tsx) and a service worker (registered in _app.tsx),
@@ -13,7 +13,7 @@
  *   - hides itself when the app is already running standalone;
  *   - remembers a dismissal in localStorage so we don't nag.
  *
- * Mount it inside the driver dashboard only -- the manifest scope
+ * Mount it inside the driver dashboard only - the manifest scope
  * limits install eligibility to /team-portal/driver/ anyway, but
  * this keeps the banner from rendering on admin views even briefly.
  */
@@ -24,7 +24,7 @@ import { Smartphone, X, Download } from "lucide-react";
 
 const DISMISS_KEY = "driverPwaInstallDismissedAt";
 // Stay quiet for 14 days after a dismissal. After that the banner
-// can come back -- a driver who was on a borrowed phone last time
+// can come back - a driver who was on a borrowed phone last time
 // might be on their own this time.
 const QUIET_MS = 14 * 24 * 3600 * 1000;
 
@@ -88,7 +88,7 @@ export function PWAInstallPrompt() {
     try {
       window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
     } catch {
-      // Private mode or storage full -- harmless, just don't persist.
+      // Private mode or storage full - harmless, just don't persist.
     }
     setDismissed(true);
   };
@@ -101,7 +101,7 @@ export function PWAInstallPrompt() {
       if (choice.outcome === "accepted") {
         setDismissed(true);
       } else {
-        // User said no -- give them 14 days of quiet.
+        // User said no - give them 14 days of quiet.
         dismiss();
       }
       setDeferred(null);
@@ -125,7 +125,7 @@ export function PWAInstallPrompt() {
           <p className="text-xs text-emerald-800/80">
             {showIosHint
               ? "Tap the Share icon in Safari, then \"Add to Home Screen\" for a faster, full-screen experience."
-              : "Add it to your home screen so it opens like a regular app -- faster login, full-screen, works on patchy signal."}
+              : "Add it to your home screen so it opens like a regular app - faster login, full-screen, works on patchy signal."}
           </p>
         </div>
         {!showIosHint && deferred && (

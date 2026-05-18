@@ -1,5 +1,5 @@
 /**
- * Wave 51 -- propagate quote edits onto the linked order + cascade.
+ * Wave 51 - propagate quote edits onto the linked order + cascade.
  *
  * The bug:
  *   quoteService.updateQuote writes only to the quotes table. When a
@@ -85,7 +85,7 @@ export const FIELDS_REQUIRING_CONFIRMATION = [
   "equipment_items",
 ] as const;
 
-/** Order statuses past the point of no return -- no propagation,
+/** Order statuses past the point of no return - no propagation,
  *  open an order_amendment_request for dispatch review instead. */
 const POST_DISPATCH_STATUSES = new Set([
   "in_transit",
@@ -96,7 +96,7 @@ const POST_DISPATCH_STATUSES = new Set([
 
 export interface PropagateQuoteEditReceipt {
   ok: boolean;
-  /** True when there's no order linked to this quote -- silently
+  /** True when there's no order linked to this quote - silently
    *  skipped (no error). */
   noLinkedOrder?: boolean;
   /** True when the order is past dispatch and propagation was
@@ -169,7 +169,7 @@ export async function propagateQuoteEditToOrder(
     receipt.orderId = (linkedOrder as any).id;
     const companyId = (linkedOrder as any).company_id || (quote as any).company_id;
 
-    // 3. Hard refusal when the order is past dispatch -- we do NOT
+    // 3. Hard refusal when the order is past dispatch - we do NOT
     //    silently mutate event_date on a truck that's already rolling.
     const orderStatus = String((linkedOrder as any).status || "").toLowerCase();
     if (POST_DISPATCH_STATUSES.has(orderStatus)) {
@@ -257,7 +257,7 @@ export async function propagateQuoteEditToOrder(
     }
 
     // 6. Order line items rebuild when menu_items changed. Compare
-    //    JSONB by stringification -- cheap and good enough for the
+    //    JSONB by stringification - cheap and good enough for the
     //    coarse "did anything change" question.
     const menuChanged =
       JSON.stringify((quote as any).menu_items || null) !==
@@ -266,7 +266,7 @@ export async function propagateQuoteEditToOrder(
       try {
         // Soft-clear existing line items for this order then re-insert
         // from the quote using the same shape postCreationCascade Step 0
-        // builds. NOTE: we hard-delete here -- order_items has no
+        // builds. NOTE: we hard-delete here - order_items has no
         // soft-delete column on every tenant's schema and re-insert is
         // simpler than diff. Operator would need to confirm via the
         // modal upstream.
@@ -492,7 +492,7 @@ async function _resyncEquipmentBookings(
     }
   }
 
-  // Mark removed bookings as cancelled (don't delete -- preserve history)
+  // Mark removed bookings as cancelled (don't delete - preserve history)
   for (const [equipmentId, row] of existingMap.entries()) {
     if (!desired.has(equipmentId) && row.status !== "cancelled") {
       await (supabase as any)
@@ -554,7 +554,7 @@ async function _restampPendingPreEventReminders(orderId: string, quote: any): Pr
     else if (row.template_type === "pre_event_day_before") offsetMs = -1 * 24 * 3600 * 1000;
     else continue;
     const sendAt = new Date(eventTs + offsetMs);
-    // Skip if the new send time is already in the past -- the queue
+    // Skip if the new send time is already in the past - the queue
     // worker would either fire it immediately or skip it; either is
     // a reasonable outcome.
     if (sendAt.getTime() < Date.now()) continue;
@@ -565,7 +565,7 @@ async function _restampPendingPreEventReminders(orderId: string, quote: any): Pr
   }
 }
 
-/** Pure helper for the UI -- derive the impact summary for the
+/** Pure helper for the UI - derive the impact summary for the
  *  confirmation modal. The page calls this with the FORM values
  *  before save, gets back a list of human strings. */
 export function describeQuoteEditImpact(opts: {
@@ -601,11 +601,11 @@ export function describeQuoteEditImpact(opts: {
     } else if (f === "guest_count") {
       impacts.push(`Guest count moves ${before ?? "—"} -> ${after ?? "—"}. Kitchen scaling + per-person line items will recalculate.`);
     } else if (f === "total" || f === "subtotal") {
-      impacts.push(`${f} changes -- the deposit invoice will recompute.`);
+      impacts.push(`${f} changes - the deposit invoice will recompute.`);
     } else if (f === "menu_items") {
-      impacts.push("Menu items changed -- order line items will be rebuilt.");
+      impacts.push("Menu items changed - order line items will be rebuilt.");
     } else if (f === "equipment_items") {
-      impacts.push("Equipment changed -- equipment bookings will be re-synced.");
+      impacts.push("Equipment changed - equipment bookings will be re-synced.");
     }
   }
   return { needsConfirmation, impacts };

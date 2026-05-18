@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Quote intelligence -- powers the client typeahead on /admin/quotes/new.
+ * Quote intelligence - powers the client typeahead on /admin/quotes/new.
  *
  * Why three sources, not one:
  *   - 'clients' is the canonical record but lots of catering tenants do
@@ -8,7 +8,7 @@
  *     (lead converted by a third-party form, or the order was raised
  *     directly without a client_id).
  *   - 'leads' captures pre-conversion contacts the owner met but hasn't
- *     quoted yet -- they should still surface so we don't ask Sue Smith
+ *     quoted yet - they should still surface so we don't ask Sue Smith
  *     for her email twice.
  *   - 'quotes' / 'orders' are the historical reality. Even if neither
  *     clients nor leads has the row, we can still recall everything we
@@ -36,7 +36,7 @@ export interface KnownClientResult {
   sources: Array<"client" | "lead" | "quote" | "order">;
   /** When did we last touch this person (latest of all sources) */
   last_seen: string | null;
-  /** Friendly hint for the dropdown row -- e.g. "Quoted 3 days ago" */
+  /** Friendly hint for the dropdown row - e.g. "Quoted 3 days ago" */
   last_seen_label: string | null;
   /** Hints from the most recent activity, used for the prefill preview */
   last_event_date: string | null;
@@ -62,7 +62,7 @@ export interface ClientSnapshot {
   last_event_type: string | null;
   last_guest_count: number | null;
 
-  /** Up to 5 most recent quotes -- powers the "use last quote as template" UI */
+  /** Up to 5 most recent quotes - powers the "use last quote as template" UI */
   recent_quotes: Array<{
     id: string;
     quote_number: string | null;
@@ -134,7 +134,7 @@ export const quoteIntelligenceService = {
     const orQuote  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like}`;
     const orOrder  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like},client_phone.ilike.${like}`;
 
-    // Run the four queries in parallel -- each capped low so we don't
+    // Run the four queries in parallel - each capped low so we don't
     // pull a giant slug of data through the dropdown.
     const clientsQ = supabase
       .from("clients")
@@ -295,7 +295,7 @@ export const quoteIntelligenceService = {
 
   /**
    * Hydrate a full snapshot for a picked result. The UI passes the
-   * client_id when known, otherwise the email -- we do the right thing
+   * client_id when known, otherwise the email - we do the right thing
    * either way and merge the best-known data across sources.
    */
   async getClientSnapshot(
@@ -333,7 +333,7 @@ export const quoteIntelligenceService = {
       client = data || null;
     }
 
-    // 2. Recent quotes for the same person -- by client_id when we have
+    // 2. Recent quotes for the same person - by client_id when we have
     //    one, otherwise by email match
     const quoteFilter = clientId
       ? supabase.from("quotes").select("*").eq("client_id", clientId)

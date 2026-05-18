@@ -7,7 +7,7 @@ import type { NavOrigin } from "@/lib/driverNavigation";
 /**
  * Resolves the right kitchen to use as the navigation origin for a given
  * driver. Priority:
- *   1. Driver's region (profiles.region_id) -- per-branch kitchen
+ *   1. Driver's region (profiles.region_id) - per-branch kitchen
  *   2. Company HQ (companies.headquarters_lat / address_line1)
  *
  * Multi-branch operations (Spit Braai = CPT + JHB, etc) get accurate

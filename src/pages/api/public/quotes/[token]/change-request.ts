@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const body = (req.body || {}) as Record<string, any>;
 
-  // Honeypot -- silent success to avoid signalling bots.
+  // Honeypot - silent success to avoid signalling bots.
   const honeypot = typeof body.honeypot === "string" ? body.honeypot : "";
   if (honeypot.trim().length > 0) return res.status(200).json({ ok: true });
 
@@ -96,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.headers["user-agent"] as string).slice(0, 500)
       : null;
 
-  // Turnstile -- only enforced when TURNSTILE_SECRET_KEY is set in the
+  // Turnstile - only enforced when TURNSTILE_SECRET_KEY is set in the
   // environment. Mirrors the embed-form pattern so dev / test envs
   // (without the secret) keep working unchanged. When configured, a
   // failed challenge returns 200 ok:false rather than 4xx so bots get
@@ -114,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // Rate limit -- tighter than view since this fans out to admin
+  // Rate limit - tighter than view since this fans out to admin
   // notifications.
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
     limit: 10,
@@ -154,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // Insert -- company_id always derived from the quote, never from
+  // Insert - company_id always derived from the quote, never from
   // body, so a token holder can't pollute another tenant.
   const { data: inserted, error: insertErr } = await (supabase as any)
     .from("quote_change_requests")
@@ -177,7 +177,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Notify admin (best-effort). Fan out to every operator who can
-  // act on the change request -- the previous single-row insert only
+  // act on the change request - the previous single-row insert only
   // hit quote.user_id, which often doesn't match the actual sales
   // owner. related_entity powers the contextual CTA on the
   // notifications page; #change-requests anchor lands the operator on
@@ -213,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
-      // Fall back to the quote's user_id if we found no admins -- this
+      // Fall back to the quote's user_id if we found no admins - this
       // matches the previous behaviour and avoids losing the alert.
       if (recipientIds.length === 0 && quote.user_id) {
         recipientIds.push(quote.user_id);

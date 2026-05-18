@@ -2,10 +2,10 @@
 // @ts-nocheck
 /**
  * Email + Integrations settings. Catering company picks one of:
- *  - Gmail OAuth   (cleanest -- sends through their actual Gmail)
+ *  - Gmail OAuth   (cleanest - sends through their actual Gmail)
  *  - Microsoft 365 OAuth
  *  - Custom SMTP   (host:port + user/pass)
- *  - Default (no provider configured -- compose links only)
+ *  - Default (no provider configured - compose links only)
  *
  * Mailchimp lives here too for bulk-sending integration.
  *
@@ -407,7 +407,7 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Resend domain verification -- primary path */}
+          {/* Resend domain verification - primary path */}
           <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-purple-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -602,7 +602,7 @@ function EmailSettingsPage() {
                   back to noreply@send.cateringms.com with Reply-To set
                   to the tenant's from_email. Operators were stuck
                   thinking they couldn't send anything until DNS
-                  verified -- explicitly tell them the fallback works. */}
+                  verified - explicitly tell them the fallback works. */}
               {row.provider === "resend" && !row.is_verified && row.from_email && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   Domain not yet verified. Emails still go out from

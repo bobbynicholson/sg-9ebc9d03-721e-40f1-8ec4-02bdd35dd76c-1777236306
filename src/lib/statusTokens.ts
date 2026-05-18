@@ -63,7 +63,7 @@ export const STATUS_LABELS: Record<StatusTone, string> = {
 };
 
 /**
- * Safe lookup -- returns slate fallback for any unknown status string so a
+ * Safe lookup - returns slate fallback for any unknown status string so a
  * stale value from the DB never crashes a badge render.
  */
 export function statusTone(status: string | null | undefined): string {

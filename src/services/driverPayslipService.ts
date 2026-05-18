@@ -3,7 +3,7 @@
 /**
  * Phase 4 #7: driver payslip PDF generator.
  *
- * Browser-side PDF render using jsPDF + jspdf-autotable -- same
+ * Browser-side PDF render using jsPDF + jspdf-autotable - same
  * dependencies invoiceService already pulls in, so no new bundle
  * weight. The payslip mirrors what /admin/driver-settlement shows
  * on screen: per-driver pay summary for a period, with the BCEA
@@ -191,7 +191,7 @@ export const driverPayslipService = {
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.text(
-      `Generated ${new Date().toLocaleString("en-ZA")} -- this is a system-generated payslip.`,
+      `Generated ${new Date().toLocaleString("en-ZA")} - this is a system-generated payslip.`,
       pageWidth / 2,
       285,
       { align: "center" },

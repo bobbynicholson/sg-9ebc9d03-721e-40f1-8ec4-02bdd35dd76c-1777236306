@@ -72,7 +72,7 @@ export async function suggestKitchenForDate(
   // expose GROUP BY without an RPC and the row volume here is small
   // (orders for one date, quotes for one date). Status arrays are
   // inlined so TS narrows them to the enum unions on the generated
-  // Database types -- extracting them to a const widens to string[]
+  // Database types - extracting them to a const widens to string[]
   // and breaks the build.
   const [ordersRes, quotesRes] = await Promise.all([
     supabase

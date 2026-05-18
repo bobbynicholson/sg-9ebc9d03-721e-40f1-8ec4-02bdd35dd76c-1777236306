@@ -48,7 +48,7 @@ export async function duplicateQuote(
     clone.event_date = newEventDate;
     clone.status = "draft";
     clone.quote_number = `${(s.quote_number || "QUO")}-COPY-${Date.now().toString(36).slice(-4).toUpperCase()}`;
-    // Wave 50 C11 -- preserve the rebook chain. lead_id was stripped
+    // Wave 50 C11 - preserve the rebook chain. lead_id was stripped
     // (the new quote is for the same client but has no fresh lead);
     // record the parent so analytics can chase rebook conversion.
     clone.parent_quote_id = sourceQuoteId;
@@ -143,7 +143,7 @@ export const quoteService = {
     // Lead status advancement (Audit Theme E). When this quote came
     // from a lead, flip the lead to "quoted" so the funnel chips on
     // /admin/leads reflect reality. Manual quote builder
-    // (admin/quotes/new.tsx:946) already does this -- mirror it here
+    // (admin/quotes/new.tsx:946) already does this - mirror it here
     // so API-driven quote creation doesn't leave leads stuck at "new"
     // until they convert to "won".
     //
@@ -155,8 +155,8 @@ export const quoteService = {
       // Atomic advance: a single UPDATE...WHERE status IN (...) avoids the
       // read-then-write race the previous two-query pattern allowed and
       // fails LOUD rather than silently if the policy or constraint
-      // rejects the write [P1-02]. We still don't throw -- a failed lead
-      // status advance shouldn't roll back the quote -- but we do surface
+      // rejects the write [P1-02]. We still don't throw - a failed lead
+      // status advance shouldn't roll back the quote - but we do surface
       // the row count and any error so a caller / dashboard can spot
       // funnel drift instead of discovering it months later.
       const advancable = ["new", "contacted", "qualified"];
@@ -225,7 +225,7 @@ export const quoteService = {
   async updateQuote(quoteId: string, updates: Partial<Quote>): Promise<Quote | null> {
     // Status transition guard rails. The audit (May 2026) flagged
     // that admins could flip a quote from any status to any status
-    // with no warning -- e.g. accepted -> draft, which silently
+    // with no warning - e.g. accepted -> draft, which silently
     // discards the client's acceptance signal. We don't block the
     // user (some legitimate edge cases need overrides) but we DO
     // refuse the transitions that have downstream consequences:
@@ -284,7 +284,7 @@ export const quoteService = {
     // Detect status transitions that need side-effects. The audit
     // (May 2026) found that quotes were sometimes flipped to 'sent' by
     // direct supabase calls in pages/admin/quotes/* that bypassed
-    // sendQuoteToClient -- meaning the client email never went out
+    // sendQuoteToClient - meaning the client email never went out
     // even though the quote was marked as sent. Centralising the
     // "transition to sent" check here means every code path picks up
     // the email automatically.
@@ -328,11 +328,11 @@ export const quoteService = {
       );
     }
 
-    // Wave 51 -- propagate the edit to the linked order + cascade
+    // Wave 51 - propagate the edit to the linked order + cascade
     // artefacts (kitchen prep, equipment bookings, collection trip,
     // pre-event reminders). Pre-Wave-51 every quote edit drifted
     // silently from its order. The propagation service is best-effort
-    // and never throws -- the receipt is attached to the returned
+    // and never throws - the receipt is attached to the returned
     // quote so the caller's toast can surface what changed.
     let propagationReceipt: any = null;
     try {
@@ -354,7 +354,7 @@ export const quoteService = {
    * Pulled out of sendQuoteToClient so updateQuote can fire it on the
    * draft->sent transition without duplicating the call. Idempotent
    * to a degree (Resend deduplicates on idempotency keys we don't
-   * currently send, so multiple calls = multiple emails -- but the
+   * currently send, so multiple calls = multiple emails - but the
    * transition guard in updateQuote prevents that in normal use).
    */
   async _fireQuoteSentEmail(quoteId: string): Promise<void> {
@@ -372,7 +372,7 @@ export const quoteService = {
     // email; if it's already populated, the email already went out and
     // a second call (rapid double-click, retry, refresh-during-save)
     // should NOT spam the client. Setting sent_at before the network
-    // call protects against in-flight races -- worst case the email
+    // call protects against in-flight races - worst case the email
     // fails and we still have sent_at, which is recoverable by an
     // admin "Resend" action that nukes sent_at first.
     if ((quote as any).sent_at) {
@@ -437,7 +437,7 @@ export const quoteService = {
         // recipients want a saveable document, not just a link to
         // /q/[token]. The link still ships in the email body for the
         // click-through accept flow. PDF render failure is logged and
-        // non-blocking on the API side -- the email still goes out.
+        // non-blocking on the API side - the email still goes out.
         attachQuotePdf: true,
         variables: {
           clientName: quote.client_name,
@@ -495,7 +495,7 @@ export const quoteService = {
        *  convertQuoteToOrder refuses to create an order whose
        *  client can't be reached for the deposit invoice + payment
        *  receipt + portal magic-link, all of which key on email.
-       *  See audit Sales G8 -- silent breakage at the moment that
+       *  See audit Sales G8 - silent breakage at the moment that
        *  matters most. */
       allowMissingEmail?: boolean;
     },
@@ -523,7 +523,7 @@ export const quoteService = {
     // Gate: refuse to convert a quote with no client_email unless
     // the operator passed allowMissingEmail. Otherwise the order is
     // created, the deposit invoice is generated, and then the email
-    // step silently no-ops -- client gets a confirmation by nobody
+    // step silently no-ops - client gets a confirmation by nobody
     // and finds out at the venue. Surfaced loudly here so the UI
     // can prompt the operator to add an email (or confirm walk-in).
     const clientEmail = String((quote as any).client_email || "").trim();
@@ -543,7 +543,7 @@ export const quoteService = {
     // Lifecycle backbone: orders.client_id is NOT NULL on the schema,
     // so we MUST have a client_id before inserting. If this quote came
     // from a lead that was never promoted to a client (the historical
-    // common case), promote them now -- creates the clients row,
+    // common case), promote them now - creates the clients row,
     // stamps leads.converted_to_client_id, marks lead status='won'.
     // Idempotent so re-acceptance of the same quote is safe.
     const resolvedClientId = await lifecycleService.resolveQuoteClientId({
@@ -555,13 +555,13 @@ export const quoteService = {
     // Why "confirmed" and not "pending"? (Audit + Bobby, May 2026)
     //
     // Orders go straight to "confirmed" because acceptance IS the
-    // commitment moment -- adding a pending review step here would
+    // commitment moment - adding a pending review step here would
     // give the catering team a "back out" lever after the client has
     // psychologically committed, and the quote review already
     // happens BEFORE send.
     //
     // What the team needs instead is a way to handle late changes
-    // -- adjusted guest counts, last-minute menu swaps, time / venue
+    // - adjusted guest counts, last-minute menu swaps, time / venue
     // tweaks. That's the order amendment workflow, owned by the
     // order_amendment_requests table (migration 20260503170000):
     //
@@ -579,8 +579,8 @@ export const quoteService = {
     // delivered -> completed. Amendments live alongside, not in
     // line, with the order itself.
     // Whitelist build (was: ...quote spread + delete unwanted, which
-    // accidentally shipped quote-only columns -- accepted_at,
-    // valid_until, viewed_at, public_token, etc. -- into the orders
+    // accidentally shipped quote-only columns - accepted_at,
+    // valid_until, viewed_at, public_token, etc. - into the orders
     // insert and PostgREST blew up with "Could not find the
     // 'accepted_at' column of 'orders' in the schema cache"). Listing
     // the columns explicitly here = no surprises when quotes gains a
@@ -624,7 +624,7 @@ export const quoteService = {
       venue_lat: q.venue_lat ?? null,
       venue_lng: q.venue_lng ?? null,
       // Line-level data (JSON)
-      // (orders has no menu_items/equipment_items columns -- they live
+      // (orders has no menu_items/equipment_items columns - they live
       //  in order_items / order_equipment. Skipped here.)
       // Money. Quote uses `total`; orders only stores `total_amount`.
       subtotal: q.subtotal ?? null,
@@ -634,13 +634,13 @@ export const quoteService = {
       total_amount: q.total ?? q.total_amount ?? null,
       currency: resolvedCurrency,
       deposit_percentage: q.deposit_percentage ?? null,
-      // Delivery -- carried forward so the agreed breakdown survives
+      // Delivery - carried forward so the agreed breakdown survives
       delivery_fee: q.delivery_fee ?? null,
       delivery_distance_km: q.delivery_distance_km ?? null,
       delivery_rate_per_km: q.delivery_rate_per_km ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
-      // Notes -- quote.notes maps to internal_notes on orders
+      // Notes - quote.notes maps to internal_notes on orders
       internal_notes: q.notes ?? null,
       // Lifecycle
       status: "confirmed",
@@ -662,7 +662,7 @@ export const quoteService = {
     // Stamp orders.balance_due_date from companies.balance_due_days.
     // Was previously left null because the only writer
     // (paymentProcessingService.initializePaymentSchedule) is dead
-    // code -- meaning the per-tenant "balance must clear N days
+    // code - meaning the per-tenant "balance must clear N days
     // before the event" setting drove nothing. Now that Settings ->
     // Financial persists balance_due_days to the companies column,
     // resolve it here and stamp the date so the balance-reminder
@@ -710,7 +710,7 @@ export const quoteService = {
       // payment_status: 'partial' when client has paid part of the
       // total (deposit captured), 'paid' when the deposit covers
       // the full balance. Was previously writing 'deposit_paid'
-      // which is NOT a valid payment_status enum value -- the
+      // which is NOT a valid payment_status enum value - the
       // convert_quote_to_order RPC blew up with an enum violation
       // on every partial deposit, leaving the operator with a
       // generic "Conversion failed" toast and no order.
@@ -723,7 +723,7 @@ export const quoteService = {
     // separate round-trips and a network blip between them left orphan
     // orders with no quote linkage. The RPC locks the quote row,
     // validates it isn't already converted, inserts the order, and
-    // back-links the quote -- all or nothing. See migration
+    // back-links the quote - all or nothing. See migration
     // 20260506110000_convert_quote_to_order_function.sql.
     //
     // resolveQuoteClientId stays OUTSIDE the transaction on purpose:
@@ -753,10 +753,10 @@ export const quoteService = {
 
     // The function returns a single orders row. Supabase wraps
     // single-row function returns as either an object or a one-element
-    // array depending on the PostgREST version -- normalise here.
+    // array depending on the PostgREST version - normalise here.
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
 
-    // Wave 50 C10 -- carry quotes.source onto orders.lead_source so
+    // Wave 50 C10 - carry quotes.source onto orders.lead_source so
     // attribution survives into order analytics. The convert RPC
     // doesn't know about this column yet (signature is fixed); a
     // single follow-up update is the cheapest path. Best-effort.
@@ -825,7 +825,7 @@ export const quoteService = {
         // into `payments`. Result: the finance dashboard's payment
         // ledger missed the deposit, the per-client receipt list was
         // empty, and the receivables aging report under-reported
-        // collected cash. Best-effort insert here -- the cascade is
+        // collected cash. Best-effort insert here - the cascade is
         // already non-fatal for any single sub-step, so the order
         // still lands cleanly if the payments policy denies the write.
         try {
@@ -892,7 +892,7 @@ export const quoteService = {
   /**
    * Explicit "send this quote to the client" action.
    *
-   * Now a thin wrapper over updateQuote -- updateQuote detects the
+   * Now a thin wrapper over updateQuote - updateQuote detects the
    * draft->sent transition and fires the email itself, so this method
    * just exists for callers that want a single explicit verb. Kept
    * so existing UI buttons (admin Quote list "Send" action, etc.)

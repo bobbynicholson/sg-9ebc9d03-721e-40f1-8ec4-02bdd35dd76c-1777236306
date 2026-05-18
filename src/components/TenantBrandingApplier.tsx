@@ -2,7 +2,7 @@
 /**
  * Top-level branding applier. Mounted once from `_app.tsx`, owns the
  * fetch + DOM apply + cache lifecycle for the active tenant. Exposes
- * no UI -- consumers read the row via `useBrandingRow()`.
+ * no UI - consumers read the row via `useBrandingRow()`.
  *
  * Tenant pre-auth pages (e.g. /[company_slug]/login) ship the right
  * branding via getStaticProps; `_app.tsx` forwards the resulting prop
@@ -45,7 +45,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     const row = initialToRow(initialBranding);
     setBrandingRow(row);
     applyBrandingToDOM(row);
-    // Run once -- subsequent updates flow via auth/companyId.
+    // Run once - subsequent updates flow via auth/companyId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

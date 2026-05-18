@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * pdfCache -- in-memory LRU for rendered PDF buffers.
+ * pdfCache - in-memory LRU for rendered PDF buffers.
  *
  * Why: @react-pdf/renderer's pdf().toBuffer() takes 200-500 ms per
  * document. The "admin clicks Send twice" pattern paid that cost on
  * every click. Cache by a key that mixes the entity id with its
- * updated_at so we never serve a stale buffer -- if the underlying
+ * updated_at so we never serve a stale buffer - if the underlying
  * row changed, the key changes too.
  *
  * Scope: process-local Map. On Vercel serverless this is per-instance
- * and dies on cold start. Good enough -- the cache only has to
+ * and dies on cold start. Good enough - the cache only has to
  * survive within a single warm invocation. We don't try to share
  * across instances; doing so would need Redis or similar and the
  * win isn't worth the dependency.
@@ -71,7 +71,7 @@ export function pdfCacheSet(key: string, buffer: Buffer): void {
   store.set(key, { buffer, renderedAt: Date.now(), key });
   while (store.size > MAX_ENTRIES) {
     // Map iterators yield in insertion order, so the first key is
-    // the oldest. .next().value gives us [key, value] -- we only
+    // the oldest. .next().value gives us [key, value] - we only
     // need the key.
     const oldest = store.keys().next().value;
     if (!oldest) break;
@@ -98,7 +98,7 @@ export function buildQuoteCacheKey(
 
 /**
  * Build a cache key for an invoice render. Same idea as the quote
- * key but folds in the order's updated_at as well -- an invoice's
+ * key but folds in the order's updated_at as well - an invoice's
  * line items reflect the order, so an order edit must invalidate.
  */
 export function buildInvoiceCacheKey(

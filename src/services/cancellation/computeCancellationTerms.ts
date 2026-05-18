@@ -1,10 +1,10 @@
 /**
- * Wave 28.1 -- pure rules engine for client-initiated cancellations.
+ * Wave 28.1 - pure rules engine for client-initiated cancellations.
  *
  * Mirrors the SQL function get_refund_for_order so the client wizard
  * can render the same numbers the server will commit, with no DB
  * roundtrip per step. The server still re-runs the SQL function as
- * source of truth before any side effects -- this is advisory.
+ * source of truth before any side effects - this is advisory.
  *
  * Adds three things on top of the SQL output:
  *   1. creditAmount + creditPct (goodwill bonus to nudge cashflow).
@@ -50,7 +50,7 @@ const daysBetween = (eventISO: string, now: Date): number => {
 };
 
 const formatEventDateLabel = (iso: string): string => {
-  // "14 May" style -- no year unless next year, no day-of-week.
+  // "14 May" style - no year unless next year, no day-of-week.
   try {
     const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
     const nowYear = new Date().getUTCFullYear();
@@ -71,7 +71,7 @@ const formatEventDateLabel = (iso: string): string => {
 /**
  * Walk the policy tiers (highest min_days first), pick the first one
  * the order still satisfies. Falls back to legacy cancellation_fee_percent
- * when no tiers configured -- matches SQL exactly.
+ * when no tiers configured - matches SQL exactly.
  */
 const pickRefundPctFromPolicy = (
   policy: CancellationPolicy,
@@ -86,7 +86,7 @@ const pickRefundPctFromPolicy = (
   if (tiers.length === 0) {
     const pct = Math.max(0, 100 - legacyCancelFeePct);
     reasoning.push(
-      `No refund tiers configured -- falling back to legacy cancel-fee of ${legacyCancelFeePct}% (refund ${pct}%).`,
+      `No refund tiers configured - falling back to legacy cancel-fee of ${legacyCancelFeePct}% (refund ${pct}%).`,
     );
     return { refundPct: pct, tierMatched: false };
   }
@@ -103,14 +103,14 @@ const pickRefundPctFromPolicy = (
     if (daysToEvent >= min) {
       const pct = Number(tier.refund_pct ?? 0);
       reasoning.push(
-        `Matched tier "${tier.label || `${min}+ days`}" -- refund ${pct}%.`,
+        `Matched tier "${tier.label || `${min}+ days`}" - refund ${pct}%.`,
       );
       return { refundPct: pct, tierMatched: true, matchedLabel: tier.label };
     }
   }
 
   reasoning.push(
-    `Inside the tightest tier window -- forfeit (refund 0%).`,
+    `Inside the tightest tier window - forfeit (refund 0%).`,
   );
   return { refundPct: 0, tierMatched: true };
 };
@@ -139,7 +139,7 @@ const buildCommittedCostNote = (input: CancellationInput): string | null => {
   if (parts.length === 0) return null;
   const joined =
     parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;
-  return `Heads-up -- ${joined}. That spend is committed and won't be recovered, but the catering company will be notified so they can redistribute what's salvageable.`;
+  return `Heads-up - ${joined}. That spend is committed and won't be recovered, but the catering company will be notified so they can redistribute what's salvageable.`;
 };
 
 /**
@@ -158,7 +158,7 @@ const detectBlock = (
   ) {
     return {
       reason:
-        "This order is already on its way to the venue. Self-service cancellation isn't safe at this point -- please call the catering company directly.",
+        "This order is already on its way to the venue. Self-service cancellation isn't safe at this point - please call the catering company directly.",
     };
   }
   if (status === "completed") {
@@ -221,7 +221,7 @@ export function computeCancellationTerms(
   const creditPct = Math.min(100, refundPct + creditBonusPct);
   if (creditBonusPct > 0 && refundPct < 100) {
     reasoning.push(
-      `Credit option includes a ${creditBonusPct}pp goodwill bonus -- ${creditPct}% as store credit vs ${refundPct}% as refund.`,
+      `Credit option includes a ${creditBonusPct}pp goodwill bonus - ${creditPct}% as store credit vs ${refundPct}% as refund.`,
     );
   }
 
@@ -238,7 +238,7 @@ export function computeCancellationTerms(
 
   if (base === 0) {
     reasoning.push(
-      "Nothing has been paid yet -- no money is moving either way.",
+      "Nothing has been paid yet - no money is moving either way.",
     );
   }
 
@@ -253,12 +253,12 @@ export function computeCancellationTerms(
 
   if (requiresOwnerOverride) {
     reasoning.push(
-      `Inside the ${lateOverrideDays}-day owner-override window -- this cancellation will be queued for review by the catering team rather than auto-processed.`,
+      `Inside the ${lateOverrideDays}-day owner-override window - this cancellation will be queued for review by the catering team rather than auto-processed.`,
     );
   }
   if (!canPostpone) {
     reasoning.push(
-      `Less than ${postponeNotice} days notice -- postponement isn't available, only cancellation.`,
+      `Less than ${postponeNotice} days notice - postponement isn't available, only cancellation.`,
     );
   }
 

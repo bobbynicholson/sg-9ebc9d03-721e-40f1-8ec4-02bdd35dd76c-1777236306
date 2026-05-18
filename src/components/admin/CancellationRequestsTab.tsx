@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, CalendarX, Calendar, Receipt } from "lucide-react";
-// Wave 70.49c -- surfaces "manual follow-ups required" alongside the
+// Wave 70.49c - surfaces "manual follow-ups required" alongside the
 // requests list so operators see hire-in / outsource notifications
 // they still need to action without leaving the cancellation tab.
 import { OrderManualFollowupsPanel } from "@/components/admin/OrderManualFollowupsPanel";
@@ -108,7 +108,7 @@ export function CancellationRequestsTab({ orderId, onActioned }: Props) {
     return <div className="text-sm text-slate-500 p-4">Loading...</div>;
   }
 
-  // Wave 70.49c -- the manual follow-ups panel renders WHENEVER an
+  // Wave 70.49c - the manual follow-ups panel renders WHENEVER an
   // order has been cancelled with pending hire/outsource follow-ups,
   // even if there are no cancellation_requests rows (e.g. admin-side
   // direct cancel via /api/orders/[id]/cancel, which writes the

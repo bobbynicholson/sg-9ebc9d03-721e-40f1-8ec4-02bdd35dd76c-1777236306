@@ -131,7 +131,7 @@ export async function verifyResendDomain(
 /**
  * List every domain registered under our Resend account.
  *
- * Used when createResendDomain returns "already registered" -- we look
+ * Used when createResendDomain returns "already registered" - we look
  * up the existing record by name and reuse its DNS records rather than
  * making the operator re-register a domain that's already there. This
  * happens when an earlier test left a domain in Resend but the local
@@ -198,7 +198,7 @@ export function normaliseDomain(input: string): string | null {
   d = d.split("/")[0];
   d = d.split("?")[0];
   d = d.replace(/\/+$/, "");
-  // Very loose check -- at least one dot, only allowed chars.
+  // Very loose check - at least one dot, only allowed chars.
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) return null;
   if (d.length > 253) return null;
   return d;

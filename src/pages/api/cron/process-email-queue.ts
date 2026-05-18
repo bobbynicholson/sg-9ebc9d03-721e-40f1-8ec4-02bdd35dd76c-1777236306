@@ -16,7 +16,7 @@
  * email provider on quieter platforms.
  *
  * Failure handling: increments attempts on every fire. Hard-cap at
- * 5 attempts -- after which the row stays in the queue with status
+ * 5 attempts - after which the row stays in the queue with status
  * 'failed' for admin review (the resend dashboard from item #9 can
  * surface them). A transient Resend outage is recoverable; a bad
  * recipient address is not.
@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Auth -- shared secret check. Vercel Cron passes
+  // Auth - shared secret check. Vercel Cron passes
   // Authorization: Bearer ${CRON_SECRET}.
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.authorization || "";
@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const nowIso = new Date().toISOString();
 
   // Per-tenant gate. Default policy is "operator drives every send"
-  // -- companies.auto_followups_enabled is FALSE on every row until
+  // - companies.auto_followups_enabled is FALSE on every row until
   // the operator explicitly opts in. Pull the allow-list once and
   // filter the queue read so we never auto-send for a tenant that
   // hasn't asked for it. Keeps the queue infrastructure in place for
@@ -100,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Wave 24: pass the service-role client so getEmailConfig can
       // read email_provider_settings under RLS. Without _client the
       // helper falls back to browser anon supabase (no session on the
-      // server) -- the SELECT silently returns nothing, the dispatch
+      // server) - the SELECT silently returns nothing, the dispatch
       // returns false, every queued email gets retried until it hits
       // MAX_ATTEMPTS and lands in 'failed'. The bug was hiding behind
       // the legitimate "transient outage" retry loop.

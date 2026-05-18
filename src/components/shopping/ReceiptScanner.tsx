@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ReceiptScanner -- shared receipt-scanning UI body.
+ * ReceiptScanner - shared receipt-scanning UI body.
  *
  * Used by:
  *   - /admin/onboarding/receipts (day-one onboarding)
@@ -417,7 +417,7 @@ export function ReceiptScanner({
         </div>
       )}
 
-      {/* Reconcile drawer -- opens when the operator clicks 'Reconcile & save'
+      {/* Reconcile drawer - opens when the operator clicks 'Reconcile & save'
           on any successful extraction. Persists the slip to purchase_receipts
           + items and (optionally) feeds inventory via receiveStock. */}
       <ReconcileSlipDrawer

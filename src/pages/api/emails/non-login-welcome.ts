@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       logoUrl: company?.logo_url || undefined,
     };
 
-    // Pick a primary role for the email -- first item in departments[]
+    // Pick a primary role for the email - first item in departments[]
     // that we have copy for, else default to kitchen.
     const depts: string[] = (staff.departments as string[]) || [];
     const role: NonLoginRole =

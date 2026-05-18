@@ -3,7 +3,7 @@
  * Platform admin: edit the SA SARS deductibility rules used by the
  * slip scanner's AI to classify line items.
  *
- * The table is global (no company_id) -- one set of rules for the whole
+ * The table is global (no company_id) - one set of rules for the whole
  * platform. Only super_admins land here, gated by ProtectedRoute.
  *
  * Schema reference: see migration

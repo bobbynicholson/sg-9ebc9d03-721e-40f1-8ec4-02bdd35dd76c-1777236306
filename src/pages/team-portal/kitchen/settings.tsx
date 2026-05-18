@@ -1,5 +1,5 @@
 /**
- * /team-portal/kitchen/settings -- Wave 70.8
+ * /team-portal/kitchen/settings - Wave 70.8
  *
  * Permanent redirect. The editable kitchen settings page moved to
  * /admin/kitchen-settings in Wave 70.8 because the BCEA shift

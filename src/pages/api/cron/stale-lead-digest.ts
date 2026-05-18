@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 50 C2 -- weekly stale-lead digest.
+ * Wave 50 C2 - weekly stale-lead digest.
  *
  * Audit (Specialist 4) found leads sat at status='new' indefinitely
  * with no nurture, no nudge, no digest. Operators only saw the

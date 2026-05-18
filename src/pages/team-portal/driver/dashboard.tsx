@@ -55,7 +55,7 @@ interface Job {
   id: string;
   order_number: string;
   client_name: string;
-  // Wave 46 T5 -- driver previously couldn't ring the client when
+  // Wave 46 T5 - driver previously couldn't ring the client when
   // they hit the venue (locked gate, on-site contact only). Now
   // surfaces the contact phone + any special instructions inline.
   client_phone?: string | null;
@@ -102,7 +102,7 @@ export default function DriverDashboard() {
     return () => { cancelled = true; };
   }, [user?.id, user?.company_id]);
 
-  // Wave 70.12 -- today's clocked hours so the earnings widget can
+  // Wave 70.12 - today's clocked hours so the earnings widget can
   // include the hourly portion (clocked_hours x hourly_rate) on top
   // of the per-delivery callout + km calc. Bobby's reality: drivers
   // get paid for showing up even when no jobs land, so a clocked
@@ -167,7 +167,7 @@ export default function DriverDashboard() {
       setLoading(true);
 
       // Get driver's assignments
-      // Wave 46 T5 -- pull client_phone + special_instructions so the
+      // Wave 46 T5 - pull client_phone + special_instructions so the
       // driver doesn't get stuck at a locked venue with no number
       // to call, and sees any "back gate, ring up first" notes.
       const { data: assignments, error: assignmentsError } = await supabase
@@ -274,7 +274,7 @@ export default function DriverDashboard() {
       setJobs(uniqueJobs);
 
       // Auto-acknowledge any unacked assignments. Opening the driver
-      // app IS the acknowledgement -- the audit gap was "admin doesn't
+      // app IS the acknowledgement - the audit gap was "admin doesn't
       // know if driver saw the dispatch". Loading the dashboard is
       // proof they saw it. Fire-and-forget per order; the API
       // endpoint is idempotent so re-firing on already-acked orders
@@ -411,16 +411,16 @@ export default function DriverDashboard() {
     (j) => j.event_date === new Date().toISOString().split("T")[0]
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
-  // Wave 70.12 -- Potential earnings now includes THREE components:
+  // Wave 70.12 - Potential earnings now includes THREE components:
   //   1. Per-delivery callout fee (one flat charge per job)
   //   2. Per-delivery round-trip distance pay (km x rate)
   //   3. Hourly portion = hours_clocked_today x hourly_rate
   //
   // The hourly portion fires for ANY clocked-in driver, even with
-  // zero jobs claimed -- so a driver who clocks in to wait around
+  // zero jobs claimed - so a driver who clocks in to wait around
   // sees R earned for time, not R0. Pre-Wave-70.12 only the
   // delivery components counted, so a 0.2h shift with 0 deliveries
-  // rendered R0 -- which Bobby flagged as wrong.
+  // rendered R0 - which Bobby flagged as wrong.
   const todaysDeliveryEarnings = (() => {
     if (!payRates) return 0;
     return todaysJobs.reduce((sum, j) => {
@@ -630,7 +630,7 @@ export default function DriverDashboard() {
                       {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled •{" "}
                       {completedToday} completed
                     </p>
-                    {/* Wave 70.12 -- breakdown so the driver sees how
+                    {/* Wave 70.12 - breakdown so the driver sees how
                         the number is built. Hides when there's
                         nothing to break down. */}
                     {(todaysHourlyEarnings > 0 || todaysDeliveryEarnings > 0) && payRates && (
@@ -696,7 +696,7 @@ export default function DriverDashboard() {
                             {job.client_name}
                           </p>
                           <p className="text-xs text-slate-600 truncate">{job.venue_address}</p>
-                          {/* Wave 46 T5 -- client_phone tap-to-call so the
+                          {/* Wave 46 T5 - client_phone tap-to-call so the
                               driver can ring on arrival without leaving the
                               app. Special instructions render in rose so a
                               "back gate, ring up first" note is unmissable. */}

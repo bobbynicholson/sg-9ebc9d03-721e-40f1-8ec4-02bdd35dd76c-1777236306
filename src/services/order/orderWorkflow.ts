@@ -37,7 +37,7 @@ const supabase: any = resolveServerClient();
 // through a different code path, not this function). Pre-event
 // keeps the existing flexibility (pending can go back to draft for
 // quote rebuild). [P0-12]
-// Audit (May 2026): out_for_delivery removed -- the DB enum has no
+// Audit (May 2026): out_for_delivery removed - the DB enum has no
 // such value, every write that tried it was silently rejected, and
 // readers across 21 files were filtering for a status that could
 // never exist. Canonical "truck is rolling" status is in_transit.
@@ -63,7 +63,7 @@ const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
 // transition map.
 //
 //   ALLOWED_CANCEL_FROM:
-//     Anywhere pre-completion is legal -- cancelling a confirmed
+//     Anywhere pre-completion is legal - cancelling a confirmed
 //     order, a preparing order, even an in-transit one (truck
 //     breakdown) is real. Cancelling a delivered order should go
 //     via refund / credit-note, not a fresh cancellation, so it's
@@ -129,7 +129,7 @@ export async function updateOrderStatus(
     // Stamp every lifecycle moment the first time an order reaches
     // it. Audit (May 2026, Wave 5): the previous block only wrote
     // confirmed_at. Downstream KPIs key off picked_up_at and (more
-    // critically) delivered_at -- driver on-time rate, dispatch
+    // critically) delivered_at - driver on-time rate, dispatch
     // KPI tile, and the orders timeline all read NULL today because
     // nothing ever stamped it. Now writes every <status>_at the
     // first time the order transitions into that status.
@@ -151,9 +151,9 @@ export async function updateOrderStatus(
       if (priorErr) {
         console.error("[order/orderWorkflow] orders fetch failed:", priorErr);
       }
-      // confirmed_at -- any advanced status counts as "past confirmed"
+      // confirmed_at - any advanced status counts as "past confirmed"
       if (!(prior as any)?.confirmed_at) updates.confirmed_at = nowIso;
-      // Per-status stamps -- never clobber an existing value. The
+      // Per-status stamps - never clobber an existing value. The
       // orders table has ready_at / picked_up_at / delivered_at /
       // completed_at columns (preparing_at does not exist, so
       // preparing status doesn't stamp a per-state column).
@@ -192,7 +192,7 @@ export async function updateOrderStatus(
     // order_status_history is the domain table (one row per status
     // change); audit_logs is the platform-wide trail used for the
     // "show me everything that happened on this entity" view.
-    // Best-effort -- a failed audit insert never rolls back a real
+    // Best-effort - a failed audit insert never rolls back a real
     // status flip.
     if (order.company_id) {
       try {
@@ -213,13 +213,13 @@ export async function updateOrderStatus(
       }
     }
 
-    // Wave 49 B1 -- lockstep mirror to driver_assignments. Pre-Wave-49
+    // Wave 49 B1 - lockstep mirror to driver_assignments. Pre-Wave-49
     // every orders.status flip wrote the orders.<status>_at stamp but
     // never touched the matching driver_assignments row. Result:
     //   * driver_assignments.status rotted at 'accepted' for the
     //     entire lifetime of the assignment
     //   * dispatchService.getDriverPerformance filtered on
-    //     da.status='completed' -- never matched -- silently
+    //     da.status='completed' - never matched - silently
     //     under-counted every driver's stats
     //   * delivered_at / completed_at lived only on orders, not
     //     on driver_assignments where payroll reads from
@@ -239,7 +239,7 @@ export async function updateOrderStatus(
 
     // Kitchen prep lead-hours warning on confirm. Audit Kitchen G5:
     // a 2-hour-from-event confirm with a 4-hour recipe is structurally
-    // impossible -- prep_starts_at lands in the past, kitchen tablet
+    // impossible - prep_starts_at lands in the past, kitchen tablet
     // shows the order as on-track, then the food is late. Compute the
     // gap between now and event_start; if it's tighter than the
     // tenant's configured lead time, raise a HIGH-priority bell so
@@ -268,7 +268,7 @@ export async function updateOrderStatus(
               regionId: (order as any).region_id || null,
               targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
               title: `Tight kitchen lead time on order ${order.order_number || order.id}`,
-              message: `Order confirmed with only ${Math.max(0, hoursUntilEvent).toFixed(1)}h until event start. Kitchen needs ${leadHours}h to prep cleanly -- consider pushing the event back or assigning extra hands.`,
+              message: `Order confirmed with only ${Math.max(0, hoursUntilEvent).toFixed(1)}h until event start. Kitchen needs ${leadHours}h to prep cleanly - consider pushing the event back or assigning extra hands.`,
               type: "kitchen_prep_lead_short",
               priority: "high",
               link: `/admin/orders?orderId=${order.id}`,
@@ -284,7 +284,7 @@ export async function updateOrderStatus(
       }
     }
 
-    // Auto-invoice on the confirmed transition. Idempotent -- if
+    // Auto-invoice on the confirmed transition. Idempotent - if
     // an invoice already exists for this order, the helper returns
     // it without creating a duplicate. Imported / quarantined orders
     // are skipped automatically. Non-blocking: a failed invoice
@@ -314,7 +314,7 @@ export async function updateOrderStatus(
     }
 
     // Schedule pre-event reminders on confirm. Closes the audit gap
-    // "no automated pre-event reminders" -- the templates existed
+    // "no automated pre-event reminders" - the templates existed
     // but nothing fired them. We schedule a 1-week-before and a
     // 1-day-before email; both honour the same quarantine + block
     // gates as everything else via emailService.
@@ -326,11 +326,11 @@ export async function updateOrderStatus(
       }
     }
 
-    // Wave 47 -- prep tasks auto-gen on confirmed transition.
+    // Wave 47 - prep tasks auto-gen on confirmed transition.
     // Pre-Wave-47 ensurePrepTasksForOrder ran only inside
     // postCreationCascade (at order creation). Orders that were
     // converted from quote / draft and only later transitioned to
-    // confirmed never got prep tasks generated -- the chef opened
+    // confirmed never got prep tasks generated - the chef opened
     // the kitchen portal to an empty list. ensurePrepTasksForOrder
     // is idempotent so a re-run on an order that already has tasks
     // is a cheap no-op.
@@ -344,7 +344,7 @@ export async function updateOrderStatus(
     }
 
     // Queue the 24h post-delivery review prompt. Replaces the old
-    // setTimeout(callback, 24h) in notificationService -- serverless
+    // setTimeout(callback, 24h) in notificationService - serverless
     // functions don't survive that long so the timer never fired.
     // We write a pending_reviews row here and a Vercel cron worker
     // (process-pending-reviews) drains it once due_at has passed.
@@ -394,7 +394,7 @@ export async function updateOrderStatus(
         const dueAt = new Date(deliveredAt.getTime() + 24 * 60 * 60 * 1000);
 
         // Resolve the auth uid for the in-app notification target. Null
-        // is fine -- the cron handler will skip the in-app push and
+        // is fine - the cron handler will skip the in-app push and
         // still send the email if we have an address.
         let clientUserId: string | null = null;
         try {
@@ -476,7 +476,7 @@ export async function updateOrderStatus(
         if (order.requires_waiter === true) {
           // fall through to the cleaning-queue insert below
         } else {
-        // Skip when no equipment was on this order -- no collection
+        // Skip when no equipment was on this order - no collection
         // needed. Audit (May 2026, Wave 4): the count previously
         // didn't filter by status, so cancelled bookings under an
         // amendment-revised order still triggered a phantom collection
@@ -578,7 +578,7 @@ export async function updateOrderStatus(
     }
 
     // Auto-queue cleaning rows on delivered. The audit flagged that
-    // equipment_cleaning_status had no writer anywhere -- cleaning
+    // equipment_cleaning_status had no writer anywhere - cleaning
     // team's inbox was permanently empty because no code path
     // inserted into the table. When the order hits 'delivered',
     // walk its equipment_bookings and insert one cleaning row per
@@ -588,7 +588,7 @@ export async function updateOrderStatus(
     // for (order_id, equipment_id). Non-blocking on failure.
     if (newStatus === "delivered" && order.company_id) {
       try {
-        // Wave 70.24 -- pull equipment_bookings WITH the cleaning
+        // Wave 70.24 - pull equipment_bookings WITH the cleaning
         // flags so we can filter out items that don't need cleaning
         // (disposables, tables, supplier-cleaned hire-in). Without
         // this filter the trigger spawned a cleaning_jobs row for
@@ -603,7 +603,7 @@ export async function updateOrderStatus(
           `)
           .eq("order_id", (order as any).id);
 
-        // Wave 70.24 -- ensure the cleaning_event_handover row
+        // Wave 70.24 - ensure the cleaning_event_handover row
         // exists + flip it to 'in_progress'. The handover is the
         // event-level container the cleaning portal groups jobs
         // under. Done BEFORE the cleaning_jobs insert so the
@@ -693,7 +693,7 @@ export async function updateOrderStatus(
       }
     }
 
-    // Wave 70.24 -- create the 'expected' handover row when the
+    // Wave 70.24 - create the 'expected' handover row when the
     // order moves to 'confirmed'. Gives the cleaning team
     // ANTICIPATION (the queue sees "Brown lunch returns at 14:00,
     // expect 80 items") instead of the previous reactive-only
@@ -713,7 +713,7 @@ export async function updateOrderStatus(
     }
 
     // Auto-deduct inventory on delivery. Flow audit Leg D P0-1: the
-    // deduction service was never invoked by any production path -- the
+    // deduction service was never invoked by any production path - the
     // only caller (deliveryService.markDelivered) was dead code, so
     // every order delivered to date left zero usage transactions and
     // the COGS pipeline (Wave 9 Item 3) showed "No usage data yet"
@@ -739,12 +739,12 @@ export async function updateOrderStatus(
 
     // Auto-flip delivered -> completed once after-event window passes.
     // Flow audit Leg F P0-3: completeOrder() flips to "delivered" not
-    // "completed", and there was no other auto-completion path -- so
+    // "completed", and there was no other auto-completion path - so
     // every order sat at delivered indefinitely, the after-sales
     // sequence (which keys on completed) never fired. Trigger a
     // delayed transition here. For now, fire it synchronously when the
     // operator explicitly marks the order completed via the dedicated
-    // workflow path -- separate from the auto-fire on delivery. The
+    // workflow path - separate from the auto-fire on delivery. The
     // cron path lives in /api/cron/auto-complete-delivered (added in
     // companion change).
     return { success: true, data: order };
@@ -871,7 +871,7 @@ export async function confirmOrder(orderId: string) {
   // Phase 1 kitchen flywheel: auto-generate backwards-planned prep tasks the
   // moment an order is confirmed. The service is idempotent and silently
   // skips when auto_generate_prep_tasks is disabled per tenant. Failure here
-  // never blocks the confirm -- the kitchen page will surface "no plan yet"
+  // never blocks the confirm - the kitchen page will surface "no plan yet"
   // and an admin can regenerate if needed.
   try {
     const { data } = await supabase
@@ -897,7 +897,7 @@ export async function markOrderReady(orderId: string) {
 
 export async function startDelivery(orderId: string) {
   // Canonical "truck rolling" status is in_transit. Audit (May 2026)
-  // removed the parallel out_for_delivery branch -- the DB enum has
+  // removed the parallel out_for_delivery branch - the DB enum has
   // no such value and every prior write was silently rejected.
   return updateOrderStatus(orderId, "in_transit");
 }
@@ -929,7 +929,7 @@ export async function cancelOrder(
     cancelled_by_user_id?: string;
     /**
      * Server-side callers (Next.js API routes) MUST pass an SSR
-     * Supabase client here -- the imported browser client has no
+     * Supabase client here - the imported browser client has no
      * cookie/session in that context and RLS will reject the UPDATE
      * with "permission denied for table orders". Browser callers
      * can omit this and the default browser client picks up the
@@ -946,7 +946,7 @@ export async function cancelOrder(
     // cancelOrder writes status='cancelled' directly without going
     // through updateOrderStatus's transition map, so the validation
     // is duplicated here. Reject if the current status is already
-    // terminal (cancelled / completed) -- those should be handled
+    // terminal (cancelled / completed) - those should be handled
     // via reactivate / refund flows, not a fresh cancellation. Also
     // bail early if already cancelled (idempotency).
     const { data: current, error: currentErr2 } = await sb
@@ -999,23 +999,23 @@ export async function cancelOrder(
 
     if (error) throw error;
 
-    // Wave 70.48 -- centralised resource release. The cascade that used
+    // Wave 70.48 - centralised resource release. The cascade that used
     // to live inline here (equipment_bookings, kitchen_prep_tasks,
     // inventory reversal, invoice void, outgoing_email_queue cancel,
     // outsource_assignments, cleaning_event_handover) now lives in
     // releaseOrderResources(). Why we changed:
     //   - Adding new resources to release (driver_assignments,
-    //     equipment_hire_orders, shopping_list_items -- coming in
+    //     equipment_hire_orders, shopping_list_items - coming in
     //     waves 70.49-70.51) used to require touching this function,
     //     the postpone branch in cancellation-review.ts, and the
-    //     magic-link cancel path -- three copies in sync.
+    //     magic-link cancel path - three copies in sync.
     //   - The release receipt returned by the helper is now audit-
     //     logged so we can see EXACTLY what was released for any
     //     given cancellation (vs grepping multiple console.warns).
     //   - The helper runs sequentially (not fire-and-forget) so the
     //     order_cancelled audit log can include the full receipt.
     //     Each individual resource still tolerates its own failure
-    //     without unwinding siblings -- the helper catches per-resource.
+    //     without unwinding siblings - the helper catches per-resource.
     const { releaseOrderResources } = await import("./releaseResources");
     const releaseReceipt = await releaseOrderResources({
       orderId,
@@ -1035,7 +1035,7 @@ export async function cancelOrder(
         status: "cancelled",
         changed_by: opts.cancelled_by_user_id || null,
         notes: opts.reason
-          ? `Cancelled: ${opts.reason_category || "other"} -- ${opts.reason}`
+          ? `Cancelled: ${opts.reason_category || "other"} - ${opts.reason}`
           : `Cancelled: ${opts.reason_category || "other"}`,
       } as any);
       // Wave 11 #12 + Wave 70.48: cross-cutting audit row. Now also
@@ -1069,13 +1069,13 @@ export async function cancelOrder(
       console.warn("[cancelOrder] notifications failed:", e);
     }
 
-    // Wave 70.48 -- the cleaning_event_handover cancel previously lived
+    // Wave 70.48 - the cleaning_event_handover cancel previously lived
     // inline here as a separate try/catch. It now runs inside the
     // releaseOrderResources() helper above, so removing the duplicate
     // call. The helper records the cancel in releaseReceipt.lines
     // alongside every other cascade so the audit trail is complete.
 
-    // Wave 70.49 -- return the release receipt alongside the order so
+    // Wave 70.49 - return the release receipt alongside the order so
     // API callers (the cancel.ts endpoint -> CancelOrderDialog) can
     // surface "N manual follow-ups required" to the operator without
     // a second round-trip to read audit_logs. Existing callers that
@@ -1089,7 +1089,7 @@ export async function cancelOrder(
 
 /**
  * Pause an active order. Triggered when the client phones to say
- * "we might still go ahead, hold tight" -- distinct from cancel
+ * "we might still go ahead, hold tight" - distinct from cancel
  * because the trajectory is still alive. Mirrors cancelOrder's
  * discipline (atomic status flip + cascades + audit + notifications)
  * but everything is reversible via resumeOrder.
@@ -1108,7 +1108,7 @@ export async function cancelOrder(
  *
  * Deposit handling: invoice is left as-is. If no payment had been
  * made the operator can void manually; if a deposit was paid we
- * preserve it. Pause is reversible -- voiding eagerly would be
+ * preserve it. Pause is reversible - voiding eagerly would be
  * destructive.
  */
 export async function pauseOrder(
@@ -1142,7 +1142,7 @@ export async function pauseOrder(
       return { success: false, error: "Cannot pause a cancelled or completed order." };
     }
     // Phase 3 #6: source-status allowlist. Pausing a delivered or
-    // in-transit order makes no operational sense -- the food is out
+    // in-transit order makes no operational sense - the food is out
     // the door, the driver needs a decisive call. Hard refuse.
     if ((existing as any).status && !ALLOWED_PAUSE_FROM.has((existing as any).status)) {
       return {
@@ -1200,14 +1200,14 @@ export async function pauseOrder(
       }
     })();
 
-    // Inline audit log -- mirrors cancelOrder's pattern.
+    // Inline audit log - mirrors cancelOrder's pattern.
     try {
       await sb.from("order_status_history").insert({
         order_id: orderId,
         status: "paused",
         changed_by: opts.paused_by_user_id || null,
         notes: opts.reason
-          ? `Paused from ${fromStatus}: ${opts.reason_category || "other"} -- ${opts.reason}`
+          ? `Paused from ${fromStatus}: ${opts.reason_category || "other"} - ${opts.reason}`
           : `Paused from ${fromStatus}: ${opts.reason_category || "other"}`,
       } as any);
     } catch (e) {
@@ -1304,7 +1304,7 @@ export async function resumeOrder(
     })();
 
     // Restore prep tasks. Only un-soft-deletes tasks that were
-    // pending/in_progress -- completed and cancelled stay where
+    // pending/in_progress - completed and cancelled stay where
     // they are (history is sacred).
     void (async () => {
       try {
@@ -1324,7 +1324,7 @@ export async function resumeOrder(
         order_id: orderId,
         status: restoreTo,
         changed_by: opts.resumed_by_user_id || null,
-        notes: `Resumed from paused -- back to ${restoreTo}`,
+        notes: `Resumed from paused - back to ${restoreTo}`,
       } as any);
     } catch (e) {
       console.warn("[resumeOrder] status history insert failed:", e);
@@ -1370,7 +1370,7 @@ async function sendStatusNotifications(order: any) {
     : "";
   // Tenant display name for the new preparing/ready client comms.
   // Lifted out so we look it up once per status change instead of
-  // per-channel. Best-effort -- a missing row falls back to a
+  // per-channel. Best-effort - a missing row falls back to a
   // neutral phrase in the email body.
   let tenantName = "Your catering team";
   if (order.company_id) {
@@ -1393,7 +1393,7 @@ async function sendStatusNotifications(order: any) {
   const isCommsPaused = !!order.comms_paused_until && new Date(order.comms_paused_until) > new Date();
 
   // Resolve the client's auth uid ONCE up front. orders.client_id is a FK
-  // to clients.id, NOT auth.users.id -- pushing it as recipient_id silently
+  // to clients.id, NOT auth.users.id - pushing it as recipient_id silently
   // drops the notification (no auth user reads it). If this returns null
   // we skip every client-facing in-app push below; the email + WhatsApp
   // paths are unaffected because they use clientEmail / clientPhone.
@@ -1411,7 +1411,7 @@ async function sendStatusNotifications(order: any) {
     }
   }
 
-  // 1. In-app notifications -- always fire (admin + driver + client).
+  // 1. In-app notifications - always fire (admin + driver + client).
   // Each row gets a deep-link (`link`) AND a related_entity pointer so
   // the bell + notifications page can render contextual CTAs that jump
   // straight to the order. Admin pushes go to /admin/orders?orderId=...
@@ -1443,7 +1443,7 @@ async function sendStatusNotifications(order: any) {
         });
       }
       // Role-fanout: tell the kitchen team an order is in for them.
-      // Audit Notif G1 -- the kitchen inbox at
+      // Audit Notif G1 - the kitchen inbox at
       // /team-portal/kitchen/notifications had no producer anywhere,
       // so non-assigned chefs were blind to incoming orders. Fan-out
       // to the whole kitchen_staff role for this company so anyone
@@ -1504,14 +1504,14 @@ async function sendStatusNotifications(order: any) {
       if (order.user_id) {
         inApp.push({
           recipient_id: order.user_id,
-          title: "Order ready -- driver alerted",
+          title: "Order ready - driver alerted",
           message: `Order ${orderNumber} ready, driver has been pinged.`,
           notification_type: "order_ready",
           notification_kind: "admin",
         });
       }
       // Client-facing push so they know prep is done and dispatch is
-      // next -- closes the second silent moment before in_transit.
+      // next - closes the second silent moment before in_transit.
       if (clientAuthUid) {
         inApp.push({
           recipient_id: clientAuthUid,
@@ -1522,7 +1522,7 @@ async function sendStatusNotifications(order: any) {
         });
       }
       // Multi-ready cluster alert. When 2+ orders hit ready inside
-      // a 30-minute window, dispatch needs to coordinate -- without
+      // a 30-minute window, dispatch needs to coordinate - without
       // this, the kitchen can have 3 hot meals waiting while a
       // single driver wonders which to grab first. Counts the
       // current order's company by status='ready' updated in the
@@ -1540,7 +1540,7 @@ async function sendStatusNotifications(order: any) {
           if (typeof readyCount === "number" && readyCount >= 2) {
             inApp.push({
               recipient_id: order.user_id,
-              title: `🔥 ${readyCount} orders ready -- coordinate dispatch`,
+              title: `🔥 ${readyCount} orders ready - coordinate dispatch`,
               message: `Multiple orders are sitting ready in the last 30 min. Open the dispatch queue to assign drivers before food cools.`,
               notification_type: "dispatch_cluster",
               notification_kind: "admin",
@@ -1587,14 +1587,14 @@ async function sendStatusNotifications(order: any) {
       // coming back from this event. The cleaning_status rows were
       // just inserted by the writer in updateOrderStatus, so this
       // broadcast is the inbox ping that says "go look".
-      // Audit Notif G1 -- cleaning team had no producer.
+      // Audit Notif G1 - cleaning team had no producer.
       if (order.company_id) {
         void notificationService.broadcastNotification({
           companyId: order.company_id,
           regionId: (order as any).region_id || null,
           targetRoles: ["cleaning_staff" as any],
           title: "Equipment ready for cleaning",
-          message: `Event for order ${orderNumber} just delivered. Equipment will be returning -- check the cleaning board.`,
+          message: `Event for order ${orderNumber} just delivered. Equipment will be returning - check the cleaning board.`,
           type: "cleaning_required",
           priority: "normal",
           link: `/team-portal/cleaning/dashboard?orderId=${order.id}`,
@@ -1664,7 +1664,7 @@ async function sendStatusNotifications(order: any) {
       // dedup the client sees "Order ready" three times in 30s.
       // 5-min window catches the retry storm cleanly while letting a
       // legitimate "preparing -> ready -> preparing -> ready" cycle
-      // (rare but real -- chef pulled meat early, sent it back) ping
+      // (rare but real - chef pulled meat early, sent it back) ping
       // the recipient again on the second arrival at ready. Longer
       // window (60min) used for review handlers because a double-
       // click there would otherwise duplicate, and review cycles
@@ -1696,7 +1696,7 @@ async function sendStatusNotifications(order: any) {
   }
 
   // 2. Customer-facing email. Skip if quarantined or no email on file.
-  // Each status routes through the centralised resolver -- tenant
+  // Each status routes through the centralised resolver - tenant
   // override beats global default beats the inline fallback. The
   // hardcoded fallback strings here are also the source for the seed
   // migration so what an operator first sees in the editor matches
@@ -1711,7 +1711,7 @@ async function sendStatusNotifications(order: any) {
     const customerEmailFor: Record<string, StatusFallback> = {
       confirmed: {
         templateType: "order_confirmed",
-        subject: `Order confirmed -- ${orderNumber}`,
+        subject: `Order confirmed - ${orderNumber}`,
         body:
           `Hi {{first_name}},\n\n` +
           `Your order {{order_number}}{{event_date_phrase}} is confirmed. ` +
@@ -1740,20 +1740,20 @@ async function sendStatusNotifications(order: any) {
       },
       in_transit: {
         templateType: "order_in_transit",
-        subject: `On the way -- {{order_number}}`,
+        subject: `On the way - {{order_number}}`,
         body:
           `Hi {{first_name}},\n\n` +
-          `Good news -- your order {{order_number}} has just left the kitchen and is on its way{{venue_phrase}}. ` +
+          `Good news - your order {{order_number}} has just left the kitchen and is on its way{{venue_phrase}}. ` +
           `{{eta_sentence}}` +
           `\n\nReply to this email if anything changes on your side.`,
       },
       delivered: {
         templateType: "order_delivered",
-        subject: `Delivered -- {{order_number}}`,
+        subject: `Delivered - {{order_number}}`,
         body:
           `Hi {{first_name}},\n\n` +
           `Your order {{order_number}} has been delivered. We hope it lands the way you hoped!\n\n` +
-          `If anything wasn't quite right, please reply -- we read every email and we'd rather hear it.`,
+          `If anything wasn't quite right, please reply - we read every email and we'd rather hear it.`,
       },
       completed: null,
       // The cancellation email is sent by sendCancellationEmail() from
@@ -1809,7 +1809,7 @@ async function sendStatusNotifications(order: any) {
     }
   }
 
-  // 3. Customer-facing WhatsApp -- only on the high-touch transitions
+  // 3. Customer-facing WhatsApp - only on the high-touch transitions
   // (in_transit + delivered) where it adds a real signal beyond email.
   // Skip if quarantined / no phone.
   if (!isCommsPaused && order.client_phone && (status === "in_transit" || status === "delivered")) {
@@ -1874,7 +1874,7 @@ export async function getOrderStatusHistory(orderId: string) {
  *
  * The actual templates / monthly cadence live in
  * src/lib/afterSalesTemplates.ts. We pull the template list at
- * scheduling time and snapshot the body into the queue row -- if
+ * scheduling time and snapshot the body into the queue row - if
  * the template changes later, scheduled rows still send the wording
  * the operator approved when they ran.
  */
@@ -1883,7 +1883,7 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
 
   // Quarantine guard.
   if (order.imported_at || (order.comms_paused_until && new Date(order.comms_paused_until) > new Date())) {
-    console.log(`[orderWorkflow] order ${order.id} is quarantined -- skipping after-sales scheduling`);
+    console.log(`[orderWorkflow] order ${order.id} is quarantined - skipping after-sales scheduling`);
     return;
   }
 
@@ -1929,7 +1929,7 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
     for (const template of defaultAfterSalesTemplates) {
       if (!template.isActive) continue;
       // Per-tenant skip controls. max-months ceiling AND explicit
-      // template-id list both honoured -- a row that hits either
+      // template-id list both honoured - a row that hits either
       // gets skipped.
       if ((template.monthsAfterEvent || 0) > maxMonths) continue;
       if (skipIds.has(template.id)) continue;
@@ -1937,7 +1937,7 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
       const sendAt = new Date(eventDate);
       sendAt.setMonth(sendAt.getMonth() + (template.monthsAfterEvent || 0));
       // Don't schedule rows whose send-time is already in the past
-      // (e.g. completing a 6-month-old order) -- they'd fire all at
+      // (e.g. completing a 6-month-old order) - they'd fire all at
       // once and look like spam. The dashboard can offer a "resume"
       // path later if the operator wants to back-fill.
       if (sendAt.getTime() < Date.now() - 24 * 3600 * 1000) continue;
@@ -1973,7 +1973,7 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
  * which runs the block-list + quarantine gates centrally.
  *
  * Why two only? Audit feedback was that operators currently have to
- * remember to send these manually and forget half the time -- two
+ * remember to send these manually and forget half the time - two
  * automated touchpoints is the right ratio of presence to spam. The
  * lib/whatsappTemplates "event_week" / "event_day_morning" templates
  * already exist for the manual flow; if we ever want WhatsApp to
@@ -2009,7 +2009,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   // sender attribution. Personalise by pulling the tenant name and
   // surface the event_name so the recipient knows which event the
   // reminder is for (a client with two bookings could otherwise
-  // confuse them). Best-effort lookup -- the cron worker will still
+  // confuse them). Best-effort lookup - the cron worker will still
   // send a generic body if the lookup fails.
   let tenantNameForReminders = "the team";
   try {
@@ -2031,21 +2031,21 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
     {
       offsetMs: -7 * 24 * 3600 * 1000,
       key: "week_before",
-      subject: `One week to go -- ${eventNameLabel} on ${eventLabel}`,
+      subject: `One week to go - ${eventNameLabel} on ${eventLabel}`,
       body:
         `Hi ${firstName},\n\n` +
         `Just a friendly reminder that ${eventNameLabel} is one week away (${eventLabel}). ` +
-        `If anything has changed -- final headcount, menu tweaks, drop-off time -- now is the perfect time to let us know.\n\n` +
+        `If anything has changed - final headcount, menu tweaks, drop-off time - now is the perfect time to let us know.\n\n` +
         `Reply to this email or open your client portal to request a change.\n\n` +
         `Looking forward to it.\n\n${tenantNameForReminders}`,
     },
     {
       offsetMs: -1 * 24 * 3600 * 1000,
       key: "day_before",
-      subject: `Tomorrow's the day -- ${eventNameLabel}`,
+      subject: `Tomorrow's the day - ${eventNameLabel}`,
       body:
         `Hi ${firstName},\n\n` +
-        `Quick check-in -- everything is locked in for ${eventNameLabel} tomorrow. ` +
+        `Quick check-in - everything is locked in for ${eventNameLabel} tomorrow. ` +
         `Final guest count + venue address are confirmed on our side. ` +
         `If anything urgent comes up between now and then, give us a ring.\n\n` +
         `See you tomorrow.\n\n${tenantNameForReminders}`,
@@ -2079,7 +2079,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
 }
 
 /**
- * Wave 49 B1 -- mirror order status progression onto the active
+ * Wave 49 B1 - mirror order status progression onto the active
  * delivery driver_assignment row.
  *
  * Maps:
@@ -2089,7 +2089,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
  *
  * Idempotent: only writes <stamp>_at when null. Status always
  * advances forward (never backwards). Targets the delivery
- * assignment_type only -- collection trips have their own status
+ * assignment_type only - collection trips have their own status
  * progression handled by driverConfirmationService.completeCollection.
  *
  * Best-effort: a missing assignment row (admin order with no driver

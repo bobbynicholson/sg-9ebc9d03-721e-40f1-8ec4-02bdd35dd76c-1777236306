@@ -88,7 +88,7 @@ function saveRecent(term: string) {
     const next = [term, ...cur.filter((t) => t.toLowerCase() !== term.toLowerCase())].slice(0, MAX_RECENT);
     localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   } catch {
-    // localStorage can fail in private mode -- the palette still works.
+    // localStorage can fail in private mode - the palette still works.
   }
 }
 
@@ -164,7 +164,7 @@ export function CommandPalette() {
   }, [open]);
 
   // Lazy-load company-scoped data the first time the palette is opened with
-  // an authenticated session. We do not refetch on every open -- a small
+  // an authenticated session. We do not refetch on every open - a small
   // staleness is fine for a search palette and keeps Supabase quiet.
   useEffect(() => {
     if (!open || !companyId || dataLoaded || dataLoading) return;
@@ -183,7 +183,7 @@ export function CommandPalette() {
 
         const merged: DataResult[] = [];
 
-        // Orders -- number / id, client name, venue
+        // Orders - number / id, client name, venue
         (orders || []).forEach((o: any) => {
           const ref = o.order_number || (o.id ? `#${String(o.id).slice(0, 8).toUpperCase()}` : "");
           const label = `${ref || "Order"}, ${o.client_name || "Unknown client"}`;
@@ -200,7 +200,7 @@ export function CommandPalette() {
           });
         });
 
-        // Clients -- name, email, phone
+        // Clients - name, email, phone
         (clients || []).forEach((c: any) => {
           const label = c.full_name || c.email || "Unnamed client";
           const sublabel = [c.email, c.phone_number].filter(Boolean).join(" - ");
@@ -214,7 +214,7 @@ export function CommandPalette() {
           });
         });
 
-        // Leads -- name, company, email
+        // Leads - name, company, email
         (leads || []).forEach((l: any) => {
           const label = l.client_name || l.client_email || "Unnamed lead";
           const sublabel = [l.client_email, l.company_name, l.event_type].filter(Boolean).join(" - ");
@@ -228,7 +228,7 @@ export function CommandPalette() {
           });
         });
 
-        // Quotes -- number, client, event
+        // Quotes - number, client, event
         (quotes || []).forEach((q: any) => {
           const ref = q.quote_number || (q.id ? `#${String(q.id).slice(0, 8).toUpperCase()}` : "");
           const label = `${ref || "Quote"}, ${q.client_name || "Unknown client"}`;
@@ -245,7 +245,7 @@ export function CommandPalette() {
           });
         });
 
-        // Inventory -- item name (+ category, sku)
+        // Inventory - item name (+ category, sku)
         (inventory || []).forEach((i: any) => {
           const label = i.item_name || i.name || "Inventory item";
           const sublabel = [i.category, i.sku].filter(Boolean).join(" - ");
@@ -293,7 +293,7 @@ export function CommandPalette() {
     { id: "go-tracking", label: "Live Operations", icon: Truck, href: "/admin/tracking", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["track","map","live"] },
     { id: "go-route", label: "Plan Routes", icon: Truck, href: "/admin/route-planning", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["optimise","optimize","route"] },
     { id: "go-settings", label: "System Settings", icon: Settings, href: "/admin/settings", group: "Navigate", roles: ["admin","company_admin","owner"] },
-    // Pages added to the sidebar in the Stage-1 nav restructure -- mirror
+    // Pages added to the sidebar in the Stage-1 nav restructure - mirror
     // them here so Cmd-K finds anything the user can see in the nav.
     { id: "go-contacts",    label: "Contacts",            icon: Users,        href: "/admin/contacts",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["crm","client"] },
     { id: "go-refunds",     label: "Refunds",             icon: CreditCard,   href: "/admin/refunds",             group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["refund","cancel"] },
@@ -303,7 +303,7 @@ export function CommandPalette() {
     // Hire-in is reachable as both /admin/equipment/hire-orders (legacy
     // bookmark) and /admin/equipment?tab=hire-in (the canonical hub).
     // We surface only the hub-tabbed entry in the palette below as a
-    // Quick action -- the standalone URL still resolves for old links.
+    // Quick action - the standalone URL still resolves for old links.
     { id: "go-suppliers",   label: "Suppliers",           icon: Building2,    href: "/admin/suppliers",           group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["vendor","supplier"] },
     { id: "go-shopping",    label: "Shopping Dashboard",  icon: ShoppingCart, href: "/admin/shopping",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["buy","procurement","shopping"] },
     { id: "go-vehicles",    label: "Vehicles",            icon: Truck,        href: "/admin/vehicles",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["fleet","cold-chain"] },
@@ -373,7 +373,7 @@ export function CommandPalette() {
   }, [allItems, isAuthed, role]);
 
   // Fuzzy-search the navigation items (always, with debounce 0 so the
-  // dialog feels instant -- the list is tiny).
+  // dialog feels instant - the list is tiny).
   const navIndexed = useMemo(
     () => items.map((it) => ({
       ...it,

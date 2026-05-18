@@ -1,5 +1,5 @@
 /**
- * InvoiceActivityDrawer -- Wave 67.
+ * InvoiceActivityDrawer - Wave 67.
  *
  * Per-invoice activity timeline composed from existing tables:
  *  - email_automation_log (sent / failed events keyed by invoice_id
@@ -8,7 +8,7 @@
  *  - invoice row scalars (created_at, sent_at, paid_at,
  *    last_synced_at, sync_error)
  *
- * No new table -- the audit trail already exists, just wasn't
+ * No new table - the audit trail already exists, just wasn't
  * surfaced. Bookkeepers chasing "did this client open the invoice
  * email" or "when did the EFT clear" had to drill into multiple
  * admin pages; now it's one drawer per invoice.
@@ -126,7 +126,7 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
           out.push({
             ts: p.processed_at || p.created_at,
             icon: CreditCard,
-            label: `${p.payment_type ? p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1) : "Payment"} -- ${p.status}`,
+            label: `${p.payment_type ? p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1) : "Payment"} - ${p.status}`,
             detail: `${p.amount} via ${p.payment_method || "manual"}`,
             tone: p.status === "completed" ? "green" : "amber",
           });

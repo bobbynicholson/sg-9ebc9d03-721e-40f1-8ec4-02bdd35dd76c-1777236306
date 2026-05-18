@@ -75,7 +75,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
 
   // The picker only ever offers roles the user has actually been
   // granted. Super_admin used to get a "god mode" path that let them
-  // act as any role on the platform -- that's a tenant-isolation
+  // act as any role on the platform - that's a tenant-isolation
   // violation and got pulled. Now super_admin sees nothing here
   // unless their profile genuinely holds multiple roles.
   const displayRoles = userRoles;

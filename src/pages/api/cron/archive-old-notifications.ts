@@ -7,7 +7,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  *
  * Wave 24: complement to the per-tenant "Clear stale" buttons added
  * across every notification page. Those handle the manual "I want to
- * tidy my inbox" case; this handles the unattended case -- inactive
+ * tidy my inbox" case; this handles the unattended case - inactive
  * tenants, departed drivers whose accounts still receive broadcasts,
  * months of background system_alert rows nobody triages.
  *
@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cutoffIso = new Date(Date.now() - ARCHIVE_AGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     // Count first so the response carries a useful "how big was the
-    // sweep this run" signal -- helps catch the case where the cron
+    // sweep this run" signal - helps catch the case where the cron
     // is firing but the cleanup isn't actually deleting anything
     // (RLS misconfig, cutoff math wrong, etc).
     const { count, error: countErr } = await (sb as any)

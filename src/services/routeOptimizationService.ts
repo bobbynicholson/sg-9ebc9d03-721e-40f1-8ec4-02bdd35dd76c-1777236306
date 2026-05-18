@@ -199,7 +199,7 @@ export const routeOptimizationService = {
     //   cost = sum(distance_km) + INFEASIBILITY_PENALTY * breaches
     // The penalty (10000 km) means the optimiser will gladly take a
     // dramatically longer drive to remove a single time-window
-    // breach -- which is exactly what we want for catering. Skipped
+    // breach - which is exactly what we want for catering. Skipped
     // when fewer than 4 stops because there's nothing to swap.
     let bestStops = optimizedStops;
     if (optimizedStops.length >= 4) {
@@ -257,7 +257,7 @@ export const routeOptimizationService = {
 
   /**
    * Phase 2 #10: 2-opt local-search improvement on a sequenced route.
-   * Returns the best-cost sequence found. Pure -- doesn't mutate the
+   * Returns the best-cost sequence found. Pure - doesn't mutate the
    * input array. Cost penalises time-window breaches heavily so the
    * solver prefers a longer feasible route over a shorter infeasible
    * one.
@@ -307,7 +307,7 @@ export const routeOptimizationService = {
       outer += 1;
       for (let i = 0; i < best.length - 1; i++) {
         for (let j = i + 1; j < best.length; j++) {
-          // Reverse the slice [i, j] -- classic 2-opt swap.
+          // Reverse the slice [i, j] - classic 2-opt swap.
           const candidate = [
             ...best.slice(0, i),
             ...best.slice(i, j + 1).reverse(),
@@ -517,7 +517,7 @@ export const routeOptimizationService = {
 
       // Trigger automated real-time notification to the driver. The
       // routes page surfaces all stops; we don't have a single
-      // related_entity_id since a route covers many orders -- leave
+      // related_entity_id since a route covers many orders - leave
       // it null and let the bell render the generic "Open" button
       // pointed at /team-portal/driver/routes.
       await notificationService.createNotification({

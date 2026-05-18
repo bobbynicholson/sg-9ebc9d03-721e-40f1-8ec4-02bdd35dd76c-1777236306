@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Company profile -- the source of truth for the catering company's
+ * Company profile - the source of truth for the catering company's
  * identity. This is what every other page reads from:
  *
  *  - AdminNav header (name, brand colours, logo, today's pulse)
@@ -39,7 +39,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 /**
  * Phase 7 #9: zod-based pre-save validator. The original brief
  * was a full react-hook-form migration of this 978-line form,
- * but the actual safety win is at the save boundary -- catching
+ * but the actual safety win is at the save boundary - catching
  * a malformed email, an out-of-range VAT rate or a junk hex
  * colour BEFORE the row hits the DB. RHF can land later as a
  * field-by-field refactor; this guards the data either way.
@@ -175,7 +175,7 @@ function CompanyProfilePage() {
     if (!row) return;
     // Phase 4 #3: refuse a bogus IANA timezone so we never land an
     // unparseable string in the DB. Empty falls back to the column
-    // default (Africa/Johannesburg) -- we let the picker emit
+    // default (Africa/Johannesburg) - we let the picker emit
     // "" -> null and treat that as 'use default'.
     if (row.timezone && !isValidTimezone(row.timezone)) {
       toast({
@@ -421,7 +421,7 @@ function CompanyProfilePage() {
                 >
                   developers.google.com/maps/place-id
                 </a>{" "}
-                -- paste your business listing URL into the finder and copy the place_id. With this set, post-delivery review emails link directly to the 'leave a review' modal instead of a generic Google search.
+                - paste your business listing URL into the finder and copy the place_id. With this set, post-delivery review emails link directly to the 'leave a review' modal instead of a generic Google search.
               </p>
             </CardContent>
           </Card>
@@ -476,7 +476,7 @@ function CompanyProfilePage() {
                 />
               </Field>
 
-              {/* Pricing convention -- the call most operators get
+              {/* Pricing convention - the call most operators get
                   wrong and spend weeks fixing later. Drives whether
                   the menu / equipment / inventory price fields are
                   treated as gross (customer-facing) or net (ex-VAT).
@@ -512,7 +512,7 @@ function CompanyProfilePage() {
           {/* Banking details. These are what clients see when they
               choose EFT on the portal billing page or the public
               invoice. The reference clients use is the invoice
-              number, hard-coded in the EFT flow -- the only
+              number, hard-coded in the EFT flow - the only
               reconciliation rule that needs to hold. */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
@@ -674,7 +674,7 @@ function CompanyProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Document numbering -- per-tenant invoice / quote / order
+          {/* Document numbering - per-tenant invoice / quote / order
               counters. Backed by company_number_settings + the
               consume_next_document_number RPC. Owners migrating from
               another tool can dial in their carry-over starting number
@@ -682,7 +682,7 @@ function CompanyProfilePage() {
               left off. */}
           <DocumentNumberingCard companyId={row.id} />
 
-          {/* Brand colours -- managed on the dedicated White Label page so
+          {/* Brand colours - managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>

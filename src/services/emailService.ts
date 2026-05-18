@@ -39,7 +39,7 @@ export const SHARED_FROM_EMAIL = "noreply@send.cateringms.com";
  * Attachment shape accepted by sendEmail. We normalise to Resend's
  * field names (`filename` + `content`) since Resend is the primary
  * provider; the SMTP path translates to nodemailer's matching shape
- * at send time. `content` accepts a Buffer or a base64 string -- the
+ * at send time. `content` accepts a Buffer or a base64 string - the
  * latter is how we ferry binaries across the JSON API boundary.
  */
 export interface EmailAttachment {
@@ -68,7 +68,7 @@ export interface SendEmailPayload {
    * Optional file attachments. Used initially for the Quote PDF on
    * quote-send; older clients expect the document inline so they can
    * save / forward without clicking through. Both Resend and
-   * nodemailer accept the same shape -- filename + content. content
+   * nodemailer accept the same shape - filename + content. content
    * may be a Buffer (preferred) or a base64-encoded string.
    */
   attachments?: EmailAttachment[];
@@ -128,7 +128,7 @@ export const emailService = {
    * /admin/email-settings UI writes to). The legacy email_settings
    * table this method used to read from never had host/user/password
    * columns, so SMTP sends silently failed even when the operator had
-   * "saved" their config -- two tables, never reconciled.
+   * "saved" their config - two tables, never reconciled.
    *
    * A company can have multiple rows (one per provider, plus mailchimp
    * which is marketing-only). We exclude mailchimp and take the most
@@ -167,7 +167,7 @@ export const emailService = {
       id: (data as any).id,
       company_id: (data as any).company_id,
       // Treat presence of a provider row as "enabled". The column
-      // doesn't exist on email_provider_settings -- enabling/disabling
+      // doesn't exist on email_provider_settings - enabling/disabling
       // is implicit (no row = no provider).
       enabled: !!(data as any).provider && (data as any).provider !== "none",
       provider: (data as any).provider,
@@ -176,7 +176,7 @@ export const emailService = {
       smtp_host: (data as any).smtp_host,
       smtp_port: port && !isNaN(port) ? port : null,
       smtp_user: (data as any).smtp_user,
-      // Column is NAMED "encrypted" but the UI stores raw text -- legacy
+      // Column is NAMED "encrypted" but the UI stores raw text - legacy
       // misnomer. Read as-is. If we ever wire pgcrypto, the decrypt
       // happens at the SQL layer and this stays a plain text string.
       smtp_password: (data as any).smtp_pass_encrypted || null,
@@ -195,16 +195,16 @@ export const emailService = {
   /**
    * Decide what `From` and `Reply-To` to use for a given tenant.
    *
-   * Tier 0 -- tenant verified their own domain in Resend AND their
+   * Tier 0 - tenant verified their own domain in Resend AND their
    * from_email lives at that domain: send as `${from_name} <${from_email}>`.
    *
-   * Tier 1 -- everything else (no domain, pending, failed, or
+   * Tier 1 - everything else (no domain, pending, failed, or
    * mismatched apex): send from the shared `noreply@send.cateringms.com`
    * sender with reply_to set to the tenant's from_email so client
    * replies still land in the operator's inbox. Skylight verifies the
    * shared subdomain in Resend at the platform level.
    *
-   * SMTP and OAuth providers ignore this -- they always send as the
+   * SMTP and OAuth providers ignore this - they always send as the
    * tenant's own address (the SMTP server gates it).
    */
   resolveFromAddress(config: EmailSettings): { from: string; replyTo?: string } {
@@ -307,7 +307,7 @@ export const emailService = {
 
     if (error) {
       console.error("Error logging email:", error);
-      // Don't throw -- a logging failure must never crash the actual
+      // Don't throw - a logging failure must never crash the actual
       // send. The console.error gives ops a paper trail.
       return null;
     }
@@ -358,7 +358,7 @@ export const emailService = {
       };
     }
 
-    // Negative gates -- these run for every send path, including
+    // Negative gates - these run for every send path, including
     // webhooks and the after-sales worker, not just /api/send-email.
     // Centralising here means a recipient can never sneak a message
     // through by going around the API route.
@@ -377,7 +377,7 @@ export const emailService = {
           .limit(1);
         if (blocksErr) console.error("[emailService] blocked_contacts lookup failed:", blocksErr);
         if (blocks && blocks.length > 0) {
-          console.warn(`[emailService] refused -- ${recipientLower} is on the block list for ${payload.companyId}`);
+          console.warn(`[emailService] refused - ${recipientLower} is on the block list for ${payload.companyId}`);
           // Log the refusal so admin sees "blocked" in the failures
           // dashboard rather than wondering where the email went.
           await this.logEmailSent(
@@ -412,7 +412,7 @@ export const emailService = {
               p_email: recipientLower,
             });
         if (paused === true) {
-          console.warn(`[emailService] refused -- ${recipientLower} is in import quarantine for ${payload.companyId}`);
+          console.warn(`[emailService] refused - ${recipientLower} is in import quarantine for ${payload.companyId}`);
           await this.logEmailSent(
             payload.companyId,
             payload.template || "custom",
@@ -435,7 +435,7 @@ export const emailService = {
         }
       } catch (guardErr) {
         // Don't let a guard failure silently allow sends. Log loudly
-        // but proceed -- worst case we send through, vs the worse
+        // but proceed - worst case we send through, vs the worse
         // case of failing closed and breaking every email when the
         // RPC is briefly unavailable.
         console.warn("[emailService] guard check failed, proceeding:", guardErr);
@@ -445,7 +445,7 @@ export const emailService = {
     let finalBody = payload.body || "";
 
     if (payload.template) {
-      // Phase 4: schema uses (template_type, company_id) -- the older
+      // Phase 4: schema uses (template_type, company_id) - the older
       // (slug, user_id) pair never existed. Every client-facing path
       // now goes through resolveEmailTemplate so this branch is dead
       // weight, but fixing the columns means it'll work if anything
@@ -477,7 +477,7 @@ export const emailService = {
     try {
       // Pre-flight gates for Resend that don't require burning an API
       // call. We only run these when the tenant's own from_email is
-      // set -- empty from_email is fine because the resolver falls back
+      // set - empty from_email is fine because the resolver falls back
       // to the shared CateringMS sender.
       //
       // When the tenant's domain is registered but not yet verified, we
@@ -538,7 +538,7 @@ export const emailService = {
         });
       } else if (config.provider === 'resend' && !process.env.RESEND_API_KEY) {
         // Resend selected but the platform-level API key is missing.
-        // This is a Skylight ops issue, not a tenant fix -- no fix_link.
+        // This is a Skylight ops issue, not a tenant fix - no fix_link.
         await this.logEmailSent(
           payload.companyId,
           payload.template || "custom",
@@ -557,7 +557,7 @@ export const emailService = {
           error_code: "resend_auth",
         };
       } else {
-        // No provider configured -- this is a real failure, not a
+        // No provider configured - this is a real failure, not a
         // success. Returning true here previously marked the row
         // status='sent' in email_automation_log, so operator dashboards
         // showed deliveries that never happened. Clients only noticed
@@ -566,7 +566,7 @@ export const emailService = {
         // upstream callers can react. EmailProviderBanner surfaces the
         // missing-provider state on the admin dashboard so this isn't
         // discovered the hard way.
-        console.warn("[emailService] refused -- no email provider configured");
+        console.warn("[emailService] refused - no email provider configured");
         console.warn(`  Tenant: ${payload.companyId}`);
         console.warn(`  Would-be recipient: ${payload.to}`);
         console.warn(`  Subject: ${finalSubject}`);
@@ -703,7 +703,7 @@ export const emailService = {
       };
     } catch (error: any) {
       console.error("Error sending email:", error);
-      // Crash path -- still log so ops can find it.
+      // Crash path - still log so ops can find it.
       try {
         await this.logEmailSent(
           payload.companyId,
@@ -717,7 +717,7 @@ export const emailService = {
           "failed",
           String(error?.message || error || "Unknown crash"),
         );
-      } catch { /* logging the failure itself failed -- nothing to do */ }
+      } catch { /* logging the failure itself failed - nothing to do */ }
       return {
         success: false,
         error: `Email delivery failed. ${String(error?.message || error || "Unknown crash")}`,
@@ -849,7 +849,7 @@ export const emailService = {
       });
 
       // nodemailer attachments share Resend's `filename` + `content`
-      // shape -- content can be Buffer or base64 string. We pass
+      // shape - content can be Buffer or base64 string. We pass
       // through unchanged. Don't include `attachments` on the payload
       // when empty so we don't surprise legacy SMTP servers with an
       // empty multipart boundary.

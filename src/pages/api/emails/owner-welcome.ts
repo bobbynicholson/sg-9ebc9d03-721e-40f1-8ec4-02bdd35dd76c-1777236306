@@ -5,11 +5,11 @@
  * company finishes signup. Called from /company-signup once the
  * profile + company rows are in. We do this server-side so:
  *   - Resend keys never touch the browser bundle
- *   - The send doesn't block signup -- caller fires-and-forgets, any
+ *   - The send doesn't block signup - caller fires-and-forgets, any
  *     failure is logged in email_automation_log but the user still gets
  *     their success page.
  *
- * Auth: lightweight -- caller must pass the userId of the freshly-
+ * Auth: lightweight - caller must pass the userId of the freshly-
  * created auth user, and we verify the request originates from the
  * matching authenticated session via Supabase cookie. Service-role
  * isn't needed; anyone who can pass our auth check is allowed to fire

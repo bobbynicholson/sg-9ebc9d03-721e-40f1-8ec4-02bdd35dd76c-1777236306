@@ -23,7 +23,7 @@
  *     "notes":         "..."
  *   }
  *
- * Idempotent on (company_id, xero_quote_id) -- delivering the same
+ * Idempotent on (company_id, xero_quote_id) - delivering the same
  * payload twice updates the existing row instead of creating a
  * duplicate.
  */

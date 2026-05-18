@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * MenuItemTypeahead -- per-line search-as-you-type on the New Quote page.
+ * MenuItemTypeahead - per-line search-as-you-type on the New Quote page.
  *
  * Drops onto each menu line in the quote form so the staff member can
  * type "lamb" and pick from the company's actual menu (created on
@@ -9,7 +9,7 @@
  * Picking a row hydrates the line:
  *   - name        <- menu_items.item_name
  *   - category    <- mapped from menu_items.category (DB uses "Mains",
- *                    quote form uses "main" -- mapper in this file)
+ *                    quote form uses "main" - mapper in this file)
  *   - pricePerPerson <- menu_items.base_price (the company's listed price)
  *
  * Multi-tenant: the search is gated by company_id passed in. Each
@@ -26,14 +26,14 @@ import { menuService } from "@/services/menuService";
 
 type SearchHit = Awaited<ReturnType<typeof menuService.searchForQuote>>[number];
 
-/** Picked event payload -- the parent wires this into its line state */
+/** Picked event payload - the parent wires this into its line state */
 export interface MenuItemPick {
   id: string;
   name: string;
   /** Already mapped to the quote form's lower-case enum.
    *  Wave 30.3: widened to include 'starter' and 'salad' so picking
    *  a salad item from the typeahead no longer collapses to
-   *  'appetizer' -- the quote line was being persisted with the
+   *  'appetizer' - the quote line was being persisted with the
    *  wrong category and the order viewer displayed salads grouped
    *  under Appetizers. Mirrors the LINE_CATEGORIES list on the
    *  quote builder. */
@@ -53,7 +53,7 @@ export interface MenuItemPick {
   allergenCodes: string[];
   /** Phase 2 #7: timestamp from menu_items.allergens_reviewed_at.
    *  NULL means the kitchen lead never signed off on the allergen
-   *  declaration -- the quote builder should warn before accepting. */
+   *  declaration - the quote builder should warn before accepting. */
   allergensReviewedAt: string | null;
 }
 
@@ -70,7 +70,7 @@ export interface MenuItemTypeaheadProps {
  * The DB stores categories in their pretty form ("Mains", "Sides",
  * "Desserts", "Salads", "Starters"). The quote form's MenuItem type
  * was built earlier with a tighter enum that lacked 'salad' and
- * 'starter' -- so picking a salad item from the typeahead used to
+ * 'starter' - so picking a salad item from the typeahead used to
  * collapse it into 'appetizer' and the wrong category got persisted
  * on the quote line + the order viewer rendered salads under
  * Appetizers (Wave 30.3 bug Callum reported).

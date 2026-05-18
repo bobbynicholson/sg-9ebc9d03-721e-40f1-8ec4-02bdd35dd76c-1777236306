@@ -30,7 +30,7 @@ export default function KitchenStockPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [belowParOnly, setBelowParOnly] = useState(false);
-  // Phase 6D: filter to "things our recipes actually use" -- skips
+  // Phase 6D: filter to "things our recipes actually use" - skips
   // generic warehouse items the kitchen doesn't touch.
   const [recipeLinkedOnly, setRecipeLinkedOnly] = useState(false);
 
@@ -155,7 +155,7 @@ export default function KitchenStockPage() {
           {/* Wave 33.3: header now uses the icon-in-gradient-box
               pattern the rest of the kitchen suite uses (dashboard,
               menu, prep-list). Was a bare icon floating beside the
-              text -- felt like an afterthought next to the polished
+              text - felt like an afterthought next to the polished
               sibling pages. */}
           <div className="mb-6 flex items-center gap-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">

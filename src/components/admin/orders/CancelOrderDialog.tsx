@@ -180,11 +180,11 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
               ? `Refund of ${fmt.format(json.refund_amount)} pending. Mark it paid once the EFT is sent.`
               : "No payout due (forfeit tier).",
       });
-      // Wave 70.49 -- if the release cascade flagged manual follow-ups
+      // Wave 70.49 - if the release cascade flagged manual follow-ups
       // (3rd-party hire suppliers, outsource providers) surface a second
       // toast with the count + names so the operator can act before
       // closing the dialog. We don't auto-email these contacts (per
-      // Bobby's call -- supplier cancellation fees aren't tracked,
+      // Bobby's call - supplier cancellation fees aren't tracked,
       // automated cancel emails could trigger fees we didn't authorise).
       const followups = Array.isArray(json.manual_followups) ? json.manual_followups : [];
       if (followups.length > 0) {
@@ -232,7 +232,7 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
                 <Calendar className="w-4 h-4 mt-0.5 text-slate-500" />
                 <div className="text-sm flex-1">
                   Event in <strong>{snap.days_to_event} day{snap.days_to_event === 1 ? "" : "s"}</strong>
-                  {" -- "}policy tier: <strong className="capitalize">{snap.tier_label}</strong>
+                  {" - "}policy tier: <strong className="capitalize">{snap.tier_label}</strong>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -382,7 +382,7 @@ export function CancelOrderDialog({ open, onOpenChange, orderId, orderNumber, on
               />
             </div>
 
-            {/* Refund override -- only shown for the refund payout
+            {/* Refund override - only shown for the refund payout
                 path. The credit path uses the derived amount which the
                 wizard has already shown the client. */}
             {payoutChoice === "refund" && (

@@ -1,26 +1,26 @@
 /**
- * CleaningNav -- Wave 70.28 redesign.
+ * CleaningNav - Wave 70.28 redesign.
  *
  * Restructured from the original 3-section static list (Live now /
  * Equipment / Footer) into 4 sections plus a live-intelligence layer
  * that mirrors the kitchen portal pattern proven in Wave 70.7:
  *
- *   LIVE NOW   -- Today, Returns, Washing, My shift  (4 items, always open)
- *   INVENTORY  -- Equipment, Supplies, Workflows     (3 items, closed by default)
- *   REPORTS    -- Damages, Schedules                 (2 items, closed by default)
- *   FOOTER     -- Notifications, Settings            (footer treatment)
+ *   LIVE NOW   - Today, Returns, Washing, My shift  (4 items, always open)
+ *   INVENTORY  - Equipment, Supplies, Workflows     (3 items, closed by default)
+ *   REPORTS    - Damages, Schedules                 (2 items, closed by default)
+ *   FOOTER     - Notifications, Settings            (footer treatment)
  *
  * The new live layer surfaces above the sections:
  *
- *   - CleaningModeBadge       -- quiet / dispatch / returns / wrap
+ *   - CleaningModeBadge       - quiet / dispatch / returns / wrap
  *                                with subline copy + tap-to-override
- *   - CleaningLiveStateStrip  -- 4 pills: Returns, Washing, Damages,
- *                                On duty -- each is a deep-link
+ *   - CleaningLiveStateStrip  - 4 pills: Returns, Washing, Damages,
+ *                                On duty - each is a deep-link
  *
  * Plus mobile-only:
  *
- *   - CleaningSmartQuickActions -- 3 tiles that rotate by mode
- *   - useCleaningModeToast      -- one-shot toast when returns mode
+ *   - CleaningSmartQuickActions - 3 tiles that rotate by mode
+ *   - useCleaningModeToast      - one-shot toast when returns mode
  *                                  first triggers
  *
  * Why the redesign:
@@ -93,7 +93,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     searchAccent: "bg-cyan-50 hover:bg-cyan-100 text-cyan-700",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
-    // Static fallback mobile quick actions -- only used if the smart
+    // Static fallback mobile quick actions - only used if the smart
     // renderer below somehow doesn't fire. Kept for safety.
     mobileQuickActions: [
       { href: "/team-portal/cleaning/dashboard#returns", label: "Returns",     sub: "Equipment coming back", icon: PackageOpen, accent: "from-cyan-500 to-blue-500" },
@@ -165,7 +165,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
             description: "Tasks + clock in/out",
             liveDescription: () => counts.onDutyNow > 0
               ? `${counts.onDutyNow} on duty`
-              : "Off duty -- tap to start",
+              : "Off duty - tap to start",
           },
         ],
       },

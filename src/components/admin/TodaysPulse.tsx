@@ -1,5 +1,5 @@
 /**
- * TodaysPulse -- compact KPI strip surfaced at the top of
+ * TodaysPulse - compact KPI strip surfaced at the top of
  * /admin/dashboard.
  *
  * Phase 9 #5. The existing dashboard answers "how are we doing
@@ -81,7 +81,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
             .eq("company_id", companyId)
             .gte("created_at", `${today}T00:00:00`)
             .lte("created_at", `${today}T23:59:59`),
-          // Drivers currently on shift -- service handles the
+          // Drivers currently on shift - service handles the
           // scheduled-vs-now window check internally.
           shiftService.getActiveDriverIdsForCompany(companyId).catch(() => []),
         ]);

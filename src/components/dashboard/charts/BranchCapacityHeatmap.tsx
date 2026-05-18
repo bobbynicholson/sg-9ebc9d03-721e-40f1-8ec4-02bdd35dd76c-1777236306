@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 6 chart 2 -- Inter-branch capacity heatmap.
+ * Tier 6 chart 2 - Inter-branch capacity heatmap.
  *
  * CSS grid: rows are branches, columns are upcoming ISO weeks. Each
  * cell's saturation tracks order count vs the busiest cell. A small
@@ -55,7 +55,7 @@ export function BranchCapacityHeatmap({ data, loading }: Props) {
           Inter-branch capacity
           <InfoTooltip
             content={
-              "Each row is a branch, each column an upcoming week. Darker cells = more booked orders. Use this to spot when one branch is slammed while another has open slots -- a good signal to rebalance prep teams or push marketing where it's needed.\n\n" +
+              "Each row is a branch, each column an upcoming week. Darker cells = more booked orders. Use this to spot when one branch is slammed while another has open slots - a good signal to rebalance prep teams or push marketing where it's needed.\n\n" +
               "Cancelled orders aren't counted; only live event bookings."
             }
           />
@@ -114,7 +114,7 @@ export function BranchCapacityHeatmap({ data, loading }: Props) {
                               color: intensity > 0.55 ? "#fff" : "#475569",
                               fontWeight: count > 0 ? 600 : 400,
                             }}
-                            title={`${b.name} -- ${w.longLabel}: ${count} order${count === 1 ? "" : "s"}`}
+                            title={`${b.name} - ${w.longLabel}: ${count} order${count === 1 ? "" : "s"}`}
                           >
                             {count > 0 ? count : ""}
                           </td>

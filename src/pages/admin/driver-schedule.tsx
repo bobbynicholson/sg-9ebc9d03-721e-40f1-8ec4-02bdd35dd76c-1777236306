@@ -1,5 +1,5 @@
 /**
- * /admin/driver-schedule -- weekly grid view of every driver's
+ * /admin/driver-schedule - weekly grid view of every driver's
  * shifts for the selected week.
  *
  * Phase 9 #8. Until now, the dispatch lead had to open each
@@ -9,7 +9,7 @@
  * spot Sunday gaps or double-booked drivers.
  *
  * Read-only at the row level. Clicking any empty cell opens
- * LogDriverShiftModal pre-targeted at that driver -- so the
+ * LogDriverShiftModal pre-targeted at that driver - so the
  * grid acts as both a bird's-eye view and a quick-add surface.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -101,7 +101,7 @@ function DriverScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ driverId: string; driverName: string } | null>(null);
-  // Wave 70.12 -- edit-mode target. When set, opens LogDriverShiftModal
+  // Wave 70.12 - edit-mode target. When set, opens LogDriverShiftModal
   // pre-filled with the existing shift's actual_start / actual_end /
   // notes / multiplier so an admin can adjust or delete the row.
   const [editTarget, setEditTarget] = useState<{
@@ -185,7 +185,7 @@ function DriverScheduleGrid() {
     return map;
   }, [shifts]);
 
-  // Per-day total hours across all drivers -- footer row.
+  // Per-day total hours across all drivers - footer row.
   const dayTotals = useMemo(() => {
     return weekDays.map((d) => {
       const iso = toLocalISO(d);
@@ -198,7 +198,7 @@ function DriverScheduleGrid() {
     });
   }, [shifts, weekDays]);
 
-  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} -- ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
+  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
     <>
@@ -506,7 +506,7 @@ function DriverScheduleGrid() {
         />
       )}
 
-      {/* Wave 70.12 -- edit mode for an existing shift. Admin tap
+      {/* Wave 70.12 - edit mode for an existing shift. Admin tap
           any non-empty cell on the grid -> modal opens pre-filled
           with that shift's actuals -> Update or Delete. */}
       {editTarget && companyId && (
@@ -522,7 +522,7 @@ function DriverScheduleGrid() {
         />
       )}
 
-      {/* Wave 42 Tier 2 -- add-task modal. Defaults to 'delivery'
+      {/* Wave 42 Tier 2 - add-task modal. Defaults to 'delivery'
           on this page so a dispatcher dropping a task on a driver
           shift surfaces the relevant defaults. */}
       {addTaskTarget && companyId && (

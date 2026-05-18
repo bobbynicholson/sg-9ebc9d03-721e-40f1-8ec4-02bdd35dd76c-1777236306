@@ -1,5 +1,5 @@
 /**
- * Inbound integration endpoint -- catering company's tool (Zapier,
+ * Inbound integration endpoint - catering company's tool (Zapier,
  * Make, Facebook Lead Ads, custom form) creates a new lead in
  * CateringMS using their API key.
  *
@@ -21,7 +21,7 @@
  * Auth + insert run through the public.api_create_lead SECURITY DEFINER
  * Postgres function so we don't need the service-role key in the API
  * runtime. The function looks up the api_keys.key_hash, validates
- * scope, and inserts into leads -- which fires the lead.created
+ * scope, and inserts into leads - which fires the lead.created
  * webhook trigger automatically.
  */
 import type { NextApiRequest, NextApiResponse } from "next";

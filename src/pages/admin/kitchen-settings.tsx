@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/kitchen-settings -- Wave 70.8
+ * /admin/kitchen-settings - Wave 70.8
  *
  * The owner / admin home for kitchen prep + shift policy knobs.
  * Previously lived at /team-portal/kitchen/settings (editable by
- * kitchen staff) -- moved here so BCEA thresholds, dietary alert
+ * kitchen staff) - moved here so BCEA thresholds, dietary alert
  * sensitivity and prep-timing defaults can only be tuned by the
  * tenant's management. Kitchen staff no longer see or edit them.
  *
  * Storage unchanged: companies.kitchen_settings jsonb. The kitchen
  * runtime (kitchenPrepService, dashboard widgets) reads the same
- * column, so this move is UI-only -- existing reads keep working.
+ * column, so this move is UI-only - existing reads keep working.
  *
  * Role gate: super_admin / company_admin / admin (the standard
  * admin-page allowlist). Kitchen-only users hit a 403.
@@ -148,17 +148,17 @@ function KitchenSettingsAdminPage() {
             <div className="min-w-0">
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen Settings</h1>
               <p className="text-sm text-slate-600 mt-1">
-                Tune the prep + shift defaults the kitchen runs on. Owner / admin only -- kitchen staff see the effects but can't change the values.
+                Tune the prep + shift defaults the kitchen runs on. Owner / admin only - kitchen staff see the effects but can't change the values.
               </p>
             </div>
           </div>
 
-          {/* Wave 70.8 -- visibility banner so admins know this used
+          {/* Wave 70.8 - visibility banner so admins know this used
               to be a kitchen-portal page. */}
           <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-2 flex items-start gap-2 text-xs text-blue-900">
             <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-700" />
             <p>
-              Moved here from the kitchen portal in Wave 70.8. BCEA shift thresholds + prep policy are management decisions -- the kitchen runtime still reads these values, just can&apos;t change them anymore.
+              Moved here from the kitchen portal in Wave 70.8. BCEA shift thresholds + prep policy are management decisions - the kitchen runtime still reads these values, just can&apos;t change them anymore.
             </p>
           </div>
 

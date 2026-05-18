@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * publicQuoteService -- helpers for the public quote share flow.
+ * publicQuoteService - helpers for the public quote share flow.
  *
  * Two surfaces use this:
  *
- *   1. Admin /admin/quotes -- buildPublicQuoteUrl() to copy a clean
+ *   1. Admin /admin/quotes - buildPublicQuoteUrl() to copy a clean
  *      link the catering company sends to the client.
  *
- *   2. Public /q/[token]  -- fetchByToken() to load the quote (and
+ *   2. Public /q/[token]  - fetchByToken() to load the quote (and
  *      its company branding), then recordView() / recordAccept() /
  *      submitChangeRequest() which now POST to server-side API
  *      routes (service-role) instead of writing through the anon
@@ -18,7 +18,7 @@
  *      handle every write under service role.
  *
  * Authentication: the public route uses the anon Supabase key for
- * SELECT only -- the token IS the secret, the anon SELECT policy on
+ * SELECT only - the token IS the secret, the anon SELECT policy on
  * quotes / invoices is "non-deleted only", and the app always queries
  * .eq(public_token, token).
  */

@@ -34,7 +34,7 @@ export function toLocalISO(d: Date): string {
 /**
  * Phase 4 #3: format a Date as YYYY-MM-DD using an explicit IANA
  * timezone. Use this for tenant-scoped server code where the user's
- * browser timezone is irrelevant -- the tenant's wall clock is what
+ * browser timezone is irrelevant - the tenant's wall clock is what
  * counts (e.g. server-side BCEA pay calc, kitchen lead-time gates,
  * cron daily-window boundaries).
  *
@@ -74,7 +74,7 @@ export const TENANT_TIMEZONE_CHOICES: Array<{ value: string; label: string }> = 
   { value: "Pacific/Auckland", label: "Pacific/Auckland (NZST/NZDT)" },
 ];
 
-/** Default if no tenant timezone is set anywhere -- matches the
+/** Default if no tenant timezone is set anywhere - matches the
  *  companies.timezone column default. */
 export const DEFAULT_TENANT_TIMEZONE = "Africa/Johannesburg";
 

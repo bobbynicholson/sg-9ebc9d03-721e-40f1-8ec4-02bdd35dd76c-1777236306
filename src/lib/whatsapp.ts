@@ -19,7 +19,7 @@
  *   than firing the user off to a chat that will never deliver.
  *
  * Future: when we wire WhatsApp Business API, the templates layer
- * stays unchanged -- only buildWhatsAppUrl flips to a server send.
+ * stays unchanged - only buildWhatsAppUrl flips to a server send.
  */
 
 /**

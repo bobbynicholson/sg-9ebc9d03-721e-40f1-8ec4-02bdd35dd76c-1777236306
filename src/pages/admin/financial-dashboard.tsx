@@ -488,7 +488,7 @@ export default function FinancialDashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
-                    <InfoTooltip content={"(Revenue - real ingredient COGS) / revenue, on PAID orders in the last 90 days.\n\nIngredient cost comes from inventory_transactions where transaction_type='usage' joined to the order's unit_cost. Payroll, supplier invoices and other operating costs are NOT yet folded in -- the figure here is a top-line gross margin, not net."} />
+                    <InfoTooltip content={"(Revenue - real ingredient COGS) / revenue, on PAID orders in the last 90 days.\n\nIngredient cost comes from inventory_transactions where transaction_type='usage' joined to the order's unit_cost. Payroll, supplier invoices and other operating costs are NOT yet folded in - the figure here is a top-line gross margin, not net."} />
                   </CardTitle>
                   <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-purple-600" : "text-slate-400"}`} />
                 </div>
@@ -717,7 +717,7 @@ export default function FinancialDashboardPage() {
             <TabsContent value="orders">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Order Revenue <InfoTooltip content={"Revenue per recent order. Profit margin column removed in the May 2026 audit -- it was driven by a flat 65% cost assumption, not real costs."} /></CardTitle>
+                  <CardTitle className="flex items-center gap-2">Order Revenue <InfoTooltip content={"Revenue per recent order. Profit margin column removed in the May 2026 audit - it was driven by a flat 65% cost assumption, not real costs."} /></CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">

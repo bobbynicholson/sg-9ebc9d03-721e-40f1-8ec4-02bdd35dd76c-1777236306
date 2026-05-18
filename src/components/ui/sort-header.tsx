@@ -1,5 +1,5 @@
 /**
- * <SortHeader/> -- click-to-sort table header cell.
+ * <SortHeader/> - click-to-sort table header cell.
  *
  * Pairs with the `useSortable` hook in lib/useSortable.ts. Renders the
  * label, an arrow that flips with the active direction, and dims when

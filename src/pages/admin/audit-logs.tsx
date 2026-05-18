@@ -1,5 +1,5 @@
 /**
- * /admin/audit-logs -- company-scoped audit trail viewer.
+ * /admin/audit-logs - company-scoped audit trail viewer.
  *
  * Phase 8 #5. The platform-level page at /admin/platform/audit-logs
  * is super-admin only and pivots across every tenant. Company
@@ -342,7 +342,7 @@ function CompanyAuditLogsViewer() {
                     Audit logs
                   </h1>
                   <p className="text-slate-600 mt-1 text-sm">
-                    Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only -- mutations belong on the per-entity pages.
+                    Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages.
                   </p>
                   {oldestEntryAt && (() => {
                     const days = Math.max(
@@ -440,7 +440,7 @@ function CompanyAuditLogsViewer() {
                     still owns the long tail; these chips give one-tap
                     access to the entity types operators reach for
                     repeatedly (order/quote/payment/refund). */}
-                {/* Wave 67.6 -- POPIA quick filter. POPIA Section 11 +
+                {/* Wave 67.6 - POPIA quick filter. POPIA Section 11 +
                     Subject Access Request (SAR) replies need the
                     operator to surface "every read of this data
                     subject's PII" on demand. One click pre-fills
@@ -461,7 +461,7 @@ function CompanyAuditLogsViewer() {
                         ? "border-violet-700 bg-violet-900 text-white"
                         : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-400 hover:text-violet-900"
                     }`}
-                    title="Filter to PII access events -- who viewed contact details, financial info, etc. Required for POPIA Subject Access Requests."
+                    title="Filter to PII access events - who viewed contact details, financial info, etc. Required for POPIA Subject Access Requests."
                   >
                     PII access only
                   </button>

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Recurring invoices -- Wave 68.
+ * Recurring invoices - Wave 68.
  *
  * Operator surface for the recurring_invoice_templates table. Set
  * up "weekly office lunch for Acme R 5 000" once; the cron at
@@ -74,7 +74,7 @@ export default function RecurringInvoicesPage() {
   const [rows, setRows] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  // Wave 68.1 -- proper Dialog state replacing the window.prompt chain.
+  // Wave 68.1 - proper Dialog state replacing the window.prompt chain.
   // 4 sequential prompts couldn't be cancelled cleanly, lost typing on
   // a misclick, and had no line-item editor at all. Now: one Dialog
   // with validated fields + an editable line-items table.
@@ -134,7 +134,7 @@ export default function RecurringInvoicesPage() {
   };
 
   const remove = async (t: Template) => {
-    if (!confirm(`Delete recurring template "${t.template_name}"? Invoices already generated will stay -- only the template + future runs are removed.`)) return;
+    if (!confirm(`Delete recurring template "${t.template_name}"? Invoices already generated will stay - only the template + future runs are removed.`)) return;
     await (supabase as any)
       .from("recurring_invoice_templates")
       .delete()
@@ -293,7 +293,7 @@ export default function RecurringInvoicesPage() {
         </div>
       </div>
 
-      {/* Wave 68.1 -- new-template dialog. Replaces the 4-prompt
+      {/* Wave 68.1 - new-template dialog. Replaces the 4-prompt
           window.prompt chain with validated fields + editable
           line-items table. First invoice fires on the configured
           next_run_at (defaults to today). */}

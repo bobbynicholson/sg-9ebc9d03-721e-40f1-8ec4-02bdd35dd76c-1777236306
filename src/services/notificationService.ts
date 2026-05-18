@@ -45,7 +45,7 @@ interface CreateNotificationParams {
   order_id?: string;
   // Source-record pointer so the client / admin notification UIs can
   // render contextual CTAs ("Open order", "View quote") that deep-link
-  // to the underlying record. Optional -- omit and the row falls back
+  // to the underlying record. Optional - omit and the row falls back
   // to the generic `link` button.
   related_entity_type?: string;
   related_entity_id?: string;
@@ -98,7 +98,7 @@ interface BroadcastNotificationParams {
    * When true, the broadcaster checks for an existing notification of
    * the same type pointing at the same relatedEntityId within the
    * dedupWindowMinutes (default 60). When found, the whole broadcast
-   * is skipped -- existing recipients keep their original row instead
+   * is skipped - existing recipients keep their original row instead
    * of getting a duplicate. Use when the same trigger can legitimately
    * fire twice (review approve flicker, status retick, double-submit).
    * Omit and behaviour is unchanged.
@@ -126,7 +126,7 @@ interface NotificationFilters {
  * type string matches one of these, we set both the text column
  * (`notification_type`) and the enum column (`type`) so reports that
  * group by `type` see the row. Anything not on this list leaves
- * `type` NULL -- safer than failing the broadcast on an enum cast
+ * `type` NULL - safer than failing the broadcast on an enum cast
  * error when a new type ships before its enum migration.
  */
 const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
@@ -313,7 +313,7 @@ export const notificationService = {
         const { data: existing, error: existingErr } = await probe.maybeSingle();
         if (existingErr) console.error("[notificationService/createNotification] dedup probe failed:", existingErr);
         if (existing) {
-          // Match -- skip the insert. Returning null mirrors the
+          // Match - skip the insert. Returning null mirrors the
           // "soft no-op" shape callers already handle for RLS rejects.
           return null;
         }
@@ -407,7 +407,7 @@ export const notificationService = {
     // existing channel object when the name collides, so a remount
     // (route nav, StrictMode) would land on an already-subscribed
     // channel and throw "cannot add postgres_changes callbacks after
-    // subscribe()" -- which crashed the whole admin layout. A random
+    // subscribe()" - which crashed the whole admin layout. A random
     // suffix guarantees a fresh channel every time.
     const channelKey = `notifications:${userId}:${activeRole || "all"}:${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
@@ -472,7 +472,7 @@ export const notificationService = {
           .maybeSingle();
         if (existingErr) console.error("[notificationService/broadcast] dedup lookup failed:", existingErr);
         if (existing) {
-          // Match -- skip the entire fan-out.
+          // Match - skip the entire fan-out.
           return 0;
         }
       } catch (dedupErr) {
@@ -517,7 +517,7 @@ export const notificationService = {
           const primary = (profile as any).region_id as string | null;
           if (covered && covered.length > 0) return covered.includes(regionScope);
           if (primary) return primary === regionScope;
-          // Profile has no region scoping data -- preserve existing
+          // Profile has no region scoping data - preserve existing
           // behaviour (treat as cross-branch) so legacy users don't
           // silently miss notifications.
           return true;
@@ -526,7 +526,7 @@ export const notificationService = {
           const row: Record<string, any> = {
             company_id: params.companyId,
             recipient_id: profile.id,
-            user_id: profile.id, // self-originated row -- INSERT RLS allows it
+            user_id: profile.id, // self-originated row - INSERT RLS allows it
             notification_type: params.type,
             title: params.title,
             message: params.message,
@@ -650,7 +650,7 @@ export const notificationService = {
    * never fired and the prompt was never sent.
    *
    * The actual send now happens via the cron worker at
-   * /api/cron/process-pending-reviews -- this method just inserts a
+   * /api/cron/process-pending-reviews - this method just inserts a
    * pending_reviews row that the worker picks up once due_at passes.
    *
    * Idempotent on order_id via a unique index, so safe to call on

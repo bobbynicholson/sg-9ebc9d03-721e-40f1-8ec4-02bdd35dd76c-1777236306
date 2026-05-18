@@ -4,10 +4,10 @@
  *
  * Cost philosophy:
  *   - Use Haiku as the default model. 95% of the work is "match
- *     these column headers to one of these target fields" -- a Haiku
+ *     these column headers to one of these target fields" - a Haiku
  *     job, not a Sonnet job.
  *   - One round-trip per sheet for column mapping. Don't loop.
- *   - Tool-use forces structured JSON output -- no parsing errors,
+ *   - Tool-use forces structured JSON output - no parsing errors,
  *     no rambling.
  *   - Hard token caps on prompts. We send headers + 3 sample rows
  *     per sheet, never the whole file.
@@ -21,7 +21,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-// Cheap by default. The mapper rarely benefits from Sonnet -- we'll
+// Cheap by default. The mapper rarely benefits from Sonnet - we'll
 // flip the env var to escalate one stuck job at a time if needed.
 const DEFAULT_MODEL = process.env.ANTHROPIC_IMPORT_MODEL || "claude-haiku-4-5";
 
@@ -327,14 +327,14 @@ export interface ReceiptLineItem {
   unit: string | null;
   /** Per-unit price if discernible, else null. */
   unit_price: number | null;
-  /** Line total -- usually printed on the slip. */
+  /** Line total - usually printed on the slip. */
   line_total: number | null;
   /** AI's deductibility classification, looked up from
    *  sa_tax_deductibility_rules. Null when no rules were supplied or
    *  the line couldn't be matched. */
   tax_category_code?: string | null;
   /** AI's deductibility flag derived from the matched rule. Null when
-   *  unmatched -- caller treats as 'unknown' rather than false. */
+   *  unmatched - caller treats as 'unknown' rather than false. */
   is_deductible?: boolean | null;
   /** Confidence 0-1 the model assigned to its rule match. */
   match_confidence?: number | null;
@@ -359,16 +359,16 @@ export interface ReceiptExtraction {
   total: number | null;
   payment_method: string | null;
   line_items: ReceiptLineItem[];
-  /** Plain-English notes the operator should look at -- e.g.
-   *  "Bottom right corner is blurred -- total may be wrong". */
+  /** Plain-English notes the operator should look at - e.g.
+   *  "Bottom right corner is blurred - total may be wrong". */
   warnings: string[];
 }
 
 // Cost-tiered model selection. Haiku 4-5 is the default workhorse for
-// receipt OCR -- it's ~4x cheaper than Sonnet and the structured-vision
+// receipt OCR - it's ~4x cheaper than Sonnet and the structured-vision
 // extraction quality is fine for clear till slips. Sonnet is held in
 // reserve as the fallback when Haiku returns 0 lines (a signal that
-// the slip is genuinely tricky -- thermal-faded, wrinkled, sideways).
+// the slip is genuinely tricky - thermal-faded, wrinkled, sideways).
 // Both are env-overridable so we can flip without a deploy.
 const RECEIPT_PRIMARY_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
 const RECEIPT_FALLBACK_MODEL = process.env.ANTHROPIC_RECEIPT_FALLBACK_MODEL || "claude-sonnet-4-5";
@@ -400,7 +400,7 @@ function buildTaxRulesPrompt(rules: TaxRuleForPrompt[]): string {
  *   - resize to 1568px max long edge (fit:inside, no upscale)
  *   - re-encode as JPEG q=82 with mozjpeg for ~25-40% smaller file
  *
- * Failure here is non-fatal -- log + send the original. Better to spend
+ * Failure here is non-fatal - log + send the original. Better to spend
  * a few extra cents than fail a scan over a sharp glitch.
  */
 async function compressReceiptImage(base64: string, mime: string): Promise<{ base64: string; mime: string }> {
@@ -441,7 +441,7 @@ async function callClaudeForReceipt(args: {
   const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
   // 8192 output tokens leaves comfortable headroom for till-roll receipts
   // (think Pick n Pay / Makro / Spar) where the line_items array can run
-  // 30+ rows -- each carries description + qty + unit + unit_price +
+  // 30+ rows - each carries description + qty + unit + unit_price +
   // line_total + tax_category_code + is_deductible + match_confidence,
   // so 30 lines is roughly 1500-2000 tokens just on items. The previous
   // 2048 cap routinely cut JSON mid-array, which produced 0 line items
@@ -536,7 +536,7 @@ async function callClaudeForReceipt(args: {
   // any line_items we got back are partial and the JSON might be
   // malformed. We surface this explicitly in warnings so the UI toast
   // can tell the operator the real cause instead of "try a clearer
-  // photo" -- the photo is fine, the cap was the problem.
+  // photo" - the photo is fine, the cap was the problem.
   const stopReason: string | undefined = response?.stop_reason;
   const truncated = stopReason === "max_tokens";
 
@@ -545,12 +545,12 @@ async function callClaudeForReceipt(args: {
     receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
     payment_method: null, line_items: [],
     warnings: truncated
-      ? ["Output was cut off before the model finished -- raise max_tokens or split the receipt."]
+      ? ["Output was cut off before the model finished - raise max_tokens or split the receipt."]
       : ["No structured response from model"],
   };
 
   const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-  // Capture any text the model returned alongside the tool call -- if it
+  // Capture any text the model returned alongside the tool call - if it
   // refused or struggled with the image, the explanation lives here.
   const textCommentary: string[] = [];
   for (const block of blocks) {
@@ -590,7 +590,7 @@ async function callClaudeForReceipt(args: {
         extraction.warnings = [...extraction.warnings, ...textCommentary];
       }
       // If the response was truncated mid-output, prepend an explicit
-      // truncation warning -- the operator should know the line list
+      // truncation warning - the operator should know the line list
       // they're seeing is incomplete, not "the AI couldn't read it".
       if (truncated) {
         extraction.warnings = [
@@ -614,7 +614,7 @@ async function callClaudeForReceipt(args: {
  *   1. Compress the image (rotate per EXIF, resize to 1568px max long
  *      edge, re-encode as JPEG q=82). Cuts image-token cost.
  *   2. Try Haiku 4-5 first (~4x cheaper than Sonnet for the same task).
- *   3. If Haiku returns 0 line items, retry with Sonnet 4-5 -- the
+ *   3. If Haiku returns 0 line items, retry with Sonnet 4-5 - the
  *      higher-tier model handles edge cases (faded thermal slips,
  *      sideways images, very dense text) that Haiku occasionally
  *      drops. We tag the result with a "switched to higher-tier model"
@@ -643,7 +643,7 @@ export async function extractReceiptViaAI(args: {
 
   // Fallback to the higher-tier model when the primary returned no
   // structured lines. Skipped if both env-vars resolved to the same
-  // model -- no point retrying with the same engine.
+  // model - no point retrying with the same engine.
   if (
     result.extraction.line_items.length === 0 &&
     RECEIPT_PRIMARY_MODEL !== RECEIPT_FALLBACK_MODEL
@@ -657,7 +657,7 @@ export async function extractReceiptViaAI(args: {
       taxRules: args.taxRules,
       model: RECEIPT_FALLBACK_MODEL,
     });
-    // Stash a warning so the operator sees we escalated -- helpful when
+    // Stash a warning so the operator sees we escalated - helpful when
     // they're triaging which slips need a clearer photo next time.
     fallback.extraction.warnings = [
       `Switched to ${RECEIPT_FALLBACK_MODEL} after ${RECEIPT_PRIMARY_MODEL} returned no lines.`,

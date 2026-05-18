@@ -6,7 +6,7 @@
  * global default -> hardcoded fallback. The fallback bodies stay here
  * as the source-of-truth copy that seeds the DB defaults.
  *
- * These bypass the comms_paused_until quarantine gate -- a refund or
+ * These bypass the comms_paused_until quarantine gate - a refund or
  * cancellation is a critical service comm the client needs no matter
  * what import-batch state their record is in. blocked_contacts still
  * applies (a deliberately blocked contact stays blocked).
@@ -18,7 +18,7 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
 // Wave 17 audit: these helpers fire from server-side API routes
 // (cancellation-review, refundService etc.) where the imported
 // browser supabase client has no session and RLS rejects the orders /
-// companies SELECTs -- the helpers silently no-op and the client
+// companies SELECTs - the helpers silently no-op and the client
 // never gets their cancellation / refund / postponement email.
 // Resolve a service-role client at call time when we're on the
 // server. On the browser we keep the imported anon client (these
@@ -62,7 +62,7 @@ const FALLBACK_BODIES = {
   // tenants don't read awkwardly.
   cancellation_with_credit_paragraph:
     "You chose to keep your {{credit_amount}} as store credit instead of a refund. " +
-    "It's already on your account -- use it any time on a future booking, never expires.\n\n",
+    "It's already on your account - use it any time on a future booking, never expires.\n\n",
   refund_paid:
     "Hi {{client_first_name}},\n\n" +
     "Confirming that the refund of {{refund_amount}} for the cancelled order {{order_number}} has been processed. " +
@@ -242,7 +242,7 @@ export async function sendCancellationEmail(
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
-      // service-role -- otherwise RLS hides the row and sendEmail
+      // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
       _client: resolveServerClient(),
     } as any);
@@ -285,7 +285,7 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
-      // service-role -- otherwise RLS hides the row and sendEmail
+      // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
       _client: resolveServerClient(),
     } as any);
@@ -339,7 +339,7 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
-      // service-role -- otherwise RLS hides the row and sendEmail
+      // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
       _client: resolveServerClient(),
     } as any);

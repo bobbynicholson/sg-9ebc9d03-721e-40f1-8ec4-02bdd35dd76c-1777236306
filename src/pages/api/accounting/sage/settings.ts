@@ -6,18 +6,18 @@
  * configured") until an admin picks which Sage accounts CateringMS
  * should map to. This endpoint is the back end for that picker.
  *
- *   GET  -- returns current metadata + pulls the option lists from
+ *   GET  - returns current metadata + pulls the option lists from
  *           the connected Sage tenant (ledger accounts, tax rates,
  *           bank accounts, payment methods). Empty arrays + nulls
  *           if not yet connected.
  *
- *   POST -- writes the chosen defaults back to
+ *   POST - writes the chosen defaults back to
  *           accounting_integrations.metadata. Owner / admin only.
  *           Validates each id against the live Sage lists so a stale
  *           browser tab can't save an id that no longer exists.
  *
- * The dropdown ids change per Sage tenant -- there's no shared
- * catalogue -- so the only way to populate them sensibly is to
+ * The dropdown ids change per Sage tenant - there's no shared
+ * catalogue - so the only way to populate them sensibly is to
  * fetch live each time the panel opens. Cached for 60s so opening
  * the settings page doesn't hammer Sage.
  */
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const admin: any = getServiceSupabase();
 
     if (req.method === "GET") {
-      // Current metadata first -- always returnable, even if the
+      // Current metadata first - always returnable, even if the
       // Sage connection is dead.
       const { data: integration } = await admin
         .from("accounting_integrations")

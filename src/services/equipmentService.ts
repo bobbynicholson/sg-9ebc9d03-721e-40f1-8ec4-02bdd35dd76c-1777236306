@@ -147,7 +147,7 @@ export const equipmentService = {
     availableFrom.setHours(availableFrom.getHours() + cleaningTimeHours);
 
     // Resolve company_id from the order when the caller didn't pass
-    // it -- the field is required by RLS and by the availability
+    // it - the field is required by RLS and by the availability
     // calculator. Audit (May 2026): the previous insert wrote without
     // company_id, so the row was invisible to every subsequent
     // availability check and the same equipment could be sold twice
@@ -190,7 +190,7 @@ export const equipmentService = {
     // as `Args: never`, meaning the function takes no parameters. The
     // call below silently no-ops (or applies a stub effect) and
     // equipment.available_quantity never reflects the reservation.
-    // Skip the RPC entirely -- the availability calculator already
+    // Skip the RPC entirely - the availability calculator already
     // reads equipment.quantity minus the LIVE equipment_bookings
     // overlap, so available_quantity as a denormalised counter is
     // redundant. Leave a comment so a future dev doesn't re-add it.
@@ -220,7 +220,7 @@ export const equipmentService = {
     // Audit (May 2026, Wave 4): the previous update only flipped
     // status='returned' and never stamped returned_quantity, so the
     // availability calculator's `quantity - returned_quantity` math
-    // treated every partial return as a full one -- a shortage was
+    // treated every partial return as a full one - a shortage was
     // released back into stock as if intact.
     const { data, error } = await supabase
       .from("equipment_bookings")

@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Catering CRM -- a single view of every person ever on this company's
+ * Catering CRM - a single view of every person ever on this company's
  * radar (existing client, lead, anyone who placed an order). For each
  * one we compute a status (hot lead / active / quiet / cold / VIP / etc),
  * a suggested next action, and surface a quick-mail panel with Gmail,
- * Outlook, default mail and clipboard options. No bulk send -- this is
+ * Outlook, default mail and clipboard options. No bulk send - this is
  * for the personal "drop them a hi" follow-ups that Mailchimp doesn't do.
  *
  * Silicon Valley UX touches:
@@ -61,14 +61,14 @@ interface Contact {
   source: "client" | "lead" | "order_only";
   /** Underlying clients-table row id, set when source is 'client' or
    *  when a lead/order row was promoted by an Add. Drives Edit/Delete
-   *  on the row -- if null, those actions are hidden. */
+   *  on the row - if null, those actions are hidden. */
   clientId: string | null;
   /** Every lead row that merged into this contact. Used by the
    *  delete handler so a single bin click sweeps the lead, the
    *  client, and the orders together. */
   leadIds: string[];
   /** Every order row matched to this contact by email/name. Same
-   *  reason -- delete fans out across all backing records. */
+   *  reason - delete fans out across all backing records. */
   orderIds: string[];
   /** Every quote row matched to this contact. Lets the delete fan
    *  out wipe their quote history at the same time. */
@@ -128,7 +128,7 @@ const STATUS_META: Record<ClientStatus, {
 // Every status in STATUS_META gets a pill so the segment counts add up to the
 // "All" total. Previously "won" and "returning" were defined as statuses but
 // not rendered, so imported clients with no leads/orders (which fall through
-// to status="won") were invisible to every filter -- making "All=604" while
+// to status="won") were invisible to every filter - making "All=604" while
 // the visible pills summed to 2.
 const FILTERS: Array<{ id: "all" | ClientStatus; label: string }> = [
   { id: "all",       label: "All" },
@@ -151,7 +151,7 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 function ClientsCRM() {
   const { user, profile } = useAuth() as any;
   // Resilient companyId resolution. Different auth paths populate
-  // different fields -- profile.company_id is the canonical one but
+  // different fields - profile.company_id is the canonical one but
   // user.user_metadata.company_id and user.company_id are both used
   // by sibling pages (client-search, leads). Read all three so a
   // partial auth bootstrap doesn't leave the page empty.
@@ -257,7 +257,7 @@ function ClientsCRM() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
-  // Bulk-import modal -- "Import clients" button feeds the same engine
+  // Bulk-import modal - "Import clients" button feeds the same engine
   // the onboarding wizard uses. After commit we reload the contact list.
   const [importOpen, setImportOpen] = useState(false);
   // Block-list opt-in stamped at delete time. Default off so a quick
@@ -360,7 +360,7 @@ function ClientsCRM() {
       });
     }
     // Diagnostic log so we can see exactly what came back when the
-    // page renders empty. Counts only -- no PII.
+    // page renders empty. Counts only - no PII.
     console.info("[contacts] loaded:", {
       clients: (clientsRes as any)?.data?.length ?? 0,
       leads: leadsRes.data?.length ?? 0,
@@ -553,7 +553,7 @@ function ClientsCRM() {
         if (c.totalSpent >= 75000 || c.outstandingBalance > 0) {
           c.status = "vip";
         } else if (next) {
-          // Has upcoming event -- active
+          // Has upcoming event - active
           c.status = "active";
         } else if (c.orderCount >= 2 && c.daysSinceLastTouch !== null && c.daysSinceLastTouch <= 90) {
           c.status = "returning";
@@ -627,7 +627,7 @@ function ClientsCRM() {
     loadContacts();
   }, [loadContacts]);
 
-  // Deep-link handler -- when /admin/contacts?clientId=<uuid> is in
+  // Deep-link handler - when /admin/contacts?clientId=<uuid> is in
   // the URL (typically from Client Search), find the contact whose
   // backing client row matches, drop any active filter so the row is
   // reachable, scroll it into view and amber-ring it for a few
@@ -667,7 +667,7 @@ function ClientsCRM() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.clientId, loading, contacts]);
 
-  // "/" or Cmd+F focuses the search box -- a tiny SV touch.
+  // "/" or Cmd+F focuses the search box - a tiny SV touch.
   // Phase 29 #8: "n" opens the Add contact dialog.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -727,7 +727,7 @@ function ClientsCRM() {
   }, [contacts]);
   // Status filter is applied first so the fuzzy matcher only ranks contacts
   // the user is currently scoped to (e.g. "VIPs called Sarah"). Tag filter
-  // (Phase 9 #4) layers on top -- a contact passes if it carries at
+  // (Phase 9 #4) layers on top - a contact passes if it carries at
   // least one of the selected tags.
   const statusFiltered = useMemo(() => {
     let base = filter === "all" ? contacts : contacts.filter((c) => c.status === filter);
@@ -738,7 +738,7 @@ function ClientsCRM() {
   }, [contacts, filter, tagFilter]);
 
   // Smart fuzzy search across name, email, phone with name weighted highest.
-  // The hook debounces and scores -- gives us prefix > substring > fuzzy.
+  // The hook debounces and scores - gives us prefix > substring > fuzzy.
   const fuzzyVisible = useFuzzyItems(
     statusFiltered,
     search,
@@ -894,7 +894,7 @@ function ClientsCRM() {
                   a.click();
                   URL.revokeObjectURL(url);
 
-                  // Wave 70.3 -- POPIA. CSV export of contacts is
+                  // Wave 70.3 - POPIA. CSV export of contacts is
                   // a bulk PII read: every row name + email + phone
                   // + spend goes to disk. Log a single audit row
                   // covering the whole export so the SAR trail can
@@ -1090,7 +1090,7 @@ function ClientsCRM() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
               <span className="text-amber-900">
                 Showing the first <strong className="tabular-nums">{visible.length}</strong> of <strong className="tabular-nums">{allVisible.length}</strong> contacts.
-                Use search or a status filter to find someone specific -- or load them all.
+                Use search or a status filter to find someone specific - or load them all.
               </span>
               <button
                 type="button"
@@ -1299,7 +1299,7 @@ function ClientsCRM() {
                             </td>
                             <td className="py-3 px-2 text-right tabular-nums">
                               {/* Phase 10 #8: combined lifetime spend
-                                  -- in-system orders + imported
+                                  - in-system orders + imported
                                   historical spend. Shows the full
                                   customer-value picture instead of
                                   only the new-system slice. */}
@@ -1377,7 +1377,7 @@ function ClientsCRM() {
                                     quote prefilled from the lead row.
                                     Both routes land on the rich builder
                                     (/admin/quotes/new) which is fully
-                                    editable -- the [id] detail page is
+                                    editable - the [id] detail page is
                                     a separate read-only-ish surface and
                                     we want operators in the builder. */}
                                 {(c.quoteIds.length > 0 || c.leadIds.length > 0) && (
@@ -1461,7 +1461,7 @@ function ClientsCRM() {
           (c) offers a "block from future comms" toggle that writes
               into blocked_contacts (the /api/send-email API refuses
               to deliver to anyone in that table).
-          Soft-delete only -- the deleted_at columns mean support can
+          Soft-delete only - the deleted_at columns mean support can
           always restore. */}
       <Dialog
         open={!!confirmDelete}
@@ -1634,7 +1634,7 @@ function ClientsCRM() {
                             phone: c.phone || null,
                             reason: `Deleted via Contacts on ${new Date().toLocaleDateString("en-ZA")}`,
                           });
-                        // Conflict on existing block is fine -- means
+                        // Conflict on existing block is fine - means
                         // we already had them blocked, no toast.
                         if (error && !String(error.message).match(/duplicate|unique/i)) {
                           errors.push(`block: ${error.message}`);
@@ -1673,7 +1673,7 @@ function ClientsCRM() {
         </DialogContent>
       </Dialog>
 
-      {/* Compose drawer -- shared resizable host so this matches the
+      {/* Compose drawer - shared resizable host so this matches the
           quotes / leads compose UX. Default ~60% of viewport, draggable
           on the left edge, width persists across opens via sessionStorage. */}
       <ComposeDrawerHost open={!!active} onClose={() => setActive(null)}>
@@ -1705,7 +1705,7 @@ function ClientsCRM() {
 }
 
 /**
- * ComposeDrawer -- thin wrapper around the shared MessageComposer
+ * ComposeDrawer - thin wrapper around the shared MessageComposer
  * (same component Leads and Quotes use). Keeps the messaging UI
  * identical across all three CRM surfaces: same drawer chrome, same
  * send-channel buttons, same WhatsApp pivot, same context rail.
@@ -1825,7 +1825,7 @@ function ClientFormDialog({
     // string in the form state so the operator can type freely;
     // we normalise to a string[] before writing to clients.tags.
     tags: "",
-    // Wave 66.8 -- per-client payment terms in days. Overrides the
+    // Wave 66.8 - per-client payment terms in days. Overrides the
     // company-wide balance_due_days default during invoice generation.
     // Lets corporate clients be set to Net 30 / Net 60 while everyone
     // else stays on the company's catering-default (typically 7).
@@ -1849,7 +1849,7 @@ function ClientFormDialog({
       setShowMore(false);
       return;
     }
-    // Layer 1: in-memory seed -- guarantees the form shows the contact
+    // Layer 1: in-memory seed - guarantees the form shows the contact
     // data we already know about even before the network round-trip.
     setForm({
       client_name: editing.name || "",
@@ -1868,7 +1868,7 @@ function ClientFormDialog({
         .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms")
         .eq("id", editing.clientId)
         .maybeSingle();
-      // Wave 67.6 -- POPIA access log. Fire-and-forget; the read
+      // Wave 67.6 - POPIA access log. Fire-and-forget; the read
       // itself isn't blocked if the log call fails. Categories
       // distinguish contact_details (phone/email/billing) from
       // identifying (VAT/tax). Extend to other PII-bearing surfaces
@@ -1931,7 +1931,7 @@ function ClientFormDialog({
       billing_postal_code: form.billing_postal_code.trim() || null,
       notes:       form.notes.trim() || null,
       tags:        normalisedTags.length > 0 ? normalisedTags : null,
-      // Wave 66.8 -- per-client payment terms override. Empty string
+      // Wave 66.8 - per-client payment terms override. Empty string
       // clears the override so invoice generation falls back to the
       // company default; positive integer sets Net X days.
       payment_terms: (() => {
@@ -2014,7 +2014,7 @@ function ClientFormDialog({
                 <Input value={form.tax_number} onChange={set("tax_number")} placeholder="VAT 4123456789" className="mt-1" />
               </div>
 
-              {/* Wave 66.8 -- per-client payment terms (days). Overrides
+              {/* Wave 66.8 - per-client payment terms (days). Overrides
                   the company default during invoice generation. Lets
                   a corporate that needs Net 30 stay on Net 30 while
                   everyone else uses the catering-style 7-day balance.
@@ -2049,7 +2049,7 @@ function ClientFormDialog({
                 <Textarea value={form.notes} onChange={set("notes")} rows={3} className="mt-1" placeholder="Allergies, preferences, anything worth remembering..." />
               </div>
               {/* Phase 8 #10: customer tags. Comma-separated free
-                  text -- normalised to lowercase, deduped and
+                  text - normalised to lowercase, deduped and
                   trimmed at save. The tags surface as little
                   chips on the contact card so VIP / corporate /
                   vegan / no-pork etc. is visible at a glance. */}
@@ -2111,7 +2111,7 @@ function ClientFormDialog({
                     return /[",\n]/.test(cleaned) ? `"${cleaned}"` : cleaned;
                   };
                   const lines: string[] = [];
-                  lines.push(`# Client data export -- ${form.client_name}`);
+                  lines.push(`# Client data export - ${form.client_name}`);
                   lines.push(`# Exported ${new Date().toISOString()}`);
                   lines.push("");
                   lines.push("# Contact details");
@@ -2155,7 +2155,7 @@ function ClientFormDialog({
                   URL.revokeObjectURL(url);
                   toast({ title: "Client data exported", description: "CSV download started." });
 
-                  // Wave 70.3 -- POPIA. Per-client SAR-style export
+                  // Wave 70.3 - POPIA. Per-client SAR-style export
                   // dumps every PII field + the full order / quote /
                   // invoice history. This is the highest-impact PII
                   // event we record; log with category "identifying"

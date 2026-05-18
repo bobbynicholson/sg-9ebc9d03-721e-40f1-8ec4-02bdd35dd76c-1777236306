@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Receipt-scan quota -- defensive cap on per-tenant AI receipt scans.
+ * Receipt-scan quota - defensive cap on per-tenant AI receipt scans.
  *
  * Why: AI calls are the largest variable line on platform COGS (see
  * /admin/platform/tech-costs). One runaway tenant uploading 500 slips
  * in a weekend could rack up R200+ of Anthropic spend on its own. We
- * cap each tenant at 60 scans per calendar month -- enough for normal
+ * cap each tenant at 60 scans per calendar month - enough for normal
  * weekly shopping plus headroom, far below "burning money" territory.
  *
  * Counted: every purchase_receipts row created in the current calendar
  * month for this company. Both fresh slip uploads and "Add slip"
  * keyed-in entries count, but the latter doesn't actually trigger AI
- * (no image_path) -- so practically the count is "scans".
+ * (no image_path) - so practically the count is "scans".
  *
  * Not counted: rescans of an existing receipt that hit the draft cache
  * (no new AI call). The draft persistence layer handles that.

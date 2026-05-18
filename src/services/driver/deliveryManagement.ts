@@ -6,7 +6,7 @@ import { driverPayService } from "@/services/driverPayService";
  * Handles delivery status updates, confirmations, and tracking.
  *
  * Stage 4 of the driver hourly-rate build wires auto clock-in /
- * clock-out into this file -- markOrderPickedUp opens a driver shift,
+ * clock-out into this file - markOrderPickedUp opens a driver shift,
  * confirmDelivery / updateDeliveryStatus(delivered) closes it. BCEA
  * Sunday / public-holiday detection happens server-side in
  * driverPayService.autoClockOut, so no caller logic needed here.
@@ -45,7 +45,7 @@ export interface DeliveryUpdate {
  * customer notification fan-out. A driver tapping "delivered"
  * never triggered the client delivered email/WhatsApp, the
  * POD-missing admin alert, the pending_reviews queue, equipment
- * cleaning rows, or the collection-trip cascade -- all of which
+ * cleaning rows, or the collection-trip cascade - all of which
  * fire only from orderWorkflow.updateOrderStatus.
  *
  * Now: verify the driver owns this order (assigned_driver_id OR
@@ -239,7 +239,7 @@ export async function getDriverDeliveries(
  * Mark order as picked up from kitchen.
  *
  * Flow audit Leg E P0-3: the previous version wrote `status='in_transit'`
- * directly to orders, bypassing updateOrderStatus -- no transition
+ * directly to orders, bypassing updateOrderStatus - no transition
  * validation (a driver could pick up a cancelled order), no
  * order_status_history row, no sendStatusNotifications fan-out (client
  * "your order is on its way" email never fired from this path).

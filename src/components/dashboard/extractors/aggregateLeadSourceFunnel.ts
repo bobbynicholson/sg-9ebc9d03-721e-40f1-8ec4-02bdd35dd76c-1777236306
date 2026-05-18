@@ -1,5 +1,5 @@
 /**
- * Tier 4 chart 1 -- Lead source -> outcome funnel.
+ * Tier 4 chart 1 - Lead source -> outcome funnel.
  *
  * Three columns:
  *   Left   = leads.source values (manual_add, embed, client_portal_rebook,
@@ -7,7 +7,7 @@
  *   Middle = "Quoted" / "Not quoted" (does the lead have any quote?)
  *   Right  = "Won" / "Lost" / "In flight" (final outcome)
  *
- * Renders as a 3-column flow visualisation (custom -- Recharts'
+ * Renders as a 3-column flow visualisation (custom - Recharts'
  * Sankey is unstable on small datasets and adds a heavy import for
  * one chart). Each "link" carries a count + share-of-source.
  *
@@ -85,7 +85,7 @@ export function aggregateLeadSourceFunnel(
   leads: LeadForYoY[],
   quotes: QuoteForYoY[],
 ): LeadSourceFunnelResult {
-  // Index quotes by lead_id -- but our QuoteForYoY shape doesn't carry
+  // Index quotes by lead_id - but our QuoteForYoY shape doesn't carry
   // lead_id directly. Workaround: any quote whose status reached past
   // "draft" is considered to have "been sent". For the source -> quoted
   // connection we use the lead's own status as a proxy: leads in
@@ -126,7 +126,7 @@ export function aggregateLeadSourceFunnel(
     else agg.inFlight += 1;
   }
 
-  // Total leads (avoid double-count -- middles + outcomes both sum to
+  // Total leads (avoid double-count - middles + outcomes both sum to
   // total per source).
   let totalLeads = 0;
   for (const a of aggBySource.values()) totalLeads += a.total;

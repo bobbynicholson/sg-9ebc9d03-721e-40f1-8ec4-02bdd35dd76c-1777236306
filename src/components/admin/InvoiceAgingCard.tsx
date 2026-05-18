@@ -1,9 +1,9 @@
 /**
- * InvoiceAgingCard -- aging-buckets summary for outstanding invoices.
+ * InvoiceAgingCard - aging-buckets summary for outstanding invoices.
  *
- * Wave 64 -- bucket boundaries restructured for catering's actual
+ * Wave 64 - bucket boundaries restructured for catering's actual
  * cashflow cycle. Pre-Wave-64 used standard B2B receivables thinking
- * (Current / 1-30 / 31-60 / 61-90 / 90+) -- but catering invoices
+ * (Current / 1-30 / 31-60 / 61-90 / 90+) - but catering invoices
  * don't behave like B2B credit terms. The cycle is:
  *
  *   1. Deposit on quote acceptance (often weeks before event)
@@ -18,7 +18,7 @@
  * surveillance" pattern (per Audit 3).
  *
  * New buckets:
- *   - Pre-event   (due_date in future -- normal, balance owing on
+ *   - Pre-event   (due_date in future - normal, balance owing on
  *                  a future event)
  *   - 0-7 late    (chase immediately, this is late)
  *   - 8-30 late   (formal collection)
@@ -74,7 +74,7 @@ export function InvoiceAgingCard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     for (const inv of invoices) {
-      // Wave 64 -- skip closed statuses. The exclusion set matches the
+      // Wave 64 - skip closed statuses. The exclusion set matches the
       // canonical invoice_status enum (no dead "cancelled" / "void"
       // literals from the pre-Wave-30 schema).
       const status = (inv.status || "").toLowerCase();
@@ -116,7 +116,7 @@ export function InvoiceAgingCard({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {BUCKETS.map((b, i) => {
           const hasContent = buckets.counts[i] > 0;
-          // Wave 64 -- empty buckets stay neutral; only tinted when
+          // Wave 64 - empty buckets stay neutral; only tinted when
           // count > 0. Pre-Wave-64 the rose 90+ bucket lit red even
           // when empty, scolding tenants with clean books.
           const tone = hasContent ? b.tone : NEUTRAL_TONE;

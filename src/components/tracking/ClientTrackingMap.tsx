@@ -131,7 +131,7 @@ export function ClientTrackingMap({
 
   // Phase 2 #2: subscribe to the right tables. The foreground GPS
   // pinger writes to driver_locations (current state) + gps_tracking
-  // (history) -- it does NOT touch profiles.current_lat. The previous
+  // (history) - it does NOT touch profiles.current_lat. The previous
   // subscription on profiles UPDATE was a no-op for live tracking;
   // the pin only moved when the legacy column happened to be set.
   //
@@ -244,13 +244,13 @@ export function ClientTrackingMap({
     );
   }
 
-  // No usable destination -- show a graceful fallback rather than asking
+  // No usable destination - show a graceful fallback rather than asking
   // Leaflet to project a null lat/lng (which crashes the page).
   if (!venueOk) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
         <p className="text-slate-500 text-sm text-center px-4">
-          Map unavailable -- delivery address hasn't been geocoded yet.
+          Map unavailable - delivery address hasn't been geocoded yet.
         </p>
       </div>
     );
@@ -311,7 +311,7 @@ export function ClientTrackingMap({
         </Popup>
       </Marker>
 
-      {/* Live driver marker -- only when we have valid GPS coords. */}
+      {/* Live driver marker - only when we have valid GPS coords. */}
       {driverOk && liveDriverLocation && (
         <Marker
           position={[Number(liveDriverLocation.lat), Number(liveDriverLocation.lng)]}
@@ -334,7 +334,7 @@ export function ClientTrackingMap({
         </Marker>
       )}
 
-      {/* Route line from driver to destination -- both ends must have
+      {/* Route line from driver to destination - both ends must have
           valid coords or Leaflet's projection crashes the whole map. */}
       {driverOk && liveDriverLocation && (
         <Polyline

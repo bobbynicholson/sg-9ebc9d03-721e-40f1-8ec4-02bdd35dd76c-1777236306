@@ -1,5 +1,5 @@
 /**
- * YearOverYearCard -- compares booked revenue + order count for
+ * YearOverYearCard - compares booked revenue + order count for
  * the selected dashboard range vs the same range one year ago.
  *
  * Phase 12 #4. The dashboard tells the operator how this month

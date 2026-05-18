@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /team-portal/driver/earnings -- driver-side pay dashboard.
+ * /team-portal/driver/earnings - driver-side pay dashboard.
  *
  * Replaces the old read of staff_work_sessions (table never existed)
  * with the live driver_shifts + delivered-orders model we ship in

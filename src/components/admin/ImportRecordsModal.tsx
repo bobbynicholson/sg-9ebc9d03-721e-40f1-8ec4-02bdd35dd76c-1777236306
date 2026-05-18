@@ -1,5 +1,5 @@
 /**
- * ImportRecordsModal -- routine bulk-upload UI for clients + leads.
+ * ImportRecordsModal - routine bulk-upload UI for clients + leads.
  *
  * Single component used from the Contacts page (template="clients")
  * and the Leads page (template="leads"). Same engine the onboarding
@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { TemplateType } from "@/lib/importTemplates";
 
-// Editable fields per target table -- the small set of common fields
+// Editable fields per target table - the small set of common fields
 // the operator can fix from the preview screen without re-uploading.
 // Mirrors the columns in importTemplates so the operator sees the
 // same shape they uploaded.
@@ -123,9 +123,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: TemplateType;
-  /** Display name -- "client" / "lead" -- used in copy. */
+  /** Display name - "client" / "lead" - used in copy. */
   recordLabel: string;
-  /** Plural display name -- "clients" / "leads" -- used in copy. */
+  /** Plural display name - "clients" / "leads" - used in copy. */
   recordLabelPlural: string;
   /** Called after a successful commit so the parent page can refresh its list. */
   onComplete?: () => void;
@@ -222,7 +222,7 @@ export function ImportRecordsModal({
   };
 
   const downloadTemplate = () => {
-    // Direct GET -- the endpoint streams an xlsx attachment.
+    // Direct GET - the endpoint streams an xlsx attachment.
     window.location.href = `/api/imports/templates/${template}`;
   };
 
@@ -447,7 +447,7 @@ export function ImportRecordsModal({
       // import that pushed past Vercel's 300s function cap and the
       // gateway returned an HTML error page, which JSON.parse choked
       // on with "Unexpected token 'A', 'An error o'... is not valid
-      // JSON" -- the row of pics Callum sent.
+      // JSON" - the row of pics Callum sent.
       let aggregate: CommitSummary | null = null;
       let processedSoFar = 0;
       // Hard stop on the loop in case the server forgets to set
@@ -466,7 +466,7 @@ export function ImportRecordsModal({
           throw new Error(msg);
         }
         if (!j) {
-          throw new Error("Server returned a non-JSON response (probably a function timeout). Try again -- the import auto-resumes from where it stopped.");
+          throw new Error("Server returned a non-JSON response (probably a function timeout). Try again - the import auto-resumes from where it stopped.");
         }
         const summary = (j.summary || null) as CommitSummary;
         aggregate = aggregate ? mergeSummaries(aggregate, summary) : summary;
@@ -498,7 +498,7 @@ export function ImportRecordsModal({
             });
           }
         } catch {
-          // Non-fatal -- the import is committed, the report is a
+          // Non-fatal - the import is committed, the report is a
           // nice-to-have. We just won't render it.
         }
 
@@ -539,7 +539,7 @@ export function ImportRecordsModal({
             setErroredRows(errs);
           }
         } catch {
-          // Non-fatal -- the count is already shown, the breakdown is
+          // Non-fatal - the count is already shown, the breakdown is
           // a nice-to-have.
         }
         if (onComplete) onComplete();
@@ -548,7 +548,7 @@ export function ImportRecordsModal({
       setError(e?.message || "Commit failed");
       if (!dryRun) {
         // The server keeps row state in import_rows, so even a hard
-        // failure here is recoverable -- the operator clicks "Import
+        // failure here is recoverable - the operator clicks "Import
         // clients" again and the next batch picks up the remaining
         // pending rows.
         setStep("preview");
@@ -668,12 +668,12 @@ export function ImportRecordsModal({
                     <p className="leading-snug">
                       <strong>{earlyValidation.fyAnalysis.preFy.toLocaleString("en-ZA")}</strong> rows
                       are dated before your financial year start ({new Date(earlyValidation.fyAnalysis.fyStart).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}).
-                      They'll land as historical records -- still searchable, but won't show in current-year revenue totals on the dashboard.
+                      They'll land as historical records - still searchable, but won't show in current-year revenue totals on the dashboard.
                     </p>
                   </div>
                 )}
                 <p className="text-[11px] text-slate-500 mt-2 text-center">
-                  Running the full preview now -- you'll be able to fix any flagged rows inline.
+                  Running the full preview now - you'll be able to fix any flagged rows inline.
                 </p>
               </div>
             )}
@@ -697,7 +697,7 @@ export function ImportRecordsModal({
                     <div className="flex-1 min-w-[200px]">
                       {duplicateCount} {duplicateCount === 1 ? "row matches an existing record" : "rows match existing records"}.
                       Default is "skip". If you're re-uploading a cleaned-up sheet,
-                      flip them to "update" -- the importer only overwrites fields the
+                      flip them to "update" - the importer only overwrites fields the
                       new sheet has values for, so manual edits stay safe.
                     </div>
                     <Button
@@ -811,7 +811,7 @@ export function ImportRecordsModal({
                                   type="button"
                                   onClick={() => openEditor(r)}
                                   className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
-                                  title="Fix this row inline -- no re-upload needed"
+                                  title="Fix this row inline - no re-upload needed"
                                 >
                                   <Pencil className="w-3 h-3" />
                                   Fix

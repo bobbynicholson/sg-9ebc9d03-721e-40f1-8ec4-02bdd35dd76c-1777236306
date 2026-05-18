@@ -163,7 +163,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           <div className="flex items-center gap-2">
             <Banknote className="w-5 h-5 text-blue-700" />
             <h2 className="text-base font-semibold text-blue-900">
-              {claims.length} pending EFT claim{claims.length === 1 ? "" : "s"} -- check your bank statement
+              {claims.length} pending EFT claim{claims.length === 1 ? "" : "s"} - check your bank statement
             </h2>
           </div>
           <p className="text-xs text-blue-800">
@@ -224,7 +224,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
                 rows={3}
-                placeholder="e.g. Reference doesn't match -- can you resend with INV-… exactly?"
+                placeholder="e.g. Reference doesn't match - can you resend with INV-… exactly?"
                 className="w-full px-3 py-2 rounded-md border border-slate-200 bg-white text-sm resize-none"
               />
               <div className="flex gap-2">

@@ -3,7 +3,7 @@
  * POST /api/client-tokens/amend-order
  *
  * Wave 20 audit: the magic-link /c/order/[id] page had no Amend
- * button -- only the auth-gated client portal exposed amendment
+ * button - only the auth-gated client portal exposed amendment
  * requests. A client landing via the email link couldn't bump guest
  * count or tweak the menu without signing in or phoning.
  *
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // each value's shape + range. Without this a malicious / sloppy
     // client could submit guest_count: 999999, special_instructions:
     // a 50KB string, or a menu_items array with thousands of bogus
-    // entries -- all of which would land on the order row + propagate
+    // entries - all of which would land on the order row + propagate
     // through the kitchen prep + invoice cascade. Wave 22.
     const sanitized: Record<string, any> = {};
     const validationErrors: string[] = [];
@@ -240,7 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               day: "numeric", month: "short", year: "numeric",
             })
           : "TBD";
-        const subject = `Change request received -- ${order.order_number}`;
+        const subject = `Change request received - ${order.order_number}`;
         const body =
           `Hi ${(order.client_name || "there").split(" ")[0]},\n\n` +
           `We've received your change request for order ${order.order_number} (${evtDate}). The team will review and confirm shortly.\n\n` +

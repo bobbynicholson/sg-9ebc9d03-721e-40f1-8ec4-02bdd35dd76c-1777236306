@@ -99,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Step 3: inventory recalc -- only if the step was previously
+    // Step 3: inventory recalc - only if the step was previously
     // attempted (not skipped) AND is forced or failed.
     const inventoryAttempted = prior.inventory && prior.inventory.skipped !== true;
     if (inventoryAttempted && (force || !prior.inventory?.ok)) {

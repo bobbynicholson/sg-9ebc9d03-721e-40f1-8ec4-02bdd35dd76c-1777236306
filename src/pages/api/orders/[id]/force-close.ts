@@ -1,5 +1,5 @@
 /**
- * POST /api/orders/[id]/force-close -- Wave 70.21
+ * POST /api/orders/[id]/force-close - Wave 70.21
  *
  * Admin / owner one-click "this is done" override for orders
  * the team didn't tick through in real time. Common scenarios:
@@ -18,7 +18,7 @@
  *      if they weren't set (uses event_time on event_date as the
  *      best-guess clock for historical orders, else now).
  *   3. Flip order status straight to 'delivered' via the canonical
- *      updateOrderStatus path -- that fires the order_status_history
+ *      updateOrderStatus path - that fires the order_status_history
  *      row + status-change notifications + any post-completion
  *      cascades the workflow service handles centrally.
  *   4. Audit-log a force_close action so the trail records WHO
@@ -69,14 +69,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const reason = (body.reason || "").trim().slice(0, 500) || null;
     const targetStatus = body.target_status === "completed" ? "completed" : "delivered";
 
-    // Wave 70.46 -- the lookup now uses the SSR client (the
+    // Wave 70.46 - the lookup now uses the SSR client (the
     // authenticated user's session) rather than the service-role
     // client. RLS lets an admin/owner see their own company's orders,
     // so this is the right tool for the job. Why we changed:
     //
     //   Previously: service-role lookup. If the deployed env had a
     //   misconfigured key (e.g. anon JWT pasted into
-    //   SUPABASE_SERVICE_ROLE_KEY -- which has happened) the service
+    //   SUPABASE_SERVICE_ROLE_KEY - which has happened) the service
     //   client would silently behave like an anon client, RLS would
     //   deny every SELECT, and the endpoint returned 404 "Order not
     //   found" for orders that clearly existed. Operators chased
@@ -93,10 +93,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //   behaviour. getServiceSupabase() now also validates the role
     //   claim on first call so an anon-key misconfig fails loudly.
     //
-    // Wave 70.33 -- accept either a UUID `id` or an order_number
+    // Wave 70.33 - accept either a UUID `id` or an order_number
     // ("ORD-003829"). OrderReadinessChip passes UUID; defensive
     // fallback catches callers that pass the wrong field.
-    // Wave 70.48c -- dropped phantom `actual_delivery_time` column.
+    // Wave 70.48c - dropped phantom `actual_delivery_time` column.
     // It does not exist on `orders` (the real columns are delivered_at +
     // completed_at). Every prior force-close attempt was silently
     // PGRST204-erroring on the SELECT, which is why this endpoint had
@@ -129,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
     if (!order) {
-      // Wave 70.46 -- before declaring 404, sanity-check via the
+      // Wave 70.46 - before declaring 404, sanity-check via the
       // service-role client whether the row exists at all. If it
       // DOES exist but the SSR client couldn't see it, that's a
       // tenant-scope problem (wrong company), not a missing-row
@@ -164,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       console.warn(`[orders/force-close] no order matched orderId='${orderId}' for company='${callerCompanyId}'`);
       return res.status(404).json({
-        error: `Order not found: '${orderId}'. Try refreshing the page -- if it persists, the order may have been deleted.`,
+        error: `Order not found: '${orderId}'. Try refreshing the page - if it persists, the order may have been deleted.`,
         orderId,
       });
     }

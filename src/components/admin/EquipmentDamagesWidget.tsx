@@ -1,5 +1,5 @@
 /**
- * EquipmentDamagesWidget -- unresolved equipment_damages rows for
+ * EquipmentDamagesWidget - unresolved equipment_damages rows for
  * the tenant.
  *
  * Phase 16 #2. Damages reported by drivers / cleaners on
@@ -84,7 +84,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Wrench className="w-4 h-4 text-rose-600" />
-              Equipment damages -- unresolved
+              Equipment damages - unresolved
             </CardTitle>
             <CardDescription className="text-xs">
               Damage reports without a resolution stamp. Newest first.

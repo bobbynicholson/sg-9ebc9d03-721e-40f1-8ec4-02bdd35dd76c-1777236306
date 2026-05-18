@@ -6,9 +6,9 @@
  * The audit (May 2026) flagged that quoteService.convertQuoteToOrder
  * was the only path that fired the three side effects an order needs
  * once it lands: auto-invoice, confirmation email, kitchen prep
- * tasks. Every other entry point -- the new server-side leads
+ * tasks. Every other entry point - the new server-side leads
  * convert-to-order route, future webhook hooks, the imminent
- * checkout-on-payment flow -- silently dropped them.
+ * checkout-on-payment flow - silently dropped them.
  *
  * Pulling the cascade into one helper means:
  *   - Browser callers (quoteService) pass their existing supabase
@@ -60,7 +60,7 @@ export interface PostOrderCascadeReceipt {
   equipment: { ok: boolean; bookingsCreated?: number; reason?: string; skipped?: boolean };
   conflicts: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
   shopping: { ok: boolean; shortfalls?: number; reason?: string; skipped?: boolean };
-  // Wave 67 Phase E -- outsource provider auto-assignment step.
+  // Wave 67 Phase E - outsource provider auto-assignment step.
   // Fires for every order_items line whose menu_item is fulfilment_type
   // 'outsourced' or 'hybrid' with a default_outsource_provider_id set.
   outsource?: { ok: boolean; assignmentsCreated?: number; reason?: string; skipped?: boolean };
@@ -94,7 +94,7 @@ export async function postOrderCreationCascade(
   // row without menu_items / equipment_items columns (they live on
   // quotes only), and never populated order_items from the source
   // quote. Result: every accepted quote became an order with zero
-  // line items -- the invoice was R0.00, kitchen had no prep list,
+  // line items - the invoice was R0.00, kitchen had no prep list,
   // dispatch saw nothing to load. Wire it here so every cascade
   // entry point (quote accept, leads convert, future webhooks) gets
   // the same back-fill before the invoice step reads order_items.
@@ -210,7 +210,7 @@ export async function postOrderCreationCascade(
       } else if (!(order as any).client_email) {
         receipt.email = { ok: false, skipped: true, reason: "no_client_email" };
       } else if (await _orderConfirmedAlreadySentRecently(client, orderId)) {
-        // Wave 48 A6 -- dedup against the status-flip path. When an
+        // Wave 48 A6 - dedup against the status-flip path. When an
         // order is created already at status='confirmed' (the quote
         // accept flow) the cascade's email here AND the status-flip
         // sendStatusNotifications path BOTH fire `order_confirmed`
@@ -237,7 +237,7 @@ export async function postOrderCreationCascade(
 
         // Phase 6 #5: invoice link in the confirmation email. The
         // cascade just created an invoice (Step 1) and we have the
-        // id from the receipt -- pull the public_token so the
+        // id from the receipt - pull the public_token so the
         // client gets a one-click 'view invoice' deeplink instead
         // of having to ask the operator for it. Best-effort; the
         // email still goes if the lookup fails.
@@ -261,12 +261,12 @@ export async function postOrderCreationCascade(
         // Wave 13 audit: this used to call sendEmail (boolean wrapper)
         // and store the generic "send_failed" reason, throwing away
         // the structured diagnosis. Switch to sendEmailDetailed so the
-        // operator sees the real cause -- "Resend domain not verified",
+        // operator sees the real cause - "Resend domain not verified",
         // "from_email_domain_mismatch", "blocked_recipient" etc. --
         // in the accept-on-behalf toast and the email-failures dashboard.
         // Wave 23.5: subject-line tone polish. "Order Confirmed -
         // #ORD-003827" reads templated; the operator's own copy
-        // would say "Your {event} booking is confirmed -- {company}".
+        // would say "Your {event} booking is confirmed - {company}".
         // Build a more personable line that still surfaces the order
         // number for inbox search.
         const orderNumberLabel = (order as any).order_number || orderId;
@@ -274,7 +274,7 @@ export async function postOrderCreationCascade(
         const detailed = await (emailService as any).sendEmailDetailed({
           companyId,
           to: (order as any).client_email,
-          subject: `${eventNameForSubject} confirmed -- ${companyName} (${orderNumberLabel})`,
+          subject: `${eventNameForSubject} confirmed - ${companyName} (${orderNumberLabel})`,
           // Template type aligns with the seed [P0-14]. Was
           // "order-confirmation" which has no row in email_templates.
           template: "order_confirmed",
@@ -300,7 +300,7 @@ export async function postOrderCreationCascade(
         if (detailed?.success) {
           receipt.email = { ok: true, skipped: false };
         } else {
-          // Wave 51 C1 -- prefer the human-readable `error` string over
+          // Wave 51 C1 - prefer the human-readable `error` string over
           // the machine-code `error_code`. Pre-Wave-51 the order was
           // reversed, so when emailService returned `error_code: "unknown"`
           // (its catch-all branches at lines 468, 702, 724) the toast
@@ -352,7 +352,7 @@ export async function postOrderCreationCascade(
   // quote.equipment_items as a JSONB blob on the quote and never
   // inserting equipment_bookings rows. Operators were manually
   // re-adding each equipment line on each order, and any line they
-  // forgot vanished from the availability calculator -- double-
+  // forgot vanished from the availability calculator - double-
   // bookings, missing hire-ins, blind cleaning queue.
   //
   // Walk the quote's equipment_items, insert one row per item with
@@ -464,7 +464,7 @@ export async function postOrderCreationCascade(
   // For every order_items line whose menu_item is fulfilment_type
   // 'outsourced' or 'hybrid' AND has default_outsource_provider_id set,
   // mint an outsource_assignments row. Operator still needs to send
-  // the request (mailto/wa.me from the panel) -- this just removes the
+  // the request (mailto/wa.me from the panel) - this just removes the
   // "click Add provider for every spit braai" repetition.
   //
   // Idempotency: skip when an assignment already exists for the same
@@ -474,7 +474,7 @@ export async function postOrderCreationCascade(
   // otherwise the provider's default_rate.
   try {
     // Pull every order_items row with its joined menu_item fulfilment
-    // metadata. Cast to any -- the joined select isn't in the
+    // metadata. Cast to any - the joined select isn't in the
     // generated types yet.
     const { data: orderItemsRaw, error: oiErr } = await (client as any)
       .from("order_items")
@@ -687,7 +687,7 @@ export async function postOrderCreationCascade(
   // Audit Inventory G2 + Shopping G1: when an order lands, projected
   // ingredient demand for the menu items + guest count can already
   // exceed on-hand stock. Today we only notice at deduction time
-  // (when the order is delivered), which is too late -- shopping
+  // (when the order is delivered), which is too late - shopping
   // can't have driven to the supplier already. Now: run the same
   // previewInventoryDeduction the admin sees in the order editor,
   // and for every ingredient where needed > available, broadcast a
@@ -780,7 +780,7 @@ export async function postOrderCreationCascade(
 
   // Phase 3 #4: persist the receipt onto the order so the admin
   // detail panel can show what happened at order-creation time.
-  // Non-blocking -- a write failure here doesn't unwind anything;
+  // Non-blocking - a write failure here doesn't unwind anything;
   // the receipt object still returns to the caller.
   try {
     await (client as any)
@@ -794,7 +794,7 @@ export async function postOrderCreationCascade(
     console.warn("[postOrderCreationCascade] receipt persist failed (non-blocking):", persistErr);
   }
 
-  // Wave 50 C14 -- loud admin alert when the cascade detects an
+  // Wave 50 C14 - loud admin alert when the cascade detects an
   // admin-created order with no source quote. Audit (Specialist 4)
   // flagged this as silent: the order ships with no menu items, no
   // equipment_bookings, no kitchen_prep_tasks, R0 invoice, but the
@@ -817,7 +817,7 @@ export async function postOrderCreationCascade(
       void notificationService.broadcastNotification({
         companyId,
         type: "cascade_skipped_no_source",
-        title: `Manual order ${orderLabel} -- needs line items added by hand`,
+        title: `Manual order ${orderLabel} - needs line items added by hand`,
         message: `No source quote on this order. The cascade skipped: ${cascadeBaileds.join(", ")}. Add the menu + equipment manually so the kitchen, dispatch, and invoice all show the right data.`,
         targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
         priority: "high",
@@ -838,7 +838,7 @@ export async function postOrderCreationCascade(
 }
 
 /**
- * Wave 48 A6 -- dedup probe used by Step 2.
+ * Wave 48 A6 - dedup probe used by Step 2.
  *
  * Returns true when an `order_confirmed` automation row was logged
  * for this order within the last 5 minutes. The status-flip path

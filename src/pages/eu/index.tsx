@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 
 /**
- * Lightweight EU landing -- writes the region preference and bounces
+ * Lightweight EU landing - writes the region preference and bounces
  * to /eu/pricing. The detailed marketing site for /uk and /us was
  * hand-rolled; we'll duplicate that for /eu when EU sales actually
  * start. Until then, region detection is the only thing that matters

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/onboarding/clients -- the easy client-list importer.
+ * /admin/onboarding/clients - the easy client-list importer.
  *
  * Sits next to the AI importer at /admin/onboarding/import. The AI
  * version handles arbitrary spreadsheets with column mapping; this
@@ -8,7 +8,7 @@
  * columns we care about (Name, Surname, Email, Phone), preview, and
  * import. No AI required, instant feedback.
  *
- * Designed for new tenants on day one of onboarding -- the team
+ * Designed for new tenants on day one of onboarding - the team
  * usually has a contact list in Gmail / Excel / a printed sheet,
  * and just wants the names + numbers into the system before they
  * start quoting.
@@ -45,7 +45,7 @@ function looksLikeEmail(v: string) {
   return /^\S+@\S+\.\S+$/.test(v.trim().toLowerCase());
 }
 function looksLikePhone(v: string) {
-  // Loose check -- the API does the real normalisation. We just want
+  // Loose check - the API does the real normalisation. We just want
   // to flag rows that are clearly missing digits.
   const digits = v.replace(/[^\d]/g, "");
   return digits.length >= 7;

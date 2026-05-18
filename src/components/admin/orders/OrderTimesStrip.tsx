@@ -1,16 +1,16 @@
 /**
- * OrderTimesStrip -- Wave 70.9
+ * OrderTimesStrip - Wave 70.9
  *
  * Inline 5-pill strip on each order row showing the day-of-event
  * timing the admin needs at a glance:
  *
- *   1. Kitchen ready  -- pickup_time (food done in the kitchen)
- *   2. Driver collect -- pickup_time (same moment unless explicit
+ *   1. Kitchen ready  - pickup_time (food done in the kitchen)
+ *   2. Driver collect - pickup_time (same moment unless explicit
  *      collection_time is set)
- *   3. Drive          -- delivery_time - pickup_time (computed)
- *   4. Delivery       -- delivery_time (or setup_time, or
+ *   3. Drive          - delivery_time - pickup_time (computed)
+ *   4. Delivery       - delivery_time (or setup_time, or
  *      event_time minus the tenant's "early arrival" buffer)
- *   5. Eating         -- event_time (guests start eating)
+ *   5. Eating         - event_time (guests start eating)
  *
  * Pills with a real value show in a slate tone; computed-and-
  * missing ones show "--" in muted slate. The component is
@@ -33,7 +33,7 @@ interface OrderTimesStripProps {
    *  itself isn't set. Defaults to 30. */
   earlyArrivalMin?: number;
   /** Tenant default for "kitchen needs this many minutes between
-   *  ready and event start" -- fallback when pickup_time isn't set.
+   *  ready and event start" - fallback when pickup_time isn't set.
    *  Defaults to 90. */
   kitchenLeadMin?: number;
   className?: string;
@@ -170,7 +170,7 @@ export function OrderTimesStrip({
           <span
             key={p.key}
             className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${toneClass(p.tone)}`}
-            title={`${p.label}${p.tone === "derived" ? " (computed -- not yet set on the order)" : ""}`}
+            title={`${p.label}${p.tone === "derived" ? " (computed - not yet set on the order)" : ""}`}
           >
             <Icon className="w-3 h-3 text-slate-500" />
             <span className="text-slate-500 mr-0.5">{p.label}</span>

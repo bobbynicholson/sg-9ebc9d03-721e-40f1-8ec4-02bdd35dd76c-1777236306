@@ -1,5 +1,5 @@
 /**
- * WeeklyOrdersChart -- 7-day mini bar chart of confirmed-and-
+ * WeeklyOrdersChart - 7-day mini bar chart of confirmed-and-
  * onwards order count by event_date.
  *
  * Phase 14 #9. The dashboard's KPI tiles answer 'how many'
@@ -40,7 +40,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
     let cancelled = false;
     (async () => {
       try {
-        // 7 days back through 7 days forward -- shows past trend
+        // 7 days back through 7 days forward - shows past trend
         // and upcoming load on a single strip.
         const today = new Date();
         today.setHours(0, 0, 0, 0);

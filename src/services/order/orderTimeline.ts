@@ -2,7 +2,7 @@
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 
 /**
- * Order Timeline -- derives a richer 22-stage view of an order's
+ * Order Timeline - derives a richer 22-stage view of an order's
  * progress from the joined data (orders + payments + equipment + prep
  * tasks + driver assignments + invoices + email log).
  *
@@ -13,7 +13,7 @@ import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
  * function exposes ALL of those as derived stages without changing
  * the orders.status enum.
  *
- * The function is PURE -- it takes a `joined` payload of related
+ * The function is PURE - it takes a `joined` payload of related
  * rows and returns the derived timeline. No DB calls inside, so the
  * /admin/orders list page can batch-fetch all related tables once and
  * call computeOrderTimeline() per row without N+1 fan-out. The order
@@ -36,7 +36,7 @@ import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
  * red with a blockedReason.
  *
  * Stage list deliberately stays full (22 entries) regardless of which
- * branches apply to this order -- the UI hides not_applicable entries
+ * branches apply to this order - the UI hides not_applicable entries
  * behind a cluster chevron, but the upstream array is stable so the
  * cluster band has a consistent layout no matter which conditional
  * features the tenant uses.
@@ -111,21 +111,21 @@ export interface OrderTimelineFlags {
 }
 
 /**
- * Wave 43 T3 + Wave 46 T1 -- urgency tier derived from event_date
+ * Wave 43 T3 + Wave 46 T1 - urgency tier derived from event_date
  * vs now using CALENDAR-DAY comparison in the tenant's timezone.
  *
- *   normal   -- event > 7 days away, or order is fully complete
- *   soon     -- event within 7 days but not today/tomorrow
- *   tomorrow -- event is the next calendar day (tenant tz)
- *   today    -- event is today (tenant tz)
- *   overdue  -- event date has passed AND stages still incomplete
+ *   normal   - event > 7 days away, or order is fully complete
+ *   soon     - event within 7 days but not today/tomorrow
+ *   tomorrow - event is the next calendar day (tenant tz)
+ *   today    - event is today (tenant tz)
+ *   overdue  - event date has passed AND stages still incomplete
  *
  * Wave 46 T1 fix: previously a hour-bucket (`<=24h -> 'today'`)
  * incorrectly labelled tomorrow's evening event as "today" when
  * the operator opened the page after midday. Calendar-day match
  * matches the operator's wall clock.
  *
- * Drives the chip tone + pulse + sort. Pure derivation -- no DB.
+ * Drives the chip tone + pulse + sort. Pure derivation - no DB.
  */
 export type OrderTimelineUrgency = "normal" | "soon" | "tomorrow" | "today" | "overdue";
 
@@ -142,11 +142,11 @@ export interface OrderTimeline {
   completedCount: number;
   /** Number of applicable stages total. */
   applicableCount: number;
-  /** Wave 43 T3 -- urgency tier for the orange chip + sort. */
+  /** Wave 43 T3 - urgency tier for the orange chip + sort. */
   urgency: OrderTimelineUrgency;
-  /** Wave 43 T3 -- ms until event_date+event_time; negative if past. */
+  /** Wave 43 T3 - ms until event_date+event_time; negative if past. */
   msToEvent: number | null;
-  /** Wave 44 T2 -- cross-system blockers that explain why the
+  /** Wave 44 T2 - cross-system blockers that explain why the
    *  current stage isn't moving (e.g. equipment still in cleaning,
    *  no driver shift covers dispatch window). Empty when nothing
    *  is blocking. */
@@ -154,7 +154,7 @@ export interface OrderTimeline {
 }
 
 /**
- * Wave 44 T2 -- cross-system blocker.
+ * Wave 44 T2 - cross-system blocker.
  *
  * Each entry is one specific reason the current stage can't make
  * progress, sourced from data outside the orders table itself
@@ -166,11 +166,11 @@ export interface CrossSystemBlocker {
   kind:
     | "equipment_in_cleaning"
     | "no_delivery_shift"
-    // Wave 66.6 -- new blockers for the dispatch leg.
+    // Wave 66.6 - new blockers for the dispatch leg.
     | "vehicle_not_booked"
     | "pickup_time_missing"
     | "setup_time_missing"
-    // Wave 67 Phase E -- outsource provider hasn't responded yet.
+    // Wave 67 Phase E - outsource provider hasn't responded yet.
     | "outsource_pending";
   message: string;
   severity: "warning" | "error";
@@ -197,18 +197,18 @@ export interface OrderTimelineInput {
   /** Truthy when the linked quote has status='accepted'. Optional --
    *  if missing, falls back to inferring from order existence. */
   quoteAccepted?: boolean;
-  /** Wave 44 T2 -- active cleaning_jobs (status in queued/in_progress)
+  /** Wave 44 T2 - active cleaning_jobs (status in queued/in_progress)
    *  for any equipment booked on this order. When kitchen_prep is
    *  the current stage and any equipment_id from equipmentBookings
    *  appears here, surface a blocker chip ("Equipment X still being
    *  cleaned"). Empty array when not joined. */
   cleaningJobsActive?: Array<{ equipment_id: string; equipment_name?: string | null; status?: string }>;
-  /** Wave 44 T2 -- delivery shifts linked to this order via
+  /** Wave 44 T2 - delivery shifts linked to this order via
    *  kitchen_shifts.order_id. When driver_assigned_delivery is the
    *  current stage and this is empty, surface "No driver claimed
    *  yet". */
   deliveryShifts?: Array<{ id: string; staff_id?: string | null; planned_start?: string | null; actual_start?: string | null }>;
-  /** Wave 67 Phase E -- outsource_assignments rows for this order.
+  /** Wave 67 Phase E - outsource_assignments rows for this order.
    *  Drives the new outsource_pending blocker on the dispatch leg
    *  when the event is close + at least one provider hasn't
    *  responded yet. Empty array when not joined. */
@@ -219,7 +219,7 @@ export interface OrderTimelineInput {
     quoted_cost?: number | string | null;
     provider_name?: string | null;
   }>;
-  /** Wave 46 T1 -- tenant timezone (IANA). Used for calendar-day
+  /** Wave 46 T1 - tenant timezone (IANA). Used for calendar-day
    *  comparison when bucketing the urgency tier so "tomorrow" doesn't
    *  collapse to "today" just because the event is <24h away.
    *  Defaults to Africa/Johannesburg if missing. */
@@ -326,7 +326,7 @@ function resolveStage(
 
   switch (key) {
     case "quote_accepted": {
-      // Wave 70.49d -- if the order was never linked to a quote (manual
+      // Wave 70.49d - if the order was never linked to a quote (manual
       // entry / phone booking / walk-in), this stage doesn't apply at
       // all. Previously it stayed 'upcoming' forever, inflating the
       // admin BOOKING count to N/5 with a phantom 5th step the
@@ -408,7 +408,7 @@ function resolveStage(
     case "confirmed": {
       const completedAt = firstTs(o.confirmed_at);
       const isConfirmed = completedAt || (o.status && o.status !== "pending" && o.status !== "draft");
-      // Block if deposit required but unpaid -- operator should see why
+      // Block if deposit required but unpaid - operator should see why
       // confirmation hasn't happened.
       const blocked = !isConfirmed && flags.hasDeposit && !o.deposit_paid;
       return {
@@ -433,7 +433,7 @@ function resolveStage(
         startedAt: null,
         completedAt: allBooked ? earliest : null,
         blockedReason: null,
-        // Wave 66.6 -- repoint from /admin/suppliers?orderId=X (which
+        // Wave 66.6 - repoint from /admin/suppliers?orderId=X (which
         // is a generic supplier list that doesn't honour orderId) to
         // the Hire-in tab on /admin/equipment which actually surfaces
         // the equipment_hire_orders rows. HireInPanel was extended in
@@ -460,7 +460,7 @@ function resolveStage(
         startedAt: null,
         completedAt: allCollected ? latest : null,
         blockedReason: null,
-        // Wave 66.6 -- same destination as equipment_hire_booked. The
+        // Wave 66.6 - same destination as equipment_hire_booked. The
         // Hire-in tab is the only admin surface that shows hire rows
         // with their actual_pickup_date editable inline.
         sourceLink: `/admin/equipment?tab=hire-in&orderId=${orderId}`,
@@ -489,7 +489,7 @@ function resolveStage(
           ? bookings.map((b) => b.pre_event_cleaning_done_at).filter(Boolean).sort().reverse()[0]
           : null,
         blockedReason: null,
-        // Wave 66.6 -- repoint from /admin/equipment?orderId=X (which
+        // Wave 66.6 - repoint from /admin/equipment?orderId=X (which
         // didn't honour the param) to /admin/cleaning-schedule, the
         // actual surface where cleaning crew get rostered against the
         // event date. cleaning-schedule was extended in the same wave
@@ -503,13 +503,13 @@ function resolveStage(
     case "kitchen_prep_in_progress": {
       const tasks = input.kitchenPrepTasks || [];
       if (tasks.length === 0) {
-        // No tasks generated yet -- upcoming until they are.
+        // No tasks generated yet - upcoming until they are.
         return {
           status: "upcoming",
           startedAt: null,
           completedAt: null,
           blockedReason: null,
-          // Wave 66.4 -- route to kitchen schedule (see note on the
+          // Wave 66.4 - route to kitchen schedule (see note on the
           // active-tasks branch below). Same destination so the
           // operator always lands on the kitchen surface regardless
           // of whether prep has started.
@@ -534,7 +534,7 @@ function resolveStage(
           ? tasks.map((t) => t?.completed_at).filter(Boolean).sort().reverse()[0] || null
           : null,
         blockedReason: null,
-        // Wave 66.4 -- deep-link to /admin/kitchen-schedule for the
+        // Wave 66.4 - deep-link to /admin/kitchen-schedule for the
         // event date. The order modal has no kitchen tab (the
         // Wave 25.1 plan to expose prep tasks in the modal never
         // shipped), so the previous link dropped the operator on
@@ -614,7 +614,7 @@ function resolveStage(
         startedAt: null,
         completedAt: scheduled ? firstTs(collection.created_at) : null,
         blockedReason: null,
-        // Wave 66.6 -- repoint from /admin/driver-schedule (no
+        // Wave 66.6 - repoint from /admin/driver-schedule (no
         // orderId or type handling) to /admin/order-assignments,
         // which already auto-expands the matching row via the Wave
         // 66.3 deeplink effect. Operator lands directly on the
@@ -634,7 +634,7 @@ function resolveStage(
         startedAt: collection ? firstTs(collection.started_at) : null,
         completedAt: done ? firstTs(collection.completed_at) : null,
         blockedReason: null,
-        // Wave 66.6 -- same destination as collection_scheduled.
+        // Wave 66.6 - same destination as collection_scheduled.
         sourceLink: `/admin/order-assignments?orderId=${orderId}`,
       };
     }
@@ -642,7 +642,7 @@ function resolveStage(
     case "post_event_cleaning": {
       if (!flags.hasCleaningWork) return notApplicable();
       const rows = input.equipmentCleaningStatus || [];
-      // Wave 66.6 -- cleaningLink centralises the repoint so both the
+      // Wave 66.6 - cleaningLink centralises the repoint so both the
       // empty-rows branch and the rows-present branch land on the
       // same actionable surface (cleaning-schedule for the event day).
       const cleaningLink = o.event_date
@@ -838,7 +838,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
       if (stage.status === "upcoming") stage.status = "current";
       foundCurrent = true;
     } else {
-      // Subsequent non-completed stages stay upcoming -- never two
+      // Subsequent non-completed stages stay upcoming - never two
       // currents in a row.
       if (stage.status === "current" || stage.status === "blocked") {
         stage.status = "upcoming";
@@ -854,7 +854,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
   const completedStages = resolved.filter((s) => s.status === "completed");
   const isFullyComplete = completedStages.length === applicableStages.length;
 
-  // Wave 43 T3 + Wave 46 T1 -- urgency tier with calendar-day
+  // Wave 43 T3 + Wave 46 T1 - urgency tier with calendar-day
   // comparison in the tenant's timezone. Hour-bucketing meant a
   // tomorrow-evening event opened at midday today flipped to "today"
   // (because <24h away) even though the operator's wall clock said
@@ -865,7 +865,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
   if (evDate) {
     const evTime = (input.order?.event_time as string | null | undefined) || "12:00:00";
     const tz = input.tenantTimezone || DEFAULT_TENANT_TIMEZONE;
-    // msToEvent stays absolute UTC -- pulse / countdown still uses
+    // msToEvent stays absolute UTC - pulse / countdown still uses
     // raw delta. Only the bucketing flips to calendar-day.
     const evMs = new Date(`${evDate}T${evTime}`).getTime();
     if (!Number.isNaN(evMs)) {
@@ -892,7 +892,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     }
   }
 
-  // Wave 44 T2 -- cross-system blocker detection. Two sources today,
+  // Wave 44 T2 - cross-system blocker detection. Two sources today,
   // both gated on the current stage: it doesn't help to flag "no
   // driver" when we're still on kitchen prep. Empty array when the
   // caller didn't join cleaningJobsActive / deliveryShifts.
@@ -917,7 +917,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
           kind: "equipment_in_cleaning",
           message:
             stuck.length === 1
-              ? `${names[0]} still being cleaned -- can't dispatch yet.`
+              ? `${names[0]} still being cleaned - can't dispatch yet.`
               : `${stuck.length} items still in cleaning (${names.join(", ")}${stuck.length > names.length ? "..." : ""}).`,
           severity: "warning",
         });
@@ -936,7 +936,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     }
   }
 
-  // Wave 66.6 -- vehicle_not_booked blocker. When the dispatch leg
+  // Wave 66.6 - vehicle_not_booked blocker. When the dispatch leg
   // is current and there's no assigned_vehicle_id on the order, the
   // driver can be assigned but they have no vehicle to load. Fires
   // for the dispatch cluster only (ready_for_dispatch /
@@ -955,13 +955,13 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     crossSystemBlockers.push({
       kind: "vehicle_not_booked",
       message: within24h
-        ? "No vehicle booked -- assign or override on dispatch before the run."
+        ? "No vehicle booked - assign or override on dispatch before the run."
         : "No vehicle booked yet. Auto-books when a driver is assigned.",
       severity: within24h ? "error" : "warning",
     });
   }
 
-  // Wave 66.6 -- pickup_time blocker. The driver can't be told when
+  // Wave 66.6 - pickup_time blocker. The driver can't be told when
   // to leave the kitchen if pickup_time is null. Surfaced from the
   // ready_for_dispatch + driver_assigned_delivery stages so it
   // appears at the point in the pipeline where it matters.
@@ -974,13 +974,13 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     crossSystemBlockers.push({
       kind: "pickup_time_missing",
       message: within48h
-        ? "Pickup time missing -- driver doesn't know when to leave the kitchen."
+        ? "Pickup time missing - driver doesn't know when to leave the kitchen."
         : "Pickup time still unset for this run.",
       severity: within48h ? "error" : "warning",
     });
   }
 
-  // Wave 66.6 -- setup_time blocker. Setup_time is a client
+  // Wave 66.6 - setup_time blocker. Setup_time is a client
   // commitment (we said we'd arrive at 16:00 to set up); when it's
   // null and the event is approaching, the venue crew has no
   // arrival target. Fires from ready_for_dispatch onwards so it
@@ -994,18 +994,18 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     crossSystemBlockers.push({
       kind: "setup_time_missing",
       message: within24h
-        ? "Setup time missing -- crew doesn't know when to start at the venue."
+        ? "Setup time missing - crew doesn't know when to start at the venue."
         : "Setup time still unset.",
       severity: within24h ? "error" : "warning",
     });
   }
 
-  // Wave 67 Phase E -- outsource provider hasn't responded yet. The
+  // Wave 67 Phase E - outsource provider hasn't responded yet. The
   // blocker is real (you can't run the event if the on-site chef
   // didn't accept), so severity escalates aggressively as the event
   // approaches. Fires regardless of the current stage because an
   // unresponded outsource matters at booking time and at delivery
-  // time -- there's no "later" for this gap to surface.
+  // time - there's no "later" for this gap to surface.
   const outsourceRows = input.outsourceAssignments || [];
   const pendingOutsource = outsourceRows.filter((a) => a?.status === "requested");
   if (pendingOutsource.length > 0) {
@@ -1019,14 +1019,14 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     crossSystemBlockers.push({
       kind: "outsource_pending",
       message: within72h
-        ? `${pendingOutsource.length} outsource provider${pendingOutsource.length === 1 ? "" : "s"}${namePart} haven't responded -- chase or reassign.`
+        ? `${pendingOutsource.length} outsource provider${pendingOutsource.length === 1 ? "" : "s"}${namePart} haven't responded - chase or reassign.`
         : within7d
           ? `${pendingOutsource.length} outsource provider${pendingOutsource.length === 1 ? "" : "s"}${namePart} still to confirm.`
           : `${pendingOutsource.length} outsource provider request${pendingOutsource.length === 1 ? "" : "s"} pending.`,
       severity,
     });
   }
-  // Outsource decline alert -- this needs the operator's attention
+  // Outsource decline alert - this needs the operator's attention
   // immediately regardless of timing because they need to find an
   // alternative.
   const declinedOutsource = outsourceRows.filter((a) => a?.status === "declined");
@@ -1036,7 +1036,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     ).slice(0, 2);
     crossSystemBlockers.push({
       kind: "outsource_pending",
-      message: `${declinedOutsource.length} outsource provider${declinedOutsource.length === 1 ? "" : "s"}${names.length > 0 ? ` (${names.join(", ")})` : ""} declined -- assign someone else.`,
+      message: `${declinedOutsource.length} outsource provider${declinedOutsource.length === 1 ? "" : "s"}${names.length > 0 ? ` (${names.join(", ")})` : ""} declined - assign someone else.`,
       severity: "error",
     });
   }
@@ -1092,11 +1092,11 @@ const CLIENT_LABELS: Partial<Record<StageKey, { label: string; group: StageGroup
   kitchen_prep_in_progress: { label: "Preparing your food", group: "logistics" },
   in_transit:               { label: "On the way",          group: "dispatch" },
   delivered:                { label: "Delivered",           group: "dispatch" },
-  // Wave 70.49d -- relabelled from "Equipment collected" to "Equipment
+  // Wave 70.49d - relabelled from "Equipment collected" to "Equipment
   // returned". Two reasons. First, the old label collided semantically
   // with the admin-only "Collection scheduled" stage (operators
   // comparing the two views couldn't tell whether "Equipment collected"
-  // meant scheduling-done or collection-done -- the latter, but the
+  // meant scheduling-done or collection-done - the latter, but the
   // name read like the former). Second, "Equipment returned" is the
   // accurate post-event verb for the client's vantage point ("the team
   // came and picked up our gear after the event"). The admin-side
@@ -1118,7 +1118,7 @@ const CLIENT_LABELS: Partial<Record<StageKey, { label: string; group: StageGroup
  * client-meaningful action even when the operator's current stage
  * is something internal like 'final_invoice_sent'. Stages stripped
  * from the client view are absorbed into the surrounding visible
- * stages -- a client whose order is currently mid-prep sees
+ * stages - a client whose order is currently mid-prep sees
  * 'Preparing your food' regardless of whether the operator dot is
  * on prep or already on ready_for_dispatch.
  */
@@ -1137,12 +1137,12 @@ export function toClientTimeline(operator: OrderTimeline): OrderTimeline {
         ...s,
         label: override?.label || s.label,
         group: override?.group || s.group,
-        // Strip internal blockedReason text -- show a generic
+        // Strip internal blockedReason text - show a generic
         // "waiting for the team" instead of e.g. "Deposit not paid"
         // which the client themselves caused.
         blockedReason: s.blockedReason ? "Waiting on the team" : null,
         // Drop internal meta (prep progress 5/8, hire supplier name,
-        // etc) -- the client doesn't need to see operational detail.
+        // etc) - the client doesn't need to see operational detail.
         meta: undefined,
         // Strip admin source links. Client-facing pages route their
         // own click handlers (e.g. magic-link page opens a deposit

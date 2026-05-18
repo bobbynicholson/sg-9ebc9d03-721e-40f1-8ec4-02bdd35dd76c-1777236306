@@ -1,13 +1,13 @@
 /**
- * Wave 28.5 -- shared "auto-process the cancel" runner.
+ * Wave 28.5 - shared "auto-process the cancel" runner.
  *
  * Bobby's brief: the system handles the cancel BEFORE the catering
  * company picks up the phone. When the policy says it's outside the
  * owner-override window, the wizard's submit fires this helper which
- * runs the same cascade /api/orders/[id]/cancel does -- without
+ * runs the same cascade /api/orders/[id]/cancel does - without
  * needing an admin to approve.
  *
- * Inside the override window we do NOT call this -- the request is
+ * Inside the override window we do NOT call this - the request is
  * queued as a pending cancellation_requests row for admin review,
  * matching the existing flow.
  *
@@ -29,7 +29,7 @@ export interface AutoCancelInput {
   supabase: SupabaseClient;
   orderId: string;
   companyId: string;
-  /** auth.users.id when available -- null for magic-link token-bearer flows. */
+  /** auth.users.id when available - null for magic-link token-bearer flows. */
   cancelledByUserId: string | null;
   /** Optional client_id for credit attachment (orders.client_id). */
   clientId: string | null;
@@ -45,7 +45,7 @@ export interface AutoCancelInput {
   creditAmountIn: number | null;
   /** Optional committed-cost note shown in admin UI. */
   committedCostNote: string | null;
-  /** 'admin' or 'client' -- audit trail flavour. */
+  /** 'admin' or 'client' - audit trail flavour. */
   requestedBy: "admin" | "client";
 }
 
@@ -86,7 +86,7 @@ export async function runAutoCancel(
       : derived_credit;
   const refund_final = refund_calc;
 
-  // 1. Run the cascade. Idempotent on repeat -- cancelOrder bails
+  // 1. Run the cascade. Idempotent on repeat - cancelOrder bails
   // early when status is already 'cancelled'.
   const result = await cancelOrder(input.orderId, {
     reason: input.reason || undefined,
@@ -98,7 +98,7 @@ export async function runAutoCancel(
     throw new Error(result.error || "Cancel cascade failed");
   }
 
-  // 2. Audit row (cancellation_requests) -- carries payout_choice +
+  // 2. Audit row (cancellation_requests) - carries payout_choice +
   // committed_cost_note in the policy_snapshot sidecar so the audit
   // trail is complete without a schema change.
   const enriched_snapshot = {
@@ -147,7 +147,7 @@ export async function runAutoCancel(
         amount: credit_final,
         payment_status: "completed",
         reason: `Cancellation credit (${snap.tier_label || "tier"}, ${credit_pct}% of paid${
-          bonus_pp > 0 ? ` -- includes ${bonus_pp}pp goodwill bonus` : ""
+          bonus_pp > 0 ? ` - includes ${bonus_pp}pp goodwill bonus` : ""
         })`,
         created_by_user_id: input.cancelledByUserId,
         cancellation_request_id: requestRow?.id || null,
@@ -211,7 +211,7 @@ export async function runAutoCancel(
               : "partially_refunded",
         })
         .eq("id", input.orderId);
-      // Auto-process refund -- same gateway logic as the admin route.
+      // Auto-process refund - same gateway logic as the admin route.
       if (refund_payment_id) {
         try {
           const { refundService } = await import("@/services/refundService");
@@ -226,7 +226,7 @@ export async function runAutoCancel(
     }
   }
 
-  // 4. Client confirmation email -- variant follows payout choice.
+  // 4. Client confirmation email - variant follows payout choice.
   try {
     if (input.payoutChoice === "credit" && credit_final > 0) {
       await sendCancellationEmail(input.orderId, 0, {

@@ -48,7 +48,7 @@ interface Order {
 export default function MyOrders() {
   const { user, company, profile } = useAuth() as any;
   const router = useRouter();
-  // Slug-aware navigation prefix -- keeps tenant URL space (/{slug}/...)
+  // Slug-aware navigation prefix - keeps tenant URL space (/{slug}/...)
   // intact when the page is reached via the slug-form rewrite.
   const resolvedSlug =
     (typeof router.query.company_slug === "string" && router.query.company_slug) ||
@@ -58,7 +58,7 @@ export default function MyOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   // Amendment request dialog state. The dialog is a single shared
-  // instance reused across rows -- simpler than rendering one per
+  // instance reused across rows - simpler than rendering one per
   // order, and the form is small enough that re-mounting on open
   // doesn't matter.
   const [amendingOrder, setAmendingOrder] = useState<Order | null>(null);
@@ -69,7 +69,7 @@ export default function MyOrders() {
   // Cancel/postpone request dialog state.
   // Wave 28.4: cancellation now lives in CancellationWizard (mounted
   // at the bottom of this file). The Dialog below is locked to
-  // postpone-only -- the type selector is dropped.
+  // postpone-only - the type selector is dropped.
   const [cancelRequestOrder, setCancelRequestOrder] = useState<Order | null>(null);
   const cancelRequestType = "postpone" as const;
   const [cancelPostponeDate, setCancelPostponeDate] = useState<string>("");
@@ -80,7 +80,7 @@ export default function MyOrders() {
   // Setting it opens the wizard; null closes.
   const [wizardOrder, setWizardOrder] = useState<Order | null>(null);
   const [wizardCompanyPolicy, setWizardCompanyPolicy] = useState<any>(null);
-  // Rebook dialog state. Same component as the dashboard surfaces -- a
+  // Rebook dialog state. Same component as the dashboard surfaces - a
   // single instance reused across rows. Setting the source order opens
   // it; clearing it on close.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
@@ -104,7 +104,7 @@ export default function MyOrders() {
     })();
   }, [cancelRequestOrder]);
 
-  // Wave 28.4: load this tenant's cancellation_policy once -- the
+  // Wave 28.4: load this tenant's cancellation_policy once - the
   // wizard reads it locally to render every step's preview without
   // a per-step DB roundtrip. Refreshes only when the company changes
   // (effectively never within a session).
@@ -127,7 +127,7 @@ export default function MyOrders() {
   useEffect(() => {
     if (!user?.id) return;
     // Tenant-scope: a user might be a client of multiple catering
-    // companies. The portal renders one tenant at a time -- always
+    // companies. The portal renders one tenant at a time - always
     // the company resolved from the URL slug (which the auth context
     // already loads). Without this filter, we'd merge cross-tenant
     // orders into one list.
@@ -138,7 +138,7 @@ export default function MyOrders() {
       setLoading(true);
       try {
         // Multiple historical clients rows per (email, company) are
-        // possible -- collect every id rather than maybeSingle().
+        // possible - collect every id rather than maybeSingle().
         const { data: clientRows } = await supabase
           .from("clients")
           .select("id")
@@ -272,7 +272,7 @@ export default function MyOrders() {
                     // related-row fetch on this list page) so the
                     // client sees deposit / delivery / balance state
                     // at a glance without opening the detail view.
-                    // Cancelled orders skip the timeline -- the badge
+                    // Cancelled orders skip the timeline - the badge
                     // already says everything.
                     const clientTl = order.status !== "cancelled"
                       ? toClientTimeline(computeOrderTimeline({ order }))
@@ -331,7 +331,7 @@ export default function MyOrders() {
                               Track
                             </Button>
                           </Link>
-                          {/* Request a change -- only when the order is
+                          {/* Request a change - only when the order is
                               still in a state where amendments make
                               sense. The server-side is_order_amendable
                               RPC is the actual gate; this is just a
@@ -385,7 +385,7 @@ export default function MyOrders() {
                               View Details
                             </Button>
                           </Link>
-                          {/* Book again -- only on completed orders. Opens
+                          {/* Book again - only on completed orders. Opens
                               the same RebookDialog the dashboard uses;
                               prefills via sourceOrder on the dialog side. */}
                           {order.status === "completed" && (
@@ -400,7 +400,7 @@ export default function MyOrders() {
                           )}
                         </div>
                       </div>
-                      {/* Wave 26: per-row client timeline -- compact
+                      {/* Wave 26: per-row client timeline - compact
                           variant so it fits inside the row card
                           without stealing layout space. Renders the
                           "Next to do" banner + cluster pills + a
@@ -462,7 +462,7 @@ export default function MyOrders() {
               <DialogHeader>
                 <DialogTitle>Request a change to your order</DialogTitle>
                 <DialogDescription>
-                  Tell us what needs adjusting. The catering team reviews every request before applying it. Bigger changes (full menu rework, date moves) may need a chat -- include a note below.
+                  Tell us what needs adjusting. The catering team reviews every request before applying it. Bigger changes (full menu rework, date moves) may need a chat - include a note below.
                 </DialogDescription>
               </DialogHeader>
 
@@ -498,7 +498,7 @@ export default function MyOrders() {
                     rows={4}
                     value={amendNotes}
                     onChange={(e) => setAmendNotes(e.target.value)}
-                    placeholder="Anything else they should know -- dietary tweaks, drop-off time, decor, etc."
+                    placeholder="Anything else they should know - dietary tweaks, drop-off time, decor, etc."
                   />
                 </div>
               </div>
@@ -515,7 +515,7 @@ export default function MyOrders() {
                   disabled={amendSubmitting}
                   onClick={async () => {
                     if (!amendingOrder) return;
-                    // Build the diff -- only include keys that
+                    // Build the diff - only include keys that
                     // actually changed from the current values.
                     const proposed: Record<string, any> = {};
                     const newCount = Number(amendGuestCount);
@@ -588,7 +588,7 @@ export default function MyOrders() {
                   Postpone your booking
                 </DialogTitle>
                 <DialogDescription>
-                  Pick a new date and the team will confirm by email. Your deposit travels with you to the new date -- nothing is lost.
+                  Pick a new date and the team will confirm by email. Your deposit travels with you to the new date - nothing is lost.
                 </DialogDescription>
               </DialogHeader>
 
@@ -668,7 +668,7 @@ export default function MyOrders() {
       </Dialog>
 
       {/* Wave 28.4: CancellationWizard for the Cancel button. Posts
-          to /api/orders/cancellation-request -- the auth-portal API
+          to /api/orders/cancellation-request - the auth-portal API
           path. Wave 28.5 makes that endpoint auto-process when the
           policy says so, otherwise it queues for admin review. */}
       {wizardOrder && (
@@ -715,7 +715,7 @@ export default function MyOrders() {
                 ? "Order cancelled"
                 : "Cancellation request submitted",
               description: j.auto_processed
-                ? "All done -- the catering team has been notified and your payout has been processed."
+                ? "All done - the catering team has been notified and your payout has been processed."
                 : "The catering team will review and confirm by email shortly.",
             });
             // Reload the list so status flips and the row hides.

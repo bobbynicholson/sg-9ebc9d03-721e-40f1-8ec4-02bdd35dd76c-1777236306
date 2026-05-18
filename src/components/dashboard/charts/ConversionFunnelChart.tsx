@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 2 chart 3 -- Conversion funnel.
+ * Tier 2 chart 3 - Conversion funnel.
  *
  * Five horizontal bars, widths proportional to count. Each bar shows
  * count + value + drop-off % from the stage above + cumulative %
@@ -122,7 +122,7 @@ export function ConversionFunnelChart({ data, loading }: Props) {
               );
             })}
 
-            {/* Wave 70.50b -- "won then churned" sidebar row. Renders
+            {/* Wave 70.50b - "won then churned" sidebar row. Renders
                 below the main funnel because it represents a DIFFERENT
                 cohort lifecycle (events that DID get accepted -> THEN
                 cancelled), not another step in the same drop-off
@@ -145,7 +145,7 @@ export function ConversionFunnelChart({ data, loading }: Props) {
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Accepted-quote events in this window whose order was later cancelled. Real churn -- not "never accepted".
+                  Accepted-quote events in this window whose order was later cancelled. Real churn - not "never accepted".
                 </p>
               </div>
             )}

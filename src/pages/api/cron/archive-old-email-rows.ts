@@ -17,7 +17,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  *
  *   1. email_automation_log:
  *      DELETE WHERE created_at < (now - 180 days)
- *      All statuses included -- a 6-month-old "failed" isn't
+ *      All statuses included - a 6-month-old "failed" isn't
  *      actionable anymore; if it mattered it was actioned by then.
  *
  *   2. outgoing_email_queue:
@@ -32,7 +32,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  *
  * Auth: Authorization: Bearer ${CRON_SECRET}
  *
- * Schedule: weekly, Sunday 03:30 UTC -- 30 min after the
+ * Schedule: weekly, Sunday 03:30 UTC - 30 min after the
  * notification archival job so they don't pile on the DB at once.
  */
 

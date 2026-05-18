@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/onboarding/imports -- imports history (audit trail).
+ * /admin/onboarding/imports - imports history (audit trail).
  *
  * The team's record of every spreadsheet they've fed into the AI
  * Onboarding Importer. From here they can:
@@ -9,7 +9,7 @@
  *   - Read the per-job summary (counts, AI usage, failures)
  *   - Start a fresh import
  *
- * Was previously at /admin/onboarding -- moved to /imports when the
+ * Was previously at /admin/onboarding - moved to /imports when the
  * setup wizard took over the root onboarding URL.
  */
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -43,7 +43,7 @@ interface ImportJobRow {
   completed_at: string | null;
   failed_reason: string | null;
   // Quarantine fields. NULL on comms_enabled_at means "still paused
-  // -- the team hasn't reviewed and green-lit this batch yet". Once
+  // - the team hasn't reviewed and green-lit this batch yet". Once
   // stamped, downstream automations are free to fire on these rows.
   comms_enabled_at: string | null;
   comms_enabled_by?: string | null;
@@ -60,7 +60,7 @@ const STATUS_META: Record<string, { label: string; tone: string }> = {
 };
 
 // Window during which a completed import is reversible. Past this
-// the team has to write fixes by hand -- safer than letting them
+// the team has to write fixes by hand - safer than letting them
 // nuke a week of data with one click.
 const ROLLBACK_HOURS = 24;
 
@@ -391,7 +391,7 @@ function ImportsHistoryPage() {
                         <FileSpreadsheet className="w-4 h-4 text-slate-400" />
                         <Badge className={`border ${meta.tone}`}>{meta.label}</Badge>
                         {/* Comms quarantine badge. Only meaningful for
-                            completed jobs -- in-flight ones haven't
+                            completed jobs - in-flight ones haven't
                             inserted real rows yet so the pause flag
                             isn't a useful signal there. */}
                         {j.status === "completed" && (
@@ -442,7 +442,7 @@ function ImportsHistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Enable comms button -- shown on completed
+                        {/* Enable comms button - shown on completed
                             batches that haven't been green-lit yet.
                             One click clears the pause across every
                             row from the batch via an atomic RPC. */}

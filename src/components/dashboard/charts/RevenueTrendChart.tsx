@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 1 chart 1 -- Monthly revenue trend (12-month rolling).
+ * Tier 1 chart 1 - Monthly revenue trend (12-month rolling).
  *
  * Dual-axis line chart: left axis R, right axis order count. Two
  * revenue lines (booked vs collected) plus a bar for order count.

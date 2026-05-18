@@ -4,7 +4,7 @@
  * Address input with Google Places autocomplete + lat/lng auto-fill.
  *
  * Degrades gracefully: if NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set,
- * falls back to a plain text Input -- the catering company can still
+ * falls back to a plain text Input - the catering company can still
  * enter the address manually, just without auto-fill of lat/lng.
  *
  * Calls onChange with:

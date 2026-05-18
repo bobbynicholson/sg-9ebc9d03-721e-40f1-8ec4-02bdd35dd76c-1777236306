@@ -27,7 +27,7 @@ export const inventoryService = {
    *
    * Returns the union of:
    *   * items pinned to this region (region_id = regionId)
-   *   * items flagged as shared (is_shared = true) -- the company-wide
+   *   * items flagged as shared (is_shared = true) - the company-wide
    *     pool, available to every branch
    *
    * Pass regionId = null for company-wide views (returns everything).
@@ -214,7 +214,7 @@ export const inventoryService = {
   /**
    * FIFO consumption helper. Walks active batches for an item ordered by
    * received_date ASC and decrements each batch's remaining quantity until
-   * the requested amount is fulfilled. Best effort -- if there's not enough
+   * the requested amount is fulfilled. Best effort - if there's not enough
    * tracked in batches, we just consume what's available and let the caller's
    * inventory_items.current_stock update absorb the rest. Means batches and
    * current_stock can drift on legacy items, but new items stay accurate.
@@ -330,7 +330,7 @@ export const inventoryService = {
 
   /**
    * Most recent inventory_transaction for the company. Powers the
-   * "Last activity" stat card -- a recency signal for the team.
+   * "Last activity" stat card - a recency signal for the team.
    */
   async getLastActivity(companyId: string): Promise<{ created_at: string; transaction_type: string; item_name?: string } | null> {
     const { data, error } = await supabase
@@ -607,7 +607,7 @@ export const inventoryService = {
   },
 
   /**
-   * Cost history for the item -- last 90 days of transactions where unit_cost
+   * Cost history for the item - last 90 days of transactions where unit_cost
    * was logged. Powers the sparkline on the row drawer.
    */
   async getCostHistoryForItem(itemId: string, days = 90): Promise<Array<{ date: string; unit_cost: number }>> {
@@ -733,11 +733,11 @@ export const inventoryService = {
 
     // Tightened rule: only rows that have a non-zero minimum and are
     // at-or-under that minimum count as low. The earlier rule
-    // (`current <= minimum`) flagged every 0/0 seed row -- on a fresh
+    // (`current <= minimum`) flagged every 0/0 seed row - on a fresh
     // tenant 47% of items came back "low" simply because they hadn't
     // been topped up yet. Operators tuned the alert out as crying
     // wolf. Now we require a meaningful minimum, OR a real negative
-    // balance (current_stock < 0 -- legitimately low).
+    // balance (current_stock < 0 - legitimately low).
     return (data || []).filter((i: any) => {
       const cur = Number(i.current_stock || 0);
       const min = Number(i.minimum_stock || 0);

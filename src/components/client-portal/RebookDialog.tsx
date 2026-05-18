@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * RebookDialog -- the upgraded "Plan another event" form.
+ * RebookDialog - the upgraded "Plan another event" form.
  *
  * What changed from the old textarea-only modal:
  *   - Client confirms a NEW event date (defaults to ~4 weeks out, not
  *     the original past date)
  *   - Client picks items from the catering company's actual menu, by
- *     category, with quantities. NO pricing is shown -- the catering
+ *     category, with quantities. NO pricing is shown - the catering
  *     team sends a quote.
  *   - Client adds dietary requirements + notes
  *   - Submit writes a row to `leads` with structured `requested_items`
@@ -112,7 +112,7 @@ const ZA_DATE_OPTS: Intl.DateTimeFormatOptions = {
 
 /**
  * Default new-event date: 4 weeks from today. Catering events generally
- * need a few weeks of lead time anyway -- starting from "today" would
+ * need a few weeks of lead time anyway - starting from "today" would
  * just trip our advance-notice validation downstream.
  */
 function defaultEventDate(): string {
@@ -145,7 +145,7 @@ export function RebookDialog({
   const [venueAddress, setVenueAddress] = useState<string>("");
   // Captured from Google Places when the user picks a suggestion. We
   // pass these through to the lead so the catering company has a
-  // routing-ready coordinate without re-geocoding. Optional -- if the
+  // routing-ready coordinate without re-geocoding. Optional - if the
   // user types an address without picking a suggestion, both stay null
   // and the catering team can geocode later.
   const [venueLat, setVenueLat] = useState<number | null>(null);
@@ -293,7 +293,7 @@ export function RebookDialog({
       // Map picked items into the shape that quotes.menu_items jsonb
       // already uses (the admin /quotes/new page reads this same
       // shape via Array.isArray(q.menu_items)). unit_price + line_total
-      // are zero -- the catering team prices each line in the quote
+      // are zero - the catering team prices each line in the quote
       // editor before sending.
       const menuItemsJson = Array.from(picked.values()).map((p) => ({
         menu_item_id: p.menu_item_id,
@@ -313,7 +313,7 @@ export function RebookDialog({
       const quoteNumber = `REQ-${today}-${rand}`;
 
       // Try to attach to an existing clients row for this user (so the
-      // quote is properly linked to their record). Best-effort -- if
+      // quote is properly linked to their record). Best-effort - if
       // there's no clients row yet, the quote still goes through with
       // just the email.
       let clientId: string | null = null;
@@ -326,13 +326,13 @@ export function RebookDialog({
           .maybeSingle();
         clientId = (clientRow as any)?.id ?? null;
       } catch {
-        // non-fatal -- proceed without a client_id link
+        // non-fatal - proceed without a client_id link
       }
 
       // Direct insert into quotes. RLS allows it because the client's
       // profile.company_id matches NEW.company_id (policy: "Users can
       // insert quotes for their company"). Status stays 'draft', so
-      // none of the dispatch/email triggers fire -- the catering team
+      // none of the dispatch/email triggers fire - the catering team
       // reviews, prices, then changes status to 'sent'.
       const insertPayload: any = {
         company_id: companyId,
@@ -348,7 +348,7 @@ export function RebookDialog({
         venue_address: venueAddress.trim() || null,
         venue_lat: venueLat,
         venue_lng: venueLng,
-        // Pricing intentionally zero -- catering team prices each
+        // Pricing intentionally zero - catering team prices each
         // line before sending. Marked NOT NULL on the table so we
         // can't omit them.
         subtotal: 0,
@@ -399,7 +399,7 @@ export function RebookDialog({
         };
         await supabase.from("leads").insert(leadPayload);
       } catch (leadErr) {
-        // Lead insert is for analytics only -- the operator already has
+        // Lead insert is for analytics only - the operator already has
         // the draft quote, so don't fail the dialog if RLS or a missing
         // field rejects the lead row.
         console.warn("[RebookDialog] lead capture failed (non-blocking):", leadErr);

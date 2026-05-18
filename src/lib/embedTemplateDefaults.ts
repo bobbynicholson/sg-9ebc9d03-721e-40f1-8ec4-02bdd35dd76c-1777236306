@@ -1,12 +1,12 @@
 // Default starter field set for each of the 10 embed-form templates.
 //
-// Returned fields are immediately editable in the admin UI -- tenants can
+// Returned fields are immediately editable in the admin UI - tenants can
 // reorder, hide, mark required, or add validation. Labels use South African
 // English. `mapsTo` is set wherever a field has an obvious lead-column home so
 // that leadService.createLead can build a real lead from the submission
 // without manual mapping.
 //
-// Keep field ids snake_case and stable -- they become payload keys.
+// Keep field ids snake_case and stable - they become payload keys.
 
 import type { EmbedField, EmbedTemplateId } from '@/types/embedForms';
 
@@ -94,7 +94,7 @@ function clone(field: EmbedField, overrides: Partial<EmbedField> = {}): EmbedFie
 }
 
 const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
-  // 1. Quick card -- the lowest-friction form. Name, email, phone, date, pax.
+  // 1. Quick card - the lowest-friction form. Name, email, phone, date, pax.
   'quick-card': [
     clone(NAME_FIELD),
     clone(EMAIL_FIELD),
@@ -103,7 +103,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(GUEST_COUNT_FIELD),
   ],
 
-  // 2. Modern inline -- single-row layout, slightly richer.
+  // 2. Modern inline - single-row layout, slightly richer.
   'modern-inline': [
     clone(NAME_FIELD),
     clone(EMAIL_FIELD),
@@ -129,7 +129,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD),
   ],
 
-  // 3. Luxe vertical -- premium positioning. More descriptive fields.
+  // 3. Luxe vertical - premium positioning. More descriptive fields.
   'luxe-vertical': [
     clone(NAME_FIELD, { label: 'Your name' }),
     clone(EMAIL_FIELD),
@@ -171,7 +171,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD, { label: 'Vision for the event' }),
   ],
 
-  // 4. Floating widget -- minimum-viable, sits in a launcher bubble.
+  // 4. Floating widget - minimum-viable, sits in a launcher bubble.
   'floating-widget': [
     clone(NAME_FIELD),
     clone(EMAIL_FIELD),
@@ -179,7 +179,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD, { label: 'How can we help?', order: 100 }),
   ],
 
-  // 5. Detailed multi-step -- big form, broken across steps in the UI.
+  // 5. Detailed multi-step - big form, broken across steps in the UI.
   'detailed-multi-step': [
     clone(NAME_FIELD),
     clone(EMAIL_FIELD),
@@ -271,7 +271,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD),
   ],
 
-  // 6. Pricing calculator -- minimal personal info, focus on guest count + tier.
+  // 6. Pricing calculator - minimal personal info, focus on guest count + tier.
   'pricing-calculator': [
     clone(GUEST_COUNT_FIELD, { order: 10 }),
     {
@@ -294,7 +294,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(PHONE_FIELD, { order: 60, required: false }),
   ],
 
-  // 7. Wedding specialist -- ceremony + reception detail, wedding-specific fields.
+  // 7. Wedding specialist - ceremony + reception detail, wedding-specific fields.
   'wedding-specialist': [
     {
       id: 'bride_groom_names',
@@ -377,7 +377,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD, { label: 'Vision and special requests' }),
   ],
 
-  // 8. Corporate catering -- billing detail, recurring options.
+  // 8. Corporate catering - billing detail, recurring options.
   'corporate-catering': [
     {
       id: 'company_name',
@@ -452,7 +452,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(NOTES_FIELD, { label: 'Brief / additional info' }),
   ],
 
-  // 9. Event estimator -- driven by event type, returns a ballpark figure.
+  // 9. Event estimator - driven by event type, returns a ballpark figure.
   'event-estimator': [
     {
       id: 'event_type',
@@ -504,7 +504,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(PHONE_FIELD, { order: 80, required: false }),
   ],
 
-  // 10. Spit braai quick -- date, pax, postcode, contact. Nothing else.
+  // 10. Spit braai quick - date, pax, postcode, contact. Nothing else.
   'spit-braai-quick': [
     clone(EVENT_DATE_FIELD, { label: 'Braai date', order: 10 }),
     clone(GUEST_COUNT_FIELD, { label: 'Number of people', order: 20 }),
@@ -527,7 +527,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
 
 /**
  * Returns a fresh, deep-copied default field set for the given template id.
- * Returns an empty array for unknown template ids -- callers should treat that
+ * Returns an empty array for unknown template ids - callers should treat that
  * as a soft failure rather than throwing, so the admin UI can recover.
  */
 export function getDefaultFieldsForTemplate(templateId: string): EmbedField[] {

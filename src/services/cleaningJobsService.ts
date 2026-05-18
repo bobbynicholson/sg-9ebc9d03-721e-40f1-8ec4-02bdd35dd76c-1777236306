@@ -1,5 +1,5 @@
 /**
- * Wave 41 Phase 2 -- cleaning_jobs service.
+ * Wave 41 Phase 2 - cleaning_jobs service.
  *
  * cleaning_jobs is the equipment-availability ledger. Deliberately
  * separate from labour cost (which lives in kitchen_shifts +
@@ -112,7 +112,7 @@ export function estimateJobMinutes(args: {
     return FALLBACK_MANUAL_MIN;
   }
 
-  // outsourced_hire -- 24h placeholder unless overridden.
+  // outsourced_hire - 24h placeholder unless overridden.
   return 60 * FALLBACK_OUTSOURCED_HOURS;
 }
 
@@ -122,7 +122,7 @@ export function estimateJobMinutes(args: {
  *
  * Wave 42 hotfix: avoid the PostgREST embed `equipment:equipment_id(name)`
  * because it requires PostgREST's FK schema cache to be reloaded after
- * the cleaning_jobs migration -- which it may not be on a freshly-
+ * the cleaning_jobs migration - which it may not be on a freshly-
  * deployed environment, causing the embed to 400 and the call to
  * crash any consumer that doesn't catch (e.g. CleaningQueueWidget).
  * Two flat queries are bullet-proof and cost one extra round-trip.
@@ -196,7 +196,7 @@ export async function unitsInActiveCleaning(
 /**
  * Create a new cleaning_job. planned_start defaults to now,
  * planned_end is now + estimated minutes. status defaults to
- * 'queued' -- caller flips to 'in_progress' via startJob().
+ * 'queued' - caller flips to 'in_progress' via startJob().
  */
 export async function createJob(
   supabase: SupabaseClient,

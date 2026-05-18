@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * OutsourcedFulfilmentPanel -- Wave 67 Phase D.
+ * OutsourcedFulfilmentPanel - Wave 67 Phase D.
  *
  * Lives inside the order modal Details tab. Lists every
  * outsource_assignments row for this order with inline actions for
@@ -128,7 +128,7 @@ export function OutsourcedFulfilmentPanel({
   const [addBusy, setAddBusy] = useState(false);
   const [origin, setOrigin] = useState<string>("");
 
-  // Wave 67.5 -- multi-provider routing context. When the operator
+  // Wave 67.5 - multi-provider routing context. When the operator
   // clicks "Add candidate" on an existing requested assignment, we
   // open the add dialog scoped to that assignment's routing_group_id
   // so the new sibling shares the fulfilment slot. First-to-accept
@@ -203,7 +203,7 @@ export function OutsourcedFulfilmentPanel({
     setAddOpen(true);
   };
 
-  // Wave 67.5 -- add an alternate provider to an existing requested
+  // Wave 67.5 - add an alternate provider to an existing requested
   // assignment. Pre-fills scope + on-site from the parent so the
   // operator only picks the new provider + tweaks cost if needed.
   const openAddCandidate = (parent: OutsourceAssignmentWithProvider) => {
@@ -236,7 +236,7 @@ export function OutsourcedFulfilmentPanel({
     }
     setAddBusy(true);
     try {
-      // Wave 67.5 -- when adding a candidate to an existing
+      // Wave 67.5 - when adding a candidate to an existing
       // routing group, reuse the parent's routing_group_id (or mint
       // a new one if the parent doesn't have one yet, also bumping
       // the parent into the group). When starting fresh, pass
@@ -383,7 +383,7 @@ export function OutsourcedFulfilmentPanel({
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
-      toast({ title: "Accept link copied", description: "Paste anywhere -- SMS, email, WhatsApp." });
+      toast({ title: "Accept link copied", description: "Paste anywhere - SMS, email, WhatsApp." });
     } catch {
       toast({ title: "Copy failed", variant: "destructive" });
     }
@@ -401,7 +401,7 @@ export function OutsourcedFulfilmentPanel({
             )}
           </h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            External providers we&apos;ve asked to fulfil parts of this order. Send the magic-link, they tap accept -- no login needed.
+            External providers we&apos;ve asked to fulfil parts of this order. Send the magic-link, they tap accept - no login needed.
           </p>
         </div>
         <Button
@@ -452,7 +452,7 @@ export function OutsourcedFulfilmentPanel({
                         {a.routing_group_id && (() => {
                           const groupSize = assignments.filter((x) => x.routing_group_id === a.routing_group_id).length;
                           if (groupSize < 2) return null;
-                          // Wave 70.5 -- if this row is the winner
+                          // Wave 70.5 - if this row is the winner
                           // (accepted) in a routing group, badge it
                           // emerald so it's obvious it beat the
                           // others. Cancelled siblings get a muted
@@ -471,7 +471,7 @@ export function OutsourcedFulfilmentPanel({
                           return (
                             <span
                               className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-semibold ${cls}`}
-                              title={`${groupSize} candidates in this routing group -- first to accept wins; others auto-cancel`}
+                              title={`${groupSize} candidates in this routing group - first to accept wins; others auto-cancel`}
                             >
                               {label}
                             </span>
@@ -482,7 +482,7 @@ export function OutsourcedFulfilmentPanel({
                       {a.scope_notes && (
                         <p className="text-[11px] text-slate-500 mt-0.5 italic">{a.scope_notes}</p>
                       )}
-                      {/* Wave 70.5 -- cancellation reason on cancelled
+                      {/* Wave 70.5 - cancellation reason on cancelled
                           rows. When the DB trigger auto-cancels a
                           sibling because another provider accepted
                           first, decline_reason is set to the
@@ -525,7 +525,7 @@ export function OutsourcedFulfilmentPanel({
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {/* Channel-aware request send -- WhatsApp first when preferred */}
+                      {/* Channel-aware request send - WhatsApp first when preferred */}
                       {channel === "whatsapp" || channel === "sms" ? (
                         <Button size="sm" variant="ghost" onClick={() => sendWhatsApp(a)} title="Send via WhatsApp">
                           <MessageCircle className="w-4 h-4 text-green-700" />
@@ -548,7 +548,7 @@ export function OutsourcedFulfilmentPanel({
                           >
                             <Check className="w-4 h-4" />
                           </Button>
-                          {/* Wave 67.5 -- add an alternate provider
+                          {/* Wave 67.5 - add an alternate provider
                               to the same fulfilment slot. First to
                               accept wins; the others auto-cancel via
                               DB trigger. */}
@@ -556,7 +556,7 @@ export function OutsourcedFulfilmentPanel({
                             size="sm"
                             variant="ghost"
                             onClick={() => openAddCandidate(a)}
-                            title="Add an alternate provider -- first to accept wins"
+                            title="Add an alternate provider - first to accept wins"
                             className="text-blue-700 hover:text-blue-800"
                           >
                             <Plus className="w-4 h-4" />
@@ -576,7 +576,7 @@ export function OutsourcedFulfilmentPanel({
                       )}
                     </div>
                   </div>
-                  {/* Status advance bar -- shows after acceptance */}
+                  {/* Status advance bar - shows after acceptance */}
                   {(a.status === "accepted" || a.status === "en_route" || a.status === "on_site") && (
                     <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-xs">
                       <span className="text-slate-500">Advance:</span>

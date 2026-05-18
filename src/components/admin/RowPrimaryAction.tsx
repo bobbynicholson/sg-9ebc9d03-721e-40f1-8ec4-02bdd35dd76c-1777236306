@@ -1,5 +1,5 @@
 /**
- * RowPrimaryAction -- the single "next-step" button each row gets across
+ * RowPrimaryAction - the single "next-step" button each row gets across
  * Contacts, Leads and Quotes. Standardised so the operator's eye lands
  * in the same place on every CRM surface and the colour codes the same
  * urgency on every page.

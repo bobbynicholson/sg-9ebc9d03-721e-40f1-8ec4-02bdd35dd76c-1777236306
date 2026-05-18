@@ -1,5 +1,5 @@
 /**
- * KitchenServiceModeBadge -- Wave 70.7b
+ * KitchenServiceModeBadge - Wave 70.7b
  *
  * Sits at the top of the kitchen nav above the live state strip.
  * Communicates which phase of the day the kitchen is in (off / prep
@@ -12,10 +12,10 @@
  * would otherwise say "off").
  *
  * Tones:
- *   off     -- slate, neutral
- *   prep    -- amber, warming up
- *   service -- orange-to-red gradient, pulses, the "live" state
- *   close   -- emerald, winding down
+ *   off     - slate, neutral
+ *   prep    - amber, warming up
+ *   service - orange-to-red gradient, pulses, the "live" state
+ *   close   - emerald, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

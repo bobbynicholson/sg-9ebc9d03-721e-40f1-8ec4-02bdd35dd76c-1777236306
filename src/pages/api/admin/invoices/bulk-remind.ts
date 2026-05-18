@@ -127,7 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? `${baseUrl}/pay/i/${inv.public_token}`
           : null;
         const firstName = String(name).split(" ")[0] || "there";
-        const subject = `Friendly reminder: invoice ${inv.invoice_number || ""} -- ${companyName}`;
+        const subject = `Friendly reminder: invoice ${inv.invoice_number || ""} - ${companyName}`;
         const body =
           `Hi ${firstName},\n\n` +
           `Just a friendly reminder that invoice ${inv.invoice_number || ""} is currently outstanding. ` +
@@ -158,7 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Single audit row covering the batch -- saves spamming audit
+    // Single audit row covering the batch - saves spamming audit
     // _logs with N rows when the operator hits the button on a 50-
     // invoice tenant.
     try {

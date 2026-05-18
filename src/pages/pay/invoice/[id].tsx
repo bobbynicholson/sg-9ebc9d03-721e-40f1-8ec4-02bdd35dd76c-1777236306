@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /pay/invoice/[id] -- LEGACY redirect.
+ * /pay/invoice/[id] - LEGACY redirect.
  *
  * Old emails / SMS / saved links pointed at this enumerable-UUID URL.
  * The route used to load the invoice via the anon Supabase client,

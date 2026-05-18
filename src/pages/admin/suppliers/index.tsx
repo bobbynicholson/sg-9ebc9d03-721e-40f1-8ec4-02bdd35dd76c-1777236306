@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Suppliers hub -- list of every supplier on file with rolling spend
+ * Suppliers hub - list of every supplier on file with rolling spend
  * totals (30d / 90d / 365d), product counts, and a one-click compose
  * email action that uses the same Gmail / Outlook / default-mail
  * fallback chain as /admin/clients.
  *
- * Owner-level view -- only owners and admins should see commercial
+ * Owner-level view - only owners and admins should see commercial
  * spend numbers. Gated via ProtectedRoute.
  */
 import { useEffect, useMemo, useState } from "react";

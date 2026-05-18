@@ -3,7 +3,7 @@
  * /client-portal/notifications
  *
  * The "View all notifications" target from the bell. Lists every
- * in-app notification the signed-in client has received -- payment
+ * in-app notification the signed-in client has received - payment
  * confirmations, quote updates, driver-on-the-way nudges, status
  * changes the catering team triggered.
  *
@@ -106,7 +106,7 @@ export default function ClientNotificationsPage() {
           prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
         );
       } catch {
-        /* non-fatal -- still navigate */
+        /* non-fatal - still navigate */
       }
     }
     const target = resolveLink(n.link);
@@ -159,7 +159,7 @@ export default function ClientNotificationsPage() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <ClientPageHeader
           title="Notifications"
-          subtitle="Quote updates, driver alerts, payment confirmations -- everything the team has sent you."
+          subtitle="Quote updates, driver alerts, payment confirmations - everything the team has sent you."
           rightSlot={
             unreadCount > 0 ? (
               <Button

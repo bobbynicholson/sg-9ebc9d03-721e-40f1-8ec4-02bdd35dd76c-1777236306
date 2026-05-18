@@ -1,5 +1,5 @@
 /**
- * Tier 4 chart 2 -- Quote-to-accept time distribution.
+ * Tier 4 chart 2 - Quote-to-accept time distribution.
  *
  * Histogram of (accepted_at - sent_at) bucketed into:
  *   <2h, 2-24h, 1-3d, 3-7d, 7-14d, 14d+

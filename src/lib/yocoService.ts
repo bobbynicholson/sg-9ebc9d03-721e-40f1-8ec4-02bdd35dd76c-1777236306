@@ -1,5 +1,5 @@
 /**
- * Yoco Online Checkout integration -- per-tenant variant.
+ * Yoco Online Checkout integration - per-tenant variant.
  *
  * Tenants who pick Yoco in /admin/payment-gateways have their secret
  * key stored in payment_gateway_credentials.credentials.secretKey. This
@@ -38,7 +38,7 @@ const YOCO_BASE = "https://payments.yoco.com/api";
 /**
  * Create a Yoco checkout session. Throws on non-2xx.
  *
- * TODO -- Yoco's API surface has gone through several iterations
+ * TODO - Yoco's API surface has gone through several iterations
  * (/api/checkouts vs /v1/charges). Confirm the latest endpoint and
  * request body shape against current Yoco docs before the first live
  * tenant goes live. The implementation below follows the documented
@@ -49,7 +49,7 @@ export async function createYocoCheckout(
   input: YocoCheckoutInput,
 ): Promise<YocoCheckoutResult> {
   if (!input.secretKey) {
-    throw new Error("Yoco secret key missing -- tenant has not configured Yoco");
+    throw new Error("Yoco secret key missing - tenant has not configured Yoco");
   }
   const amountInCents = Math.round(input.amount * 100);
 
@@ -90,13 +90,13 @@ export async function createYocoCheckout(
 }
 
 /**
- * Lightweight credential ping -- confirm the secret key is valid.
+ * Lightweight credential ping - confirm the secret key is valid.
  * Yoco's REST API doesn't have a documented `GET /me` endpoint at the
  * moment; a minimal authenticated GET against the merchants endpoint
  * is the closest thing. If Yoco ships a dedicated /v1/health or
  * /accounts/me later, swap it in here.
  *
- * TODO -- replace with the canonical "verify token" endpoint once
+ * TODO - replace with the canonical "verify token" endpoint once
  * Yoco publishes one. Today we issue an authenticated HEAD-equivalent
  * (GET against an endpoint that returns 401 on bad keys, 200 on good).
  */
@@ -129,9 +129,9 @@ export async function pingYocoCredentials(secretKey: string): Promise<{
  * Verify the Yoco webhook signature. Yoco signs webhooks with HMAC-SHA256
  * over the raw request body using the per-tenant webhookSecret the
  * operator pasted into /admin/payment-gateways. Header name is
- * `webhook-signature` -- compare against the hex digest.
+ * `webhook-signature` - compare against the hex digest.
  *
- * TODO -- confirm the exact header name and signing scheme. The
+ * TODO - confirm the exact header name and signing scheme. The
  * implementation here follows the documented HMAC-SHA256 hex pattern.
  */
 export function verifyYocoSignature(

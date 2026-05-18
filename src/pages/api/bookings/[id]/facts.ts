@@ -1,9 +1,9 @@
 /**
  * GET /api/bookings/[id]/facts?role=admin|client|kitchen|driver|cleaning|shopping
  *
- * Wave 70.42 -- role-scoped booking facts. Returns the booking +
+ * Wave 70.42 - role-scoped booking facts. Returns the booking +
  * related artifacts the calling role is allowed to see. Money
- * fields are stripped server-side for staff roles -- callers can
+ * fields are stripped server-side for staff roles - callers can
  * inspect Network tab and confirm the payload never carried them.
  *
  * Auth: must be signed in. The role query param is validated
@@ -13,7 +13,7 @@
  *
  * Why client-fetch rather than getServerSideProps:
  *   - Several surfaces want this data refreshed after an order
- *     edit (Wave 70.40 cateringms:order-updated listener) -- a
+ *     edit (Wave 70.40 cateringms:order-updated listener) - a
  *     useEffect + fetch pairs naturally with the event hook.
  *   - Server-side props would force a full route reload on each
  *     refetch; we want in-place data swap.

@@ -107,7 +107,7 @@ function TenantHealthDashboard() {
       const companyIds = (companies || []).map((c: any) => c.id);
 
       // Orders-per-company aggregate. Pull ids + event_date in one
-      // query and bucket client-side -- saves a per-company round
+      // query and bucket client-side - saves a per-company round
       // trip and the dataset is small (sub-1000 tenants).
       const { data: orderRows } = companyIds.length
         ? await supabase

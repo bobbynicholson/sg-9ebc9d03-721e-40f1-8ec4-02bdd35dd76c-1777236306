@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/equipment -- equipment hub.
+ * /admin/equipment - equipment hub.
  *
  * Four tabs: Catalog (the catering company's hire-out items),
  * Availability (per-date free/committed lookup), Shortages (extracted
@@ -75,7 +75,7 @@ interface EquipmentRow {
   image_url?: string | null;
   replacement_cost?: number | null;
   cleaning_time_hours?: number | null;
-  // Wave 70.24 -- per-equipment cleaning flags. Drive the cleaning
+  // Wave 70.24 - per-equipment cleaning flags. Drive the cleaning
   // portal's filtering + the auto-trigger that creates
   // cleaning_jobs on order delivery.
   requires_cleaning?: boolean | null;
@@ -92,7 +92,7 @@ interface EquipmentRow {
   next_service_due?: string | null;
 }
 
-// Wave 70.24 -- category-driven smart defaults for the cleaning
+// Wave 70.24 - category-driven smart defaults for the cleaning
 // flags. Mirrors the migration's backfill SQL so a fresh tenant
 // picking a category gets sensible defaults without having to
 // understand every checkbox.
@@ -376,7 +376,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         is_available: editing.is_available !== false,
         replacement_cost: editing.replacement_cost != null ? safeNum(editing.replacement_cost) : null,
         cleaning_time_hours: editing.cleaning_time_hours != null ? safeNum(editing.cleaning_time_hours) : null,
-        // Wave 70.24 -- per-equipment cleaning flags. requires_cleaning
+        // Wave 70.24 - per-equipment cleaning flags. requires_cleaning
         // defaults to true to preserve the existing trigger behaviour
         // when a tenant doesn't touch the toggle. Per-piece times
         // default to null (the service falls back to the coarse
@@ -728,7 +728,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             {r.condition && r.condition !== "good" && (
                               <Badge variant="outline" className="text-[10px]">{r.condition}</Badge>
                             )}
-                            {/* Wave 70.24 -- cleaning chip so admin can
+                            {/* Wave 70.24 - cleaning chip so admin can
                                 spot at-a-glance which items hit the
                                 cleaning queue on return. */}
                             {r.requires_cleaning === false ? (
@@ -743,7 +743,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                               <Badge
                                 variant="outline"
                                 className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200"
-                                title={r.dishwasher_safe ? "Dishwasher-safe -- defaults to dishwasher method" : "Hand-wash item -- defaults to manual method"}
+                                title={r.dishwasher_safe ? "Dishwasher-safe - defaults to dishwasher method" : "Hand-wash item - defaults to manual method"}
                               >
                                 <Sparkles className="w-2.5 h-2.5 mr-0.5" />
                                 {r.dishwasher_safe ? "dishwasher" : "hand-wash"}
@@ -823,7 +823,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                     list="cat-suggest"
                     onChange={(e) => {
                       const newCategory = e.target.value;
-                      // Wave 70.24 -- when the category changes,
+                      // Wave 70.24 - when the category changes,
                       // apply the cleaning defaults for the new
                       // category UNLESS the operator already
                       // explicitly set them (existing edit). Only
@@ -959,7 +959,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                 </div>
               </div>
 
-              {/* Wave 70.24 -- per-equipment cleaning flags. Drives
+              {/* Wave 70.24 - per-equipment cleaning flags. Drives
                   whether the cleaning queue picks up this item when
                   it comes back from an event. Defaults pre-applied
                   by category (cutlery / glassware = dishwasher-safe,

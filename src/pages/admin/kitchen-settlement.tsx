@@ -1,9 +1,9 @@
 /**
- * /admin/kitchen-settlement -- per-period kitchen pay summary.
+ * /admin/kitchen-settlement - per-period kitchen pay summary.
  *
  * Wave 36.3. Mirrors /admin/driver-settlement.tsx in spirit but
  * leaner because kitchen pay has no distance/callout/vehicle logic
- * to summarise -- just clocked-hours x rate (+ OT + multiplier).
+ * to summarise - just clocked-hours x rate (+ OT + multiplier).
  *
  * Pick a date range, scan every kitchen staffer, see who worked
  * how many hours, what they earned, then issue payslips one-tap or
@@ -90,14 +90,14 @@ function KitchenSettlementPage() {
       // 1) Pull all hourly-eligible staff. Wave 40.4: widened to
       // include cleaning_staff so the same settlement page covers
       // chef + cleaner payroll. Bobby's brief: same person can do
-      // both jobs in one shift -- pay once, not twice. The
+      // both jobs in one shift - pay once, not twice. The
       // kitchen_payslips table is keyed by (company, staff,
       // period) so it's role-agnostic anyway.
       const { data: staffRes, error: staffResError } = await (supabase as any)
         .from("profiles")
         .select("id, full_name, email, hourly_rate, role")
         .eq("company_id", companyId)
-        // Wave 64.5 -- "owner" was in this filter but isn't a valid
+        // Wave 64.5 - "owner" was in this filter but isn't a valid
         // user_role enum label, so PostgREST rejected the whole
         // query and the settlement table silently came back empty.
         // Same trap as kitchen-schedule + vehicles. Valid roles only.
@@ -186,7 +186,7 @@ function KitchenSettlementPage() {
       if (!res.ok) throw new Error(res.error || "Persist failed");
       toast({
         title: status === "paid" ? "Marked paid" : status === "issued" ? "Payslip issued" : "Payslip saved",
-        description: `${summary.staffName || "Staff"} -- ${fmtCurrency(summary.totalPay, summary.currency)}`,
+        description: `${summary.staffName || "Staff"} - ${fmtCurrency(summary.totalPay, summary.currency)}`,
       });
       await load();
     } catch (e: any) {
@@ -213,7 +213,7 @@ function KitchenSettlementPage() {
           if (r.ok) issued += 1;
         } catch { /* swallow per-row, continue */ }
       }
-      toast({ title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`, description: `Period ${periodStart} -- ${periodEnd}` });
+      toast({ title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`, description: `Period ${periodStart} - ${periodEnd}` });
       await load();
     } finally {
       setBulkPersisting(false);

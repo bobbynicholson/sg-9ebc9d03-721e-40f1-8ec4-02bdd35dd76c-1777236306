@@ -2,7 +2,7 @@
  * POST /api/accounting/xero/sync-invoice
  *
  * Pushes a single CateringMS invoice to Xero (item #7). Idempotent
- * via invoices.external_id -- if the invoice already has a Xero ID
+ * via invoices.external_id - if the invoice already has a Xero ID
  * we treat that as the desired state and return early. Skips when
  * the tenant's xero_integration_settings.push_invoices_to_xero is
  * false so the operator can pause sync without disconnecting.
@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : { Name: "Unknown client" },
       LineItems: [
         {
-          Description: `Catering services -- invoice ${invoice.invoice_number}`,
+          Description: `Catering services - invoice ${invoice.invoice_number}`,
           Quantity: 1,
           UnitAmount: Number(invoice.subtotal || invoice.total_amount || 0),
           AccountCode: lineAccountCode,
@@ -173,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // Update mode: detect Xero-side drift before overwriting.
-    // P1-21 from the 2026-05 audit -- "two-way conflict handling".
+    // P1-21 from the 2026-05 audit - "two-way conflict handling".
     // We refuse to silently clobber Xero edits; the operator has to
     // reconcile manually (typically: pull Xero state, decide which
     // wins, then re-sync).
@@ -210,7 +210,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       // Update path is identical to create except method=POST against
       // the resource URL with InvoiceID embedded (Xero treats this as
-      // upsert) -- so we just POST the payload with InvoiceID set.
+      // upsert) - so we just POST the payload with InvoiceID set.
       (xeroPayload as any).InvoiceID = invoice.external_id;
     }
 
@@ -306,7 +306,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
  * Refreshes the Xero access token if it's within 60s of expiry.
  * Returns a token ready to use, or null if refresh failed.
  *
- * Xero rotates the refresh_token on every call -- we MUST persist
+ * Xero rotates the refresh_token on every call - we MUST persist
  * the new one or the next refresh will fail with invalid_grant.
  */
 /**

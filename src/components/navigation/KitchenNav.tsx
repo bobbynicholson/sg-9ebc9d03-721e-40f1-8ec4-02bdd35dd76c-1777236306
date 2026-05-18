@@ -1,5 +1,5 @@
 /**
- * KitchenNav -- Wave 70.7 redesign.
+ * KitchenNav - Wave 70.7 redesign.
  *
  * Before this wave the kitchen nav was a generic 4-section / 8-item
  * list copied from the driver / cleaning / shopping pattern with
@@ -8,9 +8,9 @@
  * during a service and needs a tighter, more intelligent surface.
  *
  * Restructured into:
- *   LIVE NOW    -- Today, Production, Prep List   (3 items, always open)
- *   KITCHEN OPS -- Team, Stock, Recipes           (3 items, closed by default)
- *   FOOTER      -- Notifications, Settings        (footer treatment)
+ *   LIVE NOW    - Today, Production, Prep List   (3 items, always open)
+ *   KITCHEN OPS - Team, Stock, Recipes           (3 items, closed by default)
+ *   FOOTER      - Notifications, Settings        (footer treatment)
  *
  * Renames done in this wave:
  *   "Overview"            -> "Today"
@@ -55,7 +55,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
   const counts = useKitchenLiveCounts();
   const serviceMode = usePortalServiceMode();
 
-  // Wave 70.7c -- fires a single toast on the first transition to
+  // Wave 70.7c - fires a single toast on the first transition to
   // service mode each browser session. Mounted at the nav level so
   // it runs on every kitchen portal page.
   useServiceModeToast();
@@ -115,7 +115,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
               if (counts.inPrep > 0)  return { text: `${counts.inPrep} in prep`, tone: "default" };
               return null;
             },
-            // Wave 70.7 -- icon overlay swap during service.
+            // Wave 70.7 - icon overlay swap during service.
             // The base ChefHat icon stays so the chef's muscle-memory
             // shape isn't disrupted; a small flame badge sits in the
             // top-right corner only during service hours.
@@ -158,7 +158,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
               ? { text: String(counts.notifications), tone: "critical" }
               : null,
           },
-          // Wave 70.8 -- Settings removed from the kitchen nav.
+          // Wave 70.8 - Settings removed from the kitchen nav.
           // Kitchen prep + shift policy is now tuned at
           // /admin/kitchen-settings by the owner / admin only.
           // BCEA thresholds and dietary alert sensitivity are

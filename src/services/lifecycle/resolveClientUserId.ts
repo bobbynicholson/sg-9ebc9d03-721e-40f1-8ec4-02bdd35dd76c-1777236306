@@ -11,7 +11,7 @@
  *   1. Reading clients.user_id for the explicit link.
  *   2. Falling back to a profiles.email match (case-insensitive) for
  *      portal-token clients that have not been linked yet.
- *   3. Returning null if neither path yields an auth uid -- the caller
+ *   3. Returning null if neither path yields an auth uid - the caller
  *      MUST skip the notification (do not insert a dropped row).
  *
  * Accepts either an SSR Supabase client (createPagesServerClient) or

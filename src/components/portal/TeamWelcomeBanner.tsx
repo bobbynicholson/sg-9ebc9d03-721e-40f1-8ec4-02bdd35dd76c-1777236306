@@ -3,7 +3,7 @@
  *
  * Shows once per device per user (sessionStorage-keyed). Each portal
  * gets its own copy so a kitchen lead and a driver don't see the same
- * generic blurb -- the value prop differs by role.
+ * generic blurb - the value prop differs by role.
  *
  * Render this near the top of /team-portal/{role}/dashboard. It collapses
  * itself the moment it's dismissed and won't reappear in the same browser
@@ -32,7 +32,7 @@ const COPY: Record<TeamRole, RoleCopy> = {
     intro: "Everything you need to run prep without surprises:",
     bullets: [
       "Today's prep list, per-order, with portion targets",
-      "Live production board -- mark items ready, no shouting across the kitchen",
+      "Live production board - mark items ready, no shouting across the kitchen",
       "Your shifts and BCEA-fair overtime, tracked automatically",
     ],
     icon: ChefHat,
@@ -44,7 +44,7 @@ const COPY: Record<TeamRole, RoleCopy> = {
     intro: "Your day in one place:",
     bullets: [
       "Today's routes with optimised stop order + ETA",
-      "Tap to confirm pickup, on-route, and delivered -- proof of delivery captured automatically",
+      "Tap to confirm pickup, on-route, and delivered - proof of delivery captured automatically",
       "Earnings dashboard so you always know where you stand",
     ],
     icon: Truck,
@@ -53,7 +53,7 @@ const COPY: Record<TeamRole, RoleCopy> = {
   },
   cleaning: {
     title: "Welcome to the cleaning portal",
-    intro: "Equipment in, equipment out -- with proof:",
+    intro: "Equipment in, equipment out - with proof:",
     bullets: [
       "Tasks for today, by area, with verification checkpoints",
       "Damage-report flow so disputes about who broke what stop dead",

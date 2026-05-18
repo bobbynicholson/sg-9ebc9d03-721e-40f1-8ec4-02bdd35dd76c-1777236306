@@ -3,12 +3,12 @@
  * POST /api/imports/[id]/rows/[rowId]/edit
  *
  * Manual override path. Operator clicks "Fix" on a flagged row in
- * the preview wizard, types corrections in a dialog, hits save -- we
+ * the preview wizard, types corrections in a dialog, hits save - we
  * apply those corrections to the row's mapped_data, re-run the
  * deterministic per-field normaliser, re-run per-row validation, and
  * flip the status back to 'pending' if the fix resolves the issue.
  *
- * Sibling of the AI repair endpoint (./repair.ts) -- same data
+ * Sibling of the AI repair endpoint (./repair.ts) - same data
  * shape and validation rules, just a different fix source. The
  * normalise + validate logic is intentionally duplicated here rather
  * than extracted to keep the endpoint self-contained; the rules are
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Apply the overrides through the same normaliser the preview
     // pass uses so a "082 555 1234" typed in the fix dialog ends up
-    // as "+27825551234" -- the operator sees consistent shapes
+    // as "+27825551234" - the operator sees consistent shapes
     // either side of the fix.
     const currentMapped = (row.mapped_data as any) || {};
     const nextMapped: Record<string, any> = { ...currentMapped };

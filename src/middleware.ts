@@ -35,7 +35,7 @@ const PUBLIC_ROUTES = [
 // Multi-branch admin variants (Stage 0-3): region_admin is scoped to one or
 // more branches via profiles.regions_covered; sales_admin is cross-branch
 // but read-only on kitchen / dispatch ops. Both reach /admin/* the same
-// way as company_admin -- RLS narrows their data, not the route.
+// way as company_admin - RLS narrows their data, not the route.
 const ALL_AUTHENTICATED_ROLES = [
   "super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner",
   "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client",
@@ -195,7 +195,7 @@ export async function middleware(request: NextRequest) {
   //
   // Every /api/ handler in this codebase already does its own session
   // and role check via createPagesServerClient (see e.g.
-  // /api/admin/create-user, /api/admin/delete-user) -- the middleware
+  // /api/admin/create-user, /api/admin/delete-user) - the middleware
   // adds nothing here and breaks the auth flow for write endpoints.
   if (
     pathname.startsWith("/_next") ||
@@ -340,7 +340,7 @@ export async function middleware(request: NextRequest) {
   // slug-prefixed form so their address bar reads
   // /spit-braai-delivery/admin/... end-to-end.
   //
-  // super_admin bypasses -- they navigate across tenants and don't have
+  // super_admin bypasses - they navigate across tenants and don't have
   // a single "their" slug.
   //
   // Skip when the path already starts with the user's slug, when we
@@ -370,7 +370,7 @@ export async function middleware(request: NextRequest) {
   // ✅ Tenant slug validation: /[slug]/admin|team-portal|client-portal/...
   // super_admin bypasses; everyone else must own the slug they're hitting.
   // We already resolved userCompanySlug above (from cache or the
-  // companies.select earlier) -- compare against that instead of
+  // companies.select earlier) - compare against that instead of
   // re-querying.
   if (companySlug && profileRole && profileRole !== "super_admin") {
     if (!profileCompanyId) {
@@ -415,7 +415,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Refresh the signed-cookie cache on a miss so the next nav skips
-  // the DB queries. Redirects above don't carry this cookie -- next
+  // the DB queries. Redirects above don't carry this cookie - next
   // request after the redirect will refetch + cache.
   if (!cacheHit) {
     await writeCachedProfile(response, {

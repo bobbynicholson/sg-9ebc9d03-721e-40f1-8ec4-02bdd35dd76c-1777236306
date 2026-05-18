@@ -1,7 +1,7 @@
 /**
  * Email-provider status check.
  *
- * Wave 40.2 -- before this, two surfaces (the dashboard
+ * Wave 40.2 - before this, two surfaces (the dashboard
  * EmailProviderBanner and the admin/leads "email is on" banner)
  * both queried the WRONG table (`email_settings` instead of
  * `email_provider_settings`) AND filtered by the WRONG column

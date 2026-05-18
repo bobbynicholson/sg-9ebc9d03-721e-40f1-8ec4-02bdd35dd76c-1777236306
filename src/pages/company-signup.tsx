@@ -88,7 +88,7 @@ export default function CompanySignupPage() {
   // True when Supabase is configured to require email confirmation. We
   // detect this from a missing session after signUp + a failed auto-login,
   // and use it to show a "check your inbox" success state instead of a
-  // misleading "you're logged in" -- the latter sends users into routes
+  // misleading "you're logged in" - the latter sends users into routes
   // that 401 because they haven't verified yet.
   const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
@@ -99,7 +99,7 @@ export default function CompanySignupPage() {
 
   // Live availability check via the SECURITY DEFINER RPC. Debounced so
   // we aren't pinging on every keystroke. The RPC returns only a
-  // boolean + reason code -- it never reveals which company holds a
+  // boolean + reason code - it never reveals which company holds a
   // taken slug.
   useEffect(() => {
     if (!formData.customSlug) {
@@ -279,7 +279,7 @@ export default function CompanySignupPage() {
       }
 
       // Step 3: Create company record.
-      // The slug here is permanent -- the trigger
+      // The slug here is permanent - the trigger
       // trg_companies_slug_immutable rejects any later UPDATE that
       // tries to change it, and the slug becomes part of every URL the
       // tenant will ever see.
@@ -347,7 +347,7 @@ export default function CompanySignupPage() {
       }
 
       // Fire-and-forget the branded owner welcome email. Doesn't block
-      // signup completion -- if Resend / SMTP isn't configured the API
+      // signup completion - if Resend / SMTP isn't configured the API
       // simulates and logs, and the user still progresses.
       console.log("📧 Firing owner welcome email...");
       void fetch("/api/emails/owner-welcome", {
@@ -393,7 +393,7 @@ export default function CompanySignupPage() {
           console.warn("⚠️ Auto-login error:", loginError);
         }
       } else {
-        console.log("📧 No session returned from signUp -- email verification required");
+        console.log("📧 No session returned from signUp - email verification required");
       }
       setEmailVerificationRequired(verificationRequired);
 
@@ -422,7 +422,7 @@ export default function CompanySignupPage() {
   if (success) {
     // Two flavours of success: actually-logged-in vs verify-your-email.
     // The branch below renders both from the same card so the layout is
-    // identical -- only the copy + buttons differ.
+    // identical - only the copy + buttons differ.
     return (
       <div
         className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4"
@@ -443,7 +443,7 @@ export default function CompanySignupPage() {
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
                 {emailVerificationRequired
-                  ? "Almost there -- check your inbox"
+                  ? "Almost there - check your inbox"
                   : "Welcome to CateringMS"}
               </h2>
               <p className="text-lg text-slate-600 mb-2">
@@ -496,7 +496,7 @@ export default function CompanySignupPage() {
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
                   <p className="font-medium text-slate-900">Didn't get the email?</p>
                   <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
-                    <li>Give it a minute -- delivery isn't always instant</li>
+                    <li>Give it a minute - delivery isn't always instant</li>
                     <li>Check your spam / junk folder</li>
                     <li>Confirm <strong>{formData.email}</strong> is the right address</li>
                   </ul>
@@ -525,7 +525,7 @@ export default function CompanySignupPage() {
                     {resendingEmail
                       ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Resending...</>
                       : resendStatus === "sent"
-                        ? "Sent -- check your inbox"
+                        ? "Sent - check your inbox"
                         : "Resend confirmation email"}
                   </Button>
                   {resendStatus === "error" && (

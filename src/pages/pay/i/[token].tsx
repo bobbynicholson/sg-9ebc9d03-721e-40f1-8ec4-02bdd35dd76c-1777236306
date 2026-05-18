@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /pay/i/[token] -- public invoice + payment view.
+ * /pay/i/[token] - public invoice + payment view.
  *
  * Token-keyed sibling of /q/[token]. Replaces the older
  * /pay/invoice/[id] route which used a raw, enumerable invoice UUID
@@ -87,7 +87,7 @@ export default function InvoicePaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   // Wave 29.2: store-credit support on the public magic-link pay
-  // page. Mirrors PaymentModal -- fetch balance via the
+  // page. Mirrors PaymentModal - fetch balance via the
   // credit-balance endpoint (token-bearer auth), default the toggle
   // on when there's any to apply.
   const [creditAvailable, setCreditAvailable] = useState<number>(0);
@@ -96,7 +96,7 @@ export default function InvoicePaymentPage() {
   const [settledByCredit, setSettledByCredit] = useState<boolean>(false);
 
   // Apply per-tenant brand colours once the invoice + company resolve.
-  // Same pattern as /q/[token] -- public route, no auth context, so we
+  // Same pattern as /q/[token] - public route, no auth context, so we
   // set CSS vars on documentElement rather than going through
   // BrandingContext.
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function InvoicePaymentPage() {
 
       // Wave 29.2: probe store-credit balance for this client.
       // Token-bearer auth via the same public_token used for the
-      // pay session -- no Supabase session required.
+      // pay session - no Supabase session required.
       try {
         const cb = await fetch("/api/payments/credit-balance", {
           method: "POST",
@@ -162,7 +162,7 @@ export default function InvoicePaymentPage() {
           if (Number(cbJson.maxApplicable) > 0) setApplyCredit(true);
         }
       } catch {
-        // Credit lookup is soft -- failure shouldn't block the pay flow.
+        // Credit lookup is soft - failure shouldn't block the pay flow.
       }
     })();
     return () => { cancelled = true; };
@@ -179,7 +179,7 @@ export default function InvoicePaymentPage() {
       // ignoring whichever gateway the tenant actually configured in
       // /admin/payment-gateways. Tenants who switched to Yoco or
       // Stripe still saw "Pay via PayFast" on their public invoice
-      // link -- and platform-level PayFast credentials had to be set
+      // link - and platform-level PayFast credentials had to be set
       // OR the page died. Route through the existing
       // /api/payments/create-session dispatcher (made unauth-safe in
       // wave 17 via public_token) which picks the active tenant
@@ -200,7 +200,7 @@ export default function InvoicePaymentPage() {
       });
       const json = await resp.json();
 
-      // Wave 29.2: full credit cover -- no gateway hop. Render a
+      // Wave 29.2: full credit cover - no gateway hop. Render a
       // settled state in place rather than sending the client off.
       if (json?.settled === true) {
         setSettledByCredit(true);
@@ -215,7 +215,7 @@ export default function InvoicePaymentPage() {
         const company = (invoice as any)?.companies || {};
         const tenantEmail = company.email || company.contact_email || null;
         const invNumber = (invoice as any)?.invoice_number || "your invoice";
-        const subject = encodeURIComponent(`Payment help -- ${invNumber}`);
+        const subject = encodeURIComponent(`Payment help - ${invNumber}`);
         const body = encodeURIComponent(
           `Hi ${company.company_name || "there"},\n\n` +
           `I tried to pay ${invNumber} but the online payment gateway isn't set up.\n` +
@@ -316,7 +316,7 @@ export default function InvoicePaymentPage() {
         <title>{`${docTitle} ${invoice.invoice_number} from ${companyName}`}</title>
         <meta name="robots" content="noindex, nofollow" />
         <style>{`
-          /* Mirror /q/[token] -- html selector + color-adjust fallback
+          /* Mirror /q/[token] - html selector + color-adjust fallback
              keep Safari honouring the brand colour on print. */
           @media print {
             html, body, .brand-print {
@@ -338,7 +338,7 @@ export default function InvoicePaymentPage() {
       <div className="min-h-screen bg-stone-50 print-bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
-          {/* Floating action bar -- screen only */}
+          {/* Floating action bar - screen only */}
           <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
             {dueChipLabel ? (
               <Badge
@@ -360,7 +360,7 @@ export default function InvoicePaymentPage() {
             </Button>
           </div>
 
-          {/* BRANDED HEADER -- mirrors /q/[token] */}
+          {/* BRANDED HEADER - mirrors /q/[token] */}
           <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4 print-shadow-none">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
@@ -455,13 +455,13 @@ export default function InvoicePaymentPage() {
             </CardContent>
           </Card>
 
-          {/* PAYMENT SECTION -- screen only */}
+          {/* PAYMENT SECTION - screen only */}
           <div className="no-print">
             {isPaid ? (
               <Alert className="border-emerald-200 bg-emerald-50">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 <AlertDescription className="text-emerald-800">
-                  <strong>Payment received.</strong> Thanks {invoice.invoice_data?.clientName || "for your business"} -- this invoice is settled in full.
+                  <strong>Payment received.</strong> Thanks {invoice.invoice_data?.clientName || "for your business"} - this invoice is settled in full.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -516,7 +516,7 @@ export default function InvoicePaymentPage() {
                           <p className="text-sm text-emerald-800 mt-1">
                             You have <strong>{fmtMoney.format(creditAvailable)}</strong> in credit on file with {invoice.companies.company_name || "the caterer"}.
                             {creditMaxApplicable >= invoice.balance_due
-                              ? " That covers this whole invoice -- nothing left to charge."
+                              ? " That covers this whole invoice - nothing left to charge."
                               : ` We'll apply ${fmtMoney.format(creditMaxApplicable)} and you'll only pay ${fmtMoney.format(invoice.balance_due - creditMaxApplicable)} for the rest.`}
                           </p>
                         </div>
@@ -529,7 +529,7 @@ export default function InvoicePaymentPage() {
                       <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
                       <p className="font-bold text-emerald-900 text-lg">Invoice settled</p>
                       <p className="text-sm text-emerald-800 mt-1">
-                        We applied {fmtMoney.format(creditMaxApplicable)} of your store credit -- nothing further to pay.
+                        We applied {fmtMoney.format(creditMaxApplicable)} of your store credit - nothing further to pay.
                       </p>
                     </div>
                   ) : (

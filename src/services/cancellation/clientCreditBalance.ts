@@ -1,7 +1,7 @@
 /**
- * Wave 28.2 -- store-credit balance reader.
+ * Wave 28.2 - store-credit balance reader.
  *
- * No new wallet table -- credit lives in the existing payments table
+ * No new wallet table - credit lives in the existing payments table
  * with payment_type='credit_issue' (positive) and 'credit_redeem'
  * (positive amount, deducted on read). This keeps every money movement
  * for a client in one auditable timeline and avoids a parallel ledger.
@@ -22,9 +22,9 @@ export interface ClientCreditBalance {
   issued: number;
   /** Total credit already spent (positive). */
   redeemed: number;
-  /** issued - redeemed. Never negative -- coerced to 0 if data drift. */
+  /** issued - redeemed. Never negative - coerced to 0 if data drift. */
   available: number;
-  /** Most recent issue/redeem date, ISO -- null if no movements. */
+  /** Most recent issue/redeem date, ISO - null if no movements. */
   lastMovementAt: string | null;
 }
 

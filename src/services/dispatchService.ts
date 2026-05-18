@@ -204,7 +204,7 @@ export const dispatchService = {
   /**
    * Filter the company driver pool down to those who can deliver from a
    * given region. Used by suggestDriversForOrder to enforce branch
-   * scoping before scoring -- so the dispatcher doesn't see a JHB
+   * scoping before scoring - so the dispatcher doesn't see a JHB
    * driver as a candidate for a CPT order unless they explicitly opt
    * in to cross-region lending.
    *
@@ -212,7 +212,7 @@ export const dispatchService = {
    *   * driver.regions_covered contains regionId
    *   * driver.region_id == regionId (legacy single-region setup)
    *   * driver has no scoping at all (regions_covered empty AND
-   *     region_id null) -- treated as "company-wide" so a tenant who
+   *     region_id null) - treated as "company-wide" so a tenant who
    *     hasn't carved up their drivers yet still gets candidates
    */
   filterDriversByRegion(drivers: DriverCandidate[], regionId: string | null | undefined): DriverCandidate[] {
@@ -391,7 +391,7 @@ export const dispatchService = {
     const buffer = payload.bufferHours ?? 3;
 
     if (!eventTime) {
-      // No time on the order -- can't compute a window. Return ok with
+      // No time on the order - can't compute a window. Return ok with
       // an explanatory reason so the dispatcher knows the gate didn't
       // apply rather than that it found nothing.
       return { ok: true, reason: "No event_time on order; time-conflict check skipped." };
@@ -440,7 +440,7 @@ export const dispatchService = {
 
   /**
    * Time-window feasibility: can this driver still arrive
-   * arrival_buffer_minutes before event_time? Best-effort -- if we don't have
+   * arrival_buffer_minutes before event_time? Best-effort - if we don't have
    * GPS or a venue lat/lng, returns ok=true with a "no GPS" reason so the
    * dispatcher can still proceed.
    */
@@ -498,7 +498,7 @@ export const dispatchService = {
     const driverIds = drivers.map(d => d.id);
     const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);
 
-    // Current location for each driver -- single-row-per-driver lookup
+    // Current location for each driver - single-row-per-driver lookup
     // off driver_locations (P1-23 split).
     const { data: gpsRows } = await (supabase as any)
       .from("driver_locations")
@@ -708,12 +708,12 @@ export const dispatchService = {
       reason: payload.reason ?? null,
     }]);
 
-    // Wave 47 -- write the formal driver_assignments row mirroring
+    // Wave 47 - write the formal driver_assignments row mirroring
     // the claim_order RPC pattern. Pre-Wave-47 only the self-claim
     // path created this row, so admin-driven dispatches caused two
     // silent bugs: (a) the readiness chip false-negatived "driver
     // assigned but hasn't accepted", and (b) driverPayService reads
-    // driver_assignments to compute earnings -- bulk-assigned orders
+    // driver_assignments to compute earnings - bulk-assigned orders
     // earned $0 driver pay forever. Reassignments need to clear the
     // old row first to avoid a UNIQUE conflict on (order_id,
     // driver_id) if there's an index, hence DELETE-then-INSERT.
@@ -726,14 +726,14 @@ export const dispatchService = {
           .eq("driver_id", fromDriverId)
           .eq("assignment_type", "delivery");
       }
-      // Wave 64.4 -- admin-pushed assignments are auto-accepted.
+      // Wave 64.4 - admin-pushed assignments are auto-accepted.
       // Pre-Wave-64.4 admin assignments inserted status='assigned' +
       // accepted_at=NULL, while the parallel claim_order RPC (driver
       // self-claim) inserted status='accepted' + accepted_at=NOW().
       // The readiness chip's driver_acknowledged signal interpreted
       // the admin path as "driver hasn't accepted" forever, even
       // when the dispatcher and driver both knew the run was on.
-      // For CateringMS the admin IS the acceptance -- drivers
+      // For CateringMS the admin IS the acceptance - drivers
       // don't sit in a separate consent flow before doing the run.
       // Now: parity with claim_order. Self-claim still flows through
       // the RPC and lands the same shape; this aligns the dispatch
@@ -930,7 +930,7 @@ export const dispatchService = {
   // ── KPIs ──────────────────────────────────────────────────────────────────
 
   /**
-   * Top-line dispatch KPIs for the queue header. Cheap to compute -- a few
+   * Top-line dispatch KPIs for the queue header. Cheap to compute - a few
    * COUNT queries plus one analytics rollup.
    */
   async getDispatchKpis(companyId: string): Promise<{
@@ -1046,7 +1046,7 @@ export const dispatchService = {
   /**
    * Find batchable order pairs: two unassigned orders within batchDistanceKm
    * of each other AND within batchTimeWindowMinutes of each other. Same
-   * driver can do both in one trip. Greedy pairing -- once an order is in a
+   * driver can do both in one trip. Greedy pairing - once an order is in a
    * pair we don't try to add it to another. Phase 4 can upgrade to a
    * graph-clustering approach when there are 3+ tightly grouped orders.
    */
@@ -1150,7 +1150,7 @@ export const dispatchService = {
     since.setDate(since.getDate() - days);
     const sinceISO = since.toISOString();
 
-    // Completed orders + km (driver wears two columns -- match either).
+    // Completed orders + km (driver wears two columns - match either).
     const { data: orders } = await supabase
       .from("orders")
       .select("event_date, event_time, delivered_at, delivery_distance_km, status")

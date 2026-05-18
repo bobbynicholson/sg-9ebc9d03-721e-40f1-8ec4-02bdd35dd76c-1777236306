@@ -5,7 +5,7 @@
  * order (guest count tweak, menu swap, venue change). The request
  * is captured in order_amendment_requests for the catering team to
  * review. Approval triggers the cascade (kitchen prep regen,
- * shopping list refresh, invoice diff) -- handled by the admin
+ * shopping list refresh, invoice diff) - handled by the admin
  * approval endpoint, not here.
  *
  * Auth: client must be authenticated AND own the order. The order
@@ -99,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //
     // orders.client_id is a FK to clients.id (NOT auth.users.id), so
     // resolving "is this user the client on this order?" needs a join
-    // through the clients table -- match either clients.user_id =
+    // through the clients table - match either clients.user_id =
     // auth.uid() OR clients.email = auth.email() (the second is a
     // fallback for clients who own the order via portal token but
     // haven't been linked to an auth user yet).
@@ -176,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Notify the catering team. Broadcast to admin / owner roles for
     // the company so every operator who can act on the request sees
     // it. Previously this was a single createNotification with
-    // recipient_id set to the COMPANY uuid -- which matches no actual
+    // recipient_id set to the COMPANY uuid - which matches no actual
     // user, so the row landed in the table but never appeared in any
     // operator's bell. Best-effort, non-blocking.
     try {
@@ -200,7 +200,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&amendment=${(inserted as any).id}`,
         // Source pointer powers the contextual CTA on the
-        // notifications page (Review request / Edit order) -- without
+        // notifications page (Review request / Edit order) - without
         // these, the row only got a generic "Open" button.
         relatedEntityType: "order",
         relatedEntityId: order_id,
@@ -223,7 +223,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // toast already says "the team will confirm by email shortly";
     // we make that literally true so the customer has the request
     // in their inbox without waiting for the admin to approve.
-    // Non-blocking -- an email failure must not unwind the row.
+    // Non-blocking - an email failure must not unwind the row.
     try {
       const { data: orderForEmail } = await ssr
         .from("orders")
@@ -253,7 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await emailService.sendEmail({
           companyId: (order as any).company_id,
           to: clientEmail,
-          subject: `Change request received -- ${(orderForEmail as any)?.order_number || "your order"}`,
+          subject: `Change request received - ${(orderForEmail as any)?.order_number || "your order"}`,
           template: "transactional",
           orderId: order_id,
           variables: {

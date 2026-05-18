@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const result = computeIntegrity();
-    // Cache aggressively -- the integrity hash only changes on deploy,
+    // Cache aggressively - the integrity hash only changes on deploy,
     // and a fresh process always recomputes.
     res.setHeader("Cache-Control", "private, max-age=300");
     return res.status(200).json({

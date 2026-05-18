@@ -1,5 +1,5 @@
 /**
- * Kitchen team landing -- hero + quick stats + tile shortcuts.
+ * Kitchen team landing - hero + quick stats + tile shortcuts.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -34,7 +34,7 @@ function KitchenTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, hoursWeek: 0, jobsToday: 0 });
 
-  // Pure gradient hero -- intentionally no /images/teams/kitchen.jpg.
+  // Pure gradient hero - intentionally no /images/teams/kitchen.jpg.
   // Keeping the look simple and shippable rather than chasing a stock
   // photo that has to clear licensing and brand fit. If a tenant wants
   // a real banner, we'll add a per-company override later.
@@ -111,7 +111,7 @@ function KitchenTeamPage() {
             <ArrowLeft className="w-4 h-4" /> All teams
           </Link>
 
-          {/* Hero -- gradient fallback if no /public/images/teams/kitchen.jpg */}
+          {/* Hero - gradient fallback if no /public/images/teams/kitchen.jpg */}
           <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">

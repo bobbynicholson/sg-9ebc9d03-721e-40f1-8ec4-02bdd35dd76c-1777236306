@@ -2,7 +2,7 @@
  * Module-level subscription store for the active tenant's branding row.
  *
  * Replaces the React context that BrandingContext used to wrap the app
- * with -- one source of truth, side-effect-free for non-React callers,
+ * with - one source of truth, side-effect-free for non-React callers,
  * with a tiny pub/sub for the React reader hook.
  *
  * Cache: localStorage keyed by company_id. Read for instant first paint

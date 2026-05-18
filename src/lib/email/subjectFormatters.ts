@@ -2,7 +2,7 @@
  * Centralised email subject builders.
  *
  * Generic subjects ("Your catering quote QT-20260504-KZBHFY") look
- * transactional and forgettable -- inboxes treat them as spam-adjacent.
+ * transactional and forgettable - inboxes treat them as spam-adjacent.
  * Each helper here produces a personalised subject that fronts the
  * event name, the tenant doing the catering, and the amount where
  * relevant. Tenants stay in the FROM name where it makes the inbox
@@ -19,7 +19,7 @@
  * Wave 24: currency formatting is tenant-aware. Each input takes an
  * optional `currencyCode` (ZAR / GBP / USD / EUR / ...). Defaults to
  * ZAR so existing call sites that don't pass it render unchanged.
- * No decimal places -- inbox subjects look cleaner at "R 12 345" than
+ * No decimal places - inbox subjects look cleaner at "R 12 345" than
  * at "R 12 345.00".
  */
 
@@ -30,7 +30,7 @@ const CURRENCY_LOCALE: Record<string, string> = {
   AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE", CAD: "en-CA",
 };
 
-/** "R 12 345" / "£12,345" / "$12,345" -- empty when amount is
+/** "R 12 345" / "£12,345" / "$12,345" - empty when amount is
  *  missing / zero. Currency code defaults to ZAR for back-compat. */
 function fmtMoney(amount: number | null | undefined, currencyCode?: string | null): string {
   if (amount == null || !Number.isFinite(amount)) return "";
@@ -84,9 +84,9 @@ export interface QuoteSubjectInput {
  *
  * Test cases:
  *   formatQuoteSubject({ eventName: "30th braai", tenantName: "Spit Co", total: 12345 })
- *     -> "30th braai quote from Spit Co -- R 12 345"
+ *     -> "30th braai quote from Spit Co - R 12 345"
  *   formatQuoteSubject({ tenantName: "Spit Co", total: 12345, quoteNumber: "Q-001" })
- *     -> "Quote Q-001 from Spit Co -- R 12 345"
+ *     -> "Quote Q-001 from Spit Co - R 12 345"
  *   formatQuoteSubject({ tenantName: "Spit Co" })
  *     -> "Your quote from Spit Co"
  */
@@ -98,16 +98,16 @@ export function formatQuoteSubject(input: QuoteSubjectInput): string {
 
   if (eventName) {
     const base = `${eventName} quote from ${tenantName}`;
-    return totalLabel ? `${base} -- ${totalLabel}` : base;
+    return totalLabel ? `${base} - ${totalLabel}` : base;
   }
 
   if (quoteNumber) {
     const base = `Quote ${quoteNumber} from ${tenantName}`;
-    return totalLabel ? `${base} -- ${totalLabel}` : base;
+    return totalLabel ? `${base} - ${totalLabel}` : base;
   }
 
   const base = `Your quote from ${tenantName}`;
-  return totalLabel ? `${base} -- ${totalLabel}` : base;
+  return totalLabel ? `${base} - ${totalLabel}` : base;
 }
 
 // ── Quote accepted ──────────────────────────────────────────────────
@@ -125,7 +125,7 @@ export interface QuoteAcceptedSubjectInput {
  *   formatQuoteAcceptedSubject({ firstName: "Bobby", eventName: "Wedding", tenantName: "Spit Co" })
  *     -> "Bobby, you're booked in for Wedding with Spit Co"
  *   formatQuoteAcceptedSubject({ eventName: "Wedding", tenantName: "Spit Co" })
- *     -> "Booked in -- Wedding with Spit Co"
+ *     -> "Booked in - Wedding with Spit Co"
  *   formatQuoteAcceptedSubject({ tenantName: "Spit Co" })
  *     -> "You're booked in with Spit Co"
  */
@@ -138,7 +138,7 @@ export function formatQuoteAcceptedSubject(input: QuoteAcceptedSubjectInput): st
     return `${firstName}, you're booked in for ${eventName} with ${tenantName}`;
   }
   if (eventName) {
-    return `Booked in -- ${eventName} with ${tenantName}`;
+    return `Booked in - ${eventName} with ${tenantName}`;
   }
   if (firstName) {
     return `${firstName}, you're booked in with ${tenantName}`;
@@ -164,13 +164,13 @@ export interface InvoiceSubjectInput {
  *
  * Test cases:
  *   formatInvoiceSubject({ type: "deposit", eventName: "Wedding", total: 5000 })
- *     -> "Deposit invoice for Wedding -- R 5 000"
+ *     -> "Deposit invoice for Wedding - R 5 000"
  *   formatInvoiceSubject({ type: "balance", eventName: "Wedding", total: 7500 })
- *     -> "Balance invoice for Wedding -- R 7 500"
+ *     -> "Balance invoice for Wedding - R 7 500"
  *   formatInvoiceSubject({ type: "full", eventName: "Wedding", total: 12500 })
- *     -> "Invoice for Wedding -- R 12 500"
+ *     -> "Invoice for Wedding - R 12 500"
  *   formatInvoiceSubject({ type: "deposit", invoiceNumber: "INV-001", total: 5000 })
- *     -> "Deposit invoice INV-001 -- R 5 000"
+ *     -> "Deposit invoice INV-001 - R 5 000"
  */
 export function formatInvoiceSubject(input: InvoiceSubjectInput): string {
   const eventName = clean(input.eventName);
@@ -192,7 +192,7 @@ export function formatInvoiceSubject(input: InvoiceSubjectInput): string {
   } else {
     base = label;
   }
-  return totalLabel ? `${base} -- ${totalLabel}` : base;
+  return totalLabel ? `${base} - ${totalLabel}` : base;
 }
 
 // ── Payment received ────────────────────────────────────────────────
@@ -211,11 +211,11 @@ export interface PaymentReceivedSubjectInput {
  *
  * Test cases:
  *   formatPaymentReceivedSubject({ paymentType: "deposit", eventName: "Wedding" })
- *     -> "Deposit received -- Wedding confirmed"
+ *     -> "Deposit received - Wedding confirmed"
  *   formatPaymentReceivedSubject({ paymentType: "balance", eventName: "Wedding" })
- *     -> "Balance received -- Wedding fully paid"
+ *     -> "Balance received - Wedding fully paid"
  *   formatPaymentReceivedSubject({ paymentType: "full", eventName: "Wedding" })
- *     -> "Payment received -- Wedding confirmed"
+ *     -> "Payment received - Wedding confirmed"
  *   formatPaymentReceivedSubject({ paymentType: "deposit" })
  *     -> "Deposit received"
  */
@@ -223,12 +223,12 @@ export function formatPaymentReceivedSubject(input: PaymentReceivedSubjectInput)
   const eventName = clean(input.eventName);
 
   if (input.paymentType === "deposit") {
-    return eventName ? `Deposit received -- ${eventName} confirmed` : "Deposit received";
+    return eventName ? `Deposit received - ${eventName} confirmed` : "Deposit received";
   }
   if (input.paymentType === "balance") {
-    return eventName ? `Balance received -- ${eventName} fully paid` : "Balance received";
+    return eventName ? `Balance received - ${eventName} fully paid` : "Balance received";
   }
-  return eventName ? `Payment received -- ${eventName} confirmed` : "Payment received";
+  return eventName ? `Payment received - ${eventName} confirmed` : "Payment received";
 }
 
 // ── Cancellation ────────────────────────────────────────────────────
@@ -246,13 +246,13 @@ export interface CancellationSubjectInput {
  *
  * Test cases:
  *   formatCancellationSubject({ eventName: "Wedding", refundAmount: 2500 })
- *     -> "Wedding cancelled -- R 2 500 refund coming"
+ *     -> "Wedding cancelled - R 2 500 refund coming"
  *   formatCancellationSubject({ eventName: "Wedding", refundAmount: 0 })
  *     -> "Wedding cancelled"
  *   formatCancellationSubject({ eventName: "Wedding" })
  *     -> "Wedding cancelled"
  *   formatCancellationSubject({ refundAmount: 1000 })
- *     -> "Booking cancelled -- R 1 000 refund coming"
+ *     -> "Booking cancelled - R 1 000 refund coming"
  *   formatCancellationSubject({})
  *     -> "Booking cancelled"
  */
@@ -262,7 +262,7 @@ export function formatCancellationSubject(input: CancellationSubjectInput): stri
   const refundLabel = refund > 0 ? fmtMoney(refund, input.currencyCode) : "";
 
   if (refundLabel) {
-    return `${eventName} cancelled -- ${refundLabel} refund coming`;
+    return `${eventName} cancelled - ${refundLabel} refund coming`;
   }
   return `${eventName} cancelled`;
 }
@@ -311,9 +311,9 @@ export interface RefundPaidSubjectInput {
  *
  * Test cases:
  *   formatRefundPaidSubject({ amount: 2500, eventName: "Wedding" })
- *     -> "Refund paid -- R 2 500 for Wedding"
+ *     -> "Refund paid - R 2 500 for Wedding"
  *   formatRefundPaidSubject({ amount: 2500 })
- *     -> "Refund paid -- R 2 500"
+ *     -> "Refund paid - R 2 500"
  *   formatRefundPaidSubject({ eventName: "Wedding" })
  *     -> "Refund paid for Wedding"
  *   formatRefundPaidSubject({})
@@ -323,8 +323,8 @@ export function formatRefundPaidSubject(input: RefundPaidSubjectInput): string {
   const eventName = clean(input.eventName);
   const amountLabel = fmtMoney(input.amount ?? null, input.currencyCode);
 
-  if (amountLabel && eventName) return `Refund paid -- ${amountLabel} for ${eventName}`;
-  if (amountLabel) return `Refund paid -- ${amountLabel}`;
+  if (amountLabel && eventName) return `Refund paid - ${amountLabel} for ${eventName}`;
+  if (amountLabel) return `Refund paid - ${amountLabel}`;
   if (eventName) return `Refund paid for ${eventName}`;
   return "Refund paid";
 }

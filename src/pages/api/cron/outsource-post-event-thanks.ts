@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 67.3 -- outsource provider post-event thanks + invoice nudge.
+ * Wave 67.3 - outsource provider post-event thanks + invoice nudge.
  *
  * 24-48h after the event date for any assignment in accepted /
  * on_site / completed status that hasn't been invoiced yet, send a
@@ -19,7 +19,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Wave 70.4 -- dry-run mode for E2E verification. See the sibling
+  // Wave 70.4 - dry-run mode for E2E verification. See the sibling
   // pre-event reminder cron for the full rationale. Auth: SSR owner /
   // admin in dry-run, CRON_SECRET in production.
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
@@ -126,7 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? `${a.provider.payment_terms_days} days`
           : "7 days";
 
-        const subject = `Thanks for ${eventLabel} -- invoice us when you're ready`;
+        const subject = `Thanks for ${eventLabel} - invoice us when you're ready`;
         const bodyText = [
           `Hi ${firstName},`,
           ``,

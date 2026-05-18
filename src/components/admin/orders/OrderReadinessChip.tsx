@@ -1,5 +1,5 @@
 /**
- * OrderReadinessChip -- Wave 46 T2.
+ * OrderReadinessChip - Wave 46 T2.
  *
  * Single full-width pill at the top of the order card. Replaces the
  * old "NEXT TO DO" banner. Shows the green/orange/red logistics
@@ -7,7 +7,7 @@
  * piece. Click the chevron to expand into the per-signal breakdown
  * (each row has a deep-link "Fix it" button).
  *
- * Bobby's "lovely vibe" register -- emerald for green, amber for
+ * Bobby's "lovely vibe" register - emerald for green, amber for
  * orange, rose for red. No "ACT NOW" alarmist copy. Goal is to make
  * Callum feel held, not policed.
  */
@@ -20,10 +20,10 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 
-// Wave 56 -- emerald retired in favour of green per the existing
+// Wave 56 - emerald retired in favour of green per the existing
 // TimelineTrack docstring: "green-500 (not emerald-500) is the
 // unambiguous hospital-cross green; emerald reads as teal which
-// muddied the signal". Pulse on the rose chip removed -- the colour
+// muddied the signal". Pulse on the rose chip removed - the colour
 // + ring already carries enough urgency, and the previous pulse
 // stacked with the timeline's stage-dot pulse on the same row, two
 // out-of-sync heartbeats.
@@ -59,28 +59,28 @@ const TONE: Record<OrderReadiness["chip"], {
 
 interface Props {
   readiness: OrderReadiness;
-  /** Optional click target for the headline -- typically opens the
+  /** Optional click target for the headline - typically opens the
    *  order detail drawer. */
   onOpen?: () => void;
-  /** Wave 70.9 -- order id so action buttons can POST to the
+  /** Wave 70.9 - order id so action buttons can POST to the
    *  right entity (e.g. regenerate-prep-tasks). */
   orderId?: string;
-  /** Wave 70.9 -- called after a successful action so the page
+  /** Wave 70.9 - called after a successful action so the page
    *  can refetch / refresh state. */
   onActionComplete?: () => void;
-  /** Wave 70.16 -- event date in ISO YYYY-MM-DD. When supplied,
+  /** Wave 70.16 - event date in ISO YYYY-MM-DD. When supplied,
    *  enables silent auto-heal of missing prep tasks on future
    *  events so admin never has to manually click "Generate now"
    *  on a fresh order. Past events still require explicit manual
    *  override (the operator must consciously backfill history). */
   eventDate?: string | null;
-  /** Wave 70.22 -- order status + event_time so the chip can
+  /** Wave 70.22 - order status + event_time so the chip can
    *  surface a Close out button when the order is past its
    *  event but still in a non-terminal state. Admin gates the
    *  button visibility at the page level via canShowCloseOut. */
   eventTime?: string | null;
   status?: string | null;
-  /** Wave 70.22 -- when true, the chip renders a Close out
+  /** Wave 70.22 - when true, the chip renders a Close out
    *  button on past-event non-terminal orders that fires the
    *  force-close API. Page-level role gate (admin / owner). */
   canShowCloseOut?: boolean;
@@ -128,7 +128,7 @@ export function OrderReadinessChip({
   const [closingOut, setClosingOut] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(false);
 
-  // Wave 70.22 -- decide whether to surface the Close out button.
+  // Wave 70.22 - decide whether to surface the Close out button.
   // Three conditions: caller opted-in (admin/owner page), order
   // status is non-terminal, event is in the past.
   const showCloseOut = (() => {
@@ -169,7 +169,7 @@ export function OrderReadinessChip({
       // Wave 70.40: notify every listening surface (calendar,
       // invoices, dashboard widgets) so they refetch without a
       // hard refresh. force-close changes status + stamps + may
-      // mark prep tasks done -- big enough state delta to ping
+      // mark prep tasks done - big enough state delta to ping
       // everyone.
       emitOrderUpdated(orderId, "readiness-chip:force-close", ["status", "prep"]);
       onActionComplete?.();
@@ -181,12 +181,12 @@ export function OrderReadinessChip({
     }
   };
 
-  // Wave 70.16 -- silent auto-heal of missing prep tasks. When the
+  // Wave 70.16 - silent auto-heal of missing prep tasks. When the
   // chip detects the kitchen_prep_tasks_present signal failing AND
   // the order event is in the future (today or later), silently
   // fire the regen endpoint exactly ONCE per orderId per session.
   // The operator never has to click Generate now on a fresh order
-  // -- the chip recovers it itself. Past events still require
+  // - the chip recovers it itself. Past events still require
   // explicit manual override (a Generate now click) because the
   // operator should consciously decide to backfill history.
   useEffect(() => {
@@ -221,15 +221,15 @@ export function OrderReadinessChip({
         if (r.ok && data?.created > 0) {
           onActionComplete?.();
         }
-        // Silent on failure -- the manual Generate now button stays
+        // Silent on failure - the manual Generate now button stays
         // visible inside the expanded chip as the fallback path.
       } catch {
-        /* silent -- manual button remains as fallback */
+        /* silent - manual button remains as fallback */
       }
     })();
   }, [orderId, eventDate, readiness.failingHigh, onActionComplete]);
 
-  // Wave 57 -- shared focus-visible utility for the raw <button>
+  // Wave 57 - shared focus-visible utility for the raw <button>
   // elements inside the chip. Pre-Wave-57 keyboard users got
   // nothing on tab focus.
   const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
@@ -252,7 +252,7 @@ export function OrderReadinessChip({
             {readiness.subhead}
           </div>
         </div>
-        {/* Wave 70.22 -- Close out button on past-event non-terminal
+        {/* Wave 70.22 - Close out button on past-event non-terminal
             orders so admin can tidy up paperwork without leaving the
             chip. Two-step confirm pattern: first tap arms it ("Sure?"
             label), second tap fires the API. Auto-clears after 5s
@@ -330,14 +330,14 @@ function SignalRow({
   const [busy, setBusy] = useState(false);
   const dotTone = signal.severity === "high" ? "bg-rose-500" : "bg-amber-500";
 
-  // Wave 70.9 -- inline action handler for regenerate-prep-tasks.
+  // Wave 70.9 - inline action handler for regenerate-prep-tasks.
   // Other action types can land here later.
   const runAction = async () => {
     if (!orderId || !signal.actionType) return;
     setBusy(true);
     try {
       if (signal.actionType === "regenerate_prep_tasks") {
-        // Wave 70.15 -- omit force so the API's default-true for
+        // Wave 70.15 - omit force so the API's default-true for
         // manual triggers kicks in. Previously sent force=false
         // which the API correctly honoured -> past-date guard
         // wasn't bypassed -> "Event is in the past" message on
@@ -376,13 +376,13 @@ function SignalRow({
 
   const label = signal.actionLabel || "Fix it";
 
-  // Wave 70.37 -- per-action hover tooltip so the operator
+  // Wave 70.37 - per-action hover tooltip so the operator
   // understands WHAT the button does before they tap it.
   // Previously "Generate now" gave zero context and the only way
   // to find out was to click and read the resulting toast.
   const actionTooltip = (() => {
     if (signal.actionType === "regenerate_prep_tasks") {
-      return "Auto-creates the chef's prep checklist from this order's menu items. Reads recipes, scales by guest count, and schedules each task to finish before pickup time. Safe to re-run -- it wipes pending tasks first.";
+      return "Auto-creates the chef's prep checklist from this order's menu items. Reads recipes, scales by guest count, and schedules each task to finish before pickup time. Safe to re-run - it wipes pending tasks first.";
     }
     return undefined;
   })();

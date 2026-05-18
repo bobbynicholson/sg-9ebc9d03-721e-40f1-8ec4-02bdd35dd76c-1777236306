@@ -1,5 +1,5 @@
 /**
- * useShoppingModeToast -- Wave 70.29
+ * useShoppingModeToast - Wave 70.29
  *
  * Fires a one-shot toast when the shopping portal first enters
  * "run" mode in a given browser session. Mirrors useServiceModeToast

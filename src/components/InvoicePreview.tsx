@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * InvoicePreview -- the admin-side modal preview of an invoice.
+ * InvoicePreview - the admin-side modal preview of an invoice.
  *
  * Visual identity mirrors /q/[token] and /pay/i/[token] so a
  * caterer's quote, invoice preview and client-facing payment page
@@ -11,7 +11,7 @@
  *   - Brand-primary accent labels (uppercase tracking-wide)
  *   - Stone palette for body text (stone-900 / stone-600 / stone-500)
  *
- * The component is intentionally read-only -- send / download lives
+ * The component is intentionally read-only - send / download lives
  * in the parent dialog. Items, totals, payment block and notes all
  * render conditionally so a partially-built invoice doesn't show
  * empty cards.
@@ -94,7 +94,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
 
   return (
     <div className="bg-stone-50 rounded-lg p-4 sm:p-6 max-w-3xl mx-auto">
-      {/* BRANDED HEADER -- mirrors /q/[token] and /pay/i/[token] */}
+      {/* BRANDED HEADER - mirrors /q/[token] and /pay/i/[token] */}
       <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
@@ -177,7 +177,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
                 <span className="text-stone-500">Date:</span>
                 <span className="font-semibold text-stone-900">{safeDate(props.eventDate)}</span>
                 {props.eventTime && (
-                  <span className="text-stone-700"> -- {props.eventTime}</span>
+                  <span className="text-stone-700"> - {props.eventTime}</span>
                 )}
               </div>
               {props.venue && (

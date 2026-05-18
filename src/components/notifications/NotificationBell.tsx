@@ -21,7 +21,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
  *  doesn't get lost while the operator is heads-down in another
  *  tab. WebAudio so we don't ship an MP3 asset. Stays silent if
  *  the AudioContext can't be constructed (older Safari, locked
- *  autoplay policy) -- toast still fires either way. */
+ *  autoplay policy) - toast still fires either way. */
 function chime() {
   try {
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -40,7 +40,7 @@ function chime() {
     osc.stop(ctx.currentTime + 0.25);
     setTimeout(() => ctx.close(), 400);
   } catch {
-    // Best-effort -- silent failure is fine.
+    // Best-effort - silent failure is fine.
   }
 }
 
@@ -72,7 +72,7 @@ export function NotificationBell() {
         });
         // Phase 7 #5: surface high-signal notifications immediately
         // so an admin watching another tab still notices a new urgent
-        // item land. Medium / low stay quiet -- the bell badge is
+        // item land. Medium / low stay quiet - the bell badge is
         // enough for those.
         const priority = (notification.priority || "").toLowerCase();
         if (priority === "urgent" || priority === "high") {
@@ -176,7 +176,7 @@ export function NotificationBell() {
     // every admin variant except literal 'admin' (e.g. company_admin,
     // region_admin, sales_admin) and every team-portal staff role
     // (kitchen_staff, shopping_staff, cleaning_staff) fell through
-    // to the client-portal default -- which is why Bobby got bounced
+    // to the client-portal default - which is why Bobby got bounced
     // to /client-portal/notifications when he clicked View all from
     // /admin/quotes. Match the canonical enum values:
     //   super_admin / company_admin / admin / region_admin / sales_admin → /admin

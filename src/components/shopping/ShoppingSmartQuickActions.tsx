@@ -1,14 +1,14 @@
 /**
- * ShoppingSmartQuickActions -- Wave 70.29
+ * ShoppingSmartQuickActions - Wave 70.29
  *
  * Three quick-action tiles at the top of the mobile drawer. The
  * trio rotates based on the current shopping mode so the shopper
  * sees the most likely "what I need right now" action first.
  *
- *   quiet     -- Suppliers, Inventory, Kitchen demand   (catch-up)
- *   plan      -- Build buy list, Kitchen demand, Inventory  (gear up)
- *   run       -- Snap a receipt, Active list, Quick add   (act fast)
- *   reconcile -- File receipts, Spend today, Match suppliers (wrap)
+ *   quiet     - Suppliers, Inventory, Kitchen demand   (catch-up)
+ *   plan      - Build buy list, Kitchen demand, Inventory  (gear up)
+ *   run       - Snap a receipt, Active list, Quick add   (act fast)
+ *   reconcile - File receipts, Spend today, Match suppliers (wrap)
  *
  * Wraps the existing MobileQuickActions presenter so the visual
  * treatment stays consistent with the other portals.

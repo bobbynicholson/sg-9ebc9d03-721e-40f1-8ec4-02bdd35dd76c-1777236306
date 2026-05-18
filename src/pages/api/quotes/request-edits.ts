@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Resolve the quote and confirm ownership. Quotes have either
-    // client_id or client_email -- we check both because pre-signup
+    // client_id or client_email - we check both because pre-signup
     // quotes only have the email.
     const { data: quote, error: qErr } = await admin
       .from("quotes")
@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Quote not found" });
     }
     if (quote.status === "accepted" || quote.status === "rejected" || quote.status === "expired") {
-      return res.status(409).json({ error: `Quote is ${quote.status} -- nothing to revise` });
+      return res.status(409).json({ error: `Quote is ${quote.status} - nothing to revise` });
     }
 
     // Ownership check: either there's a clients row this user owns

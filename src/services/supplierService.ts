@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * supplierService -- the supplier hub. Drives:
+ * supplierService - the supplier hub. Drives:
  *   - /admin/suppliers          (list page with spend totals)
  *   - /admin/suppliers/[id]     (detail page with purchases + products)
  *   - /admin/shopping           (PO email composition)
  *
  * Two ways spend is measured:
- *   1. inventory_transactions   (canonical receive log -- has the
+ *   1. inventory_transactions   (canonical receive log - has the
  *                                 supplier_id FK + qty * unit_cost)
- *   2. purchase_receipts        (slip ledger -- has supplier_id FK
+ *   2. purchase_receipts        (slip ledger - has supplier_id FK
  *                                 since the 2026-05 migration; older
  *                                 rows match by vendor text fallback)
  *

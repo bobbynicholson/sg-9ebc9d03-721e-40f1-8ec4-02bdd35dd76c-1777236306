@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/outsource-providers/[id] -- Wave 67.4.
+ * /admin/outsource-providers/[id] - Wave 67.4.
  *
  * Per-provider history + performance page. Mirrors the /admin/suppliers/[id]
  * shape but with outsource-specific metrics: accept rate, average
@@ -205,7 +205,7 @@ function ProviderDetail() {
       <Head><title>{provider?.provider_name || "Provider"} | CateringMS</title></Head>
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        {/* Wave 70.6 -- mobile pass. pt-20 clears the mobile
+        {/* Wave 70.6 - mobile pass. pt-20 clears the mobile
             AdminNav top bar (lg: nav is the left sidebar so pt-6 is
             enough). max-w-5xl with mx-auto centres on big screens. */}
         <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 max-w-5xl mx-auto">

@@ -31,7 +31,7 @@ interface ClientNavItem {
 }
 
 interface ClientNavSection {
-  /** Stable id for localStorage persistence -- never change once shipped. */
+  /** Stable id for localStorage persistence - never change once shipped. */
   id: string;
   title: string;
   /** Initial open state if no preference is stored yet. */
@@ -53,11 +53,11 @@ export function ClientNav() {
   // Resolve the tenant slug for this client so every link in the
   // sidebar lands on /{slug}/client-portal/... rather than the bare
   // /client-portal/... URL. Order of preference:
-  //   1. router.query.company_slug -- set by the next.config rewrite
+  //   1. router.query.company_slug - set by the next.config rewrite
   //      when the user is already on a /[slug]/client-portal page.
-  //   2. user_metadata.last_company_slug -- written by the callback on
+  //   2. user_metadata.last_company_slug - written by the callback on
   //      every magic-link sign-in (see /[slug]/auth/callback).
-  //   3. profile.companies.slug -- the slug joined off the profiles row.
+  //   3. profile.companies.slug - the slug joined off the profiles row.
   // Falls back to "" when none resolve, in which case links behave
   // exactly as before (bare /client-portal/* URLs still work via the
   // page files).
@@ -70,7 +70,7 @@ export function ClientNav() {
     "";
 
   // Wraps a bare client-portal href with the slug prefix when we have
-  // one. Idempotent -- if the href is already slug-prefixed, returns it
+  // one. Idempotent - if the href is already slug-prefixed, returns it
   // unchanged.
   const withSlug = (href: string) => {
     if (!resolvedSlug) return href;

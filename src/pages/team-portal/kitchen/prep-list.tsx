@@ -48,7 +48,7 @@ interface OrderRow {
   venue_address: string | null;
   event_time: string | null;
   client_name: string | null;
-  /** From orders.equipment_items jsonb -- shape:
+  /** From orders.equipment_items jsonb - shape:
    *  [{ equipment_id, name, category, quantity, unit_price, ... }] */
   equipment_items?: any[] | null;
   /** Allergen + dietary text the chef must see before they start prepping.
@@ -73,7 +73,7 @@ type ViewMode = "by_order" | "by_ingredient";
 
 export default function KitchenPrepListPage() {
   const { profile } = useAuth();
-  // Wave 70.44b -- only show the "Open menu editor" / "Add recipes"
+  // Wave 70.44b - only show the "Open menu editor" / "Add recipes"
   // links to users who can actually open /admin/menu. Kitchen staff
   // get Access denied by the middleware (admin routes are gated to
   // admin roles). Bobby's brief: "Kitchen doesn't need an 'add recipe'
@@ -98,10 +98,10 @@ export default function KitchenPrepListPage() {
   // matches the orderWorkflow lead-time warning.
   const [kitchenLeadHours, setKitchenLeadHours] = useState(12);
 
-  // Wave 70.10 -- separate count of confirmed orders in the same
+  // Wave 70.10 - separate count of confirmed orders in the same
   // window so the empty state can tell the chef "there's a job
   // booked but the menu items have no recipes attached" instead of
-  // the misleading "Nothing booked yet" -- the data shape that
+  // the misleading "Nothing booked yet" - the data shape that
   // previously hid the real cause.
   const [confirmedOrdersInWindow, setConfirmedOrdersInWindow] = useState(0);
 
@@ -172,7 +172,7 @@ export default function KitchenPrepListPage() {
         // Default already set; not worth toast-ing the user.
       }
 
-      // Wave 70.10 -- separate count of confirmed orders in the
+      // Wave 70.10 - separate count of confirmed orders in the
       // window so the empty state can distinguish "no orders" from
       // "orders exist but no recipes attached".
       try {
@@ -254,7 +254,7 @@ export default function KitchenPrepListPage() {
   // big jobs and tight events rank above leisurely ones on the same
   // day. Inputs:
   //   slackHours = (event_start - now) - kitchen_prep_lead_hours
-  //   guestPressure = clamp(guest_count / 50, 1, 3) -- big jobs are
+  //   guestPressure = clamp(guest_count / 50, 1, 3) - big jobs are
   //     less recoverable when something slips
   //   statusBoost = +6h penalty if order is still 'confirmed' but the
   //     event is within the lead window (chef hasn't started)
@@ -297,7 +297,7 @@ export default function KitchenPrepListPage() {
   };
 
   const grouped = useMemo(() => {
-    // Priority sort within each bucket -- urgency_score asc means the
+    // Priority sort within each bucket - urgency_score asc means the
     // tightest jobs appear first. Falls back to event_date / event_time
     // when scores tie. [P1-36 kept; Phase 2 #3 added urgency layer.]
     const priority = (
@@ -484,7 +484,7 @@ export default function KitchenPrepListPage() {
           ) : view === "by_ingredient" ? (
             // ── BY INGREDIENT view (aggregated demand across all orders) ──
             aggregated.length === 0 ? (
-              // Wave 70.10 -- smarter empty state. If there are
+              // Wave 70.10 - smarter empty state. If there are
               // confirmed orders in the window but zero demand
               // rows, it's because the menu items have no recipes
               // attached. Tell the chef what's missing instead of
@@ -499,7 +499,7 @@ export default function KitchenPrepListPage() {
                     <p className="text-sm text-slate-600 max-w-md mx-auto">
                       The menu items on these orders don&apos;t have recipes attached. Recipes drive the prep + ingredient lists. Ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe section</span>.
                     </p>
-                    {/* Wave 70.44b -- role-gated. Kitchen role
+                    {/* Wave 70.44b - role-gated. Kitchen role
                         gets Access denied on /admin/menu so we hide
                         the link entirely. Admin / owner who
                         view-switched into the kitchen portal still
@@ -593,7 +593,7 @@ export default function KitchenPrepListPage() {
               </Card>
             )
           ) : grouped.length === 0 ? (
-            // Wave 70.10 -- same smart empty state as the by-
+            // Wave 70.10 - same smart empty state as the by-
             // ingredient view: tell the chef what's actually wrong
             // when orders exist but the demand view is empty.
             confirmedOrdersInWindow > 0 ? (
@@ -610,7 +610,7 @@ export default function KitchenPrepListPage() {
                     <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline font-semibold">
                       Open production <ExternalLink className="w-3 h-3" />
                     </Link>
-                    {/* Wave 70.44b -- role-gated; see comment above. */}
+                    {/* Wave 70.44b - role-gated; see comment above. */}
                     {canEditMenu && (
                       <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-semibold">
                         Add recipes <ExternalLink className="w-3 h-3" />
@@ -822,7 +822,7 @@ export default function KitchenPrepListPage() {
                               <p className="text-[10px] text-slate-500 -mt-1 mb-2">
                                 Recipes scaled for{" "}
                                 <span className="font-semibold text-slate-700">{o.guest_count} guests</span>
-                                {" -- "}per-portion x guest_count.
+                                {" - "}per-portion x guest_count.
                               </p>
                               <ul className="text-sm divide-y divide-slate-100">
                                 {ingredients.map((ing) => {

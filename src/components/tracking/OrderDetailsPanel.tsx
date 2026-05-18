@@ -157,7 +157,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
           .order("created_at", { ascending: true });
         if (!cancelled) setStatusHistory(data || []);
       } catch {
-        /* table may not exist yet -- timeline falls back to current status */
+        /* table may not exist yet - timeline falls back to current status */
       }
 
       // Kitchen prep tasks
@@ -191,11 +191,11 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         /* hide block */
       }
 
-      // Wave 70.48c -- the eager DB lookup for an existing token
+      // Wave 70.48c - the eager DB lookup for an existing token
       // previously set tokenLink to the bare `/c/order/{id}` URL with
       // NO ?t= token, on the theory that the page would "redirect to
       // login or the client view depending on session state". It
-      // doesn't -- the page POSTs to /api/client-tokens/view, finds no
+      // doesn't - the page POSTs to /api/client-tokens/view, finds no
       // cookie (the admin's browser was never validated against this
       // order), and rejects with "We couldn't verify this booking link".
       // Bobby hit this in production immediately after Wave 70.47 ship.
@@ -203,7 +203,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
       // Fix: tokenLink is always non-null when an active token exists,
       // and on click we POST to /api/orders/{id}/preview-as-client to
       // mint a FRESH raw token + open the returned URL (which has
-      // `?t={token}` baked in -- the page's validate flow then sets
+      // `?t={token}` baked in - the page's validate flow then sets
       // the cookie and renders). The mint endpoint is admin-only,
       // tokens auto-expire in 60 days, safe to call repeatedly.
       try {
@@ -217,14 +217,14 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
           .limit(1)
           .maybeSingle();
         // Show the button regardless of whether an existing token row
-        // is present -- the preview endpoint mints fresh on demand.
+        // is present - the preview endpoint mints fresh on demand.
         // The lookup is now just a "does the order have ANY history of
         // client tokens" hint (kept so the button doesn't surface on
         // orders that were never client-facing, e.g. internal
         // placeholders). For brand-new orders without a token row, we
         // still show the button so admins can mint one on demand.
         if (!cancelled) {
-          setTokenLink("__preview__"); // sentinel -- triggers onClick mint
+          setTokenLink("__preview__"); // sentinel - triggers onClick mint
         }
       } catch {
         /* hide block */
@@ -408,7 +408,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                     order_status_history is shown chronologically
                     with the timestamp and the status it advanced to.
                     Notes column (when present) surfaces the 'why'
-                    -- e.g. cancel reason, paused-from snapshot. */}
+                    - e.g. cancel reason, paused-from snapshot. */}
                 <ol className="mt-2 space-y-1.5 text-[11px]">
                   {statusHistory.map((row: any) => {
                     const ts = new Date(row.created_at).toLocaleString("en-ZA", {
@@ -460,7 +460,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 <Receipt className="h-3 w-3" /> Invoice
               </Button></a>
             </Link>
-            {/* Kitchen prep -- routes to the real prep list page, not
+            {/* Kitchen prep - routes to the real prep list page, not
                 the placeholder admin view. /team-portal/kitchen/prep-list
                 shows the per-order prep tasks and is the canonical
                 source the kitchen team works off. */}
@@ -482,7 +482,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 variant="outline"
                 className="gap-1 h-7 text-xs"
                 onClick={async () => {
-                  // Wave 70.48c -- mint a fresh raw token via the admin
+                  // Wave 70.48c - mint a fresh raw token via the admin
                   // preview endpoint, then open the URL it returns
                   // (already has ?t= baked in). The /c/order/{id} page
                   // will validate, set the cookie, and render the
@@ -758,7 +758,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         </Card>
       )}
 
-      {/* COMPOSE DRAWER -- shared resizable host */}
+      {/* COMPOSE DRAWER - shared resizable host */}
       <ComposeDrawerHost open={composeOpen} onClose={() => setComposeOpen(false)}>
         <ComposeDrawer
           order={order}

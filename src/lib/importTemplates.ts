@@ -4,12 +4,12 @@
  * Single source of truth for which columns the import engine
  * understands per target table. Consumed by:
  *
- *   - /api/imports/templates/[type] -- generates the downloadable
+ *   - /api/imports/templates/[type] - generates the downloadable
  *     .xlsx the operator fills in.
- *   - /api/imports/upload -- when every header on a sheet matches a
+ *   - /api/imports/upload - when every header on a sheet matches a
  *     known column, skip the AI mapping step and synthesise the
  *     mapping directly from this schema.
- *   - importNormalise -- per-field validators / coercers.
+ *   - importNormalise - per-field validators / coercers.
  *
  * Adding a new column is a single-edit drop-in here. Don't fork
  * column lists into the API routes; everyone reads from this file.
@@ -18,7 +18,7 @@
 export type TemplateType = "clients" | "leads" | "orders" | "quotes" | "invoices" | "payments";
 
 export interface TemplateColumn {
-  /** DB column name on the target table -- used by importNormalise + commit. */
+  /** DB column name on the target table - used by importNormalise + commit. */
   key: string;
   /** Human-readable header that appears in the template's first row. */
   header: string;
@@ -42,7 +42,7 @@ export interface TemplateDefinition {
 }
 
 /**
- * Clients template -- existing customers the catering company has
+ * Clients template - existing customers the catering company has
  * already worked with. Going to populate `clients`.
  */
 const CLIENTS_TEMPLATE: TemplateDefinition = {
@@ -107,7 +107,7 @@ const CLIENTS_TEMPLATE: TemplateDefinition = {
       aliases: ["last event", "most recent event", "last booking", "last function"] },
     { key: "historical_last_event_type", header: "Last event type (history)", required: false,
       example: "Wedding",
-      hint: "What the last event was -- wedding, corporate, birthday, etc.",
+      hint: "What the last event was - wedding, corporate, birthday, etc.",
       aliases: ["last event type", "last booking type"] },
     { key: "historical_notes", header: "History notes", required: false,
       example: "Repeat client, prefers Italian buffet, dietary: 2 vegan",
@@ -117,7 +117,7 @@ const CLIENTS_TEMPLATE: TemplateDefinition = {
 };
 
 /**
- * Leads template -- prospects who've enquired but haven't booked
+ * Leads template - prospects who've enquired but haven't booked
  * yet. Going to populate `leads`.
  */
 const LEADS_TEMPLATE: TemplateDefinition = {
@@ -129,7 +129,7 @@ const LEADS_TEMPLATE: TemplateDefinition = {
       example: "John Doe", aliases: ["name", "full name", "lead name"] },
     { key: "client_email", header: "Email *", required: true,
       example: "john@example.co.za",
-      hint: "Lead's primary email -- mirrored to the lead's email column",
+      hint: "Lead's primary email - mirrored to the lead's email column",
       aliases: ["email", "e-mail", "email address"] },
     { key: "client_phone", header: "Phone", required: false,
       example: "082 555 1234",
@@ -159,14 +159,14 @@ const LEADS_TEMPLATE: TemplateDefinition = {
 };
 
 /**
- * Orders template -- past or upcoming events. Goes to `orders`.
+ * Orders template - past or upcoming events. Goes to `orders`.
  * Required: client_name OR client_email (so the linker can resolve a
  * client) AND event_date (orders.event_date is NOT NULL on the schema).
  *
  * The cross-sheet linker resolves client_id in this priority order:
  *   1. client row in the same workbook's clients sheet (by email/name)
  *   2. existing client in the DB (by email/name match)
- *   3. auto-create a stub client from this order row -- so an order
+ *   3. auto-create a stub client from this order row - so an order
  *      without a matching clients-sheet entry still lands. Required
  *      because orders.client_id is NOT NULL.
  */
@@ -177,7 +177,7 @@ const ORDERS_TEMPLATE: TemplateDefinition = {
   columns: [
     { key: "order_number", header: "Order number", required: false,
       example: "ORD-2026-001",
-      hint: "Your existing order numbering. Optional but recommended -- it's how invoices in your invoices sheet will link back to this order.",
+      hint: "Your existing order numbering. Optional but recommended - it's how invoices in your invoices sheet will link back to this order.",
       aliases: ["order ref", "order no", "ref", "function ref"] },
     { key: "client_name", header: "Client name *", required: true,
       example: "Jane Smith",
@@ -195,7 +195,7 @@ const ORDERS_TEMPLATE: TemplateDefinition = {
       aliases: ["function", "function name", "occasion"] },
     { key: "event_date", header: "Event date *", required: true,
       example: "2026-04-15",
-      hint: "YYYY-MM-DD or any standard date format. Past dates are fine -- those become historical orders.",
+      hint: "YYYY-MM-DD or any standard date format. Past dates are fine - those become historical orders.",
       aliases: ["date", "function date", "service date"] },
     { key: "event_time", header: "Event time", required: false,
       example: "18:00",
@@ -226,7 +226,7 @@ const ORDERS_TEMPLATE: TemplateDefinition = {
 };
 
 /**
- * Quotes template -- proposals sent to clients, may or may not have
+ * Quotes template - proposals sent to clients, may or may not have
  * been accepted. Goes to `quotes`.
  *
  * Required: quote_number AND total_amount AND client_name (or client_email)
@@ -292,7 +292,7 @@ const QUOTES_TEMPLATE: TemplateDefinition = {
 };
 
 /**
- * Invoices template -- bills sent to clients. Goes to `invoices`.
+ * Invoices template - bills sent to clients. Goes to `invoices`.
  *
  * Required: invoice_number, client linkage (name OR email), subtotal,
  * total_amount, due_date.
@@ -319,7 +319,7 @@ const INVOICES_TEMPLATE: TemplateDefinition = {
       aliases: ["email"] },
     { key: "order_number", header: "Order number", required: false,
       example: "ORD-2026-001",
-      hint: "If this invoice ties to a specific order, the importer links them. Optional -- standalone invoices land fine without one.",
+      hint: "If this invoice ties to a specific order, the importer links them. Optional - standalone invoices land fine without one.",
       aliases: ["order ref", "linked order", "event ref"] },
     { key: "invoice_date", header: "Invoice date *", required: true,
       example: "2026-03-15",
@@ -355,7 +355,7 @@ const INVOICES_TEMPLATE: TemplateDefinition = {
 };
 
 /**
- * Payments template -- money received against invoices. Goes to
+ * Payments template - money received against invoices. Goes to
  * `payments`.
  *
  * Required: amount AND (invoice_number OR order_number) so the
@@ -384,7 +384,7 @@ const PAYMENTS_TEMPLATE: TemplateDefinition = {
       aliases: ["paid", "value", "total"] },
     { key: "payment_date", header: "Payment date *", required: true,
       example: "2026-03-20",
-      hint: "When the money was received -- the date on the bank statement.",
+      hint: "When the money was received - the date on the bank statement.",
       aliases: ["date", "received", "paid on"] },
     { key: "payment_method", header: "Payment method", required: false,
       example: "eft",
@@ -399,7 +399,7 @@ const PAYMENTS_TEMPLATE: TemplateDefinition = {
       hint: "pending, completed, failed, refunded. Defaults to completed for imports (assumes the money is already in the bank).",
       aliases: ["status"] },
     { key: "notes", header: "Notes", required: false,
-      example: "Deposit -- balance due before event",
+      example: "Deposit - balance due before event",
       aliases: ["comments", "memo"] },
   ],
 };
@@ -474,7 +474,7 @@ export function buildMappingFromTemplate(
     if (target) {
       sheetMapping[h] = { target, confidence: 1, source: "template" };
     } else {
-      // Header not in template -- mark as skip so preview won't try to
+      // Header not in template - mark as skip so preview won't try to
       // write an unknown column. (Auto-map only triggers when every
       // header is recognised, but defensive belt + braces.)
       sheetMapping[h] = { target: "skip", confidence: 0, source: "template" };

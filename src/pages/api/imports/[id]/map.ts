@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true, mapping: job.mapping, cached: true });
     }
 
-    // Pull every source row -- we'll group by sheet and pass a slice
+    // Pull every source row - we'll group by sheet and pass a slice
     // to the model.
     const rows = await listImportRows(jobId, { limit: 11000 });
     if (rows.length === 0) {

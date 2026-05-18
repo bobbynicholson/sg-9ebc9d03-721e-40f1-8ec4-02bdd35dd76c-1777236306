@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/integrations/embed/new -- shortcut route that just opens the
+ * /admin/integrations/embed/new - shortcut route that just opens the
  * gallery dialog on the main page. Lets us deep-link from anywhere
  * (notifications, marketing emails, dashboard prompts) without changing
  * the URL of the home page.

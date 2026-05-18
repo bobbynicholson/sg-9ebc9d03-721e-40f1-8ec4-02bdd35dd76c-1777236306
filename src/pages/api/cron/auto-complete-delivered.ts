@@ -37,9 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     // Fetch candidate orders. Service-role bypasses RLS so we see
-    // every tenant -- the trigger is platform-wide intentionally.
+    // every tenant - the trigger is platform-wide intentionally.
     //
-    // Wave 48 A2 -- tightened payment filter. The original "paid OR
+    // Wave 48 A2 - tightened payment filter. The original "paid OR
     // partial" gate let orders complete with money still owed, which
     // then kicked the after-sales drip at customers who hadn't yet
     // settled the balance (Specialist 1 P1 finding). Now we demand
@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const eligible = (candidates || []).filter((o: any) => {
       // Hard rule: payment_status must be 'paid'. Partial no longer
-      // qualifies -- it triggered the after-sales drip on debtors.
+      // qualifies - it triggered the after-sales drip on debtors.
       if (o.payment_status !== "paid") return false;
       // Belt and braces: also confirm no outstanding balance owed.
       // balance_paid is the canonical truth where it exists; fall
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const o of eligible) {
       try {
-        // Wave 49 B8 -- run damage reconciliation BEFORE the status
+        // Wave 49 B8 - run damage reconciliation BEFORE the status
         // flip so the balance_due bump lands while the customer is
         // still on the active-orders surface. Non-blocking: a failed
         // reconciliation does not block the completion flip; ops

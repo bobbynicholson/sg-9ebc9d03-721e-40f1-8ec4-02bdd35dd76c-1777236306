@@ -1,8 +1,8 @@
 /**
- * Platform Settings -- super_admin tunables for the whole SaaS.
+ * Platform Settings - super_admin tunables for the whole SaaS.
  *
  * Currently surfaces:
- *   - import_row_cap -- max rows accepted per Excel/CSV import.
+ *   - import_row_cap - max rows accepted per Excel/CSV import.
  *     200 by default; lifting it lets a tenant onboard a larger
  *     legacy database in one go without splitting files.
  *

@@ -7,7 +7,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  *
  * Wave 14 orphan audit: public.archive_old_gps_logs() existed but had
  * no caller. Without it, the gps_logs / driver_gps_pings tables grow
- * unbounded -- one row per ping per driver-trip -- and read queries
+ * unbounded - one row per ping per driver-trip - and read queries
  * on the live tracking map get slower over time. The RPC keeps the
  * most recent window and deletes older rows; the cadence is a
  * platform-level storage hygiene choice rather than tenant-facing,

@@ -1,5 +1,5 @@
 /**
- * Tier 2 chart 3 -- Conversion funnel.
+ * Tier 2 chart 3 - Conversion funnel.
  *
  * 5 stages:
  *   1. Leads created
@@ -39,7 +39,7 @@ export interface ConversionFunnelResult {
   /** Convenience top-line number for the empty-state guard. */
   totalLeads: number;
   /**
-   * Wave 70.50b -- "won then churned" -- quotes that were accepted in
+   * Wave 70.50b - "won then churned" - quotes that were accepted in
    * the window AND whose child order was subsequently cancelled. NOT
    * a 6th funnel stage (would break the drop-off math); rendered as
    * a SIDEBAR stat alongside the main funnel.
@@ -107,7 +107,7 @@ export function aggregateConversionFunnel(
   let valueSent = 0, valueViewed = 0, valueAccepted = 0;
   for (const q of quotes) {
     // Use sent_at when set; otherwise created_at as fallback. Created
-    // captures drafts which we don't count as "sent" -- so we require
+    // captures drafts which we don't count as "sent" - so we require
     // status to have moved past "draft".
     const movedPastDraft = !!q.status && q.status !== "draft" && q.status !== "pending";
     if (!movedPastDraft) continue;
@@ -134,11 +134,11 @@ export function aggregateConversionFunnel(
   // status='completed'). delivered also counts as a successful outcome.
   let ordersCompleted = 0;
   let valueCompleted = 0;
-  // Wave 70.50b -- churned bucket: orders in the window whose status
+  // Wave 70.50b - churned bucket: orders in the window whose status
   // ended up 'cancelled'. We anchor on event_date so the churn shows
   // up in the same period the event WOULD have happened, which is
   // the natural sales-scorecard window. value uses total_amount as
-  // a proxy for "lost gross" -- the rand we won then lost.
+  // a proxy for "lost gross" - the rand we won then lost.
   let ordersChurned = 0;
   let valueChurned = 0;
   for (const o of orders) {

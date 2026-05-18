@@ -1,5 +1,5 @@
 /**
- * WidgetErrorBoundary -- Wave 42 hotfix.
+ * WidgetErrorBoundary - Wave 42 hotfix.
  *
  * Wraps a single dashboard widget so that a client-side throw in one
  * widget can no longer blank the entire admin dashboard with a
@@ -41,7 +41,7 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: any) {
     // Surface to the JS console for the dev. Don't swallow the
-    // stack -- the next thing the engineer needs is the trace.
+    // stack - the next thing the engineer needs is the trace.
     // eslint-disable-next-line no-console
     console.error(
       `[WidgetErrorBoundary] ${this.props.label || "widget"} crashed:`,

@@ -121,7 +121,7 @@ function KitchenStaffPage() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Department filter -- 'all' shows the company-wide hub view, picking
+  // Department filter - 'all' shows the company-wide hub view, picking
   // a department narrows to people whose departments[] includes it.
   // Seeded from `?department=` so deep-links from the per-team admin
   // pages (e.g. Cleaning team page -> "Cleaning staff" tile) land on
@@ -158,7 +158,7 @@ function KitchenStaffPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
 
-  // Filtered view -- search + archived toggle + department filter
+  // Filtered view - search + archived toggle + department filter
   const visibleRaw = useMemo(() => {
     const term = search.trim().toLowerCase();
     return staff
@@ -517,7 +517,7 @@ function KitchenStaffPage() {
             </Card>
           </div>
 
-          {/* Department filter chips -- 'All' shows the company-wide hub,
+          {/* Department filter chips - 'All' shows the company-wide hub,
               picking a department narrows to staff who can work it. */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {([{ id: "all", label: "All staff" }, ...ALL_DEPARTMENTS] as const).map((d) => {
@@ -949,7 +949,7 @@ function KitchenStaffPage() {
             </div>
           </div>
 
-          {/* Portal access -- only meaningful when editing an existing
+          {/* Portal access - only meaningful when editing an existing
               row (we need an id) and when the staff member doesn't
               already have a login linked. */}
           {editTarget && !editTarget.linked_profile_id && (

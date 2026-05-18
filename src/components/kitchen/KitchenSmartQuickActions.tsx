@@ -1,14 +1,14 @@
 /**
- * KitchenSmartQuickActions -- Wave 70.7b
+ * KitchenSmartQuickActions - Wave 70.7b
  *
  * Three quick-action tiles at the top of the mobile drawer. The
  * trio changes based on the current service mode so the chef sees
  * the most likely "what I need right now" actions:
  *
- *   off     -- Today, Recipes, Stock     (informational browse)
- *   prep    -- Prep List, Production, Stock  (gear up)
- *   service -- Production, Today, Mark ready  (act fast)
- *   close   -- Team, Hand-off note, Stock used  (wrap up)
+ *   off     - Today, Recipes, Stock     (informational browse)
+ *   prep    - Prep List, Production, Stock  (gear up)
+ *   service - Production, Today, Mark ready  (act fast)
+ *   close   - Team, Hand-off note, Stock used  (wrap up)
  *
  * Wraps the existing MobileQuickActions presenter so the visual
  * treatment stays consistent with the other portals.

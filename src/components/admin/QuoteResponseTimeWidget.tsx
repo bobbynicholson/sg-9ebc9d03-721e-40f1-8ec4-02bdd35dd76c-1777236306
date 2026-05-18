@@ -1,5 +1,5 @@
 /**
- * QuoteResponseTimeWidget -- median time from quote sent to client
+ * QuoteResponseTimeWidget - median time from quote sent to client
  * accepted, plus median time-to-first-view, across the last 90 days.
  *
  * Phase 11 #10. The pipeline kanban + quotes-to-chase widget tell

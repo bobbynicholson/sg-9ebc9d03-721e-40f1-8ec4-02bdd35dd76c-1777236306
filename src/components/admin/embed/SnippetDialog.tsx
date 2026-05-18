@@ -85,7 +85,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
   // Fetch the SRI integrity for /embed/loader.js once when the dialog
   // opens. If the endpoint isn't reachable (older deploy without it,
   // network blip), the snippet just omits the integrity attr and
-  // remains functional -- defence in depth, not a hard requirement.
+  // remains functional - defence in depth, not a hard requirement.
   const [integrity, setIntegrity] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -110,7 +110,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
 
   // Preview link includes &template= so the demo page loads the same
   // template the operator is about to embed (helpers.js previously
-  // defaulted to quick-card when template was missing -- the preview
+  // defaulted to quick-card when template was missing - the preview
   // would not match what the visitor would see).
   const previewHref = form && currentToken
     ? `/embed/demo.html?token=${currentToken}&slug=${encodeURIComponent(form.slug)}&template=${encodeURIComponent(form.template_id)}`

@@ -82,7 +82,7 @@ interface Group {
 }
 
 // =====================================================================
-// GROUP 1 -- FOUNDATION: WHAT'S BUILT
+// GROUP 1 - FOUNDATION: WHAT'S BUILT
 // =====================================================================
 const builtFeatures: SprintCard[] = [
   {
@@ -198,7 +198,7 @@ const builtFeatures: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 2 -- AUDIT FINDINGS: PHASE 1 (SHIPPED) + PHASE 2 (PLANNED)
+// GROUP 2 - AUDIT FINDINGS: PHASE 1 (SHIPPED) + PHASE 2 (PLANNED)
 // =====================================================================
 const auditCards: SprintCard[] = [
   {
@@ -386,7 +386,7 @@ const auditCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 3 -- PRE-LAUNCH: INTEGRATION SETUP
+// GROUP 3 - PRE-LAUNCH: INTEGRATION SETUP
 // =====================================================================
 const integrationCards: SprintCard[] = [
   {
@@ -472,7 +472,7 @@ const integrationCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 4 -- PRE-LAUNCH: TESTING + BETA
+// GROUP 4 - PRE-LAUNCH: TESTING + BETA
 // =====================================================================
 const testingCards: SprintCard[] = [
   {
@@ -575,7 +575,7 @@ const testingCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 5 -- PRE-LAUNCH: PERF + SECURITY + LAUNCH
+// GROUP 5 - PRE-LAUNCH: PERF + SECURITY + LAUNCH
 // =====================================================================
 const launchCards: SprintCard[] = [
   {
@@ -667,7 +667,7 @@ const launchCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 6 -- REFERENCE: METRICS, RISKS
+// GROUP 6 - REFERENCE: METRICS, RISKS
 // =====================================================================
 const referenceCards: SprintCard[] = [
   {
@@ -727,7 +727,7 @@ const referenceCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 7 -- MARKET EXPANSION: features to win SA / UK / US
+// GROUP 7 - MARKET EXPANSION: features to win SA / UK / US
 // Sourced from 60-company multi-region competitive audit (28 Apr 2026):
 // 20 SA + 20 UK + 20 US catering company websites analysed.
 // =====================================================================
@@ -830,7 +830,7 @@ const wowFactorCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 8 -- PRODUCT NOTES: BOBBY'S ROADMAP IDEAS
+// GROUP 8 - PRODUCT NOTES: BOBBY'S ROADMAP IDEAS
 // =====================================================================
 const productNotesCards: SprintCard[] = [
   {
@@ -999,47 +999,47 @@ const productNotesCards: SprintCard[] = [
     accent: "from-slate-500 to-slate-700",
     items: [
       { title: "Server-side PDF for quotes", detail: "Today the PDF button on /admin/quotes opens the public quote URL with ?print=1 and relies on the browser's Ctrl+P dialog. Works but indirect. Build /api/quotes/[id]/pdf that returns a real PDF attachment (probably puppeteer or react-pdf), with the company's branded letterhead, totals tidy at the bottom, and the policy / T&C block on a second page. Same pattern can later cover invoices + cancellation refund receipts.", status: "todo" },
-      { title: "Sync-quote endpoints for Xero / QuickBooks / Sage", detail: "/admin/quotes Push-to-accounting calls /api/integrations/{provider}/sync-quote which doesn't exist yet -- it falls back to copying the prepared payload to the clipboard, which the operator pastes manually. To make it a real one-click sync we need to clone /api/accounting/{xero,quickbooks}/sync-invoice.ts into sync-quote.ts per provider (~300 lines each), point accountingExportService at the new path, and make sure the OAuth + token refresh chain stays healthy. Sage adapter is the third provider (no existing scaffold, would be a bigger build). Build once a paying tenant has actually connected their accounting integration.", status: "todo" },
+      { title: "Sync-quote endpoints for Xero / QuickBooks / Sage", detail: "/admin/quotes Push-to-accounting calls /api/integrations/{provider}/sync-quote which doesn't exist yet - it falls back to copying the prepared payload to the clipboard, which the operator pastes manually. To make it a real one-click sync we need to clone /api/accounting/{xero,quickbooks}/sync-invoice.ts into sync-quote.ts per provider (~300 lines each), point accountingExportService at the new path, and make sure the OAuth + token refresh chain stays healthy. Sage adapter is the third provider (no existing scaffold, would be a bigger build). Build once a paying tenant has actually connected their accounting integration.", status: "todo" },
     ],
   },
   {
     id: "post-launch-onboarding-walkthrough",
     title: "First-run onboarding walkthrough (4 may 2026)",
-    why: "Bobby flagged after Stage 0-3 multi-branch testing: 'first step once signed up, onboarding should take users to each page showing them where they can add leads, create quotes and walk them through each step'. Today a new tenant lands on /admin/dashboard cold -- there's an Onboarding page in the nav but it's a checklist, not a walkthrough. The drop-off risk is the highest in the first 5 minutes after signup; without a guided tour the operator pokes around, doesn't see how lead -> quote -> order chains together, and bounces. A real product tour anchored to actual nav items + create buttons closes that gap.",
+    why: "Bobby flagged after Stage 0-3 multi-branch testing: 'first step once signed up, onboarding should take users to each page showing them where they can add leads, create quotes and walk them through each step'. Today a new tenant lands on /admin/dashboard cold - there's an Onboarding page in the nav but it's a checklist, not a walkthrough. The drop-off risk is the highest in the first 5 minutes after signup; without a guided tour the operator pokes around, doesn't see how lead -> quote -> order chains together, and bounces. A real product tour anchored to actual nav items + create buttons closes that gap.",
     estimate: "1 sprint (3-5 days)",
     risk: "Medium",
     icon: Sparkles,
     accent: "from-indigo-500 to-purple-600",
     items: [
-      { title: "Tour engine + step model", detail: "Pick driver.js or react-joyride. Build a TourProvider that reads a per-tenant flag (companies.onboarding_tour_state -- 'pending' | 'in_progress' | 'completed' | 'skipped') and only auto-fires when 'pending'. Each step takes a CSS selector (or ref), copy, optional CTA, and an 'onAdvance' hook so the tour can wait for an actual click instead of just a Next button. Persist progress per step so a refresh doesn't restart from zero.", status: "todo" },
+      { title: "Tour engine + step model", detail: "Pick driver.js or react-joyride. Build a TourProvider that reads a per-tenant flag (companies.onboarding_tour_state - 'pending' | 'in_progress' | 'completed' | 'skipped') and only auto-fires when 'pending'. Each step takes a CSS selector (or ref), copy, optional CTA, and an 'onAdvance' hook so the tour can wait for an actual click instead of just a Next button. Persist progress per step so a refresh doesn't restart from zero.", status: "todo" },
       { title: "Define the 'first booking' tour script", detail: "8-10 step happy path: 1) Welcome on /admin/dashboard, 2) Click Leads in nav -> 'this is where every enquiry lands', 3) Click + New lead -> walk through the form, save a real lead, 4) Click Quotes -> 'now turn that lead into a quote', 5) Open the quote builder pre-filled with the lead, 6) Send -> 'this generates the public quote URL', 7) Show the Orders page -> 'when the client accepts, an order appears here', 8) Show Invoices -> 'when the order is delivered, the invoice generates automatically', 9) Show Calendar / Dispatch as the day-of-event view, 10) Wrap with 'you can replay this tour anytime from /admin/onboarding'.", status: "todo" },
-      { title: "Skip + replay controls", detail: "A persistent 'Skip tour' button at every step (writes onboarding_tour_state='skipped'). On /admin/onboarding add a 'Run the welcome tour again' button that resets the flag and restarts from step 1. Important: the tour must NEVER fire for region_admin / sales_admin invitees -- only the company owner sees it on first login. Their team gets per-role mini-tours later (separate scope).", status: "todo" },
-      { title: "Per-role mini-tours (Phase 2)", detail: "Once the owner tour is shipped, add 3-step mini-tours for kitchen / driver / shopping staff on their first portal load. Kitchen: 'this is your prep list, this is how you mark a task done, this is how you flag a shortage'. Driver: 'this is the route, this is how you start a delivery, this is how you confirm handover'. Shopping: 'this is the demand list, this is how you turn shortfalls into a shopping order'. Each mini-tour is 30 seconds max -- staff tolerate way less than owners do.", status: "todo" },
+      { title: "Skip + replay controls", detail: "A persistent 'Skip tour' button at every step (writes onboarding_tour_state='skipped'). On /admin/onboarding add a 'Run the welcome tour again' button that resets the flag and restarts from step 1. Important: the tour must NEVER fire for region_admin / sales_admin invitees - only the company owner sees it on first login. Their team gets per-role mini-tours later (separate scope).", status: "todo" },
+      { title: "Per-role mini-tours (Phase 2)", detail: "Once the owner tour is shipped, add 3-step mini-tours for kitchen / driver / shopping staff on their first portal load. Kitchen: 'this is your prep list, this is how you mark a task done, this is how you flag a shortage'. Driver: 'this is the route, this is how you start a delivery, this is how you confirm handover'. Shopping: 'this is the demand list, this is how you turn shortfalls into a shopping order'. Each mini-tour is 30 seconds max - staff tolerate way less than owners do.", status: "todo" },
     ],
   },
   {
     id: "multi-branch-e2e-qa",
     title: "Multi-branch end-to-end QA test (4 may 2026, ready to run)",
-    why: "Stages 0-3 of the multi-branch architecture rebuild + the 7-agent audit fix wave have all shipped. Production deploy is green and the post-deploy DB smoke check passed 8/8. Static audit cannot prove the actual user journeys work -- need a manual run on Spit Braai (currently single-branch) to validate that adding a JHB branch surfaces the right UI, locks RLS correctly, propagates region_id through every artifact, and resolves per-branch overrides on real money flows. Test plan is fully drafted in docs/qa/multi-branch-e2e.md with Pass/Fail tables, copy-paste SQL verification, screenshot capture list, and a cleanup script.",
+    why: "Stages 0-3 of the multi-branch architecture rebuild + the 7-agent audit fix wave have all shipped. Production deploy is green and the post-deploy DB smoke check passed 8/8. Static audit cannot prove the actual user journeys work - need a manual run on Spit Braai (currently single-branch) to validate that adding a JHB branch surfaces the right UI, locks RLS correctly, propagates region_id through every artifact, and resolves per-branch overrides on real money flows. Test plan is fully drafted in docs/qa/multi-branch-e2e.md with Pass/Fail tables, copy-paste SQL verification, screenshot capture list, and a cleanup script.",
     estimate: "30-45 min focused session",
     risk: "Low",
     icon: Sparkles,
     accent: "from-emerald-500 to-teal-600",
     items: [
-      { title: "Run section 0 -- clean baseline check", detail: "Paste the baseline SQL into Supabase SQL editor for project vsuyzovzqtrngorpqnhy. Expect zero rows on every count except jhb_active_regions. If anything is non-zero, run section 6 cleanup before starting.", status: "todo" },
-      { title: "Run sections 1-2 -- add JHB branch + invite manager", detail: "Add Johannesburg region with delivery_cost_per_km=12, min_delivery_fee=100, all manager-notification toggles on. Invite branch-manager-jhb@example.com as region_admin scoped to JHB only. Confirm DB rows match expected via the verification SELECTs.", status: "todo" },
-      { title: "Run section 3a -- region_admin acceptance map (13 checks)", detail: "Sign in to incognito as JHB region_admin. Walk every row in the table: landing page, region filter scope, sidebar nav, lead create with JHB badge, quote builder showing 'From Johannesburg' + R12/km + R100 floor, save draft + phone persistence on refresh, send quote with all DB column assertions.", status: "todo" },
-      { title: "Run section 3b -- company_admin cross-branch checks (7 checks)", detail: "Fresh incognito as Bobby. Confirm region dropdown now shows All / Cape Town / Johannesburg, switching narrows lists, financial-dashboard Branches tab appears with both branches, regions KPI strip shows Active=2, inventory item form shows Branch picker.", status: "todo" },
-      { title: "Run section 4 -- negative tests (5 checks)", detail: "As region_admin: financial-dashboard locked, platform/dashboard locked, RLS blocks CPT order URL hack. As company_admin: middleware self-test (flip role to region_admin, confirm /admin/* still admits, revert).", status: "todo" },
-      { title: "Run section 5 -- money flow check", detail: "Public-quote acceptance roundtrip. Open the JHB quote's public URL in a private window, accept it, confirm order auto-creates with JHB region_id and the auto-invoice carries the same VAT amount through quote -> order -> invoice. Run the verification SELECT to prove the chain.", status: "todo" },
+      { title: "Run section 0 - clean baseline check", detail: "Paste the baseline SQL into Supabase SQL editor for project vsuyzovzqtrngorpqnhy. Expect zero rows on every count except jhb_active_regions. If anything is non-zero, run section 6 cleanup before starting.", status: "todo" },
+      { title: "Run sections 1-2 - add JHB branch + invite manager", detail: "Add Johannesburg region with delivery_cost_per_km=12, min_delivery_fee=100, all manager-notification toggles on. Invite branch-manager-jhb@example.com as region_admin scoped to JHB only. Confirm DB rows match expected via the verification SELECTs.", status: "todo" },
+      { title: "Run section 3a - region_admin acceptance map (13 checks)", detail: "Sign in to incognito as JHB region_admin. Walk every row in the table: landing page, region filter scope, sidebar nav, lead create with JHB badge, quote builder showing 'From Johannesburg' + R12/km + R100 floor, save draft + phone persistence on refresh, send quote with all DB column assertions.", status: "todo" },
+      { title: "Run section 3b - company_admin cross-branch checks (7 checks)", detail: "Fresh incognito as Bobby. Confirm region dropdown now shows All / Cape Town / Johannesburg, switching narrows lists, financial-dashboard Branches tab appears with both branches, regions KPI strip shows Active=2, inventory item form shows Branch picker.", status: "todo" },
+      { title: "Run section 4 - negative tests (5 checks)", detail: "As region_admin: financial-dashboard locked, platform/dashboard locked, RLS blocks CPT order URL hack. As company_admin: middleware self-test (flip role to region_admin, confirm /admin/* still admits, revert).", status: "todo" },
+      { title: "Run section 5 - money flow check", detail: "Public-quote acceptance roundtrip. Open the JHB quote's public URL in a private window, accept it, confirm order auto-creates with JHB region_id and the auto-invoice carries the same VAT amount through quote -> order -> invoice. Run the verification SELECT to prove the chain.", status: "todo" },
       { title: "Capture the 9 screenshots in section 7", detail: "Save to a shared audit-log location: JHB region card with KPI strip, region filter dropdown showing both branches, branch picker on new-lead form, 'From Johannesburg' delivery panel with R12/km, financial-dashboard Branches tab, JHB region badge on a list row, sidebar without Branding & Settings (region_admin), and the two negative-test access-denied screens.", status: "todo" },
-      { title: "Run section 6 -- cleanup", detail: "After a successful pass (or to reset between attempts), execute the cleanup SQL: void invoices, cancel orders, archive quotes + leads, deactivate JHB region, delete the manager profile row. Note: auth.users row must be removed from the Supabase auth dashboard manually.", status: "todo" },
+      { title: "Run section 6 - cleanup", detail: "After a successful pass (or to reset between attempts), execute the cleanup SQL: void invoices, cancel orders, archive quotes + leads, deactivate JHB region, delete the manager profile row. Note: auth.users row must be removed from the Supabase auth dashboard manually.", status: "todo" },
     ],
   },
 ];
 
 // =====================================================================
-// GROUP 9 -- TOOLTIP AUDIT FINDINGS (28 Apr 2026)
+// GROUP 9 - TOOLTIP AUDIT FINDINGS (28 Apr 2026)
 // =====================================================================
 // 5-agent rollout added ~255 hover tooltips across 71 pages and surfaced
 // the data flow issues below. P0 fix already shipped. Everything else
@@ -1112,7 +1112,7 @@ const tooltipAuditCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 10 -- JOURNEY AUDIT FINDINGS (28 Apr 2026)
+// GROUP 10 - JOURNEY AUDIT FINDINGS (28 Apr 2026)
 // =====================================================================
 // Six parallel auditors traced the customer journeys end-to-end using the
 // rewritten tooltips as contracts. Verdict: only the kitchen prep view
@@ -1246,7 +1246,7 @@ const journeyAuditCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 11 -- TRACKING + ROUTE PLANNING CANONICAL SPLIT (29 Apr 2026)
+// GROUP 11 - TRACKING + ROUTE PLANNING CANONICAL SPLIT (29 Apr 2026)
 // =====================================================================
 // /admin/tracking and /admin/route-planning had drifted into looking like
 // the same page. Bobby remembered there was a deliberate split but couldn't
@@ -1332,7 +1332,7 @@ const trackingRouteSplitCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 12 -- SMART SEARCH ROLLOUT (29 Apr 2026)
+// GROUP 12 - SMART SEARCH ROLLOUT (29 Apr 2026)
 // =====================================================================
 // Bobby flagged that every search bar across the SaaS was "dumb": basic
 // case-insensitive substring match against one or two fields. Built a
@@ -1374,12 +1374,12 @@ const smartSearchCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 12 -- EMBEDDABLE LEAD-CAPTURE FORMS (29 Apr 2026)
+// GROUP 12 - EMBEDDABLE LEAD-CAPTURE FORMS (29 Apr 2026)
 // =====================================================================
 // Four-agent parallel build: schema + types, public API + admin CRUD,
 // 10 vanilla-HTML templates + loader, admin gallery + customiser. 10
 // commits shipped in one wave (4e9551b through fa992d5 + 6dfdd5a, 798b2e9,
-// 75847ce). The U3 feature from Group 6 is now live in code -- needs DB
+// 75847ce). The U3 feature from Group 6 is now live in code - needs DB
 // migration applied + Turnstile keys configured before tenants can use it.
 const embedFormsCards: SprintCard[] = [
   {
@@ -1417,7 +1417,7 @@ const embedFormsCards: SprintCard[] = [
       { title: "Apply migration 20260428120000_embed_forms.sql", detail: "Open Supabase dashboard -> SQL Editor -> paste the migration -> run. Adds embed_token to companies (auto-fills via gen_random_uuid()), creates the three new tables, adds RLS policies, adds triggers.", status: "todo" },
       { title: "Apply migration 20260428130000_embed_forms_api.sql", detail: "Same path. Adds companies.auto_reply_to_embed_submissions and the increment_embed_form_views RPC.", status: "todo" },
       { title: "Set EMBED_IP_HASH_SALT env var on Vercel", detail: "Generate a 32+ char random string (e.g. `openssl rand -hex 32`) and add as a server-side env var. Without this the IP hashes still work but use a placeholder salt.", status: "todo" },
-      { title: "Anti-spam: revisit if spam materialises (Bobby prefers NOT Cloudflare)", detail: "Honeypot is wired and working on every public form. Turnstile env vars (TURNSTILE_SECRET_KEY + NEXT_PUBLIC_TURNSTILE_SITE_KEY) are gated and silently disabled until set, so we can add ANY provider later without code changes -- the verifyTurnstile call in lib/embedFormApi.ts is generic. If spam shows up, evaluate alternatives Bobby is OK with first: hCaptcha (closest drop-in replacement, same API shape), Friendly Captcha (privacy-first, EU), or simple proof-of-work like mCaptcha. Skip Cloudflare unless every alternative fails.", status: "todo" },
+      { title: "Anti-spam: revisit if spam materialises (Bobby prefers NOT Cloudflare)", detail: "Honeypot is wired and working on every public form. Turnstile env vars (TURNSTILE_SECRET_KEY + NEXT_PUBLIC_TURNSTILE_SITE_KEY) are gated and silently disabled until set, so we can add ANY provider later without code changes - the verifyTurnstile call in lib/embedFormApi.ts is generic. If spam shows up, evaluate alternatives Bobby is OK with first: hCaptcha (closest drop-in replacement, same API shape), Friendly Captcha (privacy-first, EU), or simple proof-of-work like mCaptcha. Skip Cloudflare unless every alternative fails.", status: "todo" },
       { title: "Schedule a daily job to prune embed_rate_limits older than 24h", detail: "Either Supabase pg_cron or a Vercel cron job hitting an admin endpoint. Without this the table grows ~hundreds-of-thousands of rows per active tenant per year. Not urgent for soft-launch.", status: "todo" },
       { title: "Decide the public loader URL", detail: "Templates assume the loader lives at https://cateringms.com/embed/loader.js. If the production domain differs, update the snippet generator's defaultLoaderUrl. The script + templates are served as static assets from Vercel under /public/embed/ so no further config needed.", status: "todo" },
       { title: "Test end-to-end on a real tenant before announcing", detail: "Apply migrations -> log in as Spit Braai -> /admin/integrations/embed -> pick Spit Braai Quick template -> customise -> copy snippet -> paste into a test HTML page locally or on a staging marketing site -> submit a test enquiry -> verify lead lands in /admin/leads with source='embed' and the right form_id.", status: "todo" },
@@ -1445,9 +1445,9 @@ const embedFormsCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 13 -- DEPLOYMENT + TESTING PLAYBOOK FOR THE DEV TEAM (29 Apr 2026)
+// GROUP 13 - DEPLOYMENT + TESTING PLAYBOOK FOR THE DEV TEAM (29 Apr 2026)
 // =====================================================================
-// Bobby cannot run the dev steps himself -- he doesn't have node / vercel /
+// Bobby cannot run the dev steps himself - he doesn't have node / vercel /
 // cloudflare keys at his fingertips. This group captures every manual
 // action a developer needs to take to land the embed forms feature, plus
 // the page-by-page acceptance test plan he will run on the live site once
@@ -1480,8 +1480,8 @@ const devOpsCards: SprintCard[] = [
     defaultOpen: true,
     items: [
       { title: "Set EMBED_IP_HASH_SALT on Vercel (Production + Preview + Development)", detail: "Generated value Bobby can paste: 17c4714759169984f28e618594bbb2222c41d835120fc3265817e3cfcfbc29cc. Vercel -> Project Settings -> Environment Variables -> Add New. Value persists; redeploy from Deployments tab to apply. Without it the rate-limit IP hashes still work but use a placeholder salt + emit a one-time warn on every cold start.", status: "todo" },
-      { title: "Anti-spam captcha (deferred -- Bobby prefers not Cloudflare)", detail: "Embed-form + change-request flows currently anti-spam via honeypot only. Code path supports any captcha provider with a Cloudflare-Turnstile-shaped API (verifyTurnstile in lib/embedFormApi.ts is provider-agnostic). When spam materialises, candidates: hCaptcha (drop-in, same API), Friendly Captcha (EU/privacy-first), mCaptcha (self-hostable proof-of-work). Cloudflare Turnstile only as last resort.", status: "todo" },
-      { title: "Set RESEND_WEBHOOK_SECRET on Vercel", detail: "From Resend dashboard -> Webhooks -> create endpoint. Copy the whsec_ value. Paste into Vercel env. Without this set, /api/webhooks/resend logs a warning and accepts unsigned posts (fine for dev, dangerous in prod -- anyone could fake bounce events).", status: "todo", ref: "src/pages/api/webhooks/resend.ts" },
+      { title: "Anti-spam captcha (deferred - Bobby prefers not Cloudflare)", detail: "Embed-form + change-request flows currently anti-spam via honeypot only. Code path supports any captcha provider with a Cloudflare-Turnstile-shaped API (verifyTurnstile in lib/embedFormApi.ts is provider-agnostic). When spam materialises, candidates: hCaptcha (drop-in, same API), Friendly Captcha (EU/privacy-first), mCaptcha (self-hostable proof-of-work). Cloudflare Turnstile only as last resort.", status: "todo" },
+      { title: "Set RESEND_WEBHOOK_SECRET on Vercel", detail: "From Resend dashboard -> Webhooks -> create endpoint. Copy the whsec_ value. Paste into Vercel env. Without this set, /api/webhooks/resend logs a warning and accepts unsigned posts (fine for dev, dangerous in prod - anyone could fake bounce events).", status: "todo", ref: "src/pages/api/webhooks/resend.ts" },
       { title: "Add /api/webhooks/resend to Resend dashboard", detail: "Resend dashboard -> Webhooks -> Add Endpoint -> URL: https://<your-host>/api/webhooks/resend. Subscribe to: email.bounced, email.complained. Other event types are 200'd silently so no harm in subscribing more, but those two are the only ones we record.", status: "todo", ref: "src/pages/api/webhooks/resend.ts" },
       { title: "Decide the public loader URL", detail: "Snippet builder now defaults to window.location.origin (so dev / preview work). For production you may want a CDN-style stable host. If using a non-Vercel custom domain, pass loaderHost prop to SnippetDialog OR rely on the request origin. Static assets served from /public/embed/ automatically.", status: "todo" },
     ],

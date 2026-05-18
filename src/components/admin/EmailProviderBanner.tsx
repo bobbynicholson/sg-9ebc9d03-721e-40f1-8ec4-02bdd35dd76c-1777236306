@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * EmailProviderBanner -- the operator's safety net.
+ * EmailProviderBanner - the operator's safety net.
  *
  * If a tenant has no email provider wired up (no Resend key, no SMTP
  * host) every emailService.sendEmail call falls into the "no provider"
@@ -28,7 +28,7 @@ interface Props {
 
 export function EmailProviderBanner({ companyId }: Props) {
   // Wave 42 hotfix: destructure withSlug from the hook so the
-  // Link href below resolves. Was missing -- the file's @ts-nocheck
+  // Link href below resolves. Was missing - the file's @ts-nocheck
   // hid the reference error at build time. The banner only renders
   // when email isn't configured, so any tenant with a missing
   // provider would crash the entire admin dashboard.
@@ -68,7 +68,7 @@ export function EmailProviderBanner({ companyId }: Props) {
         <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
         <div>
           <p className="text-sm font-semibold text-amber-900">
-            Email provider not set up -- emails to clients will NOT be sent.
+            Email provider not set up - emails to clients will NOT be sent.
           </p>
           <p className="mt-1 text-xs text-amber-800">
             Configure at Email Settings to start sending quotes, confirmations and receipts.

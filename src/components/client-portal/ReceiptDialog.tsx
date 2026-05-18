@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ReceiptDialog -- a print-ready, SARS-aware receipt of payment.
+ * ReceiptDialog - a print-ready, SARS-aware receipt of payment.
  *
  * Surfaced from two places:
- *   - /client-portal/billing -- a "Download receipt" button on every
+ *   - /client-portal/billing - a "Download receipt" button on every
  *     row that has at least one completed payment.
- *   - billing/PaymentModal success state -- inline link once an
+ *   - billing/PaymentModal success state - inline link once an
  *     online card payment lands so the client can grab proof
  *     straight away without having to re-find the row.
  *
@@ -22,7 +22,7 @@
  *
  * Data is fetched live every time the dialog opens. RLS on payments,
  * invoices, orders and clients already gates the client to their own
- * rows so we don't need a server-side endpoint -- the queries are
+ * rows so we don't need a server-side endpoint - the queries are
  * safe from the browser.
  */
 import { useEffect, useMemo, useState } from "react";
@@ -60,7 +60,7 @@ interface CompanyLite {
   city: string | null;
   logo_url: string | null;
   // Wave 18: receipt totals were rendered with a hardcoded ZAR
-  // formatter -- non-ZA tenants saw "R5,000" on a £/$/€ receipt.
+  // formatter - non-ZA tenants saw "R5,000" on a £/$/€ receipt.
   // Carry the tenant currency through so the receipt shows what
   // the client actually paid.
   currency?: string | null;
@@ -186,7 +186,7 @@ export function ReceiptDialog({
           .maybeSingle();
 
         if (invErr) throw invErr;
-        if (!invRow) throw new Error("Receipt not available -- invoice not found.");
+        if (!invRow) throw new Error("Receipt not available - invoice not found.");
 
         const inv: InvoiceLite = {
           id: (invRow as any).id,
@@ -207,7 +207,7 @@ export function ReceiptDialog({
 
         // Payments for this invoice. We accept by-invoice and by-order
         // (the older webhook path stamps order_id only) and dedupe.
-        // Only completed payments end up on the receipt -- pending /
+        // Only completed payments end up on the receipt - pending /
         // failed claims have no place on a "this is what you've paid"
         // document.
         const orFilter = inv.order_id
@@ -243,7 +243,7 @@ export function ReceiptDialog({
             payment_status: p.payment_status || null,
           }));
 
-        // Tenant header row -- VAT details, address, contact.
+        // Tenant header row - VAT details, address, contact.
         let companyRow: CompanyLite | null = null;
         if (tenantCompanyId) {
           const { data: companyData, error: cErr } = await supabase
@@ -289,7 +289,7 @@ export function ReceiptDialog({
   const isVat = !!company?.vat_registered && !!company?.vat_number;
   const documentLabel = isVat ? "Tax invoice" : "Receipt of payment";
   const footerNote = isVat
-    ? "This is a tax invoice -- valid SARS document."
+    ? "This is a tax invoice - valid SARS document."
     : "Receipt of payment.";
 
   const companyAddress = [
@@ -390,7 +390,7 @@ export function ReceiptDialog({
           </div>
         ) : (
           <div className="receipt-print-card rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">
-            {/* Header strip -- tenant identity */}
+            {/* Header strip - tenant identity */}
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold">
@@ -429,7 +429,7 @@ export function ReceiptDialog({
 
             <Separator />
 
-            {/* Two-column meta -- billed to + event */}
+            {/* Two-column meta - billed to + event */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">
@@ -541,7 +541,7 @@ export function ReceiptDialog({
           </div>
         )}
 
-        {/* Action bar -- screen only */}
+        {/* Action bar - screen only */}
         {!loading && !error && invoice && payments.length > 0 && (
           <div className="receipt-no-print flex items-center justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

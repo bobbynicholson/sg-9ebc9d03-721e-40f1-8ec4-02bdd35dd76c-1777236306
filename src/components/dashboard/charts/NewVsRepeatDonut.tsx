@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 3 chart 3 -- New vs repeat revenue split (current period).
+ * Tier 3 chart 3 - New vs repeat revenue split (current period).
  *
  * Donut chart with the rand split + a centre label showing total
  * revenue and the new-share percentage. Below the chart, a two-row
@@ -47,7 +47,7 @@ export function NewVsRepeatDonut({ data, loading }: Props) {
           <InfoTooltip
             content={
               "Money in this period split by whether the client is brand new (their first-ever order with you falls inside this period) or returning.\n\n" +
-              "Healthy mix usually shows a meaningful repeat share -- if you're 95%+ new, you're working too hard for every rand."
+              "Healthy mix usually shows a meaningful repeat share - if you're 95%+ new, you're working too hard for every rand."
             }
           />
         </CardTitle>

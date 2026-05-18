@@ -22,7 +22,7 @@ export interface GPSLocation {
  *
  * P1-23 (2026-05 audit): the previous implementation upserted on
  * gps_tracking with onConflict("driver_id"), but driver_id wasn't
- * unique on that table -- the schema split makes the "current
+ * unique on that table - the schema split makes the "current
  * location" lookup a single-row PK read and stops the upsert from
  * fighting a non-existent constraint.
  */
@@ -60,7 +60,7 @@ export async function updateDriverLocation(
       );
     if (curErr) throw curErr;
 
-    // Append-only history. Failure here is non-fatal -- "where is the
+    // Append-only history. Failure here is non-fatal - "where is the
     // driver right now" still works without the trail row.
     const { error: histErr } = await supabase.from("gps_tracking").insert({
       driver_id: driverId,

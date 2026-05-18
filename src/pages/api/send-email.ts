@@ -27,7 +27,7 @@ export default async function handler(
       // can save / forward without clicking through.
       attachQuotePdf,
       // Optional, server-rendered Invoice PDF attachment. Symmetric
-      // to attachQuotePdf -- caller passes attachInvoicePdf=true and
+      // to attachQuotePdf - caller passes attachInvoicePdf=true and
       // an invoiceId. Route hydrates the InvoicePdfData from the
       // invoices + orders + clients + companies tables (SSR client +
       // RLS) and renders a Buffer that gets handed to emailService.
@@ -49,7 +49,7 @@ export default async function handler(
     // SECURITY: caller must be authenticated and belong to the company they're
     // sending email "from". Without this, anyone with the endpoint URL could
     // pump messages through another tenant's configured Resend/SMTP credentials.
-    // companyWelcome is the one exception -- it's invoked by the public signup
+    // companyWelcome is the one exception - it's invoked by the public signup
     // flow before the user has a session.
     if (emailType !== "companyWelcome") {
       const ssr = createPagesServerClient({ req, res });
@@ -70,7 +70,7 @@ export default async function handler(
         return res.status(403).json({ error: "Cannot send email for another company" });
       }
 
-      // Negative gates -- two ways a send can be refused:
+      // Negative gates - two ways a send can be refused:
       //
       //   (1) blocked_contacts: the contact was deleted with the
       //       "block from future comms" toggle on. Permanent unless
@@ -114,7 +114,7 @@ export default async function handler(
         // leads + clients for any row matching this address whose
         // comms_paused_until is still in the future. Importantly we
         // run it per recipient so one paused email in a multi-recipient
-        // send blocks the whole call -- safer default than partial
+        // send blocks the whole call - safer default than partial
         // delivery.
         //
         // bypassQuarantine carve-out: legal / critical comms (refund
@@ -185,7 +185,7 @@ export default async function handler(
 
       // Normalise wire-format attachments (base64 strings) back into
       // Buffers for the email provider. Caller may also pass raw
-      // strings -- we leave those alone.
+      // strings - we leave those alone.
       const attachments: any[] = [];
       if (Array.isArray(attachmentsRaw)) {
         for (const a of attachmentsRaw) {

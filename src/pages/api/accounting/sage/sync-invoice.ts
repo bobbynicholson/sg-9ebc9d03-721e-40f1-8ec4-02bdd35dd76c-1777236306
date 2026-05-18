@@ -1,7 +1,7 @@
 /**
  * POST /api/accounting/sage/sync-invoice
  *
- * Wave 70.1 -- Sage Business Cloud invoice push. The OAuth scaffold
+ * Wave 70.1 - Sage Business Cloud invoice push. The OAuth scaffold
  * landed in Wave 70 (authorize.ts + callback.ts). This endpoint maps
  * a CateringMS invoice to a Sage sales_invoice payload and POSTs it
  * to api.accounting.sage.com.

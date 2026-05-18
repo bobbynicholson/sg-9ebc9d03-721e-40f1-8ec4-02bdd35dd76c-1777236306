@@ -300,7 +300,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       />
       <MapUpdater center={mapCenter} />
 
-      {/* Venue markers (orders) -- only ones with valid coords. Orders
+      {/* Venue markers (orders) - only ones with valid coords. Orders
           without a geocoded venue will appear in the side list but not
           on the map. */}
       {mappableOrders.map((order) => (
@@ -331,7 +331,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         </Marker>
       ))}
 
-      {/* Live driver markers -- only ones with valid GPS coords. */}
+      {/* Live driver markers - only ones with valid GPS coords. */}
       {mappableDrivers.map((driver) => (
         <Marker
           key={driver.id}

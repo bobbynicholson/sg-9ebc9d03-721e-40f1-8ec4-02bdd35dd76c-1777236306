@@ -7,7 +7,7 @@
  *
  * Idempotent. Safe to spam.
  *
- * Body: { dry_run?: boolean }  -- dry_run defaults true so a curious
+ * Body: { dry_run?: boolean }  - dry_run defaults true so a curious
  * click doesn't write anything.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -88,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Real run. Sequential -- volume is low enough not to need batching.
+    // Real run. Sequential - volume is low enough not to need batching.
     for (const o of orders || []) {
       try {
         const result = await lifecycleService.ensureLifecycleArtifactsForOrder(
@@ -108,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Also walk every active client without a matching lead and
-    // backfill a 'won' lead row -- so /admin/leads "All" / "Won
+    // backfill a 'won' lead row - so /admin/leads "All" / "Won
     // (archive)" shows the full historical pipeline.
     let clientLeadsCreated = 0;
     let clientsQuery = ssr

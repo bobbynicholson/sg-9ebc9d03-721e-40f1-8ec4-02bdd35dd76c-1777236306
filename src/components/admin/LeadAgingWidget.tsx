@@ -1,11 +1,11 @@
 /**
- * LeadAgingWidget -- oldest active leads that haven't been
+ * LeadAgingWidget - oldest active leads that haven't been
  * actioned in a while.
  *
  * Phase 14 #1. The contacts page surfaces leads but doesn't sort
  * them by neglect. Sales leads with a steady inflow lose the
  * oldest enquiries to the bottom of the list and never circle
- * back -- the lead goes cold, the deal walks.
+ * back - the lead goes cold, the deal walks.
  *
  * Self-hides when no lead has been waiting more than 3 days.
  */

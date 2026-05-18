@@ -206,7 +206,7 @@ function SubscriptionPage() {
   if (!subscription) {
     // No subscription = trial / unpaid tenant. Render the same shell
     // as the active-subscription view so the operator keeps the
-    // sidebar + chrome -- without the AdminNav wrapper this page
+    // sidebar + chrome - without the AdminNav wrapper this page
     // landed bare (no nav, no offset, content stuck at the top
     // left). The trial banner's "View Subscription Plans" button
     // points here so the empty state has to feel like a finished

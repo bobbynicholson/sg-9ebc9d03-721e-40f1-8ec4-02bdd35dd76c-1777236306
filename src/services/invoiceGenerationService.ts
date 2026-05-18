@@ -181,7 +181,7 @@ export async function generateInvoiceData(
           ? Number(row.line_total)
           : quantity * unitPrice;
       const description =
-        [row.item_name, row.description].filter(Boolean).join(" -- ") ||
+        [row.item_name, row.description].filter(Boolean).join(" - ") ||
         row.item_name ||
         "Item";
       return {
@@ -215,14 +215,14 @@ export async function generateInvoiceData(
     // Surface delivery + waiter charges as their own line items so
     // the client can see the breakdown that built the total. They're
     // already rolled into orders.subtotal at confirmation time, so we
-    // skip adding them again to the maths -- this is a presentation
+    // skip adding them again to the maths - this is a presentation
     // step, not a totals adjustment.
     const deliveryFee = Number(orderData.delivery_fee || 0);
     if (deliveryFee > 0) {
       // Show the km breakdown only when the saved fee matches the
       // canonical round-trip auto-calc (distance * 2 * rate). When
       // the operator overrode the fee with a flat amount, the km
-      // hint is misleading -- collapse to plain "Delivery" so the
+      // hint is misleading - collapse to plain "Delivery" so the
       // invoice + the public quote show the same flat figure.
       const dist = Number(orderData.delivery_distance_km) || 0;
       const rate = Number(orderData.delivery_rate_per_km) || 0;
@@ -295,7 +295,7 @@ export async function generateInvoiceData(
     // divide it by 1.15 to derive the ex-VAT net. That broke because
     // orders.subtotal is already the ex-VAT net (written that way by
     // convertQuoteToOrder / quote builder under inc-VAT mode), so the
-    // math divided net by 1.15 a second time -- the invoice landed at
+    // math divided net by 1.15 a second time - the invoice landed at
     // ~85% of the order total. The order total + the public quote view
     // agreed; only the invoice was wrong.
     //
@@ -332,7 +332,7 @@ export async function generateInvoiceData(
       client.billing_postal_code,
     ].filter(Boolean).join(", ");
 
-    // Wave 66.8 -- smart due-date hierarchy. Pre-Wave-66.8 the dueDate
+    // Wave 66.8 - smart due-date hierarchy. Pre-Wave-66.8 the dueDate
     // was hardcoded to invoice_date + 30 regardless of the tenant's
     // configured default or the client's per-account terms. Now:
     //
@@ -441,7 +441,7 @@ export async function generateInvoiceData(
  * consume_next_document_number RPC, which atomically returns and
  * advances the sequence. Auto-creates the settings row with sane
  * defaults on first call. Falls back to a timestamp-based number
- * only if the RPC fails outright -- never blocks invoice creation.
+ * only if the RPC fails outright - never blocks invoice creation.
  */
 async function getNextInvoiceNumber(companyId: string, client?: SupabaseLike): Promise<string> {
   const supabase = resolveClient(client);
@@ -522,7 +522,7 @@ export async function ensureInvoiceForOrder(
   const supabase = resolveClient(client);
   try {
     // 1. Look for live invoices for this order. Wave 28.9: was
-    // .maybeSingle() which throws on duplicates -- when finance ended
+    // .maybeSingle() which throws on duplicates - when finance ended
     // up with two drafts for the same order (cause: race / dual-path
     // entry), every subsequent call here would crash silently.
     // Switched to a multi-row read so we can heal corrupted state in
@@ -544,7 +544,7 @@ export async function ensureInvoiceForOrder(
       const survivor = liveInvoices[0];
       const olderDuplicates = liveInvoices.slice(1);
       // Void every older duplicate. Status = 'written_off' (the
-      // closest enum value -- the invoice_status enum doesn't have
+      // closest enum value - the invoice_status enum doesn't have
       // 'cancelled'), balance = 0 so they drop off the receivables
       // aging report, deleted_at set so they disappear from active
       // queries while the audit history is preserved.
@@ -571,7 +571,7 @@ export async function ensureInvoiceForOrder(
         }
       }
       // Recalc the survivor so the price reflects the order's current
-      // total. Skipped when survivor is already paid -- mutating a
+      // total. Skipped when survivor is already paid - mutating a
       // paid invoice would re-open finance reconciliation.
       if (survivor.status !== "paid") {
         try {
@@ -590,7 +590,7 @@ export async function ensureInvoiceForOrder(
       };
     }
 
-    // 2. Skip imported / quarantined orders -- their financials are
+    // 2. Skip imported / quarantined orders - their financials are
     // historical and already settled in the prior system.
     const { data: orderRow, error: orderRowErr } = await supabase
       .from("orders")
@@ -633,7 +633,7 @@ export async function ensureInvoiceForOrder(
         // short-circuits with 409 when not connected, which is fine
         // for fire-and-forget. Both endpoints write the external_id
         // back onto invoices, so the next invocation no-ops via the
-        // alreadySynced check -- meaning we can't double-sync even
+        // alreadySynced check - meaning we can't double-sync even
         // if both providers ever became connected at once.
         void fetch(`${baseUrl}/api/accounting/xero/sync-invoice`, {
           method: "POST",
@@ -649,7 +649,7 @@ export async function ensureInvoiceForOrder(
     }
 
     // Client-facing comms. Today an invoice row is inserted but the
-    // client only sees it if they proactively open the portal -- the
+    // client only sees it if they proactively open the portal - the
     // audit flagged this as a silent moment. Push an email + in-app
     // notification with a deep-link to the billing page. Fire-and-
     // forget: a bad email config must never undo the invoice.
@@ -671,7 +671,7 @@ export async function ensureInvoiceForOrder(
  *
  * Flow audit Leg C P0-4: amendment-review.ts called ensureInvoiceForOrder
  * after applying the diff, but ensureInvoiceForOrder no-ops when an
- * invoice already exists -- so the operator approved the change, the
+ * invoice already exists - so the operator approved the change, the
  * order total moved, and the invoice + balance_due stayed at the OLD
  * number. The client paid the wrong amount, the receivables aging
  * report was wrong, and the accounting sync re-pushed nothing.
@@ -818,12 +818,12 @@ async function notifyClientOfInvoiceIssued(
     const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
 
     // 1. In-app notification. resolveClientUserId returns null for
-    // un-linked portal-token clients -- skip the in-app push in that
+    // un-linked portal-token clients - skip the in-app push in that
     // case so we don't insert a row no auth user can read.
     try {
       const clientAuthUid = await resolveClientUserId(supabase, (order as any)?.client_id || null);
       if (clientAuthUid) {
-        // Pass `supabase` (the resolved client -- could be browser anon
+        // Pass `supabase` (the resolved client - could be browser anon
         // or service-role depending on caller context) so the bell row
         // inserts under the right auth surface. Without this, server-
         // context cascades silently dropped the in-app push because the
@@ -863,7 +863,7 @@ async function notifyClientOfInvoiceIssued(
         const fullLink = origin ? `${origin}${portalLink}` : portalLink;
 
         // Server-render the invoice PDF and attach it. Mirrors the
-        // attachQuotePdf pattern Phase 3D set up for quotes -- older
+        // attachQuotePdf pattern Phase 3D set up for quotes - older
         // clients expect a saveable document inline. Render is wrapped
         // in its own try / catch so a failure here doesn't block the
         // email; the recipient still gets the link to the billing page.
@@ -909,7 +909,7 @@ async function notifyClientOfInvoiceIssued(
             invoice_link: fullLink,
           },
           fallback: {
-            subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventName}`,
+            subject: `Invoice ${invoiceData.invoiceNumber} ready - ${eventName}`,
             bodyHtml: fallbackBody,
           },
         });
@@ -942,7 +942,7 @@ async function notifyClientOfInvoiceIssued(
  * non-blocking skip, not an error).
  *
  * Address note: InvoiceDocument expects a single client.address
- * string, so we flatten the billing_* columns here -- the document
+ * string, so we flatten the billing_* columns here - the document
  * layer stays decoupled from the clients schema.
  *
  * Cache: keyed on (invoice.updated_at, order.updated_at,
@@ -1409,7 +1409,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
 /**
  * Send invoice via email.
  *
- * Routes through /api/send-email (the canonical send pipeline -- auth
+ * Routes through /api/send-email (the canonical send pipeline - auth
  * gates, blocked-contact + paused-comms checks, Resend/SMTP via
  * email_settings, audit row in email_automation_log) and asks the
  * server to attach the rendered Invoice PDF. Subject + body resolve
@@ -1417,7 +1417,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
  * the inline fallback.
  *
  * Old path went to /api/send-invoice-email which was a console.log
- * stub -- the success toast lied. This path actually delivers.
+ * stub - the success toast lied. This path actually delivers.
  */
 export interface SendInvoiceEmailResult {
   success: boolean;
@@ -1465,7 +1465,7 @@ export async function sendInvoiceEmail(
       `Thanks,\n{{tenant_name}}`;
 
     // When the operator has reviewed + edited the body in the send
-    // dialog we DON'T re-resolve the template -- they're sending the
+    // dialog we DON'T re-resolve the template - they're sending the
     // exact text they saw. Drop the template so the server uses the
     // body verbatim. Same for the subject.
     const useTemplateLookup = !options.body;
@@ -1476,7 +1476,7 @@ export async function sendInvoiceEmail(
       body: JSON.stringify({
         companyId: options.companyId,
         to: recipientEmail,
-        subject: options.subject || `Invoice ${invoiceData.invoiceNumber} ready -- ${eventLabel}`,
+        subject: options.subject || `Invoice ${invoiceData.invoiceNumber} ready - ${eventLabel}`,
         body: fallbackBody,
         ...(useTemplateLookup ? { template: templateType } : {}),
         variables: {

@@ -37,7 +37,7 @@ const ROLE_OPTIONS = [
 ];
 
 // Roles that get region scoping. Cross-branch roles (company_admin,
-// sales_admin) ignore the picker -- they see all branches by RLS rule.
+// sales_admin) ignore the picker - they see all branches by RLS rule.
 const REGION_SCOPED_ROLE_VALUES = new Set([
   "region_admin", "driver", "kitchen_staff", "shopping_staff", "cleaning_staff",
 ]);
@@ -61,7 +61,7 @@ export default function StaffManagementPage() {
   });
   // Branch / kitchen scoping. regions_covered is the array we write to
   // profiles for region_admin + branch-scoped staff. Cross-branch roles
-  // ignore this entirely -- the picker hides itself.
+  // ignore this entirely - the picker hides itself.
   const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
   const [regionIds, setRegionIds] = useState<string[]>([]);
   const showRegionPicker =
@@ -147,7 +147,7 @@ export default function StaffManagementPage() {
         // it via their own secure channel. The server never stores or
         // logs the plaintext.
         window.prompt(
-          `Temporary password for ${newStaff.full_name} (copied to clipboard).\nShare it via WhatsApp / in person -- staff must change it on first login.`,
+          `Temporary password for ${newStaff.full_name} (copied to clipboard).\nShare it via WhatsApp / in person - staff must change it on first login.`,
           tempPassword,
         );
       }
@@ -155,7 +155,7 @@ export default function StaffManagementPage() {
       toast({
         title: "Staff Added!",
         description: tempPassword
-          ? `${newStaff.full_name} added. Temporary password shown once -- share it now.`
+          ? `${newStaff.full_name} added. Temporary password shown once - share it now.`
           : `${newStaff.full_name} has been added to your team`,
       });
 
@@ -346,7 +346,7 @@ export default function StaffManagementPage() {
                               <span className="font-medium">{k.name}</span>
                               {k.address && (
                                 <span className="text-xs text-slate-500 truncate">
-                                  -- {k.address}
+                                  - {k.address}
                                 </span>
                               )}
                             </label>
@@ -359,7 +359,7 @@ export default function StaffManagementPage() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    A unique temporary password will be generated on save. We'll show it once -- copy it and share it with the new staff member via WhatsApp or in person. They should change it on first login.
+                    A unique temporary password will be generated on save. We'll show it once - copy it and share it with the new staff member via WhatsApp or in person. They should change it on first login.
                   </AlertDescription>
                 </Alert>
 

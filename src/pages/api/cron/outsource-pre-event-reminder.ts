@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 67.3 -- outsource provider pre-event reminder.
+ * Wave 67.3 - outsource provider pre-event reminder.
  *
  * For every accepted outsource_assignments row whose event is in the
  * next 24-36 hours, send the provider a "see you tomorrow" email with
@@ -20,7 +20,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Wave 70.4 -- E2E test support. When dryRun=1 we skip the
+  // Wave 70.4 - E2E test support. When dryRun=1 we skip the
   // CRON_SECRET check (still require an authenticated owner / admin
   // via Supabase SSR) and return a list of who would have been
   // emailed without actually calling emailService. Lets admins
@@ -140,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://cateringms.com";
         const acceptLink = a.accept_token ? `${origin.replace(/\/$/, "")}/p/accept/${a.accept_token}` : null;
 
-        const subject = `Reminder: ${(order as any).event_name || (order as any).order_number || "Booking"} -- ${eventWhen}`;
+        const subject = `Reminder: ${(order as any).event_name || (order as any).order_number || "Booking"} - ${eventWhen}`;
         const bodyText = [
           `Hi ${firstName},`,
           ``,

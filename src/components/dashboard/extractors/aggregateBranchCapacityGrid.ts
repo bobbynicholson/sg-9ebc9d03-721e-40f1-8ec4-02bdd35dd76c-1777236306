@@ -1,9 +1,9 @@
 /**
- * Tier 6 chart 2 -- Inter-branch capacity grid.
+ * Tier 6 chart 2 - Inter-branch capacity grid.
  *
  * Pivots upcoming order volume into a branches x weeks heatmap so the
  * operator can spot "JHB is overbooked next month while CPT has slack
- * -- shift a kitchen team or push CPT marketing".
+ * - shift a kitchen team or push CPT marketing".
  *
  * Window: 8 ISO weeks starting from the current week (today inclusive).
  * Cells: order count for that branch in that week. Status filter
@@ -26,7 +26,7 @@ export interface BranchCapacityCell {
 
 export interface BranchCapacityWeek {
   idx: number;
-  /** Short label, e.g. "May 6" -- the Monday of that ISO week */
+  /** Short label, e.g. "May 6" - the Monday of that ISO week */
   label: string;
   /** Tooltip-friendly long label, e.g. "Week of 6 May 2026" */
   longLabel: string;
@@ -38,7 +38,7 @@ export interface BranchCapacityGridResult {
   cells: BranchCapacityCell[];
   /** Grand total of orders represented in the grid. */
   totalOrders: number;
-  /** Highest-count cell -- used for ramping. */
+  /** Highest-count cell - used for ramping. */
   maxCellCount: number;
   /** Pre-computed busiest branch + slowest branch, for the summary line. */
   busiestBranchId: string | null;
@@ -50,7 +50,7 @@ const WEEKS_AHEAD = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const startOfISOWeek = (d: Date): Date => {
-  // Monday-anchored. JS getDay() returns 0=Sun..6=Sat -- shift to ISO.
+  // Monday-anchored. JS getDay() returns 0=Sun..6=Sat - shift to ISO.
   const r = new Date(d);
   r.setHours(0, 0, 0, 0);
   const day = r.getDay();

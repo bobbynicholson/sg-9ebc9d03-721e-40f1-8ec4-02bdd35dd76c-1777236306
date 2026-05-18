@@ -16,7 +16,7 @@
  *      On failure we leave the row at `pending` and write an audit row
  *      with the error so finance can retry from /admin/refunds.
  *   4. If the parent was EFT / cash / manual, we leave the refund at
- *      `pending` -- finance does the EFT in their bank app and clicks
+ *      `pending` - finance does the EFT in their bank app and clicks
  *      "Mark refund paid" the way they always have.
  *
  * Idempotent: if the refund row is already `completed` we no-op.
@@ -45,8 +45,8 @@ export interface ProcessRefundResult {
 
 /**
  * Detect whether a parent payment row was settled via PayFast. We check
- * both columns -- `gateway` (newer) and `gateway_provider` (older
- * mirror) -- because the codebase writes one or the other depending on
+ * both columns - `gateway` (newer) and `gateway_provider` (older
+ * mirror) - because the codebase writes one or the other depending on
  * which entry point recorded the payment.
  */
 function isPayFastPayment(p: any): boolean {
@@ -73,7 +73,7 @@ function payFastTxnId(p: any): string | null {
 /**
  * Fetch the company's active PayFast credentials from the
  * payment_gateway_credentials sibling. Returns null if PayFast is not
- * configured (or not active) for the company -- in that case we can't
+ * configured (or not active) for the company - in that case we can't
  * push the refund automatically and the caller must fall back to
  * pending-manual.
  */
@@ -122,7 +122,7 @@ async function loadPayFastCreds(
 }
 
 /**
- * Best-effort audit log write. Never throws -- failures are logged
+ * Best-effort audit log write. Never throws - failures are logged
  * but don't unwind the refund processing.
  */
 async function writeAudit(
@@ -251,7 +251,7 @@ export async function processRefund(
   );
 
   if (!payFastParent) {
-    // EFT / cash / manual / no parent -- leave at pending and let
+    // EFT / cash / manual / no parent - leave at pending and let
     // finance do it the existing way through /admin/refunds.
     return {
       status: "pending_manual",
@@ -334,7 +334,7 @@ export async function processRefund(
     };
   }
 
-  // 5) Success -- mark the refund row completed and stamp the gateway.
+  // 5) Success - mark the refund row completed and stamp the gateway.
   // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
   const nowIso = new Date().toISOString();
   const { error: updErr } = await admin
@@ -350,7 +350,7 @@ export async function processRefund(
     .eq("id", refundPaymentId);
   if (updErr) {
     // The PayFast call succeeded but our DB update did not. We log
-    // loudly -- finance can reconcile from the audit row.
+    // loudly - finance can reconcile from the audit row.
     await writeAudit(admin, {
       companyId: refundRow.company_id,
       actorUserId,
@@ -390,7 +390,7 @@ export async function processRefund(
   // Wave 19 audit: refund_paid email never fired on the auto-processed
   // PayFast path. The /admin/refunds manual-mark-paid flow sends it
   // (via sendRefundPaidEmail), but when PayFast settled the refund
-  // automatically the client got nothing -- they wondered for days
+  // automatically the client got nothing - they wondered for days
   // whether the money was coming. Fire the email here so both paths
   // produce the same client-facing outcome. Best-effort: a failed
   // email never undoes a successful refund.

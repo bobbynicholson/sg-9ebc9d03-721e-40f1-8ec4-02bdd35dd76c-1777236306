@@ -25,7 +25,7 @@ const ClientTrackingMap = dynamic(
 interface OrderDetails {
   id: string;
   order_number?: string | null;
-  // Wave 70.45c -- canonical BookingHeader fields. The orders select
+  // Wave 70.45c - canonical BookingHeader fields. The orders select
   // is `*` so these come down for free; declaring them on the type
   // lets the header read them without `as any` shenanigans.
   event_name?: string | null;
@@ -107,7 +107,7 @@ export default function ClientTracking() {
         setLoading(false);
         return;
       }
-      // Multiple historical clients rows are possible -- collect all.
+      // Multiple historical clients rows are possible - collect all.
       const { data: clientRows } = await supabase
         .from("clients")
         .select("id")
@@ -139,7 +139,7 @@ export default function ClientTracking() {
       
       // Filter to show orders that are active or recently delivered.
       // We expose driver_id on the mapped order so that loadDriverLocation
-      // can look up the driver's GPS row -- the join produces
+      // can look up the driver's GPS row - the join produces
       // `assigned_driver.id` but the rest of this page reads `driver_id`.
       const activeOrders = (fetchedOrders || []).filter((o: any) =>
         ["preparing", "ready", "in_transit", "delivered"].includes(o.status)
@@ -339,7 +339,7 @@ export default function ClientTracking() {
         <div className={layoutShell}>
           <ClientPageHeader
             title="Live tracking"
-            subtitle="Watch your driver as they roll out -- map, ETA, and the option to call them direct."
+            subtitle="Watch your driver as they roll out - map, ETA, and the option to call them direct."
           />
           <div className={`${innerPadding} py-8`}>
             <Card className="border-0 shadow-sm">
@@ -386,12 +386,12 @@ export default function ClientTracking() {
         />
 
         <div className={`${innerPadding} py-8 space-y-6`}>
-          {/* Wave 70.45c -- canonical BookingHeader (client variant).
+          {/* Wave 70.45c - canonical BookingHeader (client variant).
               Same component the client sees on every event document
               (quote, order tracking, order detail). Replaces the
               implicit "selected order context" that was previously
               spread across the Live Tracking card title + driver
-              info card -- those still render, this is the top-level
+              info card - those still render, this is the top-level
               identity strip for the order being tracked. */}
           {selectedOrder && (
             <BookingHeader
@@ -487,7 +487,7 @@ export default function ClientTracking() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-slate-600">Contact</p>
                             <p className="font-semibold truncate">{selectedOrder.driver_phone}</p>
-                            {/* Tap-to-call + WhatsApp -- closes the audit gap
+                            {/* Tap-to-call + WhatsApp - closes the audit gap
                                 "client sees driver phone but cannot message".
                                 Mirrors the driver-side bridge on /team-portal/driver/deliveries. */}
                             <div className="flex items-center gap-2 mt-1.5">

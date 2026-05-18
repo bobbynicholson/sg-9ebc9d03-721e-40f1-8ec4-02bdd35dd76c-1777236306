@@ -1,13 +1,13 @@
 /**
- * markQuoteAsLost -- Wave 70.50b
+ * markQuoteAsLost - Wave 70.50b
  *
  * Single chokepoint for "this quote isn't going to happen, close it
  * out properly". Replaces the two parallel implementations:
  *
- *   1. /api/public/quotes/[token]/reject.ts -- client decline (Wave 21+).
+ *   1. /api/public/quotes/[token]/reject.ts - client decline (Wave 21+).
  *      Full side effects: lead flip, operator notification, client
  *      confirmation email, audit log.
- *   2. /admin/quotes/index.tsx handleMarkAsLost -- admin manual flip
+ *   2. /admin/quotes/index.tsx handleMarkAsLost - admin manual flip
  *      (Phase 11 #6). Bare status flip + optional audit log. None of
  *      the rich side effects of the client path.
  *
@@ -37,7 +37,7 @@ export type LostReason =
 export interface MarkQuoteAsLostOpts {
   /** Quote ID OR public_token. Specify which via `match`. */
   match: { kind: "id"; quote_id: string } | { kind: "token"; public_token: string };
-  /** Structured loss category. Required -- the whole point of this
+  /** Structured loss category. Required - the whole point of this
    *  refactor is to stop losing the why. */
   reason: LostReason;
   /** Free-text explanation. Optional; appended to quotes.notes. */
@@ -103,7 +103,7 @@ export function isValidLostReason(value: unknown): value is LostReason {
  *   5. audit_logs row with full context
  *
  * The receipt structure lets the caller see WHICH side effects actually
- * landed -- useful when a stale row prevented the flip but the audit
+ * landed - useful when a stale row prevented the flip but the audit
  * insert still succeeded, etc.
  */
 export async function markQuoteAsLost(opts: MarkQuoteAsLostOpts): Promise<MarkQuoteAsLostResult> {
@@ -149,7 +149,7 @@ export async function markQuoteAsLost(opts: MarkQuoteAsLostOpts): Promise<MarkQu
   }
 
   if (!updated) {
-    // No row matched -- check whether quote exists but is already terminal.
+    // No row matched - check whether quote exists but is already terminal.
     let existsQuery = sb
       .from("quotes")
       .select("id, status, company_id")
@@ -287,10 +287,10 @@ export async function markQuoteAsLost(opts: MarkQuoteAsLostOpts): Promise<MarkQu
       await (emailService as any).sendEmail({
         companyId,
         to: clientEmail,
-        subject: `Quote ${quoteNumber || ""} -- declined`,
+        subject: `Quote ${quoteNumber || ""} - declined`,
         body:
           `Hi ${firstName},\n\n` +
-          `This confirms that you've declined quote ${quoteNumber || ""}. We've closed it on our side -- no follow-ups coming.\n\n` +
+          `This confirms that you've declined quote ${quoteNumber || ""}. We've closed it on our side - no follow-ups coming.\n\n` +
           reasonLine +
           `If your plans change, just reply to this email and we'll work out a fresh quote.\n\n` +
           `Thanks,\n${companyName}`,

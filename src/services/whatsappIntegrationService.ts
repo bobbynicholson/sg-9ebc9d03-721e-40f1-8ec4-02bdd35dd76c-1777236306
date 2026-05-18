@@ -115,7 +115,7 @@ export const whatsappIntegrationService = {
       // company block list, or is in import quarantine. Email path is
       // gated centrally in pages/api/send-email.ts; WhatsApp used to
       // skip the gates entirely (Agent 4 audit). Passing `companyId`
-      // is what activates the check -- callers without it (legacy
+      // is what activates the check - callers without it (legacy
       // callers / tests) are not gated, but every production caller
       // in this file passes it.
       if (meta?.companyId) {
@@ -212,7 +212,7 @@ export const whatsappIntegrationService = {
       }
 
       // Audit (May 2026, Wave 7): orders.client_id references the
-      // clients table, NOT profiles -- the previous join returned
+      // clients table, NOT profiles - the previous join returned
       // null and every WhatsApp confirmation/update silently exited
       // with "phone not available".
       const profile = Array.isArray((order as any).clients)
@@ -261,7 +261,7 @@ export const whatsappIntegrationService = {
       }
 
       // Audit (May 2026, Wave 7): orders.client_id references the
-      // clients table, NOT profiles -- the previous join returned
+      // clients table, NOT profiles - the previous join returned
       // null and every WhatsApp confirmation/update silently exited
       // with "phone not available".
       const profile = Array.isArray((order as any).clients)

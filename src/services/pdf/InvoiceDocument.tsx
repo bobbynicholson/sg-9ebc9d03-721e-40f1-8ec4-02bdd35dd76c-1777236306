@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * InvoiceDocument -- React-PDF document for tax invoices.
+ * InvoiceDocument - React-PDF document for tax invoices.
  *
  * SARS rule: VAT-registered businesses must show "Tax Invoice" + the
  * VAT registration number on every invoice. Non-registered tenants
@@ -94,7 +94,7 @@ export interface InvoicePdfData {
  * Phase 9 #2: tenant-currency-aware money formatter. Falls back
  * to ZAR / R when the row doesn't declare a currency so existing
  * invoices keep rendering identically. Pass the invoice.currency
- * (or company.currency) string -- e.g. "USD", "GBP", "ZAR".
+ * (or company.currency) string - e.g. "USD", "GBP", "ZAR".
  */
 const CURRENCY_LOCALE: Record<string, string> = {
   ZAR: "en-ZA",
@@ -514,7 +514,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* LINE ITEMS -- mirrors QuoteDocument's "From the kitchen" block */}
+        {/* LINE ITEMS - mirrors QuoteDocument's "From the kitchen" block */}
         {lineItems.length > 0 ? (
           <View style={[styles.column, { marginBottom: 10 }]}>
             <Text style={styles.sectionLabel}>From the kitchen</Text>
@@ -559,7 +559,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
           {/* Phase 15 #8: discount line. Surfaces orders.
               discount_amount on the PDF so the client sees the
-              saving rather than just a lower headline -- the
+              saving rather than just a lower headline - the
               concession reads as concession, not as a quiet
               price drop. */}
           {discount > 0 ? (

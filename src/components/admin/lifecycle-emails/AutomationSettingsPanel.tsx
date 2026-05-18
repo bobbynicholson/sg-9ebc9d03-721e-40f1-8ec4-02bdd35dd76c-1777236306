@@ -1,5 +1,5 @@
 /**
- * AutomationSettingsPanel -- SMTP credentials + automation rule editor.
+ * AutomationSettingsPanel - SMTP credentials + automation rule editor.
  *
  * Extracted from /admin/email-automation-settings. Three sub-tabs:
  * SMTP configuration, automation rules and test/preview. Persists to
@@ -7,7 +7,7 @@
  * mailer is wired.
  *
  * Pure component: no AdminNav / NoIndexMeta / page header / role gate
- * -- those are page concerns (the hub already gates on role via
+ * - those are page concerns (the hub already gates on role via
  * ProtectedRoute). This is just the body.
  */
 import { useState, useEffect } from "react";

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * vehicleService -- the catering company's fleet brain.
+ * vehicleService - the catering company's fleet brain.
  *
  * Carries CRUD on vehicles, the time-window booking layer that the
  * dispatch queue uses to pick a vehicle for an order, and the
@@ -125,7 +125,7 @@ export function computeOrderVehicleWindow(args: {
  * Triggered when ANY of:
  *   - The vehicle on the run is flagged requires_two_people.
  *   - Guest count is huge enough that one person can't serve solo
- *     (default threshold 150 -- override per company later).
+ *     (default threshold 150 - override per company later).
  *   - The order has waiter_service AND > 80 guests (food + service split).
  */
 export function shouldRequireTwoDrivers(args: {
@@ -178,7 +178,7 @@ export interface AvailabilityResult {
   score: number;
   /** Plain-English reasons used in the dispatch UI tooltip. */
   reasons: string[];
-  /** Plain-English warnings -- vehicle works but isn't ideal. */
+  /** Plain-English warnings - vehicle works but isn't ideal. */
   warnings: string[];
   /** True when the vehicle is owned by a specific driver. */
   driverOwned: boolean;
@@ -318,7 +318,7 @@ export const vehicleService = {
   }): Promise<VehicleBooking | null> {
     // Soft-cancel any existing planned booking for this order so a
     // reassign doesn't leave the old vehicle locked. We don't touch
-    // 'completed' or 'on_route' bookings -- they're history.
+    // 'completed' or 'on_route' bookings - they're history.
     await supabase
       .from("vehicle_bookings")
       .update({ status: "cancelled", updated_at: new Date().toISOString() })
@@ -363,7 +363,7 @@ export const vehicleService = {
    * available.
    *
    * Returns one row per vehicle in the company, including ones with
-   * zero bookings -- the dispatcher needs to spot the truck nobody's
+   * zero bookings - the dispatcher needs to spot the truck nobody's
    * touching, not just the busy ones.
    */
   async getUtilisation(companyId: string, fromISO: string, toISO: string): Promise<Array<{
@@ -482,7 +482,7 @@ export const vehicleService = {
         continue; // can't keep food hot, skip
       }
       if (req.loadKg != null && v.capacity_kg != null && v.capacity_kg < req.loadKg) {
-        // Not strictly impossible -- the team can split the load -- but
+        // Not strictly impossible - the team can split the load - but
         // surface as a warning rather than a hard skip.
         warnings.push(`Load ${req.loadKg}kg over the listed capacity of ${v.capacity_kg}kg.`);
         score -= 3;
@@ -496,7 +496,7 @@ export const vehicleService = {
           score += 5;
           reasons.push("Driver's own vehicle, no extra coordination needed.");
         } else {
-          // A different driver's car -- not available unless that other
+          // A different driver's car - not available unless that other
           // driver is assigned. Skip.
           continue;
         }

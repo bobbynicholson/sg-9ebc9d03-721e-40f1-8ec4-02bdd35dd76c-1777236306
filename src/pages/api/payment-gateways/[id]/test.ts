@@ -6,7 +6,7 @@
  * provider lib, and stamps `last_verified_at` on success so the admin
  * UI can show when the operator last confirmed the keys work.
  *
- * Failure is NOT fatal -- we return ok:false plus the provider error
+ * Failure is NOT fatal - we return ok:false plus the provider error
  * so the operator sees what happened, and we DON'T touch
  * last_verified_at on a failed ping.
  */

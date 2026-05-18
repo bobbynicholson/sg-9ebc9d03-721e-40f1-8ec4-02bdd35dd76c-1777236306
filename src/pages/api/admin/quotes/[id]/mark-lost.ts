@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/quotes/[id]/mark-lost -- Wave 70.50b
+ * POST /api/admin/quotes/[id]/mark-lost - Wave 70.50b
  *
  * Admin / owner manual loss flip. Routes through the same
  * markQuoteAsLost() helper as the client-decline endpoint so both
@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? body.reason_note.trim().slice(0, 1000)
       : null;
 
-    // Tenant gate before invoking the helper -- the helper itself uses
+    // Tenant gate before invoking the helper - the helper itself uses
     // service role so it would otherwise happily flip any tenant's
     // quote. Read company_id via SSR (RLS-permitted) so we get a clean
     // "wrong company" failure if the caller's profile doesn't match.

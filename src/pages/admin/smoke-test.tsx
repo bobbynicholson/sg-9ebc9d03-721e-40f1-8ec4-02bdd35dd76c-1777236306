@@ -1,8 +1,8 @@
 /**
- * /admin/smoke-test -- Wave 70.47
+ * /admin/smoke-test - Wave 70.47
  *
  * One-button UI for the end-to-end smoke endpoint. Owner-tier roles
- * only. Hit "Run smoke" -- the endpoint creates a tagged test client +
+ * only. Hit "Run smoke" - the endpoint creates a tagged test client +
  * order, walks the full lifecycle, runs a package cancel cascade, and
  * cleans up after itself. The results table shows pass / fail per
  * stage with timing + the actual error message if a stage broke.
@@ -85,7 +85,7 @@ function SmokeTestPage() {
 
   return (
     <>
-      <Head><title>Smoke Test -- Admin</title></Head>
+      <Head><title>Smoke Test - Admin</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
@@ -96,7 +96,7 @@ function SmokeTestPage() {
               End-to-end smoke test
             </h1>
             <p className="text-sm text-slate-600 mt-1 max-w-3xl">
-              Runs the full lifecycle on a tagged test row -- client,
+              Runs the full lifecycle on a tagged test row - client,
               order, deposit, status transitions, invoice trigger,
               package cancel cascade. Cleans up after itself unless you
               tick the box below. Use before claiming the platform

@@ -1,5 +1,5 @@
 /**
- * releaseOrderResources -- Wave 70.48
+ * releaseOrderResources - Wave 70.48
  *
  * Single chokepoint for "release every downstream allocation tied to
  * this order." Replaces the scattered fire-and-forget blocks that used
@@ -15,14 +15,14 @@
  *     without re-touching cancelOrder.
  *
  * Mode controls behaviour for the three real callers:
- *   "cancel"   -- full release; resources marked cancelled, allocations
+ *   "cancel"   - full release; resources marked cancelled, allocations
  *                 reversed, downstream emails stopped. Default.
- *   "postpone" -- release-but-preserve; nulls assignments so the order
+ *   "postpone" - release-but-preserve; nulls assignments so the order
  *                 can be re-dispatched on a new date, but leaves
  *                 invoices, inventory, and audit log untouched.
- *   "reject"   -- quote-side rejection cleanup. Most resources never
+ *   "reject"   - quote-side rejection cleanup. Most resources never
  *                 existed (they're order-time creations) so this is
- *                 a lighter touch -- only equipment_hire_orders
+ *                 a lighter touch - only equipment_hire_orders
  *                 currently has quote-side allocations.
  *
  * Returns a receipt (array of {resource, action, count, error?}) so
@@ -36,14 +36,14 @@ export type ReleaseMode = "cancel" | "postpone" | "reject";
 export interface ReleaseLine {
   /** Short table/resource name, e.g. "equipment_bookings". */
   resource: string;
-  /** "cancelled" | "nulled" | "reversed" | "skipped" -- what we did. */
+  /** "cancelled" | "nulled" | "reversed" | "skipped" - what we did. */
   action: string;
   /** Affected row count when known. */
   count?: number;
   /** Error message if this resource failed. Other resources still run. */
   error?: string;
   /**
-   * Wave 70.49 -- operator-action follow-ups the system can't do itself.
+   * Wave 70.49 - operator-action follow-ups the system can't do itself.
    * Examples: "notify supplier {name}/{contact} that hire is cancelled",
    * "notify outsource provider {name} that the job is off". These get
    * embedded in the audit_logs row + can be surfaced via a "Manual
@@ -79,7 +79,7 @@ export interface ReleaseOpts {
   mode?: ReleaseMode;
   /** Supabase client (service or SSR). */
   sb: any;
-  /** Suppress console warns -- useful when called from tests. */
+  /** Suppress console warns - useful when called from tests. */
   silent?: boolean;
 }
 
@@ -135,8 +135,8 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   });
 
   // ── 2. kitchen_prep_tasks ───────────────────────────────────────────
-  // For cancel / reject -- mark skipped.
-  // For postpone -- leave alone; they'll re-schedule against the new date.
+  // For cancel / reject - mark skipped.
+  // For postpone - leave alone; they'll re-schedule against the new date.
   //
   // Wave 70.48b: was status='cancelled' which is NOT in the
   // kitchen_prep_tasks_status_check enum (allowed: pending,
@@ -144,12 +144,12 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // this shipped silently 23514-errored on the prep task flip,
   // leaving tasks stuck on 'pending' and the chef's prep view
   // showing ghost tasks for cancelled events. Discovered by the
-  // Wave 70.47 smoke test on the first live run -- the structured
+  // Wave 70.47 smoke test on the first live run - the structured
   // release receipt now reports per-resource success/failure where
   // the old fire-and-forget void(async)() blocks just logged a
   // warn that nobody read. 'skipped' is the enum value semantically
   // closest to "this task isn't going to happen" (the chef chose
-  // not to do it -- in this case because the event was cancelled).
+  // not to do it - in this case because the event was cancelled).
   if (mode === "cancel" || mode === "reject") {
     await tryUpdate("kitchen_prep_tasks", "skipped", async () => {
       const { count, error } = await sb
@@ -188,13 +188,13 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   }
 
   // ── 4. invoices (void unpaid) ──────────────────────────────────────
-  // Only on cancel -- postpone keeps the invoice live against the new
+  // Only on cancel - postpone keeps the invoice live against the new
   // event date.
   //
-  // Wave 70.51a -- switched status target from 'written_off' to the
+  // Wave 70.51a - switched status target from 'written_off' to the
   // new 'voided' enum value. 'written_off' was the closest existing
   // value pre-migration but conflates "the order never happened" with
-  // "bad debt" in accounting -- the bookkeeper saw cancelled-order
+  // "bad debt" in accounting - the bookkeeper saw cancelled-order
   // invoices on the write-off expense report, polluting the actual
   // bad-debt line. 'voided' is now distinct (Wave 70.51 migration).
   // The deleted_at + balance_due=0 + status flip combination still
@@ -219,7 +219,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   }
 
   // ── 5. outgoing_email_queue (cancel pending) ───────────────────────
-  // All three modes -- pending emails for the original date are now
+  // All three modes - pending emails for the original date are now
   // wrong regardless of whether the event was cancelled, postponed
   // (will re-schedule for new date), or the quote rejected.
   //
@@ -230,7 +230,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // updated_at column"), leaving pending emails un-cancelled.
   // Real symptom: clients receiving "see you tomorrow!" reminder
   // emails the day before a cancelled event. Status flip alone is
-  // sufficient -- the email cron worker only fires on
+  // sufficient - the email cron worker only fires on
   // status='pending', so changing status is the whole job.
   await tryUpdate("outgoing_email_queue", "cancelled", async () => {
     const { count, error } = await sb
@@ -243,18 +243,18 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
 
   // ── 6. outsource_assignments ────────────────────────────────────────
   // Cancel cascade. Postpone is a special case (the assignment date
-  // changes too) -- caller handles that path separately.
+  // changes too) - caller handles that path separately.
   //
-  // Wave 70.49 -- before flipping status, read the active assignments
+  // Wave 70.49 - before flipping status, read the active assignments
   // so we can capture supplier identity into the receipt as a manual
-  // follow-up. Provider is NOT auto-notified (per the audit -- accept
+  // follow-up. Provider is NOT auto-notified (per the audit - accept
   // links serving silent cancelled pages is worse UX than the operator
   // making a 30-second phone call). The receipt feeds the cancellation
   // review screen's "Manual follow-ups required" panel.
   if (mode === "cancel") {
     const followups: NonNullable<ReleaseLine["followups"]> = [];
     try {
-      // Wave 70.49 -- read active assignments + join outsource_providers
+      // Wave 70.49 - read active assignments + join outsource_providers
       // for the human-readable name. provider_id is the only FK on
       // outsource_assignments; the parent name lives on the provider
       // row. Embed join: `outsource_providers ( name, contact_phone,
@@ -307,7 +307,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
 
   // ── 8. equipment_hire_orders (Wave 70.49) ──────────────────────────
   // 3rd-party rental cancellation. Highest direct rand cost per
-  // cancellation per the audit -- catering company keeps paying for
+  // cancellation per the audit - catering company keeps paying for
   // a marquee/generator/extra chairs for an event that's not happening.
   //
   // Per Bobby's call: mark cancelled in our DB + queue a manual
@@ -317,7 +317,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // The receipt's `followups` field carries the supplier name +
   // contact so the operator can act from one place.
   //
-  // Filters to non-terminal statuses only (draft, confirmed) -- a
+  // Filters to non-terminal statuses only (draft, confirmed) - a
   // hire already in picked_up/returned is a real allocation that
   // can't be "un-cancelled" by us.
   if (mode === "cancel" || mode === "reject") {
@@ -331,7 +331,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
       ((active as any[]) || []).forEach((row) => {
         followups.push({
           kind: "notify_hire_supplier",
-          label: `${row.supplier_name || "Unknown supplier"} -- ${row.equipment_name || "equipment"} x${row.quantity}`,
+          label: `${row.supplier_name || "Unknown supplier"} - ${row.equipment_name || "equipment"} x${row.quantity}`,
           contact: row.supplier_contact || null,
           ref_id: row.id,
         });
@@ -440,7 +440,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // rejected_at=now. The won_then_cancelled_quotes view picks these
   // up for the "churned" bucket on the conversion funnel (Wave 70.50b).
   //
-  // Only fires on mode='cancel' -- postpone keeps the quote alive
+  // Only fires on mode='cancel' - postpone keeps the quote alive
   // (the same event happens on a new date), reject mode doesn't apply
   // (no order to read quote_id from).
   if (mode === "cancel") {
@@ -455,7 +455,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
         .maybeSingle();
       const quoteId = (orderRow as any)?.quote_id;
       if (!quoteId) {
-        // Treat as a no-op success -- not every order has a quote.
+        // Treat as a no-op success - not every order has a quote.
         return { count: 0 };
       }
       // Only flip if quote is still in a non-terminal state. A quote
@@ -495,7 +495,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
           lost_at: nowIso,
         }, { count: "exact" })
         .eq("source_order_id", orderId)
-        // Skip leads already in a terminal state -- don't clobber
+        // Skip leads already in a terminal state - don't clobber
         // a manually-set lost_reason or won_at.
         .not("status", "in", "(lost,won)");
       return { error, count };
@@ -507,7 +507,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // ── 13. shopping_list_items soft-remove (Wave 70.51a) ──────────────
   // Audit gap (Tier 1 #2 in the cascade audit): shopping list items
   // pushed into a list were the highest perishable-waste leak after
-  // hire-in -- operators kept buying groceries for events that no
+  // hire-in - operators kept buying groceries for events that no
   // longer existed because there was no order_id linkage. Wave 70.51
   // migration added shopping_list_items.source_order_id + removed_at
   // + removed_reason. Now: soft-remove every un-purchased item tied
@@ -521,13 +521,13 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   //   - The UI already filters on removed_at IS NULL for the active
   //     shop view.
   //
-  // Already-purchased items are left alone -- the spend is sunk; the
+  // Already-purchased items are left alone - the spend is sunk; the
   // operator can mark them for re-use or write-off via the usual
   // inventory flow (Wave 70.51b will surface a "consumed for
   // cancelled order X" reconciliation panel).
   if (mode === "cancel" || mode === "reject") {
     await tryUpdate("shopping_list_items", "removed", async () => {
-      // `purchased` is nullable in the schema -- `eq("purchased", false)`
+      // `purchased` is nullable in the schema - `eq("purchased", false)`
       // would skip NULL rows. We need to soft-remove NULL-purchased
       // items too (NULL = "not yet recorded as purchased" = still in
       // the shop queue). Use `.not("purchased", "is", true)` to catch

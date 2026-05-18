@@ -1,5 +1,5 @@
 /**
- * Tier 5 chart 1 -- Cancellation reasons.
+ * Tier 5 chart 1 - Cancellation reasons.
  *
  * Looks at orders that were cancelled (status='cancelled' OR cancelled_at
  * set) within the input set, groups by a normalised version of

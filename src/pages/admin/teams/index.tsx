@@ -1,5 +1,5 @@
 /**
- * Teams glance -- one row per operational team. Manager Monday-morning
+ * Teams glance - one row per operational team. Manager Monday-morning
  * view: head count, hours logged this week, jobs today, anomalies.
  * Conservative metrics where deep joins would be expensive; this page
  * is meant for triage, not analytics.
@@ -86,10 +86,10 @@ function TeamsIndexPage() {
       }
 
       // Two shift tables, two purposes:
-      //   * kitchen_duty_shifts -- the live duty board (per-order,
+      //   * kitchen_duty_shifts - the live duty board (per-order,
       //     `is_active`, who's currently clocked in). Used here only
       //     for missing-clock-out anomaly detection.
-      //   * kitchen_staff_shifts -- the canonical wage record. Carries
+      //   * kitchen_staff_shifts - the canonical wage record. Carries
       //     standard / overtime / sunday-holiday breakdowns the Wages
       //     dashboard reads. We use it for "Hours logged this week"
       //     so the Teams Hub number always agrees with what Wages
@@ -100,7 +100,7 @@ function TeamsIndexPage() {
       // kitchen_staff_members.region_id (added in the
       // kitchen_staff_members_add_region_id migration). When no region
       // is active we skip the join. Active duty shifts (the live board)
-      // stay company-wide -- "is anyone clocked-in past 16h" doesn't
+      // stay company-wide - "is anyone clocked-in past 16h" doesn't
       // segment by region.
       const staffShiftsSelect = regionFilterId
         ? "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id)"
@@ -172,7 +172,7 @@ function TeamsIndexPage() {
       }).length;
 
       // Driver hours this week (rough: based on completed assignments
-      // with assigned_at -> completed_at). Conservative -- lots of
+      // with assigned_at -> completed_at). Conservative - lots of
       // assignments don't have both timestamps so this under-reports.
       const { data: drvWeek } = await supabase
         .from("driver_assignments")
@@ -202,7 +202,7 @@ function TeamsIndexPage() {
         .in("status", ["pending", "draft"]);
       const shoppingAnomalies = (shoppingOverdue || []).length;
 
-      // Cleaning: no first-class table -- use cleaning staff count and the
+      // Cleaning: no first-class table - use cleaning staff count and the
       // overall completed-events count today as a proxy for "jobs".
       let cleaningJobsQ = supabase
         .from("orders")

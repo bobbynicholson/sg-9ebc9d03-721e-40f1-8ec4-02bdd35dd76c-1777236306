@@ -1,5 +1,5 @@
 /**
- * Stripe Checkout integration -- per-tenant variant.
+ * Stripe Checkout integration - per-tenant variant.
  *
  * Tenants who pick Stripe in /admin/payment-gateways have their secret
  * key stored in payment_gateway_credentials.credentials.secretKey. This
@@ -16,7 +16,7 @@ const STRIPE_API_VERSION = "2024-12-18.acacia" as Stripe.LatestApiVersion;
 
 function makeClient(secretKey: string): Stripe {
   if (!secretKey) {
-    throw new Error("Stripe secret key missing -- tenant has not configured Stripe");
+    throw new Error("Stripe secret key missing - tenant has not configured Stripe");
   }
   return new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION });
 }
@@ -80,7 +80,7 @@ export async function createStripeCheckout(
 }
 
 /**
- * Credential ping -- retrieves the account balance. Cheapest authenticated
+ * Credential ping - retrieves the account balance. Cheapest authenticated
  * call Stripe exposes; succeeds only if the secret key is valid.
  */
 export async function pingStripeCredentials(secretKey: string): Promise<{
@@ -101,7 +101,7 @@ export async function pingStripeCredentials(secretKey: string): Promise<{
  * Verify a Stripe webhook signature using the tenant's whsec_... secret.
  * Returns the parsed Stripe event on success, or null on failure.
  *
- * The caller MUST pass the raw request body (Buffer or string) -- if
+ * The caller MUST pass the raw request body (Buffer or string) - if
  * the body has already been JSON-parsed by Next.js, signature
  * verification will fail. Configure the API route with
  * `bodyParser: false` and read req as a stream first.

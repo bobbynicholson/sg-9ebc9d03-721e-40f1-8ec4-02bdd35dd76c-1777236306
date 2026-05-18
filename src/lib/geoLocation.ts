@@ -8,7 +8,7 @@ export interface GeoLocation {
   currency: "ZAR" | "USD" | "GBP" | "EUR";
 }
 
-// Eurozone countries -- visitors from these get EUR pricing.
+// Eurozone countries - visitors from these get EUR pricing.
 const EU_COUNTRIES = new Set([
   "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE",
   "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK",

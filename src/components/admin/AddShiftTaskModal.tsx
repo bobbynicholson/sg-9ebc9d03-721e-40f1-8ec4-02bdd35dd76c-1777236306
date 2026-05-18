@@ -1,5 +1,5 @@
 /**
- * AddShiftTaskModal -- Wave 41 Phase 3.
+ * AddShiftTaskModal - Wave 41 Phase 3.
  *
  * Two-mode modal:
  *   - Default: pick task_type, planned minutes, billable toggle,
@@ -10,7 +10,7 @@
  *     equipment.dishwasher_safe + machine availability.
  *
  * Bobby's rule encoded in the default: when a kitchen staffer does
- * a cleaning task mid-shift, billable=FALSE -- no extra cost. The
+ * a cleaning task mid-shift, billable=FALSE - no extra cost. The
  * checkbox defaults FALSE for cleaning, TRUE for everything else.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -131,7 +131,7 @@ export function AddShiftTaskModal({
     setBusy(false);
   }, [open, defaultType, types]);
 
-  // Snap billable when task_type changes -- but only if the operator
+  // Snap billable when task_type changes - but only if the operator
   // hasn't already overridden the default. Otherwise their explicit
   // toggle gets clobbered every time they flip task_type.
   useEffect(() => {
@@ -141,7 +141,7 @@ export function AddShiftTaskModal({
 
   // Load equipment + machines lazily once cleaning is picked.
   // Wave 42 Tier 3: gate by an explicit "loaded" sentinel rather
-  // than the array lengths -- otherwise a company with zero
+  // than the array lengths - otherwise a company with zero
   // equipment AND zero machines never re-fires the loader (both
   // arrays stay empty forever, so the stale guard
   // `length > 0 || length > 0` always returns).
@@ -235,11 +235,11 @@ export function AddShiftTaskModal({
           machineId: decidedMachine?.id || null,
           shiftTaskId: taskRes.taskId || null,
           actorUserId,
-          notes: notes ? `via shift task -- ${notes}` : "via shift task",
+          notes: notes ? `via shift task - ${notes}` : "via shift task",
         });
         if (!jobRes.ok) {
           // Task was saved; the job-link failed. Surface but don't
-          // roll back -- the operator can retry the job manually.
+          // roll back - the operator can retry the job manually.
           toast({
             title: "Task saved, cleaning job failed",
             description: jobRes.error || "Couldn't auto-create cleaning job",
@@ -271,7 +271,7 @@ export function AddShiftTaskModal({
           </DialogTitle>
           <DialogDescription>
             One shift can hold multiple typed tasks. Mark a task as
-            &ldquo;no extra cost&rdquo; if the staffer is already on shift -- the labour
+            &ldquo;no extra cost&rdquo; if the staffer is already on shift - the labour
             falls under their existing pay envelope.
           </DialogDescription>
         </DialogHeader>
@@ -333,7 +333,7 @@ export function AddShiftTaskModal({
 
           {!billable && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-              No extra cost. The staffer is on shift -- their pay covers this task.
+              No extra cost. The staffer is on shift - their pay covers this task.
             </div>
           )}
 
@@ -387,7 +387,7 @@ export function AddShiftTaskModal({
                   <div className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900 space-y-0.5">
                     <div>
                       Suggested method: <strong>{decidedMethod === "dishwasher" ? "Dishwasher" : "Manual"}</strong>
-                      {decidedMachine && <span> -- {decidedMachine.name}</span>}
+                      {decidedMachine && <span> - {decidedMachine.name}</span>}
                     </div>
                     {decidedEtaMin != null && (
                       <div>
@@ -397,7 +397,7 @@ export function AddShiftTaskModal({
                     {decidedMethod === "manual" && (
                       <div className="opacity-80">
                         Manual = pulls a staffer for the duration. With billable off, this
-                        still costs nothing -- they were already on shift.
+                        still costs nothing - they were already on shift.
                       </div>
                     )}
                   </div>

@@ -60,7 +60,7 @@ export const companyService = {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
-      // 30-day trial -- matches the platform-wide policy and the figure shown
+      // 30-day trial - matches the platform-wide policy and the figure shown
       // in /admin/platform/trial-management. The previous 14-day window was
       // out of step with the rest of the codebase.
       const companyData: CompanyInsert = {
@@ -117,7 +117,7 @@ export const companyService = {
         } as any);
       } catch (seedErr) {
         // Non-blocking. If the seed fails (e.g. unique-code clash)
-        // the tenant still works -- HQ fallback in useCompanyKitchens
+        // the tenant still works - HQ fallback in useCompanyKitchens
         // covers them until they add a region manually.
         console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
       }
@@ -337,7 +337,7 @@ export const companyService = {
     }
 
     // Seed the default "Main kitchen" region. See companyService.createCompany
-    // for the rationale -- this keeps every tenant region-aware from day one.
+    // for the rationale - this keeps every tenant region-aware from day one.
     try {
       const regionCode = buildDefaultRegionCode(company.slug);
       await supabase.from("regions").insert({
@@ -415,12 +415,12 @@ export const companyService = {
 
       const userId = userData.user.id;
       const tempPassword: string | null = (userData as any)?.tempPassword || null;
-      // Surface the password once -- the super admin needs to hand
+      // Surface the password once - the super admin needs to hand
       // it to the new tenant owner via a secure channel.
       if (tempPassword && typeof window !== "undefined") {
         try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
         window.prompt(
-          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel -- the owner must change it on first login.`,
+          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel - the owner must change it on first login.`,
           tempPassword,
         );
       }

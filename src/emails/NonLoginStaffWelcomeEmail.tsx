@@ -2,11 +2,11 @@
  * Welcome email for staff added to a catering company WITHOUT a portal
  * login. Many kitchen / cleaning / shopping team members are clocked
  * in by the manager on a shared tablet and never log in themselves.
- * Without this email they get nothing -- so they have no clue what
+ * Without this email they get nothing - so they have no clue what
  * the company is now using to track their shifts and pay.
  *
  * Role-aware: explains specifically what THEIR clock-in / shift / pay
- * flow looks like. No CTA -- it's informational, no portal to log into.
+ * flow looks like. No CTA - it's informational, no portal to log into.
  */
 import { Section, Text } from "@react-email/components";
 import * as React from "react";
@@ -37,7 +37,7 @@ const ROLE_COPY: Record<NonLoginRole, RoleCopy> = {
   kitchen: {
     whatItIs: "kitchen team member",
     bullets: [
-      "Your shifts get clocked in/out on the kitchen tablet -- no app needed",
+      "Your shifts get clocked in/out on the kitchen tablet - no app needed",
       "BCEA-correct overtime is calculated automatically; you'll always get the higher rate when it applies",
       "Shopping for what you cook is driven by confirmed orders, so you'll have what you need on prep day",
     ],
@@ -46,7 +46,7 @@ const ROLE_COPY: Record<NonLoginRole, RoleCopy> = {
     whatItIs: "cleaning team member",
     bullets: [
       "Tap-in / tap-out happens on the shared tablet at the start and end of each clean",
-      "Equipment is verified IN and OUT -- if anything's broken on arrival it gets flagged before you start, so disputes about damage stop dead",
+      "Equipment is verified IN and OUT - if anything's broken on arrival it gets flagged before you start, so disputes about damage stop dead",
       "Your hours and pay roll up automatically; nothing slips through the cracks",
     ],
   },
@@ -61,7 +61,7 @@ const ROLE_COPY: Record<NonLoginRole, RoleCopy> = {
   shopping: {
     whatItIs: "shopping team member",
     bullets: [
-      "Today's shopping list is built straight from confirmed orders -- no overspending, no guesswork",
+      "Today's shopping list is built straight from confirmed orders - no overspending, no guesswork",
       "Receipts get scanned into the system so suppliers + costs stay tracked",
       "Low-stock alerts flag what to top up before the next event",
     ],
@@ -71,7 +71,7 @@ const ROLE_COPY: Record<NonLoginRole, RoleCopy> = {
     bullets: [
       "Event briefs (timing, dress code, venue layout) come through to you per booking",
       "Tap-in on the day so your hours roll up automatically into pay",
-      "Every event has a contact person -- you'll know who to ask if anything's unclear",
+      "Every event has a contact person - you'll know who to ask if anything's unclear",
     ],
   },
   office: {
@@ -114,7 +114,7 @@ export default function NonLoginStaffWelcomeEmail({
       <Text style={emailBodyTextStyle}>
         You don't need to log in or set up an app. Your manager handles tap-in on the shared device.
         If anything ever feels off about your hours or shifts, ask{" "}
-        {adderName ? <strong>{adderName}</strong> : "your manager"} to check the system -- it's all
+        {adderName ? <strong>{adderName}</strong> : "your manager"} to check the system - it's all
         recorded, so it's quick to put right.
       </Text>
 

@@ -67,7 +67,7 @@ export interface PaymentSessionResult {
 /**
  * Resolve and dispatch to the company's active payment provider. If no
  * gateway has been configured, falls back to PayFast with env-var
- * credentials -- preserves the legacy single-tenant behaviour so
+ * credentials - preserves the legacy single-tenant behaviour so
  * existing deployments don't break the moment this code lands.
  */
 export async function createPaymentSession(
@@ -80,7 +80,7 @@ export async function createPaymentSession(
       sb,
     );
 
-    // No tenant config -- fall back to legacy env-var PayFast so
+    // No tenant config - fall back to legacy env-var PayFast so
     // existing single-tenant deployments keep working without forcing
     // a reconfigure on the day of release.
     if (!active) {
@@ -107,7 +107,7 @@ export async function createPaymentSession(
   }
 }
 
-// -- PayFast -----------------------------------------------------------
+// - PayFast -----------------------------------------------------------
 
 async function dispatchPayFast(
   input: PaymentSessionInput,
@@ -186,7 +186,7 @@ async function dispatchLegacyPayFast(
   };
 }
 
-// -- Yoco --------------------------------------------------------------
+// - Yoco --------------------------------------------------------------
 
 async function dispatchYoco(
   input: PaymentSessionInput,
@@ -216,7 +216,7 @@ async function dispatchYoco(
   };
 }
 
-// -- Stripe ------------------------------------------------------------
+// - Stripe ------------------------------------------------------------
 
 async function dispatchStripe(
   input: PaymentSessionInput,

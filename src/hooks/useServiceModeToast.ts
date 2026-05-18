@@ -1,5 +1,5 @@
 /**
- * useServiceModeToast -- Wave 70.7c
+ * useServiceModeToast - Wave 70.7c
  *
  * Fires a single toast when the kitchen first enters service mode
  * in a given browser session. Mounted at the top of the kitchen

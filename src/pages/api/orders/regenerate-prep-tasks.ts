@@ -1,5 +1,5 @@
 /**
- * POST /api/orders/regenerate-prep-tasks -- Wave 70.9
+ * POST /api/orders/regenerate-prep-tasks - Wave 70.9
  *
  * Manual trigger for kitchenPrepService.ensurePrepTasksForOrder
  * for a specific order. Two reasons this exists:
@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Wrong company" });
     }
 
-    // Wave 70.11 -- manual operator-initiated regen always uses
+    // Wave 70.11 - manual operator-initiated regen always uses
     // force=true. That:
     //   - bypasses the past-date guard (so an admin can backfill
     //     prep tasks for a historical order, e.g. seed data)
@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[orders/regenerate-prep-tasks] audit insert failed:", auditErr);
     }
 
-    // Wave 70.11 -- precise per-reason message so the operator
+    // Wave 70.11 - precise per-reason message so the operator
     // knows WHY no tasks were generated instead of getting the
     // generic "may have X, Y, or Z" fallback.
     let message: string;
@@ -122,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           message = "Order has communications paused. Resume comms on the order before regenerating prep.";
           break;
         case "event_in_past":
-          message = "Event is in the past. Manual regen normally bypasses this; if you're seeing this message the force flag was overridden -- contact support.";
+          message = "Event is in the past. Manual regen normally bypasses this; if you're seeing this message the force flag was overridden - contact support.";
           break;
         case "already_has_pending_tasks":
           message = "Order already has pending prep tasks. Open Production to see them, or pass force=true to wipe and replan.";

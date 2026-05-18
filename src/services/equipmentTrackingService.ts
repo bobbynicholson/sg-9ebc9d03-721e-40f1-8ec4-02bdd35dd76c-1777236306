@@ -216,7 +216,7 @@ export const equipmentTrackingService = {
           .from("profiles")
           .select("email, full_name, phone, phone_number")
           .eq("company_id", order.company_id)
-          // Wave 64.5 -- "owner" isn't a valid user_role enum value;
+          // Wave 64.5 - "owner" isn't a valid user_role enum value;
           // pre-Wave-64.5 PostgREST threw on the .in() and the
           // damage/cleaning notification silently picked no admin.
           .in("role", ["company_admin", "admin"])
@@ -547,7 +547,7 @@ ${companyName}`;
   /**
    * Create cleaning status for returned equipment.
    *
-   * Wave 45 D3 -- migrated to the canonical cleaning_jobs ledger
+   * Wave 45 D3 - migrated to the canonical cleaning_jobs ledger
    * (Wave 41 P2). The legacy equipment_cleaning_status table is
    * being retired. Same call signature for back-compat with
    * EquipmentVerificationPanel; the return shape now mirrors
@@ -601,7 +601,7 @@ ${companyName}`;
   },
 
   /**
-   * Update cleaning workflow status. Wave 45 D3 -- migrated to
+   * Update cleaning workflow status. Wave 45 D3 - migrated to
    * cleaning_jobs (Wave 41 P2 ledger). The 5-state UI model
    * (pending/cleaning/drying/ready/stored) collapses to the
    * 3-state cleaning_jobs model:
@@ -611,7 +611,7 @@ ${companyName}`;
    *   ready    -> complete   (sets actual_end + notify admin)
    *   stored   -> complete   (terminal)
    *
-   * Drying-step loss is intentional -- CleaningJobsQueue (the
+   * Drying-step loss is intentional - CleaningJobsQueue (the
    * canonical UX) doesn't model drying separately. Add 'drying'
    * to cleaning_jobs.status CHECK + route here if it's ever
    * needed back.
@@ -697,7 +697,7 @@ ${companyName}`;
           .from("profiles")
           .select("email, full_name")
           .eq("company_id", order.company_id)
-          // Wave 64.5 -- "owner" isn't a valid user_role enum value;
+          // Wave 64.5 - "owner" isn't a valid user_role enum value;
           // pre-Wave-64.5 PostgREST threw on the .in() and the
           // damage/cleaning notification silently picked no admin.
           .in("role", ["company_admin", "admin"])
@@ -750,7 +750,7 @@ ${companyName}`;
   },
 
   /**
-   * Wave 45 D3 -- cleaning_jobs joined by triggered_by_event_id.
+   * Wave 45 D3 - cleaning_jobs joined by triggered_by_event_id.
    */
   async getOrderCleaningStatus(orderId: string): Promise<any[]> {
     const { data, error } = await supabase
@@ -774,7 +774,7 @@ ${companyName}`;
    * cleaning dashboard. The function is dead but kept stubbed
    * for back-compat: returns [] until/unless someone re-mounts
    * the tracker. Use cleaningJobsService.listActiveJobs in new
-   * code -- that's the canonical replacement.
+   * code - that's the canonical replacement.
    */
   async getPendingCleaningEquipment(_userId: string): Promise<any[]> {
     return [];

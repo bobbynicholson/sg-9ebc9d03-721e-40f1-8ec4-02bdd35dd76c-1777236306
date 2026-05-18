@@ -14,7 +14,7 @@
  * leadService.createLead already does this, but it lives in the
  * browser bundle and uses the anon Supabase client, so we can't call
  * it from a public unauth API handler. This helper is the server-side
- * equivalent -- same fan-out, but driven through an injected
+ * equivalent - same fan-out, but driven through an injected
  * service-role client so RLS never short-circuits us.
  *
  * Best-effort: every channel is wrapped in its own try/catch so a
@@ -33,7 +33,7 @@ export interface NotifyEmbedLeadInput {
   formName: string | null;
   formId: string | null;
   formNotifyAdminEmail: boolean; // per-form override
-  appOrigin: string; // e.g. https://cateringms.com -- for absolute links in the email
+  appOrigin: string; // e.g. https://cateringms.com - for absolute links in the email
 }
 
 export async function notifyAdminOfEmbedLead(
@@ -150,14 +150,14 @@ export async function notifyAdminOfEmbedLead(
 
         // Plain-text body: every interpolated value is user-supplied,
         // so we keep it text-only. emailService sends html: by default
-        // (per the auditor finding) -- we still escape just in case
+        // (per the auditor finding) - we still escape just in case
         // the configured provider auto-formats <br> from newlines.
         const safeName = escapeHtml(clientName);
         const safeCompany = escapeHtml(companyName);
         const safeForm = escapeHtml(formName || "embed form");
         const safeNotes = escapeHtml(leadInsert.notes || "");
 
-        const subjectRaw = `New enquiry from ${clientName} -- ${companyName}`;
+        const subjectRaw = `New enquiry from ${clientName} - ${companyName}`;
         const bodyRaw =
           `${clientName} just sent an enquiry through your website (${safeForm}).\n\n` +
           `Name: ${clientName}\n` +
@@ -194,7 +194,7 @@ export async function notifyAdminOfEmbedLead(
     } else {
       console.warn(
         `[embed/lead-notify] no admin email available for company ${companyId} ` +
-          `(notification_email + owner profile email both null) -- skipped`,
+          `(notification_email + owner profile email both null) - skipped`,
       );
     }
   }

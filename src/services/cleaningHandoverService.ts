@@ -1,5 +1,5 @@
 /**
- * cleaningHandoverService -- Wave 70.24
+ * cleaningHandoverService - Wave 70.24
  *
  * Event-level container for cleaning_jobs. One row per delivered
  * order's cleaning lifecycle. Created when the order moves to
@@ -12,12 +12,12 @@
  * items") so the cleaning team isn't always reactive.
  *
  * Five public methods + a status-flip helper:
- *   - createExpectedHandover  -- on 'confirmed' transition
- *   - markHandoverReturned    -- on 'delivered' transition
- *   - cancelHandoverForOrder  -- on 'cancelled' transition
- *   - recomputeExpectedCount  -- on amendment-review (item count change)
- *   - listHandoversForCompany -- powers the new cleaning queue UI
- *   - getHandoverDetail       -- per-event detail with all jobs
+ *   - createExpectedHandover  - on 'confirmed' transition
+ *   - markHandoverReturned    - on 'delivered' transition
+ *   - cancelHandoverForOrder  - on 'cancelled' transition
+ *   - recomputeExpectedCount  - on amendment-review (item count change)
+ *   - listHandoversForCompany - powers the new cleaning queue UI
+ *   - getHandoverDetail       - per-event detail with all jobs
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -93,7 +93,7 @@ async function sumCleanableItemsForOrder(
 
 /**
  * Create the 'expected' handover row for an order. Called when the
- * order transitions to 'confirmed'. Idempotent -- UNIQUE
+ * order transitions to 'confirmed'. Idempotent - UNIQUE
  * (company_id, order_id) constraint means a re-run no-ops.
  *
  * expected_at = event_date + event_time + 4h cleaning lead window

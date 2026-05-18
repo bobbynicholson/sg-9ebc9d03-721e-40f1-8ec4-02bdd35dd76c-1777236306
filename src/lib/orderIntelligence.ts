@@ -8,7 +8,7 @@
  *   - Auto-email summary keyed off email_automation_log.order_id
  *
  * Bobby's framing: a healthy operations team should be able to glance
- * at the orders board and see exactly what's at risk -- driver not
+ * at the orders board and see exactly what's at risk - driver not
  * assigned 24h before the event, post-event review automation pending,
  * unpaid balance with the date imminent. The "Suggested action" chip
  * is the single field that captures all of that on each row.
@@ -39,7 +39,7 @@ export interface OrderIntelligence {
 export interface OrderAutoEmailSummary {
   /** Total automated emails sent for this order. */
   sent: number;
-  /** Most recent automation -- template_type + sent_at. */
+  /** Most recent automation - template_type + sent_at. */
   latest:
     | { template_type: string | null; status: string | null; sent_at: string | null }
     | null;
@@ -70,7 +70,7 @@ function daysUntilDate(target: any): number | null {
 /**
  * Derive intelligence for a single order row.
  *
- * Order of cases is deliberate -- terminal first (completed,
+ * Order of cases is deliberate - terminal first (completed,
  * cancelled), then operational (overdue, today, soon), then default.
  * That way "completed but missing review email" doesn't drown out
  * "event tomorrow with no driver assigned".

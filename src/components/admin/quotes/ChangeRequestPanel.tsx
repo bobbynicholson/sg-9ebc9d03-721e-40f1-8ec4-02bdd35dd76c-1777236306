@@ -91,7 +91,7 @@ export function ChangeRequestPanel({
 
   if (requests.length === 0) return null;
 
-  // No pending requests -- collapse to a small toggle. Operator can
+  // No pending requests - collapse to a small toggle. Operator can
   // still pull up the history if they need to revisit something.
   if (pending.length === 0) {
     return (
@@ -150,7 +150,7 @@ export function ChangeRequestPanel({
           </Badge>
         </div>
         <p className="px-4 text-[11px] text-blue-700/80">
-          Edit the quote on the left -- this stays in view so you can refer back.
+          Edit the quote on the left - this stays in view so you can refer back.
         </p>
         <div className="p-3 space-y-3 max-h-[70vh] overflow-y-auto">
           {pending.map((req) => (

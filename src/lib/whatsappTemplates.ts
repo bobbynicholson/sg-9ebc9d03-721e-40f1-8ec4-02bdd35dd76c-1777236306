@@ -1,12 +1,12 @@
 /**
- * WhatsApp message templates -- the catalog the WhatsApp button picks
+ * WhatsApp message templates - the catalog the WhatsApp button picks
  * from. Two sets:
  *
  *   1. Client templates: lead follow-up, quote sent, quote chase,
  *      event-week reminder, day-of "we are on the way", delay alert.
  *      Used wherever the catering owner is messaging a client about a
  *      lead, quote or upcoming order. After-sales is intentionally
- *      excluded -- per Bobby that channel stays email-only.
+ *      excluded - per Bobby that channel stays email-only.
  *
  *   2. Staff templates: shift confirm, job assigned, pickup ready,
  *      generic check-in. Used from the admin staff/driver pages.
@@ -82,7 +82,7 @@ export interface ClientWhatsAppContext {
   daysUntilEvent?: number | null;
   fromName?: string | null;
   companyName?: string | null;
-  /** Tenant slug -- when present we append a short portal-login URL
+  /** Tenant slug - when present we append a short portal-login URL
    *  to client messages (cateringms.com/p/<slug>). The /p/[slug]
    *  redirect route exists specifically for WhatsApp so the URL is
    *  short enough not to dominate the message. */
@@ -161,7 +161,7 @@ export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
  * tenants who haven't customised yet.
  */
 export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsAppContext): string {
-  // 1. Override path -- silent fallback to default when no customisation.
+  // 1. Override path - silent fallback to default when no customisation.
   const overrideKey = CLIENT_KIND_TO_REGISTRY[kind];
   if (overrideKey) {
     const resolved = resolveTemplateSync({
@@ -240,7 +240,7 @@ export type StaffWhatsAppKind =
 
 export interface StaffWhatsAppContext {
   staffName: string;
-  /** "driver" | "kitchen" | "cleaning" | "shopping" -- pure UX hint. */
+  /** "driver" | "kitchen" | "cleaning" | "shopping" - pure UX hint. */
   role?: string;
   shiftDate?: string | null;
   shiftTime?: string | null;
@@ -289,7 +289,7 @@ export const STAFF_WHATSAPP_LABELS: Record<StaffWhatsAppKind, string> = {
 };
 
 export function renderStaffWhatsApp(kind: StaffWhatsAppKind, ctx: StaffWhatsAppContext): string {
-  // 1. Override path -- silent fallback to default when no customisation.
+  // 1. Override path - silent fallback to default when no customisation.
   const overrideKey = STAFF_KIND_TO_REGISTRY[kind];
   if (overrideKey) {
     const resolved = resolveTemplateSync({

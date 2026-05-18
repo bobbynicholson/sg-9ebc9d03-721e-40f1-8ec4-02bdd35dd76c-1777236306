@@ -1,11 +1,11 @@
 /**
- * NewLeadsTodayWidget -- fresh leads from the last 24 hours that
+ * NewLeadsTodayWidget - fresh leads from the last 24 hours that
  * haven't had a status change yet.
  *
  * Phase 22 #5. LeadAgingWidget surfaces stale leads older than 3
- * days that need chasing. The opposite side of the funnel -- brand-
+ * days that need chasing. The opposite side of the funnel - brand-
  * new enquiries that need a first response within hours, not days
- * -- had no glance surface. The sales lead opening the dashboard
+ * - had no glance surface. The sales lead opening the dashboard
  * in the morning had to dig into /admin/leads to see if anything
  * came in overnight.
  *
@@ -90,7 +90,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
               )}
             </CardTitle>
             <CardDescription className="text-xs">
-              Fresh enquiries waiting on first contact. First response wins -- the longer they sit the colder they go.
+              Fresh enquiries waiting on first contact. First response wins - the longer they sit the colder they go.
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/leads")}>

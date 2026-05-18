@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/integrations/embed/[id] -- form customiser.
+ * /admin/integrations/embed/[id] - form customiser.
  *
  * Three columns at desktop (left = field editor, middle = live preview,
  * right = settings sidebar). Stacks on mobile. Auto-saves on blur. The
@@ -140,7 +140,7 @@ export default function EmbedFormCustomiser() {
     try {
       iframe.contentWindow.postMessage({ type: "embed-draft", config: form }, "*");
     } catch {
-      // Same-origin only -- the demo iframe lives on our own domain so this should not throw.
+      // Same-origin only - the demo iframe lives on our own domain so this should not throw.
     }
   }, [form]);
 
@@ -165,7 +165,7 @@ export default function EmbedFormCustomiser() {
     }
   }, [form, toast]);
 
-  // Mutators -- stage changes locally, mark dirty, save on explicit Save click
+  // Mutators - stage changes locally, mark dirty, save on explicit Save click
   // or when a relevant blur fires. Field reorders auto-save because they're
   // discrete actions, not text typing.
   function patchLocal(next: Partial<EmbedFormConfig>) {
@@ -484,7 +484,7 @@ export default function EmbedFormCustomiser() {
                 </CardContent>
               </Card>
 
-              {/* Notifications -- per-form overrides for the email +
+              {/* Notifications - per-form overrides for the email +
                   auto-reply flags. Defaults to "yes, email me" because
                   Bobby explicitly called this out as the must-work
                   behaviour for tenants going live. */}

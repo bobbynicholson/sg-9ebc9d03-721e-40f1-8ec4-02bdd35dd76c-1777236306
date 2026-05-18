@@ -18,10 +18,10 @@ interface TrialStatus {
 // so the banner never appeared. This now matches the rest of the codebase
 // which treats companies as the source of truth for subscription state.
 //
-// Wave 70.14 -- role gate added so the trial countdown only renders
+// Wave 70.14 - role gate added so the trial countdown only renders
 // for the tenant owner / admin who is actually responsible for
 // upgrading. Kitchen / driver / cleaning / shopping staff (and any
-// other staff role) no longer see the trial banner -- they shouldn't
+// other staff role) no longer see the trial banner - they shouldn't
 // know whether the boss is still on trial or whether the company
 // is about to lose access. Internally we self-gate so every caller
 // (Layout.tsx, any future mount) is automatically safe without

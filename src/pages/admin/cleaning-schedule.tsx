@@ -1,19 +1,19 @@
 /**
- * /admin/cleaning-schedule -- weekly grid view of every cleaning
+ * /admin/cleaning-schedule - weekly grid view of every cleaning
  * staffer's planned roster.
  *
- * Wave 40.4. Direct sibling of /admin/kitchen-schedule.tsx -- same
+ * Wave 40.4. Direct sibling of /admin/kitchen-schedule.tsx - same
  * UI shape, same week-grid pattern, same modal for adding shifts.
  * Difference is the role filter (cleaning_staff + dual-role staff)
  * and the shift_type ('cleaning') passed to the roster modal.
  *
  * Architecturally: cleaning shifts share the kitchen_shifts table
- * via the shift_type column added in 20260515180000 -- so a person
+ * via the shift_type column added in 20260515180000 - so a person
  * who does both cooking + cleaning logs ONE shift_type
  * 'kitchen_and_cleaning' or two separate ones, depending on how
  * the roster lead wants to split the day. Same payslip math
  * regardless. Bobby's brief: "each user dashboard must be the
- * same" -- this clone keeps the visual contract tight.
+ * same" - this clone keeps the visual contract tight.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
@@ -100,7 +100,7 @@ function CleaningScheduleGrid() {
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
 
-  // Wave 66.6 -- honour ?date=YYYY-MM-DD URL param. The Wave 66.6
+  // Wave 66.6 - honour ?date=YYYY-MM-DD URL param. The Wave 66.6
   // timeline rewrite repointed pre_event_cleaning + post_event_cleaning
   // dots to /admin/cleaning-schedule?date={event_date}. Without this
   // effect the page always landed on the current week regardless.
@@ -116,7 +116,7 @@ function CleaningScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
-  // Wave 41 Phase 3 -- per-shift task chips. Cleaning grid defaults
+  // Wave 41 Phase 3 - per-shift task chips. Cleaning grid defaults
   // new tasks to 'cleaning' but the operator can pick anything.
   const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
   const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string } | null>(null);
@@ -136,7 +136,7 @@ function CleaningScheduleGrid() {
         // Cleaning roster eligibility: cleaning_staff + dual-role
         // staff (anyone who might pick up a cleaning shift). Same
         // person who shows on /admin/kitchen-schedule shows up here
-        // when they're flagged as cleaning_staff -- avoids the "I
+        // when they're flagged as cleaning_staff - avoids the "I
         // need two logins" problem Bobby flagged.
         (supabase as any)
           .from("profiles")
@@ -207,7 +207,7 @@ function CleaningScheduleGrid() {
     });
   }, [shifts, weekDays]);
 
-  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} -- ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
+  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
   const todayIso = toLocalISO(new Date());
 
   return (
@@ -469,7 +469,7 @@ function CleaningScheduleGrid() {
         />
       )}
 
-      {/* Wave 41 Phase 3 -- add-task modal. Defaults to 'cleaning'
+      {/* Wave 41 Phase 3 - add-task modal. Defaults to 'cleaning'
           on this page so the dishwasher-vs-manual decision surfaces
           immediately when an operator clicks "+task" on a shift. */}
       {addTaskTarget && companyId && (

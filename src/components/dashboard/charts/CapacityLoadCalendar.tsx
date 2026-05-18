@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 2 chart 2 -- Capacity load calendar (next 90 days).
+ * Tier 2 chart 2 - Capacity load calendar (next 90 days).
  *
  * Stacked bar chart per day. Bottom segment = confirmed orders, top
  * (semi-transparent) = open quotes. Horizontal reference line at the
@@ -47,7 +47,7 @@ export function CapacityLoadCalendar({ data, capacityCeiling = 3, loading }: Pro
           <InfoTooltip
             content={
               "Each bar is one upcoming day. Solid = confirmed orders. Lighter = open quotes still awaiting client response.\n\n" +
-              `Red dashed line = capacity ceiling (${capacityCeiling}/day). Days at or over the line need attention -- consider declining new bookings or borrowing crew from another branch.`
+              `Red dashed line = capacity ceiling (${capacityCeiling}/day). Days at or over the line need attention - consider declining new bookings or borrowing crew from another branch.`
             }
           />
           {data.daysOverCapacity > 0 && (

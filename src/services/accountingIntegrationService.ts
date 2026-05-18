@@ -4,11 +4,11 @@ import crypto from "crypto";
 // Wave 24: accountingIntegrationService is the OAuth bridge between
 // our app and Xero / QuickBooks. The OAuth callback handlers
 // (/api/accounting/{xero,quickbooks}/callback.ts) intentionally don't
-// require a Supabase auth session -- they're protected by the
+// require a Supabase auth session - they're protected by the
 // HttpOnly oauth_state + oauth_company_id cookies set at flow start.
 // That means the browser anon supabase imported here has no session
 // on the server, so RLS hides accounting_integrations writes and the
-// token storage silently fails -- the OAuth dance succeeds, the user
+// token storage silently fails - the OAuth dance succeeds, the user
 // gets redirected back to /admin/integrations, and the integration is
 // reported as connected when it never landed.
 //
@@ -44,7 +44,7 @@ const supabase: any = resolveServerClient();
 // TYPES
 // ============================================
 
-// Wave 70 -- Sage Business Cloud Accounting (formerly Sage One)
+// Wave 70 - Sage Business Cloud Accounting (formerly Sage One)
 // added as a third provider. Sage is the dominant SA SaaS accounting
 // platform; SARS-aware out of the box; preferred by most SA
 // bookkeepers over Xero/QB. OAuth 2 flow at api.accounting.sage.com.
@@ -118,7 +118,7 @@ const QUICKBOOKS_CONFIG: AccountingConfig = {
   scopes: ["com.intuit.quickbooks.accounting"],
 };
 
-// Wave 70 -- Sage Business Cloud config. Auth URL:
+// Wave 70 - Sage Business Cloud config. Auth URL:
 //   https://www.sageone.com/oauth2/auth/central?...
 // Token + API base: https://api.accounting.sage.com/v3.1/
 // Required env vars (set in Vercel + .env.local):
@@ -133,7 +133,7 @@ const SAGE_CONFIG: AccountingConfig = {
   scopes: ["full_access"],
 };
 
-// Wave 70 -- helper resolves the right config per provider, replaces
+// Wave 70 - helper resolves the right config per provider, replaces
 // the previous binary ternary that only knew about xero / quickbooks.
 function _resolveAccountingConfig(provider: AccountingProvider): AccountingConfig {
   if (provider === "xero") return XERO_CONFIG;
@@ -180,7 +180,7 @@ export function getAuthorizationUrl(
   if (provider === "quickbooks") {
     return `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`;
   }
-  // Wave 70 -- Sage Business Cloud OAuth.
+  // Wave 70 - Sage Business Cloud OAuth.
   // https://developer.sage.com/accounting/guides/authenticating/oauth/
   return `https://www.sageone.com/oauth2/auth/central?${params.toString()}&country=za`;
 }
@@ -432,14 +432,14 @@ export async function syncInvoiceToAccounting(
   if (provider === "quickbooks") {
     return await syncToQuickBooks(tokenResult.accessToken, tokenResult.tenantId!, invoiceData);
   }
-  // Wave 70 -- Sage Business Cloud sync. Scaffold-only for this
+  // Wave 70 - Sage Business Cloud sync. Scaffold-only for this
   // session: real Sage API needs the per-tenant business_id which
   // a follow-up wave will resolve from the OAuth identity endpoint.
   // Returning a clear "not yet implemented" so the UI can surface
   // the partial state honestly rather than silently succeeding.
   return {
     success: false,
-    error: "Sage sync coming in a follow-up wave -- OAuth connection works, invoice payload mapping is the next piece.",
+    error: "Sage sync coming in a follow-up wave - OAuth connection works, invoice payload mapping is the next piece.",
   };
 }
 
@@ -727,10 +727,10 @@ export async function syncPaymentToAccounting(
   if (provider === "quickbooks") {
     return await syncPaymentToQuickBooks(tokenResult.accessToken, tokenResult.tenantId!, paymentData);
   }
-  // Wave 70 -- Sage payment sync stub (matches invoice sync stub).
+  // Wave 70 - Sage payment sync stub (matches invoice sync stub).
   return {
     success: false,
-    error: "Sage payment sync coming in a follow-up wave -- OAuth wired, mapping pending.",
+    error: "Sage payment sync coming in a follow-up wave - OAuth wired, mapping pending.",
   };
 }
 

@@ -7,7 +7,7 @@
  * review skipped, etc.) so we can answer "what happened with this
  * order on Tuesday?" without dropping into SQL.
  *
- * Phase 2 #8. Read-only by design -- the actions belong on the
+ * Phase 2 #8. Read-only by design - the actions belong on the
  * per-entity pages this links out to.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -75,7 +75,7 @@ const fmtTs = (iso: string) => {
 
 // Map an entity_type + entity_id to the deepest useful admin URL.
 // Most of these are super-admin scoped but the rows still belong to a
-// specific tenant -- linking to the per-tenant admin path opens the
+// specific tenant - linking to the per-tenant admin path opens the
 // tenant view (super-admin can read across tenants).
 const entityHref = (entityType: string, entityId: string | null): string | null => {
   if (!entityId) return null;
@@ -193,7 +193,7 @@ function AuditLogsViewer() {
       for (const c of list) map[c.id] = c;
       setCompanyMap(map);
     } catch (e) {
-      // Filter still works without the dropdown -- just no name hydration.
+      // Filter still works without the dropdown - just no name hydration.
       console.warn("[audit-logs] company list load failed:", e);
     }
   };
@@ -263,7 +263,7 @@ function AuditLogsViewer() {
   };
 
   // The list of entity_types we've actually seen in the loaded page.
-  // Beats hard-coding -- new producers (e.g. webhook_failed) show up
+  // Beats hard-coding - new producers (e.g. webhook_failed) show up
   // automatically once a row exists.
   const seenEntityTypes = useMemo(() => {
     const s = new Set<string>();

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 /**
- * Client portal dashboard -- Phase 3 rebuild.
+ * Client portal dashboard - Phase 3 rebuild.
  *
  * What changed from the old scaffold:
  *   - Hero card adapts to the next event's phase (countdown / preparing
@@ -9,15 +9,15 @@
  *   - Branded header uses company.primary_color + secondary_color +
  *     logo so each catering company's portal feels like their own
  *   - Past events compact strip with one-tap rebook and rating display
- *   - Quick actions row -- tracking, invoice, contact, rebook
+ *   - Quick actions row - tracking, invoice, contact, rebook
  *   - Real-time subscription on the orders table so status changes
  *     appear without a refresh (e.g. "Preparing" -> "Out for delivery")
  *
  * Structure:
- *   [Branded header] -- always
- *   [Hero card]      -- next event, transforms by phase
- *   [Quick actions]  -- 4-up grid
- *   [Past events]    -- horizontal scroll, only when there are any
+ *   [Branded header] - always
+ *   [Hero card]      - next event, transforms by phase
+ *   [Quick actions]  - 4-up grid
+ *   [Past events]    - horizontal scroll, only when there are any
  *
  * The page is mounted both at /client-portal/dashboard and at
  * /[slug]/client-portal/dashboard via the rewrite in next.config.mjs --
@@ -99,7 +99,7 @@ function fmtMoneyFor(currencyCode: string): Intl.NumberFormat {
       maximumFractionDigits: 0,
     });
   } catch {
-    // Bad currency code -- fall back to a safe formatter.
+    // Bad currency code - fall back to a safe formatter.
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
       currency: "ZAR",
@@ -131,7 +131,7 @@ const STATUS_TONES: Record<string, string> = {
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-/** Time-of-day greeting -- adapts every six hours. */
+/** Time-of-day greeting - adapts every six hours. */
 function greetingFor(date: Date): string {
   const h = date.getHours();
   if (h < 5) return "Hello";
@@ -148,7 +148,7 @@ function greetingFor(date: Date): string {
  *   3. A very recent past event (event_date within the last 3 days) that
  *      the caterer hasn't yet marked completed/delivered. This closes the
  *      gap where the kitchen finishes service but doesn't transition the
- *      status straight away -- the client still wants the portal to show
+ *      status straight away - the client still wants the portal to show
  *      "your event was on Sunday" rather than going blank.
  *   4. null if there's nothing live
  */
@@ -164,7 +164,7 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
   if (upcoming[0]) return upcoming[0];
 
   // Recent-past fallback. We only care about confirmed/in-flight bookings
-  // whose date has just passed -- not draft, not cancelled. 3 days is the
+  // whose date has just passed - not draft, not cancelled. 3 days is the
   // window the admin team has to mark completion before the portal stops
   // surfacing it as the headline.
   const threeDaysAgo = new Date();
@@ -195,7 +195,7 @@ function timeUntil(eventDate: string, eventTime?: string | null): { days: number
 
 /**
  * Smart copy that adapts to the event phase. Bobby asked for the
- * "Silicon Valley feel" -- the difference between a bland status badge
+ * "Silicon Valley feel" - the difference between a bland status badge
  * and a portal that feels intelligent is mostly here.
  */
 function smartStatusCopy(order: Order): { headline: string; sub: string } {
@@ -270,7 +270,7 @@ export default function ClientPortalDashboard() {
   // Quotes the client can act on. We surface pending quotes (status =
   // sent or viewed) as a hero band above the next-event card so the
   // "you need to act" prompt comes before everything else. Accepted /
-  // declined / draft quotes don't appear here -- the full list lives
+  // declined / draft quotes don't appear here - the full list lives
   // on /client-portal/quotes.
   type PortalQuote = {
     id: string;
@@ -286,7 +286,7 @@ export default function ClientPortalDashboard() {
   };
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
 
-  // Rebook dialog state -- when the client taps "Rebook" on a past
+  // Rebook dialog state - when the client taps "Rebook" on a past
   // event we open the RebookDialog component, which presents:
   //   - new event details (date defaulting to ~4 weeks out, guests, venue)
   //   - the catering company's actual menu items, by category, with
@@ -296,11 +296,11 @@ export default function ClientPortalDashboard() {
   // `requested_items` JSONB and a source_order_id pointing back to the
   // past event for context.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
-  // Quote-edits dialog state -- the client opens this from the
+  // Quote-edits dialog state - the client opens this from the
   // dashboard hero band when they want changes before accepting.
   const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
 
-  // Branding tones -- fall back to a calm emerald so unbranded companies
+  // Branding tones - fall back to a calm emerald so unbranded companies
   // still look polished.
   const brandPrimary = company?.primary_color || "#059669";
   const brandSecondary = company?.secondary_color || "#10b981";
@@ -309,7 +309,7 @@ export default function ClientPortalDashboard() {
   const companyName = company?.company_name || profile?.company_name || "Your portal";
   const companyLogo = company?.logo_url || null;
   // Wave 18 audit: dashboard used to render every order total with a
-  // hardcoded ZAR formatter -- UK / US / EU tenants saw R5,000 against
+  // hardcoded ZAR formatter - UK / US / EU tenants saw R5,000 against
   // a £/$/€ caterer. Resolve from the loaded company row with a ZAR
   // fallback for legacy NULL values.
   const fmtMoney = useMemo(
@@ -324,7 +324,7 @@ export default function ClientPortalDashboard() {
   // books) over profiles.full_name (a global identity that gets
   // written once on auth signup and never refreshed). Same email
   // can be "Bobby Nicholson" on Spit Braai's books and "Tollie Le
-  // Roux" on the auth side -- the greeting in this catering company's
+  // Roux" on the auth side - the greeting in this catering company's
   // portal should say what THIS catering company calls them.
   const [clientName, setClientName] = useState<string | null>(null);
   const firstName = (
@@ -332,7 +332,7 @@ export default function ClientPortalDashboard() {
   ).split(" ")[0] || "there";
 
   // Canonical clients.id for THIS tenant. Used as the FK target when the
-  // client submits an inline rating from a past-event tile -- the
+  // client submits an inline rating from a past-event tile - the
   // delivery_feedback row needs both order_id and client_id and we'd
   // rather resolve it once at load than every star-click.
   const [tenantClientId, setTenantClientId] = useState<string | null>(null);
@@ -350,7 +350,7 @@ export default function ClientPortalDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        // Find every clients row this user owns -- under THIS tenant
+        // Find every clients row this user owns - under THIS tenant
         // only. Catering companies often create order rows before the
         // user signs up (linked by email only), and a single user might
         // also have multiple client rows under the same company through
@@ -477,7 +477,7 @@ export default function ClientPortalDashboard() {
     // orders INSERT/UPDATE/DELETE platform-wide. Every order edit
     // on any tenant fired this callback in every client's browser,
     // and the payload includes the full row of every order change
-    // depending on REPLICA IDENTITY -- a real leak vector if RLS
+    // depending on REPLICA IDENTITY - a real leak vector if RLS
     // ever wavers on the realtime channel. Filter by company_id.
     const channel = supabase
       .channel(`client-orders-${user.id}-${tenantCompanyId}`)
@@ -531,7 +531,7 @@ export default function ClientPortalDashboard() {
           console.error("[client-portal/dashboard] driver_locations fetch failed:", pinError);
         }
 
-        // Driver name + phone live on the profiles row -- there's no
+        // Driver name + phone live on the profiles row - there's no
         // separate drivers table. Fetched in parallel so a missing
         // profile (e.g. a deleted driver) doesn't hide the location.
         const { data: driverProfile, error: driverProfileError } = await supabase
@@ -554,7 +554,7 @@ export default function ClientPortalDashboard() {
           });
         }
       } catch {
-        /* ignore -- we'll retry next interval */
+        /* ignore - we'll retry next interval */
       }
     };
     poll();
@@ -653,7 +653,7 @@ export default function ClientPortalDashboard() {
               quotes the client hasn't acted on. This is the most
               important "you need to do something" moment so it gets
               top billing. Accepting / declining lives on the public
-              quote view at /q/[token] -- we just deep-link there. */}
+              quote view at /q/[token] - we just deep-link there. */}
           {(() => {
             const pending = quotes.filter(
               (q) => q.status === "sent" || q.status === "viewed",
@@ -774,7 +774,7 @@ export default function ClientPortalDashboard() {
               When there's at least one completed event, surface a
               warm "do it again" prompt above the next-event card.
               Hidden when the client already has a live upcoming
-              booking -- the hero card will be more useful there. */}
+              booking - the hero card will be more useful there. */}
           {(() => {
             const lastCompleted = orders.find((o) => o.status === "completed");
             if (!lastCompleted) return null;
@@ -908,7 +908,7 @@ export default function ClientPortalDashboard() {
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     fmtMoney={fmtMoney}
                     onRebook={(target) => {
-                      // Open the RebookDialog -- it manages its own
+                      // Open the RebookDialog - it manages its own
                       // form state internally now (date, items, notes).
                       setRebookOrder(target);
                     }}
@@ -1003,7 +1003,7 @@ export default function ClientPortalDashboard() {
         quoteNumber={editsQuote?.quote_number || null}
         onSuccess={() => {
           // Drop the quote out of the pending bucket locally so the
-          // hero band updates without a full refetch -- the server
+          // hero band updates without a full refetch - the server
           // already flipped it to 'revised'.
           setQuotes((prev) =>
             prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "revised" } : q)),
@@ -1017,7 +1017,7 @@ export default function ClientPortalDashboard() {
   );
 }
 
-// ── Hero card -- the one piece that adapts to the phase ───────────────
+// ── Hero card - the one piece that adapts to the phase ───────────────
 
 function HeroCard({
   order,

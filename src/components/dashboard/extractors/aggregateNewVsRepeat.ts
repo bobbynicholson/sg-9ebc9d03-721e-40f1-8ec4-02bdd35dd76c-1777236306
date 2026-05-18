@@ -1,5 +1,5 @@
 /**
- * Tier 3 chart 3 -- New vs repeat revenue split (current period).
+ * Tier 3 chart 3 - New vs repeat revenue split (current period).
  *
  * Walks orders in the date range and classifies each contributing
  * client as either NEW (their first-ever order with this company falls
@@ -21,7 +21,7 @@ export interface NewVsRepeatBucket {
 export interface NewVsRepeatResult {
   newClients: NewVsRepeatBucket;
   repeatClients: NewVsRepeatBucket;
-  /** newClients.revenue / total -- for the donut percent label. NaN-safe. */
+  /** newClients.revenue / total - for the donut percent label. NaN-safe. */
   newShare: number;
   totalRevenue: number;
   totalOrders: number;

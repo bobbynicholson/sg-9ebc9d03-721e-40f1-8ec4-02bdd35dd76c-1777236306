@@ -1,7 +1,7 @@
 /**
  * POST /api/admin/outsource-assignments
  *
- * Wave 67 Phase D -- admin creates a new outsource assignment for an
+ * Wave 67 Phase D - admin creates a new outsource assignment for an
  * order. Wraps the service create() with tenant scope + role check.
  *
  * Body: { orderId, providerId, serviceDescription, quotedCost, rateType?,
@@ -94,12 +94,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
     }
 
-    // Wave 67.5 -- multi-provider routing. When the caller passes
+    // Wave 67.5 - multi-provider routing. When the caller passes
     // routingGroupId, this row joins the same fulfilment-slot group
     // as the existing siblings. The DB trigger
     // _outsource_cancel_routing_siblings auto-cancels the rest when
     // any one of them is accepted. New routing groups can be started
-    // by setting routingGroupId to "new" -- we mint a fresh uuid so
+    // by setting routingGroupId to "new" - we mint a fresh uuid so
     // the caller doesn't have to.
     let routingGroupId: string | null = null;
     if (typeof body.routingGroupId === "string") {

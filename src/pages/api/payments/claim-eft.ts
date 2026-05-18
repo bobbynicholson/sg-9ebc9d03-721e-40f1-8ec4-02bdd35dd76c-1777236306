@@ -103,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Not your invoice" });
     }
 
-    // Idempotency -- treat very recent duplicate clicks as the same
+    // Idempotency - treat very recent duplicate clicks as the same
     // claim so a flaky network doesn't spam admin notifications.
     const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString();
     const { data: recentClaim, error: recentClaimErr } = await admin
@@ -124,7 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Insert the pending payment row. Reference is forced to the
-    // invoice_number -- this is the contract the client is told to
+    // invoice_number - this is the contract the client is told to
     // honour in their banking app.
     const { data: payment, error: payErr } = await admin
       .from("payments")

@@ -3,7 +3,7 @@
  *
  * QuickBooks counterpart to the Xero sync endpoint. Pushes a single
  * CateringMS invoice to QuickBooks Online via the v3 API. Idempotent
- * via invoices.external_id (we share the column with Xero -- only
+ * via invoices.external_id (we share the column with Xero - only
  * one accounting integration is connected per company at a time, so
  * the field never collides).
  *
@@ -14,7 +14,7 @@
  * for fire-and-forget sync after auto-invoicing).
  *
  * Token refresh: QuickBooks access tokens last ~1 hour. Refresh tokens
- * last 100 days and rotate on every refresh -- like Xero, we MUST
+ * last 100 days and rotate on every refresh - like Xero, we MUST
  * persist the rotated refresh_token or the next call breaks with
  * invalid_grant. POST against
  * https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer with
@@ -140,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
         );
-        // 401 retry mirrors the create path -- a stale token
+        // 401 retry mirrors the create path - a stale token
         // mid-call would otherwise look like a missing invoice.
         let driftBody: any = null;
         if (driftResp.status === 401) {
@@ -184,14 +184,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } catch (driftErr) {
         // Drift check failure shouldn't block an alreadySynced
-        // response -- conservative, matches the prior shape.
+        // response - conservative, matches the prior shape.
         console.warn("[quickbooks/sync-invoice] drift check failed:", driftErr);
       }
       return res.status(200).json({ ok: true, alreadySynced: true, externalId: invoice.external_id });
     }
 
     // Build the customer ref. QuickBooks needs an existing customer
-    // id (Customer.Id) -- if we don't have one cached we look it up
+    // id (Customer.Id) - if we don't have one cached we look it up
     // by email, falling back to creating a new customer.
     const { data: client } = invoice.client_id
       ? await supabase
@@ -221,7 +221,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         {
           DetailType: "SalesItemLineDetail",
           Amount: subtotal,
-          Description: `Catering services -- invoice ${invoice.invoice_number}`,
+          Description: `Catering services - invoice ${invoice.invoice_number}`,
           SalesItemLineDetail: {
             ItemRef: { value: process.env.QUICKBOOKS_DEFAULT_ITEM_ID || "1" },
           },
@@ -316,7 +316,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Phase 5 #6: shared helper. Same shape as the Xero variants -- a
+// Phase 5 #6: shared helper. Same shape as the Xero variants - a
 // fix to the refresh logic (force-flag, retry behaviour, future
 // encryption layer) lands once for all three sync endpoints. The
 // import lives at the top of the file with the other modules; this
@@ -332,7 +332,7 @@ async function ensureFreshAccessToken(
 /**
  * Resolve an existing QuickBooks customer by email, or create one.
  * QuickBooks requires Invoice.CustomerRef to point at a real
- * Customer.Id -- there's no inline customer create on Invoice POST.
+ * Customer.Id - there's no inline customer create on Invoice POST.
  */
 async function ensureQuickBooksCustomer(
   accessToken: string,

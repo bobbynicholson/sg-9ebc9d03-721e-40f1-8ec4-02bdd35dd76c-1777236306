@@ -1,5 +1,5 @@
 /**
- * VehicleServiceDueWidget -- vehicles whose next_service_due date
+ * VehicleServiceDueWidget - vehicles whose next_service_due date
  * lands within the next 30 days (or has already passed).
  *
  * Phase 13 #4. Phase 7 #1 added the maintenance schedule fields

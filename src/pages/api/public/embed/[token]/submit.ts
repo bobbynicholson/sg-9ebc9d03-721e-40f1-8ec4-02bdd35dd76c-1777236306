@@ -91,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ ok: false, message: "Too many fields" });
   }
 
-  // 1) Honeypot -- silent success. Bots treat this as a win and stop hammering.
+  // 1) Honeypot - silent success. Bots treat this as a win and stop hammering.
   if (honeypot && honeypot.trim().length > 0) {
     return res.status(200).json({ ok: true });
   }
@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.headers["user-agent"] as string).slice(0, 500)
       : null;
 
-  // 2) Turnstile -- soft-fail when secret unset (dev convenience).
+  // 2) Turnstile - soft-fail when secret unset (dev convenience).
   let turnstileScore: number | null = null;
   const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
   if (turnstileSecret) {
@@ -186,7 +186,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // field would still insert a lead with email='no-reply@embed.local'.
   // That poisoned the lead-source funnel, broke conversion-to-order
   // (convertQuoteToOrder needs a real email), and made it impossible
-  // for the operator to reply. Reject the submission now -- if a form
+  // for the operator to reply. Reject the submission now - if a form
   // designer doesn't include an email field, the form isn't usable
   // for lead capture and the operator should know.
   const submittedEmail =
@@ -234,7 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (leadErr || !leadRow) {
-    // Log only the safe parts of the error -- avoid PII leaking into
+    // Log only the safe parts of the error - avoid PII leaking into
     // Vercel logs from the original payload.
     console.error("[embed/submit] lead insert failed", {
       code: (leadErr as any)?.code,
@@ -245,7 +245,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .json({ ok: false, message: "Could not save your enquiry, please try again" });
   }
 
-  // 7) Insert the submission row -- raw payload + meta for audit/replay
+  // 7) Insert the submission row - raw payload + meta for audit/replay
   const submissionInsert: Record<string, any> = {
     company_id: company.id,
     embed_form_id: form.id,
@@ -262,7 +262,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .insert([submissionInsert]);
 
   if (subErr) {
-    // Lead was already saved -- log and continue. The customer is more
+    // Lead was already saved - log and continue. The customer is more
     // important than the audit row.
     console.warn("[embed/submit] submission audit insert failed", subErr);
   }
@@ -296,7 +296,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 9) Optional auto-reply to client. Per-form `auto_reply_enabled`
   //    overrides the company-wide `auto_reply_to_embed_submissions`
   //    when set; null falls back to the company flag. Visitor's name
-  //    is HTML-escaped before interpolation -- emailService sends as
+  //    is HTML-escaped before interpolation - emailService sends as
   //    html: by default, and the auditors flagged this as a stored-
   //    XSS amplifier abusing the tenant's own SPF/DKIM domain.
   const autoReplyResolved =
@@ -309,7 +309,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { emailService } = await import("@/services/emailService");
         // Wave 18 audit: contactName came from the public embed
         // submission unsanitised. Putting it directly into the
-        // Subject header was a header-injection foothold -- a
+        // Subject header was a header-injection foothold - a
         // malicious submitter could send a name like "Jane\r\nBcc:
         // attacker@example.com" and the SMTP transport would
         // happily inject the BCC header. Strip CR / LF / TAB from

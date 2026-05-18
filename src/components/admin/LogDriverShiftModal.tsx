@@ -1,5 +1,5 @@
 /**
- * LogDriverShiftModal -- admin manual shift entry for a driver.
+ * LogDriverShiftModal - admin manual shift entry for a driver.
  *
  * Opens from /admin/driver-management. Captures clock-in / clock-out
  * times, plus optional notes and BCEA multiplier (defaults to 1x;
@@ -26,7 +26,7 @@ import { AlertCircle, Clock, Loader2, Check, Trash2 } from "lucide-react";
 import { driverPayService } from "@/services/driverPayService";
 
 /**
- * Wave 70.12 -- shape of a shift the modal can pre-fill from when
+ * Wave 70.12 - shape of a shift the modal can pre-fill from when
  * opened in EDIT mode. Pass nothing -> CREATE mode (original
  * behaviour, used by the empty cell + button).
  */
@@ -48,7 +48,7 @@ interface Props {
   onCreated?: () => void;
   /** Optional: the user creating the shift (for audit). */
   actorUserId?: string | null;
-  /** Wave 70.12 -- pass an existing shift to open the modal in
+  /** Wave 70.12 - pass an existing shift to open the modal in
    *  edit mode (pre-fills the inputs, shows Update + Delete
    *  instead of Save). Leave undefined for the original create
    *  flow. */
@@ -97,7 +97,7 @@ export function LogDriverShiftModal({
   // override button when the backend returned a conflict (vs. a
   // generic validation error which should NOT offer the override).
   const [conflict, setConflict] = useState(false);
-  // Wave 70.12 -- confirm-delete two-step so a rogue click doesn't
+  // Wave 70.12 - confirm-delete two-step so a rogue click doesn't
   // wipe a logged shift.
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -134,7 +134,7 @@ export function LogDriverShiftModal({
     return Math.round(h * 100) / 100;
   })();
 
-  // Wave 70.12 -- update existing shift (edit mode).
+  // Wave 70.12 - update existing shift (edit mode).
   const submitUpdate = async () => {
     if (!existingShift) return;
     setError(null);
@@ -165,7 +165,7 @@ export function LogDriverShiftModal({
     }
   };
 
-  // Wave 70.12 -- soft delete the shift (edit mode).
+  // Wave 70.12 - soft delete the shift (edit mode).
   const submitDelete = async () => {
     if (!existingShift) return;
     setError(null);
@@ -263,7 +263,7 @@ export function LogDriverShiftModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-orange-600" />
-            {isEdit ? "Edit shift" : "Log shift"} -- {driverName}
+            {isEdit ? "Edit shift" : "Log shift"} - {driverName}
           </DialogTitle>
           <DialogDescription>
             {isEdit
@@ -320,9 +320,9 @@ export function LogDriverShiftModal({
               onChange={(e) => setMultiplier(e.target.value as "1" | "1.5" | "2")}
               className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
             >
-              <option value="1">1x -- standard hours</option>
-              <option value="1.5">1.5x -- overtime</option>
-              <option value="2">2x -- Sunday / public holiday (BCEA)</option>
+              <option value="1">1x - standard hours</option>
+              <option value="1.5">1.5x - overtime</option>
+              <option value="2">2x - Sunday / public holiday (BCEA)</option>
             </select>
             <p className="text-[11px] text-slate-500 mt-1">
               Auto-stamped on Sundays / public holidays once Stage 4 lands. For now, set manually if applicable.

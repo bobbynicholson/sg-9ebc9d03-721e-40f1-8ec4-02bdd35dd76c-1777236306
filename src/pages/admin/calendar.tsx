@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Event Calendar -- rebuilt for actual UX. Each day cell now shows event
+ * Event Calendar - rebuilt for actual UX. Each day cell now shows event
  * pills (truncated client names) instead of an opaque count badge, click
  * a day to open a side sheet with that day's full event list, click an
  * event to jump to its order page. Arrow keys navigate days, "T" jumps
@@ -96,14 +96,14 @@ function AdminCalendar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  // Wave 70.37 -- live refresh hooks. The calendar previously only
+  // Wave 70.37 - live refresh hooks. The calendar previously only
   // refetched on mount and on company_id change. When Bobby edited
   // an order's date on /admin/orders, the calendar continued to
   // show the old date until he hard-refreshed. Two fixes:
-  //   1. Tab focus -- coming back to the calendar tab refetches.
+  //   1. Tab focus - coming back to the calendar tab refetches.
   //      Covers cross-tab edits (admin/orders open in tab A, edit,
   //      switch to tab B = calendar -> refresh fires).
-  //   2. Custom event 'cateringms:order-updated' -- in-tab cross-
+  //   2. Custom event 'cateringms:order-updated' - in-tab cross-
   //      page edits (same browser tab, e.g. drawer was opened
   //      from a different surface). Dispatched by every order
   //      save handler in /admin/orders.
@@ -228,7 +228,7 @@ function AdminCalendar() {
     setSelectedDate(t);
   };
 
-  // -- Keyboard navigation: arrows, T for today, [ ] for months ----------
+  // - Keyboard navigation: arrows, T for today, [ ] for months ----------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -280,7 +280,7 @@ function AdminCalendar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
 
-  // Full list of open events from today onwards -- drives the KPI tile.
+  // Full list of open events from today onwards - drives the KPI tile.
   // The preview list slices this to 5 separately so the count isn't
   // capped at five (a real bookings number is the useful figure).
   const upcomingAll = useMemo(() =>
@@ -324,8 +324,8 @@ function AdminCalendar() {
     ? quotesByDay[toLocalISO(selectedDate)] || []
     : [];
 
-  // Wave 70.36 -- day intelligence aggregator. The previous popout
-  // listed events as a flat array with no day-level read-out -- the
+  // Wave 70.36 - day intelligence aggregator. The previous popout
+  // listed events as a flat array with no day-level read-out - the
   // operator had to add up revenue + guests in their head and had
   // no signal on operational risk. This computes everything we can
   // derive from already-loaded orders (no extra DB hits):
@@ -348,7 +348,7 @@ function AdminCalendar() {
     let conflictMarker = false; // overlapping same time-of-day
 
     // Per-event lightweight issue list. Heavy signals (prep tasks,
-    // invoice sent_at, kitchen rostered) need joins -- those live on
+    // invoice sent_at, kitchen rostered) need joins - those live on
     // the OrderReadinessChip on /admin/orders. Here we surface what's
     // computable from the order row alone.
     const perEventIssues = new Map<string, string[]>();
@@ -387,7 +387,7 @@ function AdminCalendar() {
       if (times[i] - times[i - 1] < 60) { conflictMarker = true; break; }
     }
 
-    // Mode: ordered priority -- conflict beats packed beats busy etc.
+    // Mode: ordered priority - conflict beats packed beats busy etc.
     type Mode = "quiet" | "relaxed" | "busy" | "packed" | "conflict";
     let mode: Mode = "quiet";
     if (dayEvents.length === 0) mode = "quiet";
@@ -414,14 +414,14 @@ function AdminCalendar() {
     };
   }, [selectedDate, dayEvents]);
 
-  // Mode metadata -- mirrors the portal nav mode badge pattern from
+  // Mode metadata - mirrors the portal nav mode badge pattern from
   // Waves 70.28 / 70.29 / 70.31 for visual consistency.
   const DAY_MODE_META: Record<string, { label: string; sublabel: string; bg: string; text: string; pulse: boolean }> = {
     quiet:    { label: "Quiet",    sublabel: "Open diary, easy to win extra bookings", bg: "bg-slate-100 border-slate-200", text: "text-slate-700", pulse: false },
     relaxed:  { label: "Relaxed",  sublabel: "Light day, room to focus on prep",       bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", pulse: false },
-    busy:     { label: "Busy",     sublabel: "Solid run -- keep the team aligned",     bg: "bg-blue-50 border-blue-200", text: "text-blue-800", pulse: false },
-    packed:   { label: "Packed",   sublabel: "Heavy load -- watch capacity + drivers", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
-    conflict: { label: "Conflicts","sublabel": "Multiple events within 60 min of each other -- review", bg: "bg-rose-50 border-rose-200", text: "text-rose-800", pulse: true },
+    busy:     { label: "Busy",     sublabel: "Solid run - keep the team aligned",     bg: "bg-blue-50 border-blue-200", text: "text-blue-800", pulse: false },
+    packed:   { label: "Packed",   sublabel: "Heavy load - watch capacity + drivers", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
+    conflict: { label: "Conflicts","sublabel": "Multiple events within 60 min of each other - review", bg: "bg-rose-50 border-rose-200", text: "text-rose-800", pulse: true },
   };
 
   return (
@@ -581,7 +581,7 @@ function AdminCalendar() {
                         (s: number, e: any) => s + Number(e.total_amount || 0),
                         0,
                       );
-                      // Diary state -- drives the cell border colour. Past
+                      // Diary state - drives the cell border colour. Past
                       // days are excluded from the gap-finder logic; they
                       // can't be filled retroactively.
                       const atCapacity = events.length >= maxConcurrent;
@@ -589,7 +589,7 @@ function AdminCalendar() {
                       // A day with ANY paused order surfaces as "paused"
                       // (dashed blue) so the operator can spot at-risk
                       // bookings at a glance. Capacity still counts the
-                      // paused orders -- they're holding the slot.
+                      // paused orders - they're holding the slot.
                       const pausedCount = events.filter((e: any) => String(e.status).toLowerCase() === "paused").length;
                       const hasPaused = pausedCount > 0;
                       const allPaused = events.length > 0 && pausedCount === events.length;
@@ -750,7 +750,7 @@ function AdminCalendar() {
                 </CardContent>
               </Card>
 
-              {/* Gap finder -- the diary opportunity panel. Lists days
+              {/* Gap finder - the diary opportunity panel. Lists days
                   in the next 30 with quotes out but nothing booked, so
                   the operator can pick which quote to chase. */}
               <Card className="border-0 shadow-lg">
@@ -848,7 +848,7 @@ function AdminCalendar() {
         </div>
       </div>
 
-      {/* Day detail sheet -- shared resizable host (drag the left edge) */}
+      {/* Day detail sheet - shared resizable host (drag the left edge) */}
       <ComposeDrawerHost open={!!selectedDate} onClose={() => setSelectedDate(null)}>
           {selectedDate && (
             <>
@@ -867,10 +867,10 @@ function AdminCalendar() {
                 </SheetDescription>
               </SheetHeader>
 
-              {/* Wave 70.36 -- intelligence layer at the top of the
+              {/* Wave 70.36 - intelligence layer at the top of the
                   popout. Mode badge + day aggregates + mini timeline
                   + health pills + quick actions. Computed entirely
-                  from already-loaded orders state -- no extra DB
+                  from already-loaded orders state - no extra DB
                   hits. */}
               {dayIntel && (dayIntel.totalEvents > 0 || dayIntel.isPastDay) && (
                 <div className="mt-4 space-y-3">
@@ -890,7 +890,7 @@ function AdminCalendar() {
                     );
                   })()}
 
-                  {/* Day aggregates -- 4 mini pills */}
+                  {/* Day aggregates - 4 mini pills */}
                   <div className="grid grid-cols-4 gap-1.5">
                     <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
                       <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalEvents}</p>
@@ -919,7 +919,7 @@ function AdminCalendar() {
                         dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
                       )}>
                         {/* Day-level scale = events at risk (NOT issue
-                            count -- per-event cards below show "N to
+                            count - per-event cards below show "N to
                             fix" as the issue count, so we use a
                             distinct word here to avoid confusing the
                             two scales). */}
@@ -930,7 +930,7 @@ function AdminCalendar() {
                     </div>
                   </div>
 
-                  {/* Mini timeline -- shows event start times on a
+                  {/* Mini timeline - shows event start times on a
                       7am-11pm bar so the operator sees the day's
                       spread at a glance. Tightly clustered events
                       = potential conflict; spread out = relaxed. */}
@@ -973,7 +973,7 @@ function AdminCalendar() {
               )}
 
               <div className="mt-4 space-y-3">
-                {/* Floating quotes for this day -- listed before events so
+                {/* Floating quotes for this day - listed before events so
                     the operator sees the opportunity first when the day
                     is empty. Each links to the quote on /admin/quotes. */}
                 {dayQuotes.length > 0 && (
@@ -1024,7 +1024,7 @@ function AdminCalendar() {
                 ) : dayEvents.length === 0 ? null : (
                   dayEvents.map((e: any) => {
                     const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;
-                    // Wave 70.36 -- inline lightweight readiness list
+                    // Wave 70.36 - inline lightweight readiness list
                     // surfaced as a small badge + bullet list at the
                     // bottom of the card. Tells the operator AT A
                     // GLANCE which events need attention without

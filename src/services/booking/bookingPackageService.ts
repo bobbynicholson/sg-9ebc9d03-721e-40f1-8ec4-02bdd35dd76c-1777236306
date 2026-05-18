@@ -1,5 +1,5 @@
 /**
- * bookingPackageService -- Wave 70.45
+ * bookingPackageService - Wave 70.45
  *
  * CRUD + lifecycle for booking_packages. Each package groups
  * multiple orders (wedding setup Fri + function Sat + strike Sun
@@ -86,7 +86,7 @@ export async function createPackage(
 }
 
 /**
- * Link an existing order to a package. Idempotent -- safe to call
+ * Link an existing order to a package. Idempotent - safe to call
  * even if the order is already linked (re-link to same package is
  * a no-op; re-link to different package replaces).
  *
@@ -119,7 +119,7 @@ export async function linkOrderToPackage(
 /**
  * Detach an order from its package. The order keeps existing but
  * becomes standalone again. If detaching leaves the package with
- * no remaining orders, the package is NOT auto-deleted -- the
+ * no remaining orders, the package is NOT auto-deleted - the
  * operator may want to add other orders to it later. Use
  * deletePackage() explicitly to remove.
  */
@@ -189,7 +189,7 @@ export async function listPackages(
 }
 
 /**
- * Cancel a whole package -- cascades to every linked order via
+ * Cancel a whole package - cascades to every linked order via
  * the existing cancelOrder workflow. Use this when the entire
  * multi-day booking falls through (e.g. wedding cancelled).
  */
@@ -220,7 +220,7 @@ export async function cancelPackage(
 
   // Use the existing cancelOrder workflow per order so the full
   // cascade (refund, equipment release, comms stop) runs. This is
-  // a server-side helper call -- callers in the browser should
+  // a server-side helper call - callers in the browser should
   // invoke via the /api/orders/[id]/cancel endpoint per order to
   // get the full audit trail. For batch use in the API endpoint
   // below, we call the workflow directly.
@@ -243,7 +243,7 @@ export async function cancelPackage(
 }
 
 /**
- * Soft-delete a package. Does NOT delete the linked orders -- they
+ * Soft-delete a package. Does NOT delete the linked orders - they
  * become standalone again (package_id becomes orphaned but is
  * already nullable + ON DELETE SET NULL). Use cancelPackage() if
  * the intent is to cancel the orders too.

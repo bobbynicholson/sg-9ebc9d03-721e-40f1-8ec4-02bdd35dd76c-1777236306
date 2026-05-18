@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/outsource-providers -- Wave 67 Phase B.
+ * /admin/outsource-providers - Wave 67 Phase B.
  *
  * Registry hub for the company's external per-event service providers
  * (on-site chefs, florists, photographers, sound, security, etc).
@@ -327,7 +327,7 @@ function ProvidersList() {
             </Button>
           </div>
 
-          {/* Wave 70.4 -- cron dry-run tester. Hits both outsource
+          {/* Wave 70.4 - cron dry-run tester. Hits both outsource
               comms crons with dryRun=1 so an admin can verify the
               window logic + dedup + recipient resolution on prod
               data without sending a single email. Surfaces who
@@ -740,7 +740,7 @@ function ProvidersList() {
 }
 
 /**
- * Wave 70.4 -- E2E test panel for the two outsource-comms crons.
+ * Wave 70.4 - E2E test panel for the two outsource-comms crons.
  *
  * Hits both crons with ?dryRun=1 and renders who would have been
  * emailed in the next firing window (24-36h ahead for pre-event,

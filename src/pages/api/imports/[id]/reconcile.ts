@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Pull aggregate counts + sums per target table this job touched.
     // Three round trips is enough; we don't need per-row detail
-    // here -- the modal links out to the contacts / orders / invoices
+    // here - the modal links out to the contacts / orders / invoices
     // pages for that.
     const [clientsAgg, ordersAgg, invoicesAgg, paymentsAgg, quotesAgg] = await Promise.all([
       supabase
@@ -101,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       invoices = (data || []) as any[];
     }
 
-    // Same for payments -- link via import_rows.target_id since
+    // Same for payments - link via import_rows.target_id since
     // payments doesn't have import_job_id either.
     const { data: paymentRowIds } = await supabase
       .from("import_rows")
@@ -133,7 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Anomalies. Each is something the operator should glance at
     // before treating the import as done. Capped so the report stays
-    // skimmable -- the per-row drill-down is on the contact / order /
+    // skimmable - the per-row drill-down is on the contact / order /
     // invoice pages, not here.
     const anomalies: Array<{ kind: string; detail: string; count: number }> = [];
 
@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (paidInvoicesWithBalance > 0) {
       anomalies.push({
         kind: "paid_with_balance",
-        detail: "Invoices marked 'paid' but still have a balance due. Status conflict -- review.",
+        detail: "Invoices marked 'paid' but still have a balance due. Status conflict - review.",
         count: paidInvoicesWithBalance,
       });
     }
@@ -172,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (paymentsWithoutInvoice > 0) {
       anomalies.push({
         kind: "payments_without_invoice",
-        detail: "Payments that landed without an invoice link. Reconciliation against the bank statement is harder for these -- consider importing the matching invoices.",
+        detail: "Payments that landed without an invoice link. Reconciliation against the bank statement is harder for these - consider importing the matching invoices.",
         count: paymentsWithoutInvoice,
       });
     }

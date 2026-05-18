@@ -1,7 +1,7 @@
 /**
  * Deterministic field normalisers for the AI Onboarding Importer.
  *
- * Everything here runs in plain TypeScript -- no AI. Only data the
+ * Everything here runs in plain TypeScript - no AI. Only data the
  * deterministic path can't handle gets escalated to a future
  * AI-row-fixer pass.
  */

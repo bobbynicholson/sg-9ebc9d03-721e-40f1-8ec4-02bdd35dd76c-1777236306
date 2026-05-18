@@ -7,7 +7,7 @@
  *   surface it as a button that dispatches a `cmdk:open` window event.
  *
  * - MobileQuickActions: 2-3 role-aware shortcut tiles for "the thing
- *   this person came here to do right now" -- driver wants today's
+ *   this person came here to do right now" - driver wants today's
  *   route, kitchen wants today's prep, shopping wants the alerts page,
  *   admin wants today's events. Tile-style so it's thumb-friendly.
  */

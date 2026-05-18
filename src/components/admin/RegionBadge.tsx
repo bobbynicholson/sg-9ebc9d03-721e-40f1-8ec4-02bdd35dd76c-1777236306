@@ -6,7 +6,7 @@
  * see "CPT" / "JHB" / etc, sourced from regions.code or regions.name
  * via useCompanyKitchens.
  *
- * region_id IS NULL renders as "Company-wide" -- legacy rows from
+ * region_id IS NULL renders as "Company-wide" - legacy rows from
  * before Stage 0 propagation, which still need to surface and stay
  * editable until they're stamped.
  */

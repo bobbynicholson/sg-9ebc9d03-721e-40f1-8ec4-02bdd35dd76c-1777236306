@@ -1,5 +1,5 @@
 /**
- * useShoppingPortalMode -- Wave 70.29
+ * useShoppingPortalMode - Wave 70.29
  *
  * Detects which phase of the day the shopping team is in, based on
  * four signals queried from the tenant's data:
@@ -11,14 +11,14 @@
  *
  * Modes (priority order, first match wins):
  *
- *   run        -- a shopping_list is in_progress / pending right
+ *   run        - a shopping_list is in_progress / pending right
  *                 now. The shopper is physically out buying.
- *   reconcile  -- no active list, but today's completed list(s) have
+ *   reconcile  - no active list, but today's completed list(s) have
  *                 receipts to file. End-of-day admin window.
- *   plan       -- no active list, no unfiled receipts, BUT there
+ *   plan       - no active list, no unfiled receipts, BUT there
  *                 are shortfall items or events in the next 48h.
  *                 Morning planning window.
- *   quiet      -- none of the above. Catch up on suppliers /
+ *   quiet      - none of the above. Catch up on suppliers /
  *                 inventory / etc.
  *
  * Manual override: sessionStorage-scoped, same pattern as kitchen /
@@ -148,7 +148,7 @@ export function useShoppingPortalMode(): ShoppingPortalModeState {
       setActiveLists(activeRes?.count || 0);
       setUnfiledReceiptsToday(unfiledRes?.count || 0);
     } catch {
-      // Silent fail -- mode defaults to "quiet" via the zeros.
+      // Silent fail - mode defaults to "quiet" via the zeros.
     } finally {
       setLoading(false);
     }

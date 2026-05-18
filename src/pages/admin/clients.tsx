@@ -1,5 +1,5 @@
 /**
- * /admin/clients -- DEPRECATED, redirects to /admin/contacts.
+ * /admin/clients - DEPRECATED, redirects to /admin/contacts.
  *
  * The Contacts page is now the single source of truth for the client
  * contact database. Bobby pulled the separate "Clients" page so the

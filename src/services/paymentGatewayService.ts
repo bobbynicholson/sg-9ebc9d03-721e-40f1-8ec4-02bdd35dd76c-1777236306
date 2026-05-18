@@ -1,7 +1,7 @@
 /**
  * Payment gateway service (tenant-scoped).
  *
- * Owns the per-company payment gateway configuration -- which provider
+ * Owns the per-company payment gateway configuration - which provider
  * (PayFast / Yoco / Peach) is wired up for receiving event-client
  * payments, whether it's in test or live mode, the success / cancel /
  * notify URLs, and the secret credentials for signing requests.
@@ -11,7 +11,7 @@
  * company_admin can read/write metadata; the credentials sibling
  * table has RLS enabled with no permissive policy, so only
  * service-role server code can ever touch it. The browser's "edit"
- * dialog blanks credential fields on every open -- write-once,
+ * dialog blanks credential fields on every open - write-once,
  * full re-entry on update.
  *
  * The actual payment-routing handler (deferred phase 2 work) reads
@@ -35,7 +35,7 @@ export type PaymentGatewayMetadata =
 
 /**
  * What we send back to browser callers. Real credentials never appear
- * here -- credential_hints carries only a last-4 string per field key
+ * here - credential_hints carries only a last-4 string per field key
  * so the operator can confirm the correct keys are saved without ever
  * exposing the secret. Empty record when the gateway hasn't been
  * configured yet, or when the caller used the browser-safe `list()`
@@ -131,7 +131,7 @@ export const paymentGatewayService = {
    * last-4 hint per field so the configure dialog can show "Merchant
    * Key ····3287" without ever letting the real value leave the server.
    *
-   * The browser-safe list() never reads the credentials table -- this
+   * The browser-safe list() never reads the credentials table - this
    * method exists specifically for the API endpoint to enrich the
    * response, since RLS denies authenticated reads on credentials.
    */
@@ -251,7 +251,7 @@ export const paymentGatewayService = {
       return { ok: false, error: "Upsert returned no row" };
     }
 
-    // Credentials -- one row per gateway_id (UNIQUE constraint).
+    // Credentials - one row per gateway_id (UNIQUE constraint).
     const { data: existingCreds, error: credReadErr } = await serviceClient
       .from(CREDS_TABLE)
       .select("id")
@@ -279,7 +279,7 @@ export const paymentGatewayService = {
    * Atomically flip this gateway active and all sibling rows for the
    * same company inactive. The DB partial unique index would reject
    * a duplicate active row, so we deactivate first then activate.
-   * Server-only -- accepts a service-role client.
+   * Server-only - accepts a service-role client.
    */
   async activate(
     companyId: string,
@@ -356,7 +356,7 @@ export const paymentGatewayService = {
   },
 
   /**
-   * Provider catalogue -- the field shape every provider needs the
+   * Provider catalogue - the field shape every provider needs the
    * operator to enter. Drives the configure dialog. Single source of
    * truth: page imports this rather than hard-coding its own list.
    */
@@ -404,7 +404,7 @@ export const paymentGatewayService = {
    * Server-only. Resolve the active gateway for a company AND read its
    * raw credentials. Used by the runtime payment dispatcher and by
    * webhook handlers that need the per-tenant signing secret. Caller
-   * MUST pass a service-role client -- RLS denies authenticated reads
+   * MUST pass a service-role client - RLS denies authenticated reads
    * on payment_gateway_credentials by design.
    */
   async getActiveWithCredentials(
@@ -446,7 +446,7 @@ export const paymentGatewayService = {
    * Server-only. Read raw credentials for a specific gateway id (any
    * provider, regardless of active flag). Used by webhook handlers that
    * already know which gateway received the callback (e.g. Stripe
-   * dispatches via the per-account webhook signing secret -- the route
+   * dispatches via the per-account webhook signing secret - the route
    * looks the gateway up by metadata.gatewayId).
    */
   async getByIdWithCredentials(

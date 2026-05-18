@@ -241,7 +241,7 @@ export class PayFastService {
    * body params.
    *
    * TODO: PayFast's public refund API spec is not exhaustively documented
-   * at https://developers.payfast.co.za/api -- the field names below
+   * at https://developers.payfast.co.za/api - the field names below
    * (`amount`, `reason`) match common community implementations but should
    * be re-verified against PayFast's onboarded merchant documentation.
    * The amount unit is sent as cents (integer); confirm before going live.
@@ -259,7 +259,7 @@ export class PayFastService {
       const timestamp = new Date().toISOString();
 
       // Body params PayFast expects in the refund call. PayFast docs are
-      // thin on this endpoint -- if your account requires additional
+      // thin on this endpoint - if your account requires additional
       // fields (e.g. `merchant_reference`, `currency`) extend this map.
       const bodyParams: Record<string, string> = {
         amount: String(Math.max(0, Math.round(amountCents))),
@@ -437,7 +437,7 @@ export function getDaysRemaining(endDate: Date): number {
  * One-shot PayFast payment-form builder used by the per-tenant payment
  * dispatcher in `lib/paymentService.ts`. Reads credentials from the
  * caller (which already pulled them from `payment_gateway_credentials`
- * for the active tenant) -- no env-var lookup happens here. The
+ * for the active tenant) - no env-var lookup happens here. The
  * legacy single-tenant env-var path in
  * `paymentProcessingService.generatePaymentLink` is preserved
  * unchanged for backwards compatibility.
@@ -666,7 +666,7 @@ export async function fetchRecentPayFastTransactions(
   // surface false positives.
   try {
     if (!credentials?.merchantId) {
-      console.warn("[payfastService] history call skipped -- no merchantId");
+      console.warn("[payfastService] history call skipped - no merchantId");
       return [];
     }
     const now = new Date();
@@ -724,7 +724,7 @@ export async function fetchRecentPayFastTransactions(
       : Array.isArray(body)
       ? body
       : [];
-    // Filter to settled / successful only -- pending payments will
+    // Filter to settled / successful only - pending payments will
     // either land via IPN or settle later and be picked up by a
     // subsequent cron tick.
     return list

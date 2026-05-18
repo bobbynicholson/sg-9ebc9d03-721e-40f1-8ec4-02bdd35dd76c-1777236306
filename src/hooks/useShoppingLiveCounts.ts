@@ -1,22 +1,22 @@
 /**
- * useShoppingLiveCounts -- Wave 70.29
+ * useShoppingLiveCounts - Wave 70.29
  *
  * Returns the five numbers that drive the shopping portal's nav
  * live-state strip + per-item badges:
  *
- *   shortItems       -- inventory_demand_outlook rows with
- *                       status='shortfall' (7-day window) -- items
+ *   shortItems       - inventory_demand_outlook rows with
+ *                       status='shortfall' (7-day window) - items
  *                       the kitchen will run out of soon
- *   activeListItems  -- count of items on the current active
+ *   activeListItems  - count of items on the current active
  *                       shopping_list (any draft / in_progress /
- *                       pending list). Company-wide -- shoppers
+ *                       pending list). Company-wide - shoppers
  *                       working in parallel see the same number.
- *   receiptsToFile   -- shopping_lists completed TODAY where
+ *   receiptsToFile   - shopping_lists completed TODAY where
  *                       receipt_url IS NULL. Today-scoped so the
  *                       count doesn't rot.
- *   spendToday       -- sum of actual_total on shopping_lists
+ *   spendToday       - sum of actual_total on shopping_lists
  *                       completed today (R or tenant currency)
- *   notifications    -- unread shopping-targeted notifications
+ *   notifications    - unread shopping-targeted notifications
  *
  * One batched fetch per call. Refreshes every 60s + on tab focus.
  * Network cost: 5 lightweight queries per minute per active tab.
@@ -74,7 +74,7 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
           .eq("company_id", companyId)
           .eq("status", "shortfall"),
         // Active shopping_list rows. Prefer lists assigned to the
-        // current shopper -- "your list" beats "team list" for the
+        // current shopper - "your list" beats "team list" for the
         // one-shopper-per-tenant dominant case (Wave 70.30). Fall
         // back to unassigned lists when there's no personal list.
         userId

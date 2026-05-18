@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 4 chart 2 -- Quote-to-accept time distribution.
+ * Tier 4 chart 2 - Quote-to-accept time distribution.
  *
  * Histogram of hours between sent_at and accepted_at, bucketed.
  * Recharts BarChart with median + 90th-percentile annotations.
@@ -35,7 +35,7 @@ export function QuoteAcceptTimeHistogram({ data, loading }: Props) {
 
   const isEmpty = data.total === 0;
 
-  // Pick the busiest bucket -- highlighted in a slightly darker shade.
+  // Pick the busiest bucket - highlighted in a slightly darker shade.
   const peakIdx = useMemo(() => {
     if (isEmpty) return -1;
     let best = -1; let max = 0;
@@ -54,7 +54,7 @@ export function QuoteAcceptTimeHistogram({ data, loading }: Props) {
           <InfoTooltip
             content={
               "How fast clients say yes. Each bar = number of quotes that were accepted within that time window since being sent.\n\n" +
-              "A heavy left side is healthy: clients decide fast. A long right tail (14d+) is your follow-up workload -- chase or close those out so they don't sit forever."
+              "A heavy left side is healthy: clients decide fast. A long right tail (14d+) is your follow-up workload - chase or close those out so they don't sit forever."
             }
           />
         </CardTitle>

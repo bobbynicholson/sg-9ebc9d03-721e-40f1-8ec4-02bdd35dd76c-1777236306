@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * TemplatesPanel -- Lifecycle Emails template editor.
+ * TemplatesPanel - Lifecycle Emails template editor.
  *
  * Edits rows in `email_templates` directly. Logic:
  *   - Reads global-default rows (company_id IS NULL) seeded by
@@ -274,7 +274,7 @@ const TEMPLATE_META: TemplateMeta[] = [
 
 interface RowState {
   meta: TemplateMeta;
-  /** Subject + body that will go out -- tenant override or global default. */
+  /** Subject + body that will go out - tenant override or global default. */
   subject: string;
   body: string;
   /** True when the tenant has its own row for this type. */
@@ -371,7 +371,7 @@ export function TemplatesPanel() {
     <>
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <p className="text-sm text-slate-600 max-w-2xl">
-          Edit every email the system sends to clients. Change the wording, the tone, the sign-off -- it stays customised for your team and falls back to the system default if you reset it.
+          Edit every email the system sends to clients. Change the wording, the tone, the sign-off - it stays customised for your team and falls back to the system default if you reset it.
         </p>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Customised</p>
@@ -593,7 +593,7 @@ function EditorDrawer({
                   key={v.name}
                   type="button"
                   onClick={() => insertVar(v.name)}
-                  title={`${v.description} -- example: ${v.example}`}
+                  title={`${v.description} - example: ${v.example}`}
                   className="text-[11px] font-mono bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-1 rounded border border-slate-200 transition-colors"
                 >
                   {`{{${v.name}}}`}
@@ -671,7 +671,7 @@ function EditorDrawer({
           </Button>
         </div>
 
-        {/* TODO: Send-test button -- needs a server route that resolves
+        {/* TODO: Send-test button - needs a server route that resolves
             the template, substitutes fixture variables and sends to the
             current operator's email via emailService. Deferred so the
             DB seed + resolver land first. */}

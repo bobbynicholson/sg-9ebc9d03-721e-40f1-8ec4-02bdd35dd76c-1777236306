@@ -169,7 +169,7 @@ function AchievementsContent() {
                   </CardTitle>
                   <CardDescription>
                     {achievements.length === 0
-                      ? "No badges yet -- earn your first 100 points to unlock the Century Club."
+                      ? "No badges yet - earn your first 100 points to unlock the Century Club."
                       : `${achievements.length} unlocked. Keep going.`}
                   </CardDescription>
                 </CardHeader>

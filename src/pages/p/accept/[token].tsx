@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /p/accept/[token] -- Wave 67 Phase D.
+ * /p/accept/[token] - Wave 67 Phase D.
  *
  * Public magic-link page for outsource providers. They land here from
  * the request email or WhatsApp, see the order summary, and tap
@@ -179,7 +179,7 @@ export default function OutsourceAcceptPage() {
               {!loading && !error && done === "accepted" && (
                 <div className="text-center py-6">
                   <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                  <h2 className="text-lg font-semibold text-slate-900">Confirmed -- thank you</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">Confirmed - thank you</h2>
                   <p className="text-sm text-slate-600 mt-1">
                     {data?.providerName ? `${data.providerName}, the company` : "The company"} will be in touch with final details closer to the date.
                   </p>
@@ -194,7 +194,7 @@ export default function OutsourceAcceptPage() {
               {!loading && !error && done === "declined" && (
                 <div className="text-center py-6">
                   <XCircle className="w-12 h-12 text-rose-600 mx-auto mb-2" />
-                  <h2 className="text-lg font-semibold text-slate-900">Declined -- noted</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">Declined - noted</h2>
                   <p className="text-sm text-slate-600 mt-1">
                     The company has been notified and will look for an alternative provider.
                   </p>

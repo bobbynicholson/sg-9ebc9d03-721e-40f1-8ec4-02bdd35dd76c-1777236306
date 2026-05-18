@@ -1,5 +1,5 @@
 /**
- * /team-portal/kitchen/today -- Wave 70.7
+ * /team-portal/kitchen/today - Wave 70.7
  *
  * The new primary entry point for the kitchen portal. Re-exports
  * the existing /dashboard page so this is a pure rename / alias --

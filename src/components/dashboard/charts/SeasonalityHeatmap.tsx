@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 2 chart 1 -- Seasonality heatmap.
+ * Tier 2 chart 1 - Seasonality heatmap.
  *
  * Pure CSS-grid heatmap (no Recharts). Rows = days of week (Mon..Sun).
  * Columns = ISO weeks across the last 12 months. Cell colour scales
@@ -106,7 +106,7 @@ export function SeasonalityHeatmap({ data, loading }: Props) {
             >
               {/* top-left empty corner */}
               <div />
-              {/* week-of-month markers across the top -- show start month only */}
+              {/* week-of-month markers across the top - show start month only */}
               {weekKeys.map((wk, i) => {
                 const monthCell = cellsByPosition.get(`0|${wk}`); // Monday of the week
                 const showLabel = monthCell && (i === 0 || (() => {
@@ -121,7 +121,7 @@ export function SeasonalityHeatmap({ data, loading }: Props) {
                 );
               })}
 
-              {/* 7 rows -- one per day of week */}
+              {/* 7 rows - one per day of week */}
               {DAY_LABELS.map((dayLabel, dow) => (
                 <>
                   <div key={`dow-${dow}`} className="text-[9px] text-slate-500 pr-1 text-right leading-none self-center">

@@ -5,7 +5,7 @@
  * Single-file download containing every template tab the onboarding
  * importer understands: Clients, Orders, Quotes, Invoices, Payments,
  * Leads. The operator fills in whichever tabs they have data for and
- * uploads the whole .xlsx in one go -- the upload route's per-sheet
+ * uploads the whole .xlsx in one go - the upload route's per-sheet
  * auto-mapping picks each tab up independently, the cross-sheet
  * linker resolves foreign keys (orders -> clients, invoices ->
  * orders, payments -> invoices) at commit time.
@@ -14,7 +14,7 @@
  * five separate template downloads + uploads into one round trip.
  *
  * Auth: any signed-in admin / owner / company_admin / super_admin.
- * No tenant data leaks possible -- the file is purely the schema.
+ * No tenant data leaks possible - the file is purely the schema.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as XLSX from "xlsx";
@@ -26,7 +26,7 @@ const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]
 // Tab order matches the dependency graph the importer commits in:
 // clients first (orders + quotes + invoices link to them), then
 // orders (invoices + payments may link to them), then quotes,
-// then invoices, then payments. Leads last -- independent of the
+// then invoices, then payments. Leads last - independent of the
 // rest, included because it's part of the unified onboarding.
 const SHEET_ORDER = ["clients", "orders", "quotes", "invoices", "payments", "leads"] as const;
 
@@ -55,27 +55,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const wb = X.utils.book_new();
 
     // First tab: a "Read me" sheet. Catering owners aren't going to
-    // read the docs -- this lives in the workbook itself so the
+    // read the docs - this lives in the workbook itself so the
     // instructions sit next to where they're filling data in.
     const intro: any[][] = [
       ["CateringMS onboarding workbook"],
       [""],
-      ["Fill in whichever tabs you have data for. Skip the rest -- empty tabs land empty."],
+      ["Fill in whichever tabs you have data for. Skip the rest - empty tabs land empty."],
       [""],
       ["Tabs in this file:"],
-      ["1. Clients     -- everyone you've worked with. Names, contacts, billing."],
-      ["2. Orders      -- past or upcoming events. Required for FY revenue numbers."],
-      ["3. Quotes      -- proposals you've sent. Tracks the FU1/FU2/FU3 follow-up."],
-      ["4. Invoices    -- bills issued. Links to Orders by 'Order number' column."],
-      ["5. Payments    -- money received. Links to Invoices by 'Invoice number'."],
-      ["6. Leads       -- prospects who enquired but haven't booked yet."],
+      ["1. Clients     - everyone you've worked with. Names, contacts, billing."],
+      ["2. Orders      - past or upcoming events. Required for FY revenue numbers."],
+      ["3. Quotes      - proposals you've sent. Tracks the FU1/FU2/FU3 follow-up."],
+      ["4. Invoices    - bills issued. Links to Orders by 'Order number' column."],
+      ["5. Payments    - money received. Links to Invoices by 'Invoice number'."],
+      ["6. Leads       - prospects who enquired but haven't booked yet."],
       [""],
       ["Tips that save time:"],
       ["- Required columns are marked with a * in the header."],
       ["- The importer auto-creates missing clients from order rows when needed."],
-      ["- Invoice and order numbers are preserved verbatim -- no renaming."],
+      ["- Invoice and order numbers are preserved verbatim - no renaming."],
       ["- Past dates land as completed orders / paid invoices automatically."],
-      ["- You can re-upload the same file after cleaning -- existing rows update,"],
+      ["- You can re-upload the same file after cleaning - existing rows update,"],
       ["  empty cells leave manual edits in the portal alone."],
       [""],
       ["When you're done, save this file and upload it from /admin/onboarding."],

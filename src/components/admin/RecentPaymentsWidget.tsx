@@ -1,5 +1,5 @@
 /**
- * RecentPaymentsWidget -- last 5 payments collected for the tenant.
+ * RecentPaymentsWidget - last 5 payments collected for the tenant.
  *
  * Phase 16 #9. Today's Pulse (Phase 9 #5) shows 'Paid today'
  * total but no row-level detail. The bookkeeper reconciling

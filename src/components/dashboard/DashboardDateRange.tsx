@@ -1,6 +1,6 @@
 /**
  * Reusable date-range picker for dashboards. Sets the scope every metric
- * tile reads from -- when the user picks a range, all numbers re-fetch
+ * tile reads from - when the user picks a range, all numbers re-fetch
  * filtered by orders.event_date within the range.
  *
  * Catering businesses think in terms of when the event happens, not when

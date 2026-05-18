@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * MarkPaidDialog -- Wave 66.5.
+ * MarkPaidDialog - Wave 66.5.
  *
  * Per-row "$ Mark paid" action on /admin/invoices. The companion to
  * the bulk-toolbar mark-paid: that flow is a one-click "settle these
@@ -17,7 +17,7 @@
  *     bookkeeper no anchor when matching to the EFT statement.
  *   - The "Send confirmation" toggle bridges the gap between recording
  *     the payment and telling the client it's been seen. Same mailto: /
- *     wa.me pattern as Wave 58 contact strip -- no template registry
+ *     wa.me pattern as Wave 58 contact strip - no template registry
  *     plumbing needed because the operator can review and tweak the
  *     message before sending.
  *
@@ -411,7 +411,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             </div>
             {!canSendEmail && !canSendWa && (
               <p className="text-[11px] text-slate-500">
-                No email or phone on file -- add one to the contact before sending a confirmation.
+                No email or phone on file - add one to the contact before sending a confirmation.
               </p>
             )}
             {(canSendEmail || canSendWa) && sendConfirmation && (

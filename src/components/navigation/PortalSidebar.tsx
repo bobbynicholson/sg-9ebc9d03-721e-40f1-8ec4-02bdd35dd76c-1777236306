@@ -1,9 +1,9 @@
 /**
  * Shared sidebar for the staff portals (kitchen, driver, shopping,
  * cleaning). Each role hands in a `config` describing its branding,
- * sections, and mobile quick actions; everything else -- mobile drawer,
+ * sections, and mobile quick actions; everything else - mobile drawer,
  * desktop sidebar, collapse state, scroll restoration, slug-aware
- * hrefs, active-route matching -- is identical.
+ * hrefs, active-route matching - is identical.
  *
  * Replaces 4 ~390-line per-role nav files (KitchenNav, DriverNav,
  * ShoppingNav, CleaningNav) that diverged only in icons, accent
@@ -46,13 +46,13 @@ export interface PortalSidebarNavItem {
    *  "Nothing on today" instead of the static description when count
    *  is zero. Wave 70.7. */
   liveDescription?: (() => string | null);
-  /** Optional icon overlay -- e.g. small flame badge on top-right of
+  /** Optional icon overlay - e.g. small flame badge on top-right of
    *  the base icon during service hours. Wave 70.7. */
   iconOverlay?: (() => React.ReactNode);
 }
 
 export interface PortalSidebarSection {
-  /** Stable id for localStorage section-open persistence -- never change once shipped. */
+  /** Stable id for localStorage section-open persistence - never change once shipped. */
   id: string;
   title: string;
   defaultOpen: boolean;
@@ -98,13 +98,13 @@ export interface PortalSidebarConfig {
   mobileQuickActions: PortalSidebarMobileQuickAction[];
   dashboardHref: string;
   sections: PortalSidebarSection[];
-  /** Wave 70.7 -- optional render slot for "live state" content
+  /** Wave 70.7 - optional render slot for "live state" content
    *  (mode badge + count strip) that mounts above the nav sections
    *  on both desktop + mobile. Kept as a render function so the
    *  config can be statically declared and the live-fetching
    *  components mount inside the sidebar's React tree. */
   renderTopSlot?: () => React.ReactNode;
-  /** Wave 70.7 -- optional smart quick action provider for the
+  /** Wave 70.7 - optional smart quick action provider for the
    *  mobile drawer. When supplied, overrides the static
    *  mobileQuickActions list with a context-aware set (e.g.
    *  rotating by service mode). Receives `onNavigate` so the
@@ -124,7 +124,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
 
-  // Wave 70.7c -- external open trigger. The kitchen service FAB
+  // Wave 70.7c - external open trigger. The kitchen service FAB
   // sits at the bottom-left during service hours and dispatches
   // this event to open the same drawer the top-burger opens. Other
   // portal-specific FABs can use the same pattern.
@@ -155,7 +155,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const BrandIcon = config.brandIcon;
 
-  // Wave 70.7 -- shared row renderer so the same row treatment is
+  // Wave 70.7 - shared row renderer so the same row treatment is
   // used in the mobile drawer + desktop expanded + desktop collapsed
   // modes. Honours per-item badge, live description, icon overlay,
   // and footer treatment (smaller font, muted, no description).
@@ -186,7 +186,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         href={withSlug(item.href)}
         onClick={onClickAfterNav}
         className={cn(
-          // Wave 70.41b -- overflow-hidden so long badges + descriptions
+          // Wave 70.41b - overflow-hidden so long badges + descriptions
           // never bleed outside the sidebar's right edge. Matches the
           // AdminNav fix Bobby flagged on "1 gap" badge overflow.
           "group flex items-center gap-3 rounded-lg transition-all overflow-hidden",
@@ -221,7 +221,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             {badge && !active && (
               <span
                 className={cn(
-                  // Wave 70.41b -- max-width + truncate so long badge
+                  // Wave 70.41b - max-width + truncate so long badge
                   // text doesn't push the row past the sidebar edge.
                   // flex-shrink-0 keeps the badge from being squashed
                   // when the title is short; max-w + truncate cap it
@@ -268,7 +268,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             )}
           </div>
         )}
-        {/* Wave 70.7 -- top slot (service mode + live state strip) */}
+        {/* Wave 70.7 - top slot (service mode + live state strip) */}
         {config.renderTopSlot && (
           <div>{config.renderTopSlot()}</div>
         )}
@@ -311,7 +311,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
   return (
     <>
-      {/* Wave 70.7c -- skip-to-content link for keyboard / screen
+      {/* Wave 70.7c - skip-to-content link for keyboard / screen
           reader users. Visible only on focus. Targets #main-content
           which page layouts can opt into by adding the id to their
           main wrapper. */}
@@ -377,7 +377,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            {/* Wave 70.10 -- digital clock in the mobile header.
+            {/* Wave 70.10 - digital clock in the mobile header.
                 Compact variant so it fits next to the bell + theme
                 switch without crowding. */}
             <DigitalClock variant="mobile" className="hidden xs:inline-flex sm:inline-flex" />
@@ -418,7 +418,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     <ThemeSwitch />
                   </div>
                 </div>
-                {/* Wave 70.10 -- digital clock under the brand on
+                {/* Wave 70.10 - digital clock under the brand on
                     the desktop sidebar. Two-line variant: HH:mm
                     bold on top, day + date underneath. Live-ticking
                     every second so the operator always sees current
@@ -442,7 +442,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-5">
-              {/* Wave 70.7 -- desktop top slot (service mode + live state) */}
+              {/* Wave 70.7 - desktop top slot (service mode + live state) */}
               {config.renderTopSlot && !isCollapsed && (
                 <div>{config.renderTopSlot()}</div>
               )}

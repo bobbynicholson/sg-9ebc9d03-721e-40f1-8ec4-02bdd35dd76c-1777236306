@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 4 chart 1 -- Lead source -> outcome funnel.
+ * Tier 4 chart 1 - Lead source -> outcome funnel.
  *
  * Three columns of nodes connected by SVG ribbons. Custom render
  * (Recharts' Sankey is heavyweight + flaky on small datasets and we
@@ -190,7 +190,7 @@ export function LeadSourceFunnelChart({ data, loading }: Props) {
           <InfoTooltip
             content={
               "Each lead's journey: where it came in (left), whether it got a quote (middle), and how it ended (right). Ribbon thickness = number of leads.\n\n" +
-              "Use this to find sources that bring volume but never convert -- a fat ribbon ending in 'Lost' or 'In flight' is a leak."
+              "Use this to find sources that bring volume but never convert - a fat ribbon ending in 'Lost' or 'In flight' is a leak."
             }
           />
         </CardTitle>
@@ -217,7 +217,7 @@ export function LeadSourceFunnelChart({ data, loading }: Props) {
               <text x={COL_W + GAP_BETWEEN_COLS + NODE_W / 2} y={CHART_HEIGHT + 20} fontSize="10" fill="#64748b" textAnchor="middle">Quoted?</text>
               <text x={COL_W + GAP_BETWEEN_COLS * 2 + NODE_W / 2} y={CHART_HEIGHT + 20} fontSize="10" fill="#64748b" textAnchor="middle">Outcome</text>
 
-              {/* Ribbons -- behind nodes */}
+              {/* Ribbons - behind nodes */}
               {[...links1, ...links2].map((l, i) => (
                 <path
                   key={`r-${i}`}

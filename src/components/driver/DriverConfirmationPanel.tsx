@@ -261,7 +261,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           )}
         </div>
 
-        {/* Wave 49 B2 -- new post-arrival stamps. Setup -> service ->
+        {/* Wave 49 B2 - new post-arrival stamps. Setup -> service ->
             depart. Each writes orders.<column>_at and a
             driver_confirmations audit row, fires a dispatch ping.
             Pre-Wave-49 these moments were invisible to the system. */}

@@ -70,7 +70,7 @@ interface OrderRow {
   requires_refrigeration: boolean;
   requires_waiter: boolean;
   guest_count: number | null;
-  // Wave 66.3 -- pickup_time is the time the driver leaves the
+  // Wave 66.3 - pickup_time is the time the driver leaves the
   // kitchen with the order. Used by kitchenPrepService to backplan
   // prep tasks. Now editable inline in the dispatch expanded drawer
   // because the readiness chip's "Pickup time missing" Fix-it link
@@ -113,7 +113,7 @@ function DispatchQueuePage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  // Wave 66.3 -- inline pickup_time editor state. Per-row local draft
+  // Wave 66.3 - inline pickup_time editor state. Per-row local draft
   // so multiple drawers can be open in series without state collision;
   // savingId is set while the supabase update is in-flight to dim
   // the save button.
@@ -229,8 +229,8 @@ function DispatchQueuePage() {
     return () => { sub.unsubscribe(); };
   }, [companyId, loadAll]);
 
-  // Wave 66.3 -- deeplink detection. When the URL carries
-  // ?orderId=X (the readiness chip's "Pickup time missing -- Fix
+  // Wave 66.3 - deeplink detection. When the URL carries
+  // ?orderId=X (the readiness chip's "Pickup time missing - Fix
   // it" link points here when only pickup is missing), auto-expand
   // that row once orders have loaded so the operator lands on the
   // inline editor instead of a generic queue page. Self-clears the
@@ -250,9 +250,9 @@ function DispatchQueuePage() {
     }
   }, [router.isReady, router.query.orderId, orders]);
 
-  // Wave 66.3 -- persist pickup_time inline. Direct supabase update
+  // Wave 66.3 - persist pickup_time inline. Direct supabase update
   // keeps the round-trip tight (no orderService.updateOrder cascades
-  // are wanted here -- pickup_time changes don't ripple to invoices
+  // are wanted here - pickup_time changes don't ripple to invoices
   // or quotes). Empty input clears to NULL so kitchenPrepService
   // falls back to event_time defaults.
   const savePickupTime = async (orderId: string) => {
@@ -430,7 +430,7 @@ function DispatchQueuePage() {
               });
               loadAll();
               toast({ title: "Reverted", description: assignTarget.client_name });
-              // Wave 70.40 -- ping listeners; driver was unassigned.
+              // Wave 70.40 - ping listeners; driver was unassigned.
               emitOrderUpdated(assignTarget.id, "dispatch:unassign-driver", ["driver"]);
             }}
           >Undo</ToastAction>
@@ -438,7 +438,7 @@ function DispatchQueuePage() {
       });
       setAssignOpen(false);
       loadAll();
-      // Wave 70.40 -- broadcast so the calendar's per-event "No
+      // Wave 70.40 - broadcast so the calendar's per-event "No
       // driver assigned" issue badge clears + readiness chip on
       // /admin/orders flips green without a refresh.
       emitOrderUpdated(assignTarget.id, "dispatch:assign-driver", ["driver"]);
@@ -478,7 +478,7 @@ function DispatchQueuePage() {
       setSelected(new Set());
       setBulkOpen(false);
       loadAll();
-      // Wave 70.40 -- broadcast for every successfully-assigned order.
+      // Wave 70.40 - broadcast for every successfully-assigned order.
       const successIds = ids.filter(id => !r.errors.some((e: any) => e.orderId === id));
       for (const id of successIds) {
         emitOrderUpdated(id, "dispatch:bulk-assign", ["driver"]);
@@ -505,7 +505,7 @@ function DispatchQueuePage() {
           : "Order is back in the unassigned queue.",
       });
       loadAll();
-      // Wave 70.40 -- ping listeners; driver was unassigned.
+      // Wave 70.40 - ping listeners; driver was unassigned.
       emitOrderUpdated(order.id, "dispatch:unassign-driver", ["driver"]);
     } catch (e: any) {
       toast({
@@ -576,7 +576,7 @@ function DispatchQueuePage() {
               {/* Phase 20 #4: dispatch queue CSV export. Operations
                   lead regularly hands the queue off to a colleague,
                   drops it into a daily standup deck, or audits SLA
-                  outcomes -- having a flat file beats screenshots.
+                  outcomes - having a flat file beats screenshots.
                   Walks 'filtered' so the status + search + sort all
                   flow through. */}
               <Button
@@ -880,7 +880,7 @@ function DispatchQueuePage() {
                         <p className="text-xs text-slate-500 truncate">
                           {order.id.slice(0, 8)} · {order.venue}
                         </p>
-                        {/* Quick drilldowns -- jump to the underlying order
+                        {/* Quick drilldowns - jump to the underlying order
                             or client without leaving the queue. */}
                         <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
                           <Link
@@ -942,7 +942,7 @@ function DispatchQueuePage() {
                         ) : (
                           <span className="text-xs text-amber-700 font-medium">Unassigned</span>
                         )}
-                        {/* Vehicle chip -- click to open the picker. Shows a
+                        {/* Vehicle chip - click to open the picker. Shows a
                             'No vehicle' affordance even when the driver is
                             assigned, so the dispatcher can spot a mid-air
                             mismatch (driver booked, vehicle isn't). */}
@@ -1104,8 +1104,8 @@ function DispatchQueuePage() {
                           </div>
                         </div>
 
-                        {/* Wave 66.3 -- inline pickup_time editor. The
-                            readiness chip's "Pickup time missing -- Fix
+                        {/* Wave 66.3 - inline pickup_time editor. The
+                            readiness chip's "Pickup time missing - Fix
                             it" link routes here when only pickup is
                             missing (it's a dispatch decision: when to
                             send the driver out, given route + prep
@@ -1121,7 +1121,7 @@ function DispatchQueuePage() {
                               <p className="text-[11px] text-slate-600 mt-0.5">
                                 {order.pickup_time
                                   ? `Driver leaves the kitchen at ${order.pickup_time}.`
-                                  : "Driver doesn't know when to leave the kitchen yet -- set the time below."}
+                                  : "Driver doesn't know when to leave the kitchen yet - set the time below."}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1336,7 +1336,7 @@ function DispatchQueuePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Vehicle picker -- per-order override + secondary vehicle. */}
+      {/* Vehicle picker - per-order override + secondary vehicle. */}
       {vehicleTarget && (
         <VehiclePickerDialog
           open={!!vehicleTarget}

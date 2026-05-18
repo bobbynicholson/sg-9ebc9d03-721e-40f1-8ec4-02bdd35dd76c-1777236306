@@ -6,7 +6,7 @@
  *   - Bobby's brief: clients shouldn't have passwords. They get a magic
  *     link in their inbox, click it, and they're in for 48 hours.
  *   - The link must come from the catering company's branded email
- *     sender (e.g. noreply@spitbraaidelivery.co.za) -- not from
+ *     sender (e.g. noreply@spitbraaidelivery.co.za) - not from
  *     Supabase's generic domain. So we use Supabase's
  *     auth.admin.generateLink to mint the URL, then send it via the
  *     existing per-company emailService that already powers quote and
@@ -24,8 +24,8 @@
  *      logo + colours.
  *   4. Send via emailService.sendEmail(companyId, ...). Falls back to
  *      Supabase's default email if the company has no email_settings
- *      configured -- so we never block sign-in on email config.
- *   5. Always return 200 -- even if the email isn't on file. This is a
+ *      configured - so we never block sign-in on email config.
+ *   5. Always return 200 - even if the email isn't on file. This is a
  *      privacy guarantee: an unknown email shouldn't be discoverable
  *      via this endpoint.
  *
@@ -33,7 +33,7 @@
  *   - Service-role key required (we mint magic links via auth.admin).
  *   - Rate limit applied per email + IP to slow down abuse.
  *   - The actual session creation happens in the callback page when the
- *     user clicks the link -- this endpoint never authenticates anyone.
+ *     user clicks the link - this endpoint never authenticates anyone.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -59,7 +59,7 @@ const MAGIC_LINK_WINDOW_SEC = 10 * 60;
  *   - Logo at the top if set, fallback to company initials in a
  *     gradient tile
  *   - Mobile-first: 600px max-width, table-based for old email clients
- *   - One clear CTA -- the magic-link button -- nothing else to click
+ *   - One clear CTA - the magic-link button - nothing else to click
  */
 function buildEmailHtml(args: {
   magicLink: string;
@@ -139,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { email, company_slug, next } = req.body || {};
 
-    // Basic validation -- never reveal which step failed (privacy)
+    // Basic validation - never reveal which step failed (privacy)
     if (typeof email !== "string" || !email.includes("@") || email.length > 254) {
       return res.status(400).json({ error: "Invalid email address" });
     }
@@ -211,7 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const msg = String(error.message || "").toLowerCase();
         if (msg.includes("not found") || msg.includes("does not exist") || msg.includes("user not found")) {
           // First-time client: create the auth user, then mint the link.
-          // We do NOT pre-create the profiles row -- that happens on the
+          // We do NOT pre-create the profiles row - that happens on the
           // callback after the user clicks the link, so a stale auth
           // user that never gets activated doesn't leave orphan rows.
           const { error: createErr } = await admin.auth.admin.createUser({
@@ -298,10 +298,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //    Critical: we pass `_client: admin` so the email_settings row
     //    is read with the SERVICE-ROLE supabase instance. Without it,
     //    the default anon client is blocked by RLS (the magic-link
-    //    caller is unauthenticated by definition -- they're trying to
+    //    caller is unauthenticated by definition - they're trying to
     //    sign in for the first time) and the email never sends.
     //
-    //    sendEmail returns boolean -- on failure we still return
+    //    sendEmail returns boolean - on failure we still return
     //    ok:true so the user sees "check your inbox" rather than
     //    leaking whether the company has email configured.
     try {
@@ -320,9 +320,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } as any);
     } catch (e: any) {
       console.warn("Magic-link: emailService failed", e?.message);
-      // fall through -- still return ok:true
+      // fall through - still return ok:true
     }
-    // Plain-text alt is unused for now -- emailService doesn't carry
+    // Plain-text alt is unused for now - emailService doesn't carry
     // it through. Most modern email clients render the HTML cleanly.
     void text;
 

@@ -1,7 +1,7 @@
 /**
  * POST /api/outsource/accept/[token]
  *
- * Wave 67 Phase D -- token-bearer accept endpoint. No auth required:
+ * Wave 67 Phase D - token-bearer accept endpoint. No auth required:
  * the magic-link in the request email/WhatsApp is the credential.
  * Same pattern as the client magic-link surfaces (/c/order/[id],
  * /pay/i/[token]).
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (assignment.accept_token_expires_at) {
     const expiry = new Date(assignment.accept_token_expires_at).getTime();
     if (Number.isFinite(expiry) && expiry < Date.now()) {
-      return res.status(410).json({ error: "Link has expired -- ask the company to send a new one." });
+      return res.status(410).json({ error: "Link has expired - ask the company to send a new one." });
     }
   }
 
@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Idempotent accept: if already accepted, return the existing
   // state without re-stamping. If already declined and they tap
-  // accept, refuse -- the order may have moved on.
+  // accept, refuse - the order may have moved on.
   if (assignment.status === "accepted" || assignment.status === "en_route" || assignment.status === "on_site" || assignment.status === "completed") {
     if (isDecline) {
       return res.status(409).json({ error: "Already accepted. Contact the company to change." });

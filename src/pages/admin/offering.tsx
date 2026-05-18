@@ -1,5 +1,5 @@
 /**
- * Offering glance -- "what are we actually selling?".
+ * Offering glance - "what are we actually selling?".
  *
  * Two big tiles above the fold (Menu + Equipment) plus a "recently
  * quoted" strip below pulling the last accepted-quote line items from
@@ -100,7 +100,7 @@ function OfferingPage() {
 
       const lastEdited = (menuLatestRes.data?.[0] as any)?.updated_at || null;
 
-      // Top-quoted last 90d via order_items joined to orders -- order_items
+      // Top-quoted last 90d via order_items joined to orders - order_items
       // is the canonical line-items table. We sum quantity to "frequency".
       const { data: oiRows } = await supabase
         .from("order_items")
@@ -129,7 +129,7 @@ function OfferingPage() {
       setEquipTile({ total: equipRows.length, missingPrice, missingPhoto });
 
       // Recently quoted: last 90 days, accepted orders, distinct items.
-      // 30d was too tight for tenants doing weekly events -- the strip
+      // 30d was too tight for tenants doing weekly events - the strip
       // would empty out for 6+ days of every month. 90d catches the
       // last quarter without pretending stale data is fresh.
       const { data: acceptedItems } = await supabase

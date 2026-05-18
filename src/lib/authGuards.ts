@@ -132,7 +132,7 @@ export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.COMPANY_ADMIN,
 ];
 
-// Cross-branch admin roles -- they ignore the region filter for read
+// Cross-branch admin roles - they ignore the region filter for read
 // purposes and can switch context freely between branches via the
 // global region dropdown.
 export const CROSS_BRANCH_ADMIN_ROLES: UserRole[] = [
@@ -154,8 +154,8 @@ export const RESTRICTED_COMPANY_ACCESS_ROLES: UserRole[] = [
 // part of the lifecycle (lead -> quote -> order -> invoice) and a
 // branch manager (region_admin) needs to see THEIR branch's invoices to
 // run their branch. RLS narrows the data per-branch automatically.
-// The truly company-wide financial surfaces -- aggregate cashflow,
-// subscription / billing, payment gateway credentials -- stay locked
+// The truly company-wide financial surfaces - aggregate cashflow,
+// subscription / billing, payment gateway credentials - stay locked
 // to full-company-access roles.
 export const FINANCE_ROUTES = [
   "/admin/financial-dashboard",
@@ -350,7 +350,7 @@ export function isCompanyAdmin(userRole: UserRole): boolean {
 /**
  * Cross-branch admin check. True for roles that see / act across
  * every branch (super_admin, company_admin, sales_admin). False for
- * region-scoped admins -- they get the region filter forced on.
+ * region-scoped admins - they get the region filter forced on.
  */
 export function isCrossBranchAdmin(userRole: UserRole): boolean {
   return CROSS_BRANCH_ADMIN_ROLES.includes(userRole);

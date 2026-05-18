@@ -1,6 +1,6 @@
 import { toLocalISO } from "@/lib/localDate";
 /**
- * Tier 2 chart 2 -- Capacity load calendar (next 90 days).
+ * Tier 2 chart 2 - Capacity load calendar (next 90 days).
  *
  * Day-by-day stacked bar:
  *   - Confirmed orders (solid)
@@ -23,7 +23,7 @@ export interface CapacityQuoteInput {
 }
 
 export interface CapacityDayBucket {
-  /** "YYYY-MM-DD" -- safe sortable key */
+  /** "YYYY-MM-DD" - safe sortable key */
   isoDate: string;
   /** Short label "Sat 14 May" for the x-axis */
   label: string;

@@ -11,15 +11,15 @@
  * with the resolved slug for the current user.
  *
  * Slug resolution order (most authoritative first):
- *   1. router.query.company_slug -- set by the next.config rewrite
+ *   1. router.query.company_slug - set by the next.config rewrite
  *      whenever the user is on a /[slug]/... URL.
- *   2. user.user_metadata.last_company_slug -- written by the magic-link
+ *   2. user.user_metadata.last_company_slug - written by the magic-link
  *      callback on every sign-in, and by the password sign-in flow on
  *      success.
- *   3. profile.companies.slug -- the slug joined off the profiles row.
+ *   3. profile.companies.slug - the slug joined off the profiles row.
  *   4. company.slug from auth context.
  *
- * If none resolve we return the bare path -- the rewrite still maps
+ * If none resolve we return the bare path - the rewrite still maps
  * /admin/... etc. to the right page, the page just doesn't get a tenant
  * prefix in its URL bar. This is the correct fallback for super-admin
  * users who navigate across tenants.
@@ -100,7 +100,7 @@ export function useResolvedTenantSlug(): string {
  * - withSlug("https://...")      => "https://..."  (absolute URLs untouched)
  * - withSlug("/spit-braai-delivery/admin/dashboard") => unchanged (idempotent)
  *
- * Safe to call even when no slug is resolved -- returns the bare path.
+ * Safe to call even when no slug is resolved - returns the bare path.
  */
 export function useTenantHref() {
   const slug = useResolvedTenantSlug();
@@ -112,15 +112,15 @@ export function useTenantHref() {
     // Anchors and query-only links pass through.
     if (href.startsWith("#") || href.startsWith("?")) return href;
     if (!slug) return href;
-    // Already slug-prefixed -- idempotent.
+    // Already slug-prefixed - idempotent.
     if (href.startsWith(`/${slug}/`) || href === `/${slug}`) return href;
-    // Global path -- never prefixed.
+    // Global path - never prefixed.
     for (const p of GLOBAL_PREFIXES) {
       if (href === p || href.startsWith(p + "/") || href.startsWith(p + "?")) {
         return href;
       }
     }
-    // Tenant-scoped path -- prefix it.
+    // Tenant-scoped path - prefix it.
     for (const p of TENANT_SCOPED_PREFIXES) {
       if (href === p || href.startsWith(p + "/") || href.startsWith(p + "?")) {
         return `/${slug}${href}`;

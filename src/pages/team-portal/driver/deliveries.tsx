@@ -16,11 +16,11 @@ import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-// Wave 48 A1 -- DriverConfirmationPanel was a P0 orphan: the full
+// Wave 48 A1 - DriverConfirmationPanel was a P0 orphan: the full
 // 4-stage post-event UI (en-route to kitchen, departed, arrived at
 // venue, collection complete) existed at /components/driver/ but was
 // mounted on zero pages. Without it, completeCollection() was
-// unreachable from the driver app -- so equipment_bookings never
+// unreachable from the driver app - so equipment_bookings never
 // flipped to 'returned', dispatch carried phantom open assignments,
 // driver pay never snapshotted the collection leg, damages couldn't
 // be recorded. Mounting here on each active delivery surfaces every
@@ -31,9 +31,9 @@ import { logPiiAccess } from "@/services/piiAccessLogService";
 
 interface DriverOrder {
   id: string;
-  /** Wave 48 A1 -- order_number drives the panel header. */
+  /** Wave 48 A1 - order_number drives the panel header. */
   order_number?: string | null;
-  /** Wave 70.45c -- event_name feeds the canonical BookingHeader so
+  /** Wave 70.45c - event_name feeds the canonical BookingHeader so
    *  the driver sees the client-facing event label (not just a
    *  numbered order). */
   event_name?: string | null;
@@ -50,15 +50,15 @@ interface DriverOrder {
    *  numbers off another screen. */
   client_phone?: string | null;
   client_email?: string | null;
-  /** From orders.equipment_items jsonb -- the load list. */
+  /** From orders.equipment_items jsonb - the load list. */
   equipment_items?: any[] | null;
-  /** From orders.menu_items jsonb -- so the driver knows the headline. */
+  /** From orders.menu_items jsonb - so the driver knows the headline. */
   menu_items?: any[] | null;
 }
 
-/** Wave 48 A1 -- statuses where the post-event panel should render.
+/** Wave 48 A1 - statuses where the post-event panel should render.
  *  Hide it on cancelled (irrelevant) and on completed where every
- *  stage button is already non-actionable -- the panel itself
+ *  stage button is already non-actionable - the panel itself
  *  no-ops when buttons are pressed for a closed job, but suppressing
  *  the surface keeps the completed list clean. */
 const ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL = new Set([
@@ -234,7 +234,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
         const menu = Array.isArray(o.menu_items) ? o.menu_items : [];
         return (
           <div key={o.id} className="flex flex-col gap-3 p-4 rounded-lg border bg-white hover:shadow-md transition-shadow">
-            {/* Wave 70.45c -- canonical BookingHeader (driver variant,
+            {/* Wave 70.45c - canonical BookingHeader (driver variant,
                 compact). Carries the tenant brand bar + status + date +
                 time + venue + guest count, replacing the bespoke top
                 strip that this card had per-instance. Driver-specific
@@ -337,11 +337,11 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                   </div>
                 )}
               </div>
-              {/* Wave 70.45c -- guest-count "X pax" chip used to live
+              {/* Wave 70.45c - guest-count "X pax" chip used to live
                   here on the right; it now renders inside the
                   BookingHeader driver variant above (which formats it
                   as "N pax" automatically). Order total stays hidden
-                  -- drivers see payout on /earnings, not what the
+                  - drivers see payout on /earnings, not what the
                   catering company charged the client. */}
             </div>
 
@@ -417,7 +417,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
               </div>
             )}
 
-            {/* Wave 48 A1 -- mount the post-event confirmation panel
+            {/* Wave 48 A1 - mount the post-event confirmation panel
                 inline on every active delivery row. The panel
                 surfaces every stage button (en-route, departed,
                 arrived, collection complete) so the driver can close

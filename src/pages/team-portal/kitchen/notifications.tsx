@@ -105,7 +105,7 @@ export default function KitchenNotificationsPage() {
 
   // Wave 24: bulk-clear stale notifications (older than the shared
   // STALE_NOTIFICATION_DAYS threshold). Same pattern as the driver
-  // portal -- live tenants accumulate test rows that never get
+  // portal - live tenants accumulate test rows that never get
   // triaged, training the kitchen team to ignore real urgents too.
   const staleCount = useMemo(
     () => notifs.filter((n) => isStaleNotification(n.created_at)).length,

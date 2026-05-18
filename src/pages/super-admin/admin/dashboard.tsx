@@ -234,7 +234,7 @@ export default function SuperAdminManagementDashboard() {
           </Card>
         </div>
 
-        {/* Platform Status -- external monitoring panel. The numbers
+        {/* Platform Status - external monitoring panel. The numbers
             below used to be hardcoded fiction (124ms / 99.98% / 247
             users). Real telemetry lives outside this app; surface the
             canonical sources so the super admin can drill in. */}

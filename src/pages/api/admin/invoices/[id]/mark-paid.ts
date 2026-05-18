@@ -1,14 +1,14 @@
 /**
  * POST /api/admin/invoices/[id]/mark-paid
  *
- * Wave 66.5 -- single-invoice manual-payment recording with operator
+ * Wave 66.5 - single-invoice manual-payment recording with operator
  * metadata. The companion to bulk-mark-paid: same canonical RPC
  * (record_invoice_payment) so the payments ledger + orders.payment_status
  * + invoices.status all stay coherent, but accepts per-row metadata
  * (amount, payment method, reference, internal note) so the operator's
  * MarkPaidDialog can record a real payment instead of a placeholder.
  *
- * Bulk-mark-paid stayed untouched -- it has zero per-row metadata and
+ * Bulk-mark-paid stayed untouched - it has zero per-row metadata and
  * is wired to the checkbox toolbar; this endpoint is wired to the
  * per-row "$ Mark paid" button + dialog.
  *
@@ -175,7 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", invoiceId)
       .maybeSingle();
 
-    // Audit row -- single source of truth for the manual mark-paid
+    // Audit row - single source of truth for the manual mark-paid
     // trail. The RPC already writes the payments row; this captures
     // the operator's note + reference for future reconciliation.
     try {

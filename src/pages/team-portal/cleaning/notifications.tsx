@@ -98,7 +98,7 @@ export default function CleaningNotificationsPage() {
 
   const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
 
-  // Wave 24: stale notification cleanup -- mirrors the driver +
+  // Wave 24: stale notification cleanup - mirrors the driver +
   // kitchen pattern. One-tap delete of anything older than the
   // shared STALE_NOTIFICATION_DAYS threshold.
   const staleCount = useMemo(

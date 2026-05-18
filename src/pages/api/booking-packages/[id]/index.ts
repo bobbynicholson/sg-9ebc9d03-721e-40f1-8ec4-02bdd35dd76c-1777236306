@@ -1,5 +1,5 @@
 /**
- * /api/booking-packages/[id] -- Wave 70.45b
+ * /api/booking-packages/[id] - Wave 70.45b
  *
  * GET    -> fetch a single package with its linked orders.
  * PATCH  -> update metadata (name, notes, venue_summary, dates,
@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Admin or owner only" });
     }
 
-    // Tenant gate -- read the package's company_id first so PATCH/DELETE
+    // Tenant gate - read the package's company_id first so PATCH/DELETE
     // can't be used to mutate another tenant's data even if RLS were
     // mis-configured.
     const pkg = await getPackage(packageId, ssr);

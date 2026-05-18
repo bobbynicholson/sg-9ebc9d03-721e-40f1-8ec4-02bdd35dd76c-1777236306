@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /q/[token] -- public quote view.
+ * /q/[token] - public quote view.
  *
  * No login required. Anyone with the URL sees the quote; the URL
  * carries an unguessable uuid as the token. Lets the catering
@@ -50,7 +50,7 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
 // shows £, USD shows $, EUR shows €, ZAR shows R). Locale is hung
-// off the currency code -- en-GB for GBP / EUR works for ZAR too;
+// off the currency code - en-GB for GBP / EUR works for ZAR too;
 // for USD / AUD we prefer en-US.
 function fmtMoneyFor(code: string | null | undefined): (n: number) => string {
   const safe = (code && ["ZAR", "USD", "EUR", "GBP", "AUD"].includes(code) ? code : "ZAR") as
@@ -111,7 +111,7 @@ export default function PublicQuotePage() {
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
 
-  // Wave 21 audit: Decline flow. Used to be missing entirely -- the
+  // Wave 21 audit: Decline flow. Used to be missing entirely - the
   // client could only Accept or Request changes; saying "no thanks"
   // meant emailing the caterer. Quotes sat in the operator's
   // In-play bucket until they expired, masking conversion stats.
@@ -122,7 +122,7 @@ export default function PublicQuotePage() {
   const [justDeclined, setJustDeclined] = useState(false);
 
   // Submit handler the wizard calls on its final step. Same endpoint
-  // as before -- the wizard just owns the UX wrapping.
+  // as before - the wizard just owns the UX wrapping.
   const handleWizardDecline = async (payload: {
     reason_category: string;
     reason: string;
@@ -159,7 +159,7 @@ export default function PublicQuotePage() {
 
   // Apply per-tenant brand colours. The public page is unauthenticated
   // so BrandingContext (which keys off the logged-in user's company_id)
-  // is not available -- we set the CSS vars directly on documentElement
+  // is not available - we set the CSS vars directly on documentElement
   // once fetchByToken returns. Falls back to the globals.css defaults
   // when a tenant hasn't picked colours yet.
   useEffect(() => {
@@ -346,7 +346,7 @@ export default function PublicQuotePage() {
   // menu_items and totals atomically. Once accepted, the quote is
   // frozen (orderSyncService skips the quote mirror), so what the
   // client sees stays equal to what they signed. No reconciliation
-  // needed here -- read values directly.
+  // needed here - read values directly.
   const displayGuestCount = quote.guest_count;
 
   return (
@@ -358,7 +358,7 @@ export default function PublicQuotePage() {
             us a clean A4-style export with no extra dependencies. */}
         <style>{`
           /* Force browsers to honour the brand colour on the printed
-             quote -- without this Chrome/Edge default to "background
+             quote - without this Chrome/Edge default to "background
              graphics off" and the tenant header prints as plain white.
              html selector is for Safari (which sometimes ignores the
              body-level rule on print). */
@@ -385,7 +385,7 @@ export default function PublicQuotePage() {
       <div className="min-h-screen bg-stone-50 print-bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
-          {/* Floating action bar -- screen only */}
+          {/* Floating action bar - screen only */}
           <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
             {expiryChipLabel && !accepted ? (
               <Badge
@@ -499,7 +499,7 @@ export default function PublicQuotePage() {
                     <Calendar className="w-3 h-3" /> Event date
                   </p>
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">
-                    {eventDate}{eventTime ? ` -- ${eventTime} start` : ""}
+                    {eventDate}{eventTime ? ` - ${eventTime} start` : ""}
                   </p>
                   {setupTime && setupTime !== eventTime && (
                     <p className="text-xs text-stone-600 mt-0.5">
@@ -598,20 +598,20 @@ export default function PublicQuotePage() {
             </Card>
           )}
 
-          {/* TOTALS -- spit-braai accent bar.
+          {/* TOTALS - spit-braai accent bar.
 
               Wave 12 audit: the totals card needs to AGREE with the
               line items shown above it. For inc-VAT tenants the
               line item unit_prices are gross (what the client pays
               per item), so the "Items" line on the totals card has
-              to be the gross sum too -- not subtotal-minus-delivery,
+              to be the gross sum too - not subtotal-minus-delivery,
               which is the ex-VAT extraction and reads ~15% lower.
 
               Switch by tenant pricing convention:
                 - inc-VAT: Items = total - delivery (gross), Delivery,
                   Total (gross) shown. VAT is shown as a small "(VAT
                   included)" hint, not added on top.
-                - ex-VAT: legacy display kept -- Items = subtotal -
+                - ex-VAT: legacy display kept - Items = subtotal -
                   delivery (net), Delivery, Subtotal (ex-VAT), VAT
                   added on top, Total. */}
           {(() => {
@@ -701,7 +701,7 @@ export default function PublicQuotePage() {
             );
           })()}
 
-          {/* TERMS + valid-until -- kept above the accept block so the
+          {/* TERMS + valid-until - kept above the accept block so the
               client reads the legal context before signing. The free-form
               "A note from us" message moved below the footer (per Bobby's
               call) so it doesn't compete with the totals + accept CTA. */}
@@ -721,7 +721,7 @@ export default function PublicQuotePage() {
             </Card>
           )}
 
-          {/* ACCEPT -- screen only, hidden in print */}
+          {/* ACCEPT - screen only, hidden in print */}
           <div className="no-print">
             {accepted ? (
               <Card className="border-0 bg-gradient-to-br from-emerald-50 to-brand-primary/10 shadow-sm">
@@ -732,7 +732,7 @@ export default function PublicQuotePage() {
                   <div>
                     <h2 className="text-xl sm:text-2xl font-serif font-bold text-emerald-900">
                       {justAccepted
-                        ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} -- you're booked in`
+                        ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} - you're booked in`
                         : "Quote accepted"}
                     </h2>
                     <p className="text-sm text-emerald-800 mt-1.5 max-w-md mx-auto">
@@ -761,7 +761,7 @@ export default function PublicQuotePage() {
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">
-                          {eventDate ? `Event day -- ${eventDate}` : "Event day"}
+                          {eventDate ? `Event day - ${eventDate}` : "Event day"}
                         </p>
                         <p className="text-xs text-stone-600">We'll be in touch the week before with final headcount + final tweaks.</p>
                       </div>
@@ -779,7 +779,7 @@ export default function PublicQuotePage() {
                       Save a copy of this quote
                     </Button>
                     {/* Post-acceptance, the "tweak something" path is
-                        the primary interaction left -- catering plans
+                        the primary interaction left - catering plans
                         commonly shift in the week or two after sign-off
                         (final guest count, dietary additions). Surface
                         it as a peer to "Save a copy". */}
@@ -855,7 +855,7 @@ export default function PublicQuotePage() {
                         Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
                       </p>
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
-                        {/* Primary -- Accept. Green so it reads as
+                        {/* Primary - Accept. Green so it reads as
                             "go" without depending on the tenant's
                             brand colour (which can be anything). */}
                         <Button
@@ -866,7 +866,7 @@ export default function PublicQuotePage() {
                           <CheckCircle2 className="w-5 h-5" />
                           Accept this quote
                         </Button>
-                        {/* Secondary -- Tweak. Neutral outline. Hidden
+                        {/* Secondary - Tweak. Neutral outline. Hidden
                             once the inline change-request form is
                             already open or a request has been sent
                             (don't double-prompt). */}
@@ -881,7 +881,7 @@ export default function PublicQuotePage() {
                             Need a tweak
                           </Button>
                         )}
-                        {/* Tertiary -- Decline. Rose-tinted outline so
+                        {/* Tertiary - Decline. Rose-tinted outline so
                             it's clearly a refusal action without
                             shouting. Hidden once already declined
                             (justDeclined) or the quote was already
@@ -908,7 +908,7 @@ export default function PublicQuotePage() {
           {/* Wave 28.4: legacy inline decline form replaced by the
               CancellationWizard mounted at the bottom of the page.
               The success state stays here (no Dialog needed once
-              the client has declined -- they see the page change). */}
+              the client has declined - they see the page change). */}
           {justDeclined && (
             <div className="no-print mt-4">
               <Card className="border-0 bg-stone-50 shadow-sm">
@@ -927,7 +927,7 @@ export default function PublicQuotePage() {
             </div>
           )}
 
-          {/* REQUEST-CHANGES inline form -- screen only.
+          {/* REQUEST-CHANGES inline form - screen only.
               Sits below the accept block so it's reachable both pre-
               and post-acceptance. Inline expansion (matches accept
               flow) over a Dialog so mobile keyboards don't crop it. */}
@@ -940,7 +940,7 @@ export default function PublicQuotePage() {
                       <MessageSquare className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-base font-semibold text-stone-900">
-                      Got it -- {companyName} will be in touch shortly
+                      Got it - {companyName} will be in touch shortly
                     </h3>
                     <p className="text-sm text-stone-600 max-w-md mx-auto">
                       Your message has been sent. They'll usually reply within a working day.
@@ -1065,7 +1065,7 @@ export default function PublicQuotePage() {
             </div>
           )}
 
-          {/* A NOTE FROM US -- sits below the address footer so it
+          {/* A NOTE FROM US - sits below the address footer so it
               reads like a personal sign-off rather than competing with
               the totals + accept CTA above. */}
           {quote.notes && (

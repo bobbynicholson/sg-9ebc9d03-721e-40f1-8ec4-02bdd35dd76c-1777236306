@@ -149,7 +149,7 @@ export const shoppingService = {
     }
 
     if (data) {
-       // Admin-facing notification -- deep-link to the admin shopping
+       // Admin-facing notification - deep-link to the admin shopping
        // page filtered to this list.
        await notificationService.createNotification({
         company_id: data.company_id,
@@ -187,7 +187,7 @@ export const shoppingService = {
     }
 
     if (data) {
-        // Admin-facing completion ping -- deep-link to the admin
+        // Admin-facing completion ping - deep-link to the admin
         // shopping page so they can verify receipts + close out the
         // list.
         await notificationService.createNotification({

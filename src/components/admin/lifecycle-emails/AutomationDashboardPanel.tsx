@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * AutomationDashboardPanel -- read-only follow-up audit log.
+ * AutomationDashboardPanel - read-only follow-up audit log.
  *
  * Extracted from /admin/email-automation-dashboard. Reads
  * quote_followup_log so the operator can see who sent which template
  * to whom, when, and via which channel. Source of truth for
  * "did the FU2 actually go out for the Smith wedding?".
  *
- * Nothing here triggers a send -- this surface is observation only.
+ * Nothing here triggers a send - this surface is observation only.
  *
- * Pure component: no AdminNav / NoIndexMeta / page header -- those are
+ * Pure component: no AdminNav / NoIndexMeta / page header - those are
  * page concerns. This is just the body.
  */
 import { useEffect, useMemo, useState } from "react";
@@ -101,7 +101,7 @@ export function AutomationDashboardPanel() {
   return (
     <>
       <p className="text-sm text-slate-600 mb-4">
-        Every follow-up the team has clicked, with channel and template used. Nothing fires automatically -- this view is observation only.
+        Every follow-up the team has clicked, with channel and template used. Nothing fires automatically - this view is observation only.
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">

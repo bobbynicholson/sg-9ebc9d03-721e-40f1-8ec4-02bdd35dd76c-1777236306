@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 6 chart 1 -- Branch comparison spider/radar.
+ * Tier 6 chart 1 - Branch comparison spider/radar.
  *
  * Recharts RadarChart with one polygon per branch. Polygon vertices
  * are normalised 0..100 across the set of branches, so the chart
@@ -45,7 +45,7 @@ export function BranchSpiderChart({ data, loading }: Props) {
           <InfoTooltip
             content={
               "Each polygon is a branch. The further a corner reaches, the better that branch performs on that metric, RELATIVE to its peers (not in absolute terms).\n\n" +
-              "A branch with a tight, balanced shape is a steady performer. A spiky shape means the branch is great at one thing and weak elsewhere -- often where the operator should focus."
+              "A branch with a tight, balanced shape is a steady performer. A spiky shape means the branch is great at one thing and weak elsewhere - often where the operator should focus."
             }
           />
         </CardTitle>
@@ -73,7 +73,7 @@ export function BranchSpiderChart({ data, loading }: Props) {
                   }}
                   labelFormatter={(label: any, payload: any) => {
                     const desc = payload?.[0]?.payload?.description;
-                    return desc ? `${label} -- ${desc}` : label;
+                    return desc ? `${label} - ${desc}` : label;
                   }}
                   contentStyle={{ fontSize: 12 }}
                 />

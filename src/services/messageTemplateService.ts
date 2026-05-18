@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Message template service -- the resolver layer between the registry
+ * Message template service - the resolver layer between the registry
  * (defaults that ship with the product) and the per-company override
  * tables (`email_templates`, `whatsapp_templates`).
  *
@@ -9,7 +9,7 @@
  *      in the registry, with a flag showing whether the company has
  *      customised it.
  *   2. resolveTemplate({ companyId, key, ctx }) returns the rendered
- *      subject + body for a single send -- override on top of default,
+ *      subject + body for a single send - override on top of default,
  *      with {{variable}} substitution applied.
  *
  * Write flow:
@@ -68,7 +68,7 @@ export async function loadCompanyOverrides(companyId: string): Promise<Map<strin
 
   // Email overrides: keyed off email_templates.template_type which
   // matches our registry key for email templates. is_active flag is
-  // honoured -- inactive overrides skip the override and use default.
+  // honoured - inactive overrides skip the override and use default.
   try {
     const { data: emailRows, error: emailRowsErr } = await (supabase as any)
       .from("email_templates")
@@ -114,7 +114,7 @@ export async function loadCompanyOverrides(companyId: string): Promise<Map<strin
   return lookup;
 }
 
-/** Drop the cache for a company -- called after save / remove. */
+/** Drop the cache for a company - called after save / remove. */
 export function invalidateCompanyCache(companyId: string): void {
   overrideCache.delete(companyId);
 }

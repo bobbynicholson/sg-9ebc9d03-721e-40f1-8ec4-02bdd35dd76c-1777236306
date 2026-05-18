@@ -1,18 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /client-portal/profile -- the client edits their own contact details.
+ * /client-portal/profile - the client edits their own contact details.
  *
  * Two layers of identity at play:
  *   1. profiles.full_name / mobile_number / phone_number / whatsapp_opt_in /
- *      avatar_url -- the global identity that follows them into every
+ *      avatar_url - the global identity that follows them into every
  *      catering tenant they're a client of. RLS users_update_own_profile
  *      lets them edit their own row directly; no service role needed.
- *   2. clients.client_name (per-tenant) -- what the catering team has
+ *   2. clients.client_name (per-tenant) - what the catering team has
  *      them stored as in their books. Editable here for the resolved
  *      tenant only.
  *
  * The phone story:
- *   Catering teams in SA use WhatsApp for everything -- driver ETAs,
+ *   Catering teams in SA use WhatsApp for everything - driver ETAs,
  *   last-minute changes, post-event rating prompts. But quote-request
  *   forms commonly capture a landline (corporate clients especially),
  *   so the profile shouldn't assume the existing phone is mobile-able.
@@ -59,7 +59,7 @@ interface FormState {
  *   - inline-validate the Mobile field as the user types.
  *
  * Numbers that look ambiguous (international, malformed) get a softer
- * "couldn't tell -- you'll still see WhatsApp prompts" treatment
+ * "couldn't tell - you'll still see WhatsApp prompts" treatment
  * rather than a hard rejection.
  */
 function looksLikeSAMobile(input: string): boolean {
@@ -174,7 +174,7 @@ export default function ClientProfilePage() {
    * by RLS is `{user_id}/...`; we add a timestamp so the previous avatar
    * doesn't get cached as the new one (Supabase + browser CDNs both
    * key off the URL). The new public URL writes straight onto
-   * profiles.avatar_url -- no separate Save click needed for the
+   * profiles.avatar_url - no separate Save click needed for the
    * avatar to stick.
    *
    * Validates: image type only, max 3MB. Anything else and we toast.
@@ -184,7 +184,7 @@ export default function ClientProfilePage() {
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Pick an image file",
-        description: "PNG, JPG, GIF, WebP -- not a document.",
+        description: "PNG, JPG, GIF, WebP - not a document.",
         variant: "destructive",
       });
       return;
@@ -278,7 +278,7 @@ export default function ClientProfilePage() {
 
       // Cast through `any` because the generated Supabase types for
       // profiles haven't been regenerated since mobile_number /
-      // whatsapp_opt_in landed -- TS narrows the update payload to
+      // whatsapp_opt_in landed - TS narrows the update payload to
       // `never` until that's done. Functionally fine; the columns
       // exist server-side and RLS gates writes to id = auth.uid().
       const profileUpdate = {
@@ -359,7 +359,7 @@ export default function ClientProfilePage() {
             </Card>
           ) : (
             <>
-              {/* Mobile-missing banner -- the smart nudge for clients
+              {/* Mobile-missing banner - the smart nudge for clients
                   who only gave a landline at quote time. */}
               {!form.mobile_number.trim() && (
                 <Card className="border-0 shadow-sm bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-emerald-500">
@@ -372,14 +372,14 @@ export default function ClientProfilePage() {
                       <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-1">
                         {companyName} uses WhatsApp for driver ETAs, last-minute changes and quick
                         confirmations on the day. Pop your mobile in below and you&apos;ll be sorted.
-                        It&apos;s entirely optional -- they&apos;ll keep using email + phone if you skip it.
+                        It&apos;s entirely optional - they&apos;ll keep using email + phone if you skip it.
                       </p>
                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Identity card -- avatar preview + global name */}
+              {/* Identity card - avatar preview + global name */}
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-4">
@@ -471,7 +471,7 @@ export default function ClientProfilePage() {
                         placeholder="Your name"
                       />
                     </Field>
-                    <Field id="email" label="Email" icon={Mail} hint="Locked -- this is the address you sign in with.">
+                    <Field id="email" label="Email" icon={Mail} hint="Locked - this is the address you sign in with.">
                       <Input id="email" value={user?.email || ""} disabled />
                     </Field>
                     <Field
@@ -481,7 +481,7 @@ export default function ClientProfilePage() {
                       hint={
                         form.mobile_number && !mobileLooksValid
                           ? "That doesn't look like a SA mobile. Format: 082 123 4567 or +27 82 123 4567."
-                          : "Used for WhatsApp comms -- driver ETAs, day-of changes, post-event rating."
+                          : "Used for WhatsApp comms - driver ETAs, day-of changes, post-event rating."
                       }
                     >
                       <Input
@@ -513,7 +513,7 @@ export default function ClientProfilePage() {
                     </Field>
                   </div>
 
-                  {/* WhatsApp opt-in -- shown when there's a mobile to
+                  {/* WhatsApp opt-in - shown when there's a mobile to
                       send to. Auto-on when they first add a mobile;
                       they can flip it off here. */}
                   {form.mobile_number.trim() && (
@@ -536,7 +536,7 @@ export default function ClientProfilePage() {
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
                             Driver ETA on the day, last-minute changes, a one-tap rating prompt
-                            after the event. No marketing -- just operational stuff. Untick to opt
+                            after the event. No marketing - just operational stuff. Untick to opt
                             out; you can change this any time.
                           </p>
                         </div>
@@ -544,7 +544,7 @@ export default function ClientProfilePage() {
                     </div>
                   )}
 
-                  {/* Mobile present but opt-in off -- gentle nudge */}
+                  {/* Mobile present but opt-in off - gentle nudge */}
                   {form.mobile_number.trim() && !form.whatsapp_opt_in && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 flex items-start gap-2">
                       <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -568,7 +568,7 @@ export default function ClientProfilePage() {
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-300">
                       This is the name the catering team has on their books for you. Changing it
-                      here only affects this catering company -- not anyone else you might be a
+                      here only affects this catering company - not anyone else you might be a
                       client of.
                     </p>
                     <Field id="client_name" label={`Name on ${companyName}'s books`} icon={UserIcon}>

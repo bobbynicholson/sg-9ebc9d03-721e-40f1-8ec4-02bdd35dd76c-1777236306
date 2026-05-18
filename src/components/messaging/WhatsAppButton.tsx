@@ -1,5 +1,5 @@
 /**
- * WhatsAppButton -- the single way to send a WhatsApp message from
+ * WhatsAppButton - the single way to send a WhatsApp message from
  * anywhere in the admin tool.
  *
  * Behaviour:
@@ -9,13 +9,13 @@
  *     the right deep-link for the platform (mobile -> wa.me, desktop
  *     -> web.whatsapp.com/send so we skip the download nudge).
  *   - Hides cleanly when the phone is missing or looks like a SA
- *     landline -- no point firing a chat that will never deliver.
+ *     landline - no point firing a chat that will never deliver.
  *     Pass `forceShow` to override the landline filter (useful for
  *     non-SA office numbers where our heuristic does not apply).
  *
  * Two flavours:
- *   - `kind="client"` -- shows the client template catalog.
- *   - `kind="staff"`  -- shows the staff template catalog.
+ *   - `kind="client"` - shows the client template catalog.
+ *   - `kind="staff"`  - shows the staff template catalog.
  *
  * Used by:
  *   /admin/leads        (client lead follow-up)
@@ -25,7 +25,7 @@
  *   /admin/tracking     (client delay / arrived)
  *   /admin/driver-management (staff)
  *   /admin/kitchen-staff     (staff)
- *   /admin/users             (staff -- where mobile is captured)
+ *   /admin/users             (staff - where mobile is captured)
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -55,7 +55,7 @@ interface BaseProps {
   phone: string | null | undefined;
   /** Bypass the mobile heuristic. Use for non-SA numbers. */
   forceShow?: boolean;
-  /** Visual sizing -- maps to shadcn Button sizes. */
+  /** Visual sizing - maps to shadcn Button sizes. */
   size?: ButtonSize;
   variant?: ButtonVariant;
   /** Tailwind extras for the trigger button. */
@@ -74,7 +74,7 @@ interface BaseProps {
    */
   optedOut?: boolean;
   /**
-   * clients.id for the recipient -- when provided (and kind="client"),
+   * clients.id for the recipient - when provided (and kind="client"),
    * the button auto-fetches profiles.whatsapp_opt_in via the
    * clients.user_id link and respects the opt-out state without the
    * call site having to thread it through. Pre-signup leads with no
@@ -241,7 +241,7 @@ export function WhatsAppButton(props: Props) {
   // Opted-out branch: render the same trigger so the layout doesn't
   // jump, but visibly grey it out and pop a notice instead of the
   // composer. Admins see at a glance that the channel is disabled
-  // for this client and why -- silent hiding would just confuse.
+  // for this client and why - silent hiding would just confuse.
   if (isOptedOut) {
     return (
       <Popover>
@@ -263,7 +263,7 @@ export function WhatsAppButton(props: Props) {
           </p>
           <p className="text-xs text-slate-600 leading-snug">
             This client has opted out of WhatsApp updates from their profile page.
-            Reach them by email or phone instead -- or ask them to flip the toggle on.
+            Reach them by email or phone instead - or ask them to flip the toggle on.
           </p>
         </PopoverContent>
       </Popover>
@@ -297,7 +297,7 @@ export function WhatsAppButton(props: Props) {
           <p className="text-sm font-semibold text-slate-900">WhatsApp message</p>
         </div>
 
-        {/* Template chips -- picking one re-renders the message body. */}
+        {/* Template chips - picking one re-renders the message body. */}
         <div className="flex flex-wrap gap-1">
           {templateKeys.map((k) => (
             <button
@@ -306,7 +306,7 @@ export function WhatsAppButton(props: Props) {
               onClick={() => {
                 setPickedKey(k);
                 // Switching template after the user has typed should
-                // overwrite their text -- otherwise the chip click
+                // overwrite their text - otherwise the chip click
                 // does nothing visible. This is the common case (they
                 // changed their mind about which message to send).
                 setEdited(false);

@@ -27,7 +27,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
-// Wave 49 B3 -- kitchen-to-driver handover surface. Mounts on every
+// Wave 49 B3 - kitchen-to-driver handover surface. Mounts on every
 // "ready" + "preparing" order so the kitchen lead has a single tap
 // to sign food + equipment over to the driver. This row is the gate
 // that confirmDepartedKitchen now refuses to bypass.
@@ -60,7 +60,7 @@ export default function KitchenDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
-  // Wave 70.18 -- whether the signed-in user can open admin routes.
+  // Wave 70.18 - whether the signed-in user can open admin routes.
   // Admins viewing-as-kitchen still have role=admin so they get the
   // "Order detail" button; real kitchen_staff get just "Kitchen
   // ticket" (the middleware would 403 them on /admin/orders).
@@ -71,7 +71,7 @@ export default function KitchenDashboard() {
   const [loading, setLoading] = useState(true);
   const [progressByOrder, setProgressByOrder] = useState<Record<string, { total: number; done: number }>>({});
   const [now, setNow] = useState(new Date());
-  // Allergen confirmation dialog state -- triggers when Mark Ready hits a
+  // Allergen confirmation dialog state - triggers when Mark Ready hits a
   // dietary clash, blocks the action until the chef explicitly overrides.
   const [allergenDialog, setAllergenDialog] = useState<{
     orderId: string;
@@ -180,7 +180,7 @@ export default function KitchenDashboard() {
     }
   };
 
-  // Mark an order ready -- one-click action with an allergen safety gate.
+  // Mark an order ready - one-click action with an allergen safety gate.
   // The order's dietary_requirements text is cross-checked against every
   // menu item's allergen_codes; any hits force a confirm-or-cancel dialog
   // before we let the driver be summoned.
@@ -226,11 +226,11 @@ export default function KitchenDashboard() {
   // we keep the original event Date alongside the minutes-away so the UI can
   // format it as a real human day + time instead of a T-minus code.
   //
-  // Wave 70.21 -- a stuck order (confirmed/preparing whose event is
+  // Wave 70.21 - a stuck order (confirmed/preparing whose event is
   // hours in the past) was hijacking the "Next Pickup" headline and
   // showing "3h 27m late" for a job that was actually finished
   // (just not ticked through). The card no longer picks orders
-  // whose event is more than 4 hours in the past -- those land in
+  // whose event is more than 4 hours in the past - those land in
   // the "Needs closure" list below where admin can force-close.
   // 4h grace keeps actually-late orders visible (so a chef who
   // ran 1h over still sees the late marker) without letting
@@ -269,7 +269,7 @@ export default function KitchenDashboard() {
     return earliest;
   }, [orders, now]);
 
-  // Wave 70.21 -- separate "Needs closure" list for orders the
+  // Wave 70.21 - separate "Needs closure" list for orders the
   // grace window skipped above. Admin / owner can one-click force-
   // close each one to tidy up the dashboard. Sorted oldest-first
   // so the longest-outstanding shows top.
@@ -293,7 +293,7 @@ export default function KitchenDashboard() {
       });
   }, [orders, now]);
 
-  // Wave 70.21 -- force-close handler. Hits the API, refreshes the
+  // Wave 70.21 - force-close handler. Hits the API, refreshes the
   // dashboard on success so the closed order disappears.
   const [forceClosingId, setForceClosingId] = useState<string | null>(null);
   const handleForceClose = async (orderId: string, orderLabel: string) => {
@@ -448,7 +448,7 @@ export default function KitchenDashboard() {
 
                     return (
                       <div key={order.id} className={`p-2 sm:p-3 rounded-lg border-l-4 ${urgency.color}`}>
-                        {/* Wave 70.20 -- restructured row. Right column
+                        {/* Wave 70.20 - restructured row. Right column
                             now stacks status badge + action buttons
                             inline with the title block, matching the
                             screenshot Bobby drew. Collection time chip
@@ -637,7 +637,7 @@ export default function KitchenDashboard() {
             );
           })()}
 
-          {/* Wave 70.21 -- Needs closure panel for past-event orders
+          {/* Wave 70.21 - Needs closure panel for past-event orders
               stuck in confirmed / preparing because the team didn't
               tick them through in real time. Admin / owner only --
               kitchen staff shouldn't be force-closing orders. Each
@@ -760,7 +760,7 @@ export default function KitchenDashboard() {
               ) : orders.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                  <p className="text-sm font-medium text-slate-700">All caught up -- no live orders right now.</p>
+                  <p className="text-sm font-medium text-slate-700">All caught up - no live orders right now.</p>
                   <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
                     Orders show up here automatically once the admin confirms a quote. Use the breather to deep-clean or restock.
                   </p>
@@ -831,7 +831,7 @@ export default function KitchenDashboard() {
                                 key={order.id}
                                 className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
                               >
-                                {/* Wave 70.18 -- card title block + order
+                                {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --
                                     proper action buttons live below
                                     (View ticket + View order). */}
@@ -900,13 +900,13 @@ export default function KitchenDashboard() {
                                   </p>
                                 )}
 
-                                {/* Wave 70.18 -- proper action button row.
+                                {/* Wave 70.18 - proper action button row.
                                     Replaces the previous small text link
                                     on the title. Two clear targets:
-                                      "Kitchen ticket" -- the printable
+                                      "Kitchen ticket" - the printable
                                         prep sheet with allergens, prep
                                         backplan, equipment, instructions.
-                                      "Order detail" -- the full admin
+                                      "Order detail" - the full admin
                                         order modal (for kitchen leads who
                                         need the wider context, e.g.
                                         payment + driver + handover).
@@ -996,7 +996,7 @@ export default function KitchenDashboard() {
                                   </details>
                                 )}
 
-                                {/* Wave 49 B3 -- the kitchen-to-driver
+                                {/* Wave 49 B3 - the kitchen-to-driver
                                     sign-off. Surfaces on ready + the
                                     last preparing column where the
                                     kitchen lead actually hands the
@@ -1028,7 +1028,7 @@ export default function KitchenDashboard() {
         <Footer />
       </div>
 
-      {/* Wave 70.7c -- service-mode FAB at bottom-left so a chef
+      {/* Wave 70.7c - service-mode FAB at bottom-left so a chef
           one-handed during service can reach the nav without
           stretching to the top-left corner. Self-gates on service
           mode, mobile only. */}

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 1 chart 2 -- Year-over-year comparison strip.
+ * Tier 1 chart 2 - Year-over-year comparison strip.
  *
  * 4 mini-cards with sparkline + delta vs same period last year.
  * Lives directly under the revenue trend chart so the eye reads

@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
  *
  * Read paths filter `deleted_at IS NULL` so soft-deleted orders never
  * leak into the kanban / dashboards / lists. The hard-delete path is
- * gone -- deleteOrder now soft-deletes, and refuses entirely on orders
+ * gone - deleteOrder now soft-deletes, and refuses entirely on orders
  * that have been confirmed (deposit_paid OR confirmed_at). The only
  * way to remove a confirmed order is to cancel it through the
  * cancelOrder workflow, which preserves payment + audit history.
@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
  * clone starts at status='pending' with no payments / no driver
  * / no POD. Returns the new order id.
  *
- * Caller passes the new event_date (string YYYY-MM-DD) -- a
+ * Caller passes the new event_date (string YYYY-MM-DD) - a
  * duplicate without a forward date would silently land on the
  * source order's date and confuse dispatch.
  */
@@ -142,7 +142,7 @@ export async function createOrder(orderData: any) {
 /**
  * Audit (May 2026, Wave 5): companyId is now required. The previous
  * version hydrated an order by id alone, trusting RLS as the only
- * tenant boundary -- meaning webhook callers (payment-confirmation,
+ * tenant boundary - meaning webhook callers (payment-confirmation,
  * stripe-confirmation, yoco-confirmation) that use the service role
  * could load any tenant's order with one untrusted id. companyId
  * verification here makes the contract explicit at the call site.
@@ -167,7 +167,7 @@ export async function getOrderById(orderId: string, companyId?: string) {
     if (companyId) {
       query = query.eq("company_id", companyId);
     } else {
-      console.warn("[getOrderById] called without companyId -- relying on RLS only. Pass companyId from a verified context.");
+      console.warn("[getOrderById] called without companyId - relying on RLS only. Pass companyId from a verified context.");
     }
     const { data, error } = await query.single();
 
@@ -233,7 +233,7 @@ export async function updateOrder(orderId: string, updates: any) {
     // bypasses orderWorkflow.updateOrderStatus's confirmed_at logic.
     // Result: an admin moving a pending order to confirmed via the
     // edit modal saved status='confirmed' but left confirmed_at null
-    // -- silently breaking the Booked Revenue tile and every other
+    // - silently breaking the Booked Revenue tile and every other
     // gate keyed on this column. Only set when not already in the
     // updates payload and the row's existing value is null.
     if (updates && typeof updates.status === "string" && updates.confirmed_at === undefined) {
@@ -262,7 +262,7 @@ export async function updateOrder(orderId: string, updates: any) {
 
     if (error) throw error;
 
-    // Guest count moved -- re-plan kitchen prep tasks so the cook
+    // Guest count moved - re-plan kitchen prep tasks so the cook
     // duration scales to the new count. Phase 1 #10 made the cook
     // duration scale with guest_count / base_servings, but only at
     // plan-time; an existing order whose count changed kept its
@@ -296,7 +296,7 @@ export async function updateOrder(orderId: string, updates: any) {
 }
 
 /**
- * deleteOrder -- soft-delete only. Hard-delete is gone.
+ * deleteOrder - soft-delete only. Hard-delete is gone.
  *
  * Refuses entirely on confirmed orders (deposit_paid OR confirmed_at).
  * The only path to remove a confirmed order is through cancelOrder,

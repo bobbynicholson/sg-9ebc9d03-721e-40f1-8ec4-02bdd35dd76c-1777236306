@@ -1,5 +1,5 @@
 /**
- * LogCleaningJobModal -- Wave 41 Phase 2.
+ * LogCleaningJobModal - Wave 41 Phase 2.
  *
  * Operator-driven creation of a cleaning_jobs row. Picks:
  *   - equipment + quantity (defaults to 1)
@@ -205,7 +205,7 @@ export function LogCleaningJobModal({
           </DialogTitle>
           <DialogDescription>
             Tracks when this gear returns to inventory. If a staffer on shift handles
-            it, no extra cost -- their shift covers the labour.
+            it, no extra cost - their shift covers the labour.
           </DialogDescription>
         </DialogHeader>
 

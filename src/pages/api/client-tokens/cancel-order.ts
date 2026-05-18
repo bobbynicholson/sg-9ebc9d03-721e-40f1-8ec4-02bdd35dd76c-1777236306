@@ -3,7 +3,7 @@
  * POST /api/client-tokens/cancel-order
  *
  * Wave 20 audit: the magic-link /c/order/[id] page had no Cancel /
- * Postpone button -- only the auth-gated client portal exposed those
+ * Postpone button - only the auth-gated client portal exposed those
  * actions. A client who reached their order via the magic-link email
  * had to either sign in (extra friction, not always possible) or
  * phone the caterer.
@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Token-bearer auth: the per-order cookie OR the account-scope
     // cookie set by /api/client-tokens/validate. Re-use client_view_order
-    // to validate -- if it returns ok, the token is valid for THIS
+    // to validate - if it returns ok, the token is valid for THIS
     // order under the right tenant + matching client email.
     const cookieName = `cms_client_token_${order_id}`;
     const tokenHash = (
@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Reject duplicates -- prevents the client mash-clicking Cancel
+    // Reject duplicates - prevents the client mash-clicking Cancel
     // and spawning N pending rows on the same order.
     const { data: existing, error: existingErr } = await sb
       .from("cancellation_requests")
@@ -161,7 +161,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // When the policy says we're outside the owner-override window
     // AND the wizard sent a payout choice, run the full cancel
     // cascade right now instead of queueing a pending row. This is
-    // Bobby's "first line of defence" -- the system handles cancels
+    // Bobby's "first line of defence" - the system handles cancels
     // before the catering company is on the phone.
     // ============================================================
     const payout_choice_raw = body.payout_choice;
@@ -204,7 +204,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (e: any) {
         console.error("[cancel-order:token] auto-process failed:", e);
         // Fall through to the pending queue path below so the request
-        // doesn't disappear -- the admin can still pick it up.
+        // doesn't disappear - the admin can still pick it up.
       }
     }
 
@@ -229,7 +229,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: "pending",
         reason,
         feedback: client_notes,
-        // Token-bearer flow has no auth.users -- requested_by_user_id
+        // Token-bearer flow has no auth.users - requested_by_user_id
         // stays null. cancellation-review's notify path falls back to
         // resolveClientUserId via orders.client_id when this is null.
         requested_by_user_id: null,
@@ -279,8 +279,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { emailService } = await import("@/services/emailService");
         const subject =
           request_type === "cancel"
-            ? `Cancellation request received -- ${order.order_number}`
-            : `Postponement request received -- ${order.order_number}`;
+            ? `Cancellation request received - ${order.order_number}`
+            : `Postponement request received - ${order.order_number}`;
         const evtDate = order.event_date
           ? new Date(order.event_date).toLocaleDateString("en-ZA", {
               day: "numeric", month: "short", year: "numeric",
@@ -314,7 +314,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         await (sb as any).from("audit_logs").insert({
           company_id: order.company_id,
-          user_id: null, // public token-bearer flow -- no auth user
+          user_id: null, // public token-bearer flow - no auth user
           action: request_type === "cancel" ? "cancellation_requested_magic" : "postponement_requested_magic",
           entity_type: "order",
           entity_id: order_id,

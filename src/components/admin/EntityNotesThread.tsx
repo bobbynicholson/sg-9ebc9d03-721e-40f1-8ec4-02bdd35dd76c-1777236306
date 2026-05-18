@@ -1,10 +1,10 @@
 /**
- * EntityNotesThread -- generic chronological notes thread for any
+ * EntityNotesThread - generic chronological notes thread for any
  * entity in the system, backed by audit_logs.
  *
  * Phase 16 #1. Phase 9 #6 shipped OrderNotesThread bound to
  * entity_type='order'. The same UI pattern is useful on quote,
- * invoice, lead etc. -- we want one component, not five copies.
+ * invoice, lead etc. - we want one component, not five copies.
  *
  * Backed by audit_logs (action={actionPrefix}_added,
  * entity_type={entityType}, entity_id={entityId},
@@ -149,7 +149,7 @@ export function EntityNotesThread({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={2}
-          placeholder={placeholder || "Add an internal note. Visible to admins only -- audit logged."}
+          placeholder={placeholder || "Add an internal note. Visible to admins only - audit logged."}
           className="text-sm"
         />
         <Button

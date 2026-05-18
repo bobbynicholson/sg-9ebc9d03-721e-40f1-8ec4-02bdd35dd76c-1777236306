@@ -4,7 +4,7 @@
  *
  * Tiny dialog the client opens to push a quote back to the catering
  * team for revision. Used on the dashboard pending-quotes hero band
- * and on /client-portal/quotes -- same UI both places.
+ * and on /client-portal/quotes - same UI both places.
  *
  * On submit:
  *   - POST /api/quotes/request-edits with { quote_id, request_text }
@@ -111,7 +111,7 @@ export function RequestEditsDialog({
             disabled={submitting}
           />
           <p className="text-[11px] text-slate-500">
-            Be specific -- it saves a back-and-forth. {1000 - text.length} characters left.
+            Be specific - it saves a back-and-forth. {1000 - text.length} characters left.
           </p>
         </div>
         <div className="flex gap-2 mt-2">

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 5 chart 2 -- Receivables aging.
+ * Tier 5 chart 2 - Receivables aging.
  *
  * Recharts BarChart with each bucket as a column. Y-axis is rand
- * balance, not count -- a single huge invoice 90 days late is the
+ * balance, not count - a single huge invoice 90 days late is the
  * thing the owner needs to chase. Bars get progressively redder as
  * they age.
  */
@@ -50,7 +50,7 @@ export function ReceivablesAgingChart({ data, loading }: Props) {
           <InfoTooltip
             content={
               "Money owed to you, sliced by how late it is. Green = not yet due. Anything from yellow rightwards is overdue.\n\n" +
-              "Tall red bars on the right are old debts -- the longer they sit, the less likely you are to collect. Chase 60+ days hardest."
+              "Tall red bars on the right are old debts - the longer they sit, the less likely you are to collect. Chase 60+ days hardest."
             }
           />
         </CardTitle>

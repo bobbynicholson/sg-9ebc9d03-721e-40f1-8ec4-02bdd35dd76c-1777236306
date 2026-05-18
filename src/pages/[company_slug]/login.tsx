@@ -1,11 +1,11 @@
 /**
- * Tenant-scoped STAFF login -- email + password.
+ * Tenant-scoped STAFF login - email + password.
  *
  * URL: /{company_slug}/login
  *
  * For company admins, owners and staff (kitchen, drivers, shopping,
- * cleaning). Clients use a different page -- see
- * /[company_slug]/client/login -- where they get a magic-link with no
+ * cleaning). Clients use a different page - see
+ * /[company_slug]/client/login - where they get a magic-link with no
  * password.
  *
  * Branding (logo, primary/secondary colours) is loaded via the
@@ -74,7 +74,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
       initialBranding: branding,
       slugNotFound: !branding,
     },
-    // Branding rarely changes -- 60s of staleness after a save is fine.
+    // Branding rarely changes - 60s of staleness after a save is fine.
     revalidate: 60,
   };
 };
@@ -92,7 +92,7 @@ export default function CompanyStaffLoginPage({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // Seed from getStaticProps so the very first paint already shows the
-  // tenant's logo and palette -- no flash of CateringMS defaults.
+  // tenant's logo and palette - no flash of CateringMS defaults.
   const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(() =>
     brandFromInitial(initialBranding),
   );
@@ -101,7 +101,7 @@ export default function CompanyStaffLoginPage({
   // Refresh branding from the SECURITY DEFINER RPC once we're on the
   // client. Catches the case where the operator has just saved new
   // colours and we're still serving an ISR-cached page from before the
-  // change. Falls through silently if the call fails -- the SSG seed is
+  // change. Falls through silently if the call fails - the SSG seed is
   // already on the page.
   useEffect(() => {
     if (!company_slug || typeof company_slug !== "string") return;
@@ -177,7 +177,7 @@ export default function CompanyStaffLoginPage({
       return;
     }
 
-    // Authenticated -- own profile is readable via `profiles_own` policy.
+    // Authenticated - own profile is readable via `profiles_own` policy.
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("active_role, role, company_id, companies:company_id ( slug )")

@@ -346,7 +346,7 @@ export class BillingEmailService {
   // supabase client through. Without it the underlying emailService
   // helper falls back to the imported browser anon client, which has
   // no session on the server, and the email_provider_settings SELECT
-  // silently returns nothing -- the email never sends.
+  // silently returns nothing - the email never sends.
   async sendBillingEmail(to: string, type: string, data: Record<string, any>, companyId: string, client?: any): Promise<boolean> {
     try {
       const template = this.getEmailTemplate(type, data);

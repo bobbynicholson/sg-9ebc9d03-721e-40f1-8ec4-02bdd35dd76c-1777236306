@@ -465,7 +465,7 @@ function IntegrationsPage() {
             </CardContent>
           </Card>
 
-          {/* Wave 70.1 -- Sage Business Cloud sync mapping is live.
+          {/* Wave 70.1 - Sage Business Cloud sync mapping is live.
               Once an admin picks the four defaults (ledger, tax, bank,
               payment method) below the invoice + payment sync
               endpoints stop 412'ing and start pushing for real. */}
@@ -756,7 +756,7 @@ function IntegrationsPage() {
 }
 
 /**
- * Wave 70.1 -- Sage Business Cloud settings card.
+ * Wave 70.1 - Sage Business Cloud settings card.
  *
  * Two-state card:
  *   Not connected: shows the OAuth "Connect Sage" CTA + a primer on
@@ -858,7 +858,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
           )}
         </CardTitle>
         <CardDescription>
-          Sage is the SA market default -- SARS-aware, ZAR currency, comma-decimal money. Pick the four defaults below and CateringMS pushes invoices + payments straight in.
+          Sage is the SA market default - SARS-aware, ZAR currency, comma-decimal money. Pick the four defaults below and CateringMS pushes invoices + payments straight in.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -984,7 +984,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
               )}
               {options.ledger_accounts.length === 0 && (
                 <p className="text-[11px] text-rose-700">
-                  No ledger accounts returned from Sage -- the token may have lost the right scope. Try "Reconnect Sage".
+                  No ledger accounts returned from Sage - the token may have lost the right scope. Try "Reconnect Sage".
                 </p>
               )}
             </div>

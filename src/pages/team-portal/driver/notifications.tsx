@@ -3,7 +3,7 @@
  * /team-portal/driver/notifications
  *
  * The bell -> "View all" target for drivers. Was a static placeholder
- * card; now lists the real notifications a driver receives -- shift
+ * card; now lists the real notifications a driver receives - shift
  * confirms, route changes, dispatch nudges, customer-replied alerts.
  *
  * Same notificationService as the other portals so the bell badge
@@ -120,7 +120,7 @@ export default function DriverNotificationsPage() {
 
   // Wave 24: bulk-clear stale notifications (older than the shared
   // STALE_NOTIFICATION_DAYS threshold). Live tenants accumulate test /
-  // one-off rows that never get triaged -- the inbox fills with
+  // one-off rows that never get triaged - the inbox fills with
   // months-old urgents that the driver ignores, which trains them to
   // ignore real ones too. One-tap archive keeps the bell honest.
   const staleCount = useMemo(

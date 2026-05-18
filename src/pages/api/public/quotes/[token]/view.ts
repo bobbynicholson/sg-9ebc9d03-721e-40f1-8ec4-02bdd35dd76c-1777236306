@@ -18,7 +18,7 @@ import {
  * but the notifications RLS rejects anon writes, so the notification
  * was silently failing.
  *
- * Idempotent on viewed_at -- if it's already set we leave it alone so
+ * Idempotent on viewed_at - if it's already set we leave it alone so
  * the anchor stays the FIRST view, not the latest.
  */
 
@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!row || row.deleted_at) return res.status(404).json({ ok: false });
 
-  // Already viewed -- nothing to do, return ok so the client doesn't
+  // Already viewed - nothing to do, return ok so the client doesn't
   // retry.
   if (row.viewed_at) return res.status(200).json({ ok: true, alreadyViewed: true });
 
@@ -103,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         recipient_id: row.user_id,
         notification_type: "quote_viewed",
         title: "👀 Client viewed your quote",
-        message: `${row.client_name || "Client"} just opened the quote (${totalLabel}, event ${eventLabel}). They're considering -- a follow-up nudge tomorrow if quiet might help.`,
+        message: `${row.client_name || "Client"} just opened the quote (${totalLabel}, event ${eventLabel}). They're considering - a follow-up nudge tomorrow if quiet might help.`,
         priority: "normal",
         link: `/admin/quotes/${row.id}`,
       },

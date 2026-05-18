@@ -50,7 +50,7 @@ export function InvoiceSendDialog({
   const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
   const eventLabel = invoiceData.eventName || invoiceData.orderNumber || "your event";
   const totalAmount = Number(invoiceData.balanceDue || invoiceData.total || 0);
-  // Wave 66 -- multi-currency parameterisation. Pre-Wave-66 the
+  // Wave 66 - multi-currency parameterisation. Pre-Wave-66 the
   // amount label was hardcoded `R${totalAmount}` so any tenant in
   // the UK (£) / US ($) / Botswana (P) saw an "R" prefix in their
   // outbound invoice email body. Now: pull the tenant currency
@@ -85,7 +85,7 @@ export function InvoiceSendDialog({
             balance_amount: isBalance ? amountLabel : "",
           },
           fallback: {
-            subject: `Invoice ${invoiceNumber} ready -- ${eventLabel}`,
+            subject: `Invoice ${invoiceNumber} ready - ${eventLabel}`,
             bodyHtml:
               `Hi {{first_name}},\n\n` +
               `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +

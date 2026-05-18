@@ -3,14 +3,14 @@
  *
  * Replaces the localStorage-driven mock progress that used to live in
  * onboardingService.ts. Each step's completion is derived from a quick
- * COUNT(*) query against the relevant table -- so what the owner sees
+ * COUNT(*) query against the relevant table - so what the owner sees
  * always reflects reality, not stale browser state. Manual "I've done
  * this" steps (welcome, final_review) are tracked separately in
  * sessionStorage since they're trivial UI dismissals and don't belong
  * in the database.
  *
  * Completion + dismissal of the whole onboarding flow live on
- * companies.onboarding_completed_at / onboarding_dismissed_at -- the two
+ * companies.onboarding_completed_at / onboarding_dismissed_at - the two
  * timestamps drive the login-time auto-redirect and the day-zero
  * dashboard "First Steps" card respectively.
  */
@@ -68,7 +68,7 @@ function writeManual(companyId: string, next: ManualSteps): void {
   try {
     window.sessionStorage.setItem(SESSION_KEY(companyId), JSON.stringify(next));
   } catch {
-    /* sessionStorage disabled -- accept the loss */
+    /* sessionStorage disabled - accept the loss */
   }
 }
 
@@ -117,7 +117,7 @@ export const onboardingProgressService = {
     const completedAt = company?.onboarding_completed_at ?? null;
     const dismissedAt = company?.onboarding_dismissed_at ?? null;
 
-    // Company info is "complete" when the basics are in -- company_name +
+    // Company info is "complete" when the basics are in - company_name +
     // phone exist (signup ensures both).
     const companyInfoComplete = !!(company?.company_name && company?.phone);
 
@@ -141,7 +141,7 @@ export const onboardingProgressService = {
       {
         id: "company_info",
         label: "Company profile",
-        description: "Name, contact, branding -- the basics on every quote",
+        description: "Name, contact, branding - the basics on every quote",
         required: true,
         completed: companyInfoComplete,
         href: `${tenantPath}/admin/company-profile`,
@@ -151,7 +151,7 @@ export const onboardingProgressService = {
       {
         id: "import_team",
         label: "Add your team",
-        description: "Kitchen, drivers, cleaning -- so they can clock in",
+        description: "Kitchen, drivers, cleaning - so they can clock in",
         required: true,
         completed: teamComplete,
         count: staffProfileCount + kitchenStaffCount,
@@ -173,7 +173,7 @@ export const onboardingProgressService = {
       {
         id: "import_clients",
         label: "Import clients",
-        description: "Existing client database -- skip if you're starting fresh",
+        description: "Existing client database - skip if you're starting fresh",
         required: false,
         completed: clientCount > 0,
         count: clientCount,
@@ -195,7 +195,7 @@ export const onboardingProgressService = {
       {
         id: "import_inventory",
         label: "Stock + ingredients",
-        description: "What you keep in -- drives shopping demand calc",
+        description: "What you keep in - drives shopping demand calc",
         required: false,
         completed: inventoryCount > 0,
         count: inventoryCount,

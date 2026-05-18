@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 3 chart 1 -- Top 10 clients by lifetime value.
+ * Tier 3 chart 1 - Top 10 clients by lifetime value.
  *
  * Horizontal bars rendered as plain CSS (Recharts overcomplicates this
  * shape). Each bar is two-tone: solid emerald = paid so far, lighter

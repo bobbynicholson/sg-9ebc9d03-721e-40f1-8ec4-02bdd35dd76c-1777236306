@@ -1,5 +1,5 @@
 /**
- * LogKitchenShiftModal -- admin shift planner for a kitchen staffer.
+ * LogKitchenShiftModal - admin shift planner for a kitchen staffer.
  *
  * Wave 36.1. Mirrors LogDriverShiftModal in shape but with planning
  * semantics, not actual-hours logging:
@@ -10,7 +10,7 @@
  *     follow-on hook stamps onto the matching kitchen_shifts row by
  *     staff_id + shift_date proximity).
  *
- * Idempotent on (staff_id, shift_date) -- the unique partial index
+ * Idempotent on (staff_id, shift_date) - the unique partial index
  * means a re-roster of the same chef on the same day surfaces a
  * UNIQUE violation; we catch it and tell the operator to edit the
  * existing row.
@@ -130,7 +130,7 @@ export function LogKitchenShiftModal({
       }
       setDone(true);
       if (onCreated) onCreated();
-      toast({ title: "Shift rostered", description: `${staffName} -- ${plannedStart} to ${plannedEnd}` });
+      toast({ title: "Shift rostered", description: `${staffName} - ${plannedStart} to ${plannedEnd}` });
       setTimeout(() => onOpenChange(false), 700);
     } catch (e: any) {
       setError(e?.message || "Failed to roster shift");
@@ -145,7 +145,7 @@ export function LogKitchenShiftModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-orange-600" />
-            Roster shift -- {staffName}
+            Roster shift - {staffName}
           </DialogTitle>
           <DialogDescription>
             Plan upcoming hours. The actual clock-in time gets stamped automatically
@@ -210,9 +210,9 @@ export function LogKitchenShiftModal({
               onChange={(e) => setMultiplier(e.target.value as "1" | "1.5" | "2")}
               className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
             >
-              <option value="1">1x -- standard hours</option>
-              <option value="1.5">1.5x -- overtime</option>
-              <option value="2">2x -- Sunday / public holiday (BCEA)</option>
+              <option value="1">1x - standard hours</option>
+              <option value="1.5">1.5x - overtime</option>
+              <option value="2">2x - Sunday / public holiday (BCEA)</option>
             </select>
           </div>
 

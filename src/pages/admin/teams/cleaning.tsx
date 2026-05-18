@@ -1,5 +1,5 @@
 /**
- * Cleaning team landing -- hero + quick stats + tile shortcuts.
+ * Cleaning team landing - hero + quick stats + tile shortcuts.
  * No first-class cleaning task table yet; we route to /admin/staff with a
  * department filter and let the staff list do the heavy lifting.
  */
@@ -27,7 +27,7 @@ function CleaningTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, jobsToday: 0 });
 
-  // Pure gradient hero -- see kitchen.tsx for rationale.
+  // Pure gradient hero - see kitchen.tsx for rationale.
 
   useEffect(() => {
     let cancelled = false;

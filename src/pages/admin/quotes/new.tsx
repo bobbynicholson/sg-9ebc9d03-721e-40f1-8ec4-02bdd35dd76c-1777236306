@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Quote Builder -- /admin/quotes/new and /admin/quotes/new?leadId=...
+ * Quote Builder - /admin/quotes/new and /admin/quotes/new?leadId=...
  *
  * The page Callum lives on. The whole point is to kill the
  * Xero -> PDF -> email -> attach -> send loop. One screen, one save,
@@ -117,7 +117,7 @@ import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 type PricingMode = "per_person" | "per_portion" | "flat";
 
 interface LineItem {
-  /** Stable client-side id -- not persisted. */
+  /** Stable client-side id - not persisted. */
   id: string;
   /** When linked to the company's menu_items table. */
   menu_item_id: string | null;
@@ -140,12 +140,12 @@ interface LineItem {
   quantityOverridden?: boolean;
   /** Per-line discount in percent (0-100). */
   discountPct: number;
-  /** Optional cost-per-unit copied off menu_items.cost_per_unit -- preserved
+  /** Optional cost-per-unit copied off menu_items.cost_per_unit - preserved
    *  for the future margin tracker, not displayed yet. */
   costPerUnit?: number;
   /** Phase 2 #7: timestamp from menu_items.allergens_reviewed_at when
    *  the line was picked from the catalogue. NULL means the kitchen
-   *  lead never signed off -- the quote builder warns at accept time. */
+   *  lead never signed off - the quote builder warns at accept time. */
   allergensReviewedAt?: string | null;
 }
 
@@ -194,7 +194,7 @@ const AUTOSAVE_DELAY_MS = 1500;
 // level fmtR was hard-coded to "R " + en-ZA; on a UK/US tenant the
 // builder still showed "R 1,234.56" instead of "£1,234.56". Now
 // fmtR reads through a module-level _currentFmt that the component
-// sets when the tenant currency resolves -- every existing
+// sets when the tenant currency resolves - every existing
 // fmtR(...) call site stays unchanged because the closure re-reads
 // the underlying formatter each call.
 const CURRENCY_LOCALES: Record<string, string> = {
@@ -286,7 +286,7 @@ function NewQuotePage() {
   // Distinct from event start time: a morning setup for an evening
   // event is normal at big functions, so the operator gets an
   // explicit field they can override (defaults to event_time minus
-  // the operations.deliveryBufferMinutes setting -- see
+  // the operations.deliveryBufferMinutes setting - see
   // suggestedSetupTime below).
   const [setupTime, setSetupTime] = useState("");
   /** Operations buffer in minutes (default 30 if the operator
@@ -321,7 +321,7 @@ function NewQuotePage() {
   // Wave 11 #7: this used to default to 8.5 (ZAR-flavoured magic
   // number). UK / US / non-ZA tenants got a R8.50/km auto-fee
   // injected before the branch resolver ran, then the resolver
-  // overwrote it -- but the visible-on-screen flicker showed the
+  // overwrote it - but the visible-on-screen flicker showed the
   // wrong number. Default to 0; resolveBranchSettings populates
   // the real rate per tenant + region a tick later.
   const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(0);
@@ -395,7 +395,7 @@ function NewQuotePage() {
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
   // Wave 12 audit: capture the persisted total at hydrate time so we
-  // can warn when the live recompute drifts away from it -- happens
+  // can warn when the live recompute drifts away from it - happens
   // when the operator opens an old quote whose persisted columns
   // were calculated under different VAT math (e.g. before the
   // pricing_includes_vat flag was flipped). The customer-facing
@@ -489,7 +489,7 @@ function NewQuotePage() {
   // platform user who switched tenants saw the previous tenant's rate
   // bleed in. The branch resolver above (resolveBranchSettings) is
   // the canonical source for delivery rate per tenant + region.
-  // Buffer minutes stays for now -- it's a per-operator UX preference
+  // Buffer minutes stays for now - it's a per-operator UX preference
   // (when does the driver leave the kitchen relative to start time)
   // rather than tenant data. Scope by companyId so the buffer doesn't
   // bleed across tenants either.
@@ -638,7 +638,7 @@ function NewQuotePage() {
     if (typeof q.delivery_fee === "number") {
       setDeliveryFee(q.delivery_fee);
       // If the saved fee doesn't match the canonical round-trip
-      // formula, treat it as a manual / flat-fee override -- otherwise
+      // formula, treat it as a manual / flat-fee override - otherwise
       // let the auto-calc keep owning it as distances or rates
       // change. Anchored on round-trip math so legacy one-way quotes
       // (saved before the Phase 30 round-trip switch) land as frozen
@@ -690,7 +690,7 @@ function NewQuotePage() {
         ? selectedKitchen.id
         : null;
     // Resolve the per-tenant pricing convention once per quote. Not
-    // a branch-level override -- this is a company-wide accounting
+    // a branch-level override - this is a company-wide accounting
     // decision so it stays on companies.pricing_includes_vat.
     (async () => {
       try {
@@ -767,7 +767,7 @@ function NewQuotePage() {
   }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
 
   // ── Auto-fee from distance × 2 (round-trip) × per-km, floored at
-  // min fee. The ×2 covers the return leg -- a venue 10km away costs
+  // min fee. The ×2 covers the return leg - a venue 10km away costs
   // 20km of fuel + driver time. Skipped once the operator has typed
   // a flat-fee override into the delivery fee input.
   useEffect(() => {
@@ -927,7 +927,7 @@ function NewQuotePage() {
   // line.id stayed the same and the previous equipment's availability
   // (often "0 free" with a hire-in implied) hung around. Combine
   // line.id + equipment_id in the cache key so the swap forces a fresh
-  // fetch -- and so the rendering code can detect a stale snapshot
+  // fetch - and so the rendering code can detect a stale snapshot
   // even when the join in the dependency array misses an edit.
   const availKey = (line: { id: string; equipment_id: string | null }) =>
     `${line.id}::${line.equipment_id || "none"}`;
@@ -983,7 +983,7 @@ function NewQuotePage() {
           const meta = await getEquipmentMeta(companyId, line.equipment_id!);
           if (meta && meta.hire_in_cost > 0) updates[line.id] = meta.hire_in_cost;
         } catch {
-          // Best-effort -- if the catalog read fails the line just
+          // Best-effort - if the catalog read fails the line just
           // keeps whatever it had, which is the same state as before.
         }
       }
@@ -1059,7 +1059,7 @@ function NewQuotePage() {
           unit_price: e.unitPrice,
           rentalPrice: e.unitPrice,
           line_total: e.unitPrice * e.quantity,
-          // Split metadata -- read by the kitchen prep-list and the
+          // Split metadata - read by the kitchen prep-list and the
           // driver deliveries view to render OWNED / HIRE-IN badges.
           from_stock_qty: split.fromStock,
           from_hire_qty: split.fromHire,
@@ -1086,7 +1086,7 @@ function NewQuotePage() {
       event_date: eventDate || null,
       event_time: eventTime || null,
       // setup_time defaults to suggestedSetupTime when the operator
-      // hasn't typed an explicit value -- means a quote with a 5pm
+      // hasn't typed an explicit value - means a quote with a 5pm
       // start time and a 30 min buffer auto-saves a 16:30 setup
       // even if the operator never touched the field.
       setup_time: setupTime || suggestedSetupTime || null,
@@ -1141,7 +1141,7 @@ function NewQuotePage() {
       // Wave 11 #4: this find-or-create used to run on every save,
       // including UPDATEs. The autosave debounce + email field edits
       // meant a tenant could end up with N orphan lead rows for the
-      // same quote -- "Jane wedding" lead, "Jane wedding " (typo
+      // same quote - "Jane wedding" lead, "Jane wedding " (typo
       // recovered) lead, etc. Restrict to the INSERT branch only;
       // once the quote has a row, the constraint is already satisfied
       // and the linkage is fixed for the lifetime of the quote.
@@ -1199,7 +1199,7 @@ function NewQuotePage() {
         // Wave 14 audit: when the operator hits Save & Send on an
         // already-sent / viewed / accepted quote (the "Revise &
         // resend" flow off /admin/quotes/[id]), the public view
-        // needs to reset to "awaiting your response" -- otherwise
+        // needs to reset to "awaiting your response" - otherwise
         // the client opens the link and still sees the old
         // "accepted" / "viewed" state on a quote that has new
         // numbers. Clear the lifecycle stamps so the public page
@@ -1233,7 +1233,7 @@ function NewQuotePage() {
         }
         // Wave 14 audit: when the operator resends a quote that
         // had pending change requests, the requests are implicitly
-        // addressed -- the new quote IS the response. Sweep any
+        // addressed - the new quote IS the response. Sweep any
         // pending requests for this quote into 'addressed' so the
         // notification chip clears on /admin/quotes/[id] and the
         // sticky panel collapses to history.
@@ -1284,7 +1284,7 @@ function NewQuotePage() {
         // automatically. skipClientNotification keeps the
         // "we received your request" template (intended for the
         // client-initiated flow) from firing on every admin draft.
-        // Lead-status guard for empty / R0 saves stays here -- the
+        // Lead-status guard for empty / R0 saves stays here - the
         // builder has more context about whether the operator has
         // actually priced something.
         const insert: any = {
@@ -1301,7 +1301,7 @@ function NewQuotePage() {
         const created: any = await quoteService.createQuote(insert, {
           skipClientNotification: true,
           // Don't auto-advance the lead to 'quoted' on an empty / R0
-          // autosave -- linkage stays, status doesn't move until the
+          // autosave - linkage stays, status doesn't move until the
           // operator has actually priced something OR hit Send.
           skipLeadAdvance: !hasPricedContent && !operatorPressedSend,
         });
@@ -1311,7 +1311,7 @@ function NewQuotePage() {
         setStatus(created.status as any);
         setSavedAt(new Date());
         // First save with status='sent' (Save & Send on a brand-new
-        // quote) -- fire the client email through the existing
+        // quote) - fire the client email through the existing
         // _fireQuoteSentEmail path. NULL prev-status acts like a
         // transition from draft.
         if (operatorPressedSend) {
@@ -1362,7 +1362,7 @@ function NewQuotePage() {
   }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
 
   const handleSaveDraft = async () => {
-    // No deal without email -- the follow-up engine, invoice flow,
+    // No deal without email - the follow-up engine, invoice flow,
     // amendment + cancellation workflows all assume an addressable
     // client. Gate Save draft on it too so we never persist a row
     // that fails the DB NOT NULL the moment it goes out.
@@ -1485,7 +1485,7 @@ function NewQuotePage() {
                 </p>
                 {/* Wave 14 audit: revising-an-already-sent-quote banner.
                     Reminds the operator that this isn't a new quote
-                    creation -- Save & Send will overwrite the live
+                    creation - Save & Send will overwrite the live
                     public link, clear the previous acceptance, and
                     close out any pending change requests. */}
                 {isRevisingNonDraft && (
@@ -1510,7 +1510,7 @@ function NewQuotePage() {
                     {/* Wave 15 audit: when revising a non-draft quote,
                         Save draft alone leaves accepted_at intact and
                         the customer would see "accepted" with new
-                        higher numbers -- broken state. Steer the
+                        higher numbers - broken state. Steer the
                         operator to Save & Send so the public
                         lifecycle resets in step with the totals. */}
                     {isRevisingNonDraft
@@ -1672,7 +1672,7 @@ function NewQuotePage() {
                         <span className="font-semibold flex-shrink-0">Delivery distance + fee</span>
                         {selectedKitchen && kitchens.length === 1 && (
                           // Prefer the full address over the kitchen's
-                          // display name -- "From Cape Town" is too
+                          // display name - "From Cape Town" is too
                           // vague when the operator wants to see the
                           // actual departure point. Falls back to name
                           // only if address isn't set.
@@ -1932,7 +1932,7 @@ function NewQuotePage() {
                                 }
                                 onChange={(e) => updateLine(line.id, {
                                   quantity: safeNum(e.target.value),
-                                  // Mark sticky -- the guestCount cascade now
+                                  // Mark sticky - the guestCount cascade now
                                   // leaves this row alone for the lifetime of
                                   // the quote.
                                   quantityOverridden: true,
@@ -2223,7 +2223,7 @@ function NewQuotePage() {
                     />
                   </div>
                   {/* Phase 16 #1: chronological notes thread for the
-                      quote -- only renders once the quote has been
+                      quote - only renders once the quote has been
                       saved (we need a quoteId to thread off). Mirrors
                       the order notes thread for cross-team context. */}
                   {quoteId && companyId && (
@@ -2232,7 +2232,7 @@ function NewQuotePage() {
                         entityType="quote"
                         entityId={quoteId}
                         companyId={companyId}
-                        placeholder="Add an internal note for this quote -- audit logged."
+                        placeholder="Add an internal note for this quote - audit logged."
                       />
                     </div>
                   )}
@@ -2250,7 +2250,7 @@ function NewQuotePage() {
                   {/* Wave 15 audit: under inc-VAT mode the previous layout
                       ("Items net" + "Subtotal" + "VAT" + "Total") buried
                       a confusing ex-VAT extraction line between the line
-                      items and the gross total -- e.g. Items 2100 +
+                      items and the gross total - e.g. Items 2100 +
                       Delivery 99.71 = 2199.71, but Subtotal showed
                       1912.79. Align with the public quote view + the
                       [id] editor: under inc-VAT show gross items +
@@ -2260,7 +2260,7 @@ function NewQuotePage() {
                       added on top + Total" layout. Also collapse the
                       "Items (gross)" + "Items net" duplicate row into
                       one "Items" line when there are no per-line
-                      discounts (the typical case) -- two identical
+                      discounts (the typical case) - two identical
                       R-figures one under the other was visual noise. */}
                   <CardContent className="space-y-1.5 text-sm">
                     {(() => {
@@ -2440,7 +2440,7 @@ function NewQuotePage() {
               onClick={() => {
                 setAllergenGateOpen(false);
                 console.warn(
-                  "[quotes/new] allergen gate bypassed -- send with unreviewed items:",
+                  "[quotes/new] allergen gate bypassed - send with unreviewed items:",
                   unreviewedAllergenLines.map((l) => ({ id: l.menu_item_id, name: l.name })),
                 );
                 void handleSend({ bypassAllergenGate: true });

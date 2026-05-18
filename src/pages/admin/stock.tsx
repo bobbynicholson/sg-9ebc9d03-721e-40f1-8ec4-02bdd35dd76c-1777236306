@@ -135,7 +135,7 @@ function StockPage() {
       // supplier. We surface the open ones (anything that hasn't been
       // returned yet) and oldest-pending so the operator can chase
       // suppliers who haven't delivered. Earlier draft of this page
-      // pointed at `purchase_history` -- that table only has 4 metadata
+      // pointed at `purchase_history` - that table only has 4 metadata
       // columns and isn't where hire-ins live, so the query crashed.
       let hireQ = supabase
         .from("equipment_hire_orders")

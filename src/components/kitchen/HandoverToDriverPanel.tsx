@@ -1,9 +1,9 @@
 /**
- * Wave 49 B3 -- the kitchen-to-driver handover surface.
+ * Wave 49 B3 - the kitchen-to-driver handover surface.
  *
  * Audit (Specialist 2) found the equipment_handovers table existed
  * with from_stage/to_stage columns but only the cleaning-side
- * EquipmentVerificationPanel ever wrote a row -- and only for the
+ * EquipmentVerificationPanel ever wrote a row - and only for the
  * RETURN leg. The kitchen->driver handover (food + equipment loaded
  * onto the truck) had no UI, no write site, no proof. Drivers
  * jumped from "ready" straight to "delivered" with the system blind
@@ -176,7 +176,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
           <p className="text-xs text-amber-800">
             {state.driverName
               ? `Driver: ${state.driverName}. Tap when food + equipment are loaded.`
-              : "No driver assigned yet -- ask dispatch."}
+              : "No driver assigned yet - ask dispatch."}
           </p>
         </div>
       </div>

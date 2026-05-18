@@ -1,5 +1,5 @@
 /**
- * DriverShiftHistory -- driver-side compact list of the last 5
+ * DriverShiftHistory - driver-side compact list of the last 5
  * shifts for the current user.
  *
  * Phase 17 #4. Phase 10 #10 shipped the one-tap clock-in /
@@ -63,11 +63,11 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
           .order("actual_start", { ascending: false })
           .limit(15);
         // Hide micro-shifts (< 5 minutes between clock-in + clock-out)
-        // -- almost always accidental tap-then-tap. They polluted the
+        // - almost always accidental tap-then-tap. They polluted the
         // live driver dashboard with rows like "13:54 -> 14:03 / 0.2h"
         // that nobody actually worked. Open shifts stay regardless.
         const filtered = ((data || []) as ShiftRow[]).filter((s) => {
-          if (!s.actual_end) return true; // open shift -- keep
+          if (!s.actual_end) return true; // open shift - keep
           const mins = (new Date(s.actual_end).getTime() - new Date(s.actual_start || "").getTime()) / 60000;
           return mins >= 5;
         }).slice(0, 5);
@@ -114,7 +114,7 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
                       {isOpen ? (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] gap-1">
                           <AlertCircle className="w-3 h-3" />
-                          Open -- still clocked in
+                          Open - still clocked in
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px] tabular-nums">

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/wages -- payroll roll-up for the whole operation.
+ * /admin/wages - payroll roll-up for the whole operation.
  *
  * Owner-only surface. Department tabs flip between Kitchen, Drivers,
  * Shopping, Cleaning and All. Drivers run on driverPayService (hourly +
@@ -8,7 +8,7 @@
  * kitchenStaffService.getWageSummary (clocked time x rates with a BCEA
  * Sunday/holiday split).
  *
- * The page never enters or stores rate data -- it only reads. Region
+ * The page never enters or stores rate data - it only reads. Region
  * pill is informational; kitchen_staff_members aren't region-tagged
  * yet, so the wage figures stay company-wide and the pill simply
  * notes which branch the user has scoped to.
@@ -834,7 +834,7 @@ function KitchenSummaryView({
 }
 
 function DriverSummaryView({ rows, totals }: { rows: DriverPayRow[]; totals: { hourly: number; distance: number; callout: number; combined: number } }) {
-  // Build a "pay component" chart per driver -- top 8 drivers by total.
+  // Build a "pay component" chart per driver - top 8 drivers by total.
   const top = [...rows].sort((a, b) => b.total - a.total).slice(0, 8);
   const data = top.map((r) => ({
     name: r.full_name.length > 18 ? r.full_name.slice(0, 16) + "..." : r.full_name,

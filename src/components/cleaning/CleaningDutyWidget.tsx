@@ -1,18 +1,18 @@
 /**
- * CleaningDutyWidget -- live clock-in/out + on-duty roster for the
+ * CleaningDutyWidget - live clock-in/out + on-duty roster for the
  * cleaning team.
  *
  * Wave 39 rebuild. Original shipped with 4 stacked bugs:
  *   1. Passed user.id where the service expected company_id
  *      (so getOnDutyCleaningStaff returned an empty list every
- *      time -- nobody's company_id ever matches a user.id).
- *   2. Same bug on startCleaningDuty -- the duty row was inserted
+ *      time - nobody's company_id ever matches a user.id).
+ *   2. Same bug on startCleaningDuty - the duty row was inserted
  *      with company_id = user.id, breaking RLS lookups + the
  *      "currently on duty" join.
  *   3. Read duty_started_at off the row but the column didn't
  *      exist in the DB (added in 20260515160000 migration).
  *   4. Component imported into the cleaning dashboard but never
- *      actually rendered in JSX -- so even if 1-3 were fixed, no
+ *      actually rendered in JSX - so even if 1-3 were fixed, no
  *      user could see it.
  *
  * Wave 39 also Silicon-Valley-polishes the UI to match the kitchen
@@ -91,7 +91,7 @@ export function CleaningDutyWidget() {
     setLoading(true);
     try {
       const staff = await equipmentTrackingService.getOnDutyCleaningStaff(companyId);
-      // Cast through unknown -- the DB types haven't been regenerated
+      // Cast through unknown - the DB types haven't been regenerated
       // since the Wave 39 migration added duty_started_at +
       // equipment_verified columns to cleaning_duty_logs.
       const rows = (staff || []) as unknown as DutyRow[];
@@ -192,7 +192,7 @@ export function CleaningDutyWidget() {
                 {initialsOf(user?.full_name, user?.email)}
               </div>
               {onShift && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live -- on shift" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live - on shift" />
               )}
             </div>
             <div className="min-w-0">

@@ -1,5 +1,5 @@
 /**
- * KitchenServiceFAB -- Wave 70.7c
+ * KitchenServiceFAB - Wave 70.7c
  *
  * Floating action button at the bottom-LEFT of the screen on
  * mobile during service hours. Opens the same navigation drawer

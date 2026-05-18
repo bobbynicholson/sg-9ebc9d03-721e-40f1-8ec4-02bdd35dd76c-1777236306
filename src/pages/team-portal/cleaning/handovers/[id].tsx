@@ -1,5 +1,5 @@
 /**
- * /team-portal/cleaning/handovers/[id] -- Wave 70.24 (Commit 3)
+ * /team-portal/cleaning/handovers/[id] - Wave 70.24 (Commit 3)
  *
  * Per-event handover detail page. Opens from a card on the
  * CleaningEventBoard. Shows:
@@ -167,7 +167,7 @@ function HandoverDetailInner() {
             </CardContent></Card>
           ) : (
             <>
-              {/* Wave 70.41 -- canonical event-document header. The
+              {/* Wave 70.41 - canonical event-document header. The
                   previous bespoke header band rendered the same
                   client/date/venue/order_number facts every other
                   surface had to re-implement. Now: shared
@@ -175,7 +175,7 @@ function HandoverDetailInner() {
                   brand gradient, role-aware framing ("Cleaning
                   handover" label, no money fields surfaced). Per-
                   handover lifecycle timestamps below the header are
-                  cleaning-specific intelligence -- they stay. */}
+                  cleaning-specific intelligence - they stay. */}
               <BookingHeader
                 variant="cleaning"
                 booking={{
@@ -196,7 +196,7 @@ function HandoverDetailInner() {
                 }
               />
 
-              {/* Per-handover lifecycle timestamps -- cleaning-specific
+              {/* Per-handover lifecycle timestamps - cleaning-specific
                   intelligence not modelled in the shared header. */}
               {(handover.expected_at || handover.in_progress_at || handover.completed_at) && (
                 <Card className="border-0 shadow-sm mb-4">
@@ -304,7 +304,7 @@ function HandoverDetailInner() {
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Optional handover notes (e.g. 2 plates broken, 4 forks missing -- check next event)"
+                      placeholder="Optional handover notes (e.g. 2 plates broken, 4 forks missing - check next event)"
                       className="text-sm bg-white"
                       rows={2}
                     />

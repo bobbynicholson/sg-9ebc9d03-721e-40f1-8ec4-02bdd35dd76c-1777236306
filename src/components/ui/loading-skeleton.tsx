@@ -1,13 +1,13 @@
 /**
- * LoadingSkeleton -- canonical loading-state primitives for list and
+ * LoadingSkeleton - canonical loading-state primitives for list and
  * detail pages. The audit found loading states scattered across
  * spinners, "Loading..." text, and bespoke shimmer markup. These
  * primitives standardise on tailwind animate-pulse with three common
  * shapes:
  *
- *   <ListSkeleton rows={5} />          -- table-row stack
- *   <CardSkeleton tiles={4} />         -- stat-card grid
- *   <DetailSkeleton />                 -- single-record detail page
+ *   <ListSkeleton rows={5} />          - table-row stack
+ *   <CardSkeleton tiles={4} />         - stat-card grid
+ *   <DetailSkeleton />                 - single-record detail page
  *
  * Match the heights / spacing of the corresponding rendered content
  * so swap-in feels jitter-free.

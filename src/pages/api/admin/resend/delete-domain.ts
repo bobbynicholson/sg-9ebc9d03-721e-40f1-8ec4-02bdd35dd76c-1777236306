@@ -3,7 +3,7 @@
 /**
  * Reset the tenant's Resend domain. Removes it from Resend and clears
  * the resend_* columns on email_provider_settings. The provider row
- * itself stays (so other settings -- daily cap, auto-attach toggles --
+ * itself stays (so other settings - daily cap, auto-attach toggles --
  * survive). Use when the operator typoed or wants to switch domain.
  */
 import { createPagesServerClient } from "@/lib/supabase/server";

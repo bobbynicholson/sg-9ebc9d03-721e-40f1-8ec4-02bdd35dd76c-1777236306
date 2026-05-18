@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * PaymentModal -- the client picks a method and pays.
+ * PaymentModal - the client picks a method and pays.
  *
  * Two live branches:
  *   - "Pay online": dispatches via /api/payments/create-session, which
  *     resolves whichever gateway the catering company set as active in
  *     /admin/payment-gateways (PayFast / Yoco / Stripe) and returns a
  *     redirect URL or self-posting form snippet. We deliberately don't
- *     label the button with the provider name -- the tenant's choice
+ *     label the button with the provider name - the tenant's choice
  *     should be invisible to their clients.
  *   - EFT: the smart flow Bobby asked for. Shows the catering
  *     company's bank details, hammers home the reference (the
@@ -52,7 +52,7 @@ interface PaymentModalProps {
   open: boolean;
   onClose: () => void;
   onPaymentSuccess: () => void;
-  /** Optional handler -- when set, the success state shows an inline
+  /** Optional handler - when set, the success state shows an inline
    *  "Download receipt" button that asks the parent to open a
    *  ReceiptDialog scoped to this invoice. We hand off rather than
    *  embedding so there's never two dialogs stacked. */
@@ -125,12 +125,12 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
         if (cancelled || !r.ok || !j?.ok) return;
         setCreditAvailable(Number(j.available) || 0);
         setCreditMaxApplicable(Number(j.maxApplicable) || 0);
-        // Default the toggle on when there's any credit -- catering
+        // Default the toggle on when there's any credit - catering
         // cashflow win, and the client can untick if they prefer to
         // keep the credit for later.
         if (Number(j.maxApplicable) > 0) setApplyCredit(true);
       } catch {
-        // Silent -- credit is a soft feature; the pay flow still
+        // Silent - credit is a soft feature; the pay flow still
         // works without it.
       }
     })();
@@ -167,7 +167,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     }
 
     if (j.settled === true) {
-      // Credit covered the whole invoice -- no gateway needed.
+      // Credit covered the whole invoice - no gateway needed.
       toast({
         title: "Paid with store credit",
         description: `Applied ${fmtCurrency(j.creditApplied || creditMaxApplicable)}; nothing left to charge.`,
@@ -180,7 +180,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     if (j.creditApplied > 0) {
       toast({
         title: "Credit applied",
-        description: `Applied ${fmtCurrency(j.creditApplied)} -- redirecting you to pay the remaining ${fmtCurrency(netAmount)}.`,
+        description: `Applied ${fmtCurrency(j.creditApplied)} - redirecting you to pay the remaining ${fmtCurrency(netAmount)}.`,
       });
     }
 
@@ -190,7 +190,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       throw new Error("Payment provider returned no redirect URL");
     }
     if (isHtmlForm) {
-      // PayFast self-submitting form -- inject and post.
+      // PayFast self-submitting form - inject and post.
       const div = document.createElement("div");
       div.innerHTML = paymentUrl;
       document.body.appendChild(div);
@@ -243,7 +243,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       }
       setEftClaimed(true);
       toast({
-        title: "Thanks -- we've notified them",
+        title: "Thanks - we've notified them",
         description: "The team will check the bank account and confirm your payment.",
       });
       setTimeout(onPaymentSuccess, 1500);
@@ -322,7 +322,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <ClipboardCheck className="w-10 h-10 text-blue-600" />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Thanks -- we've let them know</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Thanks - we've let them know</h3>
             <p className="text-slate-600 mb-4">
               The team will reconcile against the bank statement and mark{" "}
               <span className="font-semibold">{invoice.invoice_number}</span> as paid once the deposit lands.
@@ -359,7 +359,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             </p>
             <p>
               If the reference is wrong or the amount doesn't match, the deposit might bounce
-              back to you and the invoice stays unpaid -- so double-check before confirming.
+              back to you and the invoice stays unpaid - so double-check before confirming.
             </p>
           </div>
           <div className="flex gap-2 mt-4">
@@ -379,7 +379,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               {processing ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending</>
               ) : (
-                <>Yes, I've paid -- notify them</>
+                <>Yes, I've paid - notify them</>
               )}
             </Button>
           </div>
@@ -461,7 +461,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                     {creditMaxApplicable < creditAvailable
                       ? ` We'll apply ${fmtCurrency(creditMaxApplicable)} to this invoice and keep the rest on your account.`
                       : creditMaxApplicable >= invoice.amount
-                        ? " That covers this whole invoice -- nothing left to charge."
+                        ? " That covers this whole invoice - nothing left to charge."
                         : ` We'll apply it all and you'll only pay ${fmtCurrency(netAmount)} for the rest.`}
                   </p>
                 </div>
@@ -537,7 +537,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                 {processing ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing</>
                 ) : netAmount <= 0 ? (
-                  // Wave 29.2: full credit cover -- the gateway hop
+                  // Wave 29.2: full credit cover - the gateway hop
                   // is skipped server-side. Surface that to the
                   // client up-front rather than redirecting them
                   // somewhere they don't need to go.
@@ -583,7 +583,7 @@ function EftPanel({
   return (
     <div className="space-y-4">
       {/*
-        The reference is the entire point of the flow -- if the client
+        The reference is the entire point of the flow - if the client
         types something else into their banking app, the deposit becomes
         a needle in a haystack on the caterer's side. Make it the
         biggest, most copy-able thing on the screen.
@@ -591,7 +591,7 @@ function EftPanel({
       <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-            Use this reference -- exactly
+            Use this reference - exactly
           </span>
           <button
             type="button"
@@ -663,7 +663,7 @@ function EftPanel({
         </div>
         <p className="text-[11px] text-slate-500">
           Tap &quot;I&apos;ve made the EFT payment&quot; once the transfer is sent. The team will
-          reconcile against the bank account and mark the invoice paid -- usually within 1-2
+          reconcile against the bank account and mark the invoice paid - usually within 1-2
           business days.
         </p>
       </div>

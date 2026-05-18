@@ -156,14 +156,14 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         sigPublicUrl = sigUrl.publicUrl;
       }
 
-      // Wave 45 D2 -- two-step write so the status flip routes
+      // Wave 45 D2 - two-step write so the status flip routes
       // through orderWorkflow.updateOrderStatus and triggers the
       // full side-effect cascade (status_history, audit_logs,
       // sendStatusNotifications, POD-missing alert, inventory
       // deduction, equipment cleaning rows, pending_reviews,
       // after-sales scheduler, transition validation). The
       // previous shape wrote status='delivered' raw and silently
-      // skipped all of it -- same bug class Wave 5 fixed in
+      // skipped all of it - same bug class Wave 5 fixed in
       // confirmDelivery (deliveryManagement.ts:38-52).
       const { error: podErr } = await supabase
         .from("orders")
@@ -182,9 +182,9 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       }
 
       toast({ title: "Delivery confirmed", description: clientName ? `${clientName} marked delivered.` : "Order marked delivered." });
-      // Wave 70.40 -- POD upload flips status to delivered, stamps
+      // Wave 70.40 - POD upload flips status to delivered, stamps
       // delivery time, may cascade equipment-cleaning rows. Big
-      // delta -- ping every listener.
+      // delta - ping every listener.
       emitOrderUpdated(orderId, "driver:pod-upload", ["status"]);
       onOpenChange(false);
       onSaved?.();

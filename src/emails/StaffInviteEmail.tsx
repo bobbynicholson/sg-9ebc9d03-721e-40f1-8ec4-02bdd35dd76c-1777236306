@@ -1,5 +1,5 @@
 /**
- * Branded portal invite -- replaces Supabase's default magic-link template.
+ * Branded portal invite - replaces Supabase's default magic-link template.
  *
  * Role-aware: same shell + CTA, different value-prop bullets per role so
  * the recipient sees what THEIR portal does for them, not a generic blurb.
@@ -47,7 +47,7 @@ const ROLE_COPY: Record<InvitedRole, RoleCopy> = {
     intro: "Your driver portal puts everything you need on one screen:",
     bullets: [
       "Today's deliveries with optimised stop order + ETAs",
-      "Tap-to-confirm pickups, on-route, and delivered -- proof captured automatically",
+      "Tap-to-confirm pickups, on-route, and delivered - proof captured automatically",
       "Live earnings dashboard so you always know where you stand",
     ],
   },
@@ -56,7 +56,7 @@ const ROLE_COPY: Record<InvitedRole, RoleCopy> = {
     intro: "Your kitchen portal is built for prep without surprises:",
     bullets: [
       "Per-order prep lists with portion targets, no guesswork",
-      "Live production board -- mark items ready, no shouting across the kitchen",
+      "Live production board - mark items ready, no shouting across the kitchen",
       "Shifts and BCEA-fair overtime tracked automatically, fair pay every week",
     ],
   },
@@ -66,7 +66,7 @@ const ROLE_COPY: Record<InvitedRole, RoleCopy> = {
     bullets: [
       "Tasks for today, by area, with verification checkpoints",
       "Damage-report flow so disputes about who broke what stop dead",
-      "On-duty board -- tap in, tap out, fair pay with no admin chasing",
+      "On-duty board - tap in, tap out, fair pay with no admin chasing",
     ],
   },
   shopping: {
@@ -119,7 +119,7 @@ export default function StaffInviteEmail({
       </Text>
       <Text style={emailBodyTextStyle}>
         {copy.title} <strong>{companyName}</strong>
-        {inviterName ? ` -- ${inviterName} sent you this invite.` : "."}
+        {inviterName ? ` - ${inviterName} sent you this invite.` : "."}
       </Text>
 
       <Text style={emailBodyTextStyle}>{copy.intro}</Text>
@@ -140,7 +140,7 @@ export default function StaffInviteEmail({
 
       <Text style={emailMutedTextStyle}>
         This link logs you in straight to the portal once you've set a password. It's tied to your
-        email, so don't forward it. If you weren't expecting this, just ignore the email -- nothing
+        email, so don't forward it. If you weren't expecting this, just ignore the email - nothing
         happens until you click.
       </Text>
     </BrandedShell>

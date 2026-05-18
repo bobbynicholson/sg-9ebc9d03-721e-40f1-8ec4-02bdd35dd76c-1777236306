@@ -9,7 +9,7 @@
  * On a fresh transition to verified ("newly_verified"), we also fan out
  * three best-effort post-verify hooks:
  *   1. Send a confirmation email through the freshly-verified provider
- *      to every owner / admin profile -- doubles as a round-trip test.
+ *      to every owner / admin profile - doubles as a round-trip test.
  *   2. Drop an in-app notification on the bell for the same recipients
  *      so they don't have to be camped on the page.
  *   3. Mark the "setup_email" onboarding step complete for the owner.
@@ -31,7 +31,7 @@ const ALLOWED_ROLES = new Set([
 ]);
 
 // Profiles that should hear about the verified domain. Mirrors the role
-// gate above minus super_admin -- platform staff don't need the noise.
+// gate above minus super_admin - platform staff don't need the noise.
 const RECIPIENT_ROLES = ["owner", "company_admin", "admin"];
 
 export default async function handler(
@@ -245,7 +245,7 @@ async function sendConfirmationEmails(args: {
     const subject = "Your sending domain is verified";
     const bodyText =
       `Hi ${firstName},\n\n` +
-      `Good news -- ${domain} is verified with Resend, so outgoing emails ` +
+      `Good news - ${domain} is verified with Resend, so outgoing emails ` +
       `from CateringMS will now arrive at your clients as ${fromAddr} instead of ` +
       `the shared CateringMS sender. Send a quick test from /admin/invoices or ` +
       `/admin/quotes to see it land in your colour-of-choice inbox.\n\n` +
@@ -254,7 +254,7 @@ async function sendConfirmationEmails(args: {
       `-- CateringMS`;
     const bodyHtml =
       `<p>Hi ${escapeHtml(firstName)},</p>` +
-      `<p>Good news -- <strong>${escapeHtml(domain)}</strong> is verified with Resend, ` +
+      `<p>Good news - <strong>${escapeHtml(domain)}</strong> is verified with Resend, ` +
       `so outgoing emails from CateringMS will now arrive at your clients as ` +
       `<strong>${escapeHtml(fromAddr)}</strong> instead of the shared CateringMS sender. ` +
       `Send a quick test from <code>/admin/invoices</code> or <code>/admin/quotes</code> to see it ` +
@@ -319,7 +319,7 @@ async function createDomainVerifiedNotifications(args: {
     const { error } = await admin.from("notifications").insert(rows);
     if (error) {
       // The enum-cast may fail on a Supabase replica where the migration
-      // hasn't yet propagated. Retry without the enum column -- the bell
+      // hasn't yet propagated. Retry without the enum column - the bell
       // reads from notification_type (text) anyway.
       console.warn(
         "[verify-domain] notifications insert with enum failed, retrying without:",
@@ -345,7 +345,7 @@ async function createDomainVerifiedNotifications(args: {
 /**
  * Mark the "setup_email" onboarding step complete.
  *
- * The current onboardingProgressService is real-signal -- step
+ * The current onboardingProgressService is real-signal - step
  * completion is derived from a COUNT(*) on the relevant table, so it
  * will pick up the verified state on the next dashboard load without us
  * doing anything. The legacy onboardingService.ts keeps a per-user
@@ -354,7 +354,7 @@ async function createDomainVerifiedNotifications(args: {
  *
  * We try a couple of optional persistence targets that may exist in the
  * tenant's schema (an onboarding_steps table, or a JSONB column on
- * companies). If neither lands, log and move on -- the real-signal
+ * companies). If neither lands, log and move on - the real-signal
  * derivation in onboardingProgressService is the source of truth.
  */
 async function markEmailSetupStepComplete(args: {
@@ -391,7 +391,7 @@ async function markEmailSetupStepComplete(args: {
         );
       } else {
         console.warn(
-          "[verify-domain] onboarding_steps table not present, skipping persistent step write -- real-signal derivation in onboardingProgressService picks it up on next load.",
+          "[verify-domain] onboarding_steps table not present, skipping persistent step write - real-signal derivation in onboardingProgressService picks it up on next load.",
         );
       }
     }

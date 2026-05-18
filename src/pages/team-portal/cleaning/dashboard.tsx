@@ -44,7 +44,7 @@ function CleaningDashboardInner() {
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
 
-  // Wave 70.28 -- the new cleaning nav deep-links to #returns and
+  // Wave 70.28 - the new cleaning nav deep-links to #returns and
   // #washing on this page. Next.js handles hash navigation but the
   // initial paint can race the scroll, so re-scroll after a short
   // delay to make sure the anchor target is in view.
@@ -58,7 +58,7 @@ function CleaningDashboardInner() {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     };
-    // Two passes -- first immediate, second after data has settled.
+    // Two passes - first immediate, second after data has settled.
     scroll();
     const t = setTimeout(scroll, 400);
     return () => clearTimeout(t);
@@ -84,7 +84,7 @@ function CleaningDashboardInner() {
       // Wave 41 Phase 2: cleaning_jobs is now the source of truth
       // for "what's currently being cleaned" (units, not just a
       // boolean flag on the equipment). Falls back gracefully if
-      // the company hasn't started using cleaning_jobs yet -- the
+      // the company hasn't started using cleaning_jobs yet - the
       // map will simply be empty.
       const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
 
@@ -159,11 +159,11 @@ function CleaningDashboardInner() {
               wrong, missing schema columns added via migration). */}
           <CleaningDutyWidget />
 
-          {/* Wave 70.24 -- new event-grouped board is the primary
+          {/* Wave 70.24 - new event-grouped board is the primary
               cleaning surface. Shows expected handovers (anticipation),
               in-progress (active work), done-today (throughput).
               Tap a card to open the per-event detail.
-              Wave 70.28 -- id="returns" is the deep-link target from
+              Wave 70.28 - id="returns" is the deep-link target from
               the cleaning nav "Returns" item + live state strip. */}
           <div id="returns" className="scroll-mt-20 lg:scroll-mt-6">
             <CleaningEventBoard />
@@ -174,7 +174,7 @@ function CleaningDashboardInner() {
               back into inventory + start/complete actions. Kept as
               the flat-by-item power-user fallback below the new
               event-grouped board.
-              Wave 70.28 -- id="washing" is the deep-link target from
+              Wave 70.28 - id="washing" is the deep-link target from
               the cleaning nav "Washing" item + live state strip. */}
           <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
             <CleaningJobsQueue />
@@ -360,7 +360,7 @@ function CleaningDashboardInner() {
             </TabsContent>
 
             <TabsContent value="team" className="space-y-6">
-              {/* Cleaning duty board -- same tile-board the kitchen
+              {/* Cleaning duty board - same tile-board the kitchen
                   uses, scoped to the cleaning department. Manager
                   taps each cleaner's tile to clock them in / out;
                   staff don't need their own logins. Cross-over staff
@@ -411,13 +411,13 @@ function CleaningDashboardInner() {
 
 /**
  * Wave 41 (CRITICAL FIX): wrap in ProtectedRoute. The page was
- * previously reachable by any authenticated user -- a kitchen_staff
+ * previously reachable by any authenticated user - a kitchen_staff
  * (or driver, or anyone with a session) could hit
  * /team-portal/cleaning/dashboard and clock in as a cleaner via the
  * embedded CleaningDutyWidget. Restrict to cleaning + admin roles.
  */
 /**
- * Wave 41 Phase 2 -- the dashboard now reads from cleaning_jobs
+ * Wave 41 Phase 2 - the dashboard now reads from cleaning_jobs
  * (the new equipment-availability ledger) for the "Cleaning" tile
  * and subtracts active-job units from "Available". Brings the
  * overview into line with what the new CleaningJobsQueue surface

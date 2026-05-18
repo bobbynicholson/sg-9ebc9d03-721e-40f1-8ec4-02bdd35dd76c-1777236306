@@ -27,7 +27,7 @@ export const equipmentShortageService = {
 
     // Audit (May 2026, Wave 4): the insert was missing company_id, but
     // every read (getShortageFlags / getPendingShortagesCount) filters
-    // by it -- so flags were invisible to the dashboard they were
+    // by it - so flags were invisible to the dashboard they were
     // meant to surface. Resolve from the order when the caller didn't
     // pass an explicit companyId.
     let resolvedCompanyId = data.companyId || null;

@@ -1,5 +1,5 @@
 /**
- * <SortMenu/> -- compact "Sort by" dropdown for card-grid pages.
+ * <SortMenu/> - compact "Sort by" dropdown for card-grid pages.
  *
  * Tables get clickable column headers (see SortHeader). Card-grid
  * pages don't have headers to click, so they pair this dropdown with

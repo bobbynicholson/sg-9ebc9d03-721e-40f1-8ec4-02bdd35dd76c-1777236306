@@ -8,7 +8,7 @@
  * Cookie body:  <hex hash of raw token>
  * Cookie life:  matches token expires_at, capped at 60 days
  *
- * Anyone can call this -- the token is the auth.
+ * Anyone can call this - the token is the auth.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";

@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /client-portal/quotes -- the client's quote history.
+ * /client-portal/quotes - the client's quote history.
  *
  * Lists every quote issued to this client by the catering company,
  * grouped by status: pending action, accepted, declined/expired,
- * drafts (rare -- usually internal). Each row links straight to
+ * drafts (rare - usually internal). Each row links straight to
  * /q/[token] for the rendered, brand-tinted quote view where the
  * client can accept or request changes. We don't try to re-render
- * the quote inside the portal -- that would duplicate the public
+ * the quote inside the portal - that would duplicate the public
  * view and inevitably drift from it.
  *
  * Tenant-scoped strictly to companies.id resolved from the URL slug
@@ -29,7 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 // Wave 28.4: Decline button is new on this page (audit found
-// /client-portal/quotes had no decline action -- only the magic-link
+// /client-portal/quotes had no decline action - only the magic-link
 // /q/[token] did). Routes through the same wizard the public page
 // uses, mode='quote' so the payout step is skipped.
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
@@ -257,7 +257,7 @@ export default function ClientQuotesPage() {
       />
 
       {/* Wave 28.4: Decline wizard. mode='quote' renders the 2-step
-          variant (no payout step -- nothing has been paid yet). Uses
+          variant (no payout step - nothing has been paid yet). Uses
           the existing /api/public/quotes/[token]/reject endpoint --
           token-bearer auth means the auth-portal user can call it
           since they hold the public_token in their portal feed. */}
@@ -294,7 +294,7 @@ export default function ClientQuotesPage() {
             if (!r.ok || !j?.ok) {
               throw new Error(j?.error || "Could not decline the quote.");
             }
-            // Local update -- drops the quote out of pending into
+            // Local update - drops the quote out of pending into
             // history without a refetch.
             setQuotes((prev) =>
               prev.map((q) =>

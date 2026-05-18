@@ -21,7 +21,7 @@ export interface TenantCurrency {
   /** Format a number as the tenant's currency. */
   format: (n: number, decimals?: number) => string;
   /** True when the value is still defaulting (the DB read hasn't
-   *  resolved yet) -- callers can render a skeleton if they want
+   *  resolved yet) - callers can render a skeleton if they want
    *  to avoid showing a temporary 'R' when the real currency is
    *  'GBP'. */
   loading: boolean;

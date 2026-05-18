@@ -3,17 +3,17 @@
  * Kitchen Staff Tile Board (Phase 5C).
  *
  * Replaces the single "Start Duty / End Duty" panel with a grid of staff
- * tiles. The tablet on the wall is one login -- the chef on duty taps each
+ * tiles. The tablet on the wall is one login - the chef on duty taps each
  * person's tile to clock them in or out.
  *
  * Tile states:
- *   - Off-shift  -- slate, "Tap to clock in"
- *   - On-shift   -- emerald, live timer in big tabular numbers
- *   - On break   -- amber, "Break: 12m" timer, primary tap = end break
+ *   - Off-shift  - slate, "Tap to clock in"
+ *   - On-shift   - emerald, live timer in big tabular numbers
+ *   - On break   - amber, "Break: 12m" timer, primary tap = end break
  *
  * Long-press (or the small pencil) opens the manual-override dialog so the
  * chef can fix a missed clock-out, back-date a clock-in, or add a missed
- * shift. Override always requires a reason -- audit trail stays clean.
+ * shift. Override always requires a reason - audit trail stays clean.
  *
  * No rates anywhere. The board reads `listStaffPublic` which omits the
  * rate columns at the SQL level.
@@ -100,7 +100,7 @@ export function KitchenStaffTileBoard({
 } = {}) {
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
-  // Wave 45 follow-up -- fall back to profile.company_id when
+  // Wave 45 follow-up - fall back to profile.company_id when
   // user.company_id is undefined. AuthContext populates user.company_id
   // from userProfile.company_id but there's a brief window during
   // profile load where user is set without the join completing. The
@@ -122,13 +122,13 @@ export function KitchenStaffTileBoard({
   const [overrideDraft, setOverrideDraft] = useState<OverrideDraft>(EMPTY_OVERRIDE);
   const [overrideSaving, setOverrideSaving] = useState(false);
 
-  // Confirm dialog used when clocking out -- gives the chef one last
+  // Confirm dialog used when clocking out - gives the chef one last
   // glance at the worked-time summary before the shift is closed.
   const [closingTarget, setClosingTarget] = useState<{
     staff: KitchenStaffPublic;
     shift: KitchenShift;
   } | null>(null);
-  // Wave 45 follow-up -- clock-in confirmation. Captures the moment
+  // Wave 45 follow-up - clock-in confirmation. Captures the moment
   // the operator tapped the tile so the dialog can show the exact
   // start time we'd record. Lets misclicks bail out without locking
   // anyone into a wrong shift start.
@@ -137,7 +137,7 @@ export function KitchenStaffTileBoard({
     capturedAt: Date;
   } | null>(null);
 
-  // Long-press handling -- used to surface the override dialog from a tile
+  // Long-press handling - used to surface the override dialog from a tile
   // tap-and-hold without stealing the regular click.
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef<boolean>(false);
@@ -188,7 +188,7 @@ export function KitchenStaffTileBoard({
     });
   };
 
-  // Wave 45 follow-up -- the tap captures the moment + opens the
+  // Wave 45 follow-up - the tap captures the moment + opens the
   // confirmation dialog. Bobby's note: shift accuracy matters
   // (every minute = pay), AND misclicks happen, so we surface a
   // friendly "yes, start shift now" check before committing.
@@ -206,7 +206,7 @@ export function KitchenStaffTileBoard({
     setOpeningTarget({ staff: s, capturedAt: new Date() });
   };
 
-  // The actual write -- runs after the dialog confirm. Uses the
+  // The actual write - runs after the dialog confirm. Uses the
   // capturedAt time from the original tap so we don't drift if the
   // operator stares at the dialog for a few seconds before confirming.
   const handleConfirmClockIn = async () => {
@@ -223,7 +223,7 @@ export function KitchenStaffTileBoard({
       });
       toast({
         title: `${s.full_name} is on shift`,
-        description: "Their hours are tracking now -- nice one.",
+        description: "Their hours are tracking now - nice one.",
       });
       setOpeningTarget(null);
       load();
@@ -303,7 +303,7 @@ export function KitchenStaffTileBoard({
         closeImmediately: false,
       });
     } else {
-      // New back-dated shift -- pre-fill start = an hour ago, leave end blank
+      // New back-dated shift - pre-fill start = an hour ago, leave end blank
       const oneHourAgo = new Date(Date.now() - 60 * 60_000);
       setOverrideDraft({
         ...EMPTY_OVERRIDE,
@@ -348,7 +348,7 @@ export function KitchenStaffTileBoard({
         });
         toast({ title: "Shift updated", description: overrideTarget.staff.full_name });
       } else {
-        // New back-dated shift -- create it open, then close immediately if
+        // New back-dated shift - create it open, then close immediately if
         // an end time was provided.
         const created = await kitchenStaffService.clockIn({
           companyId,
@@ -384,7 +384,7 @@ export function KitchenStaffTileBoard({
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  // Departmenty strings -- kept here so a future shopping/service board
+  // Departmenty strings - kept here so a future shopping/service board
   // doesn't need a fork. Simple lookup, not a registry.
   const deptLabel =
     department === "cleaning" ? "Cleaning team"
@@ -556,7 +556,7 @@ export function KitchenStaffTileBoard({
       </CardContent>
 
       {/* ── Clock-in confirm (Wave 45 follow-up) ────────────────────────
-          Friendly two-tap pattern -- the first tap on the tile captures
+          Friendly two-tap pattern - the first tap on the tile captures
           the moment, opens this dialog. The dialog frames the moment
           positively ("we want every minute to count") so it doesn't read
           as surveillance. Bail-out is a soft "Wait, not yet" so a
@@ -573,10 +573,10 @@ export function KitchenStaffTileBoard({
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
                   Starting at <span className="font-bold tabular-nums">
                     {openingTarget ? openingTarget.capturedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : ""}
-                  </span> -- every minute from now counts toward their hours.
+                  </span> - every minute from now counts toward their hours.
                 </div>
                 <div className="text-slate-600">
-                  Quick check before you tap in -- if the time looks right and they're ready to go, hit start. If you tapped by mistake or they're not quite here yet, give it a sec.
+                  Quick check before you tap in - if the time looks right and they're ready to go, hit start. If you tapped by mistake or they're not quite here yet, give it a sec.
                 </div>
                 <div className="text-xs text-slate-500">
                   Hours are tracked accurately so payroll is fair on both sides.
@@ -594,7 +594,7 @@ export function KitchenStaffTileBoard({
       </AlertDialog>
 
       {/* ── Clock-out confirm ─────────────────────────────────────────────
-          Wave 45 follow-up -- warmed up the copy. Same friendly-but-
+          Wave 45 follow-up - warmed up the copy. Same friendly-but-
           accurate vibe as clock-in: celebrate the worked time, frame
           the split as fairness, soft bail-out. */}
       <AlertDialog open={!!closingTarget} onOpenChange={(open) => { if (!open) setClosingTarget(null); }}>
@@ -618,7 +618,7 @@ export function KitchenStaffTileBoard({
                   If they're done, lock it in. If they're stepping out for a few minutes, hit "Take a break" instead so the time keeps counting toward their day.
                 </div>
                 <div className="text-xs text-slate-500">
-                  Standard and overtime split happens automatically using their daily threshold -- payroll stays honest both ways.
+                  Standard and overtime split happens automatically using their daily threshold - payroll stays honest both ways.
                 </div>
               </div>
             </AlertDialogDescription>

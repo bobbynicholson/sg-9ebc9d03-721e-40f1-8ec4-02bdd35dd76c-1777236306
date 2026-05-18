@@ -1,5 +1,5 @@
 /**
- * Stripe webhook handler -- per-tenant variant.
+ * Stripe webhook handler - per-tenant variant.
  *
  * Tenants who pick Stripe in /admin/payment-gateways have their
  * webhookSigningSecret stored in payment_gateway_credentials. Stripe
@@ -7,7 +7,7 @@
  * body BEFORE parsing it, otherwise Stripe's library rejects the
  * signature. This route therefore reads the body as a stream.
  *
- * Only `checkout.session.completed` is handled today -- the dispatch
+ * Only `checkout.session.completed` is handled today - the dispatch
  * cascade mirrors the PayFast IPN handler for deposits and balance
  * payments. Idempotency is on the Stripe payment_intent id.
  */
@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Strategy: peek at the metadata.companyId we set when creating
     // the Checkout session, so we can look up the tenant's signing
     // secret. Stripe's webhooks are POSTs of fully-formed Event
-    // objects -- we parse defensively before signature check, BUT we
+    // objects - we parse defensively before signature check, BUT we
     // only TRUST the parsed body once the signature verifies.
     let parsedPreview: any = null;
     try {
@@ -99,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Stripe session missing orderId/payment_intent" });
     }
 
-    // Idempotency. Wave 24: tri-state -- duplicate (200), unique
+    // Idempotency. Wave 24: tri-state - duplicate (200), unique
     // (proceed), or check failed (500 so Stripe retries instead of
     // double-processing on a transient DB blip).
     const dupCheck = await isDuplicateStripePayment(sb, stripeTxId);
@@ -170,7 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 // flaky RLS / network blip would silently double-process the payment
 // (the client gets charged once, our system records the deposit
 // twice, the operator chases a phantom credit). Returning "error"
-// lets the caller fail closed -- Stripe + Yoco both retry on 5xx.
+// lets the caller fail closed - Stripe + Yoco both retry on 5xx.
 async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<"duplicate" | "unique" | "error"> {
   const { data, error } = await sb
     .from("payments")

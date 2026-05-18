@@ -95,7 +95,7 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
         title: j?.all_steps_succeeded ? "Cascade complete" : "Cascade partially recovered",
         description: j?.all_steps_succeeded
           ? "Kitchen prep, invoice, and inventory are all up to date."
-          : "Some steps still need attention -- check the receipt.",
+          : "Some steps still need attention - check the receipt.",
       });
       onActioned?.();
       await load();

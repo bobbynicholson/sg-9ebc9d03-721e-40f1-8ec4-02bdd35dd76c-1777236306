@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/onboarding -- the step-by-step setup wizard.
+ * /admin/onboarding - the step-by-step setup wizard.
  *
  * Where new caterers land. The middleware redirects any admin/owner
  * with `companies.onboarding_completed_at IS NULL` here, so this page
@@ -8,13 +8,13 @@
  * settings that matter most to render quotes / invoices / portals
  * properly:
  *
- *   1. Welcome              -- what's coming + skip option
- *   2. Company basics       -- name, email, phone, registration
- *   3. Kitchen / HQ address -- delivery distance source of truth
- *   4. Branding             -- primary + secondary colour, logo
- *   5. Banking (optional)   -- enables EFT on the client portal
- *   6. VAT registration     -- drives "Tax Invoice" doc title
- *   7. Done                 -- mark complete + go to dashboard
+ *   1. Welcome              - what's coming + skip option
+ *   2. Company basics       - name, email, phone, registration
+ *   3. Kitchen / HQ address - delivery distance source of truth
+ *   4. Branding             - primary + secondary colour, logo
+ *   5. Banking (optional)   - enables EFT on the client portal
+ *   6. VAT registration     - drives "Tax Invoice" doc title
+ *   7. Done                 - mark complete + go to dashboard
  *
  * Per-step persistence: every Save & continue writes the relevant
  * companies columns immediately. If the user leaves mid-flow,
@@ -188,7 +188,7 @@ function OnboardingWizard() {
     setSaving(true);
     try {
       // The Supabase types are narrow on `companies` so we cast through
-      // any -- the columns we're writing all exist on the table.
+      // any - the columns we're writing all exist on the table.
       const { error } = await (supabase as any)
         .from("companies")
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -251,7 +251,7 @@ function OnboardingWizard() {
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-3xl">
-          {/* Progress strip across the top -- step pills + filled bar.
+          {/* Progress strip across the top - step pills + filled bar.
               On phones the labels collapse to icons only so the row
               doesn't crush. */}
           <div className="mb-6">
@@ -657,7 +657,7 @@ function BrandingStep({
       title="How do you want to look?"
       description="Your brand colours apply to the client portal, quotes, invoices and order tracking. You can change these any time."
     >
-      {/* Live preview band -- looks exactly like the client portal
+      {/* Live preview band - looks exactly like the client portal
           gradient header so the operator sees real impact, not a
           colour swatch. */}
       <div
@@ -968,7 +968,7 @@ function EmailStep({
 }
 
 function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  // Tightly-scoped wrapper around ImportRecordsModal -- the modal does
+  // Tightly-scoped wrapper around ImportRecordsModal - the modal does
   // the heavy lifting (template download, upload, preview, dedup
   // decisions, commit). Step shell just frames it with onboarding
   // context and a clear "Skip" path for caterers starting fresh.

@@ -1,5 +1,5 @@
 /**
- * Tier 5 chart 3 -- Top products by revenue.
+ * Tier 5 chart 3 - Top products by revenue.
  *
  * Aggregates order_items into a top-N (default 10) ranking by line
  * total. Groups by menu_item_id where present so menu rename history
@@ -20,7 +20,7 @@ export interface OrderItemForProducts {
 }
 
 export interface TopProductRow {
-  /** Stable ID across renders -- menu_item_id when available. */
+  /** Stable ID across renders - menu_item_id when available. */
   key: string;
   label: string;
   totalRevenue: number;

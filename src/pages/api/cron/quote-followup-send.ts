@@ -10,7 +10,7 @@ import {
 } from "@/services/quoteFollowupService";
 
 /**
- * Wave 50 C1 -- automated quote follow-up sender.
+ * Wave 50 C1 - automated quote follow-up sender.
  *
  * Audit (Specialist 4) found quoteFollowupService computed the
  * traffic-light state per quote (FU 1 ready / FU 2 due in Nd / FU 3
@@ -24,7 +24,7 @@ import {
  * load each quote's existing follow-up log, compute the state, and
  * for every quote whose state.light is 'amber' (ready) or 'rose'
  * (overdue) send the next follow-up email + insert the log row.
- * Idempotent via the log row -- a re-run after a successful send
+ * Idempotent via the log row - a re-run after a successful send
  * sees the new log entry and the state flips to slate / green.
  *
  * Tenant-gated: only fires when companies.auto_followups_enabled is
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const cadence = DEFAULT_FOLLOWUP_CADENCE;
 
       // 2. Open quotes for this tenant. We treat any non-terminal
-      // status as eligible -- computeFollowupState will skip terminal
+      // status as eligible - computeFollowupState will skip terminal
       // states defensively even if the DB filter misses one.
       const { data: quotes, error: qErr } = await (sb as any)
         .from("quotes")
@@ -131,7 +131,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               bodyHtml:
                 `Hi ${variables.first_name},\n\n` +
                 `Just circling back on the quote we sent for ${variables.event_name}. ` +
-                `Happy to tweak anything -- just hit reply.\n\n` +
+                `Happy to tweak anything - just hit reply.\n\n` +
                 `Thanks!`,
             },
           });

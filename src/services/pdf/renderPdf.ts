@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * renderPdf -- server-side helpers that turn a typed data shape into
+ * renderPdf - server-side helpers that turn a typed data shape into
  * a PDF Buffer.
  *
  *   renderQuotePdf(data)   -> Buffer       quote share PDF
  *   renderInvoicePdf(data) -> Buffer       SARS-aware invoice PDF
  *
- * Server-only -- @react-pdf/renderer's pdf().toBuffer() spins up a
+ * Server-only - @react-pdf/renderer's pdf().toBuffer() spins up a
  * Node stream pipeline and pulls in canvas / pngjs. We hide the
  * require behind eval so Webpack / Next.js's client bundler doesn't
  * try to ship it to the browser. Mirrors the same trick emailService
@@ -63,7 +63,7 @@ export interface InvoicePdfRenderOptions {
 function loadReactPdf(): any {
   if (typeof window !== "undefined") {
     throw new Error(
-      "renderPdf can only run server-side -- @react-pdf/renderer's " +
+      "renderPdf can only run server-side - @react-pdf/renderer's " +
         "Node stream pipeline isn't available in the browser.",
     );
   }

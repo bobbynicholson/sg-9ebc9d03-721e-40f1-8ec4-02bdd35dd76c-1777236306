@@ -2,7 +2,7 @@
  * Tenant payment gateways admin page.
  *
  * Each catering company configures a payment gateway here to receive
- * payments from their event clients. Three providers -- PayFast, Yoco,
+ * payments from their event clients. Three providers - PayFast, Yoco,
  * Stripe. One can be active at a time (DB-enforced via partial unique
  * index payment_gateways_one_active_per_company).
  *
@@ -83,7 +83,7 @@ function PaymentGatewaysPage() {
   const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // Super_admin: pick which tenant we're configuring. Tenant admins
-  // ignore this -- their company comes from profile.company_id.
+  // ignore this - their company comes from profile.company_id.
   const [companies, setCompanies] = useState<Array<{ id: string; company_name: string }>>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const activeCompanyId = isSuperAdmin ? selectedCompanyId : profileCompanyId;
@@ -232,7 +232,7 @@ function PaymentGatewaysPage() {
     }
   };
 
-  // Test-connection state -- which gateway is being pinged right now,
+  // Test-connection state - which gateway is being pinged right now,
   // plus the most recent result we got back per gateway.
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message?: string }>>({});
@@ -336,7 +336,7 @@ function PaymentGatewaysPage() {
             </Alert>
           )}
 
-          {/* Status banner -- replaces the old "stored locally" warning. */}
+          {/* Status banner - replaces the old "stored locally" warning. */}
           {!loading && activeCompanyId && (
             <Alert
               className={

@@ -86,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : "R";
 
     const firstName = driver_name.split(" ")[0] || "there";
-    const subject = `Payslip ${period_from} -- ${period_to}`;
+    const subject = `Payslip ${period_from} - ${period_to}`;
     const bodyText =
       `Hi ${firstName},\n\n` +
       `Your payslip for the period ${period_from} to ${period_to} is attached.\n\n` +

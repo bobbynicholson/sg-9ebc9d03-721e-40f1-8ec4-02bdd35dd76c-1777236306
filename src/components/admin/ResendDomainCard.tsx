@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * ResendDomainCard -- the per-tenant sending domain widget.
+ * ResendDomainCard - the per-tenant sending domain widget.
  *
  * Used by /admin/email-settings (primary tile) and the onboarding
  * wizard's email step. Wraps the create-domain / verify-domain /
@@ -71,7 +71,7 @@ interface Props {
   /** Called when verification flips to verified, so callers can refresh
    *  the from_email lock state. */
   onVerified?: (domain: string) => void;
-  /** Hides the heading -- when embedded inside another card. */
+  /** Hides the heading - when embedded inside another card. */
   compact?: boolean;
 }
 
@@ -156,14 +156,14 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         return;
       }
       if (!res.ok) {
-        // Soft fail -- don't surface this to the operator, the auto-poll
+        // Soft fail - don't surface this to the operator, the auto-poll
         // verify call is the source of truth.
         return;
       }
       const body: DnsCheckResponse = await res.json();
       setDiagnostic(body);
     } catch {
-      // Network blip -- next tick will retry.
+      // Network blip - next tick will retry.
     } finally {
       setDiagnosticLoading(false);
     }
@@ -498,7 +498,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Header row -- domain + status chip. */}
+      {/* Header row - domain + status chip. */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Globe className="w-5 h-5 text-purple-600" />
@@ -530,7 +530,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="font-semibold text-emerald-900">
-                Verified -- you're ready to send
+                Verified - you're ready to send
               </p>
               <p className="text-sm text-emerald-800">
                 Outgoing emails for this company will now arrive at your clients showing
@@ -542,7 +542,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </div>
       )}
 
-      {/* PENDING -- two distinct sub-states. We separate them because
+      {/* PENDING - two distinct sub-states. We separate them because
           the same status word covers two very different situations and
           the user needs different reassurance for each. */}
       {pending && !verified && (() => {
@@ -589,7 +589,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         );
       })()}
 
-      {/* FAILED -- distinct from pending, this is operator-actionable. */}
+      {/* FAILED - distinct from pending, this is operator-actionable. */}
       {failed && (
         <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
@@ -692,7 +692,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
               </table>
             </div>
           ) : (
-            // Fallback -- the original records table for copy-paste.
+            // Fallback - the original records table for copy-paste.
             state.records.length > 0 && (
               <>
                 <div className="px-3 py-2 text-xs text-slate-600 bg-white border-b border-slate-200">
@@ -767,7 +767,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </div>
       )}
 
-      {/* RAW RECORDS REFERENCE -- collapsible when diagnostic is present so
+      {/* RAW RECORDS REFERENCE - collapsible when diagnostic is present so
           the operator can still copy values if they need to fix something. */}
       {!verified && diagnostic?.records && diagnostic.records.length > 0 && state.records.length > 0 && (
         <details className="rounded-lg border border-slate-200 bg-white">
@@ -835,7 +835,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                 Most DNS hosts auto-append your domain. If you typed
                 <code className="mx-1">resend._domainkey.{state.domain}</code>
                 it'll save as
-                <code className="mx-1">resend._domainkey.{state.domain}.{state.domain}</code> -- wrong.
+                <code className="mx-1">resend._domainkey.{state.domain}.{state.domain}</code> - wrong.
                 Should be just <code>resend._domainkey</code>.
               </p>
             </div>
@@ -846,7 +846,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
               </p>
             </div>
             <div>
-              <p className="font-semibold text-slate-900">3. Cloudflare users -- is the proxy (orange cloud) OFF?</p>
+              <p className="font-semibold text-slate-900">3. Cloudflare users - is the proxy (orange cloud) OFF?</p>
               <p className="mt-0.5">
                 DNS-only mode is required for email auth. The orange cloud must be grey for these records.
               </p>
@@ -889,7 +889,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             <p>
               When you save a DNS record at your domain host, your host pushes that change to its name servers.
               Other name servers (Resend's, your client's email provider, etc.) cache DNS records for performance,
-              so they don't see your change immediately -- they have to wait until their cached copy expires (the TTL).
+              so they don't see your change immediately - they have to wait until their cached copy expires (the TTL).
             </p>
             <p>
               Most DNS hosts default to a 1-hour TTL. Some use shorter values like 5 minutes.

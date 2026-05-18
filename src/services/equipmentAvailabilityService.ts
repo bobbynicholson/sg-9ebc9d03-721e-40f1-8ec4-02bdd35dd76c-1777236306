@@ -6,7 +6,7 @@
  * `equipment_bookings` (one row per equipment line on an order, with
  * booked_from / booked_until / quantity / status / order_id). The
  * older "orders.equipment_items jsonb" path was abandoned when that
- * column was dropped -- the previous implementation here selected
+ * column was dropped - the previous implementation here selected
  * `orders.equipment_items` and silently caught the resulting Postgres
  * error, returning `reserved=0` for every query. The page therefore
  * showed "everything is free" no matter what was actually committed.
@@ -23,7 +23,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
-// Active booking statuses -- anything not in this set is either
+// Active booking statuses - anything not in this set is either
 // cancelled, fully returned, or not yet committed.
 //
 // The status vocabulary across the codebase is fragmented today:
@@ -141,7 +141,7 @@ export async function getEquipmentAvailability(
   for (const b of (bookings || []) as any[]) {
     const qty = Math.max(0, Number(b.quantity || 0) - Number(b.returned_quantity || 0));
     if (qty <= 0) continue;
-    // Skip bookings whose order is cancelled / completed -- the
+    // Skip bookings whose order is cancelled / completed - the
     // booking row may live on but it shouldn't compete for stock.
     const orderStatus = String(b.orders?.status || "").toLowerCase();
     if (orderStatus === "cancelled" || orderStatus === "completed") continue;
@@ -177,7 +177,7 @@ export async function getEquipmentAvailability(
 }
 
 /**
- * Pull the per-equipment hire_in_cost for a row -- the quote builder
+ * Pull the per-equipment hire_in_cost for a row - the quote builder
  * uses this with the shortfall to compute the margin hit when the team
  * overcommits beyond their stock.
  */
@@ -234,7 +234,7 @@ export interface EquipmentReservationRow {
  * bookings" drawer so the team can see the calendar at a glance:
  * what's committed, on which day, by which client, owned vs hire-in.
  *
- * Tenant-scoped + RLS-enforced. Active statuses only -- cancelled
+ * Tenant-scoped + RLS-enforced. Active statuses only - cancelled
  * and completed orders drop out.
  */
 export async function listUpcomingReservations(
@@ -249,7 +249,7 @@ export async function listUpcomingReservations(
   to.setDate(to.getDate() + days);
   const toISO = to.toISOString().slice(0, 10);
 
-  // Read directly from `equipment_bookings` -- the older path that
+  // Read directly from `equipment_bookings` - the older path that
   // pulled `orders.equipment_items` always failed silently because
   // that column was dropped, so the drawer was permanently empty.
   const { data, error } = await supabase
@@ -294,7 +294,7 @@ export async function listUpcomingReservations(
       status: String(b.status || ""),
       quantity: qty,
       // equipment_bookings doesn't track stock-vs-hire split today
-      // -- full qty is treated as stock-side, shortfall flag picks up
+      // - full qty is treated as stock-side, shortfall flag picks up
       // the over-capacity case if any.
       from_stock_qty: qty,
       from_hire_qty: 0,

@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let notified = 0;
   let skipped = 0;
 
-  // Pull recent dedupe history once -- DEDUPE_DAYS lookback. Same
+  // Pull recent dedupe history once - DEDUPE_DAYS lookback. Same
   // table for both equipment and vehicle alerts; we key by
   // {action, entity_id} so the equipment-due dedupe doesn't suppress
   // a separate vehicle-due ping.

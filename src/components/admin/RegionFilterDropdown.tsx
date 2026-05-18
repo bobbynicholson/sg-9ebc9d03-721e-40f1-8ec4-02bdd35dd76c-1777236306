@@ -1,7 +1,7 @@
 /**
  * Header dropdown for the global region filter.
  *
- * Hides itself entirely when the tenant has only one branch -- single-
+ * Hides itself entirely when the tenant has only one branch - single-
  * branch operators should never see this control. When visible it
  * always offers an "All branches" option so a multi-branch admin can
  * widen back out without leaving the page.

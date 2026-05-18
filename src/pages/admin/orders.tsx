@@ -61,7 +61,7 @@ import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-// Wave 54 -- centralised formatters. Replaces three bare
+// Wave 54 - centralised formatters. Replaces three bare
 // toLocaleDateString() call sites that defaulted to OS locale (US
 // machines showed 5/16/2026 on SA tenants).
 import { formatDate } from "@/lib/formatters";
@@ -72,7 +72,7 @@ interface OrderStats {
   revenue: {
     /** Firm bookings: confirmed onwards. Excludes pending + cancelled. */
     booked: number;
-    /** Already-delivered slice of the above -- "money in the till". */
+    /** Already-delivered slice of the above - "money in the till". */
     realised: number;
     pending: number;
     paid: number;
@@ -81,7 +81,7 @@ interface OrderStats {
   inProgress: number;
 }
 
-// Wave 56 -- collapsed from 8 categorical hues to a 3-tone semantic
+// Wave 56 - collapsed from 8 categorical hues to a 3-tone semantic
 // scheme. The status progression is genuinely linear (waiting ->
 // active -> done), not categorical. The previous palette taught the
 // operator nothing because every status was a different unrelated
@@ -214,11 +214,11 @@ function OrderProcessDashboard() {
   // bookings, hire orders, cleaning status, prep tasks, driver
   // assignments, invoices). Empty map until first load.
   const [timelinesById, setTimelinesById] = useState<Map<string, OrderTimeline>>(new Map());
-  // Wave 59 -- batched shifts + profiles for AssignedShiftsPanel
+  // Wave 59 - batched shifts + profiles for AssignedShiftsPanel
   // (closes the per-card N+1 fan-out).
   const [allShiftsByOrder, setAllShiftsByOrder] = useState<Map<string, any[]>>(new Map());
   const [staffProfilesById, setStaffProfilesById] = useState<Map<string, any>>(new Map());
-  // Wave 46 T2 -- per-order readiness chip (green/orange/red).
+  // Wave 46 T2 - per-order readiness chip (green/orange/red).
   // tenantTimezone is sourced from the existing state at line 245
   // (Phase 13 #9 already pulls companies.timezone), so we don't
   // duplicate the fetch.
@@ -253,12 +253,12 @@ function OrderProcessDashboard() {
   }, []);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
-  // Custom-range pickers -- only used when dateFilter === "custom".
+  // Custom-range pickers - only used when dateFilter === "custom".
   // Stored as YYYY-MM-DD so they round-trip through <input type="date" />.
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   // Wave 24: Timeline is the default. Most operators glance at the
-  // page to see "what's next + what's stuck" -- the kanban hides
+  // page to see "what's next + what's stuck" - the kanban hides
   // sequencing, the timeline puts every order's progress band right
   // under the date so the daily briefing reads top-to-bottom. Saved-
   // view + ?view= URL param still override (the previous loadSaved
@@ -329,7 +329,7 @@ function OrderProcessDashboard() {
       if (qView === "kanban" || qView === "timeline") setViewMode(qView);
       else if (saved.viewMode === "kanban" || saved.viewMode === "timeline") setViewMode(saved.viewMode);
     } catch {
-      // Corrupt JSON or storage blocked -- silently fall back to defaults.
+      // Corrupt JSON or storage blocked - silently fall back to defaults.
     }
     // Run once on mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -399,7 +399,7 @@ function OrderProcessDashboard() {
   // Phase 15 #7: render cap on the timeline view. The kanban
   // view chunks rows by status column so it tolerates large
   // sets gracefully, but the timeline rendered every order in
-  // a single column -- a tenant with 800+ confirmed-and-onwards
+  // a single column - a tenant with 800+ confirmed-and-onwards
   // orders saw the page freeze. Cap at 200 by default with an
   // opt-in 'show all'.
   const TIMELINE_CAP = 200;
@@ -455,13 +455,13 @@ function OrderProcessDashboard() {
     trackRecentlyViewed({
       id: selectedOrder.id,
       type: "order",
-      label: `${(selectedOrder as any).order_number || ""} -- ${selectedOrder.client_name || "Unknown"}`,
+      label: `${(selectedOrder as any).order_number || ""} - ${selectedOrder.client_name || "Unknown"}`,
       href: `/admin/orders?orderId=${selectedOrder.id}`,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.id, isModalOpen]);
 
-  // Wave 70.3 -- POPIA logPiiAccess on order modal open. The order
+  // Wave 70.3 - POPIA logPiiAccess on order modal open. The order
   // modal exposes the client name, phone, email and (for buy-and-
   // sell) billing address every time it's opened. POPIA needs a
   // who/what/when trail of PII reads, so we fire a fire-and-forget
@@ -488,17 +488,17 @@ function OrderProcessDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.id, isModalOpen]);
 
-  // Wave 70.34 -- moved orderRating + ratingBusy + editMode into
+  // Wave 70.34 - moved orderRating + ratingBusy + editMode into
   // the OrderDetailsModal's internal state. These were parent-level
   // useStates that were ONLY ever read from inside the modal, but
-  // any update to them caused a parent re-render -- which then
+  // any update to them caused a parent re-render - which then
   // remounted the nested OrderDetailsModal component, wiping its
   // state and flashing the UI on every click of Edit / a rating
   // star. Hoisting them into modal-internal state keeps the parent
   // stable when the modal updates its own UI.
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
-  // Wave 55 -- duplicate-order dialog state. Replaces the
+  // Wave 55 - duplicate-order dialog state. Replaces the
   // window.prompt() call. duplicateDate holds the user's pick;
   // duplicateBusy is the in-flight guard.
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -514,7 +514,7 @@ function OrderProcessDashboard() {
     requestId: string | null;
     orderId: string | null;
   }>({ kind: null, requestId: null, orderId: null });
-  // Client filter -- when /admin/orders?clientId=<uuid> lands here from
+  // Client filter - when /admin/orders?clientId=<uuid> lands here from
   // Client Search, narrow the kanban / timeline to orders for that
   // client and surface a clearable pill so the operator sees what
   // they're filtered to. Lives alongside the existing review-drawer
@@ -543,7 +543,7 @@ function OrderProcessDashboard() {
   useEffect(() => {
     const companyId = (user as any)?.company_id;
     if (!companyId) return;
-    // Wave 55 -- channel key is stable per (companyId, mount) instead
+    // Wave 55 - channel key is stable per (companyId, mount) instead
     // of Math.random(). Avoids leaked subscriptions on Strict Mode
     // double-mount + cleaner HMR.
     const channelKey = `admin-orders-realtime:${companyId}`;
@@ -557,27 +557,27 @@ function OrderProcessDashboard() {
           toast({
             title: `New order: ${row.order_number || "incoming"}`,
             description: row.client_name
-              ? `${row.client_name}${row.event_date ? ` -- ${new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}`
+              ? `${row.client_name}${row.event_date ? ` - ${new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}`
               : "An order just landed. Pulling the latest list.",
           });
           loadOrders();
         },
       )
-      // Wave 55 -- subscribe to UPDATE so a payment captured in
+      // Wave 55 - subscribe to UPDATE so a payment captured in
       // another tab, a status flip, a venue edit all reflect on the
       // operator's screen without a manual refresh. Pre-Wave-55 the
       // INSERT-only channel lulled the operator into thinking
-      // realtime was comprehensive -- false confidence.
+      // realtime was comprehensive - false confidence.
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
         () => {
-          // Quiet refresh -- no toast, just keep the list fresh. A
+          // Quiet refresh - no toast, just keep the list fresh. A
           // status change banner already fires elsewhere.
           loadOrders();
         },
       )
-      // Wave 55 -- DELETE so a hard-deleted order disappears from
+      // Wave 55 - DELETE so a hard-deleted order disappears from
       // the list without a refresh.
       .on(
         "postgres_changes",
@@ -632,7 +632,7 @@ function OrderProcessDashboard() {
       setSelectedOrder(found);
       setIsModalOpen(true);
     } else {
-      // Wave 55 -- deep-link silent failure. Pre-Wave-55 a paste of a
+      // Wave 55 - deep-link silent failure. Pre-Wave-55 a paste of a
       // Slack link to ?orderId=X would silently land on an empty
       // Orders page if X wasn't in the loaded set (filtered out by
       // region scope, hidden by status filter, soft-deleted). Now
@@ -652,7 +652,7 @@ function OrderProcessDashboard() {
         { shallow: true, scroll: false },
       );
     }
-    // selectedOrder + isModalOpen intentionally omitted -- including
+    // selectedOrder + isModalOpen intentionally omitted - including
     // them would re-fire on every drawer change and bounce the modal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -728,7 +728,7 @@ function OrderProcessDashboard() {
     }
   };
 
-  // Stats follow the filters -- revenue / counts always reflect what's
+  // Stats follow the filters - revenue / counts always reflect what's
   // visible on the page so "This Month" actually means this month.
   useEffect(() => {
     calculateStats();
@@ -757,7 +757,7 @@ function OrderProcessDashboard() {
           setAutoEmailMap(new Map());
         }
       } catch (err) {
-        // Non-fatal -- the cards still render without automation
+        // Non-fatal - the cards still render without automation
         // status, just without the extra chips.
         console.warn("[orders] email_automation_log fetch failed", err);
       }
@@ -767,7 +767,7 @@ function OrderProcessDashboard() {
       // cleaning status, prep tasks, driver assignments, invoices).
       // Each query is filtered by .in("order_id", ...) so we only
       // pull rows for orders currently visible. Failures degrade
-      // gracefully -- the missing slice means stages that depend on
+      // gracefully - the missing slice means stages that depend on
       // that table render as 'upcoming' (worst case) rather than
       // crashing the page.
       try {
@@ -779,12 +779,12 @@ function OrderProcessDashboard() {
           // NOT NULL). Both feed the new cross-system blocker
           // detection in computeOrderTimeline.
           // Wave 45 D3: dropped the equipment_cleaning_status query
-          // -- the table is being retired in favour of cleaning_jobs
+          // - the table is being retired in favour of cleaning_jobs
           // (already pulled below as cleaningJobsActiveRows for the
           // cross-system blocker detection). The timeline still
           // accepts equipmentCleaningStatus for back-compat but we
           // pass [] now.
-          // Wave 46 T3 -- 3 new batch queries that feed the
+          // Wave 46 T3 - 3 new batch queries that feed the
           // computeOrderReadiness chip:
           //   - order_items: 'menu_items_present' signal
           //   - kitchen_shifts(kitchen+kitchen_and_cleaning) on each
@@ -823,7 +823,7 @@ function OrderProcessDashboard() {
             vehiclesRes,
           ] = await Promise.all([
             supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
-            // Wave 47 fix -- pre_event_cleaning_done_at column was
+            // Wave 47 fix - pre_event_cleaning_done_at column was
             // selected but never existed on the live DB. The whole
             // bookings batch was silently erroring (or returning
             // empty) for every page load. We derive pre-event
@@ -832,7 +832,7 @@ function OrderProcessDashboard() {
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
             supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
-            // Wave 67 Phase E -- outsource assignments joined with
+            // Wave 67 Phase E - outsource assignments joined with
             // provider name so the timeline's outsource_pending blocker
             // can name who hasn't responded.
             (supabase as any)
@@ -930,7 +930,7 @@ function OrderProcessDashboard() {
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
           const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
-          // Wave 67 Phase E -- outsource assignments bucketed by order_id
+          // Wave 67 Phase E - outsource assignments bucketed by order_id
           // with provider_name flattened for the timeline blocker chip.
           const outsourceByOrder = (() => {
             const m = new Map<string, any[]>();
@@ -953,17 +953,17 @@ function OrderProcessDashboard() {
           // cleaning_jobs rows. computeOrderTimeline does the final
           // filter, but pre-bucketing trims the payload size.
 
-          // Wave 46 T3 -- bucket the new fetches.
+          // Wave 46 T3 - bucket the new fetches.
           const orderItemsByOrder = bucket(orderItemsRes.data as any[] | null);
           const kitchenShiftsEventDayRows = (kitchenShiftsEventDayRes.data as any[] | null) || [];
           const vehicleRowsRaw = (vehiclesRes.data as any[] | null) || [];
           const vehicleById = new Map<string, any>();
           for (const v of vehicleRowsRaw) vehicleById.set(String(v.id), v);
 
-          // Wave 59 -- batched shifts + profiles for AssignedShiftsPanel.
+          // Wave 59 - batched shifts + profiles for AssignedShiftsPanel.
           // Pre-Wave-59 each rendered AssignedShiftsPanel fired its own
           // kitchen_shifts query AND its own profiles query per order
-          // -- 200 visible orders = up to 400 round-trips, wedging the
+          // - 200 visible orders = up to 400 round-trips, wedging the
           // Supabase pool. Now: one query for all shifts on these
           // order_ids, one query for all distinct staff_ids found in
           // the shifts. Per-card panel reads from the preloaded maps.
@@ -991,7 +991,7 @@ function OrderProcessDashboard() {
               }
             }
           } catch (shiftBatchErr) {
-            console.warn("[orders] Wave 59 shift batch failed -- AssignedShiftsPanel will fall back to per-card fetch", shiftBatchErr);
+            console.warn("[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch", shiftBatchErr);
           }
           // Push into state so the per-row AssignedShiftsPanel reads it.
           setAllShiftsByOrder(allShiftsByOrder);
@@ -1000,7 +1000,7 @@ function OrderProcessDashboard() {
           const timelines = new Map<string, OrderTimeline>();
           const readinesses = new Map<string, OrderReadiness>();
           for (const o of allOrders as any[]) {
-            // Wave 67.2 -- attach outsource assignments to the order
+            // Wave 67.2 - attach outsource assignments to the order
             // row so the money summary inside the order modal can read
             // them without a second round-trip. The OutsourcedFulfilmentPanel
             // still does its own live fetch with the full nested provider
@@ -1014,7 +1014,7 @@ function OrderProcessDashboard() {
             const cleaningJobsActive = cleaningJobsActiveRows.filter((r) =>
               orderEqIds.has(r.equipment_id),
             );
-            // Wave 46 T1 -- pass tenant timezone so the urgency tier
+            // Wave 46 T1 - pass tenant timezone so the urgency tier
             // buckets by calendar day in the operator's wall clock.
             const timelineInput: any = {
               order: o,
@@ -1034,7 +1034,7 @@ function OrderProcessDashboard() {
             const tl = computeOrderTimeline(timelineInput);
             timelines.set(o.id, tl);
 
-            // Wave 46 T2 -- compute the readiness chip alongside.
+            // Wave 46 T2 - compute the readiness chip alongside.
             const eventDay = o.event_date as string | null | undefined;
             const kitchenShiftsForDay = eventDay
               ? kitchenShiftsEventDayRows.filter(
@@ -1061,7 +1061,7 @@ function OrderProcessDashboard() {
           setStaffProfilesById(new Map());
         }
       } catch (err) {
-        // Non-fatal -- the timeline component handles a missing entry
+        // Non-fatal - the timeline component handles a missing entry
         // by falling back to the legacy WORKFLOW_STAGES rendering.
         console.warn("[orders] timeline batch fetch failed", err);
       }
@@ -1144,12 +1144,12 @@ function OrderProcessDashboard() {
   // fuzzy hook doesn't get a fresh array on every render.
   const statusDateFilteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Client filter -- when the operator landed here via Client
+      // Client filter - when the operator landed here via Client
       // Search ("View orders"), narrow to orders for that client only.
       if (clientFilterId && (order as any).client_id !== clientFilterId) {
         return false;
       }
-      // Global region filter -- when an operator scopes to one branch
+      // Global region filter - when an operator scopes to one branch
       // in the top-bar dropdown, hide rows from other branches.
       // region_id IS NULL rows (legacy / company-wide) stay visible
       // so they can be triaged.
@@ -1166,12 +1166,12 @@ function OrderProcessDashboard() {
       }
       // Hide cancelled by default ("All Statuses" excludes them).
       // Only surface cancelled when the operator explicitly picks
-      // "cancelled" in the status dropdown -- otherwise they'd
+      // "cancelled" in the status dropdown - otherwise they'd
       // clutter the kanban + timeline forever.
       if (statusFilter === "all" && order.status === "cancelled") return false;
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
-      // Date filter -- preset windows on the order's event_date
+      // Date filter - preset windows on the order's event_date
       let matchesDate = true;
       if (dateFilter !== "all") {
         const eventDate = new Date(order.event_date);
@@ -1202,7 +1202,7 @@ function OrderProcessDashboard() {
         } else if (dateFilter === "past") {
           matchesDate = eventDate < today;
         } else if (dateFilter === "custom") {
-          // Custom range picker. Either bound is optional -- pick a
+          // Custom range picker. Either bound is optional - pick a
           // single date by setting just one. event_date is a date col
           // so we compare in local-day terms (no UTC drift).
           let withinFrom = true;
@@ -1240,12 +1240,12 @@ function OrderProcessDashboard() {
     { limit: 0 },
   );
 
-  // Wave 43 T3 -- urgency-first sort. When the operator hasn't typed
+  // Wave 43 T3 - urgency-first sort. When the operator hasn't typed
   // a search term, surface orders whose timeline is overdue/today/
   // soon at the top so the flashing chip lands above the fold.
   // When a search is active we trust the fuzzy ranking and skip the
-  // urgency re-sort -- the operator is hunting a specific order.
-  // Wave 46 T1 -- 'tomorrow' tier slotted between 'today' and 'soon'
+  // urgency re-sort - the operator is hunting a specific order.
+  // Wave 46 T1 - 'tomorrow' tier slotted between 'today' and 'soon'
   // so tomorrow's events float above the rest of the week.
   const URGENCY_RANK: Record<string, number> = { overdue: 0, today: 1, tomorrow: 2, soon: 3, normal: 4 };
   const getFilteredOrders = () => {
@@ -1257,7 +1257,7 @@ function OrderProcessDashboard() {
       const ra = URGENCY_RANK[(ta as any)?.urgency || "normal"] ?? 3;
       const rb = URGENCY_RANK[(tb as any)?.urgency || "normal"] ?? 3;
       if (ra !== rb) return ra - rb;
-      // Same urgency tier -- earlier event first.
+      // Same urgency tier - earlier event first.
       const da = new Date((a as any).event_date || 0).getTime();
       const db = new Date((b as any).event_date || 0).getTime();
       return da - db;
@@ -1336,13 +1336,13 @@ function OrderProcessDashboard() {
     const isToday = eventDate.toDateString() === new Date().toDateString();
     const isPast = eventDate < new Date();
 
-    // Derived intelligence + automation summary -- the card surfaces
+    // Derived intelligence + automation summary - the card surfaces
     // both so the catering team sees, at a glance, what's at risk.
     const intel = deriveOrderIntelligence(order);
     const auto = autoEmailMap.get((order as any).id) || { sent: 0, latest: null, postEventSent: false } as OrderAutoEmailSummary;
     // Wave 28.6: cancelled orders get a thicker red top strip + faint
     // wash so they're unmissable in the kanban / list. The left
-    // border alone wasn't enough -- a cancelled card sat among
+    // border alone wasn't enough - a cancelled card sat among
     // confirmed ones and read as just another tone of red.
     const isCancelled = order.status === "cancelled";
     const ringClass = isCancelled
@@ -1376,7 +1376,7 @@ function OrderProcessDashboard() {
                 <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
                   {order.venue_address}
                 </p>
-                {/* Quote backlink -- Wave 27.1: routes to the polished
+                {/* Quote backlink - Wave 27.1: routes to the polished
                     public /q/{public_token} client view (the same
                     branded surface the client sees) instead of the
                     bare /admin/quotes/{id} editor screen. Operator
@@ -1386,9 +1386,9 @@ function OrderProcessDashboard() {
                     public_token (legacy quotes pre-token migration).
                     Opens in a new tab so the operator doesn't lose
                     their place in /admin/orders. */}
-                {/* Wave 56 -- "from quote" pill removed from kanban
+                {/* Wave 56 - "from quote" pill removed from kanban
                     OrderCard. Pre-Wave-56 it appeared on this card +
-                    on the TimelineRow + in the modal -- triplicate.
+                    on the TimelineRow + in the modal - triplicate.
                     Kanban is a secondary view; the modal still
                     surfaces the cross-reference on click, and the
                     TimelineRow keeps its pill for default-view
@@ -1569,7 +1569,7 @@ function OrderProcessDashboard() {
                       Overdue
                     </Badge>
                   )}
-                  {/* Wave 54.5 -- paused + cancelled visible at row
+                  {/* Wave 54.5 - paused + cancelled visible at row
                       level. Pre-Wave-54 the operator could only learn
                       "this order is paused" by opening the modal,
                       meaning paused orders blended into the live
@@ -1589,8 +1589,8 @@ function OrderProcessDashboard() {
                     </Badge>
                   )}
                   {(order as any).quote_id && (() => {
-                    // Wave 27.1: routes to /q/{public_token} -- the
-                    // polished client view -- instead of the admin
+                    // Wave 27.1: routes to /q/{public_token} - the
+                    // polished client view - instead of the admin
                     // editor screen.
                     const tok = (order as any).quote?.public_token;
                     const href = tok ? `/q/${tok}` : withSlug(`/admin/quotes/${(order as any).quote_id}`);
@@ -1622,7 +1622,7 @@ function OrderProcessDashboard() {
                     <Users className="w-4 h-4" />
                     <span>{order.guest_count} guests</span>
                   </div>
-                  {/* Wave 53 -- drop the misleading dollar icon (was
+                  {/* Wave 53 - drop the misleading dollar icon (was
                       rendering "$" in front of ZAR / GBP / EUR
                       amounts). Currency code lives in the C prefix
                       already. Force 2 dp so 9223.5 renders as
@@ -1636,7 +1636,7 @@ function OrderProcessDashboard() {
                       })}
                     </span>
                   </div>
-                  {/* Wave 70.9 -- day-of-event times strip. Slots
+                  {/* Wave 70.9 - day-of-event times strip. Slots
                       into the previously-empty space to the right
                       of the price. Renders nothing when the order
                       has no timing data at all. */}
@@ -1655,12 +1655,12 @@ function OrderProcessDashboard() {
                 with the 22-stage / 5-cluster TimelineTrack derived
                 from the batch-fetched related rows. Falls back to a
                 compact loading placeholder when the timeline batch
-                fetch hasn't returned yet for this order (rare -- the
+                fetch hasn't returned yet for this order (rare - the
                 batch fires immediately after the orders list loads).
                 The legacy nextStage label above is no longer needed
                 because the TimelineTrack surfaces the current stage
                 inline with richer detail. */}
-            {/* Wave 46 T2 -- readiness chip ABOVE the timeline.
+            {/* Wave 46 T2 - readiness chip ABOVE the timeline.
                 Headline + subhead = the operator's TLDR; expand
                 chevron drops the per-signal breakdown with deep
                 links. The chip is the source of truth for "what's
@@ -1772,7 +1772,7 @@ function OrderProcessDashboard() {
 
         // Map audit_logs entries onto the same shape as status events
         // so the timeline renderer can mix them. status='audit' is a
-        // synthetic value -- the renderer falls through to a neutral
+        // synthetic value - the renderer falls through to a neutral
         // STATUS_CONFIG default for any unknown status.
         const auditEvents = ((auditRes as any)?.data || []).map((a: any) => {
           const action = String(a.action || "").replace(/_/g, " ");
@@ -1781,7 +1781,7 @@ function OrderProcessDashboard() {
             id: `audit-${a.id}`,
             status: "audit",
             created_at: a.created_at,
-            notes: author ? `${action} -- ${author}` : action,
+            notes: author ? `${action} - ${author}` : action,
             changed_by_profile: null,
             details: a.details,
           };
@@ -1817,7 +1817,7 @@ function OrderProcessDashboard() {
     const visibleHistory = history.filter((h) => {
       if (tlFilter === "all") return true;
       if (tlFilter === "audit") return h.status === "audit";
-      // 'status' bucket -- everything that isn't an audit entry.
+      // 'status' bucket - everything that isn't an audit entry.
       return h.status !== "audit";
     });
 
@@ -1933,7 +1933,7 @@ function OrderProcessDashboard() {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // Wave 70.42 -- conductor view facts. Fetched from the role-
+    // Wave 70.42 - conductor view facts. Fetched from the role-
     // scoped API endpoint when the modal opens for an order.
     // Refetches on cateringms:order-updated so the cross-role
     // panels stay in sync when other surfaces mutate things
@@ -1961,7 +1961,7 @@ function OrderProcessDashboard() {
     // guest_count is being changed in edit mode.
     const [priceAdjustOpen, setPriceAdjustOpen] = useState(false);
 
-    // Wave 70.34 -- moved from parent-level state. Click Edit /
+    // Wave 70.34 - moved from parent-level state. Click Edit /
     // click a rating star used to setState at parent, which
     // re-rendered the page and remounted this nested component,
     // wiping all internal state and flashing the UI. Keeping these
@@ -1972,7 +1972,7 @@ function OrderProcessDashboard() {
     const [ratingBusy, setRatingBusy] = useState(false);
 
     // Rating fetch + setter (Phase 18 #10). Audit_logs is the
-    // source-of-truth ledger for per-order ratings -- latest entry
+    // source-of-truth ledger for per-order ratings - latest entry
     // wins. Reads on modal open, writes optimistically with rollback.
     useEffect(() => {
       if (!selectedOrder?.id || !isModalOpen) { setOrderRating(null); return; }
@@ -2026,7 +2026,7 @@ function OrderProcessDashboard() {
     // Joined data the dashboard's getAllOrders fetch returns alongside
     // the order row but the type doesn't expose. We also fetch
     // order_items directly when the modal opens as a belt-and-braces
-    // fallback -- the parent join can come back empty in some race
+    // fallback - the parent join can come back empty in some race
     // conditions or when the row was loaded via a different code path.
     const [fetchedItems, setFetchedItems] = useState<any[] | null>(null);
     const orderItemsRaw: any[] = useMemo(() => {
@@ -2108,7 +2108,7 @@ function OrderProcessDashboard() {
             if (!proceed) return;
           }
         } catch {
-          // Best-effort -- a check failure shouldn't block the booking.
+          // Best-effort - a check failure shouldn't block the booking.
         }
       }
       setEqAdding(true);
@@ -2355,7 +2355,7 @@ function OrderProcessDashboard() {
 
         // Wave 31: split status changes off from the rest of the
         // edit. orderService.updateOrder is a raw .from("orders").update
-        // -- it bypasses orderWorkflow.updateOrderStatus, which means
+        // - it bypasses orderWorkflow.updateOrderStatus, which means
         // ALL the cascades (transition validation, kitchen prep
         // re-plan on confirmation, auto-invoice on confirm, after-
         // sales scheduling on completion, POD-missing check on
@@ -2387,7 +2387,7 @@ function OrderProcessDashboard() {
           venue_address: editedOrder.venue_address,
           guest_count: editedOrder.guest_count,
           event_date: editedOrder.event_date,
-          // Wave 31: omit status here -- the dispatch above owns the
+          // Wave 31: omit status here - the dispatch above owns the
           // status transition + cascades. Passing it again would
           // raw-update over the orderWorkflow stamp.
           internal_notes: (editedOrder as any).internal_notes,
@@ -2395,7 +2395,7 @@ function OrderProcessDashboard() {
           // row + downstream invoice via the syncOrderArtifacts
           // call below. null = clear the discount.
           discount_amount: (editedOrder as any).discount_amount ?? null,
-          // Wave 66.3 -- operational times are now editable inline.
+          // Wave 66.3 - operational times are now editable inline.
           // Empty string from the time input means "cleared"; persist
           // as null so kitchenPrepService falls back to its event_date
           // default rather than a zero-length string.
@@ -2430,7 +2430,7 @@ function OrderProcessDashboard() {
         setEditMode(false);
         setPriceAdjustOpen(false);
         loadOrders();
-        // Wave 70.37 / 70.40 -- broadcast via the shared helper so
+        // Wave 70.37 / 70.40 - broadcast via the shared helper so
         // all listening surfaces (calendar, invoices, dashboard
         // widgets) refetch automatically. See src/lib/events/
         // orderEvents.ts for the listener pattern.
@@ -2450,7 +2450,7 @@ function OrderProcessDashboard() {
       <Dialog
         open={isModalOpen}
         onOpenChange={(o) => {
-          // Wave 55 -- unsaved-changes guard. Pre-Wave-55 a click
+          // Wave 55 - unsaved-changes guard. Pre-Wave-55 a click
           // outside the modal in editMode silently discarded any
           // typed changes (5 minutes of internal notes lost on a
           // misclick). Now: prompt before closing if editMode is on.
@@ -2475,7 +2475,7 @@ function OrderProcessDashboard() {
         }}
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {/* Wave 64.3 -- header redesign. Audit (full UI team) found
+          {/* Wave 64.3 - header redesign. Audit (full UI team) found
               the old layout fought itself: a 4xl dialog was split
               flex-justify-between, leaving the left side ~250px to
               hold 9 stacked chips. They wrapped into a vertical
@@ -2547,7 +2547,7 @@ function OrderProcessDashboard() {
                     );
                   })()}
                   {/* Post-event rating chip. Only shows once the order
-                      reaches delivered/completed -- on a confirmed
+                      reaches delivered/completed - on a confirmed
                       booking three weeks out a star widget is noise. */}
                   {selectedOrder && ["delivered", "completed"].includes(String((selectedOrder as any).status)) && (
                     <div
@@ -2620,7 +2620,7 @@ function OrderProcessDashboard() {
                               await loadOrders();
                               setSelectedOrder(json.order);
                               setEditedOrder(json.order);
-                              // Wave 70.40 -- broadcast for cross-page listeners.
+                              // Wave 70.40 - broadcast for cross-page listeners.
                               emitOrderUpdated(selectedOrder.id, "admin/orders:resume", ["status", "prep"]);
                             } catch (e: any) {
                               toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
@@ -2725,7 +2725,7 @@ function OrderProcessDashboard() {
               )}
             </div>
 
-            {/* Row 2: navigation toolbar -- uniform slate chips so the
+            {/* Row 2: navigation toolbar - uniform slate chips so the
                 operator scans them as "go look at this" rather than
                 six competing CTAs. */}
             {selectedOrder && (
@@ -2853,7 +2853,7 @@ function OrderProcessDashboard() {
             )}
           </DialogHeader>
 
-          {/* Wave 70.42 -- conductor view. Bobby's brief: the owner
+          {/* Wave 70.42 - conductor view. Bobby's brief: the owner
               is NOT just a bookkeeper. They need kitchen / driver /
               staff / cleaning / shopping status at a glance, not
               click through five tabs. <BookingFacts variant="admin">
@@ -2868,7 +2868,7 @@ function OrderProcessDashboard() {
             </div>
           )}
 
-          {/* Wave 54.3 -- controlled Tabs that honour ?tab= query
+          {/* Wave 54.3 - controlled Tabs that honour ?tab= query
               param. The readiness chip's "Fix it" deep-links append
               tab=menu / tab=equipment / etc; pre-Wave-54 the modal
               hardcoded defaultValue="details" and silently ignored
@@ -2929,7 +2929,7 @@ function OrderProcessDashboard() {
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
-                  {/* Wave 64.3 -- Pause/Resume CTAs removed from
+                  {/* Wave 64.3 - Pause/Resume CTAs removed from
                       under the Status field; they now live in the
                       header overflow menu (single source of truth)
                       so the operator doesn't see "Pause order" twice
@@ -2974,13 +2974,13 @@ function OrderProcessDashboard() {
                   />
                 </div>
 
-                {/* Wave 66.3 -- operational times block. Pre-Wave-66.3
+                {/* Wave 66.3 - operational times block. Pre-Wave-66.3
                     event_time, setup_time and pickup_time existed on
                     the orders row, were read by kitchenPrepService to
                     backplan prep tasks, and were surfaced on the
-                    kitchen ticket + driver dashboard -- but they had
+                    kitchen ticket + driver dashboard - but they had
                     no admin editor anywhere. The readiness chip's
-                    "Pickup time missing -- Fix it" link sent the
+                    "Pickup time missing - Fix it" link sent the
                     operator to this modal where the field wasn't
                     rendered. Now: three time inputs grouped under a
                     clear header so the operator can set start-of-day
@@ -3033,7 +3033,7 @@ function OrderProcessDashboard() {
                   />
                 </div>
 
-                {/* Wave 67 Phase D -- outsourced fulfilment panel.
+                {/* Wave 67 Phase D - outsourced fulfilment panel.
                     Lists every outsource_assignments row for this
                     order with inline actions: send request via
                     mailto/wa.me, copy magic-link, mark accepted on
@@ -3075,7 +3075,7 @@ function OrderProcessDashboard() {
                   </div>
                 )}
 
-                {/* Money summary -- read-only at-a-glance for the team. */}
+                {/* Money summary - read-only at-a-glance for the team. */}
                 <div className="col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 pt-3 border-t border-slate-200">
                   <div>
                     <Label className="text-xs">Subtotal</Label>
@@ -3128,7 +3128,7 @@ function OrderProcessDashboard() {
                   </div>
                 </div>
 
-                {/* Wave 67.2 -- COGS strip with outsource fees. Pulls
+                {/* Wave 67.2 - COGS strip with outsource fees. Pulls
                     quoted_cost (or actual_cost when invoiced) for
                     every non-cancelled outsource_assignments row on
                     this order, breaks out gross margin vs net
@@ -3176,7 +3176,7 @@ function OrderProcessDashboard() {
                   );
                 })()}
 
-                {/* Dispatch summary -- vehicle + 2-driver flag. Internal
+                {/* Dispatch summary - vehicle + 2-driver flag. Internal
                     only, never goes near the client portal. The vehicle
                     is auto-booked when a driver is assigned and can be
                     overridden from the Dispatch Queue. */}
@@ -3482,7 +3482,7 @@ function OrderProcessDashboard() {
                   </div>
                 )}
 
-                {/* Footer link out -- for the rare case where the operator
+                {/* Footer link out - for the rare case where the operator
                     needs the full equipment management surface (catalog
                     edits, exact times, returns workflow, damage reports). */}
                 {!editMode && equipmentBookings.length > 0 && (
@@ -3507,7 +3507,7 @@ function OrderProcessDashboard() {
                 currentOrder={editedOrder as any}
                 onActioned={() => {
                   // Re-pull the order after an approval since the diff
-                  // is now applied -- the modal's currentOrder is stale.
+                  // is now applied - the modal's currentOrder is stale.
                   setSelectedOrder({ ...selectedOrder } as any);
                 }}
               />
@@ -3530,7 +3530,7 @@ function OrderProcessDashboard() {
         </DialogContent>
 
         {/* Price-doesn't-scale confirmation. Pops when guest_count
-            changes on Save -- nudges the operator that price changes
+            changes on Save - nudges the operator that price changes
             are a quote-level edit, not an order-level amendment. */}
         <Dialog open={priceAdjustOpen} onOpenChange={setPriceAdjustOpen}>
           <DialogContent className="max-w-md">
@@ -3679,13 +3679,13 @@ function OrderProcessDashboard() {
     );
   };
 
-  // Wave 64.2 -- deeplink flicker fix. When a sibling page (e.g. the
+  // Wave 64.2 - deeplink flicker fix. When a sibling page (e.g. the
   // invoices list "Open order" link) lands here as
   // /admin/orders?orderId=X, the page used to render the full kanban
   // / timeline for ~1s while the orders fetch resolved, then pop the
   // modal on top. Operators read that flash as "glitchy". Now we mask
   // the dashboard with a focused loading overlay while the deeplink
-  // is still resolving -- the overlay drops the instant the modal
+  // is still resolving - the overlay drops the instant the modal
   // opens or the not-found toast fires (which strips ?orderId from
   // the URL).
   const isDeeplinkPending =
@@ -3724,7 +3724,7 @@ function OrderProcessDashboard() {
                   <ShoppingCart className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  {/* Wave 56 -- gradient text H1 was the loudest
+                  {/* Wave 56 - gradient text H1 was the loudest
                       element on the page and conveyed nothing. Plain
                       text-slate-900 lets the actual data carry
                       visual hierarchy. */}
@@ -3901,7 +3901,7 @@ function OrderProcessDashboard() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {/* Primary CTA -- always last so the right edge stays
+                {/* Primary CTA - always last so the right edge stays
                     consistent. */}
                 <Link href={withSlug("/admin/order-assignments")}>
                   <Button
@@ -3915,7 +3915,7 @@ function OrderProcessDashboard() {
               </div>
             </div>
 
-            {/* Wave 56 -- design system collapse.
+            {/* Wave 56 - design system collapse.
                 The 6 gradient stats tiles consumed the top third of the
                 viewport with near-zero actionability per the audit team.
                 The page is "where every order is in its lifecycle" --
@@ -3944,7 +3944,7 @@ function OrderProcessDashboard() {
                 <span className="font-semibold text-slate-900">{stats.inProgress}</span>
                 <span className="text-slate-500">in progress</span>
               </span>
-              {/* Pending = action signal -- amber */}
+              {/* Pending = action signal - amber */}
               {(stats.byStatus.pending || 0) > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
                   <Clock className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
@@ -3952,7 +3952,7 @@ function OrderProcessDashboard() {
                   <span>pending</span>
                 </span>
               )}
-              {/* In transit = live signal -- blue */}
+              {/* In transit = live signal - blue */}
               {(stats.byStatus.in_transit || 0) > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800">
                   <Truck className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
@@ -3962,7 +3962,7 @@ function OrderProcessDashboard() {
               )}
             </div>
 
-            {/* Client filter pill -- shows when /admin/orders was opened
+            {/* Client filter pill - shows when /admin/orders was opened
                 with ?clientId. Click X to clear back to the unfiltered
                 view (also strips the param from the URL). */}
             {clientFilterId && (
@@ -4017,7 +4017,7 @@ function OrderProcessDashboard() {
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Wave 54.5 -- sentence-case + add Paused +
+                      {/* Wave 54.5 - sentence-case + add Paused +
                           Cancelled so paused orders are filterable
                           and cancelled orders are reachable from
                           this page (pre-Wave-54 they were excluded
@@ -4089,7 +4089,7 @@ function OrderProcessDashboard() {
                     list to orders where I'm the chef or driver. */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {/* Phase 16 #5: quick-filter chips. One-tap shortcuts
-                      to common date scopes -- sets dateFilter without
+                      to common date scopes - sets dateFilter without
                       opening the dropdown. Highlights when active so
                       it doubles as a status indicator. */}
                   {([
@@ -4185,7 +4185,7 @@ function OrderProcessDashboard() {
                     is ticked. Bulk status update routes through
                     bulkUpdateStatus which fans out a single UPDATE
                     .. WHERE id IN (...) query. Cancellation is left
-                    to the per-order cancel dialog -- it has refund
+                    to the per-order cancel dialog - it has refund
                     semantics that don't suit a quick fan-out. */}
                 {selectedIds.size > 0 && (
                   <div className="sticky top-0 z-10 bg-white border border-blue-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
@@ -4232,7 +4232,7 @@ function OrderProcessDashboard() {
                 {getFilteredOrders().length === 0 ? (
                   <Card className="border-0 shadow-lg">
                     <CardContent className="py-24">
-                      {/* Wave 55 -- empty state names the active filter
+                      {/* Wave 55 - empty state names the active filter
                           set + offers a one-click clear so the operator
                           stops guessing which filter is hiding rows. */}
                       <div className="text-center text-slate-400">
@@ -4280,7 +4280,7 @@ function OrderProcessDashboard() {
                       {hidden > 0 && (
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                           <span className="text-amber-900">
-                            Showing the first <strong className="tabular-nums">{cappedToRender.length}</strong> of <strong className="tabular-nums">{sorted.length}</strong> orders. Use a status or date filter to narrow it -- or load them all.
+                            Showing the first <strong className="tabular-nums">{cappedToRender.length}</strong> of <strong className="tabular-nums">{sorted.length}</strong> orders. Use a status or date filter to narrow it - or load them all.
                           </span>
                           <button
                             type="button"
@@ -4312,7 +4312,7 @@ function OrderProcessDashboard() {
               onCancelled={() => {
                 setIsModalOpen(false);
                 loadOrders();
-                // Wave 70.40 -- cancel cascades (status flip + refund
+                // Wave 70.40 - cancel cascades (status flip + refund
                 // payments row + equipment release + comms stop).
                 // Every listener that shows this order needs to refetch.
                 if (selectedOrder?.id) {
@@ -4321,8 +4321,8 @@ function OrderProcessDashboard() {
               }}
             />
 
-            {/* Wave 55 -- replaces window.prompt() for Duplicate.
-                Native prompt was a visual frame regression -- no
+            {/* Wave 55 - replaces window.prompt() for Duplicate.
+                Native prompt was a visual frame regression - no
                 calendar widget, no in-app frame. */}
             <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
               <DialogContent className="sm:max-w-md">
@@ -4386,7 +4386,7 @@ function OrderProcessDashboard() {
               </DialogContent>
             </Dialog>
 
-            {/* Pause dialog -- captures reason + expected resume date,
+            {/* Pause dialog - captures reason + expected resume date,
                 runs the pauseOrder cascade (status -> 'paused', email
                 queue suspend, prep tasks soft-delete, audit log). */}
             <PauseOrderDialog
@@ -4401,7 +4401,7 @@ function OrderProcessDashboard() {
               }}
             />
 
-            {/* Amendment review drawer -- opens when a notification
+            {/* Amendment review drawer - opens when a notification
                 link routes here with ?amendment=...&orderId=...
                 Stays in sync with the URL so the operator can refresh
                 without losing context. */}

@@ -1,10 +1,10 @@
 /**
- * POST /api/booking-packages/[id]/cancel -- Wave 70.45b
+ * POST /api/booking-packages/[id]/cancel - Wave 70.45b
  *
  * Body: { reason: string }
  *
  * Cancels the entire package + cascades cancelOrder() to every linked,
- * non-terminal child order. Owner-only -- a package cancel can fan out
+ * non-terminal child order. Owner-only - a package cancel can fan out
  * to 3+ refunds in one shot, so we require an owner-tier role rather
  * than the broader admin set.
  */
@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     const callerCompanyId = (profile as any)?.company_id as string | null;
     if (!OWNER_ROLES.has(role)) {
-      return res.status(403).json({ error: "Owner-tier role required -- package cancels cascade to every linked order." });
+      return res.status(403).json({ error: "Owner-tier role required - package cancels cascade to every linked order." });
     }
 
     const pkg = await getPackage(packageId, ssr);

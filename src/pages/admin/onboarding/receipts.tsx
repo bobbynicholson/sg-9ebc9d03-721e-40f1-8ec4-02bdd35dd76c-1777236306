@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/onboarding/receipts -- AI receipt scanner (admin entry).
+ * /admin/onboarding/receipts - AI receipt scanner (admin entry).
  *
  * Operator drops up to 20 photos of supplier slips. Each goes through
  * Claude vision and comes back as structured fields: supplier, date,

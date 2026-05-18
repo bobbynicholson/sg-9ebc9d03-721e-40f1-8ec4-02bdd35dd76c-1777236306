@@ -460,7 +460,7 @@ export const kitchenDutyService = {
     description: string
   ): Promise<void> {
     // Audit (May 2026): the previous code wrote recipient_id = userId
-    // -- the same userId that called the function. So the emergency
+    // - the same userId that called the function. So the emergency
     // alert fired straight back to the person reporting it; no admin
     // ever saw "🚨 KITCHEN EMERGENCY". Broadcast to every admin role
     // in the tenant on urgent priority.

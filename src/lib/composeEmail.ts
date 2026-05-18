@@ -132,7 +132,7 @@ function buildClientCtx(ctx: TemplateContext): Record<string, string | number> {
 }
 
 export function templateFor(status: ClientStatus, ctx: TemplateContext): { subject: string; body: string } {
-  // 1. Try the company override -- only takes effect if cached AND
+  // 1. Try the company override - only takes effect if cached AND
   //    the operator has saved a customisation. Otherwise we drop
   //    through to the hardcoded default so existing UX never changes
   //    for tenants who haven't customised yet.
@@ -274,7 +274,7 @@ function buildQuoteCtx(ctx: QuoteTemplateContext): Record<string, string | numbe
 }
 
 export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext): { subject: string; body: string } {
-  // 1. Override path -- silent fallback to default when no customisation.
+  // 1. Override path - silent fallback to default when no customisation.
   const overrideKey = QUOTE_STATUS_TO_REGISTRY[status];
   if (overrideKey) {
     const resolved = resolveTemplateSync({

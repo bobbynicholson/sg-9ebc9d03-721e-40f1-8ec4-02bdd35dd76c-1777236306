@@ -37,7 +37,7 @@ async function markArrived(assignmentId: string): Promise<any | null> {
     if (assignmentErr) console.error("[proximityService/markArrived] driver_assignments lookup failed:", assignmentErr);
 
     if (assignment) {
-      // Wave 45 D2 -- route the status flip through
+      // Wave 45 D2 - route the status flip through
       // orderWorkflow.updateOrderStatus instead of writing
       // status='delivered' raw. The raw write skipped the entire
       // delivered-side cascade (status_history, audit_logs, client
@@ -66,7 +66,7 @@ async function markArrived(assignmentId: string): Promise<any | null> {
             .update({ status: "in_transit" } as any)
             .eq("id", assignmentId);
         } catch (revertErr) {
-          console.error(`[markArrived] revert failed -- assignment ${assignmentId} now in inconsistent state:`, revertErr);
+          console.error(`[markArrived] revert failed - assignment ${assignmentId} now in inconsistent state:`, revertErr);
         }
         throw new Error(`Failed to mark order delivered: ${orderUpdateErr.message || orderUpdateErr}`);
       }
@@ -200,7 +200,7 @@ async function checkProximityAndNotify(
       if (count === 0) {
           if(order.user_id && order.company_id){
              // Client-facing ETA ping. Same deep-link target as the
-             // arrival notification -- the tracking page is where they
+             // arrival notification - the tracking page is where they
              // can watch the driver come in.
              await notificationService.createNotification({
                 company_id: order.company_id,

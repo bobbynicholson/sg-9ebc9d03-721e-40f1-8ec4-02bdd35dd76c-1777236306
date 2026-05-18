@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 3 chart 2 -- Client retention cohort (quarterly).
+ * Tier 3 chart 2 - Client retention cohort (quarterly).
  *
  * CSS grid: rows = signup quarter, cols = quarters since signup.
  * Cells coloured by retention ratio (0..100%). Future cells (cohort

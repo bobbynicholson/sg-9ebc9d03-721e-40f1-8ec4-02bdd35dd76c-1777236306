@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Smart Shopping -- the procurement brain.
+ * Smart Shopping - the procurement brain.
  *
  * Wires together:
  *  - inventory_items   (current_stock, minimum_stock, reorder_quantity,
@@ -12,10 +12,10 @@
  *  - suppliers                      (email/phone for one-click PO email)
  *
  * Three intelligent modes:
- *  1. Buy now     -- shortfalls + below-min items, urgency sorted
- *  2. Plan ahead  -- 14-day forward window, with a "buy by" date that
+ *  1. Buy now     - shortfalls + below-min items, urgency sorted
+ *  2. Plan ahead  - 14-day forward window, with a "buy by" date that
  *                    respects shelf_life_days for perishables
- *  3. By supplier -- rolled up so the admin can fire one PO email per
+ *  3. By supplier - rolled up so the admin can fire one PO email per
  *                    supplier with the items they actually need
  *
  * SV touches: tick rows -> live "PO total" pill in the header that
@@ -166,7 +166,7 @@ function SmartShoppingPage() {
     return () => { cancelled = true; };
   }, [companyId]);
 
-  // Earliest event_date per inventory item -- drives buy-by date
+  // Earliest event_date per inventory item - drives buy-by date
   const earliestEvent: Record<string, string> = useMemo(() => {
     const m: Record<string, string> = {};
     demand.forEach((d) => {
@@ -220,7 +220,7 @@ function SmartShoppingPage() {
     });
   }, [outlook, details, suppliers, earliestEvent, today]);
 
-  // -- Buy-now list: shortfalls + below_minimum, urgency-sorted ---------
+  // - Buy-now list: shortfalls + below_minimum, urgency-sorted ---------
   const buyNow = useMemo(() => {
     return enriched
       .filter((r) => r.status === "shortfall" || r.status === "below_minimum")
@@ -233,7 +233,7 @@ function SmartShoppingPage() {
       });
   }, [enriched]);
 
-  // -- Plan-ahead list: anything with demand in next 14 days that isn't OK
+  // - Plan-ahead list: anything with demand in next 14 days that isn't OK
   const planAhead = useMemo(() => {
     return enriched
       .filter((r) => r.upcoming_order_count > 0 && Number(r.demand_next_14_days) > 0)
@@ -245,7 +245,7 @@ function SmartShoppingPage() {
       });
   }, [enriched]);
 
-  // -- By-supplier rollup
+  // - By-supplier rollup
   const bySupplier = useMemo(() => {
     const groups: Record<string, {
       supplier: Supplier | null;
@@ -274,7 +274,7 @@ function SmartShoppingPage() {
       .map(([id, g]) => ({ id, ...g }));
   }, [enriched]);
 
-  // -- Cart maths
+  // - Cart maths
   const pickedTotal = useMemo(() => {
     return enriched
       .filter((r) => picked[r.inventory_item_id])
@@ -301,7 +301,7 @@ function SmartShoppingPage() {
     window.open(composeEmail.gmailUrl({ to: group.supplier.email, subject, body }), "_blank", "noopener");
   };
 
-  // Mark items in the cart as purchased -- bumps current_stock by reorderQty
+  // Mark items in the cart as purchased - bumps current_stock by reorderQty
   const markPurchased = async () => {
     const ids = Object.keys(picked).filter((k) => picked[k]);
     if (ids.length === 0) return;
@@ -366,7 +366,7 @@ function SmartShoppingPage() {
                 size="sm"
                 onClick={() => {
                   if (buyNow.length === 0) {
-                    toast({ title: "Nothing to export", description: "Buy now list is empty -- stock looks healthy." });
+                    toast({ title: "Nothing to export", description: "Buy now list is empty - stock looks healthy." });
                     return;
                   }
                   const esc = (v) => {
@@ -462,7 +462,7 @@ function SmartShoppingPage() {
             />
           </div>
 
-          {/* Slip scanner -- shared with /admin/tax-purchases. Snap a
+          {/* Slip scanner - shared with /admin/tax-purchases. Snap a
               supplier till slip after a shop run; the same scan tags
               tax-deductibility AND can feed inventory in the
               reconciliation step. */}
@@ -501,7 +501,7 @@ function SmartShoppingPage() {
             )}
           </Card>
 
-          {/* Manual-entry drawer -- same Reconcile component as the
+          {/* Manual-entry drawer - same Reconcile component as the
               scanner, just primed with empty data and exposing the
               vendor + description typeaheads from past receipts. */}
           <ReconcileSlipDrawer
@@ -682,7 +682,7 @@ function SmartShoppingPage() {
                 </div>
               </TabsContent>
 
-              {/* RECEIPTS -- slip log + tax-deductible editor (used to live
+              {/* RECEIPTS - slip log + tax-deductible editor (used to live
                   on its own /admin/tax-purchases page; merged in here so
                   shopping is the single place an admin acts). The
                   read-only mirror at /admin/tax-purchases is kept as an

@@ -4,7 +4,7 @@
  * Sparkline of submissions/day, top referrers, conversion trend, and a
  * deep link into /admin/leads filtered by source=embed&form_id=...
  *
- * The chart is a plain SVG -- no chart lib in package.json and we don't
+ * The chart is a plain SVG - no chart lib in package.json and we don't
  * need one for a 30-point line.
  */
 

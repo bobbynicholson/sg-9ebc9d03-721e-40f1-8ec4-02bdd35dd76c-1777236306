@@ -86,7 +86,7 @@ function WhiteLabelPage() {
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
   // Load tenant row directly from companies. Single canonical source of
-  // truth -- no parallel context state.
+  // truth - no parallel context state.
   useEffect(() => {
     let cancelled = false;
     if (!companyId) {

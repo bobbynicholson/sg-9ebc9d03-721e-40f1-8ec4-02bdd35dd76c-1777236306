@@ -1,5 +1,5 @@
 /**
- * /admin/packages -- Wave 70.45b
+ * /admin/packages - Wave 70.45b
  *
  * List of booking packages for the current tenant. A package is the
  * parent container that groups multiple orders into one logical
@@ -7,7 +7,7 @@
  * one package, three orders).
  *
  * Operator flow:
- *   1. Click "New package" -- creates a draft package + opens detail.
+ *   1. Click "New package" - creates a draft package + opens detail.
  *   2. From detail, link existing orders OR build orders within the
  *      package context.
  *   3. Package promotes draft -> active automatically on first link.
@@ -139,7 +139,7 @@ function PackagesPage() {
 
   return (
     <>
-      <Head><title>Booking Packages -- Admin</title></Head>
+      <Head><title>Booking Packages - Admin</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
@@ -152,7 +152,7 @@ function PackagesPage() {
               </h1>
               <p className="text-sm text-slate-600 mt-1 max-w-2xl">
                 Group multi-day events into one logical booking. Each
-                package can hold many orders -- the calendar, finance and
+                package can hold many orders - the calendar, finance and
                 client comms all see them as a single event.
               </p>
             </div>
@@ -252,7 +252,7 @@ function PackagesPage() {
                 {tab !== "cancelled" && (
                   <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                     Packages are useful when one event spans multiple
-                    days or multiple orders -- weddings, conferences,
+                    days or multiple orders - weddings, conferences,
                     multi-stop catering runs.
                   </p>
                 )}

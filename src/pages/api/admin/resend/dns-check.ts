@@ -56,7 +56,7 @@ function buildResolver(): Resolver {
 function normaliseTxt(chunks: string[]): string {
   // dns.resolveTxt returns each TXT record as an array of chunks
   // because the DNS wire format splits long strings into 255-byte
-  // segments. Join with no separator -- that's what every real
+  // segments. Join with no separator - that's what every real
   // validator does. We also strip surrounding quotes if some hosts
   // wrap the value.
   const joined = chunks.join("");

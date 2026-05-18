@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Business Intelligence section -- the big bottom band of charts on
+ * Business Intelligence section - the big bottom band of charts on
  * /admin/dashboard. Owns its own data fetch (24-month window of orders
  * + quotes + leads, narrowed by the global region filter), passes
  * extracted shapes into individual chart components.
@@ -86,7 +86,7 @@ const ROW_CAP = 5000;
 export function BusinessIntelligence({ companyId, dateRange }: Props) {
   const { regionFilterId, options: branchOptions, hasMultipleBranches } = useRegionFilter();
 
-  // Collapsed state -- per tenant so a new tenant doesn't inherit
+  // Collapsed state - per tenant so a new tenant doesn't inherit
   // somebody else's preference.
   const [collapsed, setCollapsed] = useState<boolean>(false);
   useEffect(() => {
@@ -168,7 +168,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
         // Clients: ALL of them (no date floor) so the cohort grid can
         // walk historical signups. region_id filtering applied where
-        // possible -- region_admins only see clients linked to their
+        // possible - region_admins only see clients linked to their
         // branch, but the query doesn't fail-closed for company_admins.
         const clientsBase = supabase
           .from("clients")
@@ -178,7 +178,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           .limit(ROW_CAP);
 
         // Invoices: open balances drive the receivables-aging chart.
-        // No date floor -- old debts are exactly what we want to surface.
+        // No date floor - old debts are exactly what we want to surface.
         const invoicesBase = supabase
           .from("invoices")
           .select("id, status, due_date, balance_due, total_amount, client_id")
@@ -292,7 +292,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     [invoices],
   );
   const topProducts = useMemo(() => {
-    // Exclude line items from cancelled orders -- those don't represent
+    // Exclude line items from cancelled orders - those don't represent
     // realised revenue, only intent.
     const cancelledIds = new Set<string>();
     for (const o of orders as any as CancelledOrder[]) {
@@ -301,7 +301,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     return aggregateTopProducts(orderItems, cancelledIds);
   }, [orderItems, orders]);
 
-  // Tier 6 -- multi-branch only. branchOptions comes from the global
+  // Tier 6 - multi-branch only. branchOptions comes from the global
   // region filter context: it's already narrowed to "real" regions
   // visible to this user.
   const branchList: BranchOption[] = useMemo(
@@ -355,34 +355,34 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           <RevenueTrendChart data={revenueByMonth} loading={loading} />
           <YoYStripCard data={loading ? null : yoyStrip} loading={loading} />
 
-          {/* Tier 2 -- pressure */}
+          {/* Tier 2 - pressure */}
           <SeasonalityHeatmap data={seasonality} loading={loading} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CapacityLoadCalendar data={capacity} loading={loading} />
             <ConversionFunnelChart data={funnel} loading={loading} />
           </div>
 
-          {/* Tier 3 -- customers */}
+          {/* Tier 3 - customers */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <TopClientsBarChart data={topClients} loading={loading} />
             <NewVsRepeatDonut data={newVsRepeat} loading={loading} />
           </div>
           <RetentionCohortGrid data={cohort} loading={loading} />
 
-          {/* Tier 4 -- lead intelligence */}
+          {/* Tier 4 - lead intelligence */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <LeadSourceFunnelChart data={leadSourceFunnel} loading={loading} />
             <QuoteAcceptTimeHistogram data={quoteAcceptTime} loading={loading} />
           </div>
 
-          {/* Tier 5 -- operations */}
+          {/* Tier 5 - operations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CancellationReasonsChart data={cancellationReasons} loading={loading} />
             <ReceivablesAgingChart data={receivablesAging} loading={loading} />
           </div>
           <TopProductsBarChart data={topProducts} loading={loading} />
 
-          {/* Tier 6 -- multi-branch comparison. Hidden for single-branch
+          {/* Tier 6 - multi-branch comparison. Hidden for single-branch
               tenants (no value) AND while a single branch is filtered
               in (the comparison would be against itself, since the
               region filter has already pruned other branches' rows

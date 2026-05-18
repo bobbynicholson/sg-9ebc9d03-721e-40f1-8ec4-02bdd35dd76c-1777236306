@@ -5,7 +5,7 @@
  *      / clipboard, same chain as /admin/clients)
  *   2. Purchase analytics with date-range picker (30d / 90d / 365d /
  *      custom). Total spend, receipt count, unique items, avg receipt.
- *   3. Products supplied -- the inventory_item_suppliers rows. Add /
+ *   3. Products supplied - the inventory_item_suppliers rows. Add /
  *      remove, edit per-supplier price + lead time.
  *   4. Receipts list filtered to this supplier in the chosen window.
  */
@@ -372,7 +372,7 @@ function SupplierDetail() {
         </div>
       </div>
 
-      {/* Compose email -- Gmail / Outlook / default / clipboard */}
+      {/* Compose email - Gmail / Outlook / default / clipboard */}
       {supplier && (
         <ComposeSupplierEmail
           open={composeOpen}

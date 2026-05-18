@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * outsourceAssignmentService -- Wave 67 Phase D.
+ * outsourceAssignmentService - Wave 67 Phase D.
  *
  * Per-order assignment of an outsource provider. Sister service to
  * dispatchService (which handles driver assignment) but for the
@@ -59,7 +59,7 @@ export interface OutsourceAssignment {
   manually_marked_accepted: boolean;
   manually_marked_by: string | null;
   notes: string | null;
-  // Wave 67.5 -- multi-provider routing. Siblings in the same
+  // Wave 67.5 - multi-provider routing. Siblings in the same
   // routing_group_id are alternates for the same fulfilment slot;
   // accepting one auto-cancels the rest via DB trigger.
   routing_group_id: string | null;
@@ -181,7 +181,7 @@ export const outsourceAssignmentService = {
   },
 
   /** Admin manual flip to accepted. Used for "called Sarah, she said
-   *  yes" workflows -- saves the magic-link round-trip when the
+   *  yes" workflows - saves the magic-link round-trip when the
    *  operator already has verbal confirmation. */
   async markAcceptedManual(assignmentId: string, performedByUserId: string): Promise<void> {
     const nowIso = new Date().toISOString();

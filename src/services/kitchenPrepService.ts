@@ -4,9 +4,9 @@
  * Kitchen prep service: the math layer behind the kitchen flywheel.
  *
  * Three responsibilities, all kept dumb-simple from the user's side:
- *   1. Scale a recipe to guest count -- the math that turns "base 10
+ *   1. Scale a recipe to guest count - the math that turns "base 10
  *      portions, 1.5kg lamb" into "60 guests = 9kg lamb".
- *   2. Backwards-plan prep tasks at order confirm -- "lamb starts at
+ *   2. Backwards-plan prep tasks at order confirm - "lamb starts at
  *      08:00 because pickup is 12:00 and lamb cooks for 4 hours, with
  *      30 minutes of safety buffer."
  *   3. Aggregate demand across the day so the kitchen sees "you need
@@ -14,7 +14,7 @@
  *      "ok / short" checks that miss the combined shortfall.
  *
  * Recipe lookup follows DB first, then the hardcoded RECIPE_MAPPINGS
- * fallback in inventoryDeductionService -- this lets self-service menu
+ * fallback in inventoryDeductionService - this lets self-service menu
  * editing work today without breaking tenants on the legacy map.
  */
 import { supabase } from "@/integrations/supabase/client";
@@ -104,7 +104,7 @@ export interface KitchenStation {
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const kitchenPrepService = {
-  // Wave 70.13 -- accept an optional client so server-side callers
+  // Wave 70.13 - accept an optional client so server-side callers
   // (regen API, cron, post-creation cascade) can inject the
   // service-role client. Without this, the global anon supabase
   // import has no session on the server and RLS hides every read.
@@ -157,7 +157,7 @@ export const kitchenPrepService = {
     cook_time_min: number;
     ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
   } | null> {
-    // Wave 70.13 -- thread the optional client through so server-
+    // Wave 70.13 - thread the optional client through so server-
     // side regen API + cron callers can read without RLS blocking.
     const sb: any = client || supabase;
     const settings = await this.getKitchenSettings(companyId, client);
@@ -211,7 +211,7 @@ export const kitchenPrepService = {
 
     // Fallback: hardcoded RECIPE_MAPPINGS in inventoryDeductionService.
     // The legacy shape stores quantity_per_serving (not absolute) and has
-    // no prep / cook time, so we wrap and treat base_servings as 1 -- the
+    // no prep / cook time, so we wrap and treat base_servings as 1 - the
     // legacy multiplier is already "per guest", so scaledServings is the
     // direct multiplier.
     const fallback = getLegacyRecipe(menuItemName);
@@ -234,7 +234,7 @@ export const kitchenPrepService = {
   // ── Scaling math ─────────────────────────────────────────────────────────
 
   /**
-   * Scale a recipe to a guest count. Pure maths -- no DB writes. The
+   * Scale a recipe to a guest count. Pure maths - no DB writes. The
    * multiplier is `guestCount / base_servings`. Each ingredient quantity
    * is multiplied by it.
    */
@@ -278,15 +278,15 @@ export const kitchenPrepService = {
    *     prep ends at:    cook starts at
    *     prep starts at:  prep ends at - prep_time_min
    *
-   * Pure compute -- doesn't write anything. Caller decides what to do
+   * Pure compute - doesn't write anything. Caller decides what to do
    * with the result.
    */
   async planTasksForOrder(companyId: string, orderId: string, client?: typeof supabase): Promise<PrepTask[]> {
-    // Wave 70.13 -- accept the optional client. Pre-Wave-70.13 the
+    // Wave 70.13 - accept the optional client. Pre-Wave-70.13 the
     // planner always used the global browser supabase import, which
     // has no session when called from a server-side context (regen
     // API, cron, postCreationCascade). RLS then hid every read and
-    // the planner returned [] -- ensurePrepTasksForOrder reported
+    // the planner returned [] - ensurePrepTasksForOrder reported
     // "no menu items" even when items existed. Now: thread the
     // client through so the service-role client passed by the API
     // bypasses RLS.
@@ -324,17 +324,17 @@ export const kitchenPrepService = {
 
     const guestCount = Number(order.final_guest_count || order.guest_count || 1);
 
-    // Wave 70.10 -- the planner used to only read orders.menu_items
+    // Wave 70.10 - the planner used to only read orders.menu_items
     // (the jsonb snapshot column). For quote-derived orders the
     // canonical line items often live in the order_items table and
-    // the jsonb is null until orderSyncService fires -- so the
+    // the jsonb is null until orderSyncService fires - so the
     // planner returned [] and the regen API reported "no menu
     // items" on every same-day order from a quote. Now: if the
     // jsonb is empty, fall back to order_items so the planner
     // works regardless of which write path created the order.
     let items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
     if (items.length === 0) {
-      // Wave 70.13 -- also use the threaded client so this read
+      // Wave 70.13 - also use the threaded client so this read
       // works server-side.
       const { data: relRows, error: relErr } = await sb
         .from("order_items")
@@ -387,14 +387,14 @@ export const kitchenPrepService = {
 
       // Stamp region_id from the order so RLS region-scoped policies
       // surface this task to the right branch's chefs only. Without
-      // this every task lands NULL and is visible company-wide -- a
+      // this every task lands NULL and is visible company-wide - a
       // cross-branch leak the moment a region_admin signs in.
       const orderRegionId = (order as any).region_id ?? null;
 
       // Each line yields a prep + cook task (when the recipe defines
       // them). Originally the cook task was nested under the prep gate,
       // so a dish with prep_min=0 and cook_min>0 silently dropped its
-      // cook task. Independent gates now -- audit Agent 6.
+      // cook task. Independent gates now - audit Agent 6.
       if (prepMin > 0) {
         tasks.push({
           order_id: orderId,
@@ -443,7 +443,7 @@ export const kitchenPrepService = {
     // global anon client (RLS-gated). Server callers (post-order
     // cascade, leads route) inject a service-role client.
     const sb: any = client || supabase;
-    // Wave 70.13 -- thread the client through to every nested
+    // Wave 70.13 - thread the client through to every nested
     // helper so server-side callers (regen API, cron, cascade)
     // bypass RLS the same way the orderMeta + tasks reads do.
     const settings = await this.getKitchenSettings(companyId, client);
@@ -451,7 +451,7 @@ export const kitchenPrepService = {
 
     // Quarantine guard. Imported orders (rows brought in from a prior
     // system at onboarding time) must not spin up kitchen prep tasks
-    // -- the events already happened. We check the order row itself
+    // - the events already happened. We check the order row itself
     // for imported_at / comms_paused_until before planning anything.
     const { data: orderMeta, error: orderMetaErr } = await sb
       .from("orders")
@@ -466,17 +466,17 @@ export const kitchenPrepService = {
       const paused = (orderMeta as any).comms_paused_until;
       const isPaused = paused && new Date(paused) > new Date();
       if (importedAt || isPaused) {
-        console.log(`[kitchenPrep] order ${orderId} is in import quarantine -- skipping prep generation`);
+        console.log(`[kitchenPrep] order ${orderId} is in import quarantine - skipping prep generation`);
         return { created: 0, skippedReason: importedAt ? "import_quarantine" : "comms_paused" };
       }
-      // Also skip if the event_date is in the past -- even fresh
+      // Also skip if the event_date is in the past - even fresh
       // status changes on historical orders shouldn't trigger prep.
       //
-      // Wave 70.9 -- compare YYYY-MM-DD strings lexicographically
+      // Wave 70.9 - compare YYYY-MM-DD strings lexicographically
       // (ISO dates are lexically sortable). Today's event passes;
       // yesterday's does not.
       //
-      // Wave 70.11 -- opts.force now also bypasses the past-date
+      // Wave 70.11 - opts.force now also bypasses the past-date
       // guard. A manual operator-triggered regen (e.g. an admin
       // recovering a seed-data order in dev, or backfilling a
       // historical order that needs paperwork) is an explicit
@@ -486,7 +486,7 @@ export const kitchenPrepService = {
         const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
         const todayIso = new Date().toISOString().slice(0, 10);
         if (eventDateIso < todayIso) {
-          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} -- skipping prep generation (pass force=true to override)`);
+          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} - skipping prep generation (pass force=true to override)`);
           return { created: 0, skippedReason: "event_in_past" };
         }
       }
@@ -499,7 +499,7 @@ export const kitchenPrepService = {
     //
     // opts.force=true (used by guest-count rescale flows) soft-deletes
     // existing PENDING tasks first and re-plans against the new guest
-    // count. In-progress tasks are preserved -- the chef has already
+    // count. In-progress tasks are preserved - the chef has already
     // started, you can't undo that. Audit Kitchen G3.
     const { data: existing, error: existingErr } = await sb
       .from("kitchen_prep_tasks")
@@ -523,7 +523,7 @@ export const kitchenPrepService = {
         }
         // Continue to re-plan below.
       } else {
-        console.log(`[kitchenPrep] order ${orderId} already has pending tasks -- skipping regen`);
+        console.log(`[kitchenPrep] order ${orderId} already has pending tasks - skipping regen`);
         return { created: 0, skippedReason: "already_has_pending_tasks" };
       }
     }
@@ -539,7 +539,7 @@ export const kitchenPrepService = {
     const rows = planned.map(t => ({
       company_id: companyId,
       order_id: orderId,
-      // region_id flows from planTasksForOrder -- defended here too in
+      // region_id flows from planTasksForOrder - defended here too in
       // case anyone ever calls insert without going through the planner.
       region_id: (t as any).region_id ?? null,
       menu_item_name: t.menu_item_name,
@@ -657,7 +657,7 @@ export const kitchenPrepService = {
     // Wave 25: chain reaction. When this task completion brings the
     // order to "all prep tasks done", auto-flip orders.status to
     // 'ready' so the dispatch dashboard sees the order without the
-    // chef having to also tap an "all done" button. Best-effort -- a
+    // chef having to also tap an "all done" button. Best-effort - a
     // failure to compute or flip never undoes the task completion
     // itself, the operator can still flip status manually from
     // /admin/orders.
@@ -675,7 +675,7 @@ export const kitchenPrepService = {
   /**
    * Wave 25: when ALL non-skipped kitchen_prep_tasks for an order are
    * status='done', auto-promote the order to status='ready' (and
-   * stamp ready_at). Idempotent -- if the order is already past
+   * stamp ready_at). Idempotent - if the order is already past
    * 'ready' (in_transit / delivered / completed) we no-op so a late
    * task completion doesn't drag the status backwards.
    */
@@ -702,7 +702,7 @@ export const kitchenPrepService = {
     }
     if (!order) return { promoted: false };
     const currentStatus = String((order as any).status || "").toLowerCase();
-    // Statuses already past 'ready' -- don't drag the order backwards.
+    // Statuses already past 'ready' - don't drag the order backwards.
     if (["ready", "in_transit", "delivered", "completed", "cancelled"].includes(currentStatus)) {
       return { promoted: false };
     }
@@ -742,13 +742,13 @@ export const kitchenPrepService = {
    * order. Sums what every order needs, joins to inventory on hand, and
    * computes shortfall = max(0, total_demand - on_hand). This is the
    * math that catches "two orders both need 10kg lettuce, you only have
-   * 12kg" -- one banner instead of two ok / short labels that lie.
+   * 12kg" - one banner instead of two ok / short labels that lie.
    *
    * Pass `regionId` to scope the demand to a single branch:
    *   * Only orders for that branch are aggregated.
    *   * Inventory is sourced from getInventoryForRegion(regionId): the
    *     branch's pinned pool plus shared (company-wide) items. Stock
-   *     pinned to other branches is invisible -- so a CPT prep run
+   *     pinned to other branches is invisible - so a CPT prep run
    *     doesn't think it can draw on JHB's chicken.
    * Pass null to get the company-wide view (legacy behaviour).
    */
@@ -905,12 +905,12 @@ export const kitchenPrepService = {
   /**
    * Active stations for a company, ordered by display_order. The migration
    * seeds defaults (Prep / Cook / Cold prep / Pack) for every existing
-   * tenant -- this method is also defensive: if a tenant somehow has no
+   * tenant - this method is also defensive: if a tenant somehow has no
    * stations yet, returns an empty array and the production page handles
    * "no stations configured" gracefully.
    */
   async getStationsForCompany(companyId: string, client?: typeof supabase): Promise<KitchenStation[]> {
-    // Wave 70.13 -- thread the client through for server-side callers.
+    // Wave 70.13 - thread the client through for server-side callers.
     const sb: any = client || supabase;
     const { data, error } = await sb
       .from("kitchen_stations")
@@ -982,7 +982,7 @@ export const kitchenPrepService = {
 
   /**
    * Tasks for the company in a date range, joined with station info. This
-   * is what the production timeline reads -- one query, all the data the
+   * is what the production timeline reads - one query, all the data the
    * day view needs.
    */
   async getTasksForDateRange(companyId: string, fromISO: string, toISO: string): Promise<any[]> {
@@ -1058,7 +1058,7 @@ export const kitchenPrepService = {
   },
 
   /**
-   * Mark the allergen check passed for an order -- stamps every prep task on
+   * Mark the allergen check passed for an order - stamps every prep task on
    * that order so we have an audit trail of who confirmed it and when.
    */
   async recordAllergenCheck(orderId: string, userId: string, status: "passed" | "overridden"): Promise<void> {
@@ -1129,7 +1129,7 @@ export const kitchenPrepService = {
   // ── Phase 3: yield variance ──────────────────────────────────────────────
   /**
    * Record actual yield when a task is marked done. The variance can be
-   * computed off (actual_yield - planned_yield) / planned_yield -- we keep
+   * computed off (actual_yield - planned_yield) / planned_yield - we keep
    * the math out of the DB so it stays simple and readable.
    */
   async recordTaskYield(
@@ -1150,8 +1150,8 @@ export const kitchenPrepService = {
   /**
    * Roll-up of completed-task stats per chef across a date window. Gives
    * the duty page a "who's pulling weight" view without forcing a separate
-   * report screen. Three numbers per chef -- count, on-time %, avg yield
-   * variance -- all derived from kitchen_prep_tasks.
+   * report screen. Three numbers per chef - count, on-time %, avg yield
+   * variance - all derived from kitchen_prep_tasks.
    */
   async getChefPerformance(
     companyId: string,
@@ -1331,7 +1331,7 @@ export const kitchenPrepService = {
   // ── Phase 4: tomorrow + day-after preview ────────────────────────────────
   /**
    * Light read of upcoming orders to feed the dashboard's "what's next"
-   * preview. Two days only -- this is a glance, not a planning tool.
+   * preview. Two days only - this is a glance, not a planning tool.
    */
   async getUpcomingPreview(companyId: string, days: number = 2): Promise<Array<{
     date: string;
@@ -1384,7 +1384,7 @@ export const kitchenPrepService = {
   // ── Phase 4: recipe accuracy report (surfaces yield variance) ────────────
   /**
    * Aggregates yield variance per recipe across a window. Surfaces the
-   * Phase 3 schema work as a clean read -- which dishes the kitchen
+   * Phase 3 schema work as a clean read - which dishes the kitchen
    * consistently over- or under-yields on, with the sample size so users
    * can judge confidence.
    */

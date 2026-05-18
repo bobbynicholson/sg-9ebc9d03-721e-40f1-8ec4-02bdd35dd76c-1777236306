@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { getAuthorizationUrl } from "@/services/accountingIntegrationService";
 
 /**
- * Wave 70 -- start the Sage OAuth dance. Mirrors the Xero pattern.
+ * Wave 70 - start the Sage OAuth dance. Mirrors the Xero pattern.
  *
  * Requires the user to be authenticated as a company_admin / admin
  * / owner; the company_id is passed in the query string and stored

@@ -185,7 +185,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq("id", invoice.id);
     if (invErr) {
-      // Don't unwind the payment update -- log and continue, the admin
+      // Don't unwind the payment update - log and continue, the admin
       // can fix invoice totals manually if this rare path hits.
       console.error("verify-claim: invoice update failed", invErr);
     }
@@ -195,7 +195,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // order to `completed`. So a fully-paid EFT order would sit at
     // `confirmed` forever. Mirror the close logic from
     // payment-confirmation.ts: when this verify makes the linked
-    // invoice fully paid, close the order out -- but only if the order
+    // invoice fully paid, close the order out - but only if the order
     // is currently `confirmed`. Skip if it's already `completed` or
     // `cancelled` so we don't undo a cancellation that hit between
     // claim and verify.
@@ -230,7 +230,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               })
               .eq("id", orderRow.id);
             if (closeErr) {
-              // Log but never unwind the verify -- the admin can flip
+              // Log but never unwind the verify - the admin can flip
               // the order to completed manually if this rare branch hits.
               console.error("verify-claim: order close failed", closeErr);
             } else {
@@ -289,7 +289,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       } catch (e) {
-        // Outer guard -- closing the order must never roll back a
+        // Outer guard - closing the order must never roll back a
         // successful verification.
         console.error("verify-claim: order close branch threw", e);
       }
@@ -310,7 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           recipient_id: clientUserId,
           user_id: clientUserId,
           notification_type: "payment_received",
-          title: "Payment received -- thanks",
+          title: "Payment received - thanks",
           message:
             `We've matched your EFT against ${invoice.invoice_number}. ` +
             (isFullyPaid

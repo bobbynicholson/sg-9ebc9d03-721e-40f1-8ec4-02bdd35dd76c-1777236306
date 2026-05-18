@@ -1,16 +1,16 @@
 /**
- * DriverNav -- Wave 70.10
+ * DriverNav - Wave 70.10
  *
  * Restructured into the kitchen-style 3-section + footer pattern.
  * A driver's mental model is "what am I driving today / where have
- * I been / how much have I earned / account stuff" -- the original
+ * I been / how much have I earned / account stuff" - the original
  * 4 sections gave Notifications + Profile their own sections with
  * one item each, wasting hierarchy on quiet items.
  *
  * Now:
- *   LIVE NOW    -- Today (was Overview), Routes, GPS Tracking
- *   HISTORY     -- All Deliveries, Earnings, Schedule
- *   Footer      -- Notifications, Profile
+ *   LIVE NOW    - Today (was Overview), Routes, GPS Tracking
+ *   HISTORY     - All Deliveries, Earnings, Schedule
+ *   Footer      - Notifications, Profile
  *
  * Digital clock + skip-to-content land for free via PortalSidebar.
  */

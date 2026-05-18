@@ -121,7 +121,7 @@ function NotificationsPage() {
 
   // Wave 24: bulk-clear notifications older than the shared stale
   // threshold. Mirrors the team-portal pattern. Distinct from "Delete
-  // Read" -- this catches anything 14d+ regardless of read status, so
+  // Read" - this catches anything 14d+ regardless of read status, so
   // an old urgent that was never opened still gets swept up.
   const handleClearStale = async () => {
     const stale = notifications.filter((n) => isStaleNotification(n.created_at));
@@ -334,7 +334,7 @@ function NotificationsPage() {
                 Delete Read
               </Button>
               {/* Wave 24: clear stale rows older than 14 days. Catches
-                  the unread-and-old case "Delete Read" misses -- e.g.
+                  the unread-and-old case "Delete Read" misses - e.g.
                   the spit-braai-delivery 19-day-old "Order Ready for
                   Pickup!" that was urgent + unread for weeks. */}
               <Button
@@ -439,7 +439,7 @@ function NotificationsPage() {
                                 )}
                               </div>
 
-                              {/* Action row -- View Details toggles the
+                              {/* Action row - View Details toggles the
                                   accordion below, primary action button
                                   varies by related entity. Quote
                                   notifications get a dedicated Edit
@@ -455,7 +455,7 @@ function NotificationsPage() {
                                 // cancellation / postponement requests) get
                                 // their own primary CTA. Without this, the
                                 // amendment_requested row only shows a
-                                // generic "Open" -- yesterday's quote-edit
+                                // generic "Open" - yesterday's quote-edit
                                 // notifications had a coloured "Edit quote"
                                 // button and Bobby noticed the regression.
                                 //

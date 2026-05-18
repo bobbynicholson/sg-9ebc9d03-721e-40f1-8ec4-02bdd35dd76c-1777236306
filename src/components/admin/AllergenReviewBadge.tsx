@@ -1,11 +1,11 @@
 /**
- * AllergenReviewBadge -- visual indicator for menu_items that haven't
+ * AllergenReviewBadge - visual indicator for menu_items that haven't
  * had an allergen review.
  *
  * Phase 1 P0-15 added menu_items.allergens_reviewed_at + reviewed_by
  * columns. NULL means "not yet reviewed"; a non-null timestamp means
  * an admin / kitchen lead explicitly signed off on the allergen
- * fields. Without a UI surface, the data column is invisible -- the
+ * fields. Without a UI surface, the data column is invisible - the
  * kitchen prep view and quote builder still treat blank allergens as
  * "allergen-free", which was the original P0 risk.
  *

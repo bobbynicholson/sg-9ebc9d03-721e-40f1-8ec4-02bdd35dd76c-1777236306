@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "PATCH") {
       // Allow the wizard to save the (operator-edited) mapping back
       // before running the preview step. Only a small allowlist of
-      // fields can be patched -- never status, never company_id.
+      // fields can be patched - never status, never company_id.
       const body = (req.body || {}) as any;
       const patch: any = {};
       if (body.mapping !== undefined) patch.mapping = body.mapping;

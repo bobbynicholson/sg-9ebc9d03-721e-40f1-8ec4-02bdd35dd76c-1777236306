@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const supabase = getServiceSupabase();
 
-  // Rate-limit this read endpoint -- 600 req/IP/min is generous but stops
+  // Rate-limit this read endpoint - 600 req/IP/min is generous but stops
   // scrapers cold.
   const ip = getClientIp(req as any);
   const ipHash = hashIp(ip);
@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Resolve form. When the snippet specifies a slug we MUST match it
-  // exactly -- the previous behaviour silently fell back to the first
+  // exactly - the previous behaviour silently fell back to the first
   // active form, which leaked Form B to a visitor expecting Form A. A
   // null/empty slug still maps to the tenant's first active form (the
   // shorthand "default" snippet).
@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const form = forms[0];
 
-  // Best-effort view counter -- fire-and-forget so a slow update never blocks
+  // Best-effort view counter - fire-and-forget so a slow update never blocks
   // the response. Use rpc-style increment to avoid lost updates under race.
   void (async () => {
     try {
@@ -117,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .update({ views_count: next })
           .eq("id", form.id);
       } catch {
-        // Swallow -- view counting is non-critical telemetry.
+        // Swallow - view counting is non-critical telemetry.
       }
     }
   })();

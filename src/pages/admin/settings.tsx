@@ -141,7 +141,7 @@ function SettingsPage() {
 
       // Cast to any so the new financial columns (added in
       // migration companies_financial_settings_columns) compile
-      // without regenerating Supabase types -- the type file is
+      // without regenerating Supabase types - the type file is
       // 370k+ chars and rebuilding it for three new columns
       // would balloon every diff in the project.
       const { data: company } = await (supabase as any)
@@ -167,7 +167,7 @@ function SettingsPage() {
           },
           financial: {
             ...prev.financial,
-            // companies columns are the canonical source -- override
+            // companies columns are the canonical source - override
             // the localStorage / user_metadata copy so a colleague
             // who set values on another machine doesn't get stale
             // local state. finalOrderChangeDays maps onto the
@@ -1318,7 +1318,7 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Sticky save bar -- always visible at the bottom of the page so
+      {/* Sticky save bar - always visible at the bottom of the page so
           the operator never has to scroll back up to save what they
           changed in a tab. Slides into view only when there are unsaved
           edits, and hides itself again on save. */}

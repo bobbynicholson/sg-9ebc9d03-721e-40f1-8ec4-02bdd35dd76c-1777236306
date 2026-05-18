@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ReconcileSlipDrawer -- the bridge between AI-extracted slip lines
+ * ReconcileSlipDrawer - the bridge between AI-extracted slip lines
  * and the two systems they need to feed:
  *   1. purchase_receipts + purchase_receipt_items (tax-deductibility log)
  *   2. inventory_items via receiveStock() (stock + batches + transactions)
@@ -202,7 +202,7 @@ export function ReconcileSlipDrawer({
           .select("id, category_code, display_name, group_label, deductibility, match_keywords")
           .eq("is_active", true)
           .order("display_order"),
-        // Last 200 receipts -- gives us the recent-vendor list so the
+        // Last 200 receipts - gives us the recent-vendor list so the
         // operator doesn't keep retyping "Pick n Pay" or "Makro".
         supabase
           .from("purchase_receipts")
@@ -212,7 +212,7 @@ export function ReconcileSlipDrawer({
           .not("vendor", "is", null)
           .order("created_at", { ascending: false })
           .limit(200),
-        // Recent line descriptions from this tenant -- useful as auto-
+        // Recent line descriptions from this tenant - useful as auto-
         // suggestions when the operator starts typing a description.
         (supabase as any)
           .from("purchase_receipt_items")
@@ -273,7 +273,7 @@ export function ReconcileSlipDrawer({
             nextInvQuery = nextInvQuery || ln.description;
           }
         } else {
-          // Carryover gave us an id -- look up the name for the input.
+          // Carryover gave us an id - look up the name for the input.
           const matched = inv.find((it) => it.id === nextInvId);
           if (matched) nextInvQuery = matched.item_name;
         }
@@ -401,7 +401,7 @@ export function ReconcileSlipDrawer({
       let receiptId: string;
       if (existingReceiptId) {
         // Rescan flow: update the existing row's header fields and
-        // reuse its id. Don't touch image_path/url -- the original
+        // reuse its id. Don't touch image_path/url - the original
         // image is what we just rescanned.
         const { error: updErr } = await supabase
           .from("purchase_receipts")
@@ -489,7 +489,7 @@ export function ReconcileSlipDrawer({
       }
 
       // Wipe any draft items the rescan API persisted on this receipt
-      // first -- otherwise saving on top of a draft would leave the
+      // first - otherwise saving on top of a draft would leave the
       // unchecked AI rows and the operator's confirmed rows side by
       // side. Only purges drafts (is_draft=true), so anything the
       // operator already saved on a prior session survives.
@@ -609,7 +609,7 @@ export function ReconcileSlipDrawer({
           {manualMode
             ? "Capture a shop run by hand. Tag each line for tax and, if you stock it, feed your inventory."
             : existingReceiptId
-              ? "AI re-extracted the lines from this slip's image. Confirm or fix the tax tags, then save -- new lines get added to the existing slip."
+              ? "AI re-extracted the lines from this slip's image. Confirm or fix the tax tags, then save - new lines get added to the existing slip."
               : "Confirm each line's tax tag and, if it's something you stock, link it to inventory. Lines you tick ‘Add to stock’ will be received against your inventory at the unit price shown."}
         </p>
 

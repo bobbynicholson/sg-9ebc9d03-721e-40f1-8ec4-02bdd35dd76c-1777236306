@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 50 C3 -- nightly stale-quote expiry sweep.
+ * Wave 50 C3 - nightly stale-quote expiry sweep.
  *
  * Audit (Specialist 4) found quotes past their valid_until date
  * only flipped to status='expired' lazily, when a customer next

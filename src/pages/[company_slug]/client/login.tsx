@@ -1,5 +1,5 @@
 /**
- * Tenant-scoped CLIENT login -- magic-link only.
+ * Tenant-scoped CLIENT login - magic-link only.
  *
  * URL: /{company_slug}/client/login?email={prefill}&next={path}
  *
@@ -22,7 +22,7 @@
  *
  * Security:
  *   - Always shows "check your inbox" regardless of whether the email
- *     is on file -- the API doesn't reveal account existence.
+ *     is on file - the API doesn't reveal account existence.
  *   - Branding loaded via SECURITY DEFINER RPC `get_company_branding`,
  *     never via direct companies SELECT.
  */
@@ -114,7 +114,7 @@ function writeCachedEmail(slug: string, email: string) {
   try {
     window.localStorage.setItem(EMAIL_CACHE_PREFIX + slug, email);
   } catch {
-    /* private browsing / quota -- silently skip */
+    /* private browsing / quota - silently skip */
   }
 }
 
@@ -137,7 +137,7 @@ export default function CompanyClientLoginPage({
   // ?reason=view_orders we reframe the headline + CTA so a customer
   // who clicks "Email me my orders" from marketing copy / website
   // footer sees a purpose-shaped page instead of a generic sign-in.
-  // The actual flow is identical -- it's still a magic-link request.
+  // The actual flow is identical - it's still a magic-link request.
   const isViewOrdersIntent = reason === "view_orders";
 
   const [email, setEmail] = useState("");
@@ -145,7 +145,7 @@ export default function CompanyClientLoginPage({
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   // Seed from getStaticProps so the very first paint already shows the
-  // tenant's logo and palette -- no flash of CateringMS defaults.
+  // tenant's logo and palette - no flash of CateringMS defaults.
   const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(() =>
     brandFromInitial(initialBranding),
   );
@@ -167,7 +167,7 @@ export default function CompanyClientLoginPage({
   // Refresh branding from the SECURITY DEFINER RPC once we're on the
   // client. Catches the case where the operator has just saved new
   // colours and we're still serving an ISR-cached page from before the
-  // change. Falls through silently if the call fails -- the SSG seed is
+  // change. Falls through silently if the call fails - the SSG seed is
   // already on the page.
   useEffect(() => {
     if (!company_slug || typeof company_slug !== "string") return;
@@ -334,7 +334,7 @@ export default function CompanyClientLoginPage({
                 </p>
 
                 {/* The single most common support ticket on a magic-link
-                    portal is "I can't sign in" -- usually because the
+                    portal is "I can't sign in" - usually because the
                     client tried a different email than the one they
                     used to request the quote. Surface this rule loud
                     and clear before they type. */}

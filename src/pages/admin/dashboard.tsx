@@ -170,7 +170,7 @@ function AdminDashboardPage() {
       // Phase 12 #6: quote conversion rate. Pull every quote that
       // closed (accepted / rejected / expired) in the range so we
       // can compute accepted / (accepted + rejected + expired).
-      // Drafts are excluded -- they were never sent so their
+      // Drafts are excluded - they were never sent so their
       // outcome is undecided, not a 'loss'.
       const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes] = await Promise.all([
         supabase
@@ -186,7 +186,7 @@ function AdminDashboardPage() {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent"]),
-        // Quotes "in circulation" -- sent / viewed / revised. These are
+        // Quotes "in circulation" - sent / viewed / revised. These are
         // out for client response: not drafts, not closed. Pulls the
         // total_amount for each so the dashboard can show both count
         // and rand value of pipeline awaiting decision.
@@ -222,8 +222,8 @@ function AdminDashboardPage() {
 
       const orders = ordersRes.data || [];
 
-      // -- Revenue maths --------------------------------------------------
-      // BOOKED: order is locked in (not cancelled, not draft) -- the catering
+      // - Revenue maths --------------------------------------------------
+      // BOOKED: order is locked in (not cancelled, not draft) - the catering
       //   business has committed kitchen time. Counts for total_amount.
       // COLLECTED: money actually received so far. Sum of:
       //   - amount_paid when set
@@ -248,7 +248,7 @@ function AdminDashboardPage() {
         if (status === "cancelled") continue;
 
         // Booked: client has actually committed to the booking. Gate is
-        // explicit confirmation, not status advancement -- either the
+        // explicit confirmation, not status advancement - either the
         // deposit's been paid, the admin manually marked confirmed_at,
         // or money has come in (paid / partial).
         const isBooked =
@@ -315,7 +315,7 @@ function AdminDashboardPage() {
 
       // Cancellations + refunds tile data. Pulls cancelled orders in
       // the date window plus all pending refunds for this tenant
-      // (refunds are queue-style -- pending refunds are about
+      // (refunds are queue-style - pending refunds are about
       // "what's outstanding right now", not bound to the date filter).
       const cancelledOrdersInRange = orders.filter((o: any) =>
         String(o.status || "").toLowerCase() === "cancelled",
@@ -445,7 +445,7 @@ function AdminDashboardPage() {
             </WidgetErrorBoundary>
           ) : null}
 
-          {/* Phase 9 #5: Today's pulse -- live KPI strip with the
+          {/* Phase 9 #5: Today's pulse - live KPI strip with the
               numbers the dispatch lead actually checks every morning:
               today's confirmed events, in-transit deliveries, drivers
               on shift, kitchen prep load, money landed today. Refreshes
@@ -548,14 +548,14 @@ function AdminDashboardPage() {
           <WidgetErrorBoundary label="Pending refunds"><PendingRefundsWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 19 #8: overdue invoices list. The matching surface
-              for money waiting to come in -- invoices past due_date
+              for money waiting to come in - invoices past due_date
               that haven't been paid or cancelled, oldest first.
               Self-hides on a tenant with no overdue invoices. */}
           <WidgetErrorBoundary label="Overdue invoices"><OverdueInvoicesWidget companyId={companyId} /></WidgetErrorBoundary>
 
           {/* Phase 19 #10: recent event ratings. Closes the loop on
               the Phase 18 #10 quick-rating capture in the order
-              drawer -- 30-day average plus the last 5 rated orders.
+              drawer - 30-day average plus the last 5 rated orders.
               Self-hides until a tenant has stamped at least one
               rating. */}
           <WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -721,7 +721,7 @@ function AdminDashboardPage() {
             />
           </div>
 
-          {/* Phase 11 #7 + Phase 12 #6: secondary stat row -- VAT
+          {/* Phase 11 #7 + Phase 12 #6: secondary stat row - VAT
               and quote conversion. Each tile self-hides when its
               underlying sample is empty so a fresh tenant doesn't
               see meaningless zeros. Renders the row only if at
@@ -745,7 +745,7 @@ function AdminDashboardPage() {
                   label="Quote conversion"
                   value={`${stats.quoteConversionRate.toFixed(0)}%`}
                   hint={`${stats.quoteConversionSample} closed in range`}
-                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded -- they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
+                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
                   icon={CheckCircle}
                   iconColor="text-emerald-600"
                   badge={{ text: "Closed", tone: "green" }}
@@ -755,7 +755,7 @@ function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Pipeline tile -- quotes that have been sent but not yet
+          {/* Pipeline tile - quotes that have been sent but not yet
               accepted or rejected. Both the count and the rand value
               matter: count tells the team how many follow-ups are due,
               value tells the owner how much pipeline is sitting in
@@ -909,7 +909,7 @@ function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Business Intelligence -- charts + insight cards. Lives at
+          {/* Business Intelligence - charts + insight cards. Lives at
               the bottom of the dashboard, collapsible, persists state per
               tenant. Owns its own data fetch (24-month window of orders +
               quotes + leads, narrowed by the global region filter). */}

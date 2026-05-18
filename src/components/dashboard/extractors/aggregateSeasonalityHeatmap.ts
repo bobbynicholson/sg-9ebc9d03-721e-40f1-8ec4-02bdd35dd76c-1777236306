@@ -1,6 +1,6 @@
 import { toLocalISO } from "@/lib/localDate";
 /**
- * Tier 2 chart 1 -- Seasonality heatmap.
+ * Tier 2 chart 1 - Seasonality heatmap.
  *
  * 12-month grid: weeks across, day-of-week down. Each cell = events
  * on that day. Toggle output between count and revenue at the call

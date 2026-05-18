@@ -36,7 +36,7 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Honeypot field -- bots fill every input; humans never see it
+  // Honeypot field - bots fill every input; humans never see it
   // because it's hidden. If it's non-empty when we POST, the API
   // treats the request as spam.
   const [website, setWebsite] = useState("");
@@ -346,7 +346,7 @@ export default function ContactPage() {
                     />
                   </div>
 
-                  {/* Honeypot -- hidden from real users, bots fill it. */}
+                  {/* Honeypot - hidden from real users, bots fill it. */}
                   <input
                     type="text"
                     name="website"

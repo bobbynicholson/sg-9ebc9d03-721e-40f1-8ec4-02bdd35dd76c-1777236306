@@ -1,38 +1,38 @@
 /**
- * ShoppingNav -- Wave 70.29 redesign.
+ * ShoppingNav - Wave 70.29 redesign.
  *
  * Restructured from the original 3-section static list (Live now /
  * Procurement / Footer) into 4 sections plus the live-intelligence
  * layer that's now proven on kitchen (Wave 70.7) and cleaning
  * (Wave 70.28).
  *
- *   LIVE NOW    -- Today, Buy list, Active shop, Receipts   (4 items, always open)
- *   CATALOGUE   -- Inventory, Suppliers                     (2 items, closed)
- *   INSIGHTS    -- Kitchen demand, Spend                    (2 items, closed)
- *   FOOTER      -- Notifications, Settings                  (footer treatment)
+ *   LIVE NOW    - Today, Buy list, Active shop, Receipts   (4 items, always open)
+ *   CATALOGUE   - Inventory, Suppliers                     (2 items, closed)
+ *   INSIGHTS    - Kitchen demand, Spend                    (2 items, closed)
+ *   FOOTER      - Notifications, Settings                  (footer treatment)
  *
  * Live layer:
  *   - ShoppingModeBadge       quiet / plan / run / reconcile with
  *                              subline copy + tap-to-override popover
  *   - ShoppingLiveStateStrip  4 pills: Short / Active / Receipts /
- *                              Spend -- each deep-links to the right view
+ *                              Spend - each deep-links to the right view
  *   - ShoppingSmartQuickActions  mobile-only, rotates 3 tiles by mode
  *   - useShoppingModeToast    one-shot toast when run mode kicks in
  *
  * Renames vs old nav (with rationale):
  *   "Purchase Orders" -> "Active shop"
- *     -- "Purchase Orders" sounds like supplier-issued POs to a
+ *     - "Purchase Orders" sounds like supplier-issued POs to a
  *        procurement person; the page actually shows shopping_lists
  *        the team is running.
  *   "Stock Alerts"    -> "Buy list"
- *     -- Reframes the page as "things to buy" (action) instead of
+ *     - Reframes the page as "things to buy" (action) instead of
  *        "alerts" (status). Same data, more imperative.
  *   "Current Stock"   -> "Inventory"
- *     -- Shorter, matches the page header.
+ *     - Shorter, matches the page header.
  *   "Receipt scanner" -> "Receipts"
- *     -- The page does both scan + view; "Receipts" covers both.
+ *     - The page does both scan + view; "Receipts" covers both.
  *   "Invoices"        -> "Spend"
- *     -- These aren't supplier-issued invoices; they're our
+ *     - These aren't supplier-issued invoices; they're our
  *        completed shopping_lists. "Spend" is what the owner
  *        actually wants to see.
  *
@@ -71,7 +71,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
   const mode = useShoppingPortalMode();
   // Wave 70.30: the active-list hook drives "Your list" framing
   // on the Active shop nav item + live item counts. One-shopper-
-  // per-tenant assumption -- we surface "yours" when the list is
+  // per-tenant assumption - we surface "yours" when the list is
   // assigned to the current user, "team" otherwise.
   const activeList = useActiveShoppingList();
 
@@ -164,7 +164,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               return null;
             },
             liveDescription: () => {
-              if (!activeList.list) return "No list running -- open Buy list";
+              if (!activeList.list) return "No list running - open Buy list";
               if (remainingOnList === 0 && activeList.items.length > 0) {
                 return "Ready to file receipt";
               }

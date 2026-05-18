@@ -78,7 +78,7 @@ export const timeClockService = {
   async clockOut(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
     // Resolve the staff's company up front so we can scope every read
     // and write. Audit (May 2026) found that clockOut was matching the
-    // first open session by staff_id alone -- if a staff record existed
+    // first open session by staff_id alone - if a staff record existed
     // across tenants (super-admin, re-invited user) it could close the
     // wrong tenant's session and stamp earnings on the wrong tenant.
     const { data: staffProfile, error: staffProfileErr2 } = await supabase

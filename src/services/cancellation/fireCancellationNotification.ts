@@ -1,5 +1,5 @@
 /**
- * Wave 28.6 -- single rich admin notification for a cancellation.
+ * Wave 28.6 - single rich admin notification for a cancellation.
  *
  * Replaces the "spam admins per channel" pattern. One broadcast fires
  * with a structured message that includes:
@@ -10,7 +10,7 @@
  *   - link straight to the order detail
  *
  * Idempotency is handled by notificationService.broadcastNotification's
- * dedup window (60 min) -- a duplicate cancel call won't double-fire.
+ * dedup window (60 min) - a duplicate cancel call won't double-fire.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -93,7 +93,7 @@ export async function fireRichCancellationNotification(
       input.requestedBy === "client" ? "via self-service" : "by the team";
 
     const message =
-      `${who} cancelled order ${orderRef} ${initiator} -- ${daysOutLabel}.\n` +
+      `${who} cancelled order ${orderRef} ${initiator} - ${daysOutLabel}.\n` +
       `${payoutLine}\n` +
       `${committedLine}\n` +
       `The ${eventLabel} slot is now free to re-offer.` +
@@ -115,7 +115,7 @@ export async function fireRichCancellationNotification(
           UserRole.ADMIN,
           "owner" as any,
         ],
-        // Dedup -- broadcastNotification uses (type + relatedEntityId)
+        // Dedup - broadcastNotification uses (type + relatedEntityId)
         // within the window when dedup:true. Same cancel firing twice
         // (e.g. retry path) collapses to a single admin notification.
         dedup: true,

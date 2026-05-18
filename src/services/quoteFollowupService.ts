@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Quote follow-up service -- traffic-light state per quote + record
+ * Quote follow-up service - traffic-light state per quote + record
  * the operator's manual sends to quote_followup_log.
  *
  * Design notes:
@@ -130,7 +130,7 @@ export function computeFollowupState(
     return {
       light: "green",
       label: "Sequence complete",
-      reason: `Last nudge fired ${daysSinceLastSent}d ago. Three follow-ups is the cap -- archive or chase by phone.`,
+      reason: `Last nudge fired ${daysSinceLastSent}d ago. Three follow-ups is the cap - archive or chase by phone.`,
       nextPosition: null,
       lastSentPosition,
       daysSinceLastSent,
@@ -144,7 +144,7 @@ export function computeFollowupState(
     : cadence.thirdAfterDays;
   const dueIn = dueDay - daysSinceSent;
 
-  // Just sent the previous step -- show a green confirmation pill
+  // Just sent the previous step - show a green confirmation pill
   // for a beat (~24h grace) before flipping to amber.
   if (lastSent && daysSinceLastSent !== null && daysSinceLastSent < 1) {
     return {
@@ -177,8 +177,8 @@ export function computeFollowupState(
       light: "amber",
       label: `Ready to send FU ${nextPosition}`,
       reason: lastSentPosition > 0
-        ? `${daysSinceSent}d since send, ${daysSinceLastSent}d since last nudge -- send FU ${nextPosition} now.`
-        : `${daysSinceSent}d since send -- time for the first nudge.`,
+        ? `${daysSinceSent}d since send, ${daysSinceLastSent}d since last nudge - send FU ${nextPosition} now.`
+        : `${daysSinceSent}d since send - time for the first nudge.`,
       nextPosition,
       lastSentPosition,
       daysSinceLastSent,

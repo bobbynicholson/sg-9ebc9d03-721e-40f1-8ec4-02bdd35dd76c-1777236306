@@ -1,5 +1,5 @@
 /**
- * Tier 1 chart 2 -- Year-over-year comparison strip.
+ * Tier 1 chart 2 - Year-over-year comparison strip.
  *
  * Returns 4 metrics with current/prior totals, delta %, and a 12-bucket
  * sparkline trail. Inputs:
@@ -33,7 +33,7 @@ export interface LeadForYoY {
   id: string;
   status: string | null;
   created_at: string | null;
-  /** Source channel -- manual_add / embed / client_portal_rebook /
+  /** Source channel - manual_add / embed / client_portal_rebook /
    *  ai_import / etc. Tier 4 lead-source funnel groups by this. */
   source?: string | null;
   /** Branch ID. Optional because legacy rows may have null. */
@@ -50,7 +50,7 @@ export interface YoYStripMetric {
   sparkline: number[];
   /** Pre-formatted current value for direct render (R / count / %). */
   display: string;
-  /** "currency" | "count" | "percent" -- consumers can re-format if needed. */
+  /** "currency" | "count" | "percent" - consumers can re-format if needed. */
   format: "currency" | "count" | "percent";
 }
 
@@ -103,7 +103,7 @@ const deltaPct = (current: number, prior: number): number | null => {
  * @param orders   orders covering the last 24 months (event_date)
  * @param quotes   quotes covering the last 24 months (created_at)
  * @param leads    leads covering the last 24 months (created_at)
- * @param now      anchor for "today" -- defaults to new Date(). Used to
+ * @param now      anchor for "today" - defaults to new Date(). Used to
  *                 split current vs prior periods. Tests pass a fixed date.
  */
 export function aggregateYoYStrip(
@@ -175,7 +175,7 @@ export function aggregateYoYStrip(
   const aovPrior = countPrior > 0 ? revPrior / countPrior : 0;
   const aovSpark = revSpark.map((r, i) => (countSpark[i] > 0 ? r / countSpark[i] : 0));
 
-  // ── Conversion rate -- accepted quotes / leads, both keyed by created_at ─
+  // ── Conversion rate - accepted quotes / leads, both keyed by created_at ─
   let leadsCurrent = 0, leadsPrior = 0;
   const leadsSpark = new Array(12).fill(0) as number[];
   for (const l of leads) {

@@ -1,9 +1,9 @@
 /**
- * /admin/orders/delivery-sheet -- printable single-page delivery
+ * /admin/orders/delivery-sheet - printable single-page delivery
  * sheet for the day's events.
  *
  * Phase 13 #1. The kitchen-ticket route (Phase 12 #1) covers
- * a single order; dispatch needs the opposite -- the whole day
+ * a single order; dispatch needs the opposite - the whole day
  * on one A4 sheet for the morning briefing. Until now they were
  * screenshotting the orders kanban or copying rows into a Google
  * Sheet by hand.
@@ -102,7 +102,7 @@ function DeliverySheet() {
 
   return (
     <>
-      <Head><title>Delivery sheet -- {targetDate}</title></Head>
+      <Head><title>Delivery sheet - {targetDate}</title></Head>
       <style jsx global>{`
         @media print {
           .no-print { display: none !important; }

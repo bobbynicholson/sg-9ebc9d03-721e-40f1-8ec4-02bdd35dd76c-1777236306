@@ -13,7 +13,7 @@ import {
  * GET /api/public/embed/[token]/estimate?guests=N&tierId=X
  *
  * Returns a low/high price estimate using the tenant's saved pricing tiers.
- * Public, unauthenticated -- guarded by token + rate-limit.
+ * Public, unauthenticated - guarded by token + rate-limit.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res, { cacheSeconds: 30 });

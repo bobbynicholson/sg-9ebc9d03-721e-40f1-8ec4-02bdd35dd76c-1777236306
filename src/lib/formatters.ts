@@ -1,5 +1,5 @@
 /**
- * Wave 54-58 -- centralised display formatters.
+ * Wave 54-58 - centralised display formatters.
  *
  * Single home for every "render this DB value as a human string"
  * transform on the platform. Pre-Wave-54 each call site invented its
@@ -60,7 +60,7 @@ export function formatDate(
 /**
  * Format a money value. Always 2 dp, en-ZA thousand separator (thin
  * space). The currency code prefix (e.g. "R") is provided by the
- * caller via opts.currency -- the formatter itself stays
+ * caller via opts.currency - the formatter itself stays
  * currency-agnostic.
  *
  * Returns "--" for null / undefined / NaN. Returns "R0.00" for
@@ -106,17 +106,17 @@ export function humaniseEnum(value: string | null | undefined): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }
 
-/** Display tenant timezone identifier. Wave 54 -- hardcoded en-ZA;
+/** Display tenant timezone identifier. Wave 54 - hardcoded en-ZA;
  *  becomes a tenant lookup once companies.timezone is the truth source. */
 export const TENANT_LOCALE = DEFAULT_LOCALE;
 export const TENANT_TIMEZONE = "Africa/Johannesburg";
 
 /**
- * Wave 61 -- proper SA-style ZAR formatter with thousand separators.
+ * Wave 61 - proper SA-style ZAR formatter with thousand separators.
  *
  * Pre-Wave-61 the invoices page formatter (`useTenantCurrency.format`)
  * called `Number(n).toFixed(decimals)` which produces "R 15453.50"
- * with no thousand separator -- unreadable for any tenant with
+ * with no thousand separator - unreadable for any tenant with
  * R250 000+ receivables. The bookkeeper has to count zeros to
  * reconcile against the bank statement.
  *
@@ -146,7 +146,7 @@ export function formatZAR(
     }).format(n);
     // Intl returns "R 15 453,50" by default (comma decimal). The
     // codebase + Bobby's screenshots use dot decimal everywhere
-    // (R 15 453.50) -- normalise so display matches the rest of
+    // (R 15 453.50) - normalise so display matches the rest of
     // the platform.
     return formatted.replace(",", ".");
   } catch {

@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 50 C4 -- automated balance-due reminder sender.
+ * Wave 50 C4 - automated balance-due reminder sender.
  *
  * Audit (Specialist 5) found `update-overdue-invoices` cron only
  * stamped the overdue status; no email actually went out. Operators
@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             subject: `Balance reminder for ${variables.event_name}`,
             bodyHtml:
               `Hi ${variables.first_name},\n\n` +
-              `A friendly nudge -- the balance for ${variables.order_number} ` +
+              `A friendly nudge - the balance for ${variables.order_number} ` +
               `(${variables.event_name}) is ${variables.balance_amount}, due ${variables.due_date}.\n\n` +
               `Reply to this email if anything's changed on your side.\n\n` +
               `Thanks!`,

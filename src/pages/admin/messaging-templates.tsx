@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/messaging-templates -- the central place where the catering
+ * /admin/messaging-templates - the central place where the catering
  * owner edits every email + WhatsApp template the system uses to
  * speak to clients and staff.
  *
@@ -11,7 +11,7 @@
  * body, variable insert chips, live preview, save / reset / cancel.
  *
  * Related pages:
- *   /admin/email-templates -- after-sales lifecycle templates (no
+ *   /admin/email-templates - after-sales lifecycle templates (no
  *   response chasers, payment reminders). That page is intentionally
  *   left alone; it deals with a different lifecycle and uses
  *   localStorage for now. Future: fold both pages into one.
@@ -242,7 +242,7 @@ function MessagingTemplatesPage() {
         </div>
       </div>
 
-      {/* EDITOR DRAWER -- shared resizable host (drag the left edge) */}
+      {/* EDITOR DRAWER - shared resizable host (drag the left edge) */}
       <ComposeDrawerHost open={!!editing} onClose={() => setEditing(null)}>
         {editing && (
           <EditorDrawer

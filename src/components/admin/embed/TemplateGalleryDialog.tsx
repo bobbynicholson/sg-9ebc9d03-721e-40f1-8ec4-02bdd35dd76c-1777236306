@@ -70,7 +70,7 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, onCreate
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           {EMBED_TEMPLATE_CATALOG.map((meta) => {
-            // Demo URL always works -- the loader falls back to its
+            // Demo URL always works - the loader falls back to its
             // built-in fallbackConfig when the API rejects the
             // 'preview' literal as a non-UUID. We removed the
             // embedToken gate that was producing broken-image

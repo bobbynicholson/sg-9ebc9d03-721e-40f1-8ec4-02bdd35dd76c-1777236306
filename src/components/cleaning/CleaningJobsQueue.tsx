@@ -1,5 +1,5 @@
 /**
- * CleaningJobsQueue -- Wave 41 Phase 2.
+ * CleaningJobsQueue - Wave 41 Phase 2.
  *
  * Live ledger of equipment-availability jobs (NOT labour). Each row
  * tells the team:
@@ -13,7 +13,7 @@
  *
  * Bobby's rule: dishwasher jobs cost no extra labour because the
  * machine does the work. Manual jobs may pull a kitchen staffer
- * via a linked staff_shift_tasks row -- if that task is
+ * via a linked staff_shift_tasks row - if that task is
  * billable=FALSE, no extra payroll cost.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -166,7 +166,7 @@ export function CleaningJobsQueue() {
                           <span className="text-slate-500 font-normal">x {r.quantity}</span>
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {r.status === "in_progress" ? "In progress" : "Queued"} -- back in inventory in <strong>{eta}</strong>
+                          {r.status === "in_progress" ? "In progress" : "Queued"} - back in inventory in <strong>{eta}</strong>
                         </p>
                         {r.notes && (
                           <p className="text-xs text-slate-500 mt-1 italic line-clamp-1">

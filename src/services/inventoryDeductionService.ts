@@ -346,7 +346,7 @@ export async function getRecipeFromDb(
 }
 
 /**
- * Legacy synchronous accessor -- kept for callers that already had
+ * Legacy synchronous accessor - kept for callers that already had
  * the constant in hand. Prefer `getRecipeFromDb` for new code.
  */
 export function getRecipe(menuItemName: string): Recipe | undefined {
@@ -358,7 +358,7 @@ export function getRecipe(menuItemName: string): Recipe | undefined {
 /**
  * Calculate total ingredient needs for an order.
  *
- * Async now -- walks the menu items, resolves each recipe via
+ * Async now - walks the menu items, resolves each recipe via
  * getRecipeFromDb, and aggregates the totals. Caller passes
  * companyId so the per-tenant recipes are honoured.
  */
@@ -579,7 +579,7 @@ export async function deductInventoryForOrder(
 
         // Role-fanout to shopping_staff so the procurement team's
         // /team-portal/shopping/notifications inbox has something to
-        // act on. Audit Notif G1 + Inventory G6 -- shopping was
+        // act on. Audit Notif G1 + Inventory G6 - shopping was
         // running blind off the admin's verbal nudges. Non-blocking;
         // a failure here is logged and surfaces in the operator's
         // primary 'stock_low' bell from the insert above. Imported
@@ -638,7 +638,7 @@ export async function deductInventoryForOrder(
 
 /**
  * Reverse + re-run inventory deduction for an order. Used by the
- * amendment cascade -- when an admin approves a guest_count or
+ * amendment cascade - when an admin approves a guest_count or
  * menu_items change, we need to undo the original deduction and
  * deduct against the new order shape.
  *
@@ -741,7 +741,7 @@ export async function recalculateInventoryForOrder(
 
 /**
  * Reverse every prior inventory deduction for an order. Used on
- * cancellation -- the previous code path left deductions in place
+ * cancellation - the previous code path left deductions in place
  * forever, so a 200-guest cancellation permanently removed 40kg of
  * lamb from the books. Reorder thresholds, COGS and pantry counts
  * all went wrong.

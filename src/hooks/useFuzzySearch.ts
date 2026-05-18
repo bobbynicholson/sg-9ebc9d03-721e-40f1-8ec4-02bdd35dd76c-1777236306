@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 /**
- * useFuzzySearch -- a tiny, dependency-free fuzzy matcher for in-memory lists.
+ * useFuzzySearch - a tiny, dependency-free fuzzy matcher for in-memory lists.
  *
  * Built for CateringMS to replace the dumb `.toLowerCase().includes(...)` filters
  * scattered across every admin / team-portal page. It is deliberately small
  * (under 100 lines of real logic) so we don't pull Fuse.js or similar.
  *
  * Scoring tiers (higher = better match, sorted descending):
- *   1000 -- exact field match (case-insensitive)
- *    800 -- field starts with the term
- *    600 -- substring match anywhere in the field
- *    400 -- token-prefix match (each query token starts a word in the field)
- *    200 -- subsequence / fuzzy match (chars appear in order, gap-tolerant)
- *      0 -- no match
+ *   1000 - exact field match (case-insensitive)
+ *    800 - field starts with the term
+ *    600 - substring match anywhere in the field
+ *    400 - token-prefix match (each query token starts a word in the field)
+ *    200 - subsequence / fuzzy match (chars appear in order, gap-tolerant)
+ *      0 - no match
  *
  * The score is summed across all listed fields, with the configured weight.
  * A field's first hit dominates so weights stay meaningful.
@@ -76,17 +76,17 @@ function scoreField(
   if (!haystackRaw) return [0, []];
   const haystack = haystackRaw.toLowerCase();
 
-  // Tier 1 -- exact
+  // Tier 1 - exact
   if (haystack === term) return [1000, [[0, haystackRaw.length]]];
 
-  // Tier 2 -- prefix
+  // Tier 2 - prefix
   if (haystack.startsWith(term)) return [800, [[0, term.length]]];
 
-  // Tier 3 -- substring
+  // Tier 3 - substring
   const sub = haystack.indexOf(term);
   if (sub !== -1) return [600, [[sub, sub + term.length]]];
 
-  // Tier 4 -- token-prefix: every query token starts a word in the haystack
+  // Tier 4 - token-prefix: every query token starts a word in the haystack
   if (tokens.length > 1) {
     const ranges: [number, number][] = [];
     let allHit = true;
@@ -113,7 +113,7 @@ function scoreField(
     if (allHit) return [400, ranges];
   }
 
-  // Tier 5 -- subsequence (fuzzy). Cheap Levenshtein-ish: chars in order, score
+  // Tier 5 - subsequence (fuzzy). Cheap Levenshtein-ish: chars in order, score
   // by density (closer-together hits score higher).
   let h = 0;
   let firstHit = -1;
@@ -154,7 +154,7 @@ function mergeRanges(ranges: [number, number][]): [number, number][] {
 
 /**
  * Render a piece of text with the matched ranges wrapped in <mark> spans.
- * Plain helper -- exported so callers can use it without re-implementing.
+ * Plain helper - exported so callers can use it without re-implementing.
  */
 export function highlightText(text: string, ranges: [number, number][] = []): Array<{ text: string; match: boolean }> {
   if (!text) return [];
@@ -228,7 +228,7 @@ export function useFuzzySearch<T>(
   return { results, debouncedTerm };
 }
 
-/** Convenience -- returns just the items, ordered by score. */
+/** Convenience - returns just the items, ordered by score. */
 export function useFuzzyItems<T>(
   items: T[],
   term: string,

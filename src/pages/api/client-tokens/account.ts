@@ -2,7 +2,7 @@
  * Validate a magic-link (scope=client) token and return every order
  * tied to that email under the catering company.
  *
- * Same shape as /api/client-tokens/validate -- accepts either a fresh
+ * Same shape as /api/client-tokens/validate - accepts either a fresh
  * `?t=...` query token or the cookie set on first visit.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -68,9 +68,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const result = data as any;
   if (!result?.ok) {
     if (rawToken) {
-      // Fresh token but invalid -- don't set a cookie
+      // Fresh token but invalid - don't set a cookie
     } else {
-      // Cookie was bad -- clear it
+      // Cookie was bad - clear it
       res.setHeader("Set-Cookie", `cms_client_account_token=; Max-Age=0; Path=/`);
     }
     return res.status(401).json({ error: result?.code || "invalid" });

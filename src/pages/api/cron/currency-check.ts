@@ -8,7 +8,7 @@
  * alert per 7 days).
  *
  * Two callers, one route:
- *   1. Vercel cron -- daily at 04:00 UTC (06:00 SAST). Auth via
+ *   1. Vercel cron - daily at 04:00 UTC (06:00 SAST). Auth via
  *      Authorization: Bearer ${CRON_SECRET}. Same pattern used by
  *      /api/cron/process-email-queue and /api/cron/late-event-check.
  *   2. Admin "Run Check Now" button on /admin/platform/currency-
@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // -- Auth: cron secret OR super_admin session ---------------------
+  // - Auth: cron secret OR super_admin session ---------------------
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.authorization || "";
   const isCron = !!expected && auth === `Bearer ${expected}`;
@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         isSuperAdmin = role === "super_admin";
       }
     } catch {
-      // fall through -- isSuperAdmin stays false
+      // fall through - isSuperAdmin stays false
     }
   }
 

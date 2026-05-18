@@ -9,7 +9,7 @@ import {
 
 interface InfoTooltipProps {
   /**
-   * Tooltip text. Split paragraphs with a blank line ("\n\n") -- each paragraph
+   * Tooltip text. Split paragraphs with a blank line ("\n\n") - each paragraph
    * renders on its own line so longer explanations stay scannable.
    */
   content: string;

@@ -1,7 +1,7 @@
 /**
  * POST /api/accounting/sage/sync-payment
  *
- * Wave 70.1 -- Sage Business Cloud payment push. Mirror of
+ * Wave 70.1 - Sage Business Cloud payment push. Mirror of
  * xero/sync-payment.ts for the Sage provider.
  *
  * When CateringMS records a payment against an invoice that has

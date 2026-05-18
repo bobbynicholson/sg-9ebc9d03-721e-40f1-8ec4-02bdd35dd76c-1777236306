@@ -1,13 +1,13 @@
 /**
- * PlatformNav -- SaaS owner sidebar.
+ * PlatformNav - SaaS owner sidebar.
  *
  * Architecture:
- *   Command    -- the one screen you open every morning (Dashboard)
- *   Tenants    -- who's on the platform (Companies, Users, Subscriptions, Trials)
- *   Revenue    -- money signals (Financial Dashboard, Pricing, Currency Monitor)
- *   Marketing  -- public-facing content (CMS Pages, Blog)
- *   System     -- infrastructure (Payment Gateways)
- *   Engineering -- internal backlog (Running Todo)
+ *   Command    - the one screen you open every morning (Dashboard)
+ *   Tenants    - who's on the platform (Companies, Users, Subscriptions, Trials)
+ *   Revenue    - money signals (Financial Dashboard, Pricing, Currency Monitor)
+ *   Marketing  - public-facing content (CMS Pages, Blog)
+ *   System     - infrastructure (Payment Gateways)
+ *   Engineering - internal backlog (Running Todo)
  *
  * Collapsed mode: 64px icon rail. Section headers hide; icons + tooltips only.
  * Mobile: full-width Sheet from left edge.
@@ -65,13 +65,13 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   /** One-liner shown under the title in expanded mode. */
   sub?: string;
-  /** Optional pill label -- e.g. "Live" or a count. */
+  /** Optional pill label - e.g. "Live" or a count. */
   tag?: string;
   tagVariant?: "default" | "secondary" | "destructive" | "outline";
 }
 
 interface NavSection {
-  /** Stable id for localStorage persistence -- never change once shipped. */
+  /** Stable id for localStorage persistence - never change once shipped. */
   id: string;
   title: string;
   defaultOpen: boolean;
@@ -149,7 +149,7 @@ const NAV: NavSection[] = [
         title: "Financial Dashboard",
         // Platform-level (CateringMS revenue across every tenant).
         // The bare /admin/financial-dashboard route is the per-tenant
-        // view -- linking to it from PlatformNav was sending the
+        // view - linking to it from PlatformNav was sending the
         // super-admin into a tenant's books, which leaked metrics
         // across companies.
         href: "/admin/platform/financial-dashboard",
@@ -377,8 +377,8 @@ export function PlatformNav({ className }: PlatformNavProps) {
   // Path-vs-href matcher with sub-path matching ("/" boundary so
   // /admin/platform/cms-pages doesn't match /admin/platform/cms-blog),
   // query-param disambiguation, and longest-match resolution.
-  // PlatformNav links are global super-admin paths -- never tenant-
-  // slug-prefixed -- so withSlug is identity. The list includes
+  // PlatformNav links are global super-admin paths - never tenant-
+  // slug-prefixed - so withSlug is identity. The list includes
   // "/admin/dashboard" because the switch-to-tenant button uses
   // isActive on that path. See navActiveMatcher.ts.
   const allHrefs = [
@@ -627,7 +627,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
         className={cn(
           // lg:left-0 is required: without it, position:fixed falls back
           // to the element's static x-position, which on this page is
-          // pushed right by the parent's lg:pl-72 padding -- making the
+          // pushed right by the parent's lg:pl-72 padding - making the
           // sidebar overlap the dashboard cards instead of pinning to
           // the left edge.
           "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 lg:bg-white transition-all duration-300 z-40 shadow-sm",

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * /admin/vehicles -- the catering company's fleet.
+ * /admin/vehicles - the catering company's fleet.
  *
  * Two ownership models:
  *   - Company-owned: dispatch can hand it to whichever driver they
@@ -15,7 +15,7 @@
  * in litres, max kilo. Plus toggles for refrigeration, warmer, and a
  * "needs two people" flag that drives the dispatch's two-driver hint.
  *
- * Nothing on this page is client-facing -- vehicles are an internal
+ * Nothing on this page is client-facing - vehicles are an internal
  * dispatch concern and never show up in the client portal.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -159,7 +159,7 @@ function VehiclesPage() {
 
   // Pull drivers + admins so the owner / primary picker has names not
   // raw uuids. Tenant-scoped on the profiles table by RLS.
-  // Note: only enum values that actually exist on user_role -- "owner"
+  // Note: only enum values that actually exist on user_role - "owner"
   // was previously in this list but isn't a valid enum label, so the
   // whole .in() filter threw at Postgres level and the dropdown
   // silently came back empty. Drivers + admins + company_admins is
@@ -867,7 +867,7 @@ function VehiclesPage() {
 
             {/* Phase 7 #1: maintenance schedule. Mirrors the
                 equipment edit dialog from Phase 5 #1. Only renders
-                on edit (existing rows) -- you can't log service
+                on edit (existing rows) - you can't log service
                 for a vehicle that doesn't exist yet. */}
             {editTarget && (
               <div className="border-t border-slate-200 pt-4 space-y-3">

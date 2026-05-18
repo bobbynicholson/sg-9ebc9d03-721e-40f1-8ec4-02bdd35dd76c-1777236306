@@ -1,8 +1,8 @@
 /**
- * /admin/kitchen-schedule -- weekly grid view of every kitchen
+ * /admin/kitchen-schedule - weekly grid view of every kitchen
  * staffer's planned roster for the selected week.
  *
- * Wave 36.1. Mirrors /admin/driver-schedule.tsx 1:1 -- same week
+ * Wave 36.1. Mirrors /admin/driver-schedule.tsx 1:1 - same week
  * navigation, same Mon-Sun grid, same click-empty-cell-to-roster
  * pattern. Uses the kitchen_shifts table (planned + actual per
  * chef per day).
@@ -64,7 +64,7 @@ interface ShiftRow {
   order_id: string | null;
 }
 
-// Wave 66.2 -- event overlay rows. The schedule needs to surface the
+// Wave 66.2 - event overlay rows. The schedule needs to surface the
 // demand side (orders booked for the day) alongside the supply side
 // (chefs rostered) so the operator can see "16 May has a 43-guest
 // event and zero chefs" at a glance instead of bouncing between
@@ -132,7 +132,7 @@ function KitchenScheduleGrid() {
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
 
-  // Wave 66.6 -- honour ?date=YYYY-MM-DD URL param. The Wave 66.4
+  // Wave 66.6 - honour ?date=YYYY-MM-DD URL param. The Wave 66.4
   // timeline rewrite repointed the kitchen_prep_in_progress dot to
   // /admin/kitchen-schedule?date={event_date}, but the page ignored
   // the param and always landed on the current week. Now: when the
@@ -145,7 +145,7 @@ function KitchenScheduleGrid() {
     if (Number.isNaN(parsed.getTime())) return;
     setWeekStart(startOfWeek(parsed));
   }, [router.isReady, router.query.date]);
-  // Wave 66.2 -- view mode. Week = the original Mon-Sun grid.
+  // Wave 66.2 - view mode. Week = the original Mon-Sun grid.
   // Month = a 4-6 row calendar overview showing chef count + event
   // count per day; click a day to drop back into week view for that
   // week. Operators planning the next two months reach for the
@@ -168,7 +168,7 @@ function KitchenScheduleGrid() {
     [weekStart],
   );
 
-  // Wave 66.2 -- compute the date range we need to fetch for. Week
+  // Wave 66.2 - compute the date range we need to fetch for. Week
   // view pulls 7 days; month view pulls the whole month grid (which
   // can run Mon of week containing the 1st through Sun of week
   // containing the last day, up to 42 days).
@@ -191,9 +191,9 @@ function KitchenScheduleGrid() {
       const toIso = toLocalISO(fetchRange.to);
       const [staffRes, shiftsRes, ordersRes] = await Promise.all([
         // Wave 36.1: kitchen_staff role for chefs. Some tenants
-        // also flag head chefs as company_admin -- pull both so the
+        // also flag head chefs as company_admin - pull both so the
         // grid shows everyone who could be on a kitchen shift.
-        // Wave 64.5 -- "owner" was in this filter but isn't a valid
+        // Wave 64.5 - "owner" was in this filter but isn't a valid
         // user_role enum label, so PostgREST rejected the whole
         // query and the catch block silently set staff=[]. The page
         // then read as "0 chefs" even when Sarah Kitchen + Callum
@@ -218,7 +218,7 @@ function KitchenScheduleGrid() {
           .gte("shift_date", fromIso)
           .lte("shift_date", toIso)
           .is("deleted_at", null),
-        // Wave 66.2 -- pull orders within the range so the calendar
+        // Wave 66.2 - pull orders within the range so the calendar
         // shows the demand side (events booked) alongside the supply
         // side (chefs rostered). Excludes cancelled so the overlay
         // doesn't include a dead-and-buried run.
@@ -276,7 +276,7 @@ function KitchenScheduleGrid() {
     return map;
   }, [shifts]);
 
-  // Wave 66.2 -- orders bucketed by event_date for O(1) cell lookup.
+  // Wave 66.2 - orders bucketed by event_date for O(1) cell lookup.
   // Shape: 'YYYY-MM-DD' -> [event rows]. Drives both the week-view
   // events row and the month-view per-day chips.
   const ordersByDate = useMemo(() => {
@@ -289,7 +289,7 @@ function KitchenScheduleGrid() {
     return map;
   }, [orders]);
 
-  // Wave 66.2 -- shifts bucketed by date (ignoring staff_id) so the
+  // Wave 66.2 - shifts bucketed by date (ignoring staff_id) so the
   // month view can render a single chef-count chip per day without
   // walking the full shift list per cell.
   const shiftsByDate = useMemo(() => {
@@ -313,7 +313,7 @@ function KitchenScheduleGrid() {
     });
   }, [shifts, weekDays]);
 
-  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} -- ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
+  const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
 
   const todayIso = toLocalISO(new Date());
 
@@ -338,7 +338,7 @@ function KitchenScheduleGrid() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Wave 66.2 -- view-mode toggle. Week stays the
+                {/* Wave 66.2 - view-mode toggle. Week stays the
                     daily-ops surface (Mon-Sun grid with per-cell
                     rostering); Month gives the planner a 5-6 week
                     overview showing chef + event load per day, with
@@ -348,7 +348,7 @@ function KitchenScheduleGrid() {
                     type="button"
                     onClick={() => setViewMode("week")}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
-                    title="Daily-ops view -- one week, one cell per chef per day"
+                    title="Daily-ops view - one week, one cell per chef per day"
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                     Week
@@ -357,7 +357,7 @@ function KitchenScheduleGrid() {
                     type="button"
                     onClick={() => setViewMode("month")}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-slate-200 transition ${viewMode === "month" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
-                    title="Planning view -- a month at a glance, chef + event load per day"
+                    title="Planning view - a month at a glance, chef + event load per day"
                   >
                     <CalendarIcon className="w-3.5 h-3.5" />
                     Month
@@ -489,10 +489,10 @@ function KitchenScheduleGrid() {
                           <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
                         </tr>
                       </thead>
-                      {/* Wave 66.2 -- events overlay row. Surfaces the
+                      {/* Wave 66.2 - events overlay row. Surfaces the
                           demand side (orders booked on each day) so
                           the operator can see "16 May: ORD-003828,
-                          43 guests, no chefs rostered -- needs cover"
+                          43 guests, no chefs rostered - needs cover"
                           without bouncing to /admin/orders. Red ring
                           fires when an event exists with zero chef
                           shifts on the same date. */}
@@ -517,7 +517,7 @@ function KitchenScheduleGrid() {
                                         key={o.id}
                                         href={withSlug(`/admin/orders?orderId=${o.id}`)}
                                         className={`block text-left rounded-md border px-1.5 py-1 text-[10px] leading-tight hover:bg-blue-50 transition ${needsCover ? "border-rose-200 bg-white" : "border-blue-200 bg-blue-50"}`}
-                                        title={`${o.order_number || "Order"} -- ${o.client_name || ""} -- ${o.guest_count ?? "?"} guests`}
+                                        title={`${o.order_number || "Order"} - ${o.client_name || ""} - ${o.guest_count ?? "?"} guests`}
                                       >
                                         <div className={`font-semibold truncate ${needsCover ? "text-rose-900" : "text-blue-900"}`}>
                                           {o.client_name || o.order_number || "Event"}
@@ -653,7 +653,7 @@ function KitchenScheduleGrid() {
                     </table>
                   </div>
                 ) : (
-                  // Wave 66.2 -- month view. 5-6 row calendar grid
+                  // Wave 66.2 - month view. 5-6 row calendar grid
                   // showing chef count + event count per day. The
                   // overview a planner reaches for when slotting
                   // staff into next month's bookings. Click a day to
@@ -699,7 +699,7 @@ function KitchenScheduleGrid() {
                                     isToday ? "bg-orange-50 hover:bg-orange-100" :
                                     "bg-white hover:bg-slate-50"
                                   }`}
-                                  title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} -- click to open the week`}
+                                  title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} - click to open the week`}
                                 >
                                   <div className={`text-xs font-semibold tabular-nums ${isToday ? "text-orange-700" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
                                     {d.getDate()}
@@ -772,7 +772,7 @@ function KitchenScheduleGrid() {
         />
       )}
 
-      {/* Wave 41 Phase 3 -- add-task modal. Defaults to 'kitchen'
+      {/* Wave 41 Phase 3 - add-task modal. Defaults to 'kitchen'
           on this page; operator can pick any of the 8 task types. */}
       {addTaskTarget && companyId && (
         <AddShiftTaskModal

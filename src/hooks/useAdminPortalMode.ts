@@ -1,5 +1,5 @@
 /**
- * useAdminPortalMode -- Wave 70.31
+ * useAdminPortalMode - Wave 70.31
  *
  * Detects which phase of the day the admin / owner is in, based on
  * signals from the tenant's data:
@@ -11,18 +11,18 @@
  *
  * Modes (priority-ordered, first match wins):
  *
- *   setup      -- Tenant < 30 days old AND onboarding incomplete.
+ *   setup      - Tenant < 30 days old AND onboarding incomplete.
  *                 First-week / first-month state. Wins ONLY when
- *                 there's no real activity yet -- once events start
+ *                 there's no real activity yet - once events start
  *                 happening, ops/pipeline/quiet take over even if
  *                 setup isn't done.
- *   ops        -- Events today (event_date = today). Service hours.
+ *   ops        - Events today (event_date = today). Service hours.
  *                 Most urgent surface. Pulses.
- *   review     -- No more events today (events all delivered) AND
+ *   review     - No more events today (events all delivered) AND
  *                 the day is past 17:00. End-of-day money window.
- *   pipeline   -- No events today, but quotes overdue OR new leads
+ *   pipeline   - No events today, but quotes overdue OR new leads
  *                 unactioned. Sales-focus window.
- *   quiet      -- None of the above. Maintenance / catch-up.
+ *   quiet      - None of the above. Maintenance / catch-up.
  *
  * Manual override: sessionStorage-scoped, same pattern as kitchen /
  * cleaning / shopping. Owner doing late-night strategy work can
@@ -89,7 +89,7 @@ function computeAutoMode(
 ): AdminPortalMode {
   // Setup wins only for genuinely new tenants with no activity yet.
   // Once a tenant has events today, ops always wins regardless of
-  // onboarding state -- the day's reality matters more than tutorial
+  // onboarding state - the day's reality matters more than tutorial
   // progress.
   if (eventsToday > 0 || inTransitNow > 0) return "ops";
   if (
@@ -183,7 +183,7 @@ export function useAdminPortalMode(): AdminPortalModeState {
         setTenantAgeDays(Math.floor(ageMs / 86400000));
       }
     } catch {
-      // Silent fail -- defaults preserve last-known mode.
+      // Silent fail - defaults preserve last-known mode.
     } finally {
       setLoading(false);
     }

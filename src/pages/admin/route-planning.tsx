@@ -46,7 +46,7 @@ interface DriverProfile {
 }
 
 /**
- * /admin/route-planning -- the PRE-FLIGHT dispatcher view.
+ * /admin/route-planning - the PRE-FLIGHT dispatcher view.
  *
  * Different from /admin/tracking which is the LIVE ops view. This page is
  * for the dispatcher the night before: pull every confirmed order that

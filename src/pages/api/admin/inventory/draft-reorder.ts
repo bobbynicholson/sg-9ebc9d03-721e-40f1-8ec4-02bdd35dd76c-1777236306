@@ -4,7 +4,7 @@
  * Phase 5 #5: bundle every below-minimum inventory item into a
  * draft shopping list so shopping_staff has a one-click reorder
  * starting point instead of building the list ingredient-by-
- * ingredient. Doesn't auto-send anywhere -- the operator still
+ * ingredient. Doesn't auto-send anywhere - the operator still
  * reviews, picks supplier, adjusts qty, then assigns the list.
  *
  * Auth: shopping_staff / admin / owner in the tenant.

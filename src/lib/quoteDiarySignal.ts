@@ -1,17 +1,17 @@
 /**
- * Quote diary signal -- "do we have a gap on this date?"
+ * Quote diary signal - "do we have a gap on this date?"
  *
  * The Quote Management page lifts confirmed orders + accepted quotes
  * from the same company and pivots them by event_date. For each open
  * quote the team sees an at-a-glance signal:
  *
- *   - Wide open       -- nothing booked the whole week (push hard)
- *   - Quiet day       -- nothing same-day, 1-2 nearby (good fit)
- *   - One booking     -- one event the same day (still doable)
- *   - Stacked         -- two+ same-day clashes (steady the team first)
+ *   - Wide open       - nothing booked the whole week (push hard)
+ *   - Quiet day       - nothing same-day, 1-2 nearby (good fit)
+ *   - One booking     - one event the same day (still doable)
+ *   - Stacked         - two+ same-day clashes (steady the team first)
  *
  * The "Wide open" and "Quiet day" buckets are the cue Bobby asked for
- * -- those are the days we'd want to offer a treat or discount to lock
+ * - those are the days we'd want to offer a treat or discount to lock
  * in revenue we'd otherwise leave on the floor.
  */
 export type DiaryStatus = "wide_open" | "quiet" | "one_booking" | "stacked" | "unknown";
@@ -19,13 +19,13 @@ export type DiaryStatus = "wide_open" | "quiet" | "one_booking" | "stacked" | "u
 export interface DiaryEntry {
   /** ISO date (YYYY-MM-DD) of the booked event. */
   date: string;
-  /** What kind of commitment -- order or accepted quote. */
+  /** What kind of commitment - order or accepted quote. */
   kind: "order" | "accepted_quote";
   /** Display label, e.g. "Naidoo Family". */
   label: string;
   /** Optional guest count. */
   guests?: number | null;
-  /** Source row id -- quote id when kind=accepted_quote, order id otherwise.
+  /** Source row id - quote id when kind=accepted_quote, order id otherwise.
    *  Used to exclude the current quote from its own diary lookup. */
   sourceId?: string | null;
 }
@@ -55,7 +55,7 @@ export function toDateKey(value: string | Date | null | undefined): string | nul
   if (!value) return null;
   const d = typeof value === "string" ? new Date(value) : value;
   if (isNaN(d.getTime())) return null;
-  // YYYY-MM-DD using local components -- matches what's stored in
+  // YYYY-MM-DD using local components - matches what's stored in
   // postgres date columns when the team enters dates in their tz.
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");

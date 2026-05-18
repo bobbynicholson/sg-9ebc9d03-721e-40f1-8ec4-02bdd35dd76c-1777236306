@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * piiAccessLogService -- Wave 67.6 POPIA scaffolding.
+ * piiAccessLogService - Wave 67.6 POPIA scaffolding.
  *
  * South Africa's Protection of Personal Information Act (POPIA, in
  * force July 2021) requires data processors to maintain a record of
- * WHO accessed WHAT personal information, WHEN, and WHY -- with the
+ * WHO accessed WHAT personal information, WHEN, and WHY - with the
  * ability to produce that record on subject access request (SAR).
  *
  * The audit_logs table already captures every operator MUTATION
@@ -20,11 +20,11 @@
  *
  * Categories follow POPIA's "special personal information" buckets
  * loosely:
- *   contact_details -- phone, email, address (most common)
- *   financial       -- payment ledger, bank details, invoice history
- *   identifying     -- ID/passport/tax number
- *   health          -- dietary, allergens (POPIA Section 26)
- *   biometric       -- POD photos, signatures
+ *   contact_details - phone, email, address (most common)
+ *   financial       - payment ledger, bank details, invoice history
+ *   identifying     - ID/passport/tax number
+ *   health          - dietary, allergens (POPIA Section 26)
+ *   biometric       - POD photos, signatures
  *
  * Future enhancements: rate-limit duplicate logs (don't write 50
  * rows when an operator hovers over the same email 50 times),
@@ -47,7 +47,7 @@ export interface LogPiiAccessArgs {
   entityId: string;
   /** What category of PII was accessed. */
   category: PiiCategory;
-  /** Free text -- what specifically the operator saw. E.g.
+  /** Free text - what specifically the operator saw. E.g.
    *  "viewed phone + email + billing address in client edit dialog".
    *  Keep under 200 chars. */
   fields: string;
@@ -92,12 +92,12 @@ export async function logPiiAccess(args: LogPiiAccessArgs): Promise<void> {
           }
         }
       } catch {
-        // ignore -- access still gets logged with null fields, which
+        // ignore - access still gets logged with null fields, which
         // is better than silently dropping.
       }
     }
 
-    if (!companyId) return; // can't scope -- skip silently.
+    if (!companyId) return; // can't scope - skip silently.
 
     await client.from("audit_logs").insert({
       company_id: companyId,

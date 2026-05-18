@@ -1,5 +1,5 @@
 /**
- * EmailFailuresWidget -- dashboard card surfacing the last 5
+ * EmailFailuresWidget - dashboard card surfacing the last 5
  * failed email sends in the last 24 hours.
  *
  * Phase 10 #7. /admin/email-automation-dashboard is the full

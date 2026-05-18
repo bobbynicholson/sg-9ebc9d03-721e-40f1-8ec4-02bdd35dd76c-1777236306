@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /team-portal/shopping/receipts -- shopping team's daily receipt scanner.
+ * /team-portal/shopping/receipts - shopping team's daily receipt scanner.
  *
  * Same engine as /admin/onboarding/receipts but mounted inside the
  * shopping portal so the team can capture supplier slips as they

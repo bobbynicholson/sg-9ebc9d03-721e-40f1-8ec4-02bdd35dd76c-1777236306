@@ -5,7 +5,7 @@
  * Rotates companies.embed_token to a fresh UUID. Every existing embed
  * snippet (the data-token in HTML the tenant has scattered across their
  * marketing pages, helpdesk articles, etc) will stop working
- * immediately -- that's the point. Use cases:
+ * immediately - that's the point. Use cases:
  *   - The token leaked (a developer pasted it into a public ticket).
  *   - The tenant changed agencies and wants the old agency's snippets
  *     to stop spamming leads in.
@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   );
   if (error) {
     // Fallback for environments where the helper RPC isn't yet
-    // installed -- generate the uuid in-process and update directly.
+    // installed - generate the uuid in-process and update directly.
     try {
       const fresh = (await import("crypto")).randomUUID();
       const { data: row, error: upErr } = await (db as any)

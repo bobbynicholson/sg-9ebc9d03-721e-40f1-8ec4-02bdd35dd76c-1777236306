@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /pay/i/[token]/success -- post-payment landing page.
+ * /pay/i/[token]/success - post-payment landing page.
  *
  * Reached after PayFast bounces the customer back via the return_url
  * we set in /pay/i/[token].tsx. Confirms the payment landed in a
@@ -30,7 +30,7 @@ export default function InvoicePaymentSuccessPage() {
   const [companyName, setCompanyName] = useState<string | null>(null);
 
   // Pull just enough invoice/company info for the brand colour + name.
-  // Failures here are silent -- this is a confirmation page, not a
+  // Failures here are silent - this is a confirmation page, not a
   // critical path.
   useEffect(() => {
     if (!token) return;
@@ -79,7 +79,7 @@ export default function InvoicePaymentSuccessPage() {
                 Payment received
               </h1>
               <p className="text-sm text-stone-600 mt-2 max-w-xs mx-auto">
-                Thanks{companyName ? ` -- ${companyName} has been notified` : ""}.
+                Thanks{companyName ? ` - ${companyName} has been notified` : ""}.
                 A confirmation email is on its way.
               </p>
             </div>

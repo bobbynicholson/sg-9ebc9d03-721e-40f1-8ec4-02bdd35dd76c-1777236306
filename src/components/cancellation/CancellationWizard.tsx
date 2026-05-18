@@ -1,5 +1,5 @@
 /**
- * Wave 28.3 -- 3-step Cancellation Companion wizard.
+ * Wave 28.3 - 3-step Cancellation Companion wizard.
  *
  * Drops into any client-facing surface (magic-link order, magic-link
  * quote, auth client portal). Same component, props-driven by `mode`.
@@ -9,9 +9,9 @@
  * vs refund choice, and the system handles the cancel without the
  * catering company touching the phone.
  *
- * Step 1 -- Tell us why    (reason chips + free text, optional)
- * Step 2 -- Here's what happens   (rules engine output, plain English)
- * Step 3 -- How would you like the difference handled?  (credit / refund)
+ * Step 1 - Tell us why    (reason chips + free text, optional)
+ * Step 2 - Here's what happens   (rules engine output, plain English)
+ * Step 3 - How would you like the difference handled?  (credit / refund)
  *
  * Every step has a "Note before action" panel so the client knows
  * what is and isn't about to happen. Bobby brief: "every action needs
@@ -70,19 +70,19 @@ export interface CancellationWizardProps {
   onOpenChange: (open: boolean) => void;
   /** "order" runs the full flow with payout + chain reactions; "quote" just decline. */
   mode: CancellationMode;
-  /** Catering company display name -- used in copy. */
+  /** Catering company display name - used in copy. */
   companyName: string;
-  /** Catering company phone -- shown when wizard is blocked (post-dispatch). */
+  /** Catering company phone - shown when wizard is blocked (post-dispatch). */
   companyPhone?: string | null;
   /**
-   * Inputs to the rules engine. Keep this lean -- the component derives
+   * Inputs to the rules engine. Keep this lean - the component derives
    * everything from it without going to the network until the user
    * presses Confirm.
    */
   termsInput: CancellationInput;
-  /** Optional: prefer postpone -- shows the "Switch to postpone" CTA. */
+  /** Optional: prefer postpone - shows the "Switch to postpone" CTA. */
   onPostponeRequest?: () => void;
-  /** Async submit handler -- the wrapping page does the API call. */
+  /** Async submit handler - the wrapping page does the API call. */
   onSubmit: (payload: CancellationWizardSubmit) => Promise<void>;
 }
 
@@ -124,7 +124,7 @@ const fmtMoney = (n: number, code = "ZAR") => {
 };
 
 // ----------------------------------------------------------------------
-// Note-before-action panel -- the recurring "here's what's about to
+// Note-before-action panel - the recurring "here's what's about to
 // happen" callout. Bobby's brief says this MUST appear at every step.
 // ----------------------------------------------------------------------
 
@@ -200,7 +200,7 @@ export function CancellationWizard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Live recompute -- pure function, no network. Re-derives on every
+  // Live recompute - pure function, no network. Re-derives on every
   // state change so the preview stays accurate.
   const terms: CancellationTerms = useMemo(
     () => computeCancellationTerms(termsInput),
@@ -240,13 +240,13 @@ export function CancellationWizard({
       });
       close();
     } catch (e: any) {
-      setError(e?.message || "Something went wrong -- please try again.");
+      setError(e?.message || "Something went wrong - please try again.");
       setSubmitting(false);
     }
   };
 
   // ------------------------------------------------------------------
-  // Blocked path -- post-dispatch, completed, already cancelled.
+  // Blocked path - post-dispatch, completed, already cancelled.
   // The wizard short-circuits to a "call us" panel and never lets the
   // client confirm.
   // ------------------------------------------------------------------
@@ -285,12 +285,12 @@ export function CancellationWizard({
   }
 
   // ------------------------------------------------------------------
-  // Step 1 -- Tell us why
+  // Step 1 - Tell us why
   // ------------------------------------------------------------------
   const renderStep1 = () => (
     <>
       <NoteBeforeAction tone="info" title="Nothing's cancelled yet">
-        You're starting a cancellation -- nothing on the catering side will move
+        You're starting a cancellation - nothing on the catering side will move
         until you confirm at the end. You can back out at any step.
       </NoteBeforeAction>
 
@@ -330,7 +330,7 @@ export function CancellationWizard({
   );
 
   // ------------------------------------------------------------------
-  // Step 2 -- Here's what happens
+  // Step 2 - Here's what happens
   // ------------------------------------------------------------------
   const renderStep2 = () => (
     <>
@@ -344,7 +344,7 @@ export function CancellationWizard({
       >
         {isQuote
           ? `${companyName} will mark the quote as declined and stop reminders. You can ask for a fresh quote any time.`
-          : `Per ${companyName}'s policy: ${terms.windowLabel.toLowerCase()} -- ${terms.tierLabel === "forfeit" ? "no refund is due, but we can still issue store credit as a goodwill gesture." : terms.tierLabel === "full" ? "you're entitled to a full refund." : `${terms.refundPct}% of what you paid is refundable.`}`}
+          : `Per ${companyName}'s policy: ${terms.windowLabel.toLowerCase()} - ${terms.tierLabel === "forfeit" ? "no refund is due, but we can still issue store credit as a goodwill gesture." : terms.tierLabel === "full" ? "you're entitled to a full refund." : `${terms.refundPct}% of what you paid is refundable.`}`}
       </NoteBeforeAction>
 
       {!isQuote && (
@@ -429,7 +429,7 @@ export function CancellationWizard({
   );
 
   // ------------------------------------------------------------------
-  // Step 3 -- How would you like the difference handled?
+  // Step 3 - How would you like the difference handled?
   // ------------------------------------------------------------------
   const renderStep3 = () => (
     <>
@@ -438,7 +438,7 @@ export function CancellationWizard({
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Credit card -- listed first as the recommended option */}
+        {/* Credit card - listed first as the recommended option */}
         <button
           type="button"
           onClick={() => setPayout("credit")}
@@ -523,7 +523,7 @@ export function CancellationWizard({
           <li>{terms.freedSlotNote}</li>
         </ul>
         <p className="mt-2 text-xs">
-          You can't undo this from here -- you'd need to call {companyName}.
+          You can't undo this from here - you'd need to call {companyName}.
         </p>
       </NoteBeforeAction>
     </>

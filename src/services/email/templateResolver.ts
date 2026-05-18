@@ -6,7 +6,7 @@
  * of truth is one path: tenant override -> global default -> hardcoded
  * fallback. Today the codebase has at least four divergent paths
  * (cancellationEmails, invoiceGenerationService, orderWorkflow inline
- * strings, accept.ts inline strings) -- migrate them all to
+ * strings, accept.ts inline strings) - migrate them all to
  * resolveEmailTemplate so an operator editing the Lifecycle Emails
  * panel actually controls what the client receives.
  *
@@ -17,7 +17,7 @@
  *      and is_active = true. This is the system-shipped default.
  *   3. The caller's hardcoded fallback (subject + bodyHtml).
  *
- * Variable substitution is Mustache-style {{name}} -- callers pass the
+ * Variable substitution is Mustache-style {{name}} - callers pass the
  * full variable bag and the resolver replaces every occurrence. Unknown
  * placeholders are left intact (so an operator can spot a typo against
  * the live preview rather than a silently empty field).

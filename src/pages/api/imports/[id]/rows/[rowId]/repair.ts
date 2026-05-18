@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currentMapped = (row.mapped_data as any) || {};
     const repairedMapped: Record<string, any> = { ...currentMapped };
     for (const [k, v] of Object.entries(result.fixes || {})) {
-      // Skip null fixes -- the model uses null to mean "I can't fill
+      // Skip null fixes - the model uses null to mean "I can't fill
       // this either", which we already knew.
       if (v === null || v === undefined) continue;
       repairedMapped[k] = v;

@@ -1,5 +1,5 @@
 /**
- * OverdueInvoicesWidget -- list of invoices past due_date that
+ * OverdueInvoicesWidget - list of invoices past due_date that
  * still haven't been paid.
  *
  * Phase 19 #8. The dashboard already has a refunds-awaiting-payout
@@ -54,7 +54,7 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
         const today = new Date().toISOString().slice(0, 10);
         // Anything with a due_date in the past that hasn't been
         // marked paid or cancelled. Oldest-due first so the widget
-        // surfaces the longest-outstanding rows -- those are the
+        // surfaces the longest-outstanding rows - those are the
         // ones bookkeeping needs to chase first.
         const { data, error } = await (supabase as any)
           .from("invoices")

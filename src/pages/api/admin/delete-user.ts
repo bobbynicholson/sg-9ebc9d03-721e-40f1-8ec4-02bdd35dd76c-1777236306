@@ -10,7 +10,7 @@ const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "
  *
  * Why soft, not hard:
  *   - Hard delete via auth.admin.deleteUser cascades to anything that
- *     references the user via FK with ON DELETE CASCADE -- which in this
+ *     references the user via FK with ON DELETE CASCADE - which in this
  *     codebase includes orders, shifts, assignments, etc. Losing that
  *     history breaks reports.
  *   - The soft path stamps profiles.deleted_at and flips is_active to
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "You can't remove your own account from this screen." });
     }
 
-    // 1. Soft-delete the profile -- the list views all filter by deleted_at
+    // 1. Soft-delete the profile - the list views all filter by deleted_at
     //    IS NULL and is_active = true, so this is enough to hide the driver
     //    from every operator surface.
     const { error: delErr } = await admin
@@ -99,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. Disable the auth user so they cannot log in. ban_duration of
-    //    876000h is ~100 years -- effectively permanent unless an
+    //    876000h is ~100 years - effectively permanent unless an
     //    admin clears it later. We do this AFTER the profile update so
     //    if the auth call fails we already have the profile hidden.
     try {
@@ -107,17 +107,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ban_duration: "876000h",
       });
     } catch (banErr: any) {
-      // Non-fatal -- the profile is already hidden. Log so we can
+      // Non-fatal - the profile is already hidden. Log so we can
       // chase the auth user if needed.
       console.warn("Auth user ban failed (profile already soft-deleted):", banErr?.message);
     }
 
     // Wave 24: cross-cutting audit_logs entry. User soft-delete is a
-    // compliance-class event -- "who removed Jane on the 12th of May"
+    // compliance-class event - "who removed Jane on the 12th of May"
     // needs to be answerable for HR + dispute resolution + GDPR
     // accountability. The platform-wide audit feed had no record
     // before; restore is one click but proving the original delete
-    // was authorised needs the trail. Best-effort -- a failed log
+    // was authorised needs the trail. Best-effort - a failed log
     // doesn't roll back the soft-delete.
     try {
       await (admin as any).from("audit_logs").insert({

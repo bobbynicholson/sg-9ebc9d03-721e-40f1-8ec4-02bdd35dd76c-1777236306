@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/integrations/embed -- Lead Capture Forms admin page.
+ * /admin/integrations/embed - Lead Capture Forms admin page.
  *
  * Shows a gradient page header, a four-card KPI strip, the list of form
  * variants for the tenant, and a "+ New form" button that opens the
  * template gallery dialog. Empty state has a single big CTA.
  *
  * All queries are scoped to the caller's company by the API endpoint at
- * /api/admin/embed/forms -- this page never passes a company_id.
+ * /api/admin/embed/forms - this page never passes a company_id.
  */
 
 import { useEffect, useState } from "react";
@@ -161,7 +161,7 @@ export default function AdminEmbedFormsPage() {
   }
 
   async function duplicateForm(form: EmbedFormRow) {
-    // Fetch full source row -- we need its fields/theme/success message.
+    // Fetch full source row - we need its fields/theme/success message.
     const resp = await fetch("/api/admin/embed/forms");
     const json = await resp.json();
     const source = (json.forms || []).find((f: any) => f.id === form.id);

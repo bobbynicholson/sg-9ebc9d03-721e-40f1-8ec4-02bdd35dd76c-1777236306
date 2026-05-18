@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ClientPageHeader -- the branded gradient band that sits at the top
+ * ClientPageHeader - the branded gradient band that sits at the top
  * of every client portal page.
  *
  * Why one component: the dashboard had a beautiful tenant-branded
@@ -12,11 +12,11 @@
  * portal feels like one cohesive product.
  *
  * Two flavours:
- *   - eyebrow + title  (default)            -- "Spit Braai Delivery / Your quotes"
- *   - eyebrow + title (greeting form)       -- "Spit Braai Delivery / Good evening, Bobby"
+ *   - eyebrow + title  (default)            - "Spit Braai Delivery / Your quotes"
+ *   - eyebrow + title (greeting form)       - "Spit Braai Delivery / Good evening, Bobby"
  *
  * Subtitle is optional and renders under the title in faded white.
- * rightSlot is for badges, action buttons or status pills -- whatever
+ * rightSlot is for badges, action buttons or status pills - whatever
  * each page wants on its right side.
  */
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +29,7 @@ interface ClientPageHeaderProps {
   subtitle?: string | null;
   /** Optional override for the company-name eyebrow. Defaults to company.company_name. */
   eyebrow?: string;
-  /** Right-aligned slot -- badges, action buttons, etc. */
+  /** Right-aligned slot - badges, action buttons, etc. */
   rightSlot?: React.ReactNode;
 }
 

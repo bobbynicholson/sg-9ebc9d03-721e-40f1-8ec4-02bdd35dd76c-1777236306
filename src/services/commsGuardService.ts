@@ -10,11 +10,11 @@
  *
  * Two negative gates:
  *
- *   1. blocked_contacts -- a contact deleted with the "block from
+ *   1. blocked_contacts - a contact deleted with the "block from
  *      future comms" toggle. Permanent unless the row is removed.
  *      Keyed on email_lower OR phone, scoped per company.
  *
- *   2. comms_paused_until -- the recipient sits on a lead or client
+ *   2. comms_paused_until - the recipient sits on a lead or client
  *      row that came from a bulk import and the owner hasn't
  *      green-lit the batch yet. Time-bounded.
  *
@@ -23,7 +23,7 @@
  *
  * Cancellation comms get a `bypassPause: true` option so a refund
  * email still goes out to a paused contact, but the block list is
- * always honoured -- being on a block list is a final decision, not a
+ * always honoured - being on a block list is a final decision, not a
  * temporary pause.
  */
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +63,7 @@ const ALLOWED: CommsCheckResult = { allowed: true };
  */
 export async function isCommsAllowed(input: CommsCheckInput): Promise<CommsCheckResult> {
   const { companyId, email, phone, bypassPause } = input;
-  if (!companyId) return ALLOWED; // no company scope -- nothing to check
+  if (!companyId) return ALLOWED; // no company scope - nothing to check
   if (!email && !phone) return ALLOWED; // no recipient identifier
 
   const emailLower = email ? email.toLowerCase().trim() : null;
@@ -117,7 +117,7 @@ export async function isCommsAllowed(input: CommsCheckInput): Promise<CommsCheck
         return {
           allowed: false,
           reason: "paused",
-          detail: "Recipient is in import quarantine -- comms paused until the owner reviews the batch",
+          detail: "Recipient is in import quarantine - comms paused until the owner reviews the batch",
         };
       }
     }
@@ -147,7 +147,7 @@ export async function isCommsAllowed(input: CommsCheckInput): Promise<CommsCheck
         return {
           allowed: false,
           reason: "paused",
-          detail: "Recipient phone is in import quarantine -- comms paused until the owner reviews the batch",
+          detail: "Recipient phone is in import quarantine - comms paused until the owner reviews the batch",
         };
       }
     }

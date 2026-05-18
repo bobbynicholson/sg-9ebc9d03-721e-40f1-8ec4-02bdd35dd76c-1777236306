@@ -14,7 +14,7 @@
  *     calculator). Inlining means each spot reinvents it and they
  *     drift.
  *   * The shape returned here is what the rest of the codebase wants
- *     to see -- numbers and booleans, not "look up region + maybe
+ *     to see - numbers and booleans, not "look up region + maybe
  *     fall back, but mind the dispatch_settings.deliveryCostPerKm
  *     case which lives on a jsonb on companies".
  */
@@ -114,7 +114,7 @@ export async function resolveBranchSettings(
   // (0.15 = 15%) per the regions_vat_rate_chk constraint, but the
   // legacy companies.vat_rate column stores percentage points (15.00).
   // Normalise the company side here so callers always receive a
-  // decimal -- otherwise a tenant that uses the company default
+  // decimal - otherwise a tenant that uses the company default
   // would multiply the bill by 15× instead of by 1.15.
   const normalisedCompanyVat: number | null =
     typeof company.vat_rate === "number"

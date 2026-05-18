@@ -1,7 +1,7 @@
 /**
  * /admin/refunds (renamed to "Refunds & Credits" in Wave 29.3).
  *
- * Pending + completed refunds list, plus -- since Wave 29.3 -- store
+ * Pending + completed refunds list, plus - since Wave 29.3 - store
  * credit issuances and redemptions on the same timeline so finance
  * has one place to reconcile every "money out" or "credit in/out"
  * movement against the bank statement.
@@ -14,8 +14,8 @@
  *                   invoice via redeem_client_credit RPC)
  *
  * Actions:
- *   - "Mark refund paid" -- refund kind only, EFT/cash/manual pending.
- *   - "Retry refund" -- refund kind only, PayFast pending auto-failed.
+ *   - "Mark refund paid" - refund kind only, EFT/cash/manual pending.
+ *   - "Retry refund" - refund kind only, PayFast pending auto-failed.
  *   - Credit rows are display-only (no further action; they auto-
  *     completed at issue / redeem time).
  *
@@ -56,7 +56,7 @@ interface RefundRow {
   processed_at: string | null;
   order_id: string | null;
   cancellation_request_id: string | null;
-  // The refund row's own gateway -- set to 'payfast' once auto-processed.
+  // The refund row's own gateway - set to 'payfast' once auto-processed.
   refund_gateway: string | null;
   // Joined order
   order_number?: string | null;
@@ -76,7 +76,7 @@ type FilterKey = "all" | "auto" | "credits" | "pending" | "rejected";
 
 /**
  * Phase 15 #10: tenant-currency-aware formatter. Same locale-
- * lookup pattern used on the dashboard + invoice PDF -- falls
+ * lookup pattern used on the dashboard + invoice PDF - falls
  * back to ZAR / en-ZA when the tenant's currency code is
  * unknown so existing tenants render unchanged.
  */
@@ -424,7 +424,7 @@ function RefundsPage() {
         (r) => r.kind === "credit_issue" || r.kind === "credit_redeem",
       );
     }
-    // Refund-only filters below (auto / pending / rejected) -- credit
+    // Refund-only filters below (auto / pending / rejected) - credit
     // rows are excluded because they auto-complete and have no
     // gateway / pending state.
     const refundsOnly = rows.filter((r) => r.kind === "refund");
@@ -586,7 +586,7 @@ function RefundsPage() {
             {r.processed_at ? `, paid ${new Date(r.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
           </div>
           {r.reason ? <p className="text-xs text-slate-600 mt-1">{r.reason}</p> : null}
-          {/* Quick drilldowns -- so an operator working a refund row can
+          {/* Quick drilldowns - so an operator working a refund row can
               jump to the source order, the client's contact record, or
               the original invoice without backing out and searching. */}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
@@ -684,7 +684,7 @@ function RefundsPage() {
                 Refunds &amp; Credits
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only -- they auto-completed at issue or redeem time.
+                Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only - they auto-completed at issue or redeem time.
               </p>
             </div>
             <div className="flex items-center gap-2">

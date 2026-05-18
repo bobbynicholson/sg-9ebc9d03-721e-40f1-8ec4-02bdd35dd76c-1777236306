@@ -1,10 +1,10 @@
 /**
- * Wave 41 Phase 3 -- staff_shift_tasks service.
+ * Wave 41 Phase 3 - staff_shift_tasks service.
  *
  * staff_shift_tasks lets one parent shift contain multiple typed
  * task rows (kitchen/cleaning/delivery/shopping/waitering/setup/
  * breakdown/admin). billable=FALSE means the labour falls under
- * the parent shift's pay envelope -- no extra cost.
+ * the parent shift's pay envelope - no extra cost.
  *
  * The schedule grid renders these as inline chips per shift cell
  * so an operator can see at a glance "this shift = kitchen + a

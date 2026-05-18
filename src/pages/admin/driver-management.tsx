@@ -49,7 +49,7 @@ interface Driver {
   home_postcode: string | null;
   regions_covered: string[] | null;
   vehicle_id: string | null;
-  // Pay rates -- per-driver overrides. NULL = fall back to the company
+  // Pay rates - per-driver overrides. NULL = fall back to the company
   // default on companies.default_*.
   hourly_rate: number | null;
   distance_rate_per_km: number | null;
@@ -118,20 +118,20 @@ function DriverManagementPage() {
   // basics, operational details and the vehicle in one go. See the
   // strategy note on handleAddDriver for the multi-step write path.
   const [newDriver, setNewDriver] = useState({
-    // Section 1 -- basics (required)
+    // Section 1 - basics (required)
     name: "",
     email: "",
     phone: "",
     password: "",
-    // Section 2 -- ops (optional)
+    // Section 2 - ops (optional)
     home_postcode: "",
     drive_time_to_kitchen_minutes: "",
     max_jobs_per_shift: "",
-    // Section 2b -- pay rates (optional, falls back to company defaults)
+    // Section 2b - pay rates (optional, falls back to company defaults)
     hourly_rate: "",
     distance_rate_per_km: "",
     base_callout_fee: "",
-    // Section 3 -- vehicle
+    // Section 3 - vehicle
     has_vehicle: false,
     vehicle_mode: "new_driver_owned" as "new_driver_owned" | "existing_company",
     existing_vehicle_id: "",
@@ -258,7 +258,7 @@ function DriverManagementPage() {
       }
       setLoadByDriver(loadMap);
 
-      // Last GPS ping per driver -- single-row-per-driver lookup off
+      // Last GPS ping per driver - single-row-per-driver lookup off
       // driver_locations (P1-23 split). The "last seen" timestamp lives
       // on driver_locations.updated_at.
       const { data: pings } = await (supabase as any)
@@ -350,7 +350,7 @@ function DriverManagementPage() {
         toast({ title: "Invalid capacity", description: "Max jobs per shift must be a positive number.", variant: "destructive" });
         return;
       }
-      // Flat shape (ok / value / msg) -- discriminated union narrows
+      // Flat shape (ok / value / msg) - discriminated union narrows
       // fine inside this function but can't be relied on if the type
       // is referenced anywhere else, and TS lint catches it as unsafe
       // when the shape escapes. Flat is safer.
@@ -409,7 +409,7 @@ function DriverManagementPage() {
    *         displays stay in sync.
    *
    * If step 3 fails (e.g. duplicate plate, RLS hiccup) the driver is
-   * still created -- we surface the error and point the operator at
+   * still created - we surface the error and point the operator at
    * /admin/vehicles to finish the link by hand. The alternative would
    * be deleting the driver to roll back, which loses the password the
    * operator just typed.
@@ -517,7 +517,7 @@ function DriverManagementPage() {
           .eq("id", newDriverId);
       }
 
-      // Toast for the driver-only outcome -- vehicle outcomes patch on top.
+      // Toast for the driver-only outcome - vehicle outcomes patch on top.
       let resultDescription = payload?.recovered
         ? `Driver ${newDriver.name} restored from a previous failed attempt.`
         : `Driver ${newDriver.name} has been added.`;
@@ -552,7 +552,7 @@ function DriverManagementPage() {
             attachedVehicleId = created?.id ?? null;
             attachedPlate = created?.plate ?? newDriver.v_plate.trim();
           } else {
-            // Existing company vehicle -- set this driver as the primary.
+            // Existing company vehicle - set this driver as the primary.
             const v = vehicleById[newDriver.existing_vehicle_id];
             await vehicleService.updateVehicle(newDriver.existing_vehicle_id, {
               primary_driver_id: newDriverId,
@@ -726,7 +726,7 @@ function DriverManagementPage() {
             <div className="flex items-center gap-2">
               {/* Phase 28 #4: manual refresh. Drivers are added
                   from multiple surfaces (this page, mobile sign-up,
-                  dispatch creating an account) -- dispatch leads
+                  dispatch creating an account) - dispatch leads
                   need to pull fresh state without a hard reload. */}
               <Button
                 variant="outline"
@@ -1264,7 +1264,7 @@ function DriverManagementPage() {
           })()}
         </div>
 
-        {/* Pay defaults -- company-level fallback rates. Each driver's
+        {/* Pay defaults - company-level fallback rates. Each driver's
             profile can override these; left blank, drivers fall back to
             whatever the operator sets here. Stage 1 of the driver
             hourly-rate build laid the columns; this card is the UI. */}
@@ -1570,7 +1570,7 @@ function DriverManagementPage() {
                                 <DropdownMenuItem
                                   // setTimeout(0) defers the dialog open
                                   // until after the dropdown's close
-                                  // animation finishes -- without this,
+                                  // animation finishes - without this,
                                   // Radix's focus trap on the menu can
                                   // swallow the AlertDialog's open
                                   // event and the dialog never appears.
@@ -1595,10 +1595,10 @@ function DriverManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Links. The driver portal lives at /{slug}/login -- the
+        {/* Quick Links. The driver portal lives at /{slug}/login - the
             same staff login as kitchen / shopping / cleaning. We never
             send drivers to /auth/login (that's the platform-wide page,
-            no tenant branding). Self-signup isn't a route -- drivers
+            no tenant branding). Self-signup isn't a route - drivers
             are added by an admin and sign in with the credentials they
             receive by email. */}
         <Card className="border-0 shadow-lg mt-6 bg-gradient-to-br from-blue-50 to-indigo-50">

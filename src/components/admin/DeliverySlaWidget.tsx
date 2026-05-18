@@ -1,5 +1,5 @@
 /**
- * DeliverySlaWidget -- on-time delivery rate over the last 30 days.
+ * DeliverySlaWidget - on-time delivery rate over the last 30 days.
  *
  * Phase 13 #6. Phase 12's delivery sheet helps the day-of dispatch,
  * but the owner had no read on whether the team was actually

@@ -1,5 +1,5 @@
 /**
- * /admin/packages/[id] -- Wave 70.45b
+ * /admin/packages/[id] - Wave 70.45b
  *
  * Detail view for a booking package. Shows package metadata, the
  * timeline of linked orders, and the actions panel (edit metadata,
@@ -83,7 +83,7 @@ function PackageDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
-  // Edit form state -- only initialised when entering edit mode so the
+  // Edit form state - only initialised when entering edit mode so the
   // user-typed values aren't clobbered by a fetch refresh.
   const [editForm, setEditForm] = useState({ name: "", venue_summary: "", starts_at: "", ends_at: "", notes: "" });
 
@@ -195,7 +195,7 @@ function PackageDetailPage() {
     if (!pkg) return;
     const reason = cancelReason.trim();
     if (!reason) {
-      toast({ title: "Reason required", description: "Tell us why -- this cascades to every linked order.", variant: "destructive" });
+      toast({ title: "Reason required", description: "Tell us why - this cascades to every linked order.", variant: "destructive" });
       return;
     }
     setCancelling(true);
@@ -220,7 +220,7 @@ function PackageDetailPage() {
 
   return (
     <>
-      <Head><title>{pkg?.name || "Package"} -- Admin</title></Head>
+      <Head><title>{pkg?.name || "Package"} - Admin</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
@@ -412,7 +412,7 @@ function PackageDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Cancel dialog -- gated behind a typed reason because
+              {/* Cancel dialog - gated behind a typed reason because
                   the cascade fans out to every linked order's
                   cancelOrder workflow. */}
               <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
@@ -432,7 +432,7 @@ function PackageDetailPage() {
                     <Label htmlFor="cancel-reason">Reason</Label>
                     <Textarea
                       id="cancel-reason"
-                      placeholder="e.g. Client cancelled wedding -- relationship breakdown."
+                      placeholder="e.g. Client cancelled wedding - relationship breakdown."
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
                       rows={3}

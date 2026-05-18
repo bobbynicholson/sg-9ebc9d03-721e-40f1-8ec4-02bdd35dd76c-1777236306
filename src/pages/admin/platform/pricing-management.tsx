@@ -203,7 +203,7 @@ function PricingManagementPage() {
                 </p>
               </div>
             </div>
-            {/* Cross-link to the COGS calculator -- seeing the input cost
+            {/* Cross-link to the COGS calculator - seeing the input cost
                 next to the output price avoids quietly setting a tier
                 that loses money at scale. */}
             <a

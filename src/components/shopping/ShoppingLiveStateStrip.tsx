@@ -1,15 +1,15 @@
 /**
- * ShoppingLiveStateStrip -- Wave 70.29
+ * ShoppingLiveStateStrip - Wave 70.29
  *
  * The 4-metric "what's happening right now" strip that sits at the
  * top of the shopping nav (below the mode badge). Each pill is a
  * tap target that deep-links into the right view.
  *
- *   Short    -- inventory_demand_outlook rows with status='shortfall'
+ *   Short    - inventory_demand_outlook rows with status='shortfall'
  *               (critical+pulse when > 0)
- *   List     -- active shopping_list rows (draft / in_progress)
- *   Receipts -- today's completed lists with no receipt_url (warning)
- *   Spend    -- sum of today's actual_total in tenant currency
+ *   List     - active shopping_list rows (draft / in_progress)
+ *   Receipts - today's completed lists with no receipt_url (warning)
+ *   Spend    - sum of today's actual_total in tenant currency
  *
  * Layout: 2x2 grid (drawer + collapsed-friendly).
  *

@@ -286,7 +286,7 @@ export default function CleaningEquipmentPage() {
                   <span>Replacement value: <span className="font-semibold tabular-nums">R {(Number(missingQty) * Number(verifyItem.replacement_cost)).toFixed(2)}</span></span>
                 </div>
                 <p className="text-[11px] text-amber-700 mt-1.5 ml-6">
-                  Recorded on the damage log. Admin reviews and adds it to the client's invoice manually -- it does not auto-bill yet.
+                  Recorded on the damage log. Admin reviews and adds it to the client's invoice manually - it does not auto-bill yet.
                 </p>
               </div>
             )}

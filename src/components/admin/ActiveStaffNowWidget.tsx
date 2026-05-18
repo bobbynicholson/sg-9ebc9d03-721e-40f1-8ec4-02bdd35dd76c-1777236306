@@ -1,5 +1,5 @@
 /**
- * ActiveStaffNowWidget -- staff currently clocked in, with how long
+ * ActiveStaffNowWidget - staff currently clocked in, with how long
  * each has been on the clock.
  *
  * Phase 20 #5. Today's Pulse counts active drivers on shift, but the
@@ -51,7 +51,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
       try {
         // Open sessions for this tenant. Order oldest clock-in first
         // so the operator sees who's been on the clock longest at the
-        // top -- that's the row that matters when checking for stale
+        // top - that's the row that matters when checking for stale
         // sessions someone forgot to close.
         const { data, error } = await (supabase as any)
           .from("staff_work_sessions")

@@ -12,7 +12,7 @@
  * The /pricing public page reads from this endpoint. The
  * /admin/platform/pricing-management page writes here.
  *
- * Used to be hard-coded in pricingCalculator.ts -- updates in the
+ * Used to be hard-coded in pricingCalculator.ts - updates in the
  * admin UI never reached the marketing page. This endpoint is now
  * the single source of truth.
  */
@@ -38,7 +38,7 @@ export interface PricingPlanRow {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === "GET") {
-      // Public read -- service client so anonymous visitors on /pricing
+      // Public read - service client so anonymous visitors on /pricing
       // can fetch without an auth session. RLS policy already grants
       // public select; we use service to avoid RLS overhead and the
       // anon-key cookie dance.

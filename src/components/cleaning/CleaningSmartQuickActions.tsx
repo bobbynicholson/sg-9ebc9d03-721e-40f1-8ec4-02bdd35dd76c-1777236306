@@ -1,14 +1,14 @@
 /**
- * CleaningSmartQuickActions -- Wave 70.28
+ * CleaningSmartQuickActions - Wave 70.28
  *
  * Three quick-action tiles at the top of the mobile drawer. The
  * trio rotates based on the current cleaning mode so the cleaner
  * sees the most likely "what I need right now" action first.
  *
- *   quiet     -- Open damages, Equipment, Stock check
- *   dispatch  -- Verify outgoing, Today's events, Report damage
- *   returns   -- Verify a return, Active washes, Clock in
- *   wrap      -- Sign off jobs, Open damages, Clock out
+ *   quiet     - Open damages, Equipment, Stock check
+ *   dispatch  - Verify outgoing, Today's events, Report damage
+ *   returns   - Verify a return, Active washes, Clock in
+ *   wrap      - Sign off jobs, Open damages, Clock out
  *
  * Wraps the existing MobileQuickActions presenter so the visual
  * treatment stays consistent with the other portals.

@@ -1,5 +1,5 @@
 /**
- * Tier 3 chart 1 -- Top 10 clients by lifetime value.
+ * Tier 3 chart 1 - Top 10 clients by lifetime value.
  *
  * Walks the orders array and sums per client_id. Joins to the clients
  * lookup for names + outstanding_balance so the bar can split into
@@ -27,7 +27,7 @@ export interface TopClientRow {
   email: string | null;
   /** Sum of total_amount on all non-cancelled orders for this client. */
   lifetimeRevenue: number;
-  /** Estimated paid so far -- amount_paid sum, with deposit/balance/payment_status fall-through. */
+  /** Estimated paid so far - amount_paid sum, with deposit/balance/payment_status fall-through. */
   paid: number;
   /** Outstanding (lifetimeRevenue - paid), floored at 0. */
   outstanding: number;

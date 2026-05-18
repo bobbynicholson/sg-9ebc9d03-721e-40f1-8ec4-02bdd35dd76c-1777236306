@@ -9,7 +9,7 @@
  * confirms before items get inserted.
  *
  * Use case: slips logged via the legacy 'Add slip' form on
- * /admin/tax-purchases (which doesn't run AI) -- this lets the owner
+ * /admin/tax-purchases (which doesn't run AI) - this lets the owner
  * fast-forward those onto the new pipeline without delete + re-upload.
  *
  * Tenant-scoped via session. Caller-role allowlist matches the upload
@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
     if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: "AI is not configured -- set ANTHROPIC_API_KEY on the server." });
+      return res.status(500).json({ error: "AI is not configured - set ANTHROPIC_API_KEY on the server." });
     }
 
     const receiptId = String(req.query.id || "");
@@ -98,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (rcptErr || !receipt) return res.status(404).json({ error: "Receipt not found" });
     if (receipt.company_id !== companyId) return res.status(403).json({ error: "Cross-tenant access denied" });
     if (!receipt.image_path) {
-      return res.status(400).json({ error: "This slip has no image attached -- can't rescan." });
+      return res.status(400).json({ error: "This slip has no image attached - can't rescan." });
     }
 
     const img = await downloadSlipImage(supabase, receipt.image_path);
@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Skip the AI re-extraction entirely if we already have draft
-    // items waiting on this receipt -- e.g. operator scanned, closed
+    // items waiting on this receipt - e.g. operator scanned, closed
     // the drawer, came back. We return the persisted drafts as if
     // the AI just produced them. Saves Anthropic spend + matches
     // exactly what the operator was last looking at.
@@ -246,7 +246,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
         is_deductible: typeof li.is_deductible === "boolean" ? li.is_deductible : null,
         category: li.tax_category_code ?? null,
-        // Memory wins over AI's classifier on the rule pick -- the
+        // Memory wins over AI's classifier on the rule pick - the
         // operator's repeated choice is the higher-quality signal.
         suggested_rule_id: memoryHit?.suggested_rule_id ?? aiRuleId ?? null,
         inventory_item_id: memoryHit?.inventory_item_id ?? null,

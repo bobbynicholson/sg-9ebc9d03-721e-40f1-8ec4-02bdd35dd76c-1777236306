@@ -53,7 +53,7 @@ export default function DriverRoutes() {
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
   // Per-driver pay rates (override falling back to companies.default_*)
-  // -- used so the earnings tiles show the real number, not R250.
+  // - used so the earnings tiles show the real number, not R250.
   const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
   // Wave 24: tenant-currency aware so non-ZAR tenants don't see "R"
   // hardcoded on the route stop callout/distance summary.
@@ -221,7 +221,7 @@ export default function DriverRoutes() {
   // Wave 24: standard header on every state (loading, empty, populated)
   // so the page header matches every other driver portal screen
   // (deliveries, tracking, notifications). Previously the empty +
-  // loading branches rendered without a header at all -- a driver
+  // loading branches rendered without a header at all - a driver
   // landing on Today's Routes for the first time saw a bare card with
   // no orientation, while every other tab had the title-tile +
   // subtitle pattern.

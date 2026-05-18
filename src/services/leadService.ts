@@ -106,7 +106,7 @@ export const leadService = {
         // notification above; this just makes sure the local manager
         // sees it without having to filter by region every morning.
         // The branch can mute these in its own settings via
-        // regions.notify_manager_on_new_lead -- respected here.
+        // regions.notify_manager_on_new_lead - respected here.
         if ((lead as any).region_id) {
           try {
             const { data: region } = await supabase
@@ -139,7 +139,7 @@ export const leadService = {
         if (adminProfile?.email) {
           // Wave 11 #5: lead.event_date can be null (form doesn't
           // require it). new Date(null).toLocaleDateString() renders
-          // "Invalid Date" in the operator's email -- looks broken.
+          // "Invalid Date" in the operator's email - looks broken.
           // Surface "TBD" instead, matching the WhatsApp body below.
           const eventDateLabel = lead.event_date
             ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
@@ -381,10 +381,10 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       venue_lng: (lead as any).venue_lng,
       region_id: (lead as any).region_id,
       status: "draft",
-      // currency intentionally omitted -- quotes table has no currency
+      // currency intentionally omitted - quotes table has no currency
       // column; the tenant's currency lives on companies and is read
       // from there at display time.
-      // Money fields start at zero -- the operator builds these out
+      // Money fields start at zero - the operator builds these out
       // in /admin/quotes/[id]. We're just kickstarting the row.
       subtotal: 0,
       tax_amount: 0,
@@ -394,13 +394,13 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       special_instructions: (lead as any).special_requests || null,
       internal_notes: internalNoteParts.length > 0 ? internalNoteParts.join("\n\n") : null,
       notes: "Converted from lead.",
-      // Wave 50 C9 -- carry the fields that previously got dropped at
+      // Wave 50 C9 - carry the fields that previously got dropped at
       // lead -> quote conversion. event_type + tags + contact_name +
       // source survive into quote analytics + downstream order rows.
       event_type: (lead as any).event_type ?? null,
       tags: (lead as any).tags ?? null,
       contact_name: (lead as any).contact_name ?? null,
-      // Wave 50 C10 -- first-class lead source attribution. Was buried
+      // Wave 50 C10 - first-class lead source attribution. Was buried
       // in internal_notes pre-Wave-50.
       source: (lead as any).source ?? null,
     };
@@ -421,7 +421,7 @@ Guests: ${lead.guest_count ?? "TBD"}`;
     // 'quoted' atomically (P1-02), so this is partially redundant but
     // belt-and-braces for the failure case. We stop at 'quoted' here
     // (not 'won'); the lead only becomes 'won' once an order actually
-    // lands -- lifecycleService.promoteLeadToClient handles that
+    // lands - lifecycleService.promoteLeadToClient handles that
     // terminal transition.
     await this.updateLead(leadId, { status: "quoted" });
 

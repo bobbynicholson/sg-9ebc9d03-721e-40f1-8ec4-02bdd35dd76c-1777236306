@@ -1,5 +1,5 @@
 /**
- * useActiveShoppingList -- Wave 70.30
+ * useActiveShoppingList - Wave 70.30
  *
  * Returns the current user's active shopping_list with its items,
  * plus mutation helpers (toggle purchased, add item, create new
@@ -8,13 +8,13 @@
  *
  * Resolution order (one-shopper-per-tenant is the dominant case):
  *   1. shopping_lists with shopper_id = current user AND status in
- *      (draft, pending, in_progress, shopping) -- most recent
+ *      (draft, pending, in_progress, shopping) - most recent
  *   2. shopping_lists with shopper_id IS NULL AND status above --
  *      fallback for lists created by /buy-list before assignment
- *   3. null -- no active list yet
+ *   3. null - no active list yet
  *
  * Auto-refresh on tab focus so a list created on phone surfaces on
- * desktop without manual reload. No polling -- the hook is meant
+ * desktop without manual reload. No polling - the hook is meant
  * for view-level reads, not background tickers.
  */
 import { useCallback, useEffect, useState } from "react";

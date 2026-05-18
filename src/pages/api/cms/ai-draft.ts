@@ -3,17 +3,17 @@
  * POST /api/cms/ai-draft
  *
  * Generates a blog-post draft for the cateringms.com marketing site
- * using Anthropic. Super-admin only -- the marketing CMS is platform
+ * using Anthropic. Super-admin only - the marketing CMS is platform
  * scope, not tenant.
  *
  * Body:
- *   topic       string  required -- what the post is about
- *   audience    string  optional -- "catering business owners",
+ *   topic       string  required - what the post is about
+ *   audience    string  optional - "catering business owners",
  *                                  "kitchen managers", etc.
- *   tone        string  optional -- "informative" (default),
+ *   tone        string  optional - "informative" (default),
  *                                  "casual", "promotional"
- *   wordTarget  number  optional -- ~600 by default
- *   keywords    string  optional -- SEO keywords to weave in
+ *   wordTarget  number  optional - ~600 by default
+ *   keywords    string  optional - SEO keywords to weave in
  *
  * Returns:
  *   { ok: true, title, slug, content, meta_description, meta_keywords,
@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    // ── Auth: super-admin only -- this writes to cateringms.com ─────
+    // ── Auth: super-admin only - this writes to cateringms.com ─────
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });

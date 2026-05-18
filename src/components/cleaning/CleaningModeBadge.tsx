@@ -1,5 +1,5 @@
 /**
- * CleaningModeBadge -- Wave 70.28
+ * CleaningModeBadge - Wave 70.28
  *
  * Sits at the top of the cleaning nav above the live state strip.
  * Communicates which phase of the day the cleaning team is in
@@ -8,15 +8,15 @@
  * "3 still being washed").
  *
  * Tap target: opens a popover with the auto-detected mode + a manual
- * override. Override sticks for the browser session only -- so a
+ * override. Override sticks for the browser session only - so a
  * cleaner doing late-night damage triage can lock the mode to wrap
  * even when the auto-detector says quiet.
  *
  * Tones (designed to pass WCAG AA on white sidebar bg):
- *   quiet     -- slate, neutral
- *   dispatch  -- amber, warming up
- *   returns   -- cyan-strong gradient, pulses (the "live" state)
- *   wrap      -- emerald, winding down
+ *   quiet     - slate, neutral
+ *   dispatch  - amber, warming up
+ *   returns   - cyan-strong gradient, pulses (the "live" state)
+ *   wrap      - emerald, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -84,7 +84,7 @@ export function CleaningModeBadge() {
   const meta = MODE_META[state.mode];
   const Icon = meta.icon;
 
-  // Subline below the label -- the "what" of the current mode.
+  // Subline below the label - the "what" of the current mode.
   const subline = (() => {
     if (state.mode === "quiet") return "No returns due. Catch up on damages.";
     if (state.mode === "dispatch") {
@@ -145,7 +145,7 @@ export function CleaningModeBadge() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-80 p-0" side="bottom" align="start">
-        {/* Wave 70.28a -- redesigned popover. The previous version
+        {/* Wave 70.28a - redesigned popover. The previous version
             showed four 8-char tiles with no explanation of what
             tapping each does. Now: a header that names the concept,
             full-width tiles per mode with description, an obvious

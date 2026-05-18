@@ -96,7 +96,7 @@ export function QuoteSendDialog({
             bodyHtml:
               `Hi {{first_name}},\n\n` +
               `Thanks for letting {{tenant_name}} quote on {{event_name}}. Your quote ` +
-              `{{quote_number}} is ready -- total {{amount}}.\n\n` +
+              `{{quote_number}} is ready - total {{amount}}.\n\n` +
               `Open the quote in your portal to review, accept, or send through any ` +
               `tweaks.\n\n` +
               `Thanks,\n{{tenant_name}}`,
@@ -174,7 +174,7 @@ export function QuoteSendDialog({
           }
           // Stamp sent_at + flip status. Mirrors what
           // quoteService._fireQuoteSentEmail used to do, only here we
-          // don't double-fire the email -- the dialog already sent it.
+          // don't double-fire the email - the dialog already sent it.
           try {
             await supabase
               .from("quotes")

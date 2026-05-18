@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-// Wave 70.50b -- structured Mark-lost dialog (replaces window.prompt).
+// Wave 70.50b - structured Mark-lost dialog (replaces window.prompt).
 import {
   Dialog,
   DialogContent,
@@ -100,10 +100,10 @@ import { toLocalISO } from "@/lib/localDate";
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
 /**
- * Wave 70.32 -- maps the linked order's status to a short pill label
+ * Wave 70.32 - maps the linked order's status to a short pill label
  * + colour tone for the "this quote was converted" badge. Previously
  * the badge said a blanket "booked" no matter what state the order
- * was in -- misleading when the order was still pending / draft /
+ * was in - misleading when the order was still pending / draft /
  * cancelled. This returns the real state instead.
  *
  * Returns null when the status is unknown so the caller can fall
@@ -112,11 +112,11 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 function orderStatusBadge(status: string | null | undefined): { label: string; classes: string } | null {
   if (!status) return null;
   const s = status.toLowerCase();
-  // Pending / draft -- order exists but client hasn't confirmed.
+  // Pending / draft - order exists but client hasn't confirmed.
   if (s === "pending" || s === "draft" || s === "quote") {
     return { label: "Pending", classes: "text-amber-700 border-amber-200 bg-amber-50" };
   }
-  // Cancelled / declined -- terminal failure.
+  // Cancelled / declined - terminal failure.
   if (s === "cancelled" || s === "declined" || s === "rejected") {
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
@@ -127,7 +127,7 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
   if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
-  // Unknown -- show the raw status capitalised so we never invent a meaning.
+  // Unknown - show the raw status capitalised so we never invent a meaning.
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
 }
 
@@ -287,7 +287,7 @@ export default function AdminQuotes() {
     trackRecentlyViewed({
       id: composeQuote.id,
       type: "quote",
-      label: `${(composeQuote as any).quote_number || ""} -- ${composeQuote.client_name || "Unknown"}`,
+      label: `${(composeQuote as any).quote_number || ""} - ${composeQuote.client_name || "Unknown"}`,
       href: `/admin/quotes?quoteId=${composeQuote.id}`,
     });
   }, [composeQuote?.id]);
@@ -347,7 +347,7 @@ export default function AdminQuotes() {
       if (typeof saved.bucket === "string") setBucket(saved.bucket as QuoteBucket);
       if (saved.viewMode === "list" || saved.viewMode === "pipeline") setViewMode(saved.viewMode);
     } catch {
-      /* corrupt storage -- fall back to defaults */
+      /* corrupt storage - fall back to defaults */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -363,9 +363,9 @@ export default function AdminQuotes() {
     }
   }, [search, bucket, viewMode]);
   // Phase 15 #1: saved-view chips. Mirrors the pattern on
-  // /admin/orders -- snapshot search + bucket + viewMode under a
-  // named chip so a sales lead can snap back to 'Stale -- list'
-  // or 'Won -- pipeline' with one click.
+  // /admin/orders - snapshot search + bucket + viewMode under a
+  // named chip so a sales lead can snap back to 'Stale - list'
+  // or 'Won - pipeline' with one click.
   interface SavedQuoteView {
     id: string;
     name: string;
@@ -463,7 +463,7 @@ export default function AdminQuotes() {
     return quotes
       .map((q) => {
         const baseIntel = deriveQuoteIntelligence(q);
-        // Wave 70.42b -- linked-order status override. deriveQuote
+        // Wave 70.42b - linked-order status override. deriveQuote
         // Intelligence only sees the quote row, so a quote whose
         // converted_to_order_id points at a CANCELLED order would
         // stay in_play because quote.status is still "sent". Bobby
@@ -480,7 +480,7 @@ export default function AdminQuotes() {
             bucket: "lost",
             tone: "neutral",
             label: "Order cancelled",
-            reason: `Linked order ${resolved?.orderNumber || ""} was cancelled -- quote is no longer in play`,
+            reason: `Linked order ${resolved?.orderNumber || ""} was cancelled - quote is no longer in play`,
           };
         } else if (
           orderStatus === "delivered"
@@ -589,8 +589,8 @@ export default function AdminQuotes() {
       setLoading(true);
       // Phase 10 #5: auto-expire stale sent quotes. Any quote with
       // status in (sent, viewed, revised) and valid_until in the
-      // past is logically expired -- deriveQuoteStatus already
-      // renders it that way -- but the DB row stayed 'sent' which
+      // past is logically expired - deriveQuoteStatus already
+      // renders it that way - but the DB row stayed 'sent' which
       // skewed the bucket counts and the kanban grouping. Single
       // best-effort UPDATE before the read so the bucketing reads
       // the truth. RLS gates this to the operator's tenant; a
@@ -606,7 +606,7 @@ export default function AdminQuotes() {
           .lt("valid_until", todayIso)
           .is("deleted_at", null);
       } catch {
-        /* non-blocking -- the derive helper still tags the row */
+        /* non-blocking - the derive helper still tags the row */
       }
       const fetched = await quoteService.getQuotes(user.company_id!);
       if (cancelled) return;
@@ -632,13 +632,13 @@ export default function AdminQuotes() {
           if (!cancelled) setAutoEmailRows(queueRows || []);
         }
       } catch (err) {
-        // Non-fatal -- the page still works without auto-email
+        // Non-fatal - the page still works without auto-email
         // visibility, just without the "Auto follow-up sent 2d ago"
         // line on each row.
         console.warn("[quotes] auto-email queue fetch failed", err);
       }
 
-      // Follow-up log -- per-quote audit trail of FU1 / FU2 / FU3
+      // Follow-up log - per-quote audit trail of FU1 / FU2 / FU3
       // sends. Drives the traffic-light pill on the row + decides
       // which sequence position the Send-follow-up button is for.
       try {
@@ -649,7 +649,7 @@ export default function AdminQuotes() {
         console.warn("[quotes] followup log fetch failed", err);
       }
 
-      // Diary lookup -- every confirmed order + accepted quote in the
+      // Diary lookup - every confirmed order + accepted quote in the
       // company's calendar. Used to decide whether an open quote sits
       // on a wide-open day worth offering a sweetener for.
       try {
@@ -678,7 +678,7 @@ export default function AdminQuotes() {
         for (const o of (orderRows || [])) {
           const dk = toDateKey((o as any).event_date);
           if (!dk) continue;
-          // Skip cancelled / draft orders -- they're not real commitments.
+          // Skip cancelled / draft orders - they're not real commitments.
           const status = ((o as any).status || "").toLowerCase();
           if (status === "cancelled" || status === "canceled" || status === "draft") continue;
           entries.push({
@@ -712,7 +712,7 @@ export default function AdminQuotes() {
 
   // Hydrate authoritative event details from linked orders. When a
   // quote has converted_to_order_id set, the order is the source of
-  // truth -- the team may have postponed the date, revised guests,
+  // truth - the team may have postponed the date, revised guests,
   // bolted on extra equipment. Runs whenever the quotes list changes
   // (initial load, realtime refresh, manual accept) so a quote that
   // just flipped to "accepted + converted" picks up its order numbers
@@ -762,7 +762,7 @@ export default function AdminQuotes() {
         }
         if (!cancelled) setResolvedByQuoteId(next);
       } catch (err) {
-        // Non-fatal -- the row falls back to the quote's own values,
+        // Non-fatal - the row falls back to the quote's own values,
         // which is the original behaviour.
         console.warn("[quotes] order hydration failed", err);
       }
@@ -809,7 +809,7 @@ export default function AdminQuotes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.quoteId, loading, quotes]);
 
-  // Realtime subscription -- when a client submits a quote request via
+  // Realtime subscription - when a client submits a quote request via
   // their portal (or any other process inserts a quote for our
   // company), refetch so the new row appears at the top of the
   // "Action needed" pill without the team having to refresh manually.
@@ -913,14 +913,14 @@ export default function AdminQuotes() {
   };
 
   /**
-   * Manual "Mark as sent" -- sets quotes.sent_at to now without
+   * Manual "Mark as sent" - sets quotes.sent_at to now without
    * actually firing an email. Used when the operator sent the quote
    * outside the system (printed PDF, WhatsApp, walked it across) and
    * wants the follow-up timing baseline anchored. If the quote is
    * still in draft, status flips to 'sent' so the suggester picks it
    * up like any normal sent quote.
    */
-  // Wave 70.50b -- Mark-lost dialog state. The previous handler used
+  // Wave 70.50b - Mark-lost dialog state. The previous handler used
   // window.prompt for a free-text reason, then bare-updated quotes
   // and inserted an audit row. That diverged from the client-decline
   // path which DID flip the linked lead, send the operator
@@ -935,7 +935,7 @@ export default function AdminQuotes() {
 
   const handleMarkAsLost = (quote: Quote) => {
     // Open the dialog instead of running inline. Default reason is
-    // 'no_response' -- the most common admin-side loss path (operator
+    // 'no_response' - the most common admin-side loss path (operator
     // closing out ghosted quotes).
     setMarkLostQuote(quote);
     setMarkLostReason("no_response");
@@ -961,7 +961,7 @@ export default function AdminQuotes() {
         q.id === markLostQuote.id ? ({ ...q, status: "rejected" } as Quote) : q,
       ));
 
-      // Surface what landed -- the receipt tells us whether the lead
+      // Surface what landed - the receipt tells us whether the lead
       // also flipped, whether the operator was notified, etc. If a
       // side-effect failed silently the audit log captures it, but
       // we still mention it here so the operator isn't surprised.
@@ -1053,7 +1053,7 @@ export default function AdminQuotes() {
 
   /** Open the compose drawer in follow-up mode. We re-use the
    *  existing QuoteComposeDrawer's "status" path since it already
-   *  picks the registry template by quote.status -- the operator
+   *  picks the registry template by quote.status - the operator
    *  edits as needed and on send we log the position.
    *
    *  The button only appears when computeFollowupState returns a
@@ -1114,7 +1114,7 @@ export default function AdminQuotes() {
   // company default first, quote stamp as fallback, literal 30 last.
   // Why company default first: older quotes were created with the
   // builder's hardcoded 30 stamp regardless of company setting, so
-  // those stamps don't represent an explicit operator decision -- the
+  // those stamps don't represent an explicit operator decision - the
   // current Settings -> Financial value is the canonical intent. If
   // an operator wants a different deposit on this specific accept,
   // they can edit the amount field directly.
@@ -1170,14 +1170,14 @@ export default function AdminQuotes() {
       const orderTotal = Number((receipt.order as any).total_amount || 0);
       const depositPaidAmount = Number(receipt.deposit.amount || 0);
       // Wave 13 audit: copy used to say "Order + invoice marked paid"
-      // for any deposit, which was a lie -- the DB rightly stored
+      // for any deposit, which was a lie - the DB rightly stored
       // payment_status='partial' when the deposit didn't cover the
       // full balance. Now reflect reality: full / partial.
       const settlesInFull = depositPaidAmount > 0 && depositPaidAmount >= orderTotal - 0.01;
       const lines: string[] = [`Order ${orderNum} created.`];
       if (receipt.deposit.recorded) {
         if (settlesInFull) {
-          lines.push(`${fmtMoney.format(depositPaidAmount)} recorded via ${receipt.deposit.method} -- order paid in full.`);
+          lines.push(`${fmtMoney.format(depositPaidAmount)} recorded via ${receipt.deposit.method} - order paid in full.`);
         } else {
           const balance = Math.max(0, orderTotal - depositPaidAmount);
           lines.push(`Deposit ${fmtMoney.format(depositPaidAmount)} recorded via ${receipt.deposit.method}. Balance ${fmtMoney.format(balance)} still due.`);
@@ -1646,7 +1646,7 @@ export default function AdminQuotes() {
                     ? "Send the quote first, then you can follow up"
                     : "Open a follow-up draft in Gmail / Outlook / mail app";
                 // Resolve the diary signal off the authoritative event
-                // date when the quote has converted -- a postponed
+                // date when the quote has converted - a postponed
                 // order should land on the new date, not the original
                 // enquiry date.
                 const resolved = resolvedByQuoteId.get(quote.id) || null;
@@ -1666,7 +1666,7 @@ export default function AdminQuotes() {
                 // quote has converted to an order, those numbers are
                 // the source of truth; otherwise we fall back to the
                 // quote row itself. `resolved` was set above for the
-                // diary signal -- reuse it here.
+                // diary signal - reuse it here.
                 const displayEventDate = resolved?.eventDate ?? quote.event_date ?? null;
                 const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
                 const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
@@ -1740,7 +1740,7 @@ export default function AdminQuotes() {
                                 from lead
                               </Badge>
                             )}
-                            {/* Wave 70.32 -- show the linked order's actual
+                            {/* Wave 70.32 - show the linked order's actual
                                 status, not a blanket "booked" word. Falls
                                 back to "Converted" when the order row
                                 hasn't hydrated yet (resolved is null on
@@ -1761,7 +1761,7 @@ export default function AdminQuotes() {
                                 </Badge>
                               );
                             })()}
-                            {/* Sent-at pill -- the timing anchor for
+                            {/* Sent-at pill - the timing anchor for
                                 follow-ups. Reads 'Sent today' /
                                 'Sent 3d ago' / 'Sent 12 May' depending
                                 on age. Click the Mark-as-sent action
@@ -1866,20 +1866,20 @@ export default function AdminQuotes() {
                               </span>
                             </div>
                           </div>
-                          {/* Provenance caption -- only shows when a
+                          {/* Provenance caption - only shows when a
                               linked order overrode the headline event
                               details. Stops the operator second-guessing
                               the numbers when the order has drifted from
                               the original quote.
-                              Wave 70.32 -- caption colour + verb mirror
+                              Wave 70.32 - caption colour + verb mirror
                               the linked order's actual status. "Booked"
                               only when the order really is confirmed-or-
                               later. Pending/cancelled etc. get an
                               honest label so the operator isn't misled. */}
                           {resolved && (() => {
-                            // Wave 70.42b -- active phrasing + explicit
+                            // Wave 70.42b - active phrasing + explicit
                             // consequence. Bobby flagged "Linked to
-                            // cancelled order" as confusing -- it didn't
+                            // cancelled order" as confusing - it didn't
                             // say WHO cancelled it or what it meant for
                             // the quote. Now: subject + verb + object +
                             // a one-line consequence so the operator
@@ -1887,16 +1887,16 @@ export default function AdminQuotes() {
                             const meta = orderStatusBadge(resolved.status as string | null | undefined);
                             const orderRef = resolved.orderNumber ? `Order ${resolved.orderNumber}` : "The linked order";
                             const sentence = !meta
-                              ? `${orderRef} -- status unknown`
-                              : meta.label === "Booked"     ? `${orderRef} is booked -- this quote converted successfully`
+                              ? `${orderRef} - status unknown`
+                              : meta.label === "Booked"     ? `${orderRef} is booked - this quote converted successfully`
                               : meta.label === "Pending"    ? `${orderRef} is pending confirmation`
-                              : meta.label === "Cancelled"  ? `${orderRef} was cancelled -- this quote is no longer in play`
-                              : meta.label === "In prep"    ? `${orderRef} is in prep -- food is being made`
+                              : meta.label === "Cancelled"  ? `${orderRef} was cancelled - this quote is no longer in play`
+                              : meta.label === "In prep"    ? `${orderRef} is in prep - food is being made`
                               : meta.label === "Ready"      ? `${orderRef} is ready for dispatch`
                               : meta.label === "Driving"    ? `${orderRef} is on the way`
                               : meta.label === "Delivered"  ? `${orderRef} has been delivered`
                               : meta.label === "Completed"  ? `${orderRef} is completed`
-                              : `${orderRef} -- ${meta.label.toLowerCase()}`;
+                              : `${orderRef} - ${meta.label.toLowerCase()}`;
                             const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-emerald-700"
                                        : meta?.label === "Cancelled"  ? "text-rose-700"
                                        : meta?.label === "Pending"    ? "text-amber-700"
@@ -1983,12 +1983,12 @@ export default function AdminQuotes() {
                             screen, and gives a clear primary / secondary
                             / overflow hierarchy. Two PDF buttons (one
                             branded server-render, one ?print=1 fallback)
-                            were redundant -- only Download PDF remains.
+                            were redundant - only Download PDF remains.
                             Lifecycle moves (Mark sent, Mark lost) and
                             CRUD (Edit, Duplicate, Delete) live in the
                             menu since they're not row-level urgent. */}
                         <div className="flex flex-col gap-2 ml-4 items-stretch w-44 shrink-0">
-                          {/* Primary CTA -- tone-coloured. Draft -> Send,
+                          {/* Primary CTA - tone-coloured. Draft -> Send,
                               everything else -> Compose. */}
                           {quote.status === "draft" ? (
                             <RowPrimaryAction
@@ -2012,7 +2012,7 @@ export default function AdminQuotes() {
                               }}
                             />
                           )}
-                          {/* Mark accepted -- single highest-value
+                          {/* Mark accepted - single highest-value
                               follow-on action. Converts to a live order
                               + fires deposit invoice. Hidden once
                               accepted / rejected. */}
@@ -2029,7 +2029,7 @@ export default function AdminQuotes() {
                               {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
                             </Button>
                           )}
-                          {/* Send next follow-up -- only visible when
+                          {/* Send next follow-up - only visible when
                               amber or rose, otherwise we'd be nagging. */}
                           {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
                             <Button
@@ -2048,7 +2048,7 @@ export default function AdminQuotes() {
                             </Button>
                           )}
                           {/* Overflow menu. Holds every secondary
-                              action -- lifecycle tweaks, share /
+                              action - lifecycle tweaks, share /
                               export, CRUD, accounting push, delete. */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -2211,7 +2211,7 @@ export default function AdminQuotes() {
                                     <Clock className="w-4 h-4 mr-2" />
                                     {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
                                   </DropdownMenuItem>
-                                  {/* Wave 70.42b -- relabelled to "Mark rejected"
+                                  {/* Wave 70.42b - relabelled to "Mark rejected"
                                       to match the DB status value + Bobby's
                                       terminology. The handler is unchanged
                                       (still sets status='rejected' + audits
@@ -2618,7 +2618,7 @@ export default function AdminQuotes() {
         onSent={handleQuoteSent}
       />
 
-      {/* Wave 70.50b -- Mark-lost dialog. Replaces the old window.prompt
+      {/* Wave 70.50b - Mark-lost dialog. Replaces the old window.prompt
           flow. Captures the structured lost_reason enum + an optional
           note. Submission goes through markQuoteAsLost() so the lead
           flip + operator notification + audit row fire identically to
@@ -2642,9 +2642,9 @@ export default function AdminQuotes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no_response">No response (ghosted)</SelectItem>
-                  <SelectItem value="price">Price -- went with someone cheaper</SelectItem>
-                  <SelectItem value="timing">Timing -- date didn't work</SelectItem>
-                  <SelectItem value="capacity">Capacity -- we couldn't take it</SelectItem>
+                  <SelectItem value="price">Price - went with someone cheaper</SelectItem>
+                  <SelectItem value="timing">Timing - date didn't work</SelectItem>
+                  <SelectItem value="capacity">Capacity - we couldn't take it</SelectItem>
                   <SelectItem value="won_by_competitor">Won by a specific competitor</SelectItem>
                   <SelectItem value="client_changed_plans">Client cancelled the event entirely</SelectItem>
                   <SelectItem value="weather">Weather</SelectItem>
@@ -2699,7 +2699,7 @@ function QuoteComposeDrawer({
   /** Fires when the operator hits any send channel WHILE in sweetener
    *  mode. Carries the offer details so the parent can persist them
    *  to the quote (apply discount, save valid_until, set status to
-   *  'revised') -- the email needs to match what the quote actually
+   *  'revised') - the email needs to match what the quote actually
    *  shows to the client. */
   onSweetenerApplied?: (offer: {
     discountKind: "percent" | "amount" | "perk";
@@ -2751,7 +2751,7 @@ function QuoteComposeDrawer({
       // Wave 27.2: pass the polished /q/{token} URL so the email
       // body includes a one-click "View & accept" CTA. Client opens
       // the quote, hits Accept (the green primary button from Wave
-      // 26.2's three-button row), done -- no email round-trip needed.
+      // 26.2's three-button row), done - no email round-trip needed.
       const tok = (quote as any).public_token as string | null | undefined;
       return templateSweetener({
         ...baseCtx,
@@ -2764,7 +2764,7 @@ function QuoteComposeDrawer({
     }
     return templateForQuote(derivedStatus, baseCtx);
   // baseCtx is rebuilt every render but its members are stable refs of
-  // the quote -- the deps below cover everything that actually changes.
+  // the quote - the deps below cover everything that actually changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, derivedStatus, quote, fromName, companyName, discountKind, discountPercent, discountAmount, perk, validUntilLabel]);
 

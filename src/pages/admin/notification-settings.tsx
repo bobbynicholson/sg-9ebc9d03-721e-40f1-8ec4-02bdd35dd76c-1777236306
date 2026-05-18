@@ -1,5 +1,5 @@
 /**
- * /admin/notification-settings -- per-user channel preferences.
+ * /admin/notification-settings - per-user channel preferences.
  *
  * Phase 5 #7: migrated to react-hook-form + zod (P1-29 cont). The
  * old shape used a single setSettings tree with one updateSetting
@@ -110,7 +110,7 @@ export default function NotificationSettings() {
 
   // Hydrate from localStorage on mount. zod parses the stored value
   // before reset so a malformed entry from an older schema doesn't
-  // brick the page -- on parse failure we fall back to DEFAULTS.
+  // brick the page - on parse failure we fall back to DEFAULTS.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {

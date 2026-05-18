@@ -86,7 +86,7 @@ export function BrandedShell({ brand, preview, children }: BrandedShellProps) {
               .
             </Text>
             <Text style={footerSmall}>
-              Powered by {PLATFORM_NAME} -- run your catering business without the chaos.
+              Powered by {PLATFORM_NAME} - run your catering business without the chaos.
             </Text>
           </Section>
         </Container>

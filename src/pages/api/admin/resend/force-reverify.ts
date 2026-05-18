@@ -117,7 +117,7 @@ export default async function handler(
         console.warn(
           `[force-reverify] delete failed (continuing): ${del.error}`,
         );
-        // Fall through -- the create call below will fail with
+        // Fall through - the create call below will fail with
         // 'already exists' if Resend still has it, and we'll surface
         // that clearly.
       }
@@ -157,7 +157,7 @@ export default async function handler(
     }
 
     // 4. Trigger a verify check immediately so the user doesn't have
-    //    to wait + click again. Best effort -- a fail here just means
+    //    to wait + click again. Best effort - a fail here just means
     //    they hit "Verify now" once after the response.
     const triggered = await verifyResendDomain(newId);
     if (isResendError(triggered)) {

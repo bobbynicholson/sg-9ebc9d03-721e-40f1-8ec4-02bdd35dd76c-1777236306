@@ -1,5 +1,5 @@
 /**
- * PauseOrderDialog -- captures the pause reason + optional expected
+ * PauseOrderDialog - captures the pause reason + optional expected
  * resume date before suspending an active order. Mirrors
  * CancelOrderDialog discipline: predefined category + free-text
  * reason + clear preview of what's about to happen, so the operator
@@ -78,7 +78,7 @@ export function PauseOrderDialog({ open, onOpenChange, orderId, orderNumber, cli
         title: "Order paused",
         description: `${orderNumber || "Order"} is on hold. Reminders + kitchen prep are suspended; one click to resume.`,
       });
-      // Wave 70.40 -- pause flips status + suspends prep + kills
+      // Wave 70.40 - pause flips status + suspends prep + kills
       // email queue; ping every surface.
       if (orderId) emitOrderUpdated(orderId, "pause-dialog:confirm", ["status", "prep"]);
       onOpenChange(false);
@@ -108,7 +108,7 @@ export function PauseOrderDialog({ open, onOpenChange, orderId, orderNumber, cli
               <li>Pre-event reminder emails suspended in place</li>
               <li>Kitchen prep tasks hidden from chef views</li>
               <li>Revenue + diary capacity stay counted (still booked, just dormant)</li>
-              <li>Deposit invoice unchanged -- void manually if no payment was made</li>
+              <li>Deposit invoice unchanged - void manually if no payment was made</li>
             </ul>
           </div>
 

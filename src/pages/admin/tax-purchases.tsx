@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * /admin/tax-purchases -- read-only accountant overview.
+ * /admin/tax-purchases - read-only accountant overview.
  *
  * The editing surface (snap a slip, mark deductibles, add lines, etc.)
  * lives on /admin/shopping under the "Receipts" tab so admins act in

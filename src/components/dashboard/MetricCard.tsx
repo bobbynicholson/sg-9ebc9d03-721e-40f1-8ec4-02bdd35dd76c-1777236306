@@ -1,7 +1,7 @@
 /**
  * Standard metric tile used across every dashboard. Built-in InfoTooltip
  * lets the user hover the (i) icon to see exactly what the number means
- * and where it's coming from -- so "Total Revenue" stops being a black
+ * and where it's coming from - so "Total Revenue" stops being a black
  * box and becomes "sum of confirmed bookings, source: orders.total_amount
  * filtered by event_date in selected range".
  */

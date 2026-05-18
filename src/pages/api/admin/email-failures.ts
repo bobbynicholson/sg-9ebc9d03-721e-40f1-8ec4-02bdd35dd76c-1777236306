@@ -7,8 +7,8 @@
  * worth retrying.
  *
  * Query params:
- *   limit  -- max rows (default 100, capped at 250)
- *   status -- filter to a single status (failed | blocked | quarantined |
+ *   limit  - max rows (default 100, capped at 250)
+ *   status - filter to a single status (failed | blocked | quarantined |
  *             simulated). Omit to get every non-sent row.
  */
 import type { NextApiRequest, NextApiResponse } from "next";

@@ -1,5 +1,5 @@
 /**
- * InventoryExpiryWidget -- inventory_batches expiring within the
+ * InventoryExpiryWidget - inventory_batches expiring within the
  * next 14 days, plus already-expired batches that still have stock.
  *
  * Phase 12 #7. Perishable items (proteins, dairy, prepped salads)

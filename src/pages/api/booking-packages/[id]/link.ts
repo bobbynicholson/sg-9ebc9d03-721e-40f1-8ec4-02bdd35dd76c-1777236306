@@ -1,5 +1,5 @@
 /**
- * POST /api/booking-packages/[id]/link -- Wave 70.45b
+ * POST /api/booking-packages/[id]/link - Wave 70.45b
  *
  * Body: { order_id: string }
  *

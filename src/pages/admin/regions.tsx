@@ -202,7 +202,7 @@ function RegionsPage() {
     }
 
     // Month-to-date window for the per-branch KPI strip. Local-day
-    // boundaries are fine here -- a branch's KPI is "events booked
+    // boundaries are fine here - a branch's KPI is "events booked
     // this calendar month from the operator's perspective".
     const now = new Date();
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);

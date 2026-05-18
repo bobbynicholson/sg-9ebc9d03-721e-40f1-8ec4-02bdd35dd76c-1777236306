@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // <Image> doesn't do its own outbound fetch from inside the PDF
     // renderer. The renderer fetch goes through Node's https without
     // a timeout, and a slow / 404 logo can take the entire route
-    // down with a generic 500. Best-effort -- if the fetch fails,
+    // down with a generic 500. Best-effort - if the fetch fails,
     // we strip the logo and render the PDF without it rather than
     // crashing the whole download.
     let logoUrl: string | null = (q.company as any)?.logo_url ?? null;
@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         logoUrl = null;
       }
     } else if (logoUrl && !/^data:/i.test(logoUrl)) {
-      // Not http(s) and not a data URI -- drop it.
+      // Not http(s) and not a data URI - drop it.
       logoUrl = null;
     }
 

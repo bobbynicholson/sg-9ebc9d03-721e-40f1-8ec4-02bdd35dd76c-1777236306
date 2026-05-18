@@ -1,8 +1,8 @@
 /**
- * DriverClockButton -- one-tap clock-in / clock-out for the driver
+ * DriverClockButton - one-tap clock-in / clock-out for the driver
  * dashboard.
  *
- * Phase 10 #10. Drivers had no in-app way to start a shift -- shifts
+ * Phase 10 #10. Drivers had no in-app way to start a shift - shifts
  * were either logged manually by admins via /admin/driver-management
  * after the fact, or back-dated by the driver via the settlement
  * page. Both broke the 'real-time clock' promise the BCEA fatigue
@@ -18,7 +18,7 @@
  *     auto-ticking elapsed counter. On click, UPDATE actual_end = now,
  *     status = 'completed'.
  *
- * No multiplier picker, no notes -- those belong on the admin
+ * No multiplier picker, no notes - those belong on the admin
  * LogDriverShiftModal. The driver-side experience is intentionally
  * a single tap so it gets used in the moment.
  */
@@ -127,7 +127,7 @@ export function DriverClockButton({
       // Wave 37: prefer to STAMP onto today's planned shift if one
       // exists (admin rostered the driver for today), otherwise
       // INSERT a fresh walk-in shift row. Without this, every
-      // clock-in spawned a second row -- the roster row stayed
+      // clock-in spawned a second row - the roster row stayed
       // forever in 'scheduled' state and the schedule grid showed
       // a phantom no-show next to the actual hours. Mirrors the
       // pattern Wave 36.1 added on /team-portal/kitchen/duty.

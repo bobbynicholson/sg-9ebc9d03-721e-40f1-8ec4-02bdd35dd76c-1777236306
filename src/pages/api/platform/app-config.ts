@@ -4,7 +4,7 @@
  *
  * Super_admin-only access to the app_config key/value store. Used by
  * the SaaS settings page to edit values like import_row_cap. Tenant
- * admins never touch this -- there's nothing per-tenant in app_config
+ * admins never touch this - there's nothing per-tenant in app_config
  * (tenant settings live elsewhere).
  *
  * GET returns every row. PUT accepts { key, value } and upserts.

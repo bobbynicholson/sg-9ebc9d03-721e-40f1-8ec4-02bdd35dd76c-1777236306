@@ -1,5 +1,5 @@
 /**
- * POST /api/accounting/xero/void-invoices -- Wave 70.51b
+ * POST /api/accounting/xero/void-invoices - Wave 70.51b
  *
  * Pushes Xero VOID for every locally-voided invoice tied to an order
  * (i.e. invoices the cancel cascade already flipped to status='voided'
@@ -8,11 +8,11 @@
  * Why this exists: the cancel cascade voids invoices in our DB but
  * the Xero copy stayed live. The catering company's Xero ledger
  * ended up with parallel invoice + credit-note rows for every
- * cancellation -- the accountant had to manually reconcile.
+ * cancellation - the accountant had to manually reconcile.
  *
  * Xero contract: VOID is only valid for invoices that have no
  * payments allocated. Paid / partially-paid invoices continue through
- * the existing /sync-credit-note path -- their original invoice
+ * the existing /sync-credit-note path - their original invoice
  * stays AUTHORISED in Xero and the credit-note is the offset entry
  * (which IS the correct accounting treatment for paid-then-refunded).
  *
@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Tenant gate -- all invoices for this order share the same
+    // Tenant gate - all invoices for this order share the same
     // company_id; check on the first one.
     const orderCompanyId = rows[0].company_id;
     if (!isInternal && companyIdScope && companyIdScope !== orderCompanyId) {
@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let failed = 0;
 
     for (const inv of rows) {
-      // Hard skip if paid -- Xero rejects VOID on invoices with
+      // Hard skip if paid - Xero rejects VOID on invoices with
       // allocated payments. The credit-note path is the right one
       // for these and is already handled by /sync-credit-note.
       if (Number(inv.amount_paid || 0) > 0) {
@@ -192,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         continue;
       }
 
-      // Success -- stamp the local row so we never re-attempt.
+      // Success - stamp the local row so we never re-attempt.
       await supabase
         .from("invoices")
         .update({

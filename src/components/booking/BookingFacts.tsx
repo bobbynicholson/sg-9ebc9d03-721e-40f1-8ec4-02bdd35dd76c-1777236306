@@ -1,19 +1,19 @@
 /**
- * BookingFacts -- Wave 70.42
+ * BookingFacts - Wave 70.42
  *
  * Body component beneath <BookingHeader>. Renders the role-relevant
  * facts about a booking. Pairs with loadBookingForRole() server-side
  * helper so the staff variants never receive money fields in the
- * first place (defense in depth -- see bookingFacts.ts).
+ * first place (defense in depth - see bookingFacts.ts).
  *
- * This commit ships the admin variant -- the "conductor view" Bobby
+ * This commit ships the admin variant - the "conductor view" Bobby
  * asked for. Each cross-role panel surfaces a flat summary so the
  * owner can scan kitchen / dispatch / staff / cleaning / shopping
  * status without leaving the booking. Deep links jump to the
  * dedicated dashboard for each role.
  *
  * Other variants (client / kitchen / driver / cleaning / shopping)
- * land in 70.42b -- the data layer is already in place, the views
+ * land in 70.42b - the data layer is already in place, the views
  * are next.
  */
 import Link from "next/link";
@@ -44,7 +44,7 @@ export function BookingFacts({ facts }: BookingFactsProps) {
   if (facts.role === "driver")   return <DriverFacts facts={facts} />;
   if (facts.role === "cleaning") return <CleaningFacts facts={facts} />;
   if (facts.role === "shopping") return <ShoppingFacts facts={facts} />;
-  // Exhaustive fallback for an unknown role -- should be unreachable.
+  // Exhaustive fallback for an unknown role - should be unreachable.
   return null;
 }
 
@@ -55,8 +55,8 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
   const { user } = useAuth();
   const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
 
-  // Money summary -- the admin always sees totals.
-  // Wave 70.44 -- print-mode: gradients flatten to white, shadows
+  // Money summary - the admin always sees totals.
+  // Wave 70.44 - print-mode: gradients flatten to white, shadows
   // drop, border becomes a thin slate-400 line for cleaner PDF
   // output. Same treatment applied to every Card in the admin
   // variant below.
@@ -134,7 +134,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
     <div className="space-y-3">
       {moneyBlock}
 
-      {/* Cross-role conductor panels -- Bobby's brief: the owner is
+      {/* Cross-role conductor panels - Bobby's brief: the owner is
           NOT just a bookkeeper. They need to see kitchen / driver /
           staff / cleaning / shopping status at a glance, not click
           through five tabs. */}
@@ -165,7 +165,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
         })}
       </div>
 
-      {/* Kitchen prep detail strip -- only when there are prep tasks
+      {/* Kitchen prep detail strip - only when there are prep tasks
           (the panel above signals the at-a-glance state; this strip
           adds the count detail without forcing a navigation). */}
       {k.prepTaskCount > 0 && (
@@ -257,10 +257,10 @@ function ClientFacts({ facts }: { facts: BookingFactsClient }) {
 function KitchenFacts({ facts }: { facts: BookingFactsKitchen }) {
   return (
     <div className="space-y-3">
-      {/* Timing strip -- kitchen's primary fact: when does it need
+      {/* Timing strip - kitchen's primary fact: when does it need
           to be ready? Driver pickup_time is the deadline; setup_time
           is the kitchen's setup window. NO money fields anywhere on
-          the kitchen variant -- stripped server-side. */}
+          the kitchen variant - stripped server-side. */}
       <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-red-50 print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-orange-700 font-bold mb-2">Kitchen timing</p>

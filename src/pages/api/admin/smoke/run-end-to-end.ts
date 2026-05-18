@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/smoke/run-end-to-end -- Wave 70.47
+ * POST /api/admin/smoke/run-end-to-end - Wave 70.47
  *
  * End-to-end smoke test for the critical billing + lifecycle path.
  * One endpoint. Runs every stage of the operator-critical flow,
@@ -8,11 +8,11 @@
  * Purpose: Bobby's gate before signing off on the "this is the
  * greatest catering tool ever" video. Hand-clicking the flow takes
  * 30+ minutes per run and one human mistake derails the test. This
- * is the regression net -- one button, deterministic result.
+ * is the regression net - one button, deterministic result.
  *
  * Stages (each pass/fail independently; failure short-circuits):
  *   A1. Create test client            (clients insert)
- *   A2. Create order                  (orders insert -- status=pending)
+ *   A2. Create order                  (orders insert - status=pending)
  *   A3. Pay deposit                   (payments insert + order flags)
  *   A4. Confirm order                 (status pending -> confirmed)
  *   A5. Start prep                    (status confirmed -> preparing)
@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const t0 = Date.now();
   const stages: Stage[] = [];
   const created: Created = { client_ids: [], order_ids: [], package_ids: [], payment_ids: [] };
-  // Wave 70.49c D-stage state -- minted token + order used for the
+  // Wave 70.49c D-stage state - minted token + order used for the
   // client-view RPC smoke. Closure-scoped so D2 can read what D1
   // produced without threading through a shared receipt object.
   let smokeMintedToken: string | null = null;
@@ -119,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = (req.body || {}) as { skip_cleanup?: boolean };
     const skipCleanup = !!body.skip_cleanup;
 
-    // Service client for everything -- the smoke harness deliberately
+    // Service client for everything - the smoke harness deliberately
     // bypasses RLS so it can simulate every actor (client, kitchen,
     // driver) without juggling sessions. The helper now also throws
     // loud if the env is misconfigured (Wave 70.46).
@@ -209,7 +209,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (payErr) throw new Error(payErr.message);
       created.payment_ids.push((pay as any).id);
 
-      // Update order to reflect deposit paid -- mirrors what the live
+      // Update order to reflect deposit paid - mirrors what the live
       // payment handler does so downstream gates (e.g. confirm) see
       // the right state.
       const { error: updErr } = await sb
@@ -233,7 +233,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // A4..A8 status transitions. We update status directly rather than
     // calling the workflow service so the smoke remains self-contained
     // (no email side effects on a smoke client). The triggers on
-    // orders.status still fire -- this is what we WANT to verify.
+    // orders.status still fire - this is what we WANT to verify.
     const flipStatus = async (next: string, extra: Record<string, any> = {}) => {
       const { error } = await sb
         .from("orders")
@@ -247,12 +247,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await run("A5_start_prep",    () => flipStatus("preparing", { prep_started_at: new Date().toISOString() }));
     await run("A6_mark_ready",    () => flipStatus("ready",     { ready_at: new Date().toISOString() }));
     await run("A7_start_delivery",() => flipStatus("in_transit",{ picked_up_at: new Date().toISOString() }));
-    // Wave 70.48c -- dropped the phantom `actual_delivery_time` field.
+    // Wave 70.48c - dropped the phantom `actual_delivery_time` field.
     // The column does not exist on `orders`; the legacy code that
     // referenced it (force-close.ts) was silently PGRST204-ing on
     // every force-close attempt. delivered_at is the real column.
     await run("A8_mark_delivered",() => flipStatus("delivered", { delivered_at: new Date().toISOString() }));
-    // A8b -- delivered -> completed. The auto-invoice trigger
+    // A8b - delivered -> completed. The auto-invoice trigger
     // (auto_create_invoice_on_completion) only fires on the
     // transition INTO 'completed', not 'delivered'. Operators
     // typically reach 'completed' via the post-event close flow
@@ -373,7 +373,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await run("B3_cancel_package", async () => {
       // Flip package to cancelled + cascade to children. Mirrors the
       // cancelPackage() service path but without importing the full
-      // refund cascade -- the smoke proves the STATUS cascade lands.
+      // refund cascade - the smoke proves the STATUS cascade lands.
       // Full refund cascade is exercised by the live cancel endpoint;
       // smoke-bypassing those side effects keeps the test idempotent
       // and safe on the smoke client.
@@ -404,13 +404,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const list = (data as any[]) || [];
       const notCancelled = list.filter((o) => o.status !== "cancelled");
       if (notCancelled.length > 0) {
-        throw new Error(`Cascade incomplete -- ${notCancelled.length}/${list.length} children NOT cancelled`);
+        throw new Error(`Cascade incomplete - ${notCancelled.length}/${list.length} children NOT cancelled`);
       }
       return `cancelled=${list.length}/${list.length}`;
     });
 
     // ════════════════════════════════════════════════════════════════
-    // Stage C: Wave 70.48 -- releaseOrderResources() helper
+    // Stage C: Wave 70.48 - releaseOrderResources() helper
     //
     // Verifies the new chokepoint actually cascades. We don't go via
     // cancelOrder() here because that would fire real emails /
@@ -456,7 +456,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await run("C2_seed_equipment_booking", async () => {
       // We can't reliably create a real equipment_bookings row without
       // an equipment_id reference; instead we test the cascade by
-      // inserting WITHOUT a status check on the smoke side -- if the
+      // inserting WITHOUT a status check on the smoke side - if the
       // cascade fires, the row's status flips. If equipment_bookings
       // requires an equipment_id we don't have, this stage skips
       // gracefully and the helper receipt still validates.
@@ -526,10 +526,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         "equipment_hire_orders",
         "driver_assignments",
         "orders.secondary_assignments",
-        // Wave 70.50a -- linked quote + lead flips.
+        // Wave 70.50a - linked quote + lead flips.
         "quotes.linked_lost",
         "leads.linked_lost",
-        // Wave 70.51a -- shopping list items soft-remove.
+        // Wave 70.51a - shopping list items soft-remove.
         "shopping_list_items",
       ];
       const missing = expected.filter((r) => !got.includes(r));
@@ -576,7 +576,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // ════════════════════════════════════════════════════════════════
-    // Stage D: Wave 70.49c -- client-view RPC path
+    // Stage D: Wave 70.49c - client-view RPC path
     //
     // Catches the family of bug that hid in Wave 70.49b: the
     // `client_view_order` RPC silently 42703-erroring because it
@@ -592,7 +592,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ════════════════════════════════════════════════════════════════
 
     if (!(await run("D1_mint_client_token", async () => {
-      // Use any cascade-test order created earlier (C1) -- we already
+      // Use any cascade-test order created earlier (C1) - we already
       // own + clean it up. Falls back to the package's first child if
       // C1 short-circuited.
       const targetOrderId = cascadeOrderId || pkgOrderIds[0] || orderId;
@@ -606,7 +606,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const raw = (data as any)?.raw_token;
       if (!raw) throw new Error("RPC returned no raw_token");
       // Smuggle the token + target order id forward via closure
-      // variables -- the stage chain doesn't have a shared state bag
+      // variables - the stage chain doesn't have a shared state bag
       // and threading via `created.*` would muddle the cleanup logic.
       smokeMintedToken = String(raw);
       smokeMintTargetOrder = targetOrderId;
@@ -662,7 +662,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // reference packages + clients; packages reference companies.
       // Delete leaves first, then trunks.
 
-      // Invoices (auto-created via trigger -- not in created list but
+      // Invoices (auto-created via trigger - not in created list but
       // tied to our test orders).
       if (created.order_ids.length > 0) {
         const { count: invCount } = await sb
@@ -682,7 +682,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Order-related side-effect tables that may have rows the
-      // triggers created. Best-effort -- ignore failures.
+      // triggers created. Best-effort - ignore failures.
       // Wave 70.49c: added client_access_tokens + client_access_log to
       // capture rows produced by the D-stage (token mint + the RPC's
       // log insert on successful validation).
@@ -740,7 +740,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ok: false,
         ms: 0,
         error: cleanupErr?.message || String(cleanupErr),
-        detail: "Cleanup failed -- some SMOKE-* rows may remain. Inspect manually.",
+        detail: "Cleanup failed - some SMOKE-* rows may remain. Inspect manually.",
       });
     }
   }

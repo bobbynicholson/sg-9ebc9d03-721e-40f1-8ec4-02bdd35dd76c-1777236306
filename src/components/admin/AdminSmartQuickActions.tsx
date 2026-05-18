@@ -1,15 +1,15 @@
 /**
- * AdminSmartQuickActions -- Wave 70.31
+ * AdminSmartQuickActions - Wave 70.31
  *
  * Three quick-action tiles at the top of the mobile drawer. The
  * trio rotates by mode so the owner sees the most likely
  * "what I need right now" action first.
  *
- *   setup     -- Continue onboarding, Add first client, Add inventory
- *   quiet     -- Today's events, New leads, Stock outlook
- *   pipeline  -- Overdue quotes, New leads, Calendar
- *   ops       -- Live ops, Dispatch, Today's events
- *   review    -- Financial dashboard, Unpaid invoices, Recent payments
+ *   setup     - Continue onboarding, Add first client, Add inventory
+ *   quiet     - Today's events, New leads, Stock outlook
+ *   pipeline  - Overdue quotes, New leads, Calendar
+ *   ops       - Live ops, Dispatch, Today's events
+ *   review    - Financial dashboard, Unpaid invoices, Recent payments
  *
  * Wraps the existing MobileQuickActions presenter so the visual
  * treatment matches the other portals.

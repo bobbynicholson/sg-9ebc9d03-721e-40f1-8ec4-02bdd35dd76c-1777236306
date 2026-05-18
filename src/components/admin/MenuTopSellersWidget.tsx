@@ -1,5 +1,5 @@
 /**
- * MenuTopSellersWidget -- top 5 menu items by quantity sold in the
+ * MenuTopSellersWidget - top 5 menu items by quantity sold in the
  * last 30 days.
  *
  * Phase 11 #4. The dashboard told the owner how the business was
@@ -8,7 +8,7 @@
  * orders or spreadsheet-export.
  *
  * Wave 43 hotfix: previous query asked for orders.menu_items, a
- * column that doesn't exist on orders -- it's only on quotes.
+ * column that doesn't exist on orders - it's only on quotes.
  * Line items live in order_items (item_name, quantity, ...) keyed
  * by order_id. Net result: the widget silently returned zero
  * results forever (failed query was swallowed pre-Wave 43 sweep).
@@ -41,7 +41,7 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
         // Wave 43 hotfix: query order_items + inner join to orders
         // for the status / event_date / company filter. Each
         // order_items row already has item_name + quantity, so no
-        // JSON unwrap needed -- one row per dish per order.
+        // JSON unwrap needed - one row per dish per order.
         const { data, error } = await (supabase as any)
           .from("order_items")
           .select(

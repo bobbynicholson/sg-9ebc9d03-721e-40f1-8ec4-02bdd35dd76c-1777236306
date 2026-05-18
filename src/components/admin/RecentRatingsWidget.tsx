@@ -1,11 +1,11 @@
 /**
- * RecentRatingsWidget -- the last few orders an admin star-rated,
+ * RecentRatingsWidget - the last few orders an admin star-rated,
  * plus the 30-day average across all ratings captured.
  *
  * Phase 19 #10. Closes the loop on the Phase 18 #10 quick-rating
  * capture in the order drawer. Ops can stamp 1-5 stars on each
  * event after it lands, but until now there was no surface to see
- * the result -- the ratings just lived in audit_logs.
+ * the result - the ratings just lived in audit_logs.
  *
  * Reads audit_logs where action='order_rating_set' and rolls up
  * the latest rating per order (so re-rating an event doesn't double

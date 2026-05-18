@@ -1,5 +1,5 @@
 /**
- * AdminLiveStateStrip -- Wave 70.31
+ * AdminLiveStateStrip - Wave 70.31
  *
  * The live-state pill grid at the top of the admin nav (below the
  * mode badge). Surfaces the most-pressing numbers so the owner can
@@ -9,7 +9,7 @@
  *   Row 1: Events / Live / Quotes (ops-side)
  *   Row 2: Revenue / Unpaid / Alerts (money-side, gated)
  *
- * Mobile: just row 1 (4 pills max if non-finance role -- alerts
+ * Mobile: just row 1 (4 pills max if non-finance role - alerts
  * promoted into row 1 in place of Live when no events today).
  *
  * Each pill is a tap target deep-linking to the right page. Tones
@@ -100,7 +100,7 @@ export function AdminLiveStateStrip() {
     return tenantCurrency.format(Math.round(n), 0);
   };
 
-  // Wave 70.41b -- shortened labels so they fit the 256-288px sidebar
+  // Wave 70.41b - shortened labels so they fit the 256-288px sidebar
   // without truncating to "OVER..." / "REVEN..." / "ALERT..." which
   // Bobby flagged as confusing. Each label now <= 6 chars, fits the
   // pill's ~70-80px column at 9px text comfortably. Full meaning is
@@ -157,7 +157,7 @@ export function AdminLiveStateStrip() {
       icon: Wallet,
       tone: counts.unpaidValue > 0 ? "warning" : "muted",
       href: "/admin/invoices",
-      // Wave 70.41b -- aria text updated to match the new query
+      // Wave 70.41b - aria text updated to match the new query
       // semantics (all outstanding, not just past-due overdue).
       aria: `Outstanding invoices total: ${tenantCurrency.format(counts.unpaidValue)}. Tap to chase.`,
     });
@@ -217,7 +217,7 @@ export function AdminLiveStateStrip() {
         </span>
         <span className="min-w-0">
           <span className="block text-[14px] font-bold tabular-nums leading-none">{p.value}</span>
-          {/* Wave 70.41b -- dropped truncate so labels that don't fit
+          {/* Wave 70.41b - dropped truncate so labels that don't fit
               break to a second line rather than collapsing to
               "OVER..." / "REVEN...". With the shortened labels above
               this should only trigger on the very narrow xl-collapsed
@@ -228,19 +228,19 @@ export function AdminLiveStateStrip() {
     );
   };
 
-  // Wave 70.41c -- restructured from 3-col to 2-col grid. Bobby
+  // Wave 70.41c - restructured from 3-col to 2-col grid. Bobby
   // flagged that even after the Wave 70.41b label shortening, 6-
   // char labels (QUOTES / UNPAID / ALERTS) still truncated to
   // "QUOTI..." / "ALERT..." because each pill column in the 256-
-  // 288px sidebar was only ~70-80px wide -- not enough room for
+  // 288px sidebar was only ~70-80px wide - not enough room for
   // both the value AND a 6-char label without one collapsing.
   //
   // Going 2-col gives ~110px per pill. Labels fit cleanly, no
   // ellipsis, no wrapping. Three rows of two are paired by intent:
   //   Row 1: today-live signals (Events / Live)
   //   Row 2: action items     (Quotes / Alerts)
-  //   Row 3: money            (Today / Unpaid)   -- finance only
-  //          or alternates    (Leads / Gaps)     -- non-finance
+  //   Row 3: money            (Today / Unpaid)   - finance only
+  //          or alternates    (Leads / Gaps)     - non-finance
   //
   // Matches the 2x2 grid pattern already used on Cleaning + Shopping
   // strips for consistency across the tool.

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * EquipmentTypeahead -- per-line search-as-you-type on the New Quote
+ * EquipmentTypeahead - per-line search-as-you-type on the New Quote
  * page's Equipment section.
  *
  * Mirror of MenuItemTypeahead but keyed off the company's `equipment`
@@ -27,7 +27,7 @@ type SearchHit = Awaited<
   ReturnType<typeof equipmentManagementService.searchForQuote>
 >[number];
 
-/** Picked event payload -- the parent wires this into its line state */
+/** Picked event payload - the parent wires this into its line state */
 export interface EquipmentPick {
   id: string;
   name: string;
@@ -37,7 +37,7 @@ export interface EquipmentPick {
   imageUrl: string | null;
   /** What the company has on the books in total. */
   totalQuantity: number | null;
-  /** What's available right now -- useful for the warning when 0. */
+  /** What's available right now - useful for the warning when 0. */
   availableQuantity: number | null;
   condition: string | null;
 }
@@ -76,7 +76,7 @@ export function EquipmentTypeahead({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Debounced search -- 200ms feels native without spamming Supabase.
+  // Debounced search - 200ms feels native without spamming Supabase.
   useEffect(() => {
     if (!companyId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);

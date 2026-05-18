@@ -8,7 +8,7 @@
  *
  * Same auth gate as /api/payments/create-session: signed-in client OR
  * a magic-link visitor with a matching public_token. Tenant-scoped
- * via the invoice row -- credit lives per (company_id, client_id) so
+ * via the invoice row - credit lives per (company_id, client_id) so
  * a client of two tenants never sees their other tenant's balance.
  *
  * Body:  { invoice_id: string, public_token?: string }
@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Invoice not found" });
     }
 
-    // Ownership gate -- same shape as create-session.
+    // Ownership gate - same shape as create-session.
     let allowed = false;
     if (
       public_token &&

@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const cookieName = `cms_client_token_${orderId}`;
   // Either the per-order cookie OR the account-scope magic-link cookie is
-  // enough -- the RPC will verify the account-scope cookie's email matches
+  // enough - the RPC will verify the account-scope cookie's email matches
   // this order's client_email before unlocking.
   const tokenHash = (
     req.cookies?.[cookieName] ||

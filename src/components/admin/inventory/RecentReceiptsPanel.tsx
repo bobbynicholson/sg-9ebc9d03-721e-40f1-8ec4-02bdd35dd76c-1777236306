@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * RecentReceiptsPanel -- the last ten supplier slips that fed
+ * RecentReceiptsPanel - the last ten supplier slips that fed
  * inventory. Surfaces on /admin/inventory so the operator can quickly
  * trace which slip a stock bump came from.
  *

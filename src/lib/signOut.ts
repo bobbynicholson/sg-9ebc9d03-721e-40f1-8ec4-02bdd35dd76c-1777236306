@@ -30,12 +30,12 @@ export function detectCompanySlug(profile: any | null | undefined): string {
 /**
  * Decide which login page a signing-out user should land on. Two
  * branded variants per tenant:
- *   - /{slug}/client/login  -- magic-link sign-in for clients
- *   - /{slug}/login         -- staff password sign-in
+ *   - /{slug}/client/login  - magic-link sign-in for clients
+ *   - /{slug}/login         - staff password sign-in
  *
  * Clients should never be bounced to the staff login (they don't have
  * a password) and staff don't want to land on the client magic-link
- * page. We pick by URL first (most reliable -- a client signing out
+ * page. We pick by URL first (most reliable - a client signing out
  * is, by definition, on a /client-portal/* page) and fall back to
  * profile.role.
  */
@@ -63,7 +63,7 @@ function pickLoginPath(profile: any | null | undefined, slug: string): string {
  */
 export async function signOutAndRedirect(profile?: any | null) {
   const slug = detectCompanySlug(profile);
-  // Resolve target BEFORE clearing storage -- once we wipe localStorage
+  // Resolve target BEFORE clearing storage - once we wipe localStorage
   // we lose any role hints we might have read from there.
   const target = pickLoginPath(profile, slug);
   try {

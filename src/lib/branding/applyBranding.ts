@@ -3,7 +3,7 @@
  *
  * Source of truth: `companies` row (id, company_name, logo_url,
  * primary_color, secondary_color, accent_color). Writes to white-label
- * always go to that table directly -- there is no parallel state object.
+ * always go to that table directly - there is no parallel state object.
  *
  * This module is the small set of pure helpers that translate a row
  * into CSS variables on `document.documentElement`. The applier

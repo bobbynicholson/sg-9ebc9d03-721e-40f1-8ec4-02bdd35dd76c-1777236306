@@ -1,5 +1,5 @@
 /**
- * /api/booking-packages -- Wave 70.45b
+ * /api/booking-packages - Wave 70.45b
  *
  * GET  -> list all packages for the caller's company (optional ?status=
  *         filter, comma-separated).

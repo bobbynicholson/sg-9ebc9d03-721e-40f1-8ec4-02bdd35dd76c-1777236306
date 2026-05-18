@@ -1,11 +1,11 @@
 /**
- * Yoco webhook handler -- per-tenant variant.
+ * Yoco webhook handler - per-tenant variant.
  *
  * Tenants who pick Yoco in /admin/payment-gateways have their
  * webhookSecret stored in payment_gateway_credentials. Yoco signs
  * webhooks with HMAC-SHA256 over the raw body using that secret.
  * Idempotency on the Yoco transaction id mirrors the PayFast IPN
- * pattern in payment-confirmation.ts -- DO NOT modify that file from
+ * pattern in payment-confirmation.ts - DO NOT modify that file from
  * here, the PayFast path is owned separately.
  *
  * Body contract (Yoco):
@@ -105,12 +105,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(401).json({ error: "Invalid Yoco signature" });
       }
     } else if (process.env.NODE_ENV === "production") {
-      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} -- REJECTING (production)`);
+      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} - REJECTING (production)`);
       return res.status(401).json({
         error: "Yoco webhook secret is not configured for this tenant. Set it in Settings -> Payment Gateways before going live.",
       });
     } else {
-      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} -- accepting unsigned (non-prod)`);
+      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} - accepting unsigned (non-prod)`);
     }
 
     // We only act on succeeded payments. Anything else is a 200 noop so
@@ -125,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Idempotency on the Yoco transaction id. Mirrors the PayFast IPN
     // pattern in /api/webhooks/payment-confirmation.ts. Wave 24:
-    // tri-state -- duplicate (200), unique (proceed), or check failed
+    // tri-state - duplicate (200), unique (proceed), or check failed
     // (500 so Yoco retries instead of double-processing on a transient
     // DB blip).
     const dupCheck = await isDuplicateYocoPayment(sb, yocoTxId);
@@ -192,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // Wave 24: returns tri-state instead of boolean. The previous boolean
-// variant logged the error then processed anyway -- a flaky RLS /
+// variant logged the error then processed anyway - a flaky RLS /
 // network blip would silently double-process the payment. Returning
 // "error" lets the caller fail closed; Yoco retries on 5xx.
 async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<"duplicate" | "unique" | "error"> {

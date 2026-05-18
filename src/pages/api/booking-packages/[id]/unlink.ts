@@ -1,11 +1,11 @@
 /**
- * POST /api/booking-packages/[id]/unlink -- Wave 70.45b
+ * POST /api/booking-packages/[id]/unlink - Wave 70.45b
  *
  * Body: { order_id: string }
  *
  * Detaches an order from this package. Order becomes standalone again.
  * Does NOT auto-delete the package even if it ends up with zero orders
- * -- operator may want to relink other orders later.
+ * - operator may want to relink other orders later.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Confirm the order actually belongs to this package before
-    // detaching -- prevents an accidental detach of an order linked to
+    // detaching - prevents an accidental detach of an order linked to
     // a different package (which the body could otherwise force).
     const { data: order } = await ssr
       .from("orders")

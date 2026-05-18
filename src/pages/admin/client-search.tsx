@@ -26,7 +26,7 @@ export default function ProtectedClientSearchPage() {
 }
 
 // View shape the rest of the page reads. Powered by the `clients`
-// table -- the source of truth for catering customers regardless of
+// table - the source of truth for catering customers regardless of
 // whether they've created an auth account. (The previous
 // implementation queried `profiles` filtered by role='client', which
 // only returns auth-signed-up users, so a tenant with 906 imported
@@ -62,7 +62,7 @@ function ClientSearchPage() {
     if (!user?.company_id) return;
     try {
       setLoading(true);
-      // Query the clients table -- not profiles. Companies have
+      // Query the clients table - not profiles. Companies have
       // hundreds of imported contacts that never sign up, so they
       // don't get a profiles row. clients holds the canonical record
       // regardless of auth state. Soft-deleted rows excluded.
@@ -141,7 +141,7 @@ function ClientSearchPage() {
     router.push(withSlug(`/admin/quotes/new?clientId=${clientId}`));
   };
 
-  // Standalone invoice creation doesn't exist -- invoices flow from
+  // Standalone invoice creation doesn't exist - invoices flow from
   // confirmed orders. The button now drops the operator on the
   // invoices list filtered to this client so they can review what's
   // outstanding / paid for them.

@@ -4,15 +4,15 @@
  *
  * Reads from /api/admin/email-failures and renders rows with a Resend
  * button per failed entry. Resend hits /api/admin/resend-email which
- * re-fires the original message through emailService -- the same
+ * re-fires the original message through emailService - the same
  * negative gates (block list, quarantine) run again, so resending a
  * blocked recipient stays blocked.
  *
  * Status surface:
- *   failed       -- provider rejected or threw
- *   blocked      -- recipient is on the company block list
- *   quarantined  -- recipient is in import quarantine
- *   simulated    -- no email provider configured (admin needs to wire one)
+ *   failed       - provider rejected or threw
+ *   blocked      - recipient is on the company block list
+ *   quarantined  - recipient is in import quarantine
+ *   simulated    - no email provider configured (admin needs to wire one)
  */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";

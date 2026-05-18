@@ -114,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Monthly scan quota check. Per-tenant cap on AI receipt scans
     // (see /admin/platform/tech-costs for unit economics). If this
     // batch would push them over, refuse the whole batch with a
-    // structured error so the UI can show "X of 60 used" -- partial
+    // structured error so the UI can show "X of 60 used" - partial
     // processing would surprise the operator.
     const quota = await getReceiptScanQuota(supabase, companyId);
     if (quota.remaining < collected.length) {
@@ -129,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Load active SARS deductibility rules once per upload so every
     // image in this batch sees the same classifier prompt. The rules
-    // are global (no company_id) -- 45-ish rows, fits in one round-trip.
+    // are global (no company_id) - 45-ish rows, fits in one round-trip.
     const { data: rulesData } = await supabase
       .from("sa_tax_deductibility_rules")
       .select("category_code, display_name, group_label, deductibility, match_keywords")

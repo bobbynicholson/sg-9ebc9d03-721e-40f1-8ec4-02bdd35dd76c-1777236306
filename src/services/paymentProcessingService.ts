@@ -18,7 +18,7 @@ import { updateOrderStatus } from "./order/orderWorkflow";
 // deposit_paid / balance_paid columns and write the matching payment
 // rows. Webhooks have no auth session, so the imported browser anon
 // supabase fails RLS on orders / payments / orders.deposit_paid
-// updates -- the deposit lands on the gateway side but the order
+// updates - the deposit lands on the gateway side but the order
 // never flips to "deposit paid" on our side. Same resolveServerClient
 // pattern as orderWorkflow / cancellationEmails: pick service-role
 // on the server, browser anon in the browser.
@@ -107,7 +107,7 @@ class PaymentProcessingService {
 
       // Phase 2: write the schedule fields straight onto orders. The
       // payment_schedules table was a parallel materialisation with no
-      // FK trigger keeping it aligned -- we now treat orders as the
+      // FK trigger keeping it aligned - we now treat orders as the
       // single source of truth for deposit/balance state.
       const { error } = await supabase
         .from("orders")
@@ -189,7 +189,7 @@ class PaymentProcessingService {
       // Status flip via the state machine. Only when the order is
       // still in a pre-confirmed state. Anything past confirmed
       // (preparing, ready, in_transit, etc.) keeps its current
-      // status -- a later deposit payment shouldn't yank it back.
+      // status - a later deposit payment shouldn't yank it back.
       const currentStatus = String((priorDeposit as any)?.status || "").toLowerCase();
       if (currentStatus === "draft" || currentStatus === "pending" || currentStatus === "") {
         try {
@@ -271,12 +271,12 @@ class PaymentProcessingService {
   }
 
   /**
-   * Wave 50 C7 -- manual EFT / cash deposit handler.
+   * Wave 50 C7 - manual EFT / cash deposit handler.
    *
    * Audit (Specialist 4) found that the only path that reliably
    * cascades to status='confirmed' was the gateway IPN webhook.
    * Manual EFT + cash deposits depended on the operator separately
-   * recording the payment and remembering to flip the status -- so
+   * recording the payment and remembering to flip the status - so
    * orders sat at deposit_paid=true AND status='pending' for days,
    * which silently broke prep-tasks-on-confirm + the after-sales
    * drip eligibility.
@@ -307,7 +307,7 @@ class PaymentProcessingService {
       // Same split as processDepositPayment: money fields direct,
       // status flip through the state machine. Balance-paid on an
       // order that's already past confirmed (preparing, in_transit,
-      // delivered) keeps its current status -- payment doesn't
+      // delivered) keeps its current status - payment doesn't
       // regress lifecycle position. If the order is at 'delivered'
       // and this balance closes the books, the auto-complete hook
       // in webhooks/payment-confirmation.ts (Phase 0 #4) handles
@@ -341,7 +341,7 @@ class PaymentProcessingService {
       }
 
       // Status flip via the state machine. Same gate as the deposit
-      // path -- only when the order is still pre-confirmed. Balance
+      // path - only when the order is still pre-confirmed. Balance
       // payment doesn't yank a delivered order back to confirmed; the
       // separate auto-complete hook (Phase 0 #4) handles delivered ->
       // completed when invoice fully paid.
@@ -374,7 +374,7 @@ class PaymentProcessingService {
         const schedule = order as any;
 
         // Send in-portal payment received notification. Same deep-link
-        // pattern as the deposit confirmation -- admin dashboard with
+        // pattern as the deposit confirmation - admin dashboard with
         // the orderId surfaced.
         await notificationService.createNotification({
           company_id: order.company_id,

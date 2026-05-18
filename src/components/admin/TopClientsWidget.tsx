@@ -1,5 +1,5 @@
 /**
- * TopClientsWidget -- biggest spenders over the last 30 days,
+ * TopClientsWidget - biggest spenders over the last 30 days,
  * by total order value.
  *
  * Phase 21 #6. Retention conversations need data the owner can

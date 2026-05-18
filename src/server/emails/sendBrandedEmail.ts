@@ -2,16 +2,16 @@
  * Central server-side function for sending branded React-Email templates.
  *
  * Resolves which provider to use in this order:
- *   1. The tenant's email_settings row -- if a company has configured
+ *   1. The tenant's email_settings row - if a company has configured
  *      Resend or SMTP for itself, we honour that so client-facing emails
  *      come from their domain.
- *   2. The platform's RESEND_API_KEY env var -- used for platform-level
+ *   2. The platform's RESEND_API_KEY env var - used for platform-level
  *      sends (signup welcome, super-admin alerts) and as the fallback
  *      when a tenant hasn't set up their own provider yet so onboarding
  *      doesn't block on email config.
- *   3. Console-only simulation -- so local dev doesn't need any creds.
+ *   3. Console-only simulation - so local dev doesn't need any creds.
  *
- * This is server-only -- it uses @react-email/render (Node-only) and the
+ * This is server-only - it uses @react-email/render (Node-only) and the
  * Supabase service-role client. Don't import from the browser.
  */
 import { render } from "@react-email/render";
@@ -31,13 +31,13 @@ function tryServiceClient(): ServiceRoleClient | null {
 export interface SendBrandedEmailArgs {
   /** React Email component to render. */
   component: React.ReactElement;
-  /** Recipient email address (one at a time -- we don't batch here). */
+  /** Recipient email address (one at a time - we don't batch here). */
   to: string;
   subject: string;
   /**
    * Tenant scope for the send. Used to look up tenant email_settings,
    * for logging, and to resolve the from-address. Omit for platform-
-   * level sends (signup welcome -- the company exists but the email
+   * level sends (signup welcome - the company exists but the email
    * provider almost certainly isn't configured yet).
    */
   companyId?: string;
@@ -57,7 +57,7 @@ interface SendResult {
 }
 
 // Platform identity. Both env-driven so renaming the SaaS later is a
-// config change -- no code edit, no rebuild beyond a redeploy. Fall
+// config change - no code edit, no rebuild beyond a redeploy. Fall
 // back to CateringMS so nothing breaks if the env var isn't set.
 const PLATFORM_FROM_NAME = process.env.PLATFORM_BRAND_NAME || "CateringMS";
 const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "onboarding@resend.dev";

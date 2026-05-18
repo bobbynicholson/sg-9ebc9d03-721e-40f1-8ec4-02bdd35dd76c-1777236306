@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Sum a list of order items and apply VAT.
  *
  * IMPORTANT: callers MUST pass the effective taxRate as a decimal
- * (0.15 = 15%) -- typically resolved via
+ * (0.15 = 15%) - typically resolved via
  * `branchSettingsService.resolveBranchSettings(companyId, regionId).vatRate`.
  *
  * pricingMode honours the tenant's `companies.pricing_includes_vat`:
@@ -168,7 +168,7 @@ export async function getOrderPayments(orderId: string) {
 
 /**
  * Audit (May 2026, Wave 5): the previous implementation here was a
- * footgun -- it wrote an invoice row without company_id (breaking
+ * footgun - it wrote an invoice row without company_id (breaking
  * RLS scoping) and synthesised invoice_number from
  * `INV-YYYY-<4-digit random>`, with a ~0.5 collision probability
  * after ~80 invoices per year per tenant. The canonical path is
@@ -205,11 +205,11 @@ export async function generateInvoice(orderId: string) {
 }
 
 /**
- * Wave 49 B8 -- final invoice reconciliation on event close.
+ * Wave 49 B8 - final invoice reconciliation on event close.
  *
  * Audit (Specialist 1) found that damages reported via
  * driverConfirmationService.completeCollection landed in the
- * equipment_damages table -- but no path ever turned them into a
+ * equipment_damages table - but no path ever turned them into a
  * top-up invoice for the client. Cost of damaged kit walked out the
  * door silently. Same gap for any post-event balance correction
  * (extra hours, tip pass-through, missing return).
@@ -290,7 +290,7 @@ export async function reconcileOnComplete(orderId: string): Promise<{
     const lineItems: Array<any> = Array.isArray(invoiceData.line_items)
       ? [...invoiceData.line_items]
       : [];
-    const description = `Damage recovery for ${orderNumber} -- ${rows.length} item${rows.length === 1 ? "" : "s"}`;
+    const description = `Damage recovery for ${orderNumber} - ${rows.length} item${rows.length === 1 ? "" : "s"}`;
     const damageLine = {
       type: "damage_recovery",
       description,

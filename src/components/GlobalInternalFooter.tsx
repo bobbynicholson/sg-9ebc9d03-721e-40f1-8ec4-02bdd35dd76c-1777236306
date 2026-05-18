@@ -1,5 +1,5 @@
 /**
- * GlobalInternalFooter -- Wave 70.26
+ * GlobalInternalFooter - Wave 70.26
  *
  * Mounted once at the app root via _app.tsx. Detects the current
  * route via useRouter and renders the slim footer ONLY on internal
@@ -36,7 +36,7 @@ export function GlobalInternalFooter() {
   const displayName = branding?.companyName || "CateringMS";
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
-  // Wave 70.27 -- the slim footer is `fixed` so it doesn't take up
+  // Wave 70.27 - the slim footer is `fixed` so it doesn't take up
   // space in normal flow. On long scrolling pages that would let the
   // footer cover the last ~32px of content. The spacer below sits in
   // normal flow at the end of the page body so the user can always

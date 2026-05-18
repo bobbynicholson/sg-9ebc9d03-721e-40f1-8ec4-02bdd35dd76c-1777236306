@@ -5,7 +5,7 @@ import {
 } from "@/services/accountingIntegrationService";
 
 /**
- * Wave 70 -- Sage Business Cloud OAuth callback.
+ * Wave 70 - Sage Business Cloud OAuth callback.
  *
  * Mirrors the Xero callback pattern: state cookie CSRF check,
  * single-use clear, exchange + store, redirect back to integrations.

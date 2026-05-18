@@ -1,5 +1,5 @@
 /**
- * DriverLeaderboard -- top-5 drivers this month by hours worked
+ * DriverLeaderboard - top-5 drivers this month by hours worked
  * plus deliveries completed.
  *
  * Phase 11 #3. The admin had no quick way to see who's pulling
@@ -137,7 +137,7 @@ export function DriverLeaderboard({ companyId }: { companyId: string | null }) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Trophy className="w-4 h-4 text-blue-600" />
-          Leaderboard -- {monthLabel}
+          Leaderboard - {monthLabel}
         </CardTitle>
         <CardDescription className="text-xs">
           Top 5 drivers by hours worked, with completed deliveries as tiebreaker.

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
- * Public client view of a single order. No login required -- the access
+ * Public client view of a single order. No login required - the access
  * token in the URL (or the cookie set by it) is the auth.
  *
  * Flow:
@@ -106,7 +106,7 @@ export default function ClientOrderPage() {
           // Strip the token from the URL
           router.replace(`/c/order/${orderId}`, undefined, { shallow: true });
         } else {
-          // No token in URL -- try the cookie
+          // No token in URL - try the cookie
           const r = await fetch("/api/client-tokens/view", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -127,17 +127,17 @@ export default function ClientOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, orderId, queryToken]);
 
-  // Apply branding -- company colours go on a CSS var the page reads
+  // Apply branding - company colours go on a CSS var the page reads
   const primary   = view?.company?.primary_color   || "#9333ea";
   const secondary = view?.company?.secondary_color || "#ec4899";
 
   // Wave 20 audit: lightweight Cancel + Amend dialogs so the magic-link
   // client can act on their order without signing in. Both go through
   // token-bearer API endpoints (cookie set by /api/client-tokens/validate
-  // is the auth surface). Local UI state only -- the request body is
+  // is the auth surface). Local UI state only - the request body is
   // hand-built per dialog rather than dragging in a heavier form lib.
   // Wave 28.4: cancel goes through the new CancellationWizard now.
-  // The inline panel below is kept for postpone-only -- the cancel
+  // The inline panel below is kept for postpone-only - the cancel
   // path opens a Dialog with Reason -> Consequences -> Payout choice.
   const [cancelOpen, setCancelOpen] = useState(false);
   // cancelType locked to "postpone" for this inline panel; cancel
@@ -368,7 +368,7 @@ export default function ClientOrderPage() {
                 </div>
               </div>
 
-              {/* Wave 60 -- 5-stat grid (was 4): added Setup time so the
+              {/* Wave 60 - 5-stat grid (was 4): added Setup time so the
                   client knows when the team will arrive on-site. Pre-Wave-60
                   the client only saw the event Start and had to email to
                   ask "what time are you arriving to set up?". */}
@@ -384,7 +384,7 @@ export default function ClientOrderPage() {
             </CardContent>
           </Card>
 
-          {/* Status timeline -- Wave 26: replaced the legacy 5-step
+          {/* Status timeline - Wave 26: replaced the legacy 5-step
               row with the same TimelineTrack the admin sees, projected
               down to ~9 client-friendly stages via toClientTimeline().
               The client now sees the full lifecycle the operator
@@ -401,7 +401,7 @@ export default function ClientOrderPage() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // Wave 60 -- pass the related rows from the
+                  // Wave 60 - pass the related rows from the
                   // RPC. Pre-Wave-60 the timeline computed from
                   // order columns alone, which meant
                   // "Preparing your food" + "Equipment collected"
@@ -445,7 +445,7 @@ export default function ClientOrderPage() {
           </Card>
 
           {/* Menu / line items + full money breakdown.
-              Wave 60 -- pre-Wave-60 the client jumped from line-item
+              Wave 60 - pre-Wave-60 the client jumped from line-item
               prices straight to "Total" with no transparency on
               subtotal, discount, delivery, or VAT. Bobby's request:
               "wheres the vat and delivery, and all info for the
@@ -552,7 +552,7 @@ export default function ClientOrderPage() {
                 )}
                 {/* Wave 19: Pay button when there's an outstanding invoice.
                     Routes through the public /pay/i/{token} flow which is
-                    itself token-bearer auth -- no sign-in needed. Only
+                    itself token-bearer auth - no sign-in needed. Only
                     renders when invoice.balance_due > 0 AND status is
                     actionable (sent / partially_paid / overdue). */}
                 {invoice && Number(invoice.balance_due) > 0 && (
@@ -574,7 +574,7 @@ export default function ClientOrderPage() {
             </Card>
           )}
 
-          {/* Wave 19: live driver tracking. Token-bearer hint -- when
+          {/* Wave 19: live driver tracking. Token-bearer hint - when
               the order is in_transit AND we have venue coords, surface
               the existing /client-portal/tracking page. The page itself
               still requires sign-in for the live map (it's the existing
@@ -670,7 +670,7 @@ export default function ClientOrderPage() {
 
                 {/* Wave 28.4: dedicated full-width Cancel button that opens
                     the wizard. Sits below the Amend/Postpone duo so
-                    it's distinct -- a destructive action shouldn't
+                    it's distinct - a destructive action shouldn't
                     share visual weight with a benign one. */}
                 <Button
                   variant="outline"
@@ -688,7 +688,7 @@ export default function ClientOrderPage() {
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
                     <p className="text-sm font-semibold text-slate-900">Request a change</p>
                     <p className="text-xs text-slate-600">
-                      Use this to bump the headcount or send a note. Bigger changes (date, menu, venue) -- write the detail in notes and the team will follow up.
+                      Use this to bump the headcount or send a note. Bigger changes (date, menu, venue) - write the detail in notes and the team will follow up.
                     </p>
                     <div>
                       <label className="text-xs font-medium text-slate-700 block mb-1">New guest count (optional)</label>
@@ -731,7 +731,7 @@ export default function ClientOrderPage() {
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
                     <p className="text-sm font-semibold text-slate-900">Postpone this booking</p>
                     <p className="text-xs text-slate-600">
-                      Pick a new date and the team will confirm by email. Your deposit travels with you to the new date -- nothing is lost.
+                      Pick a new date and the team will confirm by email. Your deposit travels with you to the new date - nothing is lost.
                     </p>
                     <div>
                       <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
@@ -808,7 +808,7 @@ export default function ClientOrderPage() {
       </div>
 
       {/* Wave 28.4: Cancellation Companion. Posts to the existing
-          token-bearer endpoint -- the wizard owns the UX, the API
+          token-bearer endpoint - the wizard owns the UX, the API
           handles the side-effects (cascade, refund/credit, audit). */}
       {view?.order && (
         <CancellationWizard

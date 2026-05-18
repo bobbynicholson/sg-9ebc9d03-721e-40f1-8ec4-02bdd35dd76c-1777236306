@@ -24,7 +24,7 @@
  * platform's current state.
  *
  * Pricing data is hard-coded as named constants at the top of this
- * file -- this is a calculator, not an integration. If a vendor's
+ * file - this is a calculator, not an integration. If a vendor's
  * pricing changes, edit the constant and the projection updates
  * everywhere it's used.
  */
@@ -70,12 +70,12 @@ const SUPABASE = {
 };
 
 const ANTHROPIC = {
-  // Sonnet 4-5 -- held in reserve as the fallback model for receipt
+  // Sonnet 4-5 - held in reserve as the fallback model for receipt
   // scans where Haiku returns 0 lines. Empirically fires on ~10-15%
   // of slips (faded thermal, sideways shots, very dense text).
   sonnet_input_usd_per_m_tokens: 3,
   sonnet_output_usd_per_m_tokens: 15,
-  // Haiku 4-5 -- the workhorse. Default for receipt scans + CSV
+  // Haiku 4-5 - the workhorse. Default for receipt scans + CSV
   // column mapping. ~4x cheaper than Sonnet for the same structured-
   // vision task.
   haiku_input_usd_per_m_tokens: 0.80,
@@ -84,7 +84,7 @@ const ANTHROPIC = {
   // returns 0 lines. Conservative estimate; tweak after observing real
   // production data.
   sonnet_fallback_rate: 0.12,
-  // Per-call profile -- empirical averages from production
+  // Per-call profile - empirical averages from production
   receipt_input_tokens_per_call: 4_000,   // image + system + tool schema
   receipt_output_tokens_per_call: 1_500,  // typical 10-line slip
   csv_input_tokens_per_call: 1_500,
@@ -108,7 +108,7 @@ const RESEND = {
 // Cloudflare DNS hosts every tenant's sending domain (free plan,
 // anycast nameservers globally). We adopted it after Resend's verifier
 // repeatedly stalled on tenants whose DNS sat at small SA-only hosts
-// like za-dns -- queries from us-east-1 to those nameservers were
+// like za-dns - queries from us-east-1 to those nameservers were
 // patchy, leaving Resend stuck on 'pending' for hours. Cloudflare's
 // anycast NS resolves from a PoP in the same region as Resend's
 // resolver, so verification flips inside 30 seconds.
@@ -154,13 +154,13 @@ interface Assumptions {
   mau_per_tenant: number;                 // staff + active clients/mo
   // Per-tenant subscription pricing for margin calc
   subscription_zar_per_tenant: number;
-  // Misc per-tenant load -- drives function invocation + egress projection
+  // Misc per-tenant load - drives function invocation + egress projection
   function_invocations_per_tenant_m: number;
   egress_gb_per_tenant: number;
 }
 
 /**
- * Hard cap from src/lib/receiptScanQuota.ts -- a tenant cannot exceed
+ * Hard cap from src/lib/receiptScanQuota.ts - a tenant cannot exceed
  * this no matter what (the API blocks the call). Keep in sync if
  * MONTHLY_SCAN_CAP changes there. Used here to (a) seed the default
  * input and (b) flag projections that exceed it as unrealistic.
@@ -266,7 +266,7 @@ function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: 
     subtotal_usd: supabaseLines.reduce((s, l) => s + l.usd_per_mo, 0),
   });
 
-  // Anthropic -- now reflects the post-optimisation runtime:
+  // Anthropic - now reflects the post-optimisation runtime:
   //   1. Haiku is primary; Sonnet only fires as a fallback on the
   //      ~12% of slips Haiku can't crack.
   //   2. Prompt caching: ~80% of input tokens are the cacheable system
@@ -358,7 +358,7 @@ function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: 
     subtotal_usd: resendCost,
   });
 
-  // Cloudflare DNS -- anycast nameservers for every tenant's sending
+  // Cloudflare DNS - anycast nameservers for every tenant's sending
   // domain. Free plan covers our usage so this is informational; if
   // we ever upgrade for analytics or advanced rules, change the
   // constant and the line updates here.
@@ -459,7 +459,7 @@ function TechCostsDashboard() {
   const platform_revenue_zar = assumptions.tenants * assumptions.subscription_zar_per_tenant;
   const platform_margin_zar = platform_revenue_zar - total_zar;
 
-  // Scaling scenarios -- the question is "how does cost-per-tenant
+  // Scaling scenarios - the question is "how does cost-per-tenant
   // change as I grow?" Hold per-tenant assumptions constant, vary
   // the tenant count, recompute cost/tenant.
   const scaleScenarios = useMemo(() => {
@@ -475,7 +475,7 @@ function TechCostsDashboard() {
     });
   }, [assumptions, usdToZar]);
 
-  // Largest cost line as % of total -- drives the "biggest lever"
+  // Largest cost line as % of total - drives the "biggest lever"
   // recommendation strip below.
   const biggestCategory = useMemo(() => {
     if (total_usd <= 0) return null;
@@ -639,7 +639,7 @@ function TechCostsDashboard() {
                   {/* Loud warning when the input exceeds what the
                       quota will actually allow. Without this it's easy
                       to type a stress-test number, see R250k AI spend,
-                      and panic -- the real number is bounded by the
+                      and panic - the real number is bounded by the
                       server-side cap, not by what's in this field. */}
                   {assumptions.receipt_scans_per_tenant > RECEIPT_SCAN_QUOTA_CAP && (
                     <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 -mt-2">

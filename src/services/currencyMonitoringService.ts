@@ -18,7 +18,7 @@
  * automated re-peg. Pricing in /admin/platform/pricing-management
  * uses fixed conversion rates (18.5 / 23.5 / 20.0). When this
  * service raises an alert, an admin manually decides whether to
- * adjust the ZAR-pegged tier prices -- pricing policy then sends
+ * adjust the ZAR-pegged tier prices - pricing policy then sends
  * 30 days advance notice to existing customers.
  */
 import { supabase as defaultClient } from "@/integrations/supabase/client";
@@ -345,7 +345,7 @@ export const currencyMonitoringService = {
       `- Change: ${sign}${f.percentageChange.toFixed(2)}%`,
       "",
       "ACTION REQUIRED:",
-      "Review ZAR pricing in /admin/platform/pricing-management. The 15% threshold is a manual review trigger -- pricing pegs are fixed and only change when an admin updates them.",
+      "Review ZAR pricing in /admin/platform/pricing-management. The 15% threshold is a manual review trigger - pricing pegs are fixed and only change when an admin updates them.",
       "",
       "Policy reminder:",
       "Our ZAR pricing is pegged to USD. We may adjust ZAR prices when the rolling 90-day move exceeds 15%, with 30 days notice to customers.",
@@ -371,7 +371,7 @@ export const currencyMonitoringService = {
    * 90-day move crosses 15% (and we haven't already alerted in the
    * last 7 days) raises an alert + admin notification.
    *
-   * Server-only now -- called by /api/cron/currency-check.
+   * Server-only now - called by /api/cron/currency-check.
    */
   async runDailyCheck(client: SbLike = defaultClient): Promise<{
     rate: number;

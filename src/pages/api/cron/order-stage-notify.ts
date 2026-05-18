@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/order-stage-notify
  *
- * Wave 45 T3 -- per-stage notification engine.
+ * Wave 45 T3 - per-stage notification engine.
  *
  * Walks every active order across every tenant. Computes the
  * OrderTimeline (the same 22-stage derivation /admin/orders uses)
@@ -12,7 +12,7 @@
  * the company's admin/owner roles, then updates the snapshot
  * column so the next run only fires on the next transition.
  *
- * Also detects cross-system blockers (Wave 44 T2 -- equipment
+ * Also detects cross-system blockers (Wave 44 T2 - equipment
  * stuck in cleaning, no driver shift covers dispatch) and
  * broadcasts a separate `order_stage_blocked` notification with a
  * 6h dedup window.
@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabase: any = getServiceSupabase();
 
   // 1. Pull active orders across all tenants. Service role bypasses
-  // RLS -- intentional, the cron operates globally and broadcasts
+  // RLS - intentional, the cron operates globally and broadcasts
   // back into per-tenant notification streams.
   const { data: orders, error: ordersErr } = await supabase
     .from("orders")
@@ -86,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // additions for cross-system blockers.
   // HOTFIX: Wave 45 D3 dropped equipment_cleaning_status. The
   // /admin/orders batch loader already passes equipmentCleaningStatus: []
-  // to computeOrderTimeline -- mirror that here. Without this fix the
+  // to computeOrderTimeline - mirror that here. Without this fix the
   // cron 500s on every run because the table no longer exists.
   const [
     paymentsRes,
@@ -171,7 +171,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
   const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
 
-  // Wave 46 T1 -- batch-fetch tenant timezones for every distinct
+  // Wave 46 T1 - batch-fetch tenant timezones for every distinct
   // company in this run so the per-order timeline urgency tier
   // buckets by calendar day in the operator's wall clock, not the
   // server's UTC clock.
@@ -202,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let unchanged = 0;
   const errors: string[] = [];
 
-  // Lazy-import notificationService once -- module-level import
+  // Lazy-import notificationService once - module-level import
   // avoided to skip its init cost when there's nothing to fire.
   let notificationService: any = null;
   const ensureNotif = async () => {
@@ -236,7 +236,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cleaningJobsActive,
         deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
         quoteAccepted: true,
-        // Wave 46 T1 -- pass per-order tenant tz so the urgency
+        // Wave 46 T1 - pass per-order tenant tz so the urgency
         // tier (today/tomorrow/soon) matches what each operator
         // sees on their /admin/orders page.
         tenantTimezone: tenantTzByCompany.get(o.company_id) || null,
@@ -249,12 +249,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // HOTFIX (Wave 45 follow-up):
       //   1. First-run silence: when lastKey is NULL (we've never
       //      broadcast for this order), snapshot the current stage
-      //      WITHOUT firing -- otherwise the first run after deploy
+      //      WITHOUT firing - otherwise the first run after deploy
       //      blasts admins with one notification per active order.
       //   2. Directional check: only fire when the stage moved
       //      FORWARD (current index > last index). A payment refund
       //      can flip currentStageKey backwards; we don't want to
-      //      broadcast "advanced to <earlier stage>" -- it's confusing
+      //      broadcast "advanced to <earlier stage>" - it's confusing
       //      and unactionable.
       if (currentKey && currentKey !== lastKey) {
         const stageOrder: string[] = tl.stages.map((s) => s.key as string);

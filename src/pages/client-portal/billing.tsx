@@ -40,7 +40,7 @@ interface Invoice {
 }
 
 // Wave 23: tenant-aware currency symbol. The billing list renders
-// {currency}{amount} so we ship a SYMBOL not a code -- "£5,000" reads
+// {currency}{amount} so we ship a SYMBOL not a code - "£5,000" reads
 // right; "GBP5,000" doesn't. Falls back to "R" on bad / unknown codes
 // so a misconfigured tenant still renders something readable.
 function currencySymbolFor(code: string): string {
@@ -116,7 +116,7 @@ export default function ClientBillingPage() {
       setLoading(true);
 
       // Tenant scope: a user might be a client of multiple catering
-      // companies. The portal renders one tenant at a time -- the slug
+      // companies. The portal renders one tenant at a time - the slug
       // in the URL resolves company.id, and we only ever load invoices
       // under that company.
       const tenantCompanyId: string | null = company?.id ?? null;
@@ -127,7 +127,7 @@ export default function ClientBillingPage() {
 
       // Resolve every clients.id this user owns under this tenant.
       // Invoices have a NOT NULL client_id and no client_email column
-      // so we have to go through clients -- the magic-link relink in
+      // so we have to go through clients - the magic-link relink in
       // client-provision-profile.ts is what guarantees clients.user_id
       // is populated for any orphan rows the caterer added before the
       // user signed up.
@@ -142,7 +142,7 @@ export default function ClientBillingPage() {
         return;
       }
 
-      // Read from the canonical invoices table -- the same one admin
+      // Read from the canonical invoices table - the same one admin
       // creates from / the auto-completion trigger populates. Embeds
       // the order via the FK so we get order_number, event_date and
       // venue_* without a second round-trip. Drafts and written-off
@@ -182,7 +182,7 @@ export default function ClientBillingPage() {
 
       // Map the canonical invoice_status enum to the portal's four-bucket
       // display state. partially_paid still rolls up as "pending" because
-      // the client experience is the same -- something is still owed.
+      // the client experience is the same - something is still owed.
       // Overdue is reinforced client-side too, so an admin who forgot to
       // transition a sent invoice past its due_date still surfaces red.
       const todayMS = Date.now();
@@ -312,7 +312,7 @@ export default function ClientBillingPage() {
           {/* Tenant identity strip --
               SARS rule: VAT-registered businesses must show their VAT
               registration number on every invoice the client sees. We
-              keep this terse -- company name + VAT line -- because it's
+              keep this terse - company name + VAT line - because it's
               a header, not a letterhead. Hidden entirely when the
               tenant isn't VAT-registered or the number isn't on file. */}
           {company?.company_name && (

@@ -1,5 +1,5 @@
 /**
- * ComposeDrawerHost -- shared resizable right-edge drawer for compose UIs.
+ * ComposeDrawerHost - shared resizable right-edge drawer for compose UIs.
  *
  * Shared between the Quote Management Compose drawer and the Lead
  * Management compose drawer so both surfaces behave the same:

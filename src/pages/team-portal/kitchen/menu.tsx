@@ -213,7 +213,7 @@ export default function KitchenMenuItemsPage() {
                             {/* Price chip removed for kitchen staff.
                                 Audit (May 2026) classified per-dish
                                 client price + margin chip as finance
-                                info -- belongs to directors/admin only,
+                                info - belongs to directors/admin only,
                                 not the cook reading the prep list. The
                                 full margin breakdown still lives on
                                 /admin/menu for owners. */}

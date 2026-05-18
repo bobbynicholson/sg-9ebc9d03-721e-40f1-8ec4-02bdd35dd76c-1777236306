@@ -198,7 +198,7 @@ export default function ShoppingOrdersPage() {
     try {
       let receipt_url: string | null = null;
       if (receiptFile) {
-        // Reuse the imports bucket -- it's the only one with a
+        // Reuse the imports bucket - it's the only one with a
         // receipt-style policy already in place. Path-prefix the
         // file so the shopping artefacts are easy to find later.
         const ext = (receiptFile.name.split(".").pop() || "jpg").toLowerCase();
@@ -361,7 +361,7 @@ export default function ShoppingOrdersPage() {
                             {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count}</span>}
                           </div>
                           {/* Venue inline so the shopper knows where this
-                              event lands -- useful when the kitchen is
+                              event lands - useful when the kitchen is
                               splitting purchases between branches. */}
                           {o.venue_address && (
                             <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
@@ -411,7 +411,7 @@ export default function ShoppingOrdersPage() {
       </Dialog>
 
       {/* Phase 7 #7: complete-with-receipt dialog. Mirrors the
-          driver POD flow -- the shopper closes out the list with
+          driver POD flow - the shopper closes out the list with
           a photo of the supplier slip plus the actual cash total
           paid so reconciliation against the till stays honest. */}
       <Dialog open={completingId !== null} onOpenChange={(o) => !o && closeComplete()}>

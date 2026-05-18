@@ -1,9 +1,9 @@
 /**
- * AssignedShiftsPanel -- Wave 43 T1.
+ * AssignedShiftsPanel - Wave 43 T1.
  *
  * Surfaces every kitchen_shifts row linked to an order via the
  * order_id column Wave 41 Phase 4 added. Today the column was
- * dead weight -- no consumer joined orders to shifts. This card
+ * dead weight - no consumer joined orders to shifts. This card
  * gives the operator a single-glance answer to "who's rostered
  * for this order, what's their role, have they clocked in?".
  *
@@ -55,7 +55,7 @@ function fmtTime(t: string | null): string {
 interface Props {
   orderId: string;
   companyId: string;
-  /** Wave 59 -- when the parent has already batch-fetched shifts +
+  /** Wave 59 - when the parent has already batch-fetched shifts +
    *  profiles for many orders, skip the panel's own per-order fetches.
    *  Closes a 200-orders = 200-round-trips perf cliff. When omitted,
    *  the panel falls back to its own fetch (back-compat for any
@@ -77,7 +77,7 @@ export function AssignedShiftsPanel({
   const [loading, setLoading] = useState(!preloadedShifts);
 
   useEffect(() => {
-    // Wave 59 -- preloaded fast-path. Parent passed shifts + profiles
+    // Wave 59 - preloaded fast-path. Parent passed shifts + profiles
     // from its batch fetch; sync local state and skip the round-trips.
     if (preloadedShifts) {
       setShifts(preloadedShifts);
@@ -160,7 +160,7 @@ export function AssignedShiftsPanel({
               <span className="font-medium text-slate-900 truncate">{name}</span>
               {s.planned_start && (
                 <span className="text-slate-500 tabular-nums">
-                  {fmtTime(s.planned_start)} -- {fmtTime(s.planned_end)}
+                  {fmtTime(s.planned_start)} - {fmtTime(s.planned_end)}
                 </span>
               )}
               {hasActual && !isMissed && (

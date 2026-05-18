@@ -61,12 +61,12 @@ const STATUS_COLOURS: Record<string, string> = {
 };
 
 // VAT rate now resolves per-tenant (regions override -> companies
-// default -> 15% hard fallback) -- see resolveBranchSettings. The
+// default -> 15% hard fallback) - see resolveBranchSettings. The
 // previous `const TAX_RATE = 0.15` was hardcoded and silently applied
 // 15% to every UK / US / non-VAT-registered quote saved from this page.
 
 interface MenuItemRow {
-  // Stable id -- menu_item_id when carried in from menu_items, else
+  // Stable id - menu_item_id when carried in from menu_items, else
   // a generated key so React can reconcile the rows.
   key: string;
   menu_item_id: string | null;
@@ -102,7 +102,7 @@ export default function AdminQuoteDetail() {
   // where a status flip to 'sent' through quoteService.updateQuote
   // triggered _fireQuoteSentEmail behind the scenes with no preview.
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  // Wave 51 -- propagation confirmation modal. When the linked order
+  // Wave 51 - propagation confirmation modal. When the linked order
   // is past acceptance and the operator changes a load-bearing field
   // (event_date, event_time, guest_count, total, menu, equipment),
   // we surface the cascade impacts before save commits.
@@ -141,7 +141,7 @@ export default function AdminQuoteDetail() {
     return () => { cancelled = true; };
   }, [companyId]);
 
-  // Pricing editor state -- only used when the quote is in 'draft'.
+  // Pricing editor state - only used when the quote is in 'draft'.
   const [items, setItems] = useState<MenuItemRow[]>([]);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
@@ -378,7 +378,7 @@ export default function AdminQuoteDetail() {
     } as any;
   };
 
-  // Wave 51 -- pre-flight check. Look up the linked order, build the
+  // Wave 51 - pre-flight check. Look up the linked order, build the
   // would-be payload, and ask describeQuoteEditImpact whether any
   // load-bearing field is moving. If yes, hold the save behind the
   // confirmation modal. If no (or no linked order), commit
@@ -416,7 +416,7 @@ export default function AdminQuoteDetail() {
     if (!quote || !id || typeof id !== "string") return;
     setSaving(true);
     try {
-      // Wave 51 -- route through quoteService.updateQuote so the
+      // Wave 51 - route through quoteService.updateQuote so the
       // post-Wave-51 propagation hook fires. The earlier code wrote
       // directly via supabase, bypassing every quote-side side effect.
       const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
@@ -441,7 +441,7 @@ export default function AdminQuoteDetail() {
 
   const handleSaveDraft = () => _runPreflightThenSave("draft");
 
-  // "Save & Send" -- two-stage. Stage 1: persist the latest pricing as
+  // "Save & Send" - two-stage. Stage 1: persist the latest pricing as
   // a draft (no status change, so quoteService.updateQuote does NOT
   // fire _fireQuoteSentEmail). Stage 2: open QuoteSendDialog. The
   // dialog hits /api/send-email with the resolved template + the
@@ -469,13 +469,13 @@ export default function AdminQuoteDetail() {
     }
     setSending(true);
     try {
-      // Save the latest pricing as a draft. NO status change -- the
+      // Save the latest pricing as a draft. NO status change - the
       // dialog flips status='sent' after the email actually goes out.
       const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
       if (!updated) throw new Error("Quote update returned no row");
       const refreshed = await quoteService.getQuote(id);
       setQuote(refreshed);
-      // Wave 51 -- propagation receipt surfaced before the dialog opens
+      // Wave 51 - propagation receipt surfaced before the dialog opens
       // so the operator sees what changed on the order in the same flash.
       const propReceipt = (updated as any)?._propagationReceipt;
       const propLine = _formatPropagationLine(propReceipt);
@@ -497,7 +497,7 @@ export default function AdminQuoteDetail() {
 
   const handleSend = () => _runPreflightThenSave("send");
 
-  // Wave 51 -- format the propagation receipt as a one-line toast.
+  // Wave 51 - format the propagation receipt as a one-line toast.
   // Returns "" when nothing was propagated so the caller can collapse.
   function _formatPropagationLine(r: any): string {
     if (!r || r.noLinkedOrder) return "";
@@ -514,7 +514,7 @@ export default function AdminQuoteDetail() {
     if (r.collectionRescheduled) parts.push("collection trip moved");
     if (r.emailQueueResynced) parts.push("pre-event reminders re-stamped");
     if (r.orderItemsRebuilt) parts.push("order line items rebuilt");
-    return parts.length > 0 ? `Order updated -- ${parts.join(", ")}.` : "";
+    return parts.length > 0 ? `Order updated - ${parts.join(", ")}.` : "";
   }
 
   const isClientRequest = (quote as any)?.external_source === "client_portal_rebook";
@@ -947,7 +947,7 @@ export default function AdminQuoteDetail() {
                 {/* Wave 14 audit: when a client requests changes after
                     the quote has left draft (sent / viewed / accepted),
                     the operator had no way to actually re-price or
-                    tweak it -- only Mark addressed / Reply / Dismiss
+                    tweak it - only Mark addressed / Reply / Dismiss
                     which close the conversation without touching the
                     quote. The richer editor at /admin/quotes/new
                     already supports loading an existing quote via
@@ -1114,7 +1114,7 @@ export default function AdminQuoteDetail() {
         />
       )}
 
-      {/* Wave 51 -- propagation impact confirmation modal. Fires when
+      {/* Wave 51 - propagation impact confirmation modal. Fires when
           the operator's edit will move event_date / event_time /
           guest_count / total / menu / equipment on a quote whose
           linked order is past acceptance. Lists every cascade

@@ -82,16 +82,16 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
-  /** Wave 70.31 -- optional live badge. Receives the live counts +
+  /** Wave 70.31 - optional live badge. Receives the live counts +
    *  mode so individual items can react (e.g. "5 overdue" critical
    *  when quotesOverdue > 0). Return null to render no badge. */
   badge?: () => { text: string; tone?: "default" | "warning" | "critical" | "info"; pulse?: boolean } | null;
-  /** Wave 70.31 -- optional dynamic description override. */
+  /** Wave 70.31 - optional dynamic description override. */
   liveDescription?: () => string | null;
 }
 
 interface NavSection {
-  /** Stable id for localStorage persistence -- never change once shipped. */
+  /** Stable id for localStorage persistence - never change once shipped. */
   id: string;
   title: string;
   /** Whether this section is open the first time a user sees it. Pick
@@ -131,13 +131,13 @@ export function AdminNav({ className }: AdminNavProps) {
     .join("")
     .toUpperCase() || "CM";
 
-  // Sidebar scroll restoration. Pure restore -- the operator chose
+  // Sidebar scroll restoration. Pure restore - the operator chose
   // where to look, we don't auto-scroll the active item into view
   // and override that. Hook handles the Radix ScrollArea viewport
   // lookup + sessionStorage persistence.
   const scrollAreaRef = useNavScrollRestore<HTMLDivElement>("admin-nav");
 
-  // Wave 70.31 -- live intelligence hooks. These replace the
+  // Wave 70.31 - live intelligence hooks. These replace the
   // standalone todayEventCount fetch that used to live here (the
   // count is now part of useAdminLiveCounts.eventsToday).
   const liveCounts = useAdminLiveCounts();
@@ -219,7 +219,7 @@ export function AdminNav({ className }: AdminNavProps) {
             const bits: string[] = [];
             if (liveCounts.eventsToday > 0) bits.push(`${liveCounts.eventsToday} event${liveCounts.eventsToday === 1 ? "" : "s"}`);
             if (liveCounts.inTransitNow > 0) bits.push(`${liveCounts.inTransitNow} live`);
-            return bits.length ? bits.join(" · ") : "Quiet -- catch up";
+            return bits.length ? bits.join(" · ") : "Quiet - catch up";
           },
         },
         {
@@ -253,7 +253,7 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Pipeline",
       defaultOpen: true,
       items: [
-        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "CRM inbox -- next-action sorted" },
+        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "CRM inbox - next-action sorted" },
         {
           title: "Leads",
           href: "/admin/leads",
@@ -273,7 +273,7 @@ export function AdminNav({ className }: AdminNavProps) {
             : null,
         },
         { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "All orders" },
-        // Wave 70.45b -- booking packages (multi-day event grouping).
+        // Wave 70.45b - booking packages (multi-day event grouping).
         { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
       ],
@@ -287,12 +287,12 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Vehicles",       href: "/admin/vehicles",              icon: Truck,    description: "Fleet roster + cold-chain" },
         { title: "Regions",        href: "/admin/regions",               icon: Map,      description: "Manage service regions" },
         { title: "Job progress",   href: "/admin/job-progress-overview", icon: Activity, description: "Cross-team progress on today's jobs" },
-        { title: "Public holidays", href: "/admin/public-holidays",      icon: CalendarHeart, description: "SA gazetted dates -- drives 2x BCEA rate" },
+        { title: "Public holidays", href: "/admin/public-holidays",      icon: CalendarHeart, description: "SA gazetted dates - drives 2x BCEA rate" },
       ],
     },
-    // MONEY -- one nucleus for everything financial. Gated.
+    // MONEY - one nucleus for everything financial. Gated.
     // Refunds stays here too (was previously in Core Mgmt ungated).
-    // Restricted admins lose Refunds visibility -- acceptable
+    // Restricted admins lose Refunds visibility - acceptable
     // tradeoff for a single financial nucleus. The /admin/refunds
     // page still loads directly for anyone with link access.
     ...(profile && canAccessFinance(profile.role as UserRole) ? [{
@@ -314,7 +314,7 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Wages dashboard",     href: "/admin/wages",               icon: Wallet,        description: "Hours x rates with overtime split" },
         { title: "Staff & rates",       href: "/admin/staff",               icon: Users,         description: "Pay rates per staff member" },
         { title: "Staff hours",         href: "/admin/staff-hours",         icon: Clock,         description: "Track staff working hours" },
-        { title: "Driver settlement",   href: "/admin/driver-settlement",   icon: DollarSign,    description: "Per-driver pay -- hourly + distance + callout" },
+        { title: "Driver settlement",   href: "/admin/driver-settlement",   icon: DollarSign,    description: "Per-driver pay - hourly + distance + callout" },
         { title: "Tax & purchases",     href: "/admin/tax-purchases",       icon: FileText,      description: "VAT exposure + deductible export" },
       ],
     }] : []),
@@ -347,9 +347,9 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Onboarding",     href: "/admin/onboarding",     icon: Wand2,        description: "Bring clients + orders + slips on board" },
       ],
     },
-    // SETTINGS -- one nucleus for everything config. Gated to
+    // SETTINGS - one nucleus for everything config. Gated to
     // company-admin. Includes comms, branding, integrations, audit
-    // log (NEW in nav -- previously a hidden page).
+    // log (NEW in nav - previously a hidden page).
     ...(profile && isCompanyAdmin(profile.role as UserRole) ? [{
       id: "settings",
       title: "Settings",
@@ -364,8 +364,8 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Messaging templates", href: "/admin/messaging-templates",   icon: MessageSquare, description: "Edit every email + WhatsApp template" },
         { title: "Lifecycle emails",    href: "/admin/email-templates",       icon: Sparkles,      description: "After-sales follow-ups + automation" },
         { title: "Notifications",       href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
-        { title: "Audit log",           href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail -- who did what" },
-        // Wave 70.47 -- end-to-end smoke test. One-click regression net
+        { title: "Audit log",           href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
+        // Wave 70.47 - end-to-end smoke test. One-click regression net
         // covering the full lifecycle + package cancel cascade.
         { title: "Smoke test",          href: "/admin/smoke-test",            icon: FlaskConical,  description: "Run end-to-end regression" },
         { title: "System",              href: "/admin/settings",              icon: Settings,      description: "General configuration" },
@@ -462,7 +462,7 @@ export function AdminNav({ className }: AdminNavProps) {
   // /admin/equipment?tab=shortages), every key in the href's query
   // must match the current URL's query for the entry to count as
   // active. Plain hrefs (no query) match path-only as before. This
-  // lets two nav items share a path but disambiguate by tab -- the
+  // lets two nav items share a path but disambiguate by tab - the
   // longest-match resolver below then picks the more specific one.
   const splitHref = (h: string): { path: string; query: URLSearchParams | null } => {
     const i = h.indexOf("?");
@@ -474,11 +474,11 @@ export function AdminNav({ className }: AdminNavProps) {
     const { path: hrefPath, query: hrefQuery } = splitHref(href);
     const slugHrefPath = splitHref(withSlug(href)).path;
     const stripQuery = (p: string) => p.split("?")[0];
-    // Candidates are the *current* location -- the user's actual URL.
+    // Candidates are the *current* location - the user's actual URL.
     // slugHrefPath is the link being tested, NOT a current-location
     // value, so it must never appear here. (Older code had it in this
     // list, which made the third comparison `c === slugHrefPath`
-    // trivially true on the link's own iteration -- every nav item
+    // trivially true on the link's own iteration - every nav item
     // ended up "matching", and the longest-match resolver lit up the
     // longest href on every page.)
     const candidates = [
@@ -504,7 +504,7 @@ export function AdminNav({ className }: AdminNavProps) {
 
   // Longest-match resolution. When the active route is /admin/equipment/
   // hire-orders, BOTH Equipment (`/admin/equipment`) and Hire-in Orders
-  // (`/admin/equipment/hire-orders`) match via the prefix rule -- but only
+  // (`/admin/equipment/hire-orders`) match via the prefix rule - but only
   // the more specific one should visually highlight. We resolve once per
   // render: collect every nav href that matches, sort by length desc,
   // pick the longest. `isActive` then becomes equality against that
@@ -533,7 +533,7 @@ export function AdminNav({ className }: AdminNavProps) {
     </Button>
   );
 
-  // Wave 70.31 -- shared nav row renderer that honours the new
+  // Wave 70.31 - shared nav row renderer that honours the new
   // badge + liveDescription fields on NavItem. Used in both the
   // mobile drawer and the desktop sidebar so the treatment stays
   // identical across breakpoints.
@@ -556,7 +556,7 @@ export function AdminNav({ className }: AdminNavProps) {
         data-active={opts.active ? "true" : undefined}
         title={opts.collapsed ? item.title : ""}
         className={cn(
-          // Wave 70.41b -- overflow-hidden so badges + descriptions
+          // Wave 70.41b - overflow-hidden so badges + descriptions
           // never bleed outside the sidebar's right edge (Bobby
           // flagged the "1 gap" badge on Dispatch leaking into the
           // main content area). Combined with the badge max-width
@@ -580,7 +580,7 @@ export function AdminNav({ className }: AdminNavProps) {
             {badge && !opts.active && (
               <span
                 className={cn(
-                  // Wave 70.41b -- max-width + truncate cap badge
+                  // Wave 70.41b - max-width + truncate cap badge
                   // width so badges with long text ("12 overdue")
                   // don't push the row past the sidebar edge.
                   // title attribute preserves the full text on hover.
@@ -607,7 +607,7 @@ export function AdminNav({ className }: AdminNavProps) {
         {mobile ? (
           <div className="space-y-3">
             <MobileSearchTrigger accent="bg-purple-50 hover:bg-purple-100 text-purple-700" hint="Search anywhere..." />
-            {/* Wave 70.31 -- mode-driven smart quick actions replace
+            {/* Wave 70.31 - mode-driven smart quick actions replace
                 the static trio. Rotates by mode (setup/quiet/pipeline/
                 ops/review). */}
             <AdminSmartQuickActions onNavigate={() => setOpen(false)} />
@@ -615,7 +615,7 @@ export function AdminNav({ className }: AdminNavProps) {
         ) : (
           <CommandPaletteHint className="w-full justify-center" />
         )}
-        {/* Wave 70.31 -- live intelligence layer above the sections.
+        {/* Wave 70.31 - live intelligence layer above the sections.
             Mode badge + 2x3 live state pill grid. Mounted on both
             mobile drawer + desktop expanded sidebar. */}
         <div className="space-y-2">
@@ -706,7 +706,7 @@ export function AdminNav({ className }: AdminNavProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            {/* Wave 70.10 -- digital clock in mobile header. Hidden
+            {/* Wave 70.10 - digital clock in mobile header. Hidden
                 on the smallest screens so the brand + bell + theme
                 still fit comfortably. */}
             <DigitalClock variant="mobile" className="hidden sm:inline-flex" />
@@ -764,7 +764,7 @@ export function AdminNav({ className }: AdminNavProps) {
                   <ThemeSwitch />
                 </div>
                 </div>
-                {/* Wave 70.10 -- digital clock under the brand row.
+                {/* Wave 70.10 - digital clock under the brand row.
                     Two-line variant: HH:mm + day/date, ticking
                     every second so the admin sees current time
                     without checking their phone. */}
@@ -798,7 +798,7 @@ export function AdminNav({ className }: AdminNavProps) {
           {/* Navigation */}
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-5">
-              {/* Wave 70.31 -- live intelligence layer on the desktop
+              {/* Wave 70.31 - live intelligence layer on the desktop
                   sidebar too. Hidden when the sidebar is collapsed to
                   icon-only mode (no room for pills + badge). */}
               {!isCollapsed && (

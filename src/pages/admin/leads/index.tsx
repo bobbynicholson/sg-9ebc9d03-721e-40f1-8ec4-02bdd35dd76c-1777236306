@@ -43,7 +43,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 
-// Per-lead provenance summary -- which quotes/orders/clients have
+// Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
 // team sees at a glance whether the lead is still "in the funnel" or
 // already converted downstream.
@@ -51,7 +51,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
  * Slimmed-down quote shape we keep in memory for each lead. We only
  * need enough to label the picker (number, name, status, total, date)
  * and to route on click (id). Caterers routinely send 2+ alternate
- * quotes to the same lead -- "buffet vs plated", "100 vs 150 guests" --
+ * quotes to the same lead - "buffet vs plated", "100 vs 150 guests" --
  * so the multi-quote picker is the standard case, not the edge case.
  */
 interface LeadQuoteSummary {
@@ -79,10 +79,10 @@ function formatQuoteLabel(q: LeadQuoteSummary): string {
 }
 
 /**
- * Wave 70.32 -- maps the linked order's status to a short pill label
+ * Wave 70.32 - maps the linked order's status to a short pill label
  * + colour tone for the "this lead converted" pill on lead rows.
  * Previously the pill said a blanket "booked" no matter what state
- * the order was in -- misleading when the order was still pending
+ * the order was in - misleading when the order was still pending
  * or cancelled.
  */
 function orderStatusBadge(status: string | null | undefined): { label: string; classes: string } | null {
@@ -107,12 +107,12 @@ interface LeadLinks {
   quoteCount: number;
   /** Every quote attached to this lead, newest first. */
   quotes: LeadQuoteSummary[];
-  /** Most recent quote id for this lead -- used for the "View quote" chip. */
+  /** Most recent quote id for this lead - used for the "View quote" chip. */
   latestQuoteId: string | null;
   latestQuoteStatus: string | null;
   /** Order id if any quote off this lead converted into an order. */
   orderId: string | null;
-  /** Wave 70.32 -- the linked order's status (pending / confirmed /
+  /** Wave 70.32 - the linked order's status (pending / confirmed /
    *  preparing / etc). Lets the UI show the real state instead of
    *  saying a blanket "booked" when the order is still pending. */
   orderStatus: string | null;
@@ -141,7 +141,7 @@ interface LeadLinks {
 
 /**
  * Suggestion "kinds" map directly onto the call-to-action button on
- * each row. The labels above used to be decorative -- now each kind
+ * each row. The labels above used to be decorative - now each kind
  * carries an explicit action so the team can act on the suggestion in
  * one click.
  */
@@ -170,7 +170,7 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   const status = (lead.status || "new") as string;
 
   if (links.orderId) {
-    // Wave 70.32 -- reason mirrors the order's real status so a
+    // Wave 70.32 - reason mirrors the order's real status so a
     // pending order doesn't show "Already booked" misleadingly.
     const meta = orderStatusBadge(links.orderStatus);
     const reason = meta?.label === "Booked"     ? "Already booked"
@@ -297,7 +297,7 @@ function templateForLeadAction(
       : `your enquiry`;
   const sig = `\n\nBest,\n${fromName || "the team"}`;
 
-  // 1. Override path -- silent fallback to default when no customisation.
+  // 1. Override path - silent fallback to default when no customisation.
   const overrideKey = LEAD_ACTION_TO_REGISTRY[kind];
   if (overrideKey) {
     const eventDateLabel = lead.event_date
@@ -366,7 +366,7 @@ export default function AdminLeads() {
   // Email-settings status banner. If the tenant hasn't configured a
   // Resend or SMTP provider, embed-form / quote-acceptance / lead
   // notifications silently land in emailService's simulation branch
-  // -- they never actually reach the operator's inbox. Surface this
+  // - they never actually reach the operator's inbox. Surface this
   // up-front on /admin/leads so the operator notices BEFORE the
   // first lead lands in their funnel.
   const [emailSettingsEnabled, setEmailSettingsEnabled] = useState<boolean | null>(null);
@@ -425,7 +425,7 @@ export default function AdminLeads() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Default to "active" -- the pipeline view. Leads that have already
+  // Default to "active" - the pipeline view. Leads that have already
   // won/converted are clients now, and lost leads are archived. Hiding
   // them by default stops the leads page from doubling as a graveyard.
   // The chip strip below lets the team toggle into archived buckets
@@ -436,10 +436,10 @@ export default function AdminLeads() {
   const [deleting, setDeleting] = useState(false);
   // Bulk-import modal state. Same engine as Contacts and the
   // onboarding wizard, scoped to the leads target.
-  // Import + add surface moved to /admin/contacts -- see comment on
+  // Import + add surface moved to /admin/contacts - see comment on
   // the hidden buttons above. Modal mount + state removed below.
 
-  // Compose drawer state -- mirrors the Quotes page so both surfaces
+  // Compose drawer state - mirrors the Quotes page so both surfaces
   // give the team the same rich follow-up flow (subject, body, four
   // send channels, recipient context rail, drag-to-resize). Email
   // CTAs on each row open this drawer rather than skipping straight
@@ -572,7 +572,7 @@ export default function AdminLeads() {
           orderId: null,
           orderStatus: null,
           clientId: l.converted_to_client_id ?? null,
-          // Default the resolved view to the lead row -- keeps things
+          // Default the resolved view to the lead row - keeps things
           // working for brand-new leads with no quote/order yet. We
           // overwrite this below once we know about a linked order or
           // a latest quote.
@@ -591,7 +591,7 @@ export default function AdminLeads() {
         // Build a client_id -> lead_id reverse index for leads that
         // have already converted to a client. Lets us catch quotes
         // that were created later off the Quotes page (no lead_id
-        // stamped) but for the same client -- a common flow when the
+        // stamped) but for the same client - a common flow when the
         // operator builds a 2nd alternate quote without going back
         // through the lead row.
         const clientToLead = new Map<string, string>();
@@ -690,7 +690,7 @@ export default function AdminLeads() {
         // 1. Pull the orders we know are linked (from converted_to_order_id
         //    on quotes).
         // 2. Pull the latest-quote details for leads that have a quote
-        //    but no order -- the quote summaries above only carry totals
+        //    but no order - the quote summaries above only carry totals
         //    and numbers, not event_date / guest_count, so we need a
         //    second select. We fetch all matching quote rows (cheap)
         //    and pick the right one per lead from the latestQuoteId.
@@ -753,7 +753,7 @@ export default function AdminLeads() {
               sourceLabel: q.quote_number || cur.latestQuoteId.slice(0, 8),
               eventDate: q.event_date ?? lead?.event_date ?? null,
               guestCount: q.guest_count ?? lead?.guest_count ?? null,
-              // Quotes don't store event_type either -- quote_name is
+              // Quotes don't store event_type either - quote_name is
               // the closest equivalent ("Wedding cocktail buffet"). Fall
               // back to the lead's event_type when the quote name is
               // generic.
@@ -776,7 +776,7 @@ export default function AdminLeads() {
   // Apply status filter first, then fuzzy-rank the remainder. Searches
   // across name, email, company, event type and notes so a query like
   // "wedding 25" still surfaces a lead with that event type + guest count.
-  // "active" is the synthetic default -- everything that's still in the
+  // "active" is the synthetic default - everything that's still in the
   // pipeline (not won, not converted, not lost). Won/converted leads are
   // already clients now, lost leads are archived; both have their own
   // chip if the team needs to dig them out.
@@ -790,10 +790,10 @@ export default function AdminLeads() {
     });
   }, [leads, regionFilterId]);
 
-  // Wave 70.43b -- lead is considered archived (out of "Active")
+  // Wave 70.43b - lead is considered archived (out of "Active")
   // when EITHER its own status is in (won/converted/lost) OR its
   // linked order has been cancelled. Bobby flagged a lead with a
-  // cancelled order still showing in the Active tab -- the lead's
+  // cancelled order still showing in the Active tab - the lead's
   // own status was "quoted" so the previous filter let it through,
   // even though the order it converted to had been cancelled.
   // Same logic as Wave 70.42b on the quotes page.
@@ -901,11 +901,11 @@ export default function AdminLeads() {
             </div>
             <div className="flex gap-2">
               {/*
-                Bulk import lives on /admin/contacts only -- one
+                Bulk import lives on /admin/contacts only - one
                 import surface across the whole CRM. The unified
                 wizard auto-classifies each row by event_date so
                 "Import leads" here is redundant.
-                Add Lead stays -- /admin/leads/new is the
+                Add Lead stays - /admin/leads/new is the
                 rich-enquiry-capture form (event type, guest count,
                 budget, venue, source) that the leaner Add contact
                 doesn't cover.
@@ -1203,7 +1203,7 @@ export default function AdminLeads() {
                                 Multiple quotes -> dropdown picker so the
                                 operator can pick the right alternate
                                 (caterers commonly send 2-3 to the same
-                                lead -- buffet vs plated, 100 vs 150 pax). */}
+                                lead - buffet vs plated, 100 vs 150 pax). */}
                             {links.quoteCount === 1 && links.latestQuoteId && (
                               <Link
                                 href={withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
@@ -1246,7 +1246,7 @@ export default function AdminLeads() {
                               </DropdownMenu>
                             )}
                             {links.orderId && (() => {
-                              // Wave 70.32 -- pill colour + label
+                              // Wave 70.32 - pill colour + label
                               // reflect the order's actual status.
                               // Falls back to "linked order" when
                               // status hasn't hydrated yet.
@@ -1355,7 +1355,7 @@ export default function AdminLeads() {
                               // Kinds whose primary CTA actually navigates
                               // straight into the quote builder. chase_quote
                               // and winback live in the email composer
-                              // branch, so they DON'T belong here -- the
+                              // branch, so they DON'T belong here - the
                               // secondary "Edit quote" button is exactly
                               // what an operator wants while chasing a
                               // quote that needs a quick tweak.
@@ -1455,14 +1455,14 @@ export default function AdminLeads() {
                       </div>
                       {expandedLeadId === lead.id && (
                         <div className="mt-4 pt-4 border-t border-slate-200 text-sm">
-                          {/* Provenance caption -- tells the operator
+                          {/* Provenance caption - tells the operator
                               which underlying record we're reading
                               from. Keeps drift bugs visible: if a
                               booked lead reads the lead row, the team
                               knows immediately. */}
                           <p className="text-xs text-slate-500 mb-3">
                             {links.resolved.source === "order"
-                              // Wave 70.32 -- caption verb reflects
+                              // Wave 70.32 - caption verb reflects
                               // the order's real status. "Booked" only
                               // when the order really is confirmed-or-
                               // later. Pending/cancelled etc. read
@@ -1599,7 +1599,7 @@ export default function AdminLeads() {
         <Footer />
       </div>
 
-      {/* Lead compose drawer -- shared component, same UX as the Quote
+      {/* Lead compose drawer - shared component, same UX as the Quote
           Management Compose drawer. Subject + body are pre-populated
           from the suggestion kind (Reply ASAP / Touch base / Win-back
           / etc.) with the lead's context woven in. The right rail
@@ -1627,7 +1627,7 @@ export default function AdminLeads() {
                   ));
                 }
               } catch (err) {
-                // Non-fatal -- the email's already on its way.
+                // Non-fatal - the email's already on its way.
                 console.warn("[leads] auto status flip failed", err);
               }
             }}
@@ -1677,7 +1677,7 @@ export default function AdminLeads() {
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
 
-      {/* Bulk-import modal removed -- imports live on /admin/contacts now. */}
+      {/* Bulk-import modal removed - imports live on /admin/contacts now. */}
 
       {/* Lead -> order conversion dialog. Pre-flight checks the
           lead's quote state and routes to the right next step

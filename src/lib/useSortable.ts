@@ -1,5 +1,5 @@
 /**
- * useSortable -- shared table sort hook.
+ * useSortable - shared table sort hook.
  *
  * Bobby asked for sortable columns on every table across the platform.
  * This hook centralises the click-to-sort behaviour so each table
@@ -23,7 +23,7 @@ export type SortDir = "asc" | "desc";
 
 export interface ColumnDef<T> {
   /** Stable key used for the sort identifier. Doesn't have to match
-   *  a property name on T -- just a string the hook can compare on. */
+   *  a property name on T - just a string the hook can compare on. */
   key: string;
   /** Pulls the comparable value out of a row. Return null/undefined for
    *  rows where the value is missing; those get sorted to the bottom. */

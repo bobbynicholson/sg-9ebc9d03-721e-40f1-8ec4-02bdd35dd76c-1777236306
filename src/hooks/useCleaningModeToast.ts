@@ -1,5 +1,5 @@
 /**
- * useCleaningModeToast -- Wave 70.28
+ * useCleaningModeToast - Wave 70.28
  *
  * Fires a one-shot toast when the cleaning portal first enters
  * "returns" mode in a given browser session. Mirrors
@@ -12,7 +12,7 @@
  *
  * Session-scoped: fires once per browser session, never spams a
  * returning user. Only fires when the auto-detector flips to
- * returns -- manual overrides are user-initiated and don't need
+ * returns - manual overrides are user-initiated and don't need
  * confirmation.
  */
 import { useEffect, useRef } from "react";

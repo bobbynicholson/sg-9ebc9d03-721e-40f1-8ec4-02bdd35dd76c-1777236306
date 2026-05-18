@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/public-holidays -- holiday calendar driving the BCEA 2x rate.
+ * /admin/public-holidays - holiday calendar driving the BCEA 2x rate.
  *
  * Two layers of rows:
  *   - Global defaults: company_id IS NULL, seeded with SA gazetted

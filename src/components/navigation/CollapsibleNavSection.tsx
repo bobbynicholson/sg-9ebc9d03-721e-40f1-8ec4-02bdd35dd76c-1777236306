@@ -1,5 +1,5 @@
 /**
- * Collapsible nav section -- one accordion group inside a sidebar.
+ * Collapsible nav section - one accordion group inside a sidebar.
  *
  * Used by AdminNav, PlatformNav, and any other portal nav that has more
  * than ~6 items so the user can hide groups they don't need today.
@@ -7,14 +7,14 @@
  * Behaviour:
  * - Open state is in-memory only. We deliberately do NOT persist user
  *   toggles to localStorage. Bobby called this out as "the menu shouldn't
- *   stick" -- once a user opens a section, navigating away should reset
+ *   stick" - once a user opens a section, navigating away should reset
  *   it back to the section's smart default on the next page load. The
  *   storageKey prop is kept for backwards compatibility but unused.
  * - `defaultOpen` controls the section's open state on every mount.
  * - When a section contains the active route, the section auto-expands
  *   so the highlighted item is always visible.
  * - Sidebar-collapsed state (the icon-only mode) hides section headers
- *   entirely and renders items flat -- no accordion, just tooltips.
+ *   entirely and renders items flat - no accordion, just tooltips.
  */
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -30,7 +30,7 @@ interface CollapsibleNavSectionProps {
   /** When true, render flat with no header / no accordion control. Used
    *  when the parent sidebar is in icon-only collapsed mode. */
   flatMode?: boolean;
-  /** When true, this section contains the currently active route -- the
+  /** When true, this section contains the currently active route - the
    *  section will auto-expand even if the user previously closed it. */
   containsActiveRoute?: boolean;
   children: React.ReactNode;

@@ -3,7 +3,7 @@
  * Auto-provision a client profile after magic-link sign-in.
  *
  * Why server-side: the profiles RLS does NOT permit a user to self-
- * insert their own row -- the only INSERT policy is
+ * insert their own row - the only INSERT policy is
  * `company_admin_create_staff` which requires the caller to already be
  * a company admin. So a freshly signed-in client cannot create their
  * own profile from the browser. We do it here with the service role.
@@ -18,7 +18,7 @@
  *     pass a different role is ignored. This means an attacker who
  *     somehow phishes a client into running this endpoint can't
  *     escalate them to admin.
- *   - Existing profiles are never overwritten -- if one exists we
+ *   - Existing profiles are never overwritten - if one exists we
  *     return it as-is. This protects users who are already members of
  *     a different catering company in some other role.
  */
@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Look up the company by slug. We never trust the slug as-is for
-    // the insert -- we resolve it to a UUID server-side first.
+    // the insert - we resolve it to a UUID server-side first.
     const { data: company, error: companyErr } = await admin
       .from("companies")
       .select("id, slug, company_name")
@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Idempotent backfill helper: link any orphan clients + quotes
     // under this tenant to the signed-in user. Safe to run on every
-    // sign-in -- the predicates only touch rows where user_id is null
+    // sign-in - the predicates only touch rows where user_id is null
     // OR client_id is null AND the email matches under this company.
     // This closes a footgun: a profile already existing meant the
     // clients/quotes link step never ran, so caterers who added a
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         // Audit (May 2026, Item 5): ambiguity guard. If more than
         // one clients row matches this email under the tenant, do
-        // NOT auto-relink -- a shared corporate inbox or two people
+        // NOT auto-relink - a shared corporate inbox or two people
         // legitimately using the same email could end up with the
         // wrong person's quotes attached. Surface it for admin
         // review rather than guessing.
@@ -140,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     };
 
-    // If the user already has a profile, return it -- never overwrite.
+    // If the user already has a profile, return it - never overwrite.
     // This handles the case where the same email is also a client of
     // another catering company, or in some other role entirely.
     const { data: existing, error: existingErr } = await admin
@@ -189,7 +189,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fullName = localPart.replace(/[._-]+/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
     }
 
-    // Insert the row. role hard-coded to "client" -- no inputs from the
+    // Insert the row. role hard-coded to "client" - no inputs from the
     // request body can change this. company_id is the resolved UUID
     // from the slug lookup.
     const { data: created, error: insErr } = await admin

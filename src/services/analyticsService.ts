@@ -180,7 +180,7 @@ export const analyticsService = {
 
       // Revenue: only paying tenants count. Plan price comes from
       // platform_pricing_plans (slug match). Tenants without a slug are
-      // treated as 0 -- they likely haven't picked yet.
+      // treated as 0 - they likely haven't picked yet.
       const monthlyRevenue = list
         .filter((c: any) => norm(c.subscription_status) === "active")
         .reduce((sum: number, c: any) => {
@@ -314,7 +314,7 @@ export const analyticsService = {
 
       (companies || []).forEach((c: any) => {
         const status = String(c.subscription_status || "").toLowerCase();
-        // Plan distribution covers active + trialing tenants -- both
+        // Plan distribution covers active + trialing tenants - both
         // sit on a tier the SaaS owner needs visibility on. Cancelled
         // accounts drop out so the mix reflects the current book.
         if (status !== "active" && status !== "trial") return;
@@ -327,7 +327,7 @@ export const analyticsService = {
           planData[displayName] = { count: 0, revenue: 0 };
         }
         planData[displayName].count += 1;
-        // Trials and unpicked plans contribute zero revenue -- they
+        // Trials and unpicked plans contribute zero revenue - they
         // still appear in the distribution so churn risk is visible.
         if (status === "active" && meta) {
           planData[displayName].revenue += meta.price;

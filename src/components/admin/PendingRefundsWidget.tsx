@@ -1,5 +1,5 @@
 /**
- * PendingRefundsWidget -- list of refund payments still awaiting
+ * PendingRefundsWidget - list of refund payments still awaiting
  * payout (status != completed).
  *
  * Phase 14 #6. The dashboard's stat card shows the count + total

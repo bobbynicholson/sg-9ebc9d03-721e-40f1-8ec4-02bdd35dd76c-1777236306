@@ -12,7 +12,7 @@ interface Props {
 /**
  * Sticky bar that appears at the top of the table when one or more items
  * are selected. All actions operate on the current selection. Mirrors the
- * Stripe / Linear pattern -- multi-select feels free and reversible because
+ * Stripe / Linear pattern - multi-select feels free and reversible because
  * Clear is always one click away.
  */
 export function BulkActionsBar({

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/platform/financial-dashboard -- platform-level revenue.
+ * /admin/platform/financial-dashboard - platform-level revenue.
  *
  * NOT a tenant page. This is the SaaS owner's view of CateringMS's
- * own books -- subscription MRR / ARR across every catering company,
+ * own books - subscription MRR / ARR across every catering company,
  * trial conversion, churn, payment-gateway take. The bare
  * /admin/financial-dashboard route is the per-tenant version.
  *

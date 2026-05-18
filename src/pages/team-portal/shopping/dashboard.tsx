@@ -1,5 +1,5 @@
 /**
- * Shopping dashboard -- Wave 70.30 rework.
+ * Shopping dashboard - Wave 70.30 rework.
  *
  * Before: the page generated a synthetic "shopping list" from order
  * items + low-stock inventory and tracked tick state in localStorage.
@@ -10,7 +10,7 @@
  * Now: the page is the canonical "your active shopping list" view.
  * Reads shopping_list_items via useActiveShoppingList, ticks
  * persist to the DB (works across devices). The "what to buy"
- * surface lives on /buy-list -- the dashboard focuses on running
+ * surface lives on /buy-list - the dashboard focuses on running
  * the list you've already chosen.
  *
  * Empty state directs to /buy-list to start a list. No more
@@ -127,7 +127,7 @@ export default function ShoppingDashboard() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Shopping Dashboard</h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-600">
                 {activeList.list
-                  ? "Your active list -- tick items as you buy them"
+                  ? "Your active list - tick items as you buy them"
                   : "Open the Buy list to start a new shopping run"}
               </p>
             </div>
@@ -244,7 +244,7 @@ export default function ShoppingDashboard() {
                   iconColor="text-orange-600"
                   label="Remaining"
                   value={remaining.length}
-                  tooltip="Items still to buy. Tick each one off as you grab it -- progress is saved to the database so it works across devices."
+                  tooltip="Items still to buy. Tick each one off as you grab it - progress is saved to the database so it works across devices."
                 />
                 <MetricCard
                   icon={CheckCircle}
@@ -282,7 +282,7 @@ export default function ShoppingDashboard() {
                 )}
               </div>
 
-              {/* Shopping list -- persisted */}
+              {/* Shopping list - persisted */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="px-3 sm:px-4 md:px-6">
                   <CardTitle className="text-base sm:text-lg md:text-xl">

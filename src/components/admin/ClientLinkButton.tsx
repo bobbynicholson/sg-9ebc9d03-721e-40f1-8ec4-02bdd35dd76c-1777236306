@@ -8,13 +8,13 @@
  *
  * On click, opens a dialog that:
  *  - Shows existing active tokens with their expiry + a Revoke button
- *  - Has "Generate new link" -- creates a fresh token, copies the URL
+ *  - Has "Generate new link" - creates a fresh token, copies the URL
  *    to clipboard, shows the URL once for the admin to paste anywhere
  *    (WhatsApp, Gmail, SMS)
  *
  * Token is stored hashed; raw value is shown ONCE on creation. If the
  * admin loses it before the dialog closes, they can revoke and create
- * another -- old tokens become useless instantly.
+ * another - old tokens become useless instantly.
  */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";

@@ -1,16 +1,16 @@
 /**
- * CleaningEventBoard -- Wave 70.24 (Commit 3)
+ * CleaningEventBoard - Wave 70.24 (Commit 3)
  *
  * Event-grouped cleaning queue. Replaces the flat by-item view as
  * the primary cleaning portal surface. Three swimlanes:
  *
- *   Expected today  -- handovers whose orders are still in transit
+ *   Expected today  - handovers whose orders are still in transit
  *                      (status='expected'). Tells the cleaner what's
  *                      coming back so they can pre-stage racks.
- *   In progress     -- equipment is back, cleaning team working
+ *   In progress     - equipment is back, cleaning team working
  *                      through it. Sorted by oldest first (longest-
  *                      waiting handover at the top).
- *   Done today      -- handovers completed today. Confirmation +
+ *   Done today      - handovers completed today. Confirmation +
  *                      summary so the cleaner sees their throughput.
  *
  * Each card is the per-event handover. Click opens the detail view

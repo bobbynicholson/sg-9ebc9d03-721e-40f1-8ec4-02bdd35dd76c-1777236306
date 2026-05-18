@@ -1,10 +1,10 @@
 /**
- * TomorrowsEventsWidget -- compact list of confirmed events for
+ * TomorrowsEventsWidget - compact list of confirmed events for
  * tomorrow.
  *
  * Phase 14 #3. Today's Pulse (Phase 9 #5) tells the operator
  * what's happening today. The evening-before review needs the
- * opposite -- a quick read on tomorrow's load so the kitchen +
+ * opposite - a quick read on tomorrow's load so the kitchen +
  * dispatch can prep the right amount of stock and roster the
  * right team.
  *

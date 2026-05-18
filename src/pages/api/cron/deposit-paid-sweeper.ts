@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 50 C8 -- safety-net sweeper for deposit_paid-but-still-pending orders.
+ * Wave 50 C8 - safety-net sweeper for deposit_paid-but-still-pending orders.
  *
  * Audit (Specialist 4) flagged orders sitting at deposit_paid=true
  * AND status IN ('pending','draft') as a silent gap. Manual EFT

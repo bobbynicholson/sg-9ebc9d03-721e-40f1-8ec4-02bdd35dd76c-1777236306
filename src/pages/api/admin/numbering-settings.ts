@@ -12,7 +12,7 @@
  *
  * Owner / company_admin / admin only. Validates that next_number
  * cannot regress past the highest existing parsed sequence on the
- * relevant table -- so an operator can't accidentally re-issue an
+ * relevant table - so an operator can't accidentally re-issue an
  * already-used number.
  *
  * Writes a before/after diff to company_number_settings_audit.
@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Ensure rows exist for all three doc types. Calling the consume
-      // RPC would advance the counter -- instead, read what's there
+      // RPC would advance the counter - instead, read what's there
       // and fill any missing rows with sane defaults.
       const { data: existing, error: existingErr } = await admin
         .from("company_number_settings")

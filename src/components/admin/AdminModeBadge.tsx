@@ -1,5 +1,5 @@
 /**
- * AdminModeBadge -- Wave 70.31
+ * AdminModeBadge - Wave 70.31
  *
  * Sits at the top of the admin nav above the live state strip.
  * Tells the owner which phase of the day the business is in
@@ -10,12 +10,12 @@
  * tiles. Same pattern as kitchen / cleaning / shopping.
  *
  * Tones:
- *   setup     -- indigo, first-week onboarding
- *   quiet     -- slate, neutral
- *   pipeline  -- blue, sales focus
- *   ops       -- brand-primary -> brand-secondary gradient, pulses
+ *   setup     - indigo, first-week onboarding
+ *   quiet     - slate, neutral
+ *   pipeline  - blue, sales focus
+ *   ops       - brand-primary -> brand-secondary gradient, pulses
  *                (the "live" state)
- *   review    -- emerald, end of day
+ *   review    - emerald, end of day
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -103,7 +103,7 @@ export function AdminModeBadge() {
       if (state.inTransitNow > 0) bits.push(`${state.inTransitNow} on the road`);
       return bits.join(" · ");
     }
-    if (state.mode === "review") return "Today's events delivered -- review the day";
+    if (state.mode === "review") return "Today's events delivered - review the day";
     return "";
   })();
 

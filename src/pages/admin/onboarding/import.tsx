@@ -4,12 +4,12 @@
  *
  * The catering team's upload-and-go onboarding tool. Five-step
  * wizard:
- *   1. Upload  -- drop a .xlsx / .csv with clients + orders
- *   2. Mapping -- AI returns a header -> field mapping with
+ *   1. Upload  - drop a .xlsx / .csv with clients + orders
+ *   2. Mapping - AI returns a header -> field mapping with
  *                 confidence; the team eyeballs and confirms
- *   3. Preview -- per-row outcome preview (insert / skip / error)
- *   4. Commit  -- apply, persist, stamp import_job_id for rollback
- *   5. Done    -- summary + rollback CTA
+ *   3. Preview - per-row outcome preview (insert / skip / error)
+ *   4. Commit  - apply, persist, stamp import_job_id for rollback
+ *   5. Done    - summary + rollback CTA
  *
  * Every step hits a real API endpoint (this is NOT a localStorage
  * mock).
@@ -86,7 +86,7 @@ function ImportPage() {
   const [busy, setBusy] = useState<boolean>(false);
 
   // Branch / kitchen scoping for the imported rows. Only matters for
-  // multi-branch tenants -- single-branch operators get the only
+  // multi-branch tenants - single-branch operators get the only
   // option auto-selected and the picker hides itself in the UI.
   const { kitchens } = useCompanyKitchens(companyId);
   const branchOptions = useMemo(
@@ -107,7 +107,7 @@ function ImportPage() {
   const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped" | "duplicates">("all");
   const [bulkDedupBusy, setBulkDedupBusy] = useState(false);
 
-  // Per-row dedup decision setter -- writes through the API so
+  // Per-row dedup decision setter - writes through the API so
   // commit picks up the choice. Optimistic UI: state flips first,
   // server call patches the persisted record.
   const setRowDecision = async (rowId: string, decision: "skip" | "update" | "create_new") => {
@@ -128,7 +128,7 @@ function ImportPage() {
     }
   };
 
-  // Bulk apply -- skip all dupes, update all dupes, or create new for
+  // Bulk apply - skip all dupes, update all dupes, or create new for
   // all dupes. Fires decision calls in parallel batches of 50.
   const setAllDuplicateDecisions = async (decision: "skip" | "update" | "create_new") => {
     if (!jobId) return;
@@ -247,7 +247,7 @@ function ImportPage() {
       // Auto-mapping shortcut. If the upload endpoint recognised the
       // headers as a known template, it already wrote the mapping and
       // flipped the job to "mapped". Run preview inline and jump
-      // straight to the preview step -- saves the operator the
+      // straight to the preview step - saves the operator the
       // mapping ceremony when their file is template-clean.
       if (json.autoMappedTo) {
         toast({
@@ -271,7 +271,7 @@ function ImportPage() {
       }
 
       setStep("mapping");
-      // Kick the AI mapping immediately -- the team usually waits
+      // Kick the AI mapping immediately - the team usually waits
       // ~2-3 s and pressing the button manually feels redundant.
       runMapping(json.jobId);
     } catch (e: any) {
@@ -313,7 +313,7 @@ function ImportPage() {
         }).catch(() => undefined);
       }
       const res = await fetch(`/api/imports/${jobId}/preview`, { method: "POST" });
-      // Defensive parse -- if the function timed out or hit an infra
+      // Defensive parse - if the function timed out or hit an infra
       // error, the body may be plain text ("An error occurred...")
       // and res.json() throws an unhelpful "Unexpected token A".
       const raw = await res.text();
@@ -467,7 +467,7 @@ function ImportPage() {
                 <div className="space-y-3">
                   {/* Template download buttons. Using one of these
                       auto-recognises every column on the upload step
-                      and skips the AI mapping step entirely -- the
+                      and skips the AI mapping step entirely - the
                       wizard jumps straight to Preview. */}
                   <div className="flex flex-wrap gap-2 mb-2">
                     <Button
@@ -609,7 +609,7 @@ function ImportPage() {
                   const p = job?.summary?.preview;
                   if (!p) return <p className="text-sm text-slate-500">No preview yet.</p>;
 
-                  // Defensive parse for preview_warnings -- supabase-js
+                  // Defensive parse for preview_warnings - supabase-js
                   // sometimes returns text[] as a Postgres-array string
                   // ('{"a","b"}') rather than a JS array. Coerce both
                   // shapes to a real array so the filter and the
@@ -642,7 +642,7 @@ function ImportPage() {
                   });
 
                   // Sample warning messages so the stat tile shows
-                  // *what* the warnings say, not just a count -- when
+                  // *what* the warnings say, not just a count - when
                   // the row table has 1000 cap and the warning row is
                   // outside, the operator still gets the message.
                   const warningSamples = rows
@@ -666,7 +666,7 @@ function ImportPage() {
                         <Stat label="Errors" value={p.errors} tone="rose" />
                       </div>
 
-                      {/* Duplicates banner -- shown only when matches exist.
+                      {/* Duplicates banner - shown only when matches exist.
                           Default decision is 'skip' so the import is safe
                           if the operator does nothing. Bulk actions let
                           them flip the whole set in one go. */}

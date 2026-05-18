@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * TimelineTrack -- the 22-stage / 5-cluster order timeline UI.
+ * TimelineTrack - the 22-stage / 5-cluster order timeline UI.
  *
  * Wave 66.4 rewrite. Full UI audit (5 specialists, 3 passes) concluded
  * the previous design glanced well at cluster level but failed at the
@@ -20,7 +20,7 @@
  *   - Connectors thickened to 2px with smoother transitions.
  *   - Focus-visible ring on every dot for keyboard navigation.
  *   - Stage-trigger glossary so the popover answers "what makes this
- *     stage complete" -- operators learn the pipeline by hovering.
+ *     stage complete" - operators learn the pipeline by hovering.
  *
  * Data model still lives in src/services/order/orderTimeline.ts. This
  * file is pure presentation; click handlers delegate to stage.sourceLink.
@@ -47,11 +47,11 @@ interface TimelineTrackProps {
   /** When true, render the compact cluster-pill view (mobile). When
    *  false (default), render the full dot-band view. */
   compact?: boolean;
-  /** Click handler for the parent card -- the timeline calls
+  /** Click handler for the parent card - the timeline calls
    *  stopPropagation when a stage dot is clicked so the parent card
    *  doesn't open the order drawer at the same time. */
   onStageClick?: (stage: OrderTimelineStage) => void;
-  /** Wave 47 -- when true, suppress the "Now / Blocked" banner at
+  /** Wave 47 - when true, suppress the "Now / Blocked" banner at
    *  the top. /admin/orders sets this because the new
    *  OrderReadinessChip mounted above the TimelineTrack already
    *  shows the urgency tier + next-action and the operator was
@@ -68,7 +68,7 @@ const CLUSTER_ORDER: StageGroup[] = [
   "closure",
 ];
 
-// Wave 66.4 -- stage-trigger glossary. Each entry answers "what makes
+// Wave 66.4 - stage-trigger glossary. Each entry answers "what makes
 // this stage flip to completed" so the operator can see, without
 // reading the code, what data point closes the loop. Surfaced in the
 // HoverCard popover under "Completes when". Where the trigger is a
@@ -100,7 +100,7 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     owner: "Operations / procurement",
   },
   equipment_hire_collected: {
-    trigger: "Every hire row has actual_pickup_date stamped -- the supplier handed it over.",
+    trigger: "Every hire row has actual_pickup_date stamped - the supplier handed it over.",
     owner: "Driver / collector",
   },
   pre_event_cleaning: {
@@ -197,7 +197,7 @@ function StageDot({
   const isBlocked = stage.status === "blocked";
   const isUpcoming = stage.status === "upcoming";
 
-  // Wave 66.4 -- dot sizing nudged up a notch for legibility at desk
+  // Wave 66.4 - dot sizing nudged up a notch for legibility at desk
   // distance. Completed dots got w-3.5 (was w-4 but used as
   // background), current/blocked stay distinct at w-7.
   const baseSize = size === "small" ? "w-2.5 h-2.5" : "w-3.5 h-3.5";
@@ -232,7 +232,7 @@ function StageDot({
     </span>
   );
 
-  // Wave 66.4 -- HoverCard replaces the browser-native `title`
+  // Wave 66.4 - HoverCard replaces the browser-native `title`
   // attribute. Same trigger semantics (hover on desktop, focus
   // for keyboard) but a stylable rich content panel.
   const dotWithHover = (
@@ -398,7 +398,7 @@ function ClusterBand({
   const hasBlocked = visible.some((s) => s.status === "blocked");
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Wave 66.4 -- inline cluster context. If the cluster has the
+  // Wave 66.4 - inline cluster context. If the cluster has the
   // current (or blocked) stage, surface its label + progress beneath
   // the dot row so ops read "Logistics: Kitchen prep (5/8)" without
   // hovering. If fully done, surface a small "all done" hint. If
@@ -439,7 +439,7 @@ function ClusterBand({
       <div className="flex items-center gap-1.5 flex-wrap justify-center">
         {visible.map((s, idx) => {
           const next = visible[idx + 1];
-          // Wave 66.4 -- connector polish. 2px height (was 0.5),
+          // Wave 66.4 - connector polish. 2px height (was 0.5),
           // brighter gradient for in-progress legs, wider for
           // breathing room.
           const connectorClass = !next
@@ -485,7 +485,7 @@ function ClusterBand({
         </div>
       )}
 
-      {/* Mini progress bar -- visual fill 0-100% */}
+      {/* Mini progress bar - visual fill 0-100% */}
       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
         <div
           className={`h-full transition-all duration-500 ${progressBarColor}`}
@@ -660,13 +660,13 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
         const headerLabel = isBlocked
           ? "Blocked"
           : u === "overdue"
-            ? "Event past -- close out"
+            ? "Event past - close out"
             : u === "today"
-              ? "Event today -- final checks"
+              ? "Event today - final checks"
               : u === "tomorrow"
-                ? "Event tomorrow -- final checks"
+                ? "Event tomorrow - final checks"
                 : u === "soon"
-                  ? "Event this week -- next to do"
+                  ? "Event this week - next to do"
                   : "Next to do";
         return (
           <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${tone.card}`}>

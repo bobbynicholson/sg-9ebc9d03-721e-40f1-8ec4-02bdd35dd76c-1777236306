@@ -1,5 +1,5 @@
 /**
- * RecentActivityWidget -- last 8 audit_logs entries across the
+ * RecentActivityWidget - last 8 audit_logs entries across the
  * tenant.
  *
  * Phase 14 #7. /admin/audit-logs is the deep-dive surface; this

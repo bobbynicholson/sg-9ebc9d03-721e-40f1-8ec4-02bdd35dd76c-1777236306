@@ -2,14 +2,14 @@
  * POST /api/contact-form
  *
  * The public marketing contact page (/contact) submits here. This is
- * NOT the tenant lead-intake path -- those go through embed forms or
+ * NOT the tenant lead-intake path - those go through embed forms or
  * /api/integrations/leads. This is for someone reaching out to the
  * CateringMS platform itself ("can you give us a demo", "pricing
  * question", "partnership"). It emails the platform support address;
  * no tenant DB writes happen here.
  *
  * Lightweight bot mitigation: honeypot field + size cap. We don't
- * need full Turnstile here -- the volume is low and the cost of a
+ * need full Turnstile here - the volume is low and the cost of a
  * spam email is just a deletion.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -26,7 +26,7 @@ interface Body {
   company?: string;
   subject?: string;
   message?: string;
-  // Honeypot -- if this is filled, the submission is a bot.
+  // Honeypot - if this is filled, the submission is a bot.
   website?: string;
 }
 
@@ -58,7 +58,7 @@ export default async function handler(
       return res.status(400).json({ error: "Email looks invalid." });
     }
 
-    const subjectLine = `[contact form] ${body.subject || "general"} -- ${name}`;
+    const subjectLine = `[contact form] ${body.subject || "general"} - ${name}`;
     const html = `
 <p><strong>From:</strong> ${escapeHtml(name)} &lt;${escapeHtml(email)}&gt;</p>
 ${body.phone ? `<p><strong>Phone:</strong> ${escapeHtml(body.phone)}</p>` : ""}
@@ -70,7 +70,7 @@ ${body.company ? `<p><strong>Company:</strong> ${escapeHtml(body.company)}</p>` 
 
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      // No Resend key configured -- log and accept so the form still
+      // No Resend key configured - log and accept so the form still
       // reads as success. The platform owner can wire Resend later.
       console.warn("[contact-form] RESEND_API_KEY missing, skipping send");
       return res.status(200).json({ ok: true, simulated: true });

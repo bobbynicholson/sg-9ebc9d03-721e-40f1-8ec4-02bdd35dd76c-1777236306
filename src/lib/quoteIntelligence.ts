@@ -27,7 +27,7 @@ export type QuoteBucket =
 
 export interface QuoteIntelligence {
   bucket: Exclude<QuoteBucket, "all">;
-  /** Tone of the suggested action -- urgent first sort key. */
+  /** Tone of the suggested action - urgent first sort key. */
   tone: "urgent" | "warm" | "neutral";
   /** Short label rendered as the row's suggested-action text. */
   label: string;
@@ -85,7 +85,7 @@ function daysUntil(target: Date | string | null | undefined, from = new Date()):
 /**
  * Derive intelligence for a single quote.
  *
- * The order of cases is deliberate -- "draft from client request" is
+ * The order of cases is deliberate - "draft from client request" is
  * checked before plain draft so the team sees that the client is
  * actively waiting. "Expiring" trumps "in play" so urgency surfaces.
  */
@@ -104,7 +104,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   const daysSinceViewed = daysBetween(viewed);
   const daysUntilExpiry = daysUntil(validUntil);
 
-  // Most meaningful timestamp -- viewed > sent > created.
+  // Most meaningful timestamp - viewed > sent > created.
   const lastTouchAt = viewed || sent || created;
   const daysSinceTouch = daysBetween(lastTouchAt);
 

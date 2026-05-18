@@ -1,5 +1,5 @@
 /**
- * Tier 1 chart 1 -- Monthly revenue trend (12-month rolling).
+ * Tier 1 chart 1 - Monthly revenue trend (12-month rolling).
  *
  * Shape: 12 monthly buckets ending at the most recent full month
  * containing event_dates in the input. Each bucket has:
@@ -24,9 +24,9 @@ export interface RevenueByMonthInput {
 }
 
 export interface RevenueByMonthBucket {
-  /** "2026-05" -- safe sortable key */
+  /** "2026-05" - safe sortable key */
   monthKey: string;
-  /** "May 26" -- short label for chart x-axis */
+  /** "May 26" - short label for chart x-axis */
   label: string;
   booked: number;
   collected: number;
@@ -39,7 +39,7 @@ const SHORT_MONTHS = [
 ];
 
 const collectedFromOrder = (o: RevenueByMonthInput): number => {
-  // Direct amount_paid is the most accurate signal -- the cashflow ledger
+  // Direct amount_paid is the most accurate signal - the cashflow ledger
   // sums payments here. Fall through to the deposit/balance flag pair
   // only when amount_paid is null (legacy orders pre-payment-ledger).
   if (typeof o.amount_paid === "number" && o.amount_paid > 0) {
@@ -49,7 +49,7 @@ const collectedFromOrder = (o: RevenueByMonthInput): number => {
   if (o.deposit_paid && typeof o.deposit_amount === "number") sum += o.deposit_amount;
   if (o.balance_paid && typeof o.balance_amount === "number") sum += o.balance_amount;
   if (sum > 0) return sum;
-  // Fully-paid status with no breakdown -- treat total as collected.
+  // Fully-paid status with no breakdown - treat total as collected.
   if (o.payment_status === "paid" && typeof o.total_amount === "number") {
     return o.total_amount;
   }
@@ -58,7 +58,7 @@ const collectedFromOrder = (o: RevenueByMonthInput): number => {
 
 export function aggregateRevenueByMonth(
   orders: RevenueByMonthInput[],
-  /** Anchor month -- defaults to today. The 12 buckets end here. */
+  /** Anchor month - defaults to today. The 12 buckets end here. */
   endAt: Date = new Date(),
 ): RevenueByMonthBucket[] {
   // Pre-build the 12 month skeleton ending at endAt's month, oldest first.
@@ -78,7 +78,7 @@ export function aggregateRevenueByMonth(
     if (!o.event_date) continue;
     if (o.status === "cancelled") continue;
     // event_date is a date column. Slice "2026-05-14" -> "2026-05" without
-    // timezone shenanigans -- the stored value is already a calendar date.
+    // timezone shenanigans - the stored value is already a calendar date.
     const monthKey = String(o.event_date).slice(0, 7);
     const bucket = buckets.get(monthKey);
     if (!bucket) continue; // outside the 12-month window, ignore

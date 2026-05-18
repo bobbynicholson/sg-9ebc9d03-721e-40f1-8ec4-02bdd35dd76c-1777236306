@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-nocheck -- Supabase generated types are stale on the new
+// @ts-nocheck - Supabase generated types are stale on the new
 // orders.assigned_vehicle_id / secondary_vehicle_id / requires_two_drivers
 // columns and on the vehicle_bookings table. Mirroring the pattern used by
 // vehicleService.ts and order-assignments.tsx until database.types.ts is
 // regenerated.
 /**
- * VehiclePickerDialog -- pick or override the vehicle on a single order.
+ * VehiclePickerDialog - pick or override the vehicle on a single order.
  *
  * Used from:
  *   - /admin/order-assignments (Dispatch Queue) row "Vehicle" cell

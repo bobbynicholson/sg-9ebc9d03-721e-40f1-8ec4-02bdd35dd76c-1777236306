@@ -80,7 +80,7 @@ export function ReassignDriverDialog({
     // least one gate failure (capacity, feasibility, vehicle), make
     // them write a reason. Audit trail then has the "why" for the
     // override, not just the swap. Skipped when picking a clean
-    // suggestion -- the reason field is still available but optional.
+    // suggestion - the reason field is still available but optional.
     if (blocked && !reason.trim()) {
       toast({
         title: "Reason required to override gates",

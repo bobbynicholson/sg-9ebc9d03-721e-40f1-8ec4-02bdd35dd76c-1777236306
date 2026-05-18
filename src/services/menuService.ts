@@ -70,16 +70,16 @@ export interface RecipeIngredientRow {
   notes: string | null;
 }
 
-/** What the menu page reads per row -- item + a tiny recipe summary */
+/** What the menu page reads per row - item + a tiny recipe summary */
 export interface MenuItemWithRecipeSummary extends MenuItem {
   recipe_id: string | null;
   recipe_ingredient_count: number;
-  /** Owner-only cost rollup -- null when no recipe or no priced ingredients */
+  /** Owner-only cost rollup - null when no recipe or no priced ingredients */
   cost: RecipeCostBreakdown | null;
 }
 
 /**
- * Owner-only -- the per-recipe cost picture. Surfaces explicit gaps so
+ * Owner-only - the per-recipe cost picture. Surfaces explicit gaps so
  * the owner knows which numbers are partial.
  */
 export interface RecipeCostBreakdown {
@@ -93,7 +93,7 @@ export interface RecipeCostBreakdown {
   contributing: number;
   /** Linked to inventory but the inventory item has no cost_per_unit set */
   missing_cost: number;
-  /** Free-text rows -- not linked to inventory, can't compute */
+  /** Free-text rows - not linked to inventory, can't compute */
   free_text: number;
 }
 
@@ -108,7 +108,7 @@ export interface MenuItemFull {
 
 /**
  * Canonical list. Existing data has chaos like 'main' / 'Mains' /
- * 'dessert' / 'Desserts' -- the form normalises onto this list, but we
+ * 'dessert' / 'Desserts' - the form normalises onto this list, but we
  * still display the raw category string for legacy rows so nothing
  * disappears from the kitchen.
  */
@@ -145,7 +145,7 @@ export const DEFAULT_UNITS = ["g", "kg", "ml", "L", "tsp", "tbsp", "cup", "piece
  * else gets counted as a gap (free_text or missing_cost) so the owner
  * sees how complete the number is.
  *
- * Returns null when there's nothing meaningful to report -- no recipe,
+ * Returns null when there's nothing meaningful to report - no recipe,
  * no ingredients, or zero base_servings.
  */
 export function computeRecipeCost(
@@ -202,7 +202,7 @@ export function computeRecipeCost(
 
 export const menuService = {
   /**
-   * List view -- one row per menu item with the recipe summary AND the
+   * List view - one row per menu item with the recipe summary AND the
    * cost rollup so the owner page can render per-serving cost + margin
    * without N+1 queries. Pulls ingredient quantities + inventory cost in
    * the same select so the math runs client-side.
@@ -236,7 +236,7 @@ export const menuService = {
       const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
       const { recipes: _r, ...item } = row;
       const ingredients: any[] = recipe?.recipe_ingredients ?? [];
-      // Build the cost lookup map from the embed -- avoids a second query
+      // Build the cost lookup map from the embed - avoids a second query
       const costLookup = new Map<string, number | null>();
       for (const ing of ingredients) {
         if (ing.inventory_item_id) {
@@ -261,7 +261,7 @@ export const menuService = {
   },
 
   /**
-   * Detail view used by the edit dialog -- single round-trip pulls the
+   * Detail view used by the edit dialog - single round-trip pulls the
    * item, its recipe, and ingredients.
    */
   async getFull(menuItemId: string): Promise<MenuItemFull | null> {
@@ -402,7 +402,7 @@ export const menuService = {
       .single();
     if (rErr || !savedRecipe) throw rErr || new Error("Could not save recipe");
 
-    // Replace ingredient set -- delete then insert.
+    // Replace ingredient set - delete then insert.
     const { error: dErr } = await supabase
       .from("recipe_ingredients")
       .delete()
@@ -456,13 +456,13 @@ export const menuService = {
    * Why a dedicated method:
    *   - We want quick name/description/category fuzzy hits without
    *     dragging the recipe / cost embed through. The full list() call
-   *     pulls every item plus its joins -- overkill for a dropdown.
+   *     pulls every item plus its joins - overkill for a dropdown.
    *   - Cost data is intentionally NOT returned. Quote authors are
    *     admins who already see costs elsewhere, but the same shape
    *     could later be reused on a public menu surface and we don't
    *     want a stray future caller leaking margins by mistake.
    *
-   * Multi-tenancy: eq("company_id", companyId) is the seal -- if the
+   * Multi-tenancy: eq("company_id", companyId) is the seal - if the
    * caller doesn't pass the right company id, nothing comes back even
    * though RLS would also block it on the server side.
    */
@@ -492,7 +492,7 @@ export const menuService = {
       .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, is_available, allergens_reviewed_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      // Hide archived/disabled items from quote pickers -- the owner
+      // Hide archived/disabled items from quote pickers - the owner
       // can still see them on /admin/menu, but they shouldn't surface
       // when building a new quote.
       .or("is_available.is.null,is_available.eq.true");

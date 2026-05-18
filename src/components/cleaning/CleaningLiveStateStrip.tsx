@@ -1,14 +1,14 @@
 /**
- * CleaningLiveStateStrip -- Wave 70.28
+ * CleaningLiveStateStrip - Wave 70.28
  *
  * The 4-metric "what's happening right now" strip that sits at the
  * top of the cleaning nav (below the mode badge). Each pill is a
  * tap target that deep-links straight into the filtered view.
  *
- *   Returns   -- handovers due in the next 4h (critical when overdue)
- *   Washing   -- in-progress handovers right now
- *   Damages   -- open damage reports (warning tone)
- *   On duty   -- live headcount on the cleaning floor
+ *   Returns   - handovers due in the next 4h (critical when overdue)
+ *   Washing   - in-progress handovers right now
+ *   Damages   - open damage reports (warning tone)
+ *   On duty   - live headcount on the cleaning floor
  *
  * Layout: 2x2 grid (drawer + collapsed-friendly).
  *
@@ -76,7 +76,7 @@ export function CleaningLiveStateStrip() {
     );
   }
 
-  // Wave 70.28a -- per-pill tooltip strings. The screen-reader
+  // Wave 70.28a - per-pill tooltip strings. The screen-reader
   // `aria` field used to be the only context the user got; sighted
   // users now also see the same hint on hover via `title`.
   const pills: Pill[] = [

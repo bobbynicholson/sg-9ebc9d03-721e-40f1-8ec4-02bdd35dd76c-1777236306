@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * ClientTypeahead -- search-as-you-type for the New Quote page.
+ * ClientTypeahead - search-as-you-type for the New Quote page.
  *
  * Drops onto the form where the staff member would otherwise re-type a
  * client name from scratch. As they type, we hit clients/leads/quotes/
@@ -13,7 +13,7 @@
  *   - We want the typed value to keep flowing into formData.clientName
  *     even when nothing is picked yet (so creating a brand-new client
  *     is just "type the name and submit").
- *   - The dropdown items aren't a closed list -- they're suggestions
+ *   - The dropdown items aren't a closed list - they're suggestions
  *     pulled live from the DB. The Command component assumes a fixed
  *     option set.
  */
@@ -27,7 +27,7 @@ export interface ClientTypeaheadProps {
   companyId: string | null | undefined;
   value: string;
   onChange: (value: string) => void;
-  /** Fired when the user picks a result -- parent should hydrate the form */
+  /** Fired when the user picks a result - parent should hydrate the form */
   onPick: (pick: KnownClientResult) => void;
   placeholder?: string;
   className?: string;
@@ -62,7 +62,7 @@ export function ClientTypeahead({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Close on outside click -- standard typeahead behaviour
+  // Close on outside click - standard typeahead behaviour
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!containerRef.current) return;
@@ -91,7 +91,7 @@ export function ClientTypeahead({
         setResults(rows);
         setHighlight(0);
       } catch (e) {
-        // Silent fail -- typeahead is optional sugar, we never block the
+        // Silent fail - typeahead is optional sugar, we never block the
         // form on a search outage. Console for the dev only.
         // eslint-disable-next-line no-console
         console.warn("Client typeahead search failed:", e);

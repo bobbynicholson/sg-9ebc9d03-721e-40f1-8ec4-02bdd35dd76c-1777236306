@@ -1,11 +1,11 @@
 /**
- * /admin/email-templates -- Lifecycle Emails hub.
+ * /admin/email-templates - Lifecycle Emails hub.
  *
  * Four tabs collapse what used to be four separate routes:
- *   Templates    -- the messaging templates editor (was /admin/messaging-templates surface)
- *   Sent Log     -- after-sales sends overview (was /admin/after-sales-emails)
- *   Automation   -- read-only follow-up audit (was /admin/email-automation-dashboard)
- *   Settings     -- SMTP + automation rules editor (was /admin/email-automation-settings)
+ *   Templates    - the messaging templates editor (was /admin/messaging-templates surface)
+ *   Sent Log     - after-sales sends overview (was /admin/after-sales-emails)
+ *   Automation   - read-only follow-up audit (was /admin/email-automation-dashboard)
+ *   Settings     - SMTP + automation rules editor (was /admin/email-automation-settings)
  *
  * Tab state is mirrored to ?tab=... so deep-links land on the right
  * surface. Default tab is "templates" (the most-used surface).

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 // Wave 21 audit: webhook used to import the browser anon supabase
-// client even though it runs as an unauth API route -- every
+// client even though it runs as an unauth API route - every
 // notifications insert below was attempted under anon RLS, which
 // silently rejected the row. Operators got no "payment received"
 // alerts for PayFast IPNs unless they happened to be the row owner.
@@ -37,7 +37,7 @@ import crypto from "crypto";
  * response, 5xx). Every retry would otherwise double-insert payments
  * rows, double `amount_paid`, and flip status to paid prematurely.
  * We dedupe on `pf_payment_id` (PayFast's canonical id) by checking
- * the payments table BEFORE any DB write -- if the row already exists
+ * the payments table BEFORE any DB write - if the row already exists
  * we return 200 immediately so PayFast stops retrying. The dedup also
  * covers replay attacks: a re-sent valid signed IPN with the same
  * pf_payment_id is a no-op.
@@ -49,7 +49,7 @@ import crypto from "crypto";
  *  - IP allowlist via PAYFAST_ALLOWED_IPS env var (comma-separated).
  *    Empty / unset disables the check (dev convenience). Production
  *    should set: 197.97.145.144/29, 41.74.179.192/27, 102.216.36.16,
- *    102.216.36.17 -- whatever PayFast publishes as their IPN egress
+ *    102.216.36.17 - whatever PayFast publishes as their IPN egress
  *    range. CIDR not parsed here; the env var should list the exact
  *    IPs after subnet expansion.
  */
@@ -122,8 +122,8 @@ function clientIpFromRequest(req: NextApiRequest): string | null {
 }
 
 /**
- * Parse a single IPv4 entry -- either a literal "1.2.3.4" or a CIDR
- * range "1.2.3.0/24" -- and return a matcher function. Returns null
+ * Parse a single IPv4 entry - either a literal "1.2.3.4" or a CIDR
+ * range "1.2.3.0/24" - and return a matcher function. Returns null
  * for unparseable entries (skipped silently so a single typo doesn't
  * disable the whole allowlist).
  */
@@ -168,7 +168,7 @@ function isAllowedPayFastIp(ip: string | null): boolean {
     // not configured) which meant a production deployment that
     // forgot the env var silently lost IP gating, with only a
     // platform-wide passphrase as the fallback verification. Now
-    // fail closed in production -- the operator must populate the
+    // fail closed in production - the operator must populate the
     // allowlist before going live. Non-prod environments still allow
     // for local testing.
     return process.env.NODE_ENV !== "production";
@@ -220,7 +220,7 @@ export default async function handler(
     // PayFast account had a different passphrase (i.e. every tenant in
     // production once we onboard merchants other than the platform's
     // own test account) would fail signature verification on EVERY
-    // IPN -- payments would land but never close orders or invoices.
+    // IPN - payments would land but never close orders or invoices.
     //
     // Strategy: PayFast IPNs always carry the tenant's company id in
     // custom_str3. Look that up first, pull the active gateway's
@@ -242,7 +242,7 @@ export default async function handler(
         if (tenantCfg && tenantCfg.gateway.provider === "payfast") {
           const tenantPassphrase = (tenantCfg.credentials?.passphrase || "").toString();
           // Empty string is a valid PayFast configuration (no passphrase)
-          // -- only fall back to env when the tenant has no payfast row
+          // - only fall back to env when the tenant has no payfast row
           // at all. Once we have a payfast row, that's authoritative.
           passphrase = tenantPassphrase;
         }
@@ -284,7 +284,7 @@ export default async function handler(
       const invoiceId = custom_str1;
       const companyId = custom_str3;
 
-      // Idempotency guard -- if we have already recorded this PayFast
+      // Idempotency guard - if we have already recorded this PayFast
       // transaction against ANY payment row, skip the rest of the
       // pipeline so retries are no-ops.
       const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
@@ -346,7 +346,7 @@ export default async function handler(
           channels: ["in_app", "email"]
         }]);
 
-        // Invoice payment confirmation -- "thank you, payment received".
+        // Invoice payment confirmation - "thank you, payment received".
         // Emit through emailService so it picks up the company's
         // configured Resend / SMTP provider and the negative gates
         // (block list + import quarantine) run server-side.
@@ -394,11 +394,11 @@ export default async function handler(
             // reads email_provider_settings under RLS. PayFast IPN
             // hits this with no session, so without _client the helper
             // falls back to browser anon supabase and the SELECT
-            // returns nothing -- the receipt never lands.
+            // returns nothing - the receipt never lands.
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
-              subject: `Payment received -- invoice ${invoiceData.invoice_number}`,
+              subject: `Payment received - invoice ${invoiceData.invoice_number}`,
               template: "balance_payment_received",
               variables: {
                 clientName: recipientName || "there",
@@ -411,7 +411,7 @@ export default async function handler(
             } as any);
           }
         } catch (emailErr) {
-          // Non-blocking -- the invoice is already marked paid;
+          // Non-blocking - the invoice is already marked paid;
           // a failed confirmation email is logged but doesn't undo
           // the webhook. Surfaces in the email-failures dashboard
           // (item #9) once that lands.
@@ -421,7 +421,7 @@ export default async function handler(
         // Auto-complete the linked order when:
         //   (a) the invoice has an order_id (it's tied to a real order)
         //   (b) the invoice is now fully paid (balance_due <= 0)
-        //   (c) the order is already in 'delivered' status -- meaning
+        //   (c) the order is already in 'delivered' status - meaning
         //       the food / service was rendered and only the balance
         //       was outstanding
         //
@@ -478,7 +478,7 @@ export default async function handler(
     const orderId = custom_str1;
     const paymentType = (custom_str2 || "").toLowerCase(); // "deposit" or "balance"
 
-    // Idempotency guard FIRST -- before any DB write. If PayFast
+    // Idempotency guard FIRST - before any DB write. If PayFast
     // retries (which it does aggressively when the response is slow),
     // we want the second / third / nth call to be a 200 no-op.
     const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
@@ -513,7 +513,7 @@ export default async function handler(
     // Verify amount matches.
     //
     // Tolerance was 1 cent (0.01) which was too tight for inc-VAT
-    // tenants -- the stored deposit_amount and PayFast's amount_gross
+    // tenants - the stored deposit_amount and PayFast's amount_gross
     // can drift by up to a few cents per R1k of order value because
     // inc/ex rounding cascades through deposit-percent calculations.
     // Catering orders sit in the R2k-R200k range so a 1-cent gate
@@ -562,7 +562,7 @@ export default async function handler(
 
     // Cascade: orders flags + reminders. The helpers in
     // paymentProcessingService own the right cascade. Phase 2 collapsed
-    // the parallel payment_schedules table -- everything now writes
+    // the parallel payment_schedules table - everything now writes
     // straight to orders.
     if (isDepositPayment) {
       await paymentProcessingService.processDepositPayment(
@@ -628,7 +628,7 @@ export default async function handler(
     // in-app bell only fires when an admin happens to be in the
     // tab; for the operator on the road this email is the actual
     // 'money landed' signal and prompts them to confirm with the
-    // kitchen / driver. Best-effort -- never undoes the webhook.
+    // kitchen / driver. Best-effort - never undoes the webhook.
     try {
       const { data: companyRow } = await supabase
         .from("companies")
@@ -640,8 +640,8 @@ export default async function handler(
       if (ownerEmail) {
         const amountFmt = `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
         const subject = isDepositPayment
-          ? `Deposit landed -- ${order.order_number} (${order.client_name || "client"})`
-          : `Final payment landed -- ${order.order_number} (${order.client_name || "client"})`;
+          ? `Deposit landed - ${order.order_number} (${order.client_name || "client"})`
+          : `Final payment landed - ${order.order_number} (${order.client_name || "client"})`;
         const eventLine = order.event_date
           ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
           : "TBC";
@@ -650,7 +650,7 @@ export default async function handler(
             <p style="margin: 0 0 8px;"><strong>${order.client_name || "Client"}</strong> just paid <strong>${amountFmt}</strong> on order <strong>${order.order_number}</strong>.</p>
             <p style="margin: 0 0 8px;">Event: ${eventLine}<br/>Venue: ${order.venue_address || "TBC"}</p>
             <p style="margin: 0 0 8px;">Booking is now ${isDepositPayment ? "confirmed" : "fully paid"}.</p>
-            <p style="margin: 16px 0 0; font-size: 12px; color: #64748b;">${companyName || "Your team"} -- automated notification from CateringMS.</p>
+            <p style="margin: 16px 0 0; font-size: 12px; color: #64748b;">${companyName || "Your team"} - automated notification from CateringMS.</p>
           </div>`;
         await emailService.sendEmail({
           companyId: order.company_id || order.user_id,
@@ -658,7 +658,7 @@ export default async function handler(
           subject,
           body: html,
           orderId: order.id,
-          // Wave 24: webhook context -- pass service-role client.
+          // Wave 24: webhook context - pass service-role client.
           _client: supabase,
         } as any);
       }
@@ -691,7 +691,7 @@ async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null)
     .or(`gateway_transaction_id.eq.${pfPaymentId},transaction_id.eq.${pfPaymentId}`)
     .limit(1);
   if (error) {
-    // Fail open -- if the dedup query itself errors we'd rather process
+    // Fail open - if the dedup query itself errors we'd rather process
     // and risk a later cleanup than silently drop a real payment. The
     // amount-mismatch + downstream FK constraints provide a second line
     // of defence.
@@ -704,7 +704,7 @@ async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null)
 /**
  * Resolve the auth.users.id of the client behind an order. orders.client_id
  * is a FK to clients.id (NOT auth.users.id), so we go through the clients
- * table -- prefer the explicit user_id link, fall back to the email match
+ * table - prefer the explicit user_id link, fall back to the email match
  * on profiles. Pattern mirrored from amendment-review.ts.
  */
 async function resolveClientUserId(orderClientId: string | null | undefined): Promise<string | null> {
@@ -733,7 +733,7 @@ async function resolveClientUserId(orderClientId: string | null | undefined): Pr
 }
 
 /**
- * Send the client (not just the owner) a confirmation -- in-app
+ * Send the client (not just the owner) a confirmation - in-app
  * notification AND email. Non-blocking on individual failures so a
  * dead inbox doesn't undo a successful webhook.
  */
@@ -795,8 +795,8 @@ async function sendClientPaymentConfirmation(
       companyId: order.company_id || order.user_id,
       to: recipientEmail,
       subject: isDeposit
-        ? `Deposit received -- order ${order.order_number}`
-        : `Final payment received -- order ${order.order_number}`,
+        ? `Deposit received - order ${order.order_number}`
+        : `Final payment received - order ${order.order_number}`,
       // Template type aligns with the seed in
       // supabase/migrations/20260506130000_seed_email_templates.sql
       // (deposit_payment_received / balance_payment_received). The
@@ -813,7 +813,7 @@ async function sendClientPaymentConfirmation(
         venue: order.venue_address || "TBD",
       },
       orderId: order.id,
-      // Wave 24: webhook context -- pass service-role client.
+      // Wave 24: webhook context - pass service-role client.
       _client: supabase,
     } as any);
   } catch (e) {

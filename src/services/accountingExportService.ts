@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * accountingExportService -- maps a CateringMS quote / invoice to the
+ * accountingExportService - maps a CateringMS quote / invoice to the
  * canonical shape the major accounting packages accept on their Quote
  * and Invoice endpoints.
  *
  * Why this exists separately from xeroIntegrationService:
  *   - The mapping is the same for Xero, QuickBooks Online and Sage.
  *     Each package has cosmetic differences (field naming, tax types)
- *     but the underlying payload -- contact, line items with qty +
- *     unit price + tax, totals -- is universal. Building the mapper
+ *     but the underlying payload - contact, line items with qty +
+ *     unit price + tax, totals - is universal. Building the mapper
  *     once means we can light up the other packages without rewriting.
  *   - The mapper is sync + pure, so it's safe to call from anywhere
  *     in the UI (e.g. a 'Copy JSON' fallback) even before the server-
@@ -262,7 +262,7 @@ export async function pushQuoteToAccounting(args: {
     if (!res.ok) {
       const text = await res.text();
       // 404 means the server endpoint isn't deployed yet for this
-      // provider -- tell the operator and offer the fallback.
+      // provider - tell the operator and offer the fallback.
       if (res.status === 404) {
         return { ok: false, reason: "no_endpoint", payload };
       }

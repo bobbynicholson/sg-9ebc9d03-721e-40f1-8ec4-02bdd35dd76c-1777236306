@@ -13,7 +13,7 @@ import { Check, ArrowRight, Info } from "lucide-react";
 // Pricing rendering is driven by getAllPricingOptions() + applyLivePlans()
 // pulling from /api/platform/pricing-plans (single source of truth in
 // platform_pricing_plans). The hard-coded PRICING_PLANS / convertCurrency /
-// formatCurrency that used to live here have been removed -- they were
+// formatCurrency that used to live here have been removed - they were
 // stale copies of the same data and never wired into the JSX.
 
 export default function PricingPage() {
@@ -28,7 +28,7 @@ export default function PricingPage() {
       setRegion(pathRegion);
       // Fetch live prices from the platform_pricing_plans table.
       // If the API is down we fall back to the hard-coded defaults
-      // baked into pricingCalculator -- the page never blanks.
+      // baked into pricingCalculator - the page never blanks.
       try {
         const r = await fetch("/api/platform/pricing-plans");
         if (r.ok) {
@@ -36,7 +36,7 @@ export default function PricingPage() {
           if (Array.isArray(j?.plans) && j.plans.length) setLivePlans(j.plans);
         }
       } catch {
-        // ignore -- fallback to baked-in pricing
+        // ignore - fallback to baked-in pricing
       }
       setIsLoading(false);
     };

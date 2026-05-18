@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Import service -- thin typed wrapper over the import_jobs /
+ * Import service - thin typed wrapper over the import_jobs /
  * import_rows / import_events tables.
  *
  * Used from API routes, never from the browser. The browser hits
@@ -8,13 +8,13 @@
  * Supabase client (so RLS doesn't block trusted server-side writes).
  *
  * Lifecycle map:
- *   uploaded   -- file landed + parsed to import_rows, awaiting AI map
- *   mapped     -- AI returned a header->target mapping, team confirmed
- *   previewed  -- mapping applied + normalised, summary rendered
- *   committing -- inserts running
- *   completed  -- inserts done
- *   failed     -- aborted
- *   rolled_back -- previously completed, now reversed
+ *   uploaded   - file landed + parsed to import_rows, awaiting AI map
+ *   mapped     - AI returned a header->target mapping, team confirmed
+ *   previewed  - mapping applied + normalised, summary rendered
+ *   committing - inserts running
+ *   completed  - inserts done
+ *   failed     - aborted
+ *   rolled_back - previously completed, now reversed
  */
 import { getServiceSupabase } from "@/lib/supabase/service";
 
@@ -172,7 +172,7 @@ export async function listImportJobs(companyId: string, limit = 25): Promise<Imp
 
 /**
  * List import rows for a job. Pages through Supabase via .range() so a
- * 3.8k-row import doesn't get silently truncated -- PostgREST caps a
+ * 3.8k-row import doesn't get silently truncated - PostgREST caps a
  * single SELECT at 1000 rows by default regardless of .limit(N), which
  * was burning the back ~75% of every big import (status stayed
  * 'pending', mapped_data stayed null).

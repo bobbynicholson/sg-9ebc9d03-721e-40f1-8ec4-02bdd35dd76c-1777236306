@@ -178,7 +178,7 @@ export default async function handler(
           .maybeSingle();
 
         if (!existingProfile) {
-          // Orphan from the old endpoint -- update password + create profile
+          // Orphan from the old endpoint - update password + create profile
           await admin.auth.admin.updateUserById(match.id, {
             password,
             email_confirm: true,
@@ -253,7 +253,7 @@ export default async function handler(
 
     const newUserId = created.user.id;
 
-    // Build the profile patch -- only columns that exist on the profiles
+    // Build the profile patch - only columns that exist on the profiles
     // table. vehicle_details was a phantom column; the real one is
     // vehicle_registration.
     const profileUpdates: any = {
@@ -302,7 +302,7 @@ export default async function handler(
       tempPassword: password,
     });
   } catch (outer: any) {
-    // Unhandled error -- without this catch, Next.js returns an HTML 500
+    // Unhandled error - without this catch, Next.js returns an HTML 500
     // page and the client can't parse a JSON error.
     console.error("create-user handler crashed:", outer);
     return res.status(500).json({

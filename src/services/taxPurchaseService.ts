@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * taxPurchaseService -- track tax-deductible purchases on slips so
+ * taxPurchaseService - track tax-deductible purchases on slips so
  * the catering company has clean numbers to hand their accountant.
  *
  * NOT an accounting tool. We don't classify expenses, we don't post
@@ -8,7 +8,7 @@
  * operator one place to:
  *
  *   - Snap or upload a slip from a shop
- *   - Tap each line and mark it deductible (or not -- some baskets
+ *   - Tap each line and mark it deductible (or not - some baskets
  *     mix business with personal)
  *   - See month / quarter / year totals of the deductible bucket
  *   - Export everything as CSV for the accountant

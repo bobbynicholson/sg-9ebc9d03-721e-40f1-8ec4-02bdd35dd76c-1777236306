@@ -1,20 +1,20 @@
 /**
- * BookingActions -- Wave 70.43
+ * BookingActions - Wave 70.43
  *
  * Standardised role-driven action bar for a booking. Pairs with
  * <BookingHeader> (Wave 70.41) and <BookingFacts> (Wave 70.42).
  *
  * Each variant exposes only the CTAs that role is allowed to do:
  *
- *   admin    -- Edit / Send invoice / Mark paid / Open ticket /
+ *   admin    - Edit / Send invoice / Mark paid / Open ticket /
  *               Cancel order / Force-close
- *   client   -- Pay deposit (deep link to payment) / Accept changes
+ *   client   - Pay deposit (deep link to payment) / Accept changes
  *               / Request changes (compose follow-up)
- *   kitchen  -- Open kitchen ticket / Mark prep done (when all
+ *   kitchen  - Open kitchen ticket / Mark prep done (when all
  *               tasks complete)
- *   driver   -- Open run sheet / Mark delivered (POD)
- *   cleaning -- Open handover / Sign off / Log damage
- *   shopping -- Add to buy list
+ *   driver   - Open run sheet / Mark delivered (POD)
+ *   cleaning - Open handover / Sign off / Log damage
+ *   shopping - Add to buy list
  *
  * Why a component (rather than each surface owning its own action
  * bar): the same booking touches multiple surfaces; the operator's
@@ -29,7 +29,7 @@
  *
  * Mutations emit cateringms:order-updated via the Wave 70.40 helper
  * so cross-page listeners stay in sync (the parent handler is
- * responsible for emitting -- this component doesn't fire events
+ * responsible for emitting - this component doesn't fire events
  * directly so it stays pure UI).
  */
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ export interface BookingAction {
   tone?: "primary" | "secondary" | "danger";
   disabled?: boolean;
   busy?: boolean;
-  /** Optional title attribute -- shown as hover tooltip. */
+  /** Optional title attribute - shown as hover tooltip. */
   hint?: string;
 }
 
@@ -102,7 +102,7 @@ export function BookingActions({ variant, actions, sticky = false }: BookingActi
 
   return (
     <div
-      // Wave 70.44 -- no-print hides the action bar on PDF / paper
+      // Wave 70.44 - no-print hides the action bar on PDF / paper
       // output. Action buttons are useless on a printed page (no
       // one's clicking "Mark paid" on a sheet of paper), and the
       // sticky variant in particular would print as a stuck banner
@@ -248,7 +248,7 @@ export function buildDriverActions(handlers: {
   if (handlers.onClaim) out.push({
     key: "claim", label: "Claim job", icon: Truck, tone: "primary",
     onClick: handlers.onClaim,
-    hint: "Claim this job -- you become the assigned driver",
+    hint: "Claim this job - you become the assigned driver",
   });
   if (handlers.onMarkDelivered) out.push({
     key: "delivered", label: "Mark delivered", icon: CheckCircle2, tone: "primary",

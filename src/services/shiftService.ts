@@ -147,7 +147,7 @@ export const shiftService = {
   },
 
   /**
-   * Active driver IDs right now -- used to refine the "drivers on shift" KPI
+   * Active driver IDs right now - used to refine the "drivers on shift" KPI
    * to a true scheduled signal rather than a GPS-ping proxy.
    */
   async getActiveDriverIdsForCompany(companyId: string): Promise<string[]> {

@@ -42,7 +42,7 @@ export default function OwnerWelcomeEmail({
       <Text style={emailHeadingStyle}>Welcome aboard, {ownerFirstName}.</Text>
       <Text style={emailBodyTextStyle}>
         <strong>{companyName}</strong> is now running on {platform}. Setup takes about 20 minutes
-        end-to-end -- we've broken it into a checklist that updates itself as you fill in real data,
+        end-to-end - we've broken it into a checklist that updates itself as you fill in real data,
         so nothing's wasted.
       </Text>
 

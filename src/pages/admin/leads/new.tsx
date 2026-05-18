@@ -1,5 +1,5 @@
 /**
- * /admin/leads/new -- create a new lead in the pipeline.
+ * /admin/leads/new - create a new lead in the pipeline.
  *
  * Phase 4 #10: migrated off raw useState + onChange handlers to
  * react-hook-form + zod. Field-level validation (required name +

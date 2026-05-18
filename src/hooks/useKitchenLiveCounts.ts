@@ -1,15 +1,15 @@
 /**
- * useKitchenLiveCounts -- Wave 70.7
+ * useKitchenLiveCounts - Wave 70.7
  *
  * Returns the four numbers that drive the kitchen portal's nav
  * live-state strip + per-item badges:
  *
- *   overdue   -- prep tasks past their start_at and not done yet
- *   onPass    -- orders with status='ready' (food sitting on the
+ *   overdue   - prep tasks past their start_at and not done yet
+ *   onPass    - orders with status='ready' (food sitting on the
  *                pass waiting for driver / collection)
- *   inPrep    -- orders with status='preparing' or 'confirmed' for
+ *   inPrep    - orders with status='preparing' or 'confirmed' for
  *                today (active prep workload)
- *   notifications -- unread kitchen-targeted notifications
+ *   notifications - unread kitchen-targeted notifications
  *
  * One batched fetch per call. Refreshes every 60s + on tab focus
  * + on manual refresh trigger. Network cost: 4 head:exact count
@@ -31,7 +31,7 @@ export interface KitchenLiveCounts {
   /** Iso timestamp of last successful refresh. */
   refreshedAt: string | null;
   loading: boolean;
-  /** Last network error if any -- null on success. */
+  /** Last network error if any - null on success. */
   error: string | null;
   refresh: () => void;
 }
@@ -101,7 +101,7 @@ export function useKitchenLiveCounts(): KitchenLiveCounts {
       setRefreshedAt(new Date().toISOString());
       setError(null);
     } catch (e: any) {
-      // Don't blank the counts on failure -- keep last good values.
+      // Don't blank the counts on failure - keep last good values.
       setError(e?.message || "Could not refresh kitchen counts");
     } finally {
       setLoading(false);

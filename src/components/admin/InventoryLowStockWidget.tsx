@@ -1,5 +1,5 @@
 /**
- * InventoryLowStockWidget -- dashboard card listing the inventory
+ * InventoryLowStockWidget - dashboard card listing the inventory
  * items that are at or below their minimum_stock threshold.
  *
  * Phase 10 #4. The dashboard already had a 'Low stock items' count

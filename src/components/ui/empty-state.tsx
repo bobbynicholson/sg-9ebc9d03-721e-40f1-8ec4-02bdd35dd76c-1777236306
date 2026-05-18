@@ -1,5 +1,5 @@
 /**
- * EmptyState -- canonical empty-list primitive.
+ * EmptyState - canonical empty-list primitive.
  *
  * Per docs/ui-conventions.md section 4 ("Tables and lists"): "Empty
  * states get a centred icon + a short headline + one CTA." The audit

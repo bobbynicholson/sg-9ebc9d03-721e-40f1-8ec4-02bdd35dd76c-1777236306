@@ -1,5 +1,5 @@
 /**
- * MyShiftTodayCard -- Wave 42 Tier 3.
+ * MyShiftTodayCard - Wave 42 Tier 3.
  *
  * Personal "your shifts today" card for the team-portal dashboards
  * (driver / kitchen / cleaning). Lists the user's own shifts for
@@ -47,7 +47,7 @@ interface Props {
    */
   scopeShiftTypes?: string[] | null;
   defaultTaskType?: TaskType;
-  /** Card title -- defaults to "Your shifts today". */
+  /** Card title - defaults to "Your shifts today". */
   title?: string;
 }
 
@@ -153,7 +153,7 @@ export function MyShiftTodayCard({
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-slate-900 tabular-nums">
                     {s.planned_start
-                      ? `${fmtTime(s.planned_start)} -- ${fmtTime(s.planned_end)}`
+                      ? `${fmtTime(s.planned_start)} - ${fmtTime(s.planned_end)}`
                       : "Open shift"}
                   </div>
                   <Badge variant="outline" className="text-[10px] capitalize bg-white">

@@ -1,13 +1,13 @@
 /**
- * Tier 6 chart 1 -- Branch comparison spider/radar.
+ * Tier 6 chart 1 - Branch comparison spider/radar.
  *
  * For each branch (region) we compute a set of metrics across the same
  * 24-month window the rest of the BI section uses, then NORMALISE each
  * metric to 0..100 across the set of branches. The polygon shape on
  * the radar shows where each branch is strong vs weak relative to its
- * peers -- not absolute values.
+ * peers - not absolute values.
  *
- * Axes (all directional -- higher = better):
+ * Axes (all directional - higher = better):
  *   1. Revenue
  *   2. Order volume
  *   3. Win rate (won leads / total leads with status)
@@ -65,8 +65,8 @@ const AXIS_DEFS = [
   { key: "orders",      axis: "Volume",       description: "Number of non-cancelled orders booked." },
   { key: "winRate",     axis: "Win rate",     description: "Won leads as a share of leads that reached a decision." },
   { key: "aov",         axis: "AOV",          description: "Average order value across non-cancelled orders." },
-  { key: "speed",       axis: "Speed",        description: "How fast quotes get accepted -- inverse of median time-to-accept." },
-  { key: "reliability", axis: "Reliability",  description: "Inverse of cancellation rate -- higher means fewer orders cancelled." },
+  { key: "speed",       axis: "Speed",        description: "How fast quotes get accepted - inverse of median time-to-accept." },
+  { key: "reliability", axis: "Reliability",  description: "Inverse of cancellation rate - higher means fewer orders cancelled." },
 ] as const;
 
 const PALETTE = [
@@ -229,7 +229,7 @@ export function aggregateBranchSpider(
     colour: PALETTE[i % PALETTE.length],
   }));
 
-  // Empty when every raw metric is 0 across every branch -- means we
+  // Empty when every raw metric is 0 across every branch - means we
   // have branches set up but no operational data yet.
   const totalActivity = revRaw.reduce((s, v) => s + v, 0)
     + ordRaw.reduce((s, v) => s + v, 0);

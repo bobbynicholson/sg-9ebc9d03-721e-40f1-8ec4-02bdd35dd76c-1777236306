@@ -1,5 +1,5 @@
 /**
- * ManualInvoiceDialog -- Wave 69.
+ * ManualInvoiceDialog - Wave 69.
  *
  * Create an invoice that is NOT tied to a specific order. Use cases:
  *  - Deposits charged in advance of a quote being built
@@ -200,7 +200,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
         <DialogHeader>
           <DialogTitle>New invoice (no order)</DialogTitle>
           <DialogDescription>
-            Create an invoice that isn't tied to a specific event order -- deposits, retainers, late fees, equipment damage charges, ad-hoc consultations.
+            Create an invoice that isn't tied to a specific event order - deposits, retainers, late fees, equipment damage charges, ad-hoc consultations.
           </DialogDescription>
         </DialogHeader>
 

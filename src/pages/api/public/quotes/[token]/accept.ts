@@ -18,7 +18,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
  *   2. Inserts a quote_acceptances audit row (acceptor name, IP hash, UA)
  *   3. Fires admin notifications (in-app + email + WhatsApp best-effort)
  *
- * Service role only -- the anon client cannot insert into notifications
+ * Service role only - the anon client cannot insert into notifications
  * (tenant_create_notifications RLS blocks anon) or quote_acceptances
  * (no anon policy), and the quotes UPDATE policy was tightened so anon
  * can no longer flip accepted_at directly.
@@ -137,8 +137,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ ok: false, error: "Couldn't accept this quote right now. Please try again or contact the caterer." });
   }
   if (!updated) {
-    // No row matched -- either the token is wrong (404) OR another
-    // request just accepted this one (race -- treat as 409 idempotent).
+    // No row matched - either the token is wrong (404) OR another
+    // request just accepted this one (race - treat as 409 idempotent).
     const { data: existsCheck, error: existsCheckErr } = await (supabase as any)
       .from("quotes")
       .select("id, status")
@@ -169,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.warn("[public/quotes/accept] convert-to-order cascade failed (non-blocking):", err);
   }
 
-  // Audit row -- separate table so the quote row stays clean and we
+  // Audit row - separate table so the quote row stays clean and we
   // can keep multiple acceptance attempts (rare but the data exists).
   try {
     await (supabase as any).from("quote_acceptances").insert([{
@@ -192,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await (supabase as any).from("audit_logs").insert({
         company_id: updated.company_id,
-        user_id: null, // public token-bearer flow -- no auth user
+        user_id: null, // public token-bearer flow - no auth user
         action: "quote_accepted",
         entity_type: "quote",
         entity_id: updated.id,
@@ -219,12 +219,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
  * Client-facing confirmation: email + in-app notification mirroring
  * the timeline copy on /q/[token].tsx (confirmation email -> deposit
  * invoice -> event day) so the page and the email tell the same
- * story. Subject text is intentionally generic for now -- Agent C
+ * story. Subject text is intentionally generic for now - Agent C
  * personalises subject lines centrally. Best-effort, wrapped per
  * channel so a failed send never rolls back the acceptance.
  */
 async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string) {
-  // Resolve the catering company's display name -- the email signs
+  // Resolve the catering company's display name - the email signs
   // off as "{tenant_name} will send your deposit invoice shortly"
   // rather than "your catering company".
   let tenantName = "Your catering team";
@@ -272,7 +272,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
 
   // 2. Confirmation email. Mirrors the on-page timeline copy so the
   // story stays consistent across channels. Subject + body resolve
-  // through the centralised resolver -- tenant override beats global
+  // through the centralised resolver - tenant override beats global
   // default beats the inline fallback. Service-role client passed so
   // the resolver can read the global-default row even though there is
   // no authenticated user on this public endpoint.
@@ -283,7 +283,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
 
       const fallbackBody =
         `Hi {{first_name}},\n\n` +
-        `Thanks for accepting your {{event_name}} quote -- you're booked in.\n\n` +
+        `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
         `Here's what happens from here:\n\n` +
         `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
         `2. Deposit invoice: {{tenant_name}} will send the deposit invoice shortly to lock in your event date.\n` +
@@ -303,7 +303,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
           event_day_suffix: quote.event_date ? ` (${eventLabel})` : "",
         },
         fallback: {
-          subject: `Quote accepted -- thanks ${firstName}`,
+          subject: `Quote accepted - thanks ${firstName}`,
           bodyHtml: fallbackBody,
         },
         client: supabase,
@@ -361,7 +361,7 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
       recipient_id: quote.user_id,
       notification_type: "quote_accepted",
       title: "✅ Quote accepted!",
-      message: `${acceptorLabel} accepted the quote for ${quote.client_name || "this booking"} -- ${totalLabel}, event ${eventLabel}.`,
+      message: `${acceptorLabel} accepted the quote for ${quote.client_name || "this booking"} - ${totalLabel}, event ${eventLabel}.`,
       priority: "urgent",
       link: `/admin/quotes/${quote.id}`,
     }]);
@@ -377,14 +377,14 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
       const { emailService } = await import("@/services/emailService");
       // Wave 17 audit: this is an unauthenticated public route, so the
       // anon supabase client passed in here can't read
-      // email_provider_settings under RLS -- getEmailConfig returned
+      // email_provider_settings under RLS - getEmailConfig returned
       // null, sendEmail logged "no provider configured", owner never
       // got their "quote accepted" email. Pass the service-role
       // client so the gates + provider lookup actually run.
       await (emailService as any).sendEmail({
         companyId: quote.company_id,
         to: profile.email,
-        subject: `Quote accepted -- ${quote.client_name || "client"}`,
+        subject: `Quote accepted - ${quote.client_name || "client"}`,
         body: `${acceptorLabel} just accepted the quote for ${quote.client_name || "this booking"}.\n\n` +
               `Total: ${totalLabel}\nEvent date: ${eventLabel}\nGuests: ${quote.guest_count ?? "TBD"}\n\n` +
               `Open the quote to convert it into an order: ${origin}/admin/quotes/${quote.id}`,

@@ -24,7 +24,7 @@
  *     refund_override?: number,    // owner can override the calc (uses calc if omitted)
  *     bypass_late_guard?: boolean, // owner-only escape hatch
  *     // Wave 28.2: payout choice. 'refund' (default) preserves legacy
- *     // behaviour -- inserts a payments{type:refund,pending} row and
+ *     // behaviour - inserts a payments{type:refund,pending} row and
  *     // calls refundService.processRefund. 'credit' instead inserts a
  *     // payments{type:credit_issue,completed} row, no Xero credit-note
  *     // is pushed, and the client confirmation email switches to the
@@ -129,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // unless they explicitly opt in via bypass_late_guard.
     if (snap.requires_owner_override && !OWNER_ROLES.has(role)) {
       return res.status(403).json({
-        error: "This is a late cancellation -- needs an owner to approve.",
+        error: "This is a late cancellation - needs an owner to approve.",
         snapshot: snap,
       });
     }
@@ -165,7 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Run the cancelOrder workflow (status, cascades, audit, notifications).
     // Pass the ssr client so the UPDATE runs as the authenticated user
-    // -- the imported browser supabase has no session in this context
+    // - the imported browser supabase has no session in this context
     // and would hit "permission denied for table orders" via RLS.
     const result = await cancelOrder(orderId, {
       reason: reason || undefined,
@@ -225,7 +225,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let creditPaymentId: string | null = null;
 
     if (payout_choice === "credit" && credit_final > 0) {
-      // Issue store credit -- single payments row, no external gateway,
+      // Issue store credit - single payments row, no external gateway,
       // no Xero credit-note (the catering company keeps the cash;
       // the client gets a future-dated voucher).
       const { data: credRow, error: credErr } = await ssr
@@ -238,7 +238,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           amount: credit_final,
           payment_status: "completed",
           reason: `Cancellation credit (${snap.tier_label || "tier"}, ${credit_pct}% of paid${
-            bonus_pp > 0 ? ` -- includes ${bonus_pp}pp goodwill bonus` : ""
+            bonus_pp > 0 ? ` - includes ${bonus_pp}pp goodwill bonus` : ""
           })`,
           created_by_user_id: user.id,
           cancellation_request_id: (requestRow as any)?.id || null,
@@ -249,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.warn("[orders/cancel] credit_issue payments row failed:", credErr);
       } else {
         creditPaymentId = (credRow as any)?.id || null;
-        // Mark the order as fully reconciled via credit -- nothing
+        // Mark the order as fully reconciled via credit - nothing
         // further is owed either way. Reuses the existing 'refunded'
         // status so reporting stays consistent (a credit issue is
         // economically equivalent to a refund the client immediately
@@ -259,7 +259,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } as any).eq("id", orderId);
       }
 
-      // Audit row -- separate from cancellation_requests so the
+      // Audit row - separate from cancellation_requests so the
       // credit issuance shows up in the order's audit_logs timeline.
       try {
         await (ssr as any).from("audit_logs").insert({
@@ -319,7 +319,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const { refundService } = await import("@/services/refundService");
             const refundResult = await refundService.processRefund(refundPaymentId, user.id);
             // We don't block the cancel response on the processing
-            // outcome -- the cancellation already landed and the
+            // outcome - the cancellation already landed and the
             // refund row exists. Operators see the eventual status
             // via /admin/refunds.
             console.log("[orders/cancel] refund process result:", refundResult.status);
@@ -349,7 +349,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Wave 70.51b -- Xero original-invoice void. Fires UNCONDITIONALLY
+    // Wave 70.51b - Xero original-invoice void. Fires UNCONDITIONALLY
     // for cancelled orders (not just refund-path) because the local
     // cascade marked unpaid invoices status='voided' regardless of
     // payout choice, and the Xero side needs to mirror that.
@@ -358,15 +358,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //   - Reads invoices for this order with status='voided' and
     //     external_id set
     //   - Skips any with amount_paid > 0 (Xero rejects VOID on paid
-    //     invoices -- credit-note path handles those)
+    //     invoices - credit-note path handles those)
     //   - POSTs Xero VOID for the rest, stamps xero_voided_at
     //
     // Together with the credit-note push (which runs only on the
     // refund branch above), this closes the audit gap:
     //   - Paid + refund: credit-note (existing path) + invoice stays
-    //     AUTHORISED in Xero (correct -- it WAS issued and paid;
+    //     AUTHORISED in Xero (correct - it WAS issued and paid;
     //     credit-note is the offset)
-    //   - Unpaid: Xero invoice VOIDED (new) -- ledger now matches
+    //   - Unpaid: Xero invoice VOIDED (new) - ledger now matches
     //     CateringMS's "this never happened" intent
     //
     // Fire-and-forget on CRON_SECRET like sync-credit-note. Re-reading
@@ -386,7 +386,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Templated cancellation email -- swap to credit-paragraph variant
+    // Templated cancellation email - swap to credit-paragraph variant
     // when the client picked credit, otherwise keep the refund copy.
     // bypassQuarantine=true so a quarantined client still hears about
     // their cancelled order. blocked_contacts still blocks (deliberate).
@@ -429,7 +429,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     })();
 
-    // Wave 70.49 -- include the release receipt so the calling UI
+    // Wave 70.49 - include the release receipt so the calling UI
     // (CancelOrderDialog -> toast) can surface "N manual follow-ups
     // required" the moment the cancel returns. Follow-ups currently
     // captured: notify_hire_supplier (3rd-party rentals we cancelled

@@ -1,5 +1,5 @@
 /**
- * bookingFacts -- Wave 70.42
+ * bookingFacts - Wave 70.42
  *
  * Server-side helper that loads a booking + its related artifacts
  * and returns ONLY the fields the calling role is allowed to see.
@@ -7,35 +7,35 @@
  * Why this exists (per Bobby's brief): "obviously taking financials
  * info out of the staff-facing portal info. only admin and client
  * should see costs in their versions". Hiding $ in the UI alone is
- * not enough -- a curl + DevTools Network tab would still leak the
+ * not enough - a curl + DevTools Network tab would still leak the
  * value. This helper enforces the rule at the data layer so staff
  * payloads never carry money fields in the first place.
  *
  * Roles + visibility matrix:
  *
  *   admin / company_admin / super_admin / owner
- *     -- conductor view: every field, every related artifact
+ *     - conductor view: every field, every related artifact
  *        (kitchen prep state, driver assignment, staff on duty,
  *         cleaning handover, shopping ingredient demand)
  *
  *   client (magic-link order view)
- *     -- their booking from their perspective: order items + totals
+ *     - their booking from their perspective: order items + totals
  *        (it IS their money), no internal driver/staff/prep detail
  *
  *   kitchen_staff
- *     -- menu items + prep tasks + recipe data + event date/time +
+ *     - menu items + prep tasks + recipe data + event date/time +
  *        client name (operational context). NO money fields.
  *
  *   driver_staff
- *     -- venue + contact at venue + event date/time + delivery
+ *     - venue + contact at venue + event date/time + delivery
  *        windows + special access notes. NO money fields. NO menu.
  *
  *   cleaning_staff
- *     -- equipment list + return status + damage history. NO money,
+ *     - equipment list + return status + damage history. NO money,
  *        NO menu, NO driver detail.
  *
  *   shopping_staff
- *     -- ingredient demand (from recipes) + low-stock flags.
+ *     - ingredient demand (from recipes) + low-stock flags.
  *        Ingredient unit cost may surface for procurement decisions
  *        but order totals do NOT.
  *
@@ -109,7 +109,7 @@ export interface BookingFactsAdmin extends BookingFactsBase {
   subtotal: number | null;
   tax_amount: number | null;
   balance_due: number | null;
-  // Cross-role aggregated panels -- the conductor view. Each
+  // Cross-role aggregated panels - the conductor view. Each
   // panel is a flat summary the admin can scan; deep links go to
   // the dedicated dashboard for that role.
   kitchen: { prepTaskCount: number; prepDone: number; prepPending: number; staffOnShiftCount: number };
@@ -163,7 +163,7 @@ export type BookingFacts =
 
 /**
  * Load a booking + role-scoped fields. Uses service-role client so
- * RLS doesn't block the cross-table joins -- the role gate is
+ * RLS doesn't block the cross-table joins - the role gate is
  * enforced by the caller / by what fields we return, not by RLS
  * on the read.
  */
@@ -173,7 +173,7 @@ export async function loadBookingForRole(
 ): Promise<BookingFacts | null> {
   const admin: any = getServiceSupabase();
 
-  // Base order row -- everything the header needs. We always SELECT
+  // Base order row - everything the header needs. We always SELECT
   // the money fields server-side because we then omit them
   // role-by-role below. Cheap, single round-trip.
   const { data: order } = await admin

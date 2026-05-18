@@ -1,5 +1,5 @@
 /**
- * AvailableJobsCard -- Wave 43 Tier 2.
+ * AvailableJobsCard - Wave 43 Tier 2.
  *
  * Driver-facing list of confirmed orders in the same company that
  * are still unassigned. One-tap "Claim" calls the claim_order RPC
@@ -81,14 +81,14 @@ export function AvailableJobsCard({ onClaimed }: Props) {
       console.error("[AvailableJobsCard] orders fetch failed:", error);
     }
 
-    // Wave 70.12 -- additional client-side time filter. The DB query
+    // Wave 70.12 - additional client-side time filter. The DB query
     // is event_date >= today, but for SAME-DAY orders the event
     // might already have happened (e.g. event_time was 14:30 and
     // it's now 16:30). Claiming a job that's already passed is
-    // pointless and confusing -- drop them here. We allow a 30-min
+    // pointless and confusing - drop them here. We allow a 30-min
     // grace window past event_time so a driver who arrived late but
     // hasn't been formally assigned can still claim. After grace,
-    // the job disappears from "Available" -- admin can still
+    // the job disappears from "Available" - admin can still
     // manually assign from /admin/orders if recovery is needed.
     const GRACE_MIN = 30;
     const now = new Date();
@@ -169,7 +169,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
         not_eligible: "Order is no longer eligible to claim.",
         not_found: "Order is no longer available.",
         not_a_driver: "Your account isn't allowed to claim orders.",
-        not_authenticated: "Session expired -- sign in again.",
+        not_authenticated: "Session expired - sign in again.",
       };
       toast({
         title: "Couldn't claim",
@@ -281,7 +281,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       <span className="truncate">{o.venue_address}</span>
                     </span>
                   )}
-                  {/* Wave 46 T5 -- tap-to-call client + special
+                  {/* Wave 46 T5 - tap-to-call client + special
                       instructions inline so the driver knows what
                       they're walking into BEFORE they claim. */}
                   {o.client_phone && (

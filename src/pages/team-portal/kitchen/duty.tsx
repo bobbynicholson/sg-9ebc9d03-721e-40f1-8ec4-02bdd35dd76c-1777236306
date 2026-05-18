@@ -52,7 +52,7 @@ export default function KitchenDutyRosterPage() {
   const [handoffNotes, setHandoffNotes] = useState("");
 
   // Phase 3: rolling 7-day chef performance roll-up. Cheap query, info-only,
-  // no clicks needed -- shows up under the "On duty now" panel.
+  // no clicks needed - shows up under the "On duty now" panel.
   const [chefPerf, setChefPerf] = useState<Array<{
     chef_id: string;
     chef_name: string;
@@ -71,7 +71,7 @@ export default function KitchenDutyRosterPage() {
     mealBreakAfterHours: 5,
   });
 
-  // Wave 35: hand-off notes. Was write-only -- the previous flow
+  // Wave 35: hand-off notes. Was write-only - the previous flow
   // saved notes to kitchen_handoffs on clock-out but no surface ever
   // displayed them, so the next chef on duty had no idea they
   // existed. Schema even has acknowledged_at/acknowledged_by columns
@@ -242,7 +242,7 @@ export default function KitchenDutyRosterPage() {
       }
 
       // Wave 35: pull the most recent hand-off notes for this
-      // tenant. Tight cap of 12 -- the relevant ones are always at
+      // tenant. Tight cap of 12 - the relevant ones are always at
       // the top, older notes belong in audit not the floor view.
       try {
         const { data: hoData } = await supabase
@@ -287,7 +287,7 @@ export default function KitchenDutyRosterPage() {
   );
 
   // Wave 35: team-stat strip (4 headline numbers) derived from
-  // existing data -- no new queries. Hours-today / hours-this-week
+  // existing data - no new queries. Hours-today / hours-this-week
   // sum across active + recent shifts that touched the day window.
   // Avg-shift averages every recent shift with both start + end.
   const teamStats = useMemo(() => {
@@ -368,7 +368,7 @@ export default function KitchenDutyRosterPage() {
 
       // Wave 36.1: if today's roster exists for this chef, stamp
       // actual_start + flip status to 'active' + back-link to the
-      // duty shift row. Best-effort -- a missed roster shouldn't
+      // duty shift row. Best-effort - a missed roster shouldn't
       // block clock-in (walk-in shifts are valid too).
       if (myRoster && myRoster.id && insertedShift) {
         try {
@@ -494,7 +494,7 @@ export default function KitchenDutyRosterPage() {
 
   // Wave 35: acknowledge a hand-off note. Stamps acknowledged_at +
   // acknowledged_by so the original author can see "yes, the next
-  // shift saw it." Idempotent -- a re-ack is a no-op.
+  // shift saw it." Idempotent - a re-ack is a no-op.
   const handleAcknowledgeHandoff = async (handoffId: string) => {
     if (!user?.id) return;
     setAcking(handoffId);
@@ -569,7 +569,7 @@ export default function KitchenDutyRosterPage() {
                   ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "bg-slate-50 border-slate-200 text-slate-500"
               }`}
-              title={active.length > 0 ? "Live -- updates every 30 seconds" : "Nobody on shift"}
+              title={active.length > 0 ? "Live - updates every 30 seconds" : "Nobody on shift"}
             >
               <span className="relative flex h-2.5 w-2.5">
                 {active.length > 0 && (
@@ -582,7 +582,7 @@ export default function KitchenDutyRosterPage() {
           </div>
 
           {/* Wave 35: team-stat strip. Four headline numbers derived
-              from existing data -- no new queries. Hours-today ticks
+              from existing data - no new queries. Hours-today ticks
               live because the useMemo deps include `now`. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <Card className="border-0 shadow-sm">
@@ -722,7 +722,7 @@ export default function KitchenDutyRosterPage() {
                       tablet needs. */}
                   {/* Wave 36.3: payslips disclosure. Always visible
                       when the chef has at least one payslip on
-                      file -- doesn't require being on shift. */}
+                      file - doesn't require being on shift. */}
                   {myPayslips.length > 0 && (
                     <button
                       type="button"
@@ -816,7 +816,7 @@ export default function KitchenDutyRosterPage() {
                           <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-sm">
                             {initials}
                           </div>
-                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live -- on shift" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live - on shift" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-slate-900 truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
@@ -836,7 +836,7 @@ export default function KitchenDutyRosterPage() {
           {/* Wave 35: NEW SECTION (data already collected, just
               never displayed). kitchen_handoffs is written on every
               clock-out via the existing "Hand-off notes (optional)"
-              dialog -- but no surface ever read it back. The schema
+              dialog - but no surface ever read it back. The schema
               has acknowledged_at + acknowledged_by columns showing
               the original schema designer expected an ack flow.
               Now wired up: shows the latest 12 notes, an
@@ -976,7 +976,7 @@ export default function KitchenDutyRosterPage() {
                               </span>
                             )}
                           </div>
-                          {/* On-time bar -- visual ranking instead of a chip */}
+                          {/* On-time bar - visual ranking instead of a chip */}
                           <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                             <div
                               className={`h-full bg-gradient-to-r ${onTimeTone} transition-all`}
@@ -1071,7 +1071,7 @@ export default function KitchenDutyRosterPage() {
         </div>
       </main>
 
-      {/* Wave 36.3: payslip history dialog. Read-only -- the chef
+      {/* Wave 36.3: payslip history dialog. Read-only - the chef
           sees what the catering company has issued for them. New
           payslips arrive via /admin/kitchen-settlement. */}
       <Dialog open={payslipsOpen} onOpenChange={setPayslipsOpen}>

@@ -1,31 +1,31 @@
 /**
- * BookingHeader -- Wave 70.41
+ * BookingHeader - Wave 70.41
  *
  * Canonical event-document header band. The same booking renders on
  * 10+ surfaces today (admin orders modal, quote editor, client quote
  * view, client order tracking, kitchen ticket, driver run sheet,
- * cleaning handover, etc.) -- each with a bespoke header that has
+ * cleaning handover, etc.) - each with a bespoke header that has
  * drifted over time. This component is the SHARED header all those
  * surfaces should adopt.
  *
  * Role variants control what gets surfaced + how it's framed:
  *
- *   admin    -- full visibility: order number, status, dates, client,
+ *   admin    - full visibility: order number, status, dates, client,
  *               venue, guest count, totals. The conductor's view.
- *               (Bobby's note: admin sees EVERYTHING -- this header
+ *               (Bobby's note: admin sees EVERYTHING - this header
  *                doesn't change that, but the body components below
  *                will surface kitchen / driver / cleaning / shopping
  *                cross-role panels for the admin variant only.)
- *   client   -- their event from their perspective. No order_number
+ *   client   - their event from their perspective. No order_number
  *               (internal ref); shows event name + date + venue +
  *               guests + total (it's their money).
- *   kitchen  -- when food needs to be ready, by when, for how many.
+ *   kitchen  - when food needs to be ready, by when, for how many.
  *               No money fields. No client contact details.
- *   driver   -- where to go, when, who to ask for. Venue + contact.
+ *   driver   - where to go, when, who to ask for. Venue + contact.
  *               No money. No menu detail.
- *   cleaning -- when the event happens, what's coming back. Equipment
+ *   cleaning - when the event happens, what's coming back. Equipment
  *               summary, no money, no menu.
- *   shopping -- ingredient demand window. Event date + guest count
+ *   shopping - ingredient demand window. Event date + guest count
  *               (drives portion math). No money beyond ingredient cost.
  *
  * Branding: reads useBrandingRow() so the gradient + logo are the
@@ -53,7 +53,7 @@ export interface BookingHeaderBooking {
   client_name?: string | null;
   venue_address?: string | null;
   /** Money is in the booking but only RENDERED for admin / client
-   *  variants -- the staff variants ignore this field entirely.
+   *  variants - the staff variants ignore this field entirely.
    *  When wave 70.42 lands the data-layer omission, staff payloads
    *  won't even have these fields. */
   total_amount?: number | null;
@@ -134,7 +134,7 @@ export function BookingHeader({
   const statusKey = (booking.status || "").toLowerCase();
   const statusTone = STATUS_TONE[statusKey] || STATUS_TONE.confirmed;
 
-  // Money visibility -- admin + client see totals; staff variants
+  // Money visibility - admin + client see totals; staff variants
   // do not. Wave 70.42 will additionally strip these from the data
   // payload server-side; today we honour the rule at render time.
   const showMoney = variant === "admin" || variant === "client";
@@ -145,7 +145,7 @@ export function BookingHeader({
   return (
     <div
       className={cn(
-        // Wave 70.44 -- print-clean by default. shadow-sm is dropped
+        // Wave 70.44 - print-clean by default. shadow-sm is dropped
         // on print (browsers ignore box-shadow anyway, but explicit
         // for clarity) and the rounded corners flatten to sharp on
         // paper for a cleaner header band on PDFs.
@@ -153,10 +153,10 @@ export function BookingHeader({
         compact ? "" : "",
       )}
     >
-      {/* Branded gradient bar -- the only place the tenant's primary
+      {/* Branded gradient bar - the only place the tenant's primary
           + secondary colours surface in this header. Slim on compact,
           full hero on default.
-          Wave 70.44 -- on print, the gradient flattens to the brand
+          Wave 70.44 - on print, the gradient flattens to the brand
           primary as a solid colour (browsers render gradients
           inconsistently in print contexts; a flat colour is reliable
           and still tenant-branded). */}
@@ -168,7 +168,7 @@ export function BookingHeader({
 
       <div className={cn("px-4 sm:px-5", compact ? "py-3" : "py-4")}>
         <div className="flex items-start gap-3">
-          {/* Brand tile -- tenant logo or initials. */}
+          {/* Brand tile - tenant logo or initials. */}
           <div
             className={cn(
               "rounded-lg flex items-center justify-center shadow-sm flex-shrink-0",
@@ -186,7 +186,7 @@ export function BookingHeader({
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Variant + order_number ribbon -- thin, slate text, sits
+            {/* Variant + order_number ribbon - thin, slate text, sits
                 above the headline. Order number hidden on the client
                 variant (internal reference, the client cares about
                 their event, not our admin sequence number). */}
@@ -214,7 +214,7 @@ export function BookingHeader({
               )}
             </div>
 
-            {/* Headline -- event name (preferred) or client name fallback.
+            {/* Headline - event name (preferred) or client name fallback.
                 Kitchen / driver / cleaning use the client-facing event
                 name so they know which event they're working on, not
                 some internal label. */}
@@ -225,7 +225,7 @@ export function BookingHeader({
               {booking.event_name || booking.client_name || "Event"}
             </h2>
 
-            {/* Facts row -- date / time / guests / venue. Each fact is
+            {/* Facts row - date / time / guests / venue. Each fact is
                 a small inline chip. Money pill rendered last and only
                 for admin + client variants. */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-700">

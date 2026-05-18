@@ -44,12 +44,12 @@ export function Layout({
 
   // Portal pages have a fixed left sidebar (lg:w-64 / xl:w-72). We
   // clear it with a left padding on the shell. Public/marketing pages
-  // (showNav=false) keep mx-auto centring -- that's the right shape
+  // (showNav=false) keep mx-auto centring - that's the right shape
   // for a hero-and-content layout with no sidebar.
   const isPortal = showNav && user;
   const portalShell = isPortal ? "lg:pl-64 xl:pl-72 pt-16 lg:pt-0" : "";
   // On portal pages, content sits flush against the left padding the
-  // shell already provides -- no mx-auto, otherwise the content
+  // shell already provides - no mx-auto, otherwise the content
   // centres in the post-sidebar gap and leaves a big empty rail.
   const innerAlignment = isPortal ? "" : "mx-auto";
 

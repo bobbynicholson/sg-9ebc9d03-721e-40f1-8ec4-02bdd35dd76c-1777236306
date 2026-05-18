@@ -6,7 +6,7 @@
 //   supabase/migrations/20260428120000_embed_forms.sql
 //
 // Note: South African English is used in any user-visible defaults
-// (see src/lib/embedTemplateDefaults.ts) -- this file contains only type
+// (see src/lib/embedTemplateDefaults.ts) - this file contains only type
 // definitions.
 
 export type EmbedFieldType =

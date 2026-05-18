@@ -1,28 +1,28 @@
 /**
- * useAdminLiveCounts -- Wave 70.31
+ * useAdminLiveCounts - Wave 70.31
  *
  * Returns the six numbers that drive the admin nav's live-state
  * strip + per-item badges:
  *
- *   eventsToday    -- today's orders, not cancelled
- *   inTransitNow   -- orders currently status='in_transit'
- *   newLeadsToday  -- leads created today
- *   quotesOverdue  -- quotes in_circulation (sent/viewed/revised)
+ *   eventsToday    - today's orders, not cancelled
+ *   inTransitNow   - orders currently status='in_transit'
+ *   newLeadsToday  - leads created today
+ *   quotesOverdue  - quotes in_circulation (sent/viewed/revised)
  *                     where sent_at > 48h ago and no client response
- *   dispatchGaps   -- confirmed orders within next 7d with no driver
+ *   dispatchGaps   - confirmed orders within next 7d with no driver
  *                     assignment (operational risk)
- *   alertsTotal    -- aggregate of finance + ops alerts (refunds
+ *   alertsTotal    - aggregate of finance + ops alerts (refunds
  *                     pending + overdue invoices + email failures
  *                     last 24h)
  *
- * Finance-gated counts (revenue + outstanding) -- computed but
+ * Finance-gated counts (revenue + outstanding) - computed but
  * only return non-zero when caller has finance access. The
  * AdminLiveStateStrip hides the matching pills for non-finance
  * roles.
  *
- *   revenueToday   -- sum(total_amount) on orders today, status
+ *   revenueToday   - sum(total_amount) on orders today, status
  *                     in collected statuses (delivered + paid)
- *   unpaidValue    -- sum(amount_due) on overdue invoices
+ *   unpaidValue    - sum(amount_due) on overdue invoices
  *
  * Reads RegionFilterContext so the counts scope to the selected
  * region when an owner is multi-branch.
@@ -46,9 +46,9 @@ export interface AdminLiveCounts {
   quotesOverdue: number;
   dispatchGaps: number;
   alertsTotal: number;
-  /** Finance-gated -- zero for non-finance roles. */
+  /** Finance-gated - zero for non-finance roles. */
   revenueToday: number;
-  /** Finance-gated -- zero for non-finance roles. */
+  /** Finance-gated - zero for non-finance roles. */
   unpaidValue: number;
   /** True when the caller's role can see revenue + unpaid values.
    *  The strip uses this to hide those pills entirely for
@@ -160,7 +160,7 @@ export function useAdminLiveCounts(): AdminLiveCounts {
         .eq("status", "failed")
         .gte("created_at", yesterdayIso);
 
-      // Finance-only queries -- skipped entirely for non-finance roles
+      // Finance-only queries - skipped entirely for non-finance roles
       // to avoid wasted network + accidental data exposure via logs.
       const revenueQ = canSeeFinance
         ? (() => {
@@ -175,7 +175,7 @@ export function useAdminLiveCounts(): AdminLiveCounts {
           })()
         : Promise.resolve({ data: [] });
 
-      // Wave 70.41b -- fixed three bugs in the previous query:
+      // Wave 70.41b - fixed three bugs in the previous query:
       //   1. Wrong column: was amount_due, real column is balance_due.
       //   2. Wrong status: no "unpaid" value exists in the
       //      invoice_status enum (draft / sent / paid / partially_paid
@@ -185,7 +185,7 @@ export function useAdminLiveCounts(): AdminLiveCounts {
       //      computes the number.
       //   3. Wrong date filter: .lt("due_date", todayIso) only caught
       //      overdue invoices. Bobby's screenshot showed R6,113 owed
-      //      on invoices with future event dates -- our pill said R0.
+      //      on invoices with future event dates - our pill said R0.
       //      Dropping the date filter so the pill now matches the
       //      page's Outstanding total. (Overdue can still surface as
       //      its own pill in a future wave if useful.)

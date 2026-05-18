@@ -1,19 +1,19 @@
 /**
- * useCleaningLiveCounts -- Wave 70.28
+ * useCleaningLiveCounts - Wave 70.28
  *
  * Returns the four numbers that drive the cleaning portal's nav
  * live-state strip + per-item badges:
  *
- *   returnsDue   -- cleaning_event_handovers status='expected' with
+ *   returnsDue   - cleaning_event_handovers status='expected' with
  *                   expected_at within the next 4 hours
- *   inProgress   -- cleaning_event_handovers status='in_progress'
+ *   inProgress   - cleaning_event_handovers status='in_progress'
  *                   (handovers actively being washed right now)
- *   openDamages  -- equipment_damages where resolved=false
- *   onDutyNow    -- cleaning_duty_logs on_duty=true (live headcount)
+ *   openDamages  - equipment_damages where resolved=false
+ *   onDutyNow    - cleaning_duty_logs on_duty=true (live headcount)
  *
  * One batched fetch per call. Refreshes every 60s + on tab focus.
  * Network cost: 4 head:exact count queries per minute per active
- * cleaning tab. Negligible -- proven with the equivalent kitchen
+ * cleaning tab. Negligible - proven with the equivalent kitchen
  * hook (useKitchenLiveCounts).
  */
 import { useCallback, useEffect, useState } from "react";
@@ -29,7 +29,7 @@ export interface CleaningLiveCounts {
   /** ISO timestamp of last successful refresh. */
   refreshedAt: string | null;
   loading: boolean;
-  /** Last network error if any -- null on success. */
+  /** Last network error if any - null on success. */
   error: string | null;
   refresh: () => void;
 }
@@ -72,7 +72,7 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
           .eq("status", "expected")
           .lte("expected_at", horizon)
           .gte("expected_at", nowIso),
-        // In-progress handovers (no time bound -- show all live)
+        // In-progress handovers (no time bound - show all live)
         sb
           .from("cleaning_event_handovers")
           .select("id", { count: "exact", head: true })
@@ -109,7 +109,7 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
       setRefreshedAt(new Date().toISOString());
       setError(null);
     } catch (e) {
-      // Don't blank the counts on failure -- keep last good values.
+      // Don't blank the counts on failure - keep last good values.
       const msg = e instanceof Error ? e.message : "Could not refresh cleaning counts";
       setError(msg);
     } finally {

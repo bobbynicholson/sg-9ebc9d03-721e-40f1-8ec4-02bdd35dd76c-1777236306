@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * orderSyncService -- keeps the quote, order and invoice in lock-step
+ * orderSyncService - keeps the quote, order and invoice in lock-step
  * when the operator edits an order.
  *
  * Why: the data model has three denormalised copies of the same
  * booking (quotes.menu_items + quote totals; orders.subtotal /
  * tax_amount / total_amount + order_items / equipment_bookings;
  * invoices.subtotal / tax_amount / total_amount). Changing the order
- * inline -- as the new Edit-mode UX lets you do -- has to fan back to
+ * inline - as the new Edit-mode UX lets you do - has to fan back to
  * the source quote (so the customer-facing quote view shows the
  * change) and forward to the invoice (so accounting matches).
  *
@@ -99,7 +99,7 @@ export async function syncOrderArtifacts(
     let total_amount: number;
 
     if (computedSubtotal > 0) {
-      // Items + equipment cover the order -- recompute from them.
+      // Items + equipment cover the order - recompute from them.
       // Derive the tax rate from the order's prior totals so a quote
       // signed at a non-standard rate (zero-rated export, exempt
       // client, etc.) keeps that rate.
@@ -134,7 +134,7 @@ export async function syncOrderArtifacts(
       total_amount,
     } as any).eq("id", orderId);
 
-    // 5. Mirror to the source quote, if any -- but only while the
+    // 5. Mirror to the source quote, if any - but only while the
     //    quote is still in flight. Once the client accepts, the quote
     //    becomes the contract snapshot of what was signed; subsequent
     //    operator edits live on the order + invoice only. Without this
@@ -210,7 +210,7 @@ export async function syncOrderArtifacts(
     let invoice_id: string | null = null;
     if (invoice) {
       invoice_id = (invoice as any).id;
-      // Wave 70.39 -- push the order's headline fields onto the
+      // Wave 70.39 - push the order's headline fields onto the
       // invoice snapshot too. Previously only totals were synced,
       // so when Bobby changed the order's event_date the invoice
       // kept its stale snapshot (event_date / client_name /
@@ -220,7 +220,7 @@ export async function syncOrderArtifacts(
       // pulls via Sage/Xero/QuickBooks) would have shown the old
       // values.
       //
-      // We use a Best-effort update -- if the invoices table doesn't
+      // We use a Best-effort update - if the invoices table doesn't
       // carry one of these columns (older tenant schema), the failed
       // column just drops silently rather than blocking the totals
       // update. The .update() call below is wrapped in a try so we

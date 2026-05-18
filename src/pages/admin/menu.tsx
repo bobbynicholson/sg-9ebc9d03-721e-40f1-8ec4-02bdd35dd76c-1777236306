@@ -172,7 +172,7 @@ function MenuPage() {
   const [error, setError] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<MenuItemWithRecipeSummary | null>(null);
 
-  // Wave 70.2 -- recipe-completeness chip quick-edit.
+  // Wave 70.2 - recipe-completeness chip quick-edit.
   // The chip on the menu list flags how many of the 4 backplanning
   // fields are populated (prep / cook / base servings / notice
   // hours). Clicking it pops this mini-dialog with just those 4
@@ -211,7 +211,7 @@ function MenuPage() {
       const notice = Number(timingDraft.requires_advance_notice_hours || 0);
 
       // 1. Update the menu_item denormalised columns. Direct PATCH
-      //    via the supabase client -- upsertMenuItem requires the
+      //    via the supabase client - upsertMenuItem requires the
       //    full row shape; we only want to touch the 4 columns.
       const itemPatch: any = {
         requires_advance_notice_hours: notice,
@@ -251,14 +251,14 @@ function MenuPage() {
     }
   };
 
-  // Inventory pool for the recipe-builder picker -- fetched once when the
+  // Inventory pool for the recipe-builder picker - fetched once when the
   // page mounts so the autocomplete doesn't lag on each new ingredient row.
   const [inventoryPool, setInventoryPool] = useState<Array<{
     id: string; item_name: string; unit_of_measure: string;
     category: string | null; cost_per_unit: number | null; current_stock: number | null;
     allergen_codes: string[] | null;
   }>>([]);
-  // Wave 67 Phase C -- outsource provider pool for the fulfilment
+  // Wave 67 Phase C - outsource provider pool for the fulfilment
   // picker. Loaded alongside inventory in the same Promise.all so the
   // dialog opens with both ready. Active-only since the admin
   // shouldn't be assigning new orders to a deactivated provider.
@@ -337,7 +337,7 @@ function MenuPage() {
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [visible]);
 
-  // Stat strip + cost rollup across the menu. Active items only -- archived
+  // Stat strip + cost rollup across the menu. Active items only - archived
   // items don't count towards the average margin.
   const stats = useMemo(() => {
     const active = items.filter(i => !i.deleted_at);
@@ -363,7 +363,7 @@ function MenuPage() {
     };
   }, [items]);
 
-  // Lookup map of inventory cost per id -- shared by the live cost preview
+  // Lookup map of inventory cost per id - shared by the live cost preview
   // in the recipe builder dialog.
   const inventoryCostById = useMemo(() => {
     const m = new Map<string, number | null>();
@@ -371,7 +371,7 @@ function MenuPage() {
     return m;
   }, [inventoryPool]);
 
-  // Categories present in real data, plus the canonical list -- so legacy
+  // Categories present in real data, plus the canonical list - so legacy
   // "main" / "Mains" both appear in the filter without losing rows.
   const categoryOptions = useMemo(() => {
     const realCats = new Set<string>();
@@ -408,7 +408,7 @@ function MenuPage() {
       is_available: it.is_available !== false,
       is_buy_and_sell: !!(it as any).is_buy_and_sell,
       linked_inventory_item_id: (it as any).linked_inventory_item_id ?? null,
-      // Wave 67 Phase C -- seed outsource fields off the menu_item row.
+      // Wave 67 Phase C - seed outsource fields off the menu_item row.
       fulfilment_type: ((it as any).fulfilment_type as ItemDraft["fulfilment_type"]) || "in_house",
       default_outsource_provider_id: (it as any).default_outsource_provider_id ?? null,
       outsource_unit_cost: (it as any).outsource_unit_cost != null ? String((it as any).outsource_unit_cost) : "",
@@ -523,7 +523,7 @@ function MenuPage() {
         }
       }
     }
-    // Dedup -- the same warning can fire on multiple ingredients
+    // Dedup - the same warning can fire on multiple ingredients
     return Array.from(new Set(issues));
   }, [itemDraft.dietary_tags, itemDraft.allergen_codes, recipeDraft.enabled, recipeDraft.ingredients, inventoryPool]);
 
@@ -555,7 +555,7 @@ function MenuPage() {
         setError("Buy-and-sell items need a linked inventory item so shopping forecasts know what to count.");
         return;
       }
-      // Buy-and-sell items don't have a recipe -- the recipe block is
+      // Buy-and-sell items don't have a recipe - the recipe block is
       // hidden when the toggle is on, but be defensive.
     } else if (recipeDraft.enabled) {
       const baseS = Number(recipeDraft.base_servings);
@@ -579,7 +579,7 @@ function MenuPage() {
       }
     }
 
-    // Allergen cross-check -- ask the operator to confirm before saving
+    // Allergen cross-check - ask the operator to confirm before saving
     // when the recipe ingredients contradict the menu item's dietary
     // tags or carry undeclared allergens. Operator can still proceed
     // (false positives happen, e.g. a "may contain" flag), but they
@@ -609,7 +609,7 @@ function MenuPage() {
         linked_inventory_item_id: itemDraft.is_buy_and_sell
           ? itemDraft.linked_inventory_item_id
           : null,
-        // Wave 67 Phase C -- outsource fulfilment persistence.
+        // Wave 67 Phase C - outsource fulfilment persistence.
         // Setting fulfilment_type back to 'in_house' clears the
         // provider link so a future outsourced flip doesn't inherit
         // a stale default.
@@ -1017,7 +1017,7 @@ function MenuPage() {
                                   ) : (
                                     <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
                                   )}
-                                  {/* Wave 66.9 Phase 3 -- recipe-completeness chip.
+                                  {/* Wave 66.9 Phase 3 - recipe-completeness chip.
                                       Counts how many of the four backplanning
                                       fields are populated (prep_time_minutes,
                                       cook_time_minutes, base_servings,
@@ -1063,7 +1063,7 @@ function MenuPage() {
                                       </button>
                                     );
                                   })()}
-                                  {/* Wave 66.9 Phase 3 -- outsourced fulfilment chip
+                                  {/* Wave 66.9 Phase 3 - outsourced fulfilment chip
                                       so admin sees at-a-glance which items
                                       route to external providers. */}
                                   {((it as any).fulfilment_type === "outsourced" || (it as any).fulfilment_type === "hybrid") && (
@@ -1078,7 +1078,7 @@ function MenuPage() {
                                   {/* Phase 2 #7: allergen review state. Surfaces
                                       the P0-15 data column so unreviewed items
                                       are visible at a glance. Only renders the
-                                      amber unreviewed warning -- a green
+                                      amber unreviewed warning - a green
                                       "reviewed" badge on every row would
                                       drown the layout. */}
                                   <AllergenReviewBadge
@@ -1362,7 +1362,7 @@ function MenuPage() {
 
           {/* Buy-and-sell block. When enabled, the menu item is bought-in
               (no recipe) and 1 portion = 1 unit of the linked inventory
-              item -- shopping forecasts count menu-item units instead of
+              item - shopping forecasts count menu-item units instead of
               recipe ingredients. Mutually exclusive with the recipe block. */}
           <div className="space-y-3 border-t pt-4">
             <button
@@ -1423,7 +1423,7 @@ function MenuPage() {
             )}
           </div>
 
-          {/* Wave 67 Phase C -- Outsource fulfilment block. Sits
+          {/* Wave 67 Phase C - Outsource fulfilment block. Sits
               between buy-and-sell and recipe so the operator reads
               the three "who actually makes/serves this" choices in
               one flow:
@@ -1506,7 +1506,7 @@ function MenuPage() {
                       }
                       className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm bg-white"
                     >
-                      <option value="">No default -- pick per order</option>
+                      <option value="">No default - pick per order</option>
                       {providerPool.map((p) => {
                         const rateBit = p.default_rate != null
                           ? ` · R${Number(p.default_rate).toLocaleString("en-ZA")} ${p.default_rate_type.replace("_", " ")}`
@@ -1560,7 +1560,7 @@ function MenuPage() {
 
           {/* Recipe block, hidden for buy-and-sell items.
               For hybrid items the recipe still applies (we make some
-              of it) -- only fully outsourced items skip the recipe
+              of it) - only fully outsourced items skip the recipe
               section to keep the form focused. */}
           {!itemDraft.is_buy_and_sell && itemDraft.fulfilment_type !== "outsourced" && (
           <div className="space-y-3 border-t pt-4">
@@ -1794,7 +1794,7 @@ function MenuPage() {
           inventory carries an allergen the menu item either contradicts
           (e.g. tagged "gluten free" but contains gluten) or hasn't
           declared on its allergen_codes. Operator can still proceed --
-          some flags are intentional ("may contain") -- but they see the
+          some flags are intentional ("may contain") - but they see the
           warnings first. */}
       <AlertDialog open={allergenConfirmOpen} onOpenChange={setAllergenConfirmOpen}>
         <AlertDialogContent>
@@ -1823,7 +1823,7 @@ function MenuPage() {
       </AlertDialog>
 
       {/* Archive confirm */}
-      {/* Wave 70.2 -- recipe-completeness chip quick-edit dialog.
+      {/* Wave 70.2 - recipe-completeness chip quick-edit dialog.
           Four fields, save updates menu_items + recipe (if present)
           so the chip flips green right away. */}
       <Dialog open={!!timingTarget} onOpenChange={(open) => { if (!open) setTimingTarget(null); }}>
@@ -1890,7 +1890,7 @@ function MenuPage() {
               </div>
             </div>
             <p className="text-[11px] text-slate-500 leading-snug">
-              Saving updates the menu item and, when a recipe exists, the recipe row too -- so the chip flips green and the next full edit doesn't clobber these numbers.
+              Saving updates the menu item and, when a recipe exists, the recipe row too - so the chip flips green and the next full edit doesn't clobber these numbers.
             </p>
           </div>
           <DialogFooter>

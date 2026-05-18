@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * QuoteDocument -- React-PDF document mirroring /q/[token].tsx.
+ * QuoteDocument - React-PDF document mirroring /q/[token].tsx.
  *
  * Visual goal: when the client opens the attached PDF, it looks like
- * the same quote they see at the share link -- branded header band
+ * the same quote they see at the share link - branded header band
  * tinted with the tenant primary colour, serif title, event details
  * grid, menu items, equipment, totals card, terms.
  *
  * React-PDF doesn't speak Tailwind, so we approximate the look using
- * its StyleSheet API. Pixel-perfect parity isn't the target -- what
+ * its StyleSheet API. Pixel-perfect parity isn't the target - what
  * matters is that the printed React-PDF output reads the same as the
  * printed web version (header colour, structure, totals layout,
  * VAT-aware copy).
@@ -105,7 +105,7 @@ export interface QuotePdfData {
 // already in InvoiceDocument.tsx (Phase 9 #2). Falls back to ZAR / R
 // when the company doesn't declare a currency so existing quotes keep
 // rendering identically. Pass the company.currency string ("USD",
-// "GBP", "ZAR") -- the closure binds it once per render so every
+// "GBP", "ZAR") - the closure binds it once per render so every
 // totals + line-item call site picks up the right symbol.
 const CURRENCY_LOCALE: Record<string, string> = {
   ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
@@ -448,7 +448,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 <Text style={styles.cellLabel}>Event date</Text>
                 <Text style={styles.cellValue}>
                   {eventDate}
-                  {eventTime ? ` -- ${eventTime} start` : ""}
+                  {eventTime ? ` - ${eventTime} start` : ""}
                 </Text>
                 {setupTime && setupTime !== eventTime ? (
                   <Text style={styles.lineSub}>
@@ -642,7 +642,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* FOOTER -- contact line + (Phase 8 #2) legal identity
+        {/* FOOTER - contact line + (Phase 8 #2) legal identity
             line so the client can verify the trading entity. We
             split the two so the contact strip stays clean and the
             legal IDs only render when the data is there. */}

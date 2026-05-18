@@ -20,7 +20,7 @@
  * Auth: shared CRON_SECRET via Authorization: Bearer ${CRON_SECRET}.
  *
  * Vercel cron schedule: every 15 minutes (configured in vercel.json)
- * -- matches process-email-queue / late-event-check granularity.
+ * - matches process-email-queue / late-event-check granularity.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Cache company name + Google place_id so a batch of reviews for
   // the same tenant doesn't fan out to a query per row. Phase 5 #3:
-  // place_id drives the review URL -- tenants with a Google Business
+  // place_id drives the review URL - tenants with a Google Business
   // Profile get a write-review deeplink, the rest fall back to a
   // Maps search by name.
   const companyCache = new Map<string, { name: string; placeId: string | null }>();
@@ -95,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Build the right review URL. Place-id-backed deeplink lands the
   // customer straight on the write-review modal in their Google
-  // account -- highest conversion. Without a place_id we fall back
+  // account - highest conversion. Without a place_id we fall back
   // to a Maps search; the customer still has to click into the
   // listing but the operator at least gets actual Google reviews.
   const reviewUrl = (placeId: string | null, companyName: string): string => {
@@ -106,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   // Cache the review_request template per company. NULL means the
-  // tenant hasn't customised one -- we fall back to a hardcoded body.
+  // tenant hasn't customised one - we fall back to a hardcoded body.
   const templateCache = new Map<string, { subject: string; body: string } | null>();
   const fetchTemplate = async (companyId: string): Promise<{ subject: string; body: string } | null> => {
     if (templateCache.has(companyId)) return templateCache.get(companyId)!;
@@ -140,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const firstName = (row.client_name || "there").split(" ")[0];
       const review = reviewUrl(company.placeId, companyName);
 
-      // Email send -- only if we have an address. Template lives at
+      // Email send - only if we have an address. Template lives at
       // email_templates.review_request and supports {review_link}
       // for tenants who want the link inside their custom copy;
       // falls back to a hardcoded body otherwise.
@@ -169,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             subject,
             body,
             orderId: row.order_id,
-            // Wave 24: cron worker -- pass service-role client so
+            // Wave 24: cron worker - pass service-role client so
             // getEmailConfig can read email_provider_settings under
             // RLS. Without this the helper falls back to browser anon
             // and the SELECT silently returns nothing, so the email
@@ -178,13 +178,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } as any);
         } catch (e) {
           // A blocked / quarantined recipient is not a failure of the
-          // worker -- emailService logs it. We still mark sent_at so
+          // worker - emailService logs it. We still mark sent_at so
           // we don't loop forever on a permanently undeliverable row.
           console.warn("[cron/process-pending-reviews] email send failed:", e);
         }
       }
 
-      // In-app prompt -- only if we resolved the auth uid at insert.
+      // In-app prompt - only if we resolved the auth uid at insert.
       if (row.client_user_id) {
         try {
           await supabase.from("notifications").insert({

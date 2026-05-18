@@ -1,5 +1,5 @@
 /**
- * Tier 5 chart 2 -- Receivables aging.
+ * Tier 5 chart 2 - Receivables aging.
  *
  * Buckets unpaid invoice balances by how many days past due they are:
  *   not_due   = due_date >= today
@@ -40,7 +40,7 @@ export interface ReceivablesAgingResult {
   /** Just the overdue chunk, regardless of bucket. */
   overdueBalance: number;
   overdueCount: number;
-  /** Largest overdue invoice -- shown in the legend for quick context. */
+  /** Largest overdue invoice - shown in the legend for quick context. */
   worstSingle: { balance: number; daysOverdue: number } | null;
 }
 

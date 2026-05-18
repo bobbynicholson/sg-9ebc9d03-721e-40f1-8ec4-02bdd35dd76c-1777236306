@@ -37,7 +37,7 @@ export interface QuickBooksIntegrationForRefresh {
 
 /**
  * Xero token refresh. access_token has a 30-minute life and the
- * refresh_token rotates on every call -- we MUST persist the new
+ * refresh_token rotates on every call - we MUST persist the new
  * refresh_token or the next refresh fails with invalid_grant.
  *
  * opts.force=true bypasses the cached-expiry check, used by the

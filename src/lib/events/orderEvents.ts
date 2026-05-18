@@ -1,5 +1,5 @@
 /**
- * orderEvents -- Wave 70.40
+ * orderEvents - Wave 70.40
  *
  * Tiny client-side helper for broadcasting "this order changed --
  * if you're showing it anywhere, refetch" across the SPA.
@@ -15,7 +15,7 @@
  *
  * Why a window event vs context vs Zustand etc:
  *   - Context only reaches descendants of the provider. Calendar
- *     and Invoices live under sibling pages -- a global context
+ *     and Invoices live under sibling pages - a global context
  *     would need to wrap _app.tsx and re-render the whole tree.
  *   - Zustand / Redux would work but adds a dep + an indirection
  *     for what is essentially "ping, refetch".
@@ -23,7 +23,7 @@
  *     match the pattern already used for sidebar-FAB triggers
  *     (`{role}-fab:open-nav`).
  *
- * The helper is a no-op on the server -- callable from anywhere
+ * The helper is a no-op on the server - callable from anywhere
  * without a typeof-window guard.
  */
 export const ORDER_UPDATED_EVENT = "cateringms:order-updated";
@@ -41,7 +41,7 @@ export interface OrderUpdatedDetail {
   source: string;
   /** Optional hint about what specifically changed. Listeners
    *  can use this to refetch only the affected slice. None of
-   *  the current listeners use it -- here for forward-compat. */
+   *  the current listeners use it - here for forward-compat. */
   changed?: Array<"status" | "date" | "totals" | "driver" | "items" | "equipment" | "payments" | "prep" | "handover">;
 }
 

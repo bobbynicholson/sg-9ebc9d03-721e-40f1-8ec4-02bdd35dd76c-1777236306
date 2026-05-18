@@ -9,7 +9,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * database since the invoice-status overhaul but had ZERO callers. The
  * /admin/invoices "overdue" filter, the bulk-remind "overdue" scope,
  * the aging dashboard's overdue column, and the InvoiceAgingCard all
- * key off status='overdue' -- which nothing was ever setting. Invoices
+ * key off status='overdue' - which nothing was ever setting. Invoices
  * stayed at 'sent' indefinitely past their due_date, so the operator's
  * "show me what's late" views were always empty regardless of how
  * many invoices were actually overdue.

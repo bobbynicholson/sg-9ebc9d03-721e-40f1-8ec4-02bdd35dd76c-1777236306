@@ -1,5 +1,5 @@
 /**
- * Client access tokens -- the auth that lets a one-off booker open
+ * Client access tokens - the auth that lets a one-off booker open
  * their order page without an account.
  *
  *   Raw token format: ord_<10char order-id prefix>_<32char random>

@@ -17,7 +17,7 @@
  *
  * RLS on the table allows any company member to read names + shifts; only
  * owner / admin / super_admin can mutate the staff table itself. Rates live
- * on the same row -- the kitchen surface simply never selects those columns.
+ * on the same row - the kitchen surface simply never selects those columns.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,7 +32,7 @@ export interface KitchenStaffMember {
   role_title: string | null;
   phone: string | null;
   email: string | null;
-  // Rate fields -- only fetched on the owner surface.
+  // Rate fields - only fetched on the owner surface.
   hourly_rate: number | null;
   overtime_rate: number | null;
   standard_hours_per_day: number;
@@ -55,7 +55,7 @@ export interface KitchenStaffMember {
   deleted_at: string | null;
 }
 
-/** Public view of a staff member -- what the kitchen tablet sees. */
+/** Public view of a staff member - what the kitchen tablet sees. */
 export type KitchenStaffPublic = Omit<
   KitchenStaffMember,
   "hourly_rate" | "overtime_rate" | "standard_hours_per_day"
@@ -114,7 +114,7 @@ export interface StaffWageSummary {
 
 /**
  * Effective overtime rate: explicit override, otherwise hourly_rate × 1.5
- * (SA BCEA default). Null in, null out -- the wage column stays empty until
+ * (SA BCEA default). Null in, null out - the wage column stays empty until
  * the owner sets a rate.
  */
 export function effectiveOvertimeRate(staff: { hourly_rate: number | null; overtime_rate: number | null }): number | null {
@@ -125,7 +125,7 @@ export function effectiveOvertimeRate(staff: { hourly_rate: number | null; overt
 
 /**
  * Split worked minutes into standard / overtime based on a daily threshold.
- * Pure -- used at clock-out and again at the owner roll-up.
+ * Pure - used at clock-out and again at the owner roll-up.
  *
  * Kept for back-compat. New code should call splitBCEA which also handles
  * Sundays + public holidays (2x) and the weekly 45h ordinary-hours cap.
@@ -146,7 +146,7 @@ export function splitStandardOvertime(workedMin: number, standardHoursPerDay: nu
  *                         shift, no daily/weekly cap applied
  *
  * Sunday detection runs against the shift_start (local time of the
- * server -- same approach as the existing daily threshold). Public
+ * server - same approach as the existing daily threshold). Public
  * holidays come from the caller (db lookup).
  */
 export function splitBCEA(args: {
@@ -204,7 +204,7 @@ export const kitchenStaffService = {
   // ── Staff records (owner manages, kitchen reads) ─────────────────────────
 
   /**
-   * Owner view -- pulls every column including rates. Used by the admin
+   * Owner view - pulls every column including rates. Used by the admin
    * Staff & Rates page and the wage dashboard. Optional department filter
    * narrows to staff who can work that department (e.g. cleaning duty
    * board only shows people whose departments[] contains 'cleaning').
@@ -227,7 +227,7 @@ export const kitchenStaffService = {
   },
 
   /**
-   * Kitchen view -- explicitly omits rate columns so they never enter the
+   * Kitchen view - explicitly omits rate columns so they never enter the
    * client bundle. Used by the tablet board. Optional department arg
    * narrows to staff whose departments[] includes the given value.
    */
@@ -293,7 +293,7 @@ export const kitchenStaffService = {
     return (data || []) as KitchenShift[];
   },
 
-  /** Closed shifts within a window -- feeds the wage roll-up. Optional
+  /** Closed shifts within a window - feeds the wage roll-up. Optional
    *  `department` narrows to one duty board (kitchen / cleaning / etc). */
   async listShiftsInRange(companyId: string, fromISO: string, toISO: string, opts: { department?: string } = {}): Promise<KitchenShift[]> {
     let q = supabase
@@ -330,7 +330,7 @@ export const kitchenStaffService = {
      *  cleaning can have their hours split per department. */
     department?: string;
   }): Promise<KitchenShift> {
-    // Defensive check -- RLS won't catch a duplicate open shift since both
+    // Defensive check - RLS won't catch a duplicate open shift since both
     // are valid rows. The kitchen UI relies on this.
     const { data: existing, error: existingErr } = await supabase
       .from("kitchen_staff_shifts")
@@ -364,7 +364,7 @@ export const kitchenStaffService = {
   },
 
   /**
-   * Clock out -- closes the shift, computes worked time and splits it into
+   * Clock out - closes the shift, computes worked time and splits it into
    * standard / overtime using the staff member's threshold.
    */
   async clockOut(args: {
@@ -492,7 +492,7 @@ export const kitchenStaffService = {
   },
 
   /**
-   * Manual override edit -- owner can adjust shift_start, shift_end, breaks
+   * Manual override edit - owner can adjust shift_start, shift_end, breaks
    * after the fact (missed clock-out, forgot to clock in). Recomputes the
    * standard / overtime split if the shift is closed.
    */
@@ -630,7 +630,7 @@ export const kitchenStaffService = {
     const monthFraction = windowDays / 30;
 
     // Make sure salaried staff with zero clocked hours still appear in
-    // the dashboard -- otherwise the owner thinks they vanished.
+    // the dashboard - otherwise the owner thinks they vanished.
     for (const s of staff) {
       if (s.pay_type === "monthly" && !buckets.has(s.id)) {
         buckets.set(s.id, seedFor(s.id));

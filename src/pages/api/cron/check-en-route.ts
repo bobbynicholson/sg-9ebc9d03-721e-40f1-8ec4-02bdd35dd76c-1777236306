@@ -7,7 +7,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * within the alert window.
  *
  * Flow audit Leg E P1-9: driverConfirmationService.checkEnRouteConfirmation
- * existed but had no caller -- no cron, no schedule. The urgent
+ * existed but had no caller - no cron, no schedule. The urgent
  * admin broadcast (Wave 2 fix to sendEnRouteAlert) was correct but
  * unreachable from production.
  *
@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           driverId,
           20, // minutes-before-event alert threshold
         );
-        alertedCount += 1; // best-effort -- service no-ops when not due
+        alertedCount += 1; // best-effort - service no-ops when not due
       } catch (e: any) {
         errors.push(`${o.id}: ${e?.message || e}`);
       }

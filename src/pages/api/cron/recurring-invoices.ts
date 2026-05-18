@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 68 -- daily cron for recurring invoices.
+ * Wave 68 - daily cron for recurring invoices.
  *
  * Runs every morning at 06:00 SAST. Walks every
  * recurring_invoice_templates row where active=true AND
@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       try {
         // Build invoice row. Uses the same shape ensureInvoiceForOrder
-        // produces but without an order link -- recurring invoices
+        // produces but without an order link - recurring invoices
         // are a separate flow from order-driven invoicing.
         const invoiceNumber = await _consumeInvoiceNumber(sb, t.company_id);
         const dueDate = (() => {

@@ -1,5 +1,5 @@
 /**
- * MessageComposer -- shared compose form used inside ComposeDrawerHost.
+ * MessageComposer - shared compose form used inside ComposeDrawerHost.
  *
  * Same surface used by Quotes and Leads. The caller hands us:
  *   - a recipient (name + email; phone is optional, surfaced for
@@ -34,7 +34,7 @@ export interface ComposerRecipient {
   name: string;
   email: string | null | undefined;
   phone?: string | null;
-  /** clients.id -- threaded into WhatsAppButton so the opt-out gate
+  /** clients.id - threaded into WhatsAppButton so the opt-out gate
    *  resolves automatically when present. Optional; without it the
    *  button assumes the client has not opted out. */
   clientId?: string | null;
@@ -68,11 +68,11 @@ export interface ComposerTemplate {
 
 export interface ContextRow {
   label: string;
-  /** Raw value -- caller decides how it shows (e.g. formatted money). */
+  /** Raw value - caller decides how it shows (e.g. formatted money). */
   value: React.ReactNode;
   /** Optional title attribute for hover, useful for truncated values. */
   title?: string;
-  /** Visually emphasises the row -- used for totals. */
+  /** Visually emphasises the row - used for totals. */
   emphasis?: boolean;
   /** Adds a divider above the row. */
   divider?: boolean;
@@ -93,7 +93,7 @@ export interface MessageComposerProps {
   contextRows: ContextRow[];
   recipient: ComposerRecipient;
   template: ComposerTemplate;
-  /** Sender's display name -- ends up in the body sign-off. */
+  /** Sender's display name - ends up in the body sign-off. */
   fromName?: string;
   /** Footer help line under the textarea. */
   footerHint?: string;
@@ -119,7 +119,7 @@ export function MessageComposer({
   const [body, setBody] = useState(template.body);
   const [copied, setCopied] = useState(false);
   // When the user has manually edited the body we stop re-rendering it
-  // from the template -- otherwise the caller updating template (e.g.
+  // from the template - otherwise the caller updating template (e.g.
   // sweetener tweaks) would wipe their wording.
   const [autoTemplate, setAutoTemplate] = useState(true);
 
@@ -225,7 +225,7 @@ export function MessageComposer({
       </div>
 
       <div className="space-y-4 mt-6">
-        {/* Send actions -- email channels in a row, plus an optional
+        {/* Send actions - email channels in a row, plus an optional
             WhatsApp pivot when the recipient has a mobile. WhatsApp
             uses its own short-form template catalog so the body that
             opens in the chat is channel-appropriate, not the long
@@ -280,7 +280,7 @@ export function MessageComposer({
           </Button>
         </div>
 
-        {/* Public share link. Optional -- only renders when the
+        {/* Public share link. Optional - only renders when the
             caller passed a publicLink string. Lets the operator
             paste the /q/[token] URL into the email body or share
             it via WhatsApp without leaving the drawer. */}
@@ -299,7 +299,7 @@ export function MessageComposer({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 } catch {
-                  // ignore -- the URL is visible above for manual copy
+                  // ignore - the URL is visible above for manual copy
                 }
               }}
             >

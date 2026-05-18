@@ -1,7 +1,7 @@
 /**
  * POST /api/orders/cancellation-review
  *
- * Admin reviews a pending cancellation/postpone request -- approve or
+ * Admin reviews a pending cancellation/postpone request - approve or
  * reject. Approval kicks off the cancel cascade + refund, OR stamps the
  * postponement on the order for the postpone path.
  *
@@ -20,7 +20,7 @@ import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { refundService } from "@/services/refundService";
 
-// Send a client-portal notification. Best-effort -- failures are
+// Send a client-portal notification. Best-effort - failures are
 // logged but never block the review action that called us.
 async function notifyClient(
   ssr: any,
@@ -53,7 +53,7 @@ async function notifyClient(
     // 60min by default which is plenty wider than any realistic UI
     // misfire and shorter than the gap between distinct legitimate
     // reviews on the same order (e.g. operator approves cancel,
-    // changes mind, re-opens, re-cancels -- they want the new row).
+    // changes mind, re-opens, re-cancels - they want the new row).
     await notificationService.createNotification({
       company_id: params.companyId,
       recipient_id: recipientId,
@@ -109,8 +109,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wave 32: pull policy_snapshot too so we can read the
     // _payout_choice + _credit_amount sidecar the wizard wrote on
     // submission. Without this, an operator approving an
-    // inside-window cancellation always issues a refund -- ignoring
-    // the client's choice of credit -- so the catering company's
+    // inside-window cancellation always issues a refund - ignoring
+    // the client's choice of credit - so the catering company's
     // cashflow nudge from Wave 28 silently doesn't work.
     const { data: request, error: requestErr } = await ssr
       .from("cancellation_requests")
@@ -191,7 +191,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // notification, but the order date didn't move. Chef + driver
       // showed up at the original date. Make the date a hard
       // requirement on approve unless the operator explicitly opts
-      // out via skip_date_change=true (admin override -- e.g. they're
+      // out via skip_date_change=true (admin override - e.g. they're
       // approving conceptually and will follow up by phone with a
       // date later).
       const skipDateChange = body.skip_date_change === true;
@@ -246,7 +246,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const oldEventIso = String(originalDate);
         const dayMs = 86400000;
         const drift = (new Date(newEventIso).getTime() - new Date(oldEventIso).getTime()) || 0;
-        // Equipment bookings -- shift the booked window by the same
+        // Equipment bookings - shift the booked window by the same
         // delta so the availability calculator releases the old date
         // and reserves the new one. Window shape stays intact.
         try {
@@ -266,7 +266,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (e) {
           console.warn("[postpone] equipment_bookings shift failed:", e);
         }
-        // Vehicle bookings -- same shift logic.
+        // Vehicle bookings - same shift logic.
         try {
           const { data: vbookings } = await ssr
             .from("vehicle_bookings")
@@ -284,7 +284,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (e) {
           console.warn("[postpone] vehicle_bookings shift failed:", e);
         }
-        // Driver collection assignment -- shift scheduled_for.
+        // Driver collection assignment - shift scheduled_for.
         try {
           const { data: assigns } = await ssr
             .from("driver_assignments")
@@ -302,7 +302,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (e) {
           console.warn("[postpone] driver_assignments shift failed:", e);
         }
-        // Pending pre-event reminders -- cancel the old ones, the
+        // Pending pre-event reminders - cancel the old ones, the
         // ensureScheduledPreEventReminders cron will queue fresh ones
         // against the new event_date the next time the order is
         // touched. We don't try to recompute them inline here because
@@ -319,7 +319,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (e) {
           console.warn("[postpone] pre_event email cancel failed:", e);
         }
-        // Kitchen prep tasks -- delete the existing rows for this
+        // Kitchen prep tasks - delete the existing rows for this
         // order; ensurePrepTasksForOrder will regenerate them against
         // the new event_date the next time the order is touched.
         try {
@@ -389,7 +389,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // number, including amounts larger than what the client actually
     // paid. An admin slip-up (or a copy-paste of the order total
     // instead of the deposit) could refund more than the company
-    // had collected -- a real loss given PayFast/Yoco fire the gateway
+    // had collected - a real loss given PayFast/Yoco fire the gateway
     // refund as soon as the row hits the ledger. Cap at total_amount_paid
     // from the snapshot so the override can only ever DECREASE the
     // calculated refund (never inflate it). Negative inputs still rejected.
@@ -464,7 +464,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let refundStatus: "auto_processed" | "pending_manual" | "auto_failed" | null = null;
 
     if (wizard_payout_choice === "credit" && credit_final > 0) {
-      // Issue store credit -- mirrors the runAutoCancel +
+      // Issue store credit - mirrors the runAutoCancel +
       // /api/orders/[id]/cancel admin-side credit branch.
       const { data: ord, error: ordErr } = await ssr
         .from("orders")
@@ -482,13 +482,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         amount: credit_final,
         payment_status: "completed",
         reason: `Cancellation credit (client-requested, ${snap.tier_label || "tier"}, ${credit_pct}% of paid${
-          bonus_pp > 0 ? ` -- includes ${bonus_pp}pp goodwill bonus` : ""
+          bonus_pp > 0 ? ` - includes ${bonus_pp}pp goodwill bonus` : ""
         })`,
         created_by_user_id: user.id,
         cancellation_request_id: request_id,
       }).select("id").single();
       creditPaymentId = (credRow as any)?.id || null;
-      // Order is reconciled via credit -- nothing further owed.
+      // Order is reconciled via credit - nothing further owed.
       await ssr.from("orders").update({
         payment_status: "refunded",
       } as any).eq("id", (request as any).order_id);
@@ -569,7 +569,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Wave 32: email variant follows the wizard payout choice. Was
-    // always firing the refund-paragraph variant -- so a client who
+    // always firing the refund-paragraph variant - so a client who
     // chose credit got a "your refund of R0 is being processed"
     // email instead of "we've added R485 to your account."
     if (wizard_payout_choice === "credit" && credit_final > 0) {
@@ -581,7 +581,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Wave 24: audit_logs entry for the cancellation approval. The
-    // most money-critical decision in this whole flow -- captures
+    // most money-critical decision in this whole flow - captures
     // who approved + the refund snapshot (calculated, override,
     // final, payment_id, status). Disputes about "we never agreed
     // to that refund amount" or "PayFast says the refund failed but

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Order Readiness -- "what's still missing for this event to actually
+ * Order Readiness - "what's still missing for this event to actually
  * happen?" computed across orders + their related row-sets.
  *
  * Wave 46 T2. Sibling pure function to computeOrderTimeline.
@@ -15,7 +15,7 @@
  * MVP scope (Wave 46): 6 HIGH signals only. The remaining 5 HIGH
  * + 6 MEDIUM signals + expanded chevron breakdown defer to Wave 47.
  *
- * Pure -- no DB, no side effects. Caller batch-fetches the row-sets
+ * Pure - no DB, no side effects. Caller batch-fetches the row-sets
  * (see /admin/orders) and feeds them in.
  */
 
@@ -38,7 +38,7 @@ export interface ReadinessSignal {
   message: string;
   /** Optional deep-link to the page that fixes this signal. */
   actionLink?: string | null;
-  /** Wave 70.9 -- when set, the chip renders an inline action
+  /** Wave 70.9 - when set, the chip renders an inline action
    *  button instead of a deep-link. The chip dispatches the
    *  action to the page-level handler (e.g. POST a regenerate
    *  endpoint and refresh). */
@@ -82,7 +82,7 @@ const RED_HOURS_WINDOW = 48;
 const RED_MEDIUM_WINDOW = 24;
 
 /**
- * Wave 46 T2 -- compute readiness for one order.
+ * Wave 46 T2 - compute readiness for one order.
  *
  * The signals fold in BOTH derived state (driver assigned + shift covers
  * + accepted) AND the existing crossSystemBlockers from the timeline so
@@ -119,7 +119,7 @@ export function computeOrderReadiness(
   const within48h = hoursToEvent != null && hoursToEvent <= RED_HOURS_WINDOW && hoursToEvent >= 0;
   const within24h = hoursToEvent != null && hoursToEvent <= RED_MEDIUM_WINDOW && hoursToEvent >= 0;
 
-  // Wave 70.17 / 70.22 -- past-event + terminal-status derived
+  // Wave 70.17 / 70.22 - past-event + terminal-status derived
   // flags. Hoisted to function scope so both the prep-signal
   // emit-time check and the post-process operational suppression
   // pass can read them without re-deriving.
@@ -147,15 +147,15 @@ export function computeOrderReadiness(
       : !clientName
         ? "Client name missing."
         : !venueAddr
-          ? "Venue address missing -- driver won't know where to go."
-          : "Client has no email or phone -- can't send confirmation.",
+          ? "Venue address missing - driver won't know where to go."
+          : "Client has no email or phone - can't send confirmation.",
     actionLink: orderLink,
   });
 
   // 2. Balance not overdue.
   // Wave 47 truth-source fix: read invoice.due_date (the operator-
   // facing date the customer sees on the invoice) instead of
-  // orders.balance_due_date (drifts apart from the invoice -- e.g.
+  // orders.balance_due_date (drifts apart from the invoice - e.g.
   // ORD-003828 has order=2026-05-09 but invoice=2026-06-13).
   // Mark paid if either flag indicates payment.
   const balancePaid =
@@ -189,7 +189,7 @@ export function computeOrderReadiness(
   // never wrote driver_assignments (Wave 47 Phase A fixes that),
   // and NO code path writes kitchen_shifts(shift_type='delivery',
   // order_id=...). The dispatch UI considers "driver assigned"
-  // as orders.assigned_driver_id + audit row -- that's what the
+  // as orders.assigned_driver_id + audit row - that's what the
   // operator sees, so that's the truth source.
   // The "accepted" state moves to a separate MEDIUM signal below
   // (driver_acknowledged) so the chip can still surface it.
@@ -205,7 +205,7 @@ export function computeOrderReadiness(
   });
 
   // 3b. Driver acknowledged the assignment (MEDIUM).
-  // Wave 64.4 -- read accepted_at as the durable truth source instead
+  // Wave 64.4 - read accepted_at as the durable truth source instead
   // of pattern-matching the status enum. Status is a workflow column
   // that drifts (e.g. lockstep mirror jumps from 'assigned' straight
   // to 'en_route' on the in_transit transition, skipping 'accepted').
@@ -231,7 +231,7 @@ export function computeOrderReadiness(
       passing: driverHasAcceptedAssignment,
       message: driverHasAcceptedAssignment
         ? "Driver acknowledged the assignment."
-        : "Driver hasn't checked in on the run yet -- ping them on the day.",
+        : "Driver hasn't checked in on the run yet - ping them on the day.",
       actionLink: `/admin/order-assignments?orderId=${orderId}`,
     });
   }
@@ -245,13 +245,13 @@ export function computeOrderReadiness(
     passing: chefRostered,
     message: chefRostered
       ? "Kitchen rostered for event day."
-      : "No kitchen staff rostered for the event date -- nobody's cooking.",
+      : "No kitchen staff rostered for the event date - nobody's cooking.",
     actionLink: `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`,
   });
 
   // 5. Kitchen prep tasks generated.
   //
-  // Wave 70.17 -- suppress the "no prep tasks" warning (and the
+  // Wave 70.17 - suppress the "no prep tasks" warning (and the
   // Generate now button) when the order is already past the
   // point where prep is meaningful:
   //   - event is in the past (hoursToEvent < 0): the food was
@@ -271,11 +271,11 @@ export function computeOrderReadiness(
     message: prepReady
       ? `${prepTasks.length} prep tasks generated.`
       : isTerminalStatus
-        ? `Order ${orderStatus} -- prep no longer applicable.`
+        ? `Order ${orderStatus} - prep no longer applicable.`
         : isEventPast
-          ? "Event has passed -- prep no longer applicable."
+          ? "Event has passed - prep no longer applicable."
           : "No prep tasks on the chef's board yet.",
-    // Wave 70.9 / 70.17 -- when failing AND prep is still
+    // Wave 70.9 / 70.17 - when failing AND prep is still
     // applicable, the action is a direct regenerate so the
     // owner can recover stuck orders in one click. When the
     // signal is passing (real or by-context), no action link
@@ -284,17 +284,17 @@ export function computeOrderReadiness(
       ? `/admin/kitchen-schedule${evDate ? `?date=${evDate}` : ""}`
       : null,
     actionType: prepReady || prepNotApplicable ? null : "regenerate_prep_tasks",
-    // Wave 70.37 -- relabelled from cryptic "Generate now" to
+    // Wave 70.37 - relabelled from cryptic "Generate now" to
     // "Generate prep tasks" so the operator knows WHAT is being
     // generated. The chip also surfaces a hover tooltip explaining
     // the auto-create behaviour.
     actionLabel: prepReady || prepNotApplicable ? null : "Generate prep tasks",
   });
 
-  // ---- Wave 47 -- additional HIGH signals -------------------------------
+  // ---- Wave 47 - additional HIGH signals -------------------------------
 
   // 7. Client has been emailed about this booking.
-  // Wave 64.5 -- pre-Wave-64.5 the signal only counted rows where
+  // Wave 64.5 - pre-Wave-64.5 the signal only counted rows where
   // template_type='booking_confirmation', but nothing in the codebase
   // ever writes that template_type to email_automation_log. The
   // system fires order_status_update + driver_assigned + the
@@ -315,7 +315,7 @@ export function computeOrderReadiness(
     passing: confirmationSent,
     message: confirmationSent
       ? "Client has been emailed about this booking."
-      : `${clientName || "Client"} hasn't received any email about this booking yet -- send a confirmation.`,
+      : `${clientName || "Client"} hasn't received any email about this booking yet - send a confirmation.`,
     actionLink: orderLink,
   });
 
@@ -334,16 +334,16 @@ export function computeOrderReadiness(
       passing: serviceOk,
       message: serviceOk
         ? `${vehicleLabel} service in date.`
-        : `${vehicleLabel} service overdue (was due ${vehicle.next_service_due}) -- not safe to dispatch.`,
+        : `${vehicleLabel} service overdue (was due ${vehicle.next_service_due}) - not safe to dispatch.`,
       actionLink: "/admin/vehicles",
     });
   }
 
   // 9. Setup + pickup times set.
-  // Wave 66.3 -- copy was "driver doesn't know when to head back",
+  // Wave 66.3 - copy was "driver doesn't know when to head back",
   // which ambiguously read as "head back to base after the run".
   // The field semantics are actually "when the driver LEAVES the
-  // kitchen with the order to head out to the venue" -- it's the
+  // kitchen with the order to head out to the venue" - it's the
   // start-of-day pickup, not the end-of-day collection. New copy
   // says "leave the kitchen" so there's no interpretation drift.
   // Action routing: setup_time is a client-facing commitment ("we'll
@@ -365,16 +365,16 @@ export function computeOrderReadiness(
     message: timesPresent
       ? "Setup + pickup times set."
       : !setupTime && !pickupTime
-        ? "Setup + pickup times missing -- crew doesn't know when to start and driver doesn't know when to leave the kitchen."
+        ? "Setup + pickup times missing - crew doesn't know when to start and driver doesn't know when to leave the kitchen."
         : !pickupTime
-          ? "Pickup time missing -- driver doesn't know when to leave the kitchen."
-          : "Setup time missing -- crew doesn't know when to start.",
+          ? "Pickup time missing - driver doesn't know when to leave the kitchen."
+          : "Setup time missing - crew doesn't know when to start.",
     actionLink: onlyPickupMissing
       ? `/admin/order-assignments?orderId=${orderId}`
       : orderLink,
   });
 
-  // Wave 67 Phase E -- outsource provider confirmed.
+  // Wave 67 Phase E - outsource provider confirmed.
   // Skips when the order has no outsource assignments. Otherwise
   // passes when every assignment is in an accepted / en_route /
   // on_site / completed state. Fires high-severity because an
@@ -394,10 +394,10 @@ export function computeOrderReadiness(
       message = `${live.length} outsource provider${live.length === 1 ? "" : "s"} confirmed.`;
     } else if (declined.length > 0) {
       const namesList = Array.from(new Set(declined.map((a) => a.provider_name).filter((x): x is string => !!x))).slice(0, 2);
-      message = `${declined.length} provider${declined.length === 1 ? "" : "s"} declined${namesList.length ? ` (${namesList.join(", ")})` : ""} -- assign someone else.`;
+      message = `${declined.length} provider${declined.length === 1 ? "" : "s"} declined${namesList.length ? ` (${namesList.join(", ")})` : ""} - assign someone else.`;
     } else if (pending.length > 0) {
       const namesList = Array.from(new Set(pending.map((a) => a.provider_name).filter((x): x is string => !!x))).slice(0, 2);
-      message = `${pending.length} outsource provider${pending.length === 1 ? "" : "s"}${namesList.length ? ` (${namesList.join(", ")})` : ""} haven't responded yet -- chase or reassign.`;
+      message = `${pending.length} outsource provider${pending.length === 1 ? "" : "s"}${namesList.length ? ` (${namesList.join(", ")})` : ""} haven't responded yet - chase or reassign.`;
     } else {
       message = `${live.length} outsource provider${live.length === 1 ? "" : "s"} in flight.`;
     }
@@ -422,7 +422,7 @@ export function computeOrderReadiness(
       message: allHireBooked
         ? "Hire supplier pickups booked."
         : `Hire supplier pickup not booked for ${missingCount} item${missingCount === 1 ? "" : "s"}.`,
-      // Wave 64.5 -- deep-link to the Equipment tab where the hire
+      // Wave 64.5 - deep-link to the Equipment tab where the hire
       // rows live, not the default Details tab. The pickup-date
       // editor still ships in a future wave; for now the operator
       // at least lands on the correct tab and sees the hire list.
@@ -439,7 +439,7 @@ export function computeOrderReadiness(
   if (bookings.length > 0) {
     // input.cleaningJobsActive only carries queued/in_progress jobs.
     // The presence of an active job for one of our equipment IDs
-    // means it's NOT yet ready -- which is what we flag.
+    // means it's NOT yet ready - which is what we flag.
     const orderEqIdsForCleaning = new Set<string>(
       bookings
         .map((b: any) => b?.equipment_id)
@@ -460,7 +460,7 @@ export function computeOrderReadiness(
     });
   }
 
-  // ---- Wave 47 -- additional MEDIUM signals -----------------------------
+  // ---- Wave 47 - additional MEDIUM signals -----------------------------
 
   // M1. Client phone present (driver tap-to-call enabled).
   signals.push({
@@ -469,7 +469,7 @@ export function computeOrderReadiness(
     passing: !!clientPhone,
     message: !!clientPhone
       ? "Client phone on file."
-      : `No phone for ${clientName || "client"} -- driver can't call on the day.`,
+      : `No phone for ${clientName || "client"} - driver can't call on the day.`,
     actionLink: orderLink,
   });
 
@@ -484,7 +484,7 @@ export function computeOrderReadiness(
       passing: twoCovered,
       message: twoCovered
         ? "Two drivers covering the run."
-        : `Two-driver job but only ${driversCovered} assigned -- second driver missing.`,
+        : `Two-driver job but only ${driversCovered} assigned - second driver missing.`,
       actionLink: `/admin/order-assignments?orderId=${orderId}`,
     });
   }
@@ -522,7 +522,7 @@ export function computeOrderReadiness(
 
   // ---- crossSystemBlockers fold-in --------------------------------------
   // Strategy audit: route blockers INTO readiness signals so the chip is
-  // single source of truth. Wave 47 -- signal #3 became 'driver_assigned'
+  // single source of truth. Wave 47 - signal #3 became 'driver_assigned'
   // only (was 3-state in Wave 46), so the no_delivery_shift blocker is
   // no longer redundant and folds in. equipment_in_cleaning is also
   // covered by signal #11 (pre_event_cleaning) but with a different
@@ -544,9 +544,9 @@ export function computeOrderReadiness(
 
   // ---- Aggregate to chip ------------------------------------------------
 
-  // Wave 54.2 -- sort failing signals by impact-on-event-success
+  // Wave 54.2 - sort failing signals by impact-on-event-success
   // weight, NOT insertion order. Pre-Wave-54 the chip ordered signals
-  // by the order they were pushed in this file -- so menu_items_present
+  // by the order they were pushed in this file - so menu_items_present
   // (HIGH but coded last) ranked BELOW client_phone_present (MEDIUM but
   // coded earlier) when both failed. Operator triaged the wrong gap
   // first. The weight table here is the operator's mental ranking of
@@ -558,10 +558,10 @@ export function computeOrderReadiness(
     .filter((s) => s.severity === "medium" && !s.passing)
     .sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
 
-  // Wave 70.22 -- post-process: on past-event / terminal-status
+  // Wave 70.22 - post-process: on past-event / terminal-status
   // orders, suppress operational signals that are no longer
   // actionable. A "no driver assigned" warning on an event that
-  // happened yesterday is noise -- the event already happened;
+  // happened yesterday is noise - the event already happened;
   // there's nothing to assign. We KEEP signals that are still
   // actionable on past orders (balance_not_overdue, invoice_sent,
   // client_contactable) so chase-the-client / send-the-invoice
@@ -585,8 +585,8 @@ export function computeOrderReadiness(
       "menu_items_present",
     ]);
     const suppressMsg = isTerminalStatus
-      ? `Order ${orderStatus} -- no longer applicable.`
-      : "Event has passed -- no longer applicable.";
+      ? `Order ${orderStatus} - no longer applicable.`
+      : "Event has passed - no longer applicable.";
     for (const sig of signals) {
       if (!operationalKeys.has(sig.key)) continue;
       if (sig.passing) continue;
@@ -635,12 +635,12 @@ export function computeOrderReadiness(
     subhead = "Driver, kitchen, equipment all confirmed. Nothing to do.";
   } else if (chip === "orange") {
     const count = failingHigh.length + failingMedium.length;
-    headline = `Almost there -- ${count} thing${count === 1 ? "" : "s"} to wrap up`;
+    headline = `Almost there - ${count} thing${count === 1 ? "" : "s"} to wrap up`;
     subhead = (failingHigh[0] || failingMedium[0])?.message || "Check the breakdown.";
   } else {
     headline = `Needs your attention before ${orderLabel}${eventWhen ? " " + eventWhen : ""}`;
     const top = failingHigh[0] || failingMedium[0];
-    subhead = top?.message || "Multiple gaps -- open the order.";
+    subhead = top?.message || "Multiple gaps - open the order.";
   }
 
   return {
@@ -656,19 +656,19 @@ export function computeOrderReadiness(
 }
 
 function renderEventWhen(urgency: OrderTimelineUrgency, evDate: string | null | undefined): string {
-  // Wave 52 -- format the event date as a human label, not the raw
+  // Wave 52 - format the event date as a human label, not the raw
   // YYYY-MM-DD coming back from PostgREST. "9 May" beats "2026-05-09".
   const friendly = evDate ? _formatFriendlyDate(evDate) : null;
   switch (urgency) {
     case "today": return "today";
     case "tomorrow": return "tomorrow";
-    case "overdue": return friendly ? `(${friendly} -- past)` : "(past)";
+    case "overdue": return friendly ? `(${friendly} - past)` : "(past)";
     case "soon": return "this week";
     default: return friendly ? `on ${friendly}` : "";
   }
 }
 
-/** Wave 52 -- shared "9 May" / "9 May 2026" formatter. Returns the
+/** Wave 52 - shared "9 May" / "9 May 2026" formatter. Returns the
  *  raw input on parse failure rather than crashing. */
 function _formatFriendlyDate(iso: string): string {
   try {
@@ -684,7 +684,7 @@ function _formatFriendlyDate(iso: string): string {
 }
 
 /**
- * Wave 52 -- format the overdue balance signal as a human sentence.
+ * Wave 52 - format the overdue balance signal as a human sentence.
  *
  * Pre-Wave-52 the message interpolated the raw ISO timestamp:
  *   "Balance overdue (due 2026-05-09T00:00:00+00:00). Chase or convert to COD."
@@ -727,7 +727,7 @@ function _formatOverdueBalanceMessage(dueIso: string, now: Date): string {
 }
 
 /**
- * Wave 54.2 -- per-signal severity weight used to sort the chip's
+ * Wave 54.2 - per-signal severity weight used to sort the chip's
  * failing list. Higher weight = surfaces first. The numbers themselves
  * are arbitrary; only the relative order matters. Anything not in this
  * table gets weight 0 (still inside its tier, but at the back of the
@@ -739,13 +739,13 @@ function _formatOverdueBalanceMessage(dueIso: string, now: Date): string {
  */
 function _signalWeight(key: string): number {
   const WEIGHTS: Record<string, number> = {
-    // Existential -- the event cannot run without these
+    // Existential - the event cannot run without these
     balance_not_overdue: 100,
     menu_items_present: 95,
     driver_assigned: 90,
     kitchen_shift_event_day: 85,
     kitchen_prep_tasks_present: 80,
-    // Wave 67 Phase E -- outsource provider rank. Unconfirmed
+    // Wave 67 Phase E - outsource provider rank. Unconfirmed
     // on-site chef is as event-killing as missing the kitchen
     // roster, so it sits in the same tier.
     outsource_confirmed: 82,
@@ -753,7 +753,7 @@ function _signalWeight(key: string): number {
     requires_two_drivers_covered: 70,
     setup_pickup_times_set: 65,
     hire_pickup_dates_set: 60,
-    // Comms / contactability -- escalations, not blockers
+    // Comms / contactability - escalations, not blockers
     confirmation_email_sent: 50,
     invoice_sent: 45,
     client_contactable: 40,

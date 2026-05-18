@@ -1,7 +1,7 @@
 /**
- * /admin/orders/[id]/ticket -- print-friendly kitchen ticket.
+ * /admin/orders/[id]/ticket - print-friendly kitchen ticket.
  *
- * Wave 66.9 -- full rewrite from the 5-specialist audit. The Phase 12
+ * Wave 66.9 - full rewrite from the 5-specialist audit. The Phase 12
  * ticket was a stripped-down order summary (order number, client,
  * venue, menu items, allergens). Bobby's brief on this wave: maximum
  * intelligence on the printed sheet so the chef can work from one
@@ -10,19 +10,19 @@
  * details, advance-notice-respecting timeline.
  *
  * Data sources joined on render:
- *   orders                       -- header band + setup/pickup/event times
- *   order_items                  -- line items (qty + name + per-line notes)
- *   menu_items (by id or name)   -- recipe times, allergens, instructions,
+ *   orders                       - header band + setup/pickup/event times
+ *   order_items                  - line items (qty + name + per-line notes)
+ *   menu_items (by id or name)   - recipe times, allergens, instructions,
  *                                   advance-notice hours, base_servings
- *   equipment_bookings + equipment -- serving gear grouped by category
- *   driver_assignments + profiles  -- who's collecting + when
+ *   equipment_bookings + equipment - serving gear grouped by category
+ *   driver_assignments + profiles  - who's collecting + when
  *
  * Backplan: for each menu line we compute LATEST cook-start and
  * LATEST prep-start using the recipe times scaled by guest count
  * with a 3x parallelism cap (matches kitchenPrepService logic).
  * `requires_advance_notice_hours` pulls prep-start further back when
  * the item supports cook-ahead (e.g. "lamb spit can start prepping
- * 6h before pickup -- start at 10:30").
+ * 6h before pickup - start at 10:30").
  *
  * Missing recipe data: each item without prep_time_minutes /
  * cook_time_minutes shows an inline warning chip with a link to the
@@ -46,7 +46,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 interface OrderRow {
   id: string;
   order_number: string | null;
-  // Wave 70.45c -- event_name added so the canonical BookingHeader can
+  // Wave 70.45c - event_name added so the canonical BookingHeader can
   // surface the client-facing event label (the chef knows which event
   // they're cooking for, not just the internal order number).
   event_name: string | null;
@@ -187,7 +187,7 @@ function backplanItem(
   const prepMinScaled = Math.ceil(basePrepMin * effectiveBatches);
   const cookMinScaled = Math.ceil(baseCookMin * effectiveBatches);
 
-  // requires_advance_notice_hours -- when set, this dish CAN be
+  // requires_advance_notice_hours - when set, this dish CAN be
   // prepped that many hours ahead of pickup. We use it to pull
   // prep_starts_at FORWARD (earlier) so the chef sees a wider window
   // to work in. The deadline (cookEndsAt) stays at pickup - safety.
@@ -250,7 +250,7 @@ function KitchenTicketPage() {
       try {
         let q = (supabase as any)
           .from("orders")
-          // Wave 66.9 hotfix -- final_guest_count was in the select
+          // Wave 66.9 hotfix - final_guest_count was in the select
           // but doesn't exist on orders. PostgREST 400'd and the page
           // silently null-rendered as "Order not found". Same trap as
           // Wave 43. Use guest_count alone; if the column ever ships,
@@ -377,14 +377,14 @@ function KitchenTicketPage() {
     });
   }, [items, menuMap, menuByName, guestCount, pickupAt]);
 
-  // Earliest prep-start across all items -- kitchen reports for duty here.
+  // Earliest prep-start across all items - kitchen reports for duty here.
   const earliestPrepStart = useMemo(() => {
     const dates = backplanned.map((b) => b.prepStartsAt).filter((d): d is Date => !!d);
     if (dates.length === 0) return null;
     return new Date(Math.min(...dates.map((d) => d.getTime())));
   }, [backplanned]);
 
-  // Latest cook-end across all items -- last dish off the heat.
+  // Latest cook-end across all items - last dish off the heat.
   const latestCookEnd = useMemo(() => {
     const dates = backplanned.map((b) => b.cookEndsAt).filter((d): d is Date => !!d);
     if (dates.length === 0) return null;
@@ -454,7 +454,7 @@ function KitchenTicketPage() {
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
           <div className="bg-white border border-slate-300 rounded-lg p-6 print:border-0 print:rounded-none print:p-0 space-y-4">
-            {/* Wave 70.45c -- canonical BookingHeader (kitchen variant).
+            {/* Wave 70.45c - canonical BookingHeader (kitchen variant).
                 Replaces the bespoke header band so this surface inherits
                 the tenant brand bar + variant ribbon + facts row that
                 every other event document now shares. Setup/pickup live
@@ -481,7 +481,7 @@ function KitchenTicketPage() {
               ) : undefined}
             />
 
-            {/* Wave 66.9 -- backplanned timeline ribbon. Single line so
+            {/* Wave 66.9 - backplanned timeline ribbon. Single line so
                 the chef sees the day's choreography at the top of the
                 ticket before reading anything else. Falls back to a
                 "Times pending" message when nothing is set. */}
@@ -528,16 +528,16 @@ function KitchenTicketPage() {
               </div>
             )}
 
-            {/* Wave 70.45c -- client / guests / venue used to live here as
+            {/* Wave 70.45c - client / guests / venue used to live here as
                 a 3-cell grid; they now render inside <BookingHeader> above
                 so the same facts row appears on every event document. The
-                only thing not in the header is the client phone -- chefs
+                only thing not in the header is the client phone - chefs
                 rarely need it, and when they do it's on the order page;
                 keeping it off the printed ticket avoids leaking client
                 PII onto a piece of paper that gets handled by multiple
                 staff. */}
 
-            {/* Wave 66.9 -- driver / collection band. Chef needs to
+            {/* Wave 66.9 - driver / collection band. Chef needs to
                 know exactly who's collecting + when so they can hand
                 off cleanly. Pulled from driver_assignments + profiles. */}
             {(deliveryDriver || collectionDriver) && (
@@ -582,7 +582,7 @@ function KitchenTicketPage() {
             {/* Allergen watch-out band */}
             {allAllergens.length > 0 && (
               <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold mb-1">Watch out -- allergens across this order</p>
+                <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold mb-1">Watch out - allergens across this order</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allAllergens.map((t) => (
                     <span key={t} className="text-[11px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded border border-rose-300 bg-white text-rose-800">
@@ -593,7 +593,7 @@ function KitchenTicketPage() {
               </div>
             )}
 
-            {/* Wave 66.9 -- missing recipe data panel. Surfaces the
+            {/* Wave 66.9 - missing recipe data panel. Surfaces the
                 quick-fix path so admins can fill in prep/cook times
                 without leaving the ticket workflow. */}
             {missingRecipeItems.length > 0 && (
@@ -622,7 +622,7 @@ function KitchenTicketPage() {
               </div>
             )}
 
-            {/* Menu items -- backplan-aware. Each row shows per-item
+            {/* Menu items - backplan-aware. Each row shows per-item
                 latest prep / cook start so the chef can read the
                 ticket sequentially and pick the right thing to start. */}
             <div>
@@ -677,7 +677,7 @@ function KitchenTicketPage() {
                           {b.missingRecipeData && (
                             <p className="text-[11px] text-amber-700 mt-1 inline-flex items-center gap-1">
                               <AlertCircle className="w-2.5 h-2.5" />
-                              No recipe times on file -- chef plans manually.
+                              No recipe times on file - chef plans manually.
                             </p>
                           )}
                           {b.menuItem?.requires_advance_notice_hours ? (
@@ -714,7 +714,7 @@ function KitchenTicketPage() {
               )}
             </div>
 
-            {/* Wave 66.9 -- equipment / serving gear band. Grouped by
+            {/* Wave 66.9 - equipment / serving gear band. Grouped by
                 category so the chef packs cutlery + crockery + serving
                 tools as separate batches, not one wall of items. */}
             {equipmentByCategory.length > 0 && (

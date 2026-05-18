@@ -1,5 +1,5 @@
 /**
- * OrderNotesThread -- chronological internal notes thread for an order.
+ * OrderNotesThread - chronological internal notes thread for an order.
  *
  * Phase 9 #6. The orders table already has a single-string
  * internal_notes field, but admins kept losing context: the most
@@ -138,7 +138,7 @@ export function OrderNotesThread({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={2}
-          placeholder="Add an internal note. Visible to admins only -- audit logged."
+          placeholder="Add an internal note. Visible to admins only - audit logged."
           className="text-sm"
         />
         <Button

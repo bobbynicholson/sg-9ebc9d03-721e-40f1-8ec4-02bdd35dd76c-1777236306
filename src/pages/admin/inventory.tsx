@@ -136,7 +136,7 @@ const STOCK_REASONS: StockReason[] = [
 
 // Allergens we track on inventory_items so the menu-item save can
 // cross-check ingredients against dietary_tags / allergen_codes.
-// Mirrors the menuService.ts ALLERGEN_CODES list -- kept duplicated
+// Mirrors the menuService.ts ALLERGEN_CODES list - kept duplicated
 // here to avoid a circular import.
 const INVENTORY_ALLERGEN_CODES = [
   "gluten", "dairy", "egg", "peanut", "tree_nut", "soy",
@@ -223,7 +223,7 @@ export default function AdminInventory() {
     costHistory: Array<{ date: string; unit_cost: number }>;
   }>({ recipes: [], movements: [], batches: [], costHistory: [] });
   const [rowDetailLoading, setRowDetailLoading] = useState(false);
-  // Suppliers list for the item dialog dropdown -- loaded once on mount
+  // Suppliers list for the item dialog dropdown - loaded once on mount
   const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
 
   // ── Add ─────────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ export default function AdminInventory() {
       const tag = target?.tagName?.toLowerCase();
       const isTyping = tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
 
-      // Esc always works -- closes drawers, clears search
+      // Esc always works - closes drawers, clears search
       if (e.key === "Escape") {
         if (expandedRowId) { setExpandedRowId(null); return; }
         if (selected.size > 0) { setSelected(new Set()); return; }
@@ -932,7 +932,7 @@ export default function AdminInventory() {
             </div>
           </div>
 
-          {/* Recent receipts that fed inventory -- collapsible audit
+          {/* Recent receipts that fed inventory - collapsible audit
               trail tying stock movements back to the slip they came from. */}
           <RecentReceiptsPanel companyId={companyId} />
 
@@ -2140,7 +2140,7 @@ function ItemForm({
 }
 
 // Branch scoping picker for inventory items. Hides itself for
-// single-branch tenants -- "shared" is the only sensible value when
+// single-branch tenants - "shared" is the only sensible value when
 // there's nothing to split across.
 function BranchScopePicker({
   form,
@@ -2189,7 +2189,7 @@ export function ProtectedInventoryPage() {
  * current company, renders headline numbers + deep-links to
  * /admin/equipment and /admin/equipment/hire-orders.
  *
- * Slug-aware -- the inventory page itself can be loaded via
+ * Slug-aware - the inventory page itself can be loaded via
  * /spit-braai-delivery/admin/inventory and the deep links keep the
  * tenant prefix.
  */
@@ -2216,7 +2216,7 @@ function InventoryEquipmentStrip() {
     let cancelled = false;
     (async () => {
       try {
-        // Cast both queries to any -- equipment_hire_orders isn't yet
+        // Cast both queries to any - equipment_hire_orders isn't yet
         // in the auto-generated Database types so the union inference
         // bails with TS2589 ("Type instantiation is excessively deep").
         const sb = supabase as any;

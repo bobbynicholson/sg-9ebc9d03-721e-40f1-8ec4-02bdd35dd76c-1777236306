@@ -1,8 +1,8 @@
 /**
- * Wave 28.1 -- pure-function tests for the cancellation rules engine.
+ * Wave 28.1 - pure-function tests for the cancellation rules engine.
  *
  * These mirror the eventualities listed in the cancellation chain
- * reaction matrix. No DB, no React -- if these break, the wizard's
+ * reaction matrix. No DB, no React - if these break, the wizard's
  * "note before action" copy is wrong, full stop.
  */
 
@@ -23,7 +23,7 @@ const STANDARD_POLICY: CancellationPolicy = {
   credit_bonus_pct: 10,
 };
 
-// Helper -- N days from TODAY in YYYY-MM-DD.
+// Helper - N days from TODAY in YYYY-MM-DD.
 const dateInDays = (n: number): string => {
   const d = new Date(TODAY);
   d.setUTCDate(d.getUTCDate() + n);

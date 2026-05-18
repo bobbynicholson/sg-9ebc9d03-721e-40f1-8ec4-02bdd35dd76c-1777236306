@@ -76,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (profile as any)?.company_id === (order as any).company_id;
 
     // orders.client_id is a FK to clients.id (NOT auth.users.id), so
-    // resolve ownership through the clients table -- match either
+    // resolve ownership through the clients table - match either
     // clients.user_id = auth.uid() OR clients.email = auth.email().
     let isLinkedClient = false;
     if (!isAdminInCompany && (order as any).client_id) {
@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // ============================================================
     // Wave 28.5: AUTO-PROCESS branch (auth client portal flavour).
-    // Same shape as the magic-link endpoint -- when the policy says
+    // Same shape as the magic-link endpoint - when the policy says
     // we're outside the owner-override window AND the wizard sent a
     // payout_choice, run the cancel cascade now.
     // ============================================================
@@ -252,7 +252,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // loop that the toast on the client portal already promises:
     // "we'll come back to you by email shortly". Without this, the
     // customer only ever heard back when the catering team actually
-    // approved or rejected -- which could be hours.
+    // approved or rejected - which could be hours.
     //
     // Fire-and-forget; an email failure must not unwind the request
     // row. Pulls the client email off the order so we never expose a
@@ -275,8 +275,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           : "TBD";
         const subject =
           request_type === "cancel"
-            ? `Cancellation request received -- ${(orderForEmail as any).order_number || "your order"}`
-            : `Postponement request received -- ${(orderForEmail as any).order_number || "your order"}`;
+            ? `Cancellation request received - ${(orderForEmail as any).order_number || "your order"}`
+            : `Postponement request received - ${(orderForEmail as any).order_number || "your order"}`;
         const body =
           request_type === "cancel"
             ? `Hi ${(orderForEmail as any).client_name || "there"},\n\nWe've received your request to cancel your booking for ${evtDate}. The team will review and confirm by email shortly.\n\nReference: ${(orderForEmail as any).order_number || order_id}\n\nIf this wasn't you, please reply right away.`

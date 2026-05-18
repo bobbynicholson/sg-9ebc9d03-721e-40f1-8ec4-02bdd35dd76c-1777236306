@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * outsourceProviderService -- Wave 67 Phase B.
+ * outsourceProviderService - Wave 67 Phase B.
  *
  * CRUD for the outsource_providers registry. Mirrors the
  * supplierService shape so the list page reads the same way as

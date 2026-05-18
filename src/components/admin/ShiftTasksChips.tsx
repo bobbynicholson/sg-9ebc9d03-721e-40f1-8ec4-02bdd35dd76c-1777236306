@@ -1,5 +1,5 @@
 /**
- * ShiftTasksChips -- Wave 41 Phase 3.
+ * ShiftTasksChips - Wave 41 Phase 3.
  *
  * Renders compact task chips inline within a shift cell on the
  * schedule grids. Each chip shows the task type's short label
@@ -7,7 +7,7 @@
  * + duration + billable status. Click on a chip removes it (with
  * native confirm). A "+" affordance opens the AddShiftTaskModal.
  *
- * Designed for grid density -- chips are pill-shaped 18px high so
+ * Designed for grid density - chips are pill-shaped 18px high so
  * they slot neatly under the planned/actual time row in a kitchen
  * or cleaning schedule cell without blowing out the row height.
  */
@@ -55,7 +55,7 @@ export function ShiftTasksChips({ tasks, onAddClick, onChanged }: Props) {
           t.notes ? `-- ${t.notes}` : null,
         ]
           .filter(Boolean)
-          .join(" -- ");
+          .join(" - ");
         const isBusy = removingId === t.id;
         return (
           <button

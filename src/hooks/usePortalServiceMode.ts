@@ -1,5 +1,5 @@
 /**
- * usePortalServiceMode -- Wave 70.7
+ * usePortalServiceMode - Wave 70.7
  *
  * Detects which "phase of the day" a service-oriented portal is in
  * based on the tenant's events for today. Returns a discriminator
@@ -13,10 +13,10 @@
  * with their own event-source query.
  *
  * Modes:
- *   off     -- no events today; portal is "between jobs"
- *   prep    -- events today but first event still > 1h away
- *   service -- first event_time - 1h <= now <= last event_time + 1h
- *   close   -- last event finished < 2h ago, give them a chance to
+ *   off     - no events today; portal is "between jobs"
+ *   prep    - events today but first event still > 1h away
+ *   service - first event_time - 1h <= now <= last event_time + 1h
+ *   close   - last event finished < 2h ago, give them a chance to
  *              wrap up before flipping to "off"
  *
  * The hook also supports a manual override (operator-driven) that
@@ -149,7 +149,7 @@ export function usePortalServiceMode(): PortalServiceModeState {
         setFirstEventTime(rows[0]?.event_time || null);
         setLastEventTime(rows[rows.length - 1]?.event_time || null);
       } catch {
-        // Silent fail -- mode falls back to "off" via the count.
+        // Silent fail - mode falls back to "off" via the count.
       } finally {
         if (!cancelled) setLoading(false);
       }

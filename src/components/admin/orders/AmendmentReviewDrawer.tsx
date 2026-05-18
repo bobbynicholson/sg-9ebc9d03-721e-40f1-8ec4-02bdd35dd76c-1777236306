@@ -3,7 +3,7 @@
  * AmendmentReviewDrawer + CancellationReviewDrawer
  *
  * Right-side review surfaces for the orders dashboard. Driven by query
- * params on /admin/orders -- when the URL has ?orderId=...&amendment=...
+ * params on /admin/orders - when the URL has ?orderId=...&amendment=...
  * (or &cancellation=...) the parent opens the matching drawer. Closing
  * the drawer strips the params so a refresh doesn't re-open it.
  *
@@ -224,7 +224,7 @@ export function AmendmentReviewDrawer({
           setOrder(ord || null);
         }
 
-        // Reviewer name lookup -- best-effort. profiles is the canonical
+        // Reviewer name lookup - best-effort. profiles is the canonical
         // source for full_name; the FK on reviewed_by_user_id points at
         // auth.users which we can't read directly from the client.
         if ((req as any)?.reviewed_by_user_id) {
@@ -353,7 +353,7 @@ export function AmendmentReviewDrawer({
           </SheetTitle>
           <SheetDescription>
             {order?.order_number ? `Order ${order.order_number}` : "Order"}
-            {order?.client_name ? ` -- ${order.client_name}` : ""}
+            {order?.client_name ? ` - ${order.client_name}` : ""}
           </SheetDescription>
         </SheetHeader>
 
@@ -700,7 +700,7 @@ export function CancellationReviewDrawer({
           </SheetTitle>
           <SheetDescription>
             {order?.order_number ? `Order ${order.order_number}` : "Order"}
-            {order?.client_name ? ` -- ${order.client_name}` : ""}
+            {order?.client_name ? ` - ${order.client_name}` : ""}
           </SheetDescription>
         </SheetHeader>
 

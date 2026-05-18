@@ -1,12 +1,12 @@
 /**
- * Tier 3 chart 2 -- Client retention cohort (quarterly).
+ * Tier 3 chart 2 - Client retention cohort (quarterly).
  *
  * Triangular grid:
  *   Rows = client signup quarter (clients.created_at)
  *   Cols = quarters since signup (Q+0, Q+1, Q+2, ...)
  *   Cell = % of cohort that placed at least one order in that quarter
  *
- * Heavy chart -- only meaningful with >12 months of history. Caller
+ * Heavy chart - only meaningful with >12 months of history. Caller
  * should hide if `hasEnoughHistory === false`.
  *
  * Pure function: takes clients + orders, returns the cohort grid.

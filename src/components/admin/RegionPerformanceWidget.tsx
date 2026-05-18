@@ -1,5 +1,5 @@
 /**
- * RegionPerformanceWidget -- compares revenue + order count across
+ * RegionPerformanceWidget - compares revenue + order count across
  * the company's branches for the last 30 days.
  *
  * Phase 12 #2. Multi-branch tenants (e.g. Spit Braai with Joburg /

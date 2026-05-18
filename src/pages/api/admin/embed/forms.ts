@@ -7,17 +7,17 @@ import { validateRedirectUrl } from "@/lib/embedFormApi";
 /**
  * Admin CRUD for embed_form_configs.
  *
- *   GET    /api/admin/embed/forms        -- list forms for caller's company
- *   POST   /api/admin/embed/forms        -- create a form
- *   PATCH  /api/admin/embed/forms?id=ID  -- update a form
- *   DELETE /api/admin/embed/forms?id=ID  -- delete a form
+ *   GET    /api/admin/embed/forms        - list forms for caller's company
+ *   POST   /api/admin/embed/forms        - create a form
+ *   PATCH  /api/admin/embed/forms?id=ID  - update a form
+ *   DELETE /api/admin/embed/forms?id=ID  - delete a form
  *
  * Auth: company_admin | admin | owner | super_admin. Tenant isolation
- * enforced server-side -- only super_admin may touch other tenants'
+ * enforced server-side - only super_admin may touch other tenants'
  * forms (via `?company_id=...`).
  */
 
-// Note: the user_role DB enum has no 'owner' -- the actual admin-tier
+// Note: the user_role DB enum has no 'owner' - the actual admin-tier
 // roles are super_admin / company_admin / admin. Keep this list in sync
 // with src/types/app.ts UserRole + the public.user_role enum.
 const CALLER_ROLES_ALLOWED = new Set([
@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const callerCompanyId = (callerProfile as any).company_id as string | null;
   const isSuperAdmin = callerRole === "super_admin";
 
-  // Service-role client for the actual writes -- the user-bound client is
+  // Service-role client for the actual writes - the user-bound client is
   // only for auth/role resolution. Tenant scoping is enforced explicitly
   // below.
   const db = getServiceSupabase();

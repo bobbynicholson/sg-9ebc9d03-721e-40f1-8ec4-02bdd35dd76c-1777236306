@@ -9,8 +9,8 @@
  * doing a 3-source merge to figure out who's who).
  *
  * This module is the single place that owns "promote a lead to a
- * client". Everything else -- quote acceptance, order creation, the
- * eventual /admin/clients vs /admin/contacts split -- depends on this
+ * client". Everything else - quote acceptance, order creation, the
+ * eventual /admin/clients vs /admin/contacts split - depends on this
  * promotion firing reliably.
  *
  * Design notes:
@@ -19,7 +19,7 @@
  * - Reuses an existing client when one already exists with the same
  *   email + company_id (covers the case where an admin manually
  *   created a client row that matches the lead's email).
- * - Stamps lead.status = 'won' as part of promotion -- "won" is the
+ * - Stamps lead.status = 'won' as part of promotion - "won" is the
  *   schema's lead_status enum value for "deal closed", and matches
  *   our conceptual rule "leads are people who haven't paid; clients
  *   are people who have committed (accepted a quote)".
@@ -59,7 +59,7 @@ export const lifecycleService = {
    *
    * Throws on:
    *  - Lead not found / soft-deleted
-   *  - Lead has no email (shouldn't happen -- schema NOT NULL)
+   *  - Lead has no email (shouldn't happen - schema NOT NULL)
    *  - Insert/update RLS rejection
    */
   async promoteLeadToClient(
@@ -81,7 +81,7 @@ export const lifecycleService = {
       throw new Error(`Lead ${leadId} not found: ${leadErr?.message ?? "no row"}`);
     }
     if ((lead as any).deleted_at) {
-      throw new Error(`Lead ${leadId} has been deleted -- can't promote`);
+      throw new Error(`Lead ${leadId} has been deleted - can't promote`);
     }
 
     // 2. Already promoted? Return idempotently.
@@ -115,7 +115,7 @@ export const lifecycleService = {
     } else {
       // 4. Create a fresh client row from the lead's data.
       // clients.phone is NOT NULL on the schema, so fall back to an
-      // empty string when the lead has no phone -- the alternative is
+      // empty string when the lead has no phone - the alternative is
       // to throw, but we'd rather promote with a placeholder than
       // block a real conversion.
       const { data: newClient, error: insertErr } = await sb
@@ -154,7 +154,7 @@ export const lifecycleService = {
       } as any)
       .eq("id", leadId);
     if (stampErr) {
-      // Don't throw -- the client row exists and is usable. Surface
+      // Don't throw - the client row exists and is usable. Surface
       // the issue in logs so admins can re-run promotion if needed.
       console.error(
         `[lifecycleService] Lead ${leadId} promoted to client ${clientId} but couldn't stamp lead row:`,
@@ -192,8 +192,8 @@ export const lifecycleService = {
    *
    * The rule: every order must have a contact (client), a lead, a
    * quote, and (when status >= confirmed) an invoice. Orders created
-   * via the new-order flow without a quote -- or imported orders, or
-   * legacy orders -- can land missing one or more of those artifacts.
+   * via the new-order flow without a quote - or imported orders, or
+   * legacy orders - can land missing one or more of those artifacts.
    * This method fills in whichever ones are missing.
    *
    * Idempotent: safe to spam. Returns the resolved IDs.
@@ -398,7 +398,7 @@ export const lifecycleService = {
     }
 
     // 5. Invoice. Only attempt to ensure when the order is at least
-    //    confirmed -- ensureInvoiceForOrder lives in a different
+    //    confirmed - ensureInvoiceForOrder lives in a different
     //    service so we re-export the work here as a best-effort hop.
     let invoiceId: string | null = null;
     const status = String((order as any).status || "").toLowerCase();
@@ -422,7 +422,7 @@ export const lifecycleService = {
    * Ensure a clients row has a matching "won" lead record.
    *
    * Every client should have a historical lead (their first-touch
-   * record) -- otherwise /admin/leads shows an inconsistent pipeline
+   * record) - otherwise /admin/leads shows an inconsistent pipeline
    * vs /admin/contacts. When a client is created without going
    * through the normal lead -> quote -> client flow (admin manually
    * created, imported, etc.), this fills the gap.
@@ -471,7 +471,7 @@ export const lifecycleService = {
       return { leadId: (existing as any).id, created: false };
     }
 
-    // No lead for this client yet -- create one stamped 'won'.
+    // No lead for this client yet - create one stamped 'won'.
     const { data: newLead, error: newLeadErr2 } = await sb
       .from("leads")
       .insert({
@@ -500,7 +500,7 @@ export const lifecycleService = {
    * If the quote has client_id set, return it.
    * If the quote has lead_id set (but no client_id), promote the lead
    * to a client and return the new client_id.
-   * Throws if the quote has neither -- the schema constraint
+   * Throws if the quote has neither - the schema constraint
    * `quote_has_lead_or_client` should make this impossible, but we
    * defend against it.
    *
@@ -518,7 +518,7 @@ export const lifecycleService = {
       return clientId;
     }
     throw new Error(
-      `Quote ${quote.id} has neither client_id nor lead_id -- can't resolve a client to attach the order to.`,
+      `Quote ${quote.id} has neither client_id nor lead_id - can't resolve a client to attach the order to.`,
     );
   },
 };

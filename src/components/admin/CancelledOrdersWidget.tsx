@@ -1,5 +1,5 @@
 /**
- * CancelledOrdersWidget -- recently cancelled orders in the last
+ * CancelledOrdersWidget - recently cancelled orders in the last
  * 30 days, with the total revenue that walked away.
  *
  * Phase 20 #7. Cancellations were invisible on the dashboard --

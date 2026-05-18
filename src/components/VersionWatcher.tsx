@@ -1,7 +1,7 @@
 /**
  * Watches for new deploys and prompts the user to refresh so they're
  * always running the latest bundle. Solves the "Ctrl+Shift+R isn't doing
- * the trick" problem -- when a deploy lands, the client picks it up on
+ * the trick" problem - when a deploy lands, the client picks it up on
  * its own.
  *
  * How it works:

@@ -65,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await paymentGatewayService.activate(companyId, gatewayId, user.id, sb);
     // Invert the check so TS narrows result on the failure branch.
     // `if (!result.ok)` doesn't always narrow when the union is read
-    // through the service module boundary -- early-return on success
+    // through the service module boundary - early-return on success
     // and the rest of the function sees the failure shape cleanly.
     if (result.ok) {
       return res.status(200).json({ ok: true, gateway: result.gateway });

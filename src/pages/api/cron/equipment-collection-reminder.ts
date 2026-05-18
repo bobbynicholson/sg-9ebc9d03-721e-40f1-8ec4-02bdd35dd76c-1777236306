@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 /**
- * Wave 50 C5 -- equipment collection reminder.
+ * Wave 50 C5 - equipment collection reminder.
  *
  * Audit (Specialist 5) found that when orderWorkflow flips an order
  * to delivered it auto-creates a collection driver_assignment +

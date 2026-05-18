@@ -1,5 +1,5 @@
 /**
- * usePricingMode -- single source of truth for whether the tenant
+ * usePricingMode - single source of truth for whether the tenant
  * enters prices inc-VAT or ex-VAT.
  *
  * Every price input across menu items, equipment, inventory cost

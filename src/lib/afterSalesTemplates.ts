@@ -1,4 +1,4 @@
-// Wave 50 C12 -- rewritten to SA English, sentence-case, lovely-vibe
+// Wave 50 C12 - rewritten to SA English, sentence-case, lovely-vibe
 // (not surveillance) tone. Discounts removed from copy so operators
 // decide per send. No em dashes, no emoji, no asterisk-bold. Six
 // touchpoints over the year, each short enough to read on a phone in
@@ -13,7 +13,7 @@ export const defaultAfterSalesTemplates = [
 
 It's been a couple of months since your {{eventType}} on {{eventDate}}. Hope it was everything you wanted it to be.
 
-If you've got a minute, we'd love a quick line back -- what worked, what we could've done differently. Honest is best.
+If you've got a minute, we'd love a quick line back - what worked, what we could've done differently. Honest is best.
 
 Thanks again for trusting us with the day.`,
     callToAction: "Share a quick word",
@@ -29,7 +29,7 @@ Thanks again for trusting us with the day.`,
 
 Just a quick check-in. We've added a few new menu items since your {{eventType}} in {{eventMonth}}, plus some seasonal options that are good for this time of year.
 
-If you've got something coming up -- a corporate function, a family thing, a celebration -- we're around. Reply to this email and we'll get a quote together.
+If you've got something coming up - a corporate function, a family thing, a celebration - we're around. Reply to this email and we'll get a quote together.
 
 No pressure, just hello.`,
     callToAction: "See what's on the menu",
@@ -40,7 +40,7 @@ No pressure, just hello.`,
     id: "after-sales-3",
     sequence: 3,
     monthsAfterEvent: 6,
-    subject: "Half a year on -- anything brewing?",
+    subject: "Half a year on - anything brewing?",
     body: `Hi {{clientName}},
 
 Hard to believe it's been six months since your {{eventType}}.
@@ -61,7 +61,7 @@ Reply to this email if you'd like a quick chat about what you've got in mind.`,
 
 Just dropping in to say hi.
 
-Planning an event takes time and the right reason to do it -- so we're not here to push. But if you've got something in mind, even loosely, we'd love to help shape it.
+Planning an event takes time and the right reason to do it - so we're not here to push. But if you've got something in mind, even loosely, we'd love to help shape it.
 
 A few things we've added since your last booking:
 - More dietary-flexible menu options
@@ -77,7 +77,7 @@ Reply if you're curious. Otherwise we'll catch up again later in the year.`,
     id: "after-sales-5",
     sequence: 5,
     monthsAfterEvent: 10,
-    subject: "Year's nearly out -- planning anything?",
+    subject: "Year's nearly out - planning anything?",
     body: `Hi {{clientName}},
 
 End of the year tends to creep up. If you're thinking about a function before the holidays, or kicking off the new year with something planned, this is the moment to lock in dates.
@@ -98,7 +98,7 @@ Reply to this email and we'll send through availability.`,
 
 A year ago you trusted us with your {{eventType}}. That still means a lot.
 
-If you've got another event on the horizon -- anniversary, birthday, function -- we'd love to do it again. Same care, just for whatever you're planning next.
+If you've got another event on the horizon - anniversary, birthday, function - we'd love to do it again. Same care, just for whatever you're planning next.
 
 Reply when you're ready, no rush.
 

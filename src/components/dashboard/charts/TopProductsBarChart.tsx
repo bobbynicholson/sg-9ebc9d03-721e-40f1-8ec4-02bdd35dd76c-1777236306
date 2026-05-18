@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 5 chart 3 -- Top products by revenue.
+ * Tier 5 chart 3 - Top products by revenue.
  *
  * Pure CSS horizontal bars (matches TopClientsBarChart visual
  * language). The "Other" row gets a softer grey to make it visually
@@ -37,7 +37,7 @@ export function TopProductsBarChart({ data, loading }: Props) {
           Top products
           <InfoTooltip
             content={
-              "Your most lucrative menu items, ranked by total revenue (not just unit count -- a R350 spit braai per head is worth more than 50 starters at R45).\n\n" +
+              "Your most lucrative menu items, ranked by total revenue (not just unit count - a R350 spit braai per head is worth more than 50 starters at R45).\n\n" +
               "Use this to decide what to keep on the menu, what to discount, and what to cut. The 'Other' row is the long tail."
             }
           />

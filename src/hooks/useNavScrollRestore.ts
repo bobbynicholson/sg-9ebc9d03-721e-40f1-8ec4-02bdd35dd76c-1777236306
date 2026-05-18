@@ -1,5 +1,5 @@
 /**
- * useNavScrollRestore -- keep a sidebar scroll position pinned across
+ * useNavScrollRestore - keep a sidebar scroll position pinned across
  * page navigations.
  *
  * The Pages Router remounts the layout on every route change, so the
@@ -11,7 +11,7 @@
  *
  * Strategy:
  *   1. Save on every scroll AND on every click within the nav
- *      (capture phase) -- the click handler guarantees the latest
+ *      (capture phase) - the click handler guarantees the latest
  *      scrollTop lands in sessionStorage before the browser tears
  *      the old DOM down.
  *   2. On mount, restore via useLayoutEffect (before paint) plus a
@@ -40,7 +40,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/router";
 
 const STORAGE_PREFIX = "nav-scroll:";
-// SSR-safe layout effect -- React warns if you use useLayoutEffect on
+// SSR-safe layout effect - React warns if you use useLayoutEffect on
 // the server. The hook only runs on the client (Pages Router pages)
 // so this is purely a typecheck convenience.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;

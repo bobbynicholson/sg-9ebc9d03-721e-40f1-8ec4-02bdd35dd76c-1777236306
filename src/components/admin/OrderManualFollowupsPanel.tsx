@@ -1,14 +1,14 @@
 /**
- * OrderManualFollowupsPanel -- Wave 70.49c
+ * OrderManualFollowupsPanel - Wave 70.49c
  *
  * Surfaces the "things the system couldn't do itself" follow-up list
  * produced by releaseOrderResources() (Wave 70.48 + 70.49). Today
  * those are:
- *   - notify_hire_supplier  -- 3rd-party rentals we cancelled in our
+ *   - notify_hire_supplier  - 3rd-party rentals we cancelled in our
  *                              DB; supplier still needs a phone call
  *                              / email so they don't deliver
  *                              equipment we no longer need.
- *   - notify_outsource_provider -- outsourced caterers we cancelled
+ *   - notify_outsource_provider - outsourced caterers we cancelled
  *                              who otherwise show up to the kitchen.
  *
  * Reads the latest audit_logs row for the order with
@@ -75,7 +75,7 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
   const load = async () => {
     setLoading(true);
     try {
-      // Most-recent cancellation row -- if the order was cancelled
+      // Most-recent cancellation row - if the order was cancelled
       // multiple times (e.g. uncancelled then re-cancelled, rare but
       // possible), we surface the latest follow-ups.
       const { data: cancelRow } = await (supabase as any)
@@ -175,8 +175,8 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
     [followups, completedRefIds],
   );
 
-  if (loading) return null; // silent on load -- avoids layout flash
-  if (followups.length === 0) return null; // nothing to surface -- panel doesn't render
+  if (loading) return null; // silent on load - avoids layout flash
+  if (followups.length === 0) return null; // nothing to surface - panel doesn't render
 
   return (
     <Card className={pendingCount > 0 ? "border-amber-300" : "border-emerald-200"}>
@@ -203,7 +203,7 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-xs text-slate-600 mb-3">
-          The system cancelled these allocations on our side but couldn't notify the 3rd party automatically (per policy -- cancellation fees / accept-link UX issues). One quick call each.
+          The system cancelled these allocations on our side but couldn't notify the 3rd party automatically (per policy - cancellation fees / accept-link UX issues). One quick call each.
         </p>
         <ul className="space-y-2">
           {followups.map((f, i) => {

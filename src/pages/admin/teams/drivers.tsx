@@ -1,5 +1,5 @@
 /**
- * Drivers team landing -- hero + quick stats + tile shortcuts.
+ * Drivers team landing - hero + quick stats + tile shortcuts.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -35,7 +35,7 @@ function DriversTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, hoursWeek: 0, jobsToday: 0 });
 
-  // Pure gradient hero -- see kitchen.tsx for rationale.
+  // Pure gradient hero - see kitchen.tsx for rationale.
 
   useEffect(() => {
     let cancelled = false;

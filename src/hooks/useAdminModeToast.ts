@@ -1,5 +1,5 @@
 /**
- * useAdminModeToast -- Wave 70.31
+ * useAdminModeToast - Wave 70.31
  *
  * Fires a one-shot toast when the admin portal first enters "ops"
  * mode in a given browser session. Mirrors the toast pattern from
@@ -7,7 +7,7 @@
  *
  * Why ops only: the other modes (quiet/pipeline/review/setup) are
  * passive states the owner can observe. Ops means events are
- * actually happening today -- the operator should know the portal
+ * actually happening today - the operator should know the portal
  * has noticed.
  */
 import { useEffect, useRef } from "react";

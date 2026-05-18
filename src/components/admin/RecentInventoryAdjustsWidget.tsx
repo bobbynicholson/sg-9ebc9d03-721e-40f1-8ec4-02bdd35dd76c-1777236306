@@ -1,5 +1,5 @@
 /**
- * RecentInventoryAdjustsWidget -- last 5 inventory_transactions
+ * RecentInventoryAdjustsWidget - last 5 inventory_transactions
  * for the tenant.
  *
  * Phase 16 #10. Phase 7 #8 added a per-item movement history

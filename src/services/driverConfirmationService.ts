@@ -6,7 +6,7 @@ import { UserRole } from "@/types/app";
 
 // Admin-side roles that should receive dispatch / driver-status pings.
 // Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
-// were routing to orders.user_id -- which on this codebase is the
+// were routing to orders.user_id - which on this codebase is the
 // CLIENT, not the admin. Pings landed in client inboxes with
 // admin-style copy and /admin/* deep links.
 const ADMIN_DISPATCH_ROLES: UserRole[] = [
@@ -98,10 +98,10 @@ export const driverConfirmationService = {
    * Driver confirms departure from kitchen
    */
   async confirmDepartedKitchen(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
-    // Wave 49 B3 -- handover gate. Block the depart-kitchen tap until
+    // Wave 49 B3 - handover gate. Block the depart-kitchen tap until
     // a kitchen staff member has signed the equipment_handovers row
     // for this order. Pre-Wave-49 the driver could roll out without
-    // anyone proving the food + equipment got loaded -- pure trust.
+    // anyone proving the food + equipment got loaded - pure trust.
     // Now the kitchen lead's HandoverToDriverPanel sign-off is a
     // hard prerequisite. Bypass available via env flag for dev.
     if (process.env.NEXT_PUBLIC_BYPASS_HANDOVER_GATE !== "true") {
@@ -112,7 +112,7 @@ export const driverConfirmationService = {
         .eq("from_stage", "kitchen")
         .eq("to_stage", "driver");
       if (handoverErr) {
-        console.warn("[confirmDepartedKitchen] handover probe failed -- letting through:", handoverErr);
+        console.warn("[confirmDepartedKitchen] handover probe failed - letting through:", handoverErr);
       } else if (!handoverCount || handoverCount === 0) {
         throw new Error(
           "Kitchen has not signed this order over yet. Ask the kitchen lead to tap 'Sign over to driver' first.",
@@ -142,7 +142,7 @@ export const driverConfirmationService = {
 
     // Advance order status so the central sendStatusNotifications
     // fan-out fires (client email, in-app pushes, audit trail).
-    // Audit Notif G4 -- previously this only inserted a
+    // Audit Notif G4 - previously this only inserted a
     // driver_confirmations row + best-effort WhatsApp stub; the
     // order status stayed at 'ready' forever and no client-facing
     // email signalled the driver was en route. Non-blocking.
@@ -222,7 +222,7 @@ export const driverConfirmationService = {
     // Close the driver's auto-shift. Flow audit Leg E P0-4: the
     // autoClockOut hook used to live only in deliveryManagement, so
     // a driver who completed their day via DriverConfirmationPanel
-    // never closed the shift -- driver_shifts.actual_end stayed null
+    // never closed the shift - driver_shifts.actual_end stayed null
     // and the next auto-clock-in landed on top of an open shift.
     try {
       const { data: orderRow } = await supabase
@@ -243,7 +243,7 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Wave 49 B2 -- driver taps "Setup started" once rigging at the
+   * Wave 49 B2 - driver taps "Setup started" once rigging at the
    * venue has begun. Stamps orders.setup_started_at + driver_confirmations
    * audit row. Non-blocking on every sub-step so a failed mirror
    * never blocks the tap.
@@ -259,7 +259,7 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Wave 49 B2 -- driver taps "Service started" once food service
+   * Wave 49 B2 - driver taps "Service started" once food service
    * begins. Stamps orders.service_started_at.
    */
   async markServiceStarted(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
@@ -273,7 +273,7 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Wave 49 B2 -- driver taps "Departed venue" once the truck rolls
+   * Wave 49 B2 - driver taps "Departed venue" once the truck rolls
    * home. Stamps orders.departed_venue_at. Note this is BEFORE the
    * collection trip (which is its own driver_assignment with its own
    * en_route + completed lifecycle).
@@ -304,7 +304,7 @@ export const driverConfirmationService = {
    *   - autoClockOut so the driver's shift closes (matches
    *     confirmAtVenue's pattern)
    *
-   * Best-effort on every sub-step -- the operator can re-trigger
+   * Best-effort on every sub-step - the operator can re-trigger
    * individual cleanups from /admin/equipment if any fail.
    */
   async completeCollection(
@@ -411,7 +411,7 @@ export const driverConfirmationService = {
       const companyId = (orderRow as any)?.company_id;
       if (companyId) {
         const { driverPayService } = await import("@/services/driverPayService");
-        // Wave 49 B6 -- pass assignmentType so the snapshot lands in
+        // Wave 49 B6 - pass assignmentType so the snapshot lands in
         // the collection row, not the delivery row. Pre-Wave-49 this
         // call overwrote the delivery leg's locked pay every time.
         await (driverPayService as any).autoClockOut({
@@ -523,7 +523,7 @@ export const driverConfirmationService = {
    *
    * Audit (May 2026): previously the title said "Driver Confirmed"
    * (the opposite of what this function detects) and the recipient
-   * was order.user_id (the client). Both fixed -- title now reflects
+   * was order.user_id (the client). Both fixed - title now reflects
    * the missing confirmation, recipients are dispatch / admin only.
    */
   async sendEnRouteAlert(orderId: string, driverId: string) {
@@ -547,7 +547,7 @@ export const driverConfirmationService = {
 
     if (!driver || !order || !order.company_id) return;
 
-    // Wave 48 A5 -- per-order dedup. The check-en-route cron runs
+    // Wave 48 A5 - per-order dedup. The check-en-route cron runs
     // every 5 minutes; without dedup it re-broadcast the urgent
     // "driver hasn't confirmed" alert 12 times per hour into every
     // dispatcher's inbox. 60-minute window is the recovery margin.
@@ -626,7 +626,7 @@ export const driverConfirmationService = {
 
     // Pull company_id + user_id from the order so we hit a real
     // recipient. Previously this used 'admin' / 'system-id' which are
-    // not UUIDs -- the insert failed silently and dispatch never got
+    // not UUIDs - the insert failed silently and dispatch never got
     // the ping.
     const { data: order, error: orderErr2 } = await supabase
       .from('orders')
@@ -716,7 +716,7 @@ export const driverConfirmationService = {
       });
 
       // Wave 19 audit: this used to console.log the rendered template
-      // and TODO the actual send -- so en-route / arrived / departed
+      // and TODO the actual send - so en-route / arrived / departed
       // WhatsApp pings to the client never went out, even though the
       // operator saw "WhatsApp queued" in the admin notification feed.
       // Route through whatsappIntegrationService so the live WA API
@@ -746,7 +746,7 @@ export const driverConfirmationService = {
 };
 
 /**
- * Wave 49 B2 -- shared helper for the post-arrival venue stamps
+ * Wave 49 B2 - shared helper for the post-arrival venue stamps
  * (setup_started, service_started, departed_venue). Each one writes
  * a driver_confirmations audit row, stamps the matching column on
  * orders, and posts an admin notification so dispatch can see the
@@ -777,7 +777,7 @@ async function _stampPostArrivalEvent(opts: {
     .single();
   if (error) throw error;
 
-  // 2. Canonical stamp on orders -- only when null (idempotent)
+  // 2. Canonical stamp on orders - only when null (idempotent)
   try {
     const { data: prior } = await supabase
       .from('orders')

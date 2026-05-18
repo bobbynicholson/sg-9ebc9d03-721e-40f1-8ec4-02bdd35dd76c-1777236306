@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("Auth user lookup failed:", lookupErr?.message);
     }
 
-    // Resolve the tenant brand once -- used for the invite email styling.
+    // Resolve the tenant brand once - used for the invite email styling.
     const { data: company, error: companyErr } = await admin
       .from("companies")
       .select("company_name, primary_color, logo_url, slug")
@@ -131,7 +131,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (company?.slug ? `${origin}/${company.slug}/auth/callback` : `${origin}/auth/callback`);
 
     // Generate the activation link without sending Supabase's default
-    // template -- we send our own branded React-Email instead.
+    // template - we send our own branded React-Email instead.
     let acceptInviteUrl: string | null = null;
     if (!authUserId) {
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
@@ -157,7 +157,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       authUserId = linkData.user.id;
       acceptInviteUrl = linkData.properties.action_link;
     } else {
-      // Existing auth user -- generate a magic-link they can use to set
+      // Existing auth user - generate a magic-link they can use to set
       // up their portal access without going through invite-acceptance.
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "magiclink",
@@ -205,7 +205,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Send the branded invite email. Don't fail the whole request if
-    // the send fails -- the auth user + profile are already provisioned,
+    // the send fails - the auth user + profile are already provisioned,
     // and the admin can resend from the staff list.
     const recipientFirstName = (staff.full_name || "").split(" ")[0] || staff.full_name || "there";
     const inviterName =

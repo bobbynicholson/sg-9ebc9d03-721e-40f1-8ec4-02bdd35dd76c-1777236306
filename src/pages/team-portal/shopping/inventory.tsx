@@ -498,7 +498,7 @@ export default function ShoppingInventoryPage() {
           <DialogHeader>
             <DialogTitle>Movement history</DialogTitle>
             <DialogDescription>
-              {historyItem && `${historyItem.item_name} -- last 30 movements`}
+              {historyItem && `${historyItem.item_name} - last 30 movements`}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-96 overflow-y-auto -mx-6 px-6">

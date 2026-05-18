@@ -9,7 +9,7 @@
  *
  * **Batched / resumable.** A single request processes at most
  * `batch_size` pending rows (default 250, max 500). Returns
- * `{ ok, summary, processed, more }` -- the client loops calling
+ * `{ ok, summary, processed, more }` - the client loops calling
  * commit until `more === false`. The natural resume key is
  * `import_rows.status='pending'`: rows already inserted /
  * skipped / errored never come back. This is what stops a 4 000-row
@@ -21,11 +21,11 @@
  * batch we leave it at 'committing' so re-entry is legal.
  *
  * Idempotency:
- *   clients -- de-dupe by (company_id, lower(email)). Existing email
+ *   clients - de-dupe by (company_id, lower(email)). Existing email
  *              -> skipped (status='skipped').
- *   orders  -- looked up by client name + event_date. Existing match
+ *   orders  - looked up by client name + event_date. Existing match
  *              -> skipped.
- *   leads   -- de-dupe by email.
+ *   leads   - de-dupe by email.
  *
  * Tenant scoping: every insert sets company_id from the authenticated
  * session.
@@ -91,7 +91,7 @@ function sparseUpdate(payload: Record<string, any>): Record<string, any> {
 
 /**
  * Bulk dedup pre-fetch for the batch. One round trip per dedup table
- * instead of one per row -- the single biggest commit speedup. A
+ * instead of one per row - the single biggest commit speedup. A
  * 250-row client batch goes from ~500 round trips to ~3.
  */
 interface DedupMaps {
@@ -134,7 +134,7 @@ async function buildDedupMaps(
   const leadByEmail   = new Map<string, string>();
   const orderByKey    = new Map<string, string>();
 
-  // Run the pre-fetch queries in parallel -- they're independent.
+  // Run the pre-fetch queries in parallel - they're independent.
   await Promise.all([
     (async () => {
       if (clientEmails.size === 0 && clientNames.size === 0) return;
@@ -299,7 +299,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Optional target region. The importer page lets the operator
     // pick which branch the imported clients / orders belong to.
-    // Validated against regions for this tenant -- a poisoned id
+    // Validated against regions for this tenant - a poisoned id
     // from another company is rejected rather than silently dropped.
     let targetRegionId: string | null = null;
     const requestedRegionId = (req.body && typeof req.body === "object")
@@ -339,7 +339,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Per-call cap. With bulk dedup pre-fetch (one query per dedup
     // table for the whole batch) and 8x parallel row processing, a
-    // 1 000-row batch finishes in ~10-15s -- well inside Vercel's
+    // 1 000-row batch finishes in ~10-15s - well inside Vercel's
     // 300s function cap with margin for slow DB hops. Override via
     // ?batch_size=N for huge tenants (clamped 50..2000).
     const batchSize = Math.min(
@@ -352,7 +352,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Cast: import_rows isn't in the auto-generated Database types
-    // yet -- without it TS chases the union forever ("Type
+    // yet - without it TS chases the union forever ("Type
     // instantiation is excessively deep").
     const supabase = getServiceSupabase() as any;
     // Status-filtered fetch is the resume key. On the first call this
@@ -361,7 +361,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // rows now have status='inserted'/'skipped'/'updated'/'error').
     // For dry runs we don't want to slice the dataset (the operator
     // is sanity-checking) but we also don't want to chew an entire
-    // 11 000-row workbook in one request -- cap at 1 000 for dry-run
+    // 11 000-row workbook in one request - cap at 1 000 for dry-run
     // sample.
     const rows = dryRun
       ? await listImportRows(jobId, { status: "pending", limit: 1000 })
@@ -403,7 +403,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // commit so subsequent passes (invoices link to orders by
     // order_number; payments link to invoices by invoice_number)
     // can resolve foreign keys against rows that just landed in
-    // this same batch -- no second DB round trip needed.
+    // this same batch - no second DB round trip needed.
     const newOrderByNumber = new Map<string, { id: string; client_id: string | null }>();
     const newInvoiceByNumber = new Map<string, { id: string; client_id: string; order_id: string | null }>();
 
@@ -440,7 +440,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
           imported_filename: importedFilename,
-          // Imported-history rollup (Feature B). Sparse -- only the
+          // Imported-history rollup (Feature B). Sparse - only the
           // columns the operator actually filled in get persisted;
           // rest stay null. Surfaced on the contact card so the
           // client doesn't look like a fresh signup.
@@ -453,7 +453,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (existing && decision === "update") {
           if (!dryRun) {
-            // Sparse merge -- only fields present in the new sheet
+            // Sparse merge - only fields present in the new sheet
             // overwrite. Empty cells leave the existing record's
             // value alone. Lets operators re-upload a cleaned sheet
             // without wiping notes / phones / addresses they typed
@@ -547,7 +547,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // name/email/phone so the order can land. The stub carries
         // the same import_job_id so rollback handles it.
         // Pre-audit (May 2026) this branch silently wrote
-        // client_id=null and the insert failed -- the bug the
+        // client_id=null and the insert failed - the bug the
         // strategic audit caught.
         if (!clientId && !dryRun) {
           const stubName = (mapped.client_name as string)?.trim()
@@ -565,7 +565,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               is_active: true,
               import_job_id: jobId,
               imported_filename: importedFilename,
-              notes: "Auto-created from order import -- no matching client row in the sheet.",
+              notes: "Auto-created from order import - no matching client row in the sheet.",
             })
             .select("id")
             .single();
@@ -689,7 +689,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // own client lookup didn't resolve.
             if (!clientId) clientId = inBatch.client_id;
           } else {
-            // Fall back to a DB lookup -- the operator may be
+            // Fall back to a DB lookup - the operator may be
             // importing only invoices against orders that already
             // exist in the platform from a previous import.
             const { data: existingOrder, error: existingOrderErr } = await supabase
@@ -725,7 +725,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               is_active: true,
               import_job_id: jobId,
               imported_filename: importedFilename,
-              notes: "Auto-created from invoice import -- no matching client row in the sheet.",
+              notes: "Auto-created from invoice import - no matching client row in the sheet.",
             })
             .select("id")
             .single();
@@ -736,7 +736,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           summary.clients.inserted += 1;
         }
 
-        // Skip when this invoice number is already on file -- before
+        // Skip when this invoice number is already on file - before
         // commit so the operator sees a friendly message rather than
         // a unique-constraint violation.
         if (mapped.invoice_number) {
@@ -975,7 +975,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Runs after clients + orders (so quote.client_id can resolve
     // against any newly-inserted clients, including stubs the orders
     // pass auto-created). Quotes dedupe by quote_number per company
-    // -- the DB enforces uniqueness via a partial index, but we
+    // - the DB enforces uniqueness via a partial index, but we
     // skip-with-message before the insert so the operator sees a
     // clean "duplicate quote number" rather than a SQL error.
     await runChunked(quoteRows, ROW_CONCURRENCY, async (r) => {
@@ -992,7 +992,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const k = String(mapped.client_name).toLowerCase().trim();
           clientId = newClientByName.get(k) ?? dedup.clientByName.get(k) ?? null;
         }
-        // No stub-creation for quotes -- quotes.client_id is nullable
+        // No stub-creation for quotes - quotes.client_id is nullable
         // on the schema, so a quote without a matched client just
         // lands with client_id=null and the dashboard handles it.
 
@@ -1123,7 +1123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (existing && decision === "update") {
           if (!dryRun) {
-            // Sparse merge (Feature F) -- see clients pass for why.
+            // Sparse merge (Feature F) - see clients pass for why.
             const patch = sparseUpdate(payload);
             const { error } = await supabase
               .from("leads")
@@ -1181,7 +1181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // After processing this batch, count how many rows remain pending.
-    // If zero, we're done -- flip the job to 'completed' and stamp the
+    // If zero, we're done - flip the job to 'completed' and stamp the
     // final summary. If non-zero, the client will call us again.
     let remainingPending = 0;
     if (!dryRun) {

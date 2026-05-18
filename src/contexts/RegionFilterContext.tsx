@@ -15,7 +15,7 @@
  *   - Pages opt in by reading `regionFilterId` from the hook and
  *     adding `.eq("region_id", id)` to their queries when it's set.
  *     They MUST also accept null rows (legacy / company-wide) when the
- *     filter is "all" -- a region_id IS NULL row should never disappear
+ *     filter is "all" - a region_id IS NULL row should never disappear
  *     just because someone scoped to a branch.
  */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
@@ -33,7 +33,7 @@ interface RegionFilterValue {
   options: KitchenOption[];
   /** True when the dropdown should be shown (more than one origin). */
   hasMultipleBranches: boolean;
-  /** Setter -- pass null to clear back to "all". */
+  /** Setter - pass null to clear back to "all". */
   setRegionFilterId: (id: string | null) => void;
 }
 
@@ -47,7 +47,7 @@ export function RegionFilterProvider({ children }: { children: React.ReactNode }
   const companyId = user?.company_id ?? null;
   const { kitchens, loading } = useCompanyKitchens(companyId);
 
-  // Only "real" regions can be used as a filter -- the HQ fallback is a
+  // Only "real" regions can be used as a filter - the HQ fallback is a
   // virtual origin that maps to NULL region_id, so picking it would be
   // identical to "all" and just confuses people.
   //
@@ -62,7 +62,7 @@ export function RegionFilterProvider({ children }: { children: React.ReactNode }
     const primary: string | null = profile?.region_id ?? null;
     if (covered.length > 0) return realRegions.filter((r) => covered.includes(r.id));
     if (primary) return realRegions.filter((r) => r.id === primary);
-    return realRegions; // unscoped legacy user -- preserve current behaviour
+    return realRegions; // unscoped legacy user - preserve current behaviour
   }, [kitchens, profile?.role, profile?.regions_covered, profile?.region_id]);
   const hasMultipleBranches = options.length > 1;
 

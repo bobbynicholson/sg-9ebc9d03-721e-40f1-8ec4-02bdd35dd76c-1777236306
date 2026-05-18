@@ -16,7 +16,7 @@ import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * Wave 70.23 -- route classification. The Footer is mounted on every
+ * Wave 70.23 - route classification. The Footer is mounted on every
  * page (83 import sites) but the marketing footer makes no sense on
  * internal tools like /admin, /team-portal/* and the client portal.
  *
@@ -71,10 +71,10 @@ export function SlimInternalFooter({
   isWhiteLabeled: boolean;
 }) {
   const currentYear = new Date().getFullYear();
-  // Wave 70.27 -- pinned to the bottom of the viewport with `fixed`
+  // Wave 70.27 - pinned to the bottom of the viewport with `fixed`
   // so it never leaves dead whitespace between content and footer
   // on short admin pages (the page wrappers use min-h-screen which
-  // forces them to 100vh tall even when content is short -- if the
+  // forces them to 100vh tall even when content is short - if the
   // footer were a normal block, that whole 100vh would render
   // before the footer hit the page bottom). Offsets for the
   // admin / portal sidebars on lg+ so the footer doesn't render
@@ -119,7 +119,7 @@ export function SlimInternalFooter({
 }
 
 export function Footer() {
-  // Wave 70.23 fix -- ALL hooks must run unconditionally and in the
+  // Wave 70.23 fix - ALL hooks must run unconditionally and in the
   // same order every render (React rules-of-hooks). The previous
   // version returned the slim footer early BEFORE the auth/ref/
   // state/effect hooks ran, which the linter correctly rejected.
@@ -175,7 +175,7 @@ export function Footer() {
     };
   }, [isSignedIn, variant]);
 
-  // Wave 70.26 -- on internal routes the slim footer is mounted
+  // Wave 70.26 - on internal routes the slim footer is mounted
   // globally via _app.tsx (GlobalInternalFooter) so every admin /
   // team-portal / client-portal page gets it automatically, even
   // the 30+ pages that never imported <Footer /> in the first place.

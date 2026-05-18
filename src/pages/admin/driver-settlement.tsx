@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/driver-settlement -- per-driver pay summary for the admin.
+ * /admin/driver-settlement - per-driver pay summary for the admin.
  *
  * Lists every active driver in the company with their pay breakdown
  * for a selected period: hourly pay (from driver_shifts), distance
  * pay (from delivered orders' delivery_distance_km), callout pay
  * (flat per delivery). Sums to the grand total.
  *
- * Source of truth: driverPayService.getPaySummary -- same calc the
+ * Source of truth: driverPayService.getPaySummary - same calc the
  * driver's own /team-portal/driver/earnings page uses, so admin and
  * driver always see the same numbers.
  *
@@ -421,7 +421,7 @@ function DriverSettlementPage() {
                     <tbody>
                       {rows
                         // Hide removed drivers when they have nothing
-                        // to pay out in the selected period -- noise
+                        // to pay out in the selected period - noise
                         // the operator doesn't need. Active drivers
                         // always show even with zero totals so their
                         // empty rows still surface.
@@ -875,9 +875,9 @@ function FragmentRows({
                   onChange={(e) => setEditingShift({ ...editingShift, rate_multiplier: Number(e.target.value) })}
                   className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 >
-                  <option value="1">1x -- standard hours</option>
-                  <option value="1.5">1.5x -- overtime</option>
-                  <option value="2">2x -- Sunday / public holiday (BCEA)</option>
+                  <option value="1">1x - standard hours</option>
+                  <option value="1.5">1.5x - overtime</option>
+                  <option value="2">2x - Sunday / public holiday (BCEA)</option>
                 </select>
               </div>
               <div>

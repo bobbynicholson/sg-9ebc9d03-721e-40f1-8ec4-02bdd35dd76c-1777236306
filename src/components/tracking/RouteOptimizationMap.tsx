@@ -86,13 +86,13 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
     return (
       <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
         <p className="text-slate-500 text-sm text-center px-4">
-          Route map unavailable -- none of the stops have been geocoded yet.
+          Route map unavailable - none of the stops have been geocoded yet.
         </p>
       </div>
     );
   }
 
-  // Route line coordinates -- numbers coerced for safety.
+  // Route line coordinates - numbers coerced for safety.
   const routeCoordinates = mappableStops.map((stop) => [
     Number(stop.venue_lat),
     Number(stop.venue_lng),

@@ -1,14 +1,14 @@
 /**
- * KitchenLiveStateStrip -- Wave 70.7b
+ * KitchenLiveStateStrip - Wave 70.7b
  *
  * The 4-metric "what's happening right now" strip that sits at the
  * top of the kitchen nav (below the service mode badge). Each pill
  * is a tap target that deep-links straight into the filtered view.
  *
- *   Overdue   -- prep tasks past start_at and not done
- *   On pass   -- orders.status = 'ready' for today
- *   In prep   -- orders today, status preparing/confirmed
- *   Next      -- HH:mm of the next event (or "--" if none)
+ *   Overdue   - prep tasks past start_at and not done
+ *   On pass   - orders.status = 'ready' for today
+ *   In prep   - orders today, status preparing/confirmed
+ *   Next      - HH:mm of the next event (or "--" if none)
  *
  * Layout: 2x2 grid on mobile (drawer is 90vw), 4x1 horizontal on
  * desktop expanded sidebar. The grid switch is via Tailwind only.

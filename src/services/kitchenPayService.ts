@@ -2,7 +2,7 @@
  * Kitchen pay calculation + payslip persistence.
  *
  * Wave 36.3. Simpler than driverPayService.ts because there's no
- * distance / callout / vehicle add-on -- kitchen pay is just:
+ * distance / callout / vehicle add-on - kitchen pay is just:
  *
  *   total_pay  =  base_pay + overtime_pay + multiplier_pay
  *
@@ -13,12 +13,12 @@
  *   multiplier_pay= multiplier_hours * hourly_rate *
  *                   (rate_multiplier - 1)            (additional
  *                   premium for shifts marked 1.5x or 2x via the
- *                   roster modal -- BCEA Sundays / public holidays)
+ *                   roster modal - BCEA Sundays / public holidays)
  *
  * Reads from kitchen_duty_shifts (live actuals) joined to
  * kitchen_shifts (roster, for the rate_multiplier). Persists to
  * kitchen_payslips. Idempotent on (company_id, staff_id,
- * period_start, period_end) -- a re-summarise lands on the same
+ * period_start, period_end) - a re-summarise lands on the same
  * row.
  */
 
@@ -87,7 +87,7 @@ interface CompanyRow {
 
 /**
  * Summarise kitchen pay for one staffer over a date window.
- * Read-only -- does NOT persist. Use persistPayslip() to lock it in.
+ * Read-only - does NOT persist. Use persistPayslip() to lock it in.
  */
 export async function summariseStaffPay(
   supabase: SupabaseClient,

@@ -1,28 +1,28 @@
 /**
- * useCleaningPortalMode -- Wave 70.28
+ * useCleaningPortalMode - Wave 70.28
  *
  * Detects which phase of the day the cleaning team is in, based on
  * three signals queried from the tenant's data:
  *
  *   1. Outbound orders for today (status in confirmed/preparing/
- *      ready/in_transit) -- equipment going OUT
+ *      ready/in_transit) - equipment going OUT
  *   2. Expected handovers within the next 4h (cleaning_event_handovers
- *      status='expected' with expected_at in window) -- equipment
+ *      status='expected' with expected_at in window) - equipment
  *      coming BACK
- *   3. Active handovers (status='in_progress') -- equipment being
+ *   3. Active handovers (status='in_progress') - equipment being
  *      washed right now
  *
  * Modes (priority-ordered, first match wins):
  *
- *   returns   -- expected handover due in next 4h OR an in-progress
+ *   returns   - expected handover due in next 4h OR an in-progress
  *                handover exists. The peak activity window.
- *   wrap      -- no returns due in next 4h, no outbound today still
+ *   wrap      - no returns due in next 4h, no outbound today still
  *                in the field, BUT an in-progress handover exists.
  *                Effectively "last washes of the day".
- *   dispatch  -- outbound equipment in the field today (orders not
+ *   dispatch  - outbound equipment in the field today (orders not
  *                yet completed) OR equipment still on a non-today
  *                handover (multi-day events). No active returns.
- *   quiet     -- none of the above. No events out, nothing returning,
+ *   quiet     - none of the above. No events out, nothing returning,
  *                nothing being washed. Maintenance window.
  *
  * Manual override: sessionStorage-scoped, same pattern as
@@ -85,14 +85,14 @@ function computeAutoMode(
   returnsDue: number,
   activeHandovers: number,
 ): CleaningPortalMode {
-  // returns wins -- it's the most urgent surface
+  // returns wins - it's the most urgent surface
   if (returnsDue > 0 || activeHandovers > 0) {
     // Distinguish "active wash but no more incoming" (wrap) from
     // "incoming returns or peak wash" (returns).
     if (returnsDue === 0 && outboundToday === 0 && activeHandovers > 0) return "wrap";
     return "returns";
   }
-  // Equipment in the field but nothing back yet -- dispatch window
+  // Equipment in the field but nothing back yet - dispatch window
   if (outboundToday > 0) return "dispatch";
   return "quiet";
 }
@@ -160,7 +160,7 @@ export function useCleaningPortalMode(): CleaningPortalModeState {
       setActiveHandovers(activeRes?.count || 0);
       setNextReturnAt((nextRes?.data?.expected_at as string | null) || null);
     } catch {
-      // Silent fail -- mode defaults to "quiet" via the zeros.
+      // Silent fail - mode defaults to "quiet" via the zeros.
     } finally {
       setLoading(false);
     }

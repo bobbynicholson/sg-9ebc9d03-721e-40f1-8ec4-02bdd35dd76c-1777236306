@@ -1,5 +1,5 @@
 /**
- * /team-portal/shopping/buy-list -- Wave 70.30
+ * /team-portal/shopping/buy-list - Wave 70.30
  *
  * Canonical "what needs buying" surface. Reframes the alerts page
  * (which presented inventory_demand_outlook as a passive status
@@ -144,7 +144,7 @@ export default function ShoppingBuyListPage() {
       });
   }, [rows, search, filter]);
 
-  // Compute the qty to buy for a single row -- prefer shortfall if
+  // Compute the qty to buy for a single row - prefer shortfall if
   // positive, otherwise reorder_quantity, otherwise min - on_hand.
   const buyQtyFor = (r: OutlookRow): number => {
     const short = Number(r.shortfall_next_7_days || 0);
@@ -242,7 +242,7 @@ export default function ShoppingBuyListPage() {
     ? activeList.list.isYours
       ? "Your active list"
       : "Team active list"
-    : "No active list -- a new one will start when you add an item";
+    : "No active list - a new one will start when you add an item";
 
   return (
     <>

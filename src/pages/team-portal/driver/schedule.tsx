@@ -168,7 +168,7 @@ export default function DriverSchedulePage() {
                           </div>
                           {/* Order value was previously shown here. Removed
                               to stop leaking the catering company's revenue
-                              to drivers -- drivers should see their own
+                              to drivers - drivers should see their own
                               payout, not the client's invoice. Driver-side
                               earnings live on /team-portal/driver/earnings
                               and /dashboard. */}

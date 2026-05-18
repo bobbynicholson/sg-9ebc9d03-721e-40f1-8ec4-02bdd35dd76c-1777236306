@@ -56,7 +56,7 @@ export interface ValidateSubmissionResult {
 // ---------- Validation ----------
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Permissive international phone -- digits, spaces, dashes, parens, plus.
+// Permissive international phone - digits, spaces, dashes, parens, plus.
 const PHONE_RE = /^[+\d][\d\s\-().]{5,24}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T.*)?$/;
 
@@ -70,7 +70,7 @@ function isEmpty(value: any): boolean {
 }
 
 function isVisible(field: any, payload: Record<string, any>): boolean {
-  // Two conditional shapes are accepted -- the legacy
+  // Two conditional shapes are accepted - the legacy
   // {conditional: {showIfFieldId, showIfValue}} from the original
   // migration and the flat {showIf: {field, equals}} the server-side
   // parser converged on. Normalise here so renderers can store either.
@@ -118,7 +118,7 @@ export function validateField(field: EmbedField, value: any): ValidateResult {
           return { ok: false, error: "Invalid format" };
         }
       } catch {
-        // Bad regex from config -- fail closed but with a clear log signal.
+        // Bad regex from config - fail closed but with a clear log signal.
         // Don't block submission for a config bug.
       }
     }
@@ -351,7 +351,7 @@ export function hashIp(ip: string): string {
  */
 export function validateRedirectUrl(input: unknown): { ok: true } | { ok: false; error: string } {
   if (input === null || input === undefined || input === "") {
-    return { ok: true }; // empty / null is fine -- means "render success card"
+    return { ok: true }; // empty / null is fine - means "render success card"
   }
   if (typeof input !== "string") {
     return { ok: false, error: "Redirect URL must be a string." };
@@ -361,7 +361,7 @@ export function validateRedirectUrl(input: unknown): { ok: true } | { ok: false;
   if (trimmed.length > 2000) {
     return { ok: false, error: "Redirect URL is too long." };
   }
-  // Protocol-relative or scheme-less is ambiguous in browsers -- reject.
+  // Protocol-relative or scheme-less is ambiguous in browsers - reject.
   let url: URL;
   try {
     url = new URL(trimmed);
@@ -372,7 +372,7 @@ export function validateRedirectUrl(input: unknown): { ok: true } | { ok: false;
   if (url.protocol !== "https:") {
     return { ok: false, error: "Redirect URL must use https." };
   }
-  // Reject embedded credentials -- they're a phishing tell and most browsers
+  // Reject embedded credentials - they're a phishing tell and most browsers
   // strip them anyway.
   if (url.username || url.password) {
     return { ok: false, error: "Redirect URL may not contain credentials." };
@@ -451,7 +451,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Atomic rate limit -- delegates to the increment_embed_rate_limit
+ * Atomic rate limit - delegates to the increment_embed_rate_limit
  * Postgres function (see migration embed_forms_hardening_foundation).
  * The previous select-then-update implementation had a race the
  * security audit flagged: two concurrent requests both read count=N,
@@ -495,7 +495,7 @@ export async function checkAndIncrementRateLimit(
     }
     return { allowed: true, remaining: Math.max(0, limit - count) };
   } catch (err) {
-    // Fail-open on infra error -- better to accept a submission than
+    // Fail-open on infra error - better to accept a submission than
     // black-hole a customer enquiry. Log and move on.
     console.warn("[embed] rate limit RPC failed", err);
     return { allowed: true, remaining: limit };

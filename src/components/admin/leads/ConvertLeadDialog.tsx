@@ -123,7 +123,7 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Pro
           setMode({ kind: "ready", quote: ready });
           return;
         }
-        // No accepted convertible quote -- show the acceptance prompt
+        // No accepted convertible quote - show the acceptance prompt
         // anchored to whichever quote is most recent.
         setMode({ kind: "needs_acceptance", latestQuote: quotes[0] });
       } catch (err: any) {

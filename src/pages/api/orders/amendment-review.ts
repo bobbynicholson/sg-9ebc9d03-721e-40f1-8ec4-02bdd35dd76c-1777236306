@@ -1,7 +1,7 @@
 /**
  * POST /api/orders/amendment-review
  *
- * Admin reviews a pending amendment request -- approve, reject, or
+ * Admin reviews a pending amendment request - approve, reject, or
  * partial-approve. Approval applies the diff to the order row and
  * triggers the cascade: kitchen prep regen, shopping list refresh,
  * inventory deduction recalc, invoice update if the total changed.
@@ -89,9 +89,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Wave 24: cross-cutting audit_logs entry. Without this the
       // platform-wide audit feed had no record of WHO declined the
-      // change request -- problematic for compliance, dispute
+      // change request - problematic for compliance, dispute
       // resolution ("we never agreed to that price change"), and
-      // operator hand-off across shifts. Best-effort -- a failed log
+      // operator hand-off across shifts. Best-effort - a failed log
       // never rolls back the review.
       try {
         await (ssr as any).from("audit_logs").insert({
@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Notify the client that their change request was declined.
-      // Best-effort -- a notification failure must not roll back the
+      // Best-effort - a notification failure must not roll back the
       // review. requested_by_user_id is the client's auth uid, fall
       // back to the orders->clients lookup if it's missing.
       try {
@@ -159,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (action === "approve") {
       toApply = { ...proposed };
     } else {
-      // approve_partial -- intersect proposed with apply_keys.
+      // approve_partial - intersect proposed with apply_keys.
       if (!Array.isArray(apply_keys) || apply_keys.length === 0) {
         return res.status(400).json({ error: "apply_keys required for approve_partial" });
       }
@@ -258,7 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Stamp the request as approved + capture snapshot.
     await ssr.from("order_amendment_requests").update({
       status: action === "approve_partial" && Object.keys(toApply).length < Object.keys(proposed).length
-        ? "approved" // still 'approved' even when partial -- keys list lives in applied_snapshot
+        ? "approved" // still 'approved' even when partial - keys list lives in applied_snapshot
         : "approved",
       reviewed_by_user_id: user.id,
       reviewed_at: nowIso,
@@ -365,7 +365,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } as any).eq("id", request_id);
 
     // Notify the client that their change went through. Best-effort
-    // -- a notification failure must not roll back the amendment.
+    // - a notification failure must not roll back the amendment.
     try {
       const { data: orderRow, error: orderRowErr3 } = await ssr
         .from("orders")
@@ -409,7 +409,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wave 24: audit_logs entry for the approve path. Captures WHO
     // applied the change + WHAT changed (before snapshot, applied
     // keys, cascade outcome). Critical for compliance + dispute
-    // resolution -- the operator can prove "guest count moved from
+    // resolution - the operator can prove "guest count moved from
     // 80 to 120 at 10:45 by jane@spitco.test" and the cascade
     // outcomes show whether kitchen prep + invoice + inventory all
     // re-sync'd successfully.

@@ -20,7 +20,7 @@ import "@/styles/globals.css";
 // (Header, Footer, etc.) calls useAuth() and bombs without the
 // provider. The right shape is to keep AuthProvider wrapping
 // everything but make the provider itself a no-op fetch on public
-// routes -- shipped in Phase 4 P2-14 reframe.
+// routes - shipped in Phase 4 P2-14 reframe.
 
 export default function App({ Component, pageProps }: AppProps) {
   // Tenant pre-auth pages (/[company_slug]/login etc.) ship their
@@ -67,7 +67,7 @@ export default function App({ Component, pageProps }: AppProps) {
           <TenantBrandingApplier initialBranding={initialBranding} />
           <RegionFilterProvider>
             <Component {...pageProps} />
-            {/* Wave 70.26 -- slim internal footer mounted globally
+            {/* Wave 70.26 - slim internal footer mounted globally
                 so every admin / team-portal / client-portal page
                 shows it, branded to the active tenant. Self-hides
                 on marketing routes; per-page <Footer /> components

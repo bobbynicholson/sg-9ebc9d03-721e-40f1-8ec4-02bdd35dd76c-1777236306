@@ -8,7 +8,7 @@
  * inline structured-error display so the operator never loses their
  * edits if a send fails.
  *
- * The dialog deliberately does NOT close on error -- the operator
+ * The dialog deliberately does NOT close on error - the operator
  * reads the diagnosis, clicks the Fix link, and comes back with the
  * draft still intact. It only closes on a successful send.
  */
@@ -45,7 +45,7 @@ export interface SendEmailDialogError {
   /** Optional deep link to where the operator fixes the issue. */
   fix_link?: string;
   /** Set when the failure is the platform's responsibility (no fix
-   *  link) -- shows "Retry" instead of "Fix this". */
+   *  link) - shows "Retry" instead of "Fix this". */
   retryable?: boolean;
 }
 
@@ -220,7 +220,7 @@ export function SendEmailDialog(props: SendEmailDialogProps) {
               className="font-mono text-sm"
             />
             <p className="text-xs text-slate-500">
-              Merge tags have been replaced with the actual values. Edit freely -- the
+              Merge tags have been replaced with the actual values. Edit freely - the
               client receives exactly what you see here.
             </p>
           </div>
@@ -244,7 +244,7 @@ export function SendEmailDialog(props: SendEmailDialogProps) {
             </div>
           )}
 
-          {/* Inline error -- shown without closing the dialog so the
+          {/* Inline error - shown without closing the dialog so the
               operator can read the diagnosis, click Fix, and come back
               to their unsaved draft. */}
           {inlineError && (

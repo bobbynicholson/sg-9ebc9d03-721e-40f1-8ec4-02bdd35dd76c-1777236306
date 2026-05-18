@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/platform/cms-pages -- Bobby's marketing CMS for cateringms.com.
+ * /admin/platform/cms-pages - Bobby's marketing CMS for cateringms.com.
  *
- * NOT a tenant feature -- this is super-admin scope. The pages
+ * NOT a tenant feature - this is super-admin scope. The pages
  * managed here appear on the public marketing site, never inside a
  * catering company's portal.
  *
  * Two modes:
- *   - List   -- every page on file, edit/delete inline
- *   - Edit   -- title, slug, content, meta. Sticky preview panel.
+ *   - List   - every page on file, edit/delete inline
+ *   - Edit   - title, slug, content, meta. Sticky preview panel.
  *               AI Draft Assistant generates a full post via Sonnet.
  *
  * Both modes use PlatformNav so the operator never loses orientation.
@@ -57,7 +57,7 @@ const EMPTY_FORM = {
 };
 
 // Wave 24: super_admin gate. The header comment already notes "NOT
-// a tenant feature -- this is super-admin scope" but the page had no
+// a tenant feature - this is super-admin scope" but the page had no
 // runtime gate, so a tenant admin who guessed the URL could load
 // (and via the underlying cmsService, mutate) public marketing
 // pages. ProtectedRoute hides the page entirely below super_admin.
@@ -112,7 +112,7 @@ function CMSPageManagement() {
         header_image_url: json.url,
         // If the operator hasn't typed alt text yet, leave it empty
         // so the save guard prompts them. Don't auto-fill from the
-        // filename -- that's almost always lazy SEO.
+        // filename - that's almost always lazy SEO.
       }));
       toast({
         title: "Image uploaded",
@@ -270,7 +270,7 @@ function CMSPageManagement() {
 
   const editing = editingPage || isCreating;
 
-  // Lightweight markdown preview -- handles ##, **, line breaks.
+  // Lightweight markdown preview - handles ##, **, line breaks.
   const previewHtml = useMemo(() => {
     const md = formData.content || "";
     const escaped = md

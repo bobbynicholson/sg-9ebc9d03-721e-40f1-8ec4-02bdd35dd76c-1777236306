@@ -1,8 +1,8 @@
 /**
- * SentLogPanel -- after-sales emails sent log surface.
+ * SentLogPanel - after-sales emails sent log surface.
  *
  * Extracted from /admin/after-sales-emails. That page was previously a
- * redirect stub pointing at /admin/messaging-templates -- so this panel
+ * redirect stub pointing at /admin/messaging-templates - so this panel
  * shows an equivalent "moved" notice without auto-redirecting (the
  * redirect would yank the user out of the Lifecycle Emails hub mid-tab).
  *
@@ -10,7 +10,7 @@
  * bookmark links. When the real sent-log surface lands later it drops
  * in here without touching the hub.
  *
- * Pure component: no AdminNav / NoIndexMeta / page header -- those are
+ * Pure component: no AdminNav / NoIndexMeta / page header - those are
  * page concerns. This is just the body.
  */
 import Link from "next/link";

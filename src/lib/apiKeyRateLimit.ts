@@ -3,11 +3,11 @@
  *
  * Two implementations live here:
  *
- *  - consumeApiKeyRateLimit (in-memory, sync) -- the original P0-17
+ *  - consumeApiKeyRateLimit (in-memory, sync) - the original P0-17
  *    sliding window. Per-Vercel-function-instance, so ceiling is
  *    roughly (max * concurrent_instances). Cheap, but imprecise.
  *
- *  - consumeApiKeyRateLimitDb (DB-backed, async) -- Phase 3 P2F-2.
+ *  - consumeApiKeyRateLimitDb (DB-backed, async) - Phase 3 P2F-2.
  *    Calls public.consume_api_key_rate_limit RPC which atomically
  *    increments + checks against the per-minute window via INSERT
  *    ON CONFLICT. Hard ceiling regardless of instance count.
@@ -147,7 +147,7 @@ export async function consumeApiKeyRateLimitWindowed(
   } catch (e) {
     console.warn("[consumeApiKeyRateLimitWindowed] falling back to in-memory:", e);
     // Cheap in-memory fallback using the same Map as the standard
-    // limiter -- single window cap, no sliding. Different bucket key
+    // limiter - single window cap, no sliding. Different bucket key
     // so it doesn't collide with per-minute caps for the same hash.
     const inMem = consumeApiKeyRateLimit(`${keyHash}|w${options.windowSeconds}`, {
       maxPerMinute: options.max,

@@ -204,7 +204,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Allocate the credit note against the original invoice. Failure
-    // here is non-fatal -- the credit note is in Xero, the operator
+    // here is non-fatal - the credit note is in Xero, the operator
     // can allocate manually.
     try {
       await fetch(`${XERO_API}/CreditNotes/${creditNoteId}/Allocations`, {
@@ -247,7 +247,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Phase 5 #6: shared helper -- same as sync-invoice.ts, so a fix
+// Phase 5 #6: shared helper - same as sync-invoice.ts, so a fix
 // to the refresh logic lands once. Import lives at the top of the
 // file.
 async function ensureFreshAccessToken(

@@ -7,7 +7,7 @@
  * Wave 70.50b: refactored to call markQuoteAsLost() so admin "Mark as
  * lost" and client decline use the same code path with identical side
  * effects (status flip + lead flip + email + notify + audit). The two
- * paths had drifted -- admin lost flow skipped the lead flip, email,
+ * paths had drifted - admin lost flow skipped the lead flip, email,
  * and notification.
  *
  * Body:
@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const reasonNote = typeof body.reason === "string"
     ? body.reason.trim().slice(0, 1000)
     : null;
-  // Default to 'no_response' -- captures the most-common "I never
+  // Default to 'no_response' - captures the most-common "I never
   // heard back" decline pattern. Caller can pass a more-specific
   // value (the client UI may add a dropdown later in Wave 70.51).
   const lostReason: LostReason = isValidLostReason(body.lost_reason)
@@ -65,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (result.flipped === false && result.alreadyTerminal) {
-    // Idempotent re-call -- the page may double-fire if the user clicks
+    // Idempotent re-call - the page may double-fire if the user clicks
     // twice fast. Respond 200 so the UI shows success.
     return res.status(200).json({ ok: true, alreadyRejected: true, quoteId: result.quote_id });
   }

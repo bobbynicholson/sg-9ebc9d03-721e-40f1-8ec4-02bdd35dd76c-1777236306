@@ -4,7 +4,7 @@
  * Distilled from AdminNav.tsx after the May 2026 fix. The bug there:
  * `slugHrefPath` (the link being tested) was being compared against
  * itself in the candidates loop, so the third comparison was trivially
- * true on every nav item -- every link "matched", and the longest-match
+ * true on every nav item - every link "matched", and the longest-match
  * resolver picked whichever entry had the longest href. Every other
  * portal nav had its own simpler bug (naive equality, naive
  * startsWith), so we centralise the logic here.
@@ -71,7 +71,7 @@ export function matchesHref(href: string, deps: MatcherDeps): boolean {
   const { path: hrefPath, query: hrefQuery } = splitHref(href);
   const slugHrefPath = splitHref(withSlug(href)).path;
 
-  // Candidates are the *current* location -- the user's actual URL.
+  // Candidates are the *current* location - the user's actual URL.
   // Never include the link being tested in here.
   const candidates = [
     stripQuery(router.pathname),

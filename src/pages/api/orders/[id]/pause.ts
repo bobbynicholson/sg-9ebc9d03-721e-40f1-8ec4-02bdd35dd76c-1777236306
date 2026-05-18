@@ -2,7 +2,7 @@
  * POST /api/orders/[id]/pause
  *
  * Admin-side order pause. The client phoned to say "we might still go
- * ahead, hold tight" -- different from cancel because the trajectory
+ * ahead, hold tight" - different from cancel because the trajectory
  * is alive. Suspends the order's email reminders + kitchen prep tasks
  * in place so resume restores them without losing history.
  *

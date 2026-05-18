@@ -76,7 +76,7 @@ function PlatformCurrencyMonitoringPage() {
   }, [authLoading, user, router]);
 
   // Tile 1, the history list and the 90-day calculation now all read
-  // from the same exchange_rates table -- so "Current Rate" matches
+  // from the same exchange_rates table - so "Current Rate" matches
   // the most recent history row instead of disagreeing with it.
   const loadData = async () => {
     try {
@@ -124,7 +124,7 @@ function PlatformCurrencyMonitoringPage() {
   const calculateFluctuation = () => {
     if (historicalRates.length < 2) return { percentage: 0, trend: "stable" };
 
-    // Don't trust the input array's order -- the service currently
+    // Don't trust the input array's order - the service currently
     // returns ascending by date but a future caller (or a stale
     // cache) could pass an unsorted list and flip the sign of the
     // trend. Sort defensively by date before reading the endpoints.

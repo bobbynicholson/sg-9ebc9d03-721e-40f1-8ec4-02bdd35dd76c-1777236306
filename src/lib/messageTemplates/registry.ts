@@ -1,5 +1,5 @@
 /**
- * Message template registry -- the canonical catalogue of every
+ * Message template registry - the canonical catalogue of every
  * template the system knows about. One file, one source of truth.
  *
  * Each entry pairs:
@@ -148,7 +148,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote just sent",
     description: "First send of a fresh quote.",
-    defaultSubject: "{{event_name}} quote from {{tenant_name}} -- {{total_zar}}",
+    defaultSubject: "{{event_name}} quote from {{tenant_name}} - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Quote for your {{event_name}} on {{event_date}} is across. The total sits at {{total}} including VAT.\n\n` +
@@ -162,7 +162,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Revised quote",
     description: "After a quote is updated.",
-    defaultSubject: "Revised {{event_name}} quote -- {{total_zar}}",
+    defaultSubject: "Revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `I have revised the quote based on what we last spoke about. Total is now {{total}}.\n\n` +
@@ -193,7 +193,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote expired",
     description: "Old quote that's lapsed. Offer a fresh one.",
-    defaultSubject: "Your {{event_name}} quote has expired -- want a fresh one?",
+    defaultSubject: "Your {{event_name}} quote has expired - want a fresh one?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `The quote we sent for your {{event_name}} on {{event_date}} has lapsed. Pricing on a few items may have shifted since.\n\n` +
@@ -261,7 +261,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Active client",
     label: "VIP, no agenda check-in",
     description: "Top client, friendly note with no pitch.",
-    defaultSubject: "{{first_name}}, it's been a while -- how are things?",
+    defaultSubject: "{{first_name}}, it's been a while - how are things?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `No agenda here. Just wanted to drop a note and say hi.\n\n` +
@@ -303,7 +303,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Lead follow-up",
     label: "Lead reply (fresh enquiry)",
     description: "First reply when a fresh lead lands.",
-    defaultSubject: "{{first_name}}, thanks for the {{event_name}} enquiry -- {{tenant_name}}",
+    defaultSubject: "{{first_name}}, thanks for the {{event_name}} enquiry - {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thanks for getting in touch about your {{event_name}} on {{event_date}}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\n` +
@@ -343,7 +343,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Chase a sent quote (lead-side)",
     description: "Lead has a quote but has gone quiet.",
-    defaultSubject: "Following up on your {{event_name}} quote -- {{total_zar}}",
+    defaultSubject: "Following up on your {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Just circling back on the quote we sent for your {{event_name}}. Anything you would like changed, or shall we lock the date in?\n\nBest,\n{{from_name}}`,
@@ -484,9 +484,9 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Onboarding",
     label: "Welcome (portal login)",
-    description: "Heads-up after a portal invite email goes out -- helps it not get lost in spam.",
+    description: "Heads-up after a portal invite email goes out - helps it not get lost in spam.",
     defaultBody:
-      `Hi {{first_name}}, welcome to {{company_name}}. We just emailed you a portal invite -- check your inbox (and spam) and tap the link to set your password. Once you're in, you'll see your shifts, jobs, and earnings.\n\n-- {{from_name}}`,
+      `Hi {{first_name}}, welcome to {{company_name}}. We just emailed you a portal invite - check your inbox (and spam) and tap the link to set your password. Once you're in, you'll see your shifts, jobs, and earnings.\n\n-- {{from_name}}`,
     variables: STAFF_VARS,
   },
   {
@@ -495,9 +495,9 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Onboarding",
     label: "Welcome (no portal login)",
-    description: "For staff who'll be tap-in'd on a shared tablet -- explains the flow without an app to install.",
+    description: "For staff who'll be tap-in'd on a shared tablet - explains the flow without an app to install.",
     defaultBody:
-      `Hi {{first_name}}, welcome to {{company_name}}. You're on the books. No app to download -- your manager will tap you in/out on the tablet at the start and end of each shift. Hours and pay roll up automatically. If anything ever feels off, ask me to check the system.\n\n-- {{from_name}}`,
+      `Hi {{first_name}}, welcome to {{company_name}}. You're on the books. No app to download - your manager will tap you in/out on the tablet at the start and end of each shift. Hours and pay roll up automatically. If anything ever feels off, ask me to check the system.\n\n-- {{from_name}}`,
     variables: STAFF_VARS,
   },
   {

@@ -12,7 +12,7 @@
  *   - email.complained  -> status='complained' (spam report)
  *
  * Other events (sent, delivered, opened, clicked) are ignored. The
- * outbound send path already logs status='sent' on dispatch -- we
+ * outbound send path already logs status='sent' on dispatch - we
  * don't need to double-record them.
  *
  * Signature verification: Resend uses Svix-format signatures. The raw
@@ -26,7 +26,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createHmac, timingSafeEqual } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
-// Disable body parsing -- we need the raw body for signature
+// Disable body parsing - we need the raw body for signature
 // verification. Next.js Pages routes default to JSON parsed; this
 // override gives us the raw stream. Keep size cap.
 export const config = {
@@ -72,7 +72,7 @@ function verifySignature(
   const expected = createHmac("sha256", key).update(signed).digest("base64");
 
   // svix-signature is space-separated entries like "v1,base64sig v2,base64sig"
-  // -- accept any version whose digest matches.
+  // - accept any version whose digest matches.
   const candidates = svixSignature.split(" ").map((s) => {
     const idx = s.indexOf(",");
     return idx >= 0 ? s.slice(idx + 1) : s;
@@ -125,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } else {
     console.warn(
-      "[webhooks/resend] RESEND_WEBHOOK_SECRET not set -- accepting webhook " +
+      "[webhooks/resend] RESEND_WEBHOOK_SECRET not set - accepting webhook " +
         "without signature verification. Set this env var in production."
     );
   }
@@ -168,7 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Log a row per recipient so the failures dashboard surfaces each
   // bad address. user_id is left null because Resend's payload doesn't
-  // tell us which company sent the email -- the EmailFailuresTab can
+  // tell us which company sent the email - the EmailFailuresTab can
   // still group by recipient address. If the original send had a
   // resend_message_id we'd correlate, but the current emailService
   // doesn't capture that yet; that's a separate enhancement.
@@ -187,7 +187,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await (supabase as any).from("email_automation_log").insert(rows);
   } catch (err: any) {
     console.error("[webhooks/resend] log insert failed", err?.message || err);
-    // Still 200 -- Resend retries on non-2xx and we don't want a
+    // Still 200 - Resend retries on non-2xx and we don't want a
     // transient db hiccup to spam-loop the webhook.
   }
 

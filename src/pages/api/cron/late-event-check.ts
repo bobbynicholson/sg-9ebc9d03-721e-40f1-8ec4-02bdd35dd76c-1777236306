@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Wave 24: collect per-row errors instead of letting one bad row
   // (RLS quirk, FK violation, transient connection blip) crash the
   // whole loop. The previous pattern was bare awaits with no
-  // error check on the insert -- a failed insert silently bumped
+  // error check on the insert - a failed insert silently bumped
   // `alerted` and the operator never saw the alert.
   const errors: string[] = [];
 
@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: `⚠️ Order past event date: ${order.order_number || order.id.slice(0, 8)}`,
         message:
           `Event was ${eventLabel}${venue ? ` at ${venue}` : ""}. ` +
-          `Status is still "${order.status}" -- check with the team and update or cancel.`,
+          `Status is still "${order.status}" - check with the team and update or cancel.`,
         priority: "urgent",
         link: `/admin/orders?orderId=${order.id}`,
       } as any);

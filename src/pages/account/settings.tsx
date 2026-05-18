@@ -114,7 +114,7 @@ function ProfileSettingsPage() {
         full_name: profile.full_name || "",
         email: profile.email || "",
         phone_number: profile.phone_number || "",
-        // Canonical companies.company_name wins -- profiles.company_name
+        // Canonical companies.company_name wins - profiles.company_name
         // is just a denormalised cache and historically wasn't populated
         // on every tenant.
         company_name: company?.company_name || profile.company_name || "",
@@ -281,7 +281,7 @@ function ProfileSettingsPage() {
         } else {
           // Mirror the new name onto every profile in the company so
           // any UI still pulling from the cache shows the rename
-          // immediately. Failure here is non-fatal -- the canonical
+          // immediately. Failure here is non-fatal - the canonical
           // row already changed.
           const { error: cacheErr } = await supabase
             .from("profiles")
@@ -454,7 +454,7 @@ function ProfileSettingsPage() {
 
       <PortalLayout maxWidth="4xl">
         <div className="space-y-6">
-          {/* Header -- matches the admin page convention: icon in a
+          {/* Header - matches the admin page convention: icon in a
               brand-coloured rounded square sat next to the title +
               subtitle. Uses the standard admin orange so it sits in
               the same family as Staff & Rates, Calendar, Inventory

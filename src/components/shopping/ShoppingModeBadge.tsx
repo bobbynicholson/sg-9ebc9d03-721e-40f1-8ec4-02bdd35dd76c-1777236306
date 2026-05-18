@@ -1,5 +1,5 @@
 /**
- * ShoppingModeBadge -- Wave 70.29
+ * ShoppingModeBadge - Wave 70.29
  *
  * Sits at the top of the shopping nav above the live state strip.
  * Communicates which phase of the day the shopping team is in
@@ -11,10 +11,10 @@
  * override. Same pattern as cleaning + kitchen.
  *
  * Tones (WCAG AA on white sidebar bg):
- *   quiet     -- slate, neutral
- *   plan      -- emerald, gearing up
- *   run       -- green pulse (the "live" state)
- *   reconcile -- amber, winding down
+ *   quiet     - slate, neutral
+ *   plan      - emerald, gearing up
+ *   run       - green pulse (the "live" state)
+ *   reconcile - amber, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

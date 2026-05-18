@@ -1,7 +1,7 @@
 /**
  * GET /api/payment-gateways
  *   Lists every non-deleted gateway for the caller's company.
- *   Returns metadata only -- credentials are never selected.
+ *   Returns metadata only - credentials are never selected.
  *
  * POST /api/payment-gateways
  *   Upserts (provider, metadata, credentials) for the caller's company.
@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Resolve which company we're acting on. Tenant admins are scoped
     // to their own profile.company_id. Super_admin has no company on
-    // their profile -- they pass company_id via ?company_id=... (GET)
+    // their profile - they pass company_id via ?company_id=... (GET)
     // or body.company_id (POST) to act on a specific tenant.
     let companyId = (profile as any)?.company_id as string | null;
     if (role === "super_admin") {
@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       // Use the enriched server-only method so each gateway returns
       // last-4 hints for its credentials. Real values stay on the
-      // server -- the hints field is a display string only.
+      // server - the hints field is a display string only.
       const sb = getServiceSupabase();
       const configs = await paymentGatewayService.listWithCredentialHints(companyId, sb);
       return res.status(200).json({ gateways: configs });
@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!credentials || typeof credentials !== "object" || Array.isArray(credentials)) {
         return res.status(400).json({ error: "credentials object is required" });
       }
-      // Coerce values to strings -- avoids storing junk like nested
+      // Coerce values to strings - avoids storing junk like nested
       // objects or numbers in the JSONB blob.
       const cleanCreds: Record<string, string> = {};
       for (const [k, v] of Object.entries(credentials)) {

@@ -23,7 +23,7 @@
  *      RPC handles quotes.converted_to_order_id; lifecycle stamping
  *      on the lead is our job).
  *
- * Body: { confirm: true } -- explicit-confirm flag, no other params.
+ * Body: { confirm: true } - explicit-confirm flag, no other params.
  *
  * Returns: { ok: true, order_id, order_number }
  */
@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Gate: refuse to convert a lead with no email on file unless
     // the operator passed allowMissingEmail=true in the body. Same
-    // reasoning as quoteService.convertQuoteToOrder -- the deposit
+    // reasoning as quoteService.convertQuoteToOrder - the deposit
     // invoice, confirmation email and portal magic-link all rely
     // on a client_email; without one the convert silently produces
     // an unmessaged order that the client only finds out about at
@@ -134,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 2. Find candidate quotes -- by lead_id OR by client_id (covers
+    // 2. Find candidate quotes - by lead_id OR by client_id (covers
     // the case where the lead was promoted and a later quote was
     // created against the client without re-stamping lead_id).
     const clientId = (lead as any).converted_to_client_id as string | null;
@@ -157,7 +157,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const hasQuotes = quoteList.length > 0;
 
     // If the lead is already linked to an order via a converted quote,
-    // surface that order rather than refusing -- the caller can deep-link.
+    // surface that order rather than refusing - the caller can deep-link.
     const alreadyConverted = quoteList.find((q: any) => q.converted_to_order_id);
     if (alreadyConverted) {
       const { data: existingOrder, error: existingOrderErr } = await svc
@@ -219,7 +219,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Resolve the client. Delegated to lifecycleService so the
     // promotion path matches what quoteService.convertQuoteToOrder
-    // does -- the audit flagged that this route was re-implementing
+    // does - the audit flagged that this route was re-implementing
     // the same logic inline. The service also stamps
     // leads.converted_to_client_id + audit-logs the promotion, so
     // the explicit lead stamp at the end of this route is now a
@@ -240,7 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 5. Build the orders payload. Mirrors quoteService.convertQuoteToOrder
-    // -- whitelist columns explicitly so quote-only fields don't leak in.
+    // - whitelist columns explicitly so quote-only fields don't leak in.
     const orderData: any = {
       quote_id: q.id,
       user_id: q.user_id,
@@ -339,7 +339,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // runs in the browser path: auto-invoice, confirmation email,
     // kitchen prep tasks. Service-role client + req-derived origin so
     // the email links resolve and RLS doesn't block any of the side-
-    // effect writes. Cascade never throws -- the receipt records each
+    // effect writes. Cascade never throws - the receipt records each
     // step's outcome and is forwarded to the caller.
     const cascade = await postOrderCreationCascade(
       svc as any,

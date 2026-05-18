@@ -56,7 +56,7 @@ async function getImportRowCap(): Promise<number> {
     const n = parseInt(String((data as any)?.value || ""), 10);
     if (Number.isFinite(n) && n > 0 && n <= 100000) return n;
   } catch {
-    // swallow -- fall through to default
+    // swallow - fall through to default
   }
   return FALLBACK_ROW_CAP;
 }
@@ -178,11 +178,11 @@ function quickValidateAllSheets(
         if (iso < fyStart) fy.preFy += 1;
         else fy.postFy += 1;
       } else if (dateText) {
-        // Has a date column but couldn't parse -- count as undated for
+        // Has a date column but couldn't parse - count as undated for
         // the FY tally (the per-row normaliser may still parse it).
         fy.undated += 1;
       } else {
-        // No date column on this row at all -- e.g. clients-only rows.
+        // No date column on this row at all - e.g. clients-only rows.
         fy.undated += 1;
       }
 
@@ -232,7 +232,7 @@ function quickValidateAllSheets(
 }
 
 function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
-  // Cast XLSX usage to any -- SheetJS' BufferLike type widens between
+  // Cast XLSX usage to any - SheetJS' BufferLike type widens between
   // releases, and we don't want our build to chase that.
   const X = XLSX as any;
   const wb = X.read(buffer, { type: "buffer", cellDates: true, raw: false });
@@ -250,7 +250,7 @@ function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
     const rows: ParsedSheet["rows"] = [];
     for (let i = 1; i < aoa.length; i++) {
       const r = aoa[i] as any[];
-      // Skip rows that are entirely empty -- common at the end of
+      // Skip rows that are entirely empty - common at the end of
       // sheets that someone deleted contents but not the row.
       if (r.every((v) => v == null || String(v).trim() === "")) continue;
       const data: Record<string, any> = {};
@@ -260,7 +260,7 @@ function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
         if (v == null) {
           data[h] = null;
         } else if (typeof v === "string") {
-          // Sanitise then trim. Order matters -- the formula-prefix
+          // Sanitise then trim. Order matters - the formula-prefix
           // check works on the raw value; trimming after preserves
           // the leading apostrophe escape we may have added.
           data[h] = sanitiseCell(v.trim());
@@ -272,7 +272,7 @@ function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
     }
     sheets.push({ name: sheetName, rows });
   }
-  // CSVs come back as a single sheet -- if SheetJS decided to call
+  // CSVs come back as a single sheet - if SheetJS decided to call
   // it "Sheet1" but the upload was a .csv, rename to a tidier label.
   if (filename.toLowerCase().endsWith(".csv") && sheets.length === 1 && sheets[0].name === "Sheet1") {
     sheets[0].name = "Data";
@@ -436,7 +436,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // template via ?template=clients|leads, synthesise the mapping
     // here and flip the job to "mapped" so the wizard can skip the
     // AI step and jump straight to Preview. Falls through silently
-    // for messy uploads -- the AI mapping step will pick them up.
+    // for messy uploads - the AI mapping step will pick them up.
     let autoMappedTo: string | null = null;
     try {
       const overrideTemplate = String(req.query.template || "").toLowerCase();
@@ -458,7 +458,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             || overrideTemplate === "payments")
         ) {
           // Caller forced the target. Use it as long as at least the
-          // required columns are present -- prevents an empty file
+          // required columns are present - prevents an empty file
           // from inserting the wrong target_table.
           const { getTemplateDefinition } = await import("@/lib/importTemplates");
           def = getTemplateDefinition(overrideTemplate);
@@ -491,7 +491,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Walk every parsed row right now and tally the same shape
     // checks the preview pass runs. Lets the modal show a "of 4775
     // rows: 4730 OK, 32 warning, 13 error" line BEFORE preview
-    // completes -- so on a huge file the operator knows the shape
+    // completes - so on a huge file the operator knows the shape
     // of the problem in seconds rather than minutes. Cheap because
     // it's pure regex / required-field checks, no DB.
     const earlyValidation = quickValidateAllSheets(sheets, autoMappedTo as any);

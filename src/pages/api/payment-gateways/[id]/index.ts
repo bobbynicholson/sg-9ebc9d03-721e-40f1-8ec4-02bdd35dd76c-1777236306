@@ -4,7 +4,7 @@
  * Soft-deletes the gateway via deleted_at. Frees the (company,
  * provider) slot so the operator can re-configure the same provider
  * from scratch with new credentials. If the deleted gateway was
- * active, no other row activates -- the operator must explicitly
+ * active, no other row activates - the operator must explicitly
  * pick a replacement.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */

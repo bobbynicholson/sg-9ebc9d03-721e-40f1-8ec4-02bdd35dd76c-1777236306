@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tier 5 chart 1 -- Cancellation reasons (horizontal bar by revenue lost).
+ * Tier 5 chart 1 - Cancellation reasons (horizontal bar by revenue lost).
  *
  * Pure CSS bars (consistent with TopClientsBarChart). Each row shows
  * the reason label, a bar sized by share of cancelled revenue, the
@@ -41,7 +41,7 @@ export function CancellationReasonsChart({ data, loading }: Props) {
           Cancellation reasons
           <InfoTooltip
             content={
-              "Why orders fall away. Bars sized by revenue lost, not just count -- one big cancelled wedding hurts more than five lost lunches.\n\n" +
+              "Why orders fall away. Bars sized by revenue lost, not just count - one big cancelled wedding hurts more than five lost lunches.\n\n" +
               "Look for patterns: if 'venue conflict' keeps showing up, your booking flow probably needs a clearer date-hold step."
             }
           />
