@@ -27,43 +27,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { createPagesServerClient } from "@/lib/supabase/server";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 
 const LOOKBACK_DAYS = 7;
+const CRON_NAME = "reconcile-payfast";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Auth: cron_secret OR super_admin session, same pattern as the
-  // currency-check cron.
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  const isCron = !!expected && auth === `Bearer ${expected}`;
-
-  let isSuperAdmin = false;
-  if (!isCron) {
-    try {
-      const ssr = createPagesServerClient({ req, res });
-      const { data: { user } } = await ssr.auth.getUser();
-      if (user) {
-        const { data: profile } = await ssr
-          .from("profiles")
-          .select("role, active_role")
-          .eq("id", user.id)
-          .maybeSingle();
-        const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
-        isSuperAdmin = role === "super_admin";
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  if (!isCron && !isSuperAdmin) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const sb: any = getServiceSupabase();
 
@@ -76,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (gwErr) {
     console.error("[reconcile-payfast] gateway lookup failed:", gwErr);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: gwErr.message });
     return res.status(500).json({ error: gwErr.message });
   }
 
@@ -90,11 +67,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     reconciled.push({ company_id: gw.company_id, ...result });
   }
 
+  const totalRecovered = reconciled.reduce((s, r) => s + r.payments_recovered, 0);
+  const totalErrors = reconciled.reduce((s, r) => s + r.errors.length, 0);
+  await recordCronHeartbeat(sb, CRON_NAME, totalErrors > 0 ? "error" : "ok", {
+    source: auth.source,
+    lookback_days: LOOKBACK_DAYS,
+    tenants_checked: reconciled.length,
+    payments_recovered: totalRecovered,
+    errors_count: totalErrors,
+  });
   return res.status(200).json({
     ok: true,
     lookback_days: LOOKBACK_DAYS,
     tenants_checked: reconciled.length,
-    payments_recovered: reconciled.reduce((s, r) => s + r.payments_recovered, 0),
+    payments_recovered: totalRecovered,
     detail: reconciled,
   });
 }
