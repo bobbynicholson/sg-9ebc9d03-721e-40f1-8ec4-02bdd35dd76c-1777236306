@@ -147,14 +147,24 @@ export function useAdminLiveCounts(): AdminLiveCounts {
 
       // Alerts: refunds pending + email failures last 24h. We sum
       // them client-side after fetching counts.
+      //
+      // A.19 #1 / #2 (2026-05-18 phantom-table sweep): both queries
+      // used to target tables that don't exist - "refunds" (the
+      // refund ledger is the `payments` table with payment_type
+      // ='refund', payment_status='pending') and "email_send_log"
+      // (the outbox is `outgoing_email_queue` with status='failed').
+      // Both alerts silently always read zero; the admin alert pill
+      // never lit even when refunds were stalled or the queue was
+      // erroring.
       const refundsPendingQ = sb
-        .from("refunds")
+        .from("payments")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .eq("status", "pending");
+        .eq("payment_type", "refund")
+        .eq("payment_status", "pending");
 
       const emailFailuresQ = sb
-        .from("email_send_log")
+        .from("outgoing_email_queue")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("status", "failed")
