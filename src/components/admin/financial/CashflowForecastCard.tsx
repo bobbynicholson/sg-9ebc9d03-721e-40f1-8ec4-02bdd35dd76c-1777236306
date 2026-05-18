@@ -29,7 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as currencyUtils from "@/lib/currencyUtils";
@@ -108,6 +108,21 @@ export function CashflowForecastCard({
   // shows top 4).
   const [drillDay, setDrillDay] = useState<number | null>(null);
 
+  // Phase 4: per-category cost data. Loaded once per page refresh
+  // alongside cash_on_hand. equipment_hire_orders + shopping_lists
+  // are the two cost categories with concrete due-dates in the live
+  // schema. Supplier-payables is deferred until a real payables
+  // table lands (today's suppliers row only carries payment_terms +
+  // payment_method, not an outstanding-balance ledger).
+  interface ScheduledCost {
+    id: string;
+    label: string;
+    amount: number;
+    date: string;
+    category: "equipment_hire" | "shopping";
+  }
+  const [scheduledCosts, setScheduledCosts] = useState<ScheduledCost[]>([]);
+
   // Phase 3: load + persist the probable-spend override under a
   // per-company localStorage key. Survives reload, lives client-side
   // only (it's a personal scratchpad number, not something the team
@@ -133,12 +148,40 @@ export function CashflowForecastCard({
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const { data, error } = await (supabase as any)
-        .from("companies")
-        .select("cash_on_hand_cents, cash_on_hand_updated_at")
-        .eq("id", companyId)
-        .single();
+      // Pull cash_on_hand + the two scheduled-cost feeds in parallel.
+      const [companyRes, hireRes, shoppingRes] = await Promise.all([
+        (supabase as any)
+          .from("companies")
+          .select("cash_on_hand_cents, cash_on_hand_updated_at")
+          .eq("id", companyId)
+          .single(),
+        // equipment_hire_orders: pending pickups in the next 120
+        // days (longest forecast horizon). Treat total_cost as due
+        // on expected_pickup_date - that's when the supplier
+        // typically invoices.
+        (supabase as any)
+          .from("equipment_hire_orders")
+          .select("id, equipment_name, total_cost, expected_pickup_date, status")
+          .eq("company_id", companyId)
+          .not("expected_pickup_date", "is", null)
+          .gte("expected_pickup_date", new Date().toISOString().slice(0, 10))
+          .not("status", "in", "(completed,cancelled,returned)"),
+        // shopping_lists: open lists (not completed/cancelled) with
+        // a list_date in the future. estimated_total is the
+        // committed cash-out figure; actual_total only populates
+        // post-purchase.
+        (supabase as any)
+          .from("shopping_lists")
+          .select("id, title, estimated_total, list_date, status")
+          .eq("company_id", companyId)
+          .not("list_date", "is", null)
+          .gte("list_date", new Date().toISOString().slice(0, 10))
+          .not("status", "in", "(completed,cancelled)"),
+      ]);
       if (cancelled) return;
+
+      const error = (companyRes as any).error;
+      const data = (companyRes as any).data;
       if (error) {
         console.error("[CashflowForecastCard] load failed:", error);
       } else if (data) {
@@ -146,6 +189,33 @@ export function CashflowForecastCard({
         setCashOnHand(value);
         setCashUpdatedAt((data as any).cash_on_hand_updated_at || null);
       }
+
+      // Build the unified scheduled-cost list.
+      const costs: ScheduledCost[] = [];
+      for (const r of (hireRes as any)?.data || []) {
+        const amount = Number(r.total_cost) || 0;
+        if (amount <= 0 || !r.expected_pickup_date) continue;
+        costs.push({
+          id: `hire-${r.id}`,
+          label: r.equipment_name || "Equipment hire",
+          amount,
+          date: r.expected_pickup_date,
+          category: "equipment_hire",
+        });
+      }
+      for (const r of (shoppingRes as any)?.data || []) {
+        const amount = Number(r.estimated_total) || 0;
+        if (amount <= 0 || !r.list_date) continue;
+        costs.push({
+          id: `shop-${r.id}`,
+          label: r.title || "Shopping list",
+          amount,
+          date: r.list_date,
+          category: "shopping",
+        });
+      }
+      setScheduledCosts(costs);
+
       setLoading(false);
     };
     void load();
@@ -168,8 +238,16 @@ export function CashflowForecastCard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dayMs = 24 * 60 * 60 * 1000;
-    const bucketsByDay: Record<number, { income: number; orders: Array<{ id: string; client: string; amount: number }> }> = {};
-    for (let d = 0; d <= horizonDays; d++) bucketsByDay[d] = { income: 0, orders: [] };
+    const bucketsByDay: Record<number, {
+      income: number;
+      costsHire: number;
+      costsShopping: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+      costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
+    }> = {};
+    for (let d = 0; d <= horizonDays; d++) {
+      bucketsByDay[d] = { income: 0, costsHire: 0, costsShopping: 0, orders: [], costs: [] };
+    }
 
     for (const o of orders || []) {
       if (!o.event_date) continue;
@@ -188,11 +266,25 @@ export function CashflowForecastCard({
       });
     }
 
+    // Phase 4: scheduled costs - equipment hire pickups + shopping
+    // run estimates - bucket onto their due dates.
+    for (const c of scheduledCosts) {
+      const dt = new Date(c.date);
+      if (isNaN(dt.getTime())) continue;
+      dt.setHours(0, 0, 0, 0);
+      const dayOffset = Math.floor((dt.getTime() - today.getTime()) / dayMs);
+      if (dayOffset < 0 || dayOffset > horizonDays) continue;
+      if (c.category === "equipment_hire") bucketsByDay[dayOffset].costsHire += c.amount;
+      if (c.category === "shopping") bucketsByDay[dayOffset].costsShopping += c.amount;
+      bucketsByDay[dayOffset].costs.push({
+        id: c.id, label: c.label, amount: c.amount, category: c.category,
+      });
+    }
+
     // Walk forward. Day 0 opening balance = cash_on_hand minus the
     // wages-owed liability AND minus the owner-typed probable-spend
-    // contingency. Both are already-due / committed cash-out, treated
-    // as same-day so the chart starts at the actually-available
-    // figure not the gross bank balance.
+    // contingency. Scheduled costs hit on their due dates (within
+    // the day buckets above), not day 0.
     const opening = cashOnHand - staffPaymentsOwed - (probableSpend || 0);
     let running = opening;
     const out: Array<{
@@ -201,22 +293,38 @@ export function CashflowForecastCard({
       label: string;
       balance: number;
       income: number;
+      costsHire: number;
+      costsShopping: number;
       orders: Array<{ id: string; client: string; amount: number }>;
+      costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
     }> = [];
     for (let d = 0; d <= horizonDays; d++) {
-      running += bucketsByDay[d].income;
+      const b = bucketsByDay[d];
+      running += b.income - b.costsHire - b.costsShopping;
       const dt = new Date(today.getTime() + d * dayMs);
       out.push({
         day: d,
         date: dt.toISOString().slice(0, 10),
         label: d === 0 ? "Today" : `+${d}d`,
         balance: Math.round(running),
-        income: bucketsByDay[d].income,
-        orders: bucketsByDay[d].orders,
+        income: b.income,
+        costsHire: b.costsHire,
+        costsShopping: b.costsShopping,
+        orders: b.orders,
+        costs: b.costs,
       });
     }
     return out;
-  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed, probableSpend]);
+  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed, probableSpend, scheduledCosts]);
+
+  const totalHireForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsHire, 0),
+    [series],
+  );
+  const totalShoppingForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsShopping, 0),
+    [series],
+  );
 
   const projectedRevenueForWindow = useMemo(() => {
     return series.reduce((sum, p) => sum + p.income, 0);
@@ -436,6 +544,22 @@ export function CashflowForecastCard({
                   -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
                 </span>
               </div>
+              {totalHireForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Equipment hire</span>
+                  <span className="tabular-nums text-red-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalHireForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalShoppingForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Shopping</span>
+                  <span className="tabular-nums text-red-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalShoppingForWindow, currency)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-slate-600">
                 <span className="flex items-center gap-1">
                   Contingency
@@ -476,9 +600,21 @@ export function CashflowForecastCard({
             <span className="text-xs font-medium text-slate-600">
               Projected balance, day-by-day
             </span>
-            <span className="text-[10px] uppercase tracking-wide text-slate-400">
-              {series.length} days
-            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => downloadCsv(series, currency)}
+                title="Export the day-by-day forecast as a CSV for your bookkeeper"
+              >
+                <Download className="w-3 h-3 mr-1" />
+                CSV
+              </Button>
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                {series.length} days
+              </span>
+            </div>
           </div>
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -579,33 +715,62 @@ export function CashflowForecastCard({
                     )}
                   </div>
 
-                  {point.orders.length === 0 ? (
+                  {point.orders.length === 0 && point.costs.length === 0 ? (
                     <p className="text-xs text-slate-400 py-6 text-center">
-                      No orders firing on this day.
+                      Nothing firing on this day.
                     </p>
                   ) : (
-                    <div className="space-y-1.5">
-                      <div className="text-xs font-medium text-slate-600">
-                        {point.orders.length === 1
-                          ? "1 order"
-                          : `${point.orders.length} orders`}
-                      </div>
-                      {point.orders.map((o) => (
-                        <a
-                          key={o.id}
-                          href={withSlug(`/admin/orders?orderId=${o.id}`)}
-                          className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50"
-                        >
-                          <span className="text-sm text-slate-900 truncate flex-1">
-                            {o.client}
-                          </span>
-                          <span className="ml-3 tabular-nums text-sm text-slate-900">
-                            {fmt(o.amount, currency)}
-                          </span>
-                          <ArrowUpRight className="w-3.5 h-3.5 ml-2 text-slate-400" />
-                        </a>
-                      ))}
-                    </div>
+                    <>
+                      {point.orders.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-medium text-slate-600">
+                            {point.orders.length === 1
+                              ? "1 order in"
+                              : `${point.orders.length} orders in`}
+                          </div>
+                          {point.orders.map((o) => (
+                            <a
+                              key={o.id}
+                              href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50"
+                            >
+                              <span className="text-sm text-slate-900 truncate flex-1">
+                                {o.client}
+                              </span>
+                              <span className="ml-3 tabular-nums text-sm text-green-700">
+                                +{fmt(o.amount, currency)}
+                              </span>
+                              <ArrowUpRight className="w-3.5 h-3.5 ml-2 text-slate-400" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {point.costs.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-medium text-slate-600">
+                            {point.costs.length === 1
+                              ? "1 scheduled cost"
+                              : `${point.costs.length} scheduled costs`}
+                          </div>
+                          {point.costs.map((c) => (
+                            <div
+                              key={c.id}
+                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
+                            >
+                              <span className="text-sm text-slate-900 truncate flex-1">
+                                {c.label}
+                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                  {c.category === "equipment_hire" ? "hire" : "shopping"}
+                                </span>
+                              </span>
+                              <span className="ml-3 tabular-nums text-sm text-red-700">
+                                -{fmt(c.amount, currency)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </>
@@ -682,6 +847,48 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
       )}
     </div>
   );
+}
+
+/**
+ * Phase 4: CSV export of the daily forecast snapshot. Two cohorts
+ * of bookkeepers asked for this same morning: it lets them paste
+ * the day-by-day projected balance into their working sheet
+ * without having to screenshot the chart.
+ *
+ * Columns: date, day_offset, balance, income, costs_hire,
+ * costs_shopping. No PII (no client names) so the file is safe
+ * to email or share. UTF-8 BOM at the head so Excel on Windows
+ * opens it without mangling currency symbols.
+ */
+function downloadCsv(
+  series: Array<{
+    date: string;
+    day: number;
+    balance: number;
+    income: number;
+    costsHire: number;
+    costsShopping: number;
+  }>,
+  currency: string,
+) {
+  const header = ["date", "day_offset", "balance", "income", "costs_hire", "costs_shopping"];
+  const rows = series.map((p) => [
+    p.date,
+    p.day,
+    p.balance,
+    Math.round(p.income),
+    Math.round(p.costsHire),
+    Math.round(p.costsShopping),
+  ]);
+  const csv = "﻿" + [header, ...rows].map((r) => r.join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const today = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `cashflow-forecast-${today}-${currency}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function compactCurrency(amount: number, currency: string): string {
