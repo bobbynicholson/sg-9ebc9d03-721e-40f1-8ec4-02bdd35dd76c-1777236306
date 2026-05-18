@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
@@ -44,7 +43,7 @@ export const equipmentTrackingService = {
         handed_by_name: params.handedByName,
         quantity_sent: params.quantitySent,
         handed_at: new Date().toISOString(),
-      })
+      } as any)
       .select()
       .single();
 
@@ -87,7 +86,7 @@ export const equipmentTrackingService = {
         discrepancy_noted: hasDiscrepancy,
         discrepancy_reason: hasDiscrepancy ? params.discrepancyReason : null,
         received_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", params.handoverId)
       .select()
       .single();
@@ -160,7 +159,7 @@ export const equipmentTrackingService = {
         description: params.description,
         notes: params.notes,
         photo_url: params.photoUrl,
-      })
+      } as any)
       .select()
       .single();
 
@@ -431,7 +430,7 @@ ${companyName}`;
         resolution_notes: params.resolutionNotes,
         resolved_at: new Date().toISOString(),
         resolved_by_user_id: params.resolvedByUserId,
-      })
+      } as any)
       .eq("id", params.damageId)
       .select()
       .single();
@@ -458,7 +457,7 @@ ${companyName}`;
         company_id: params.companyId,
         on_duty: true,
         duty_started_at: new Date().toISOString(),
-      })
+      } as any)
       .select()
       .single();
 
@@ -479,7 +478,7 @@ ${companyName}`;
       .update({
         on_duty: false,
         duty_ended_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", dutyLogId)
       .select()
       .single();
@@ -531,7 +530,7 @@ ${companyName}`;
         equipment_verified: true,
         equipment_verified_at: new Date().toISOString(),
         verification_notes: params.verificationNotes,
-      })
+      } as any)
       .eq("id", params.dutyLogId)
       .select()
       .single();
@@ -577,7 +576,7 @@ ${companyName}`;
     const nowIso = new Date().toISOString();
     const oneHourLater = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("cleaning_jobs")
       .insert({
         company_id: companyId,
@@ -639,7 +638,7 @@ ${companyName}`;
       updates.actual_end = nowIso;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("cleaning_jobs")
       .update(updates)
       .eq("id", params.cleaningStatusId)
@@ -753,7 +752,7 @@ ${companyName}`;
    * Wave 45 D3 - cleaning_jobs joined by triggered_by_event_id.
    */
   async getOrderCleaningStatus(orderId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("cleaning_jobs")
       .select("*, equipment:equipment_id ( name, category )")
       .eq("triggered_by_event_id", orderId)
