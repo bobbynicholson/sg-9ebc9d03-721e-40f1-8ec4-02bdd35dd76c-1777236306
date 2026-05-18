@@ -326,6 +326,16 @@ function resolveStage(
 
   switch (key) {
     case "quote_accepted": {
+      // Wave 70.49d -- if the order was never linked to a quote (manual
+      // entry / phone booking / walk-in), this stage doesn't apply at
+      // all. Previously it stayed 'upcoming' forever, inflating the
+      // admin BOOKING count to N/5 with a phantom 5th step the
+      // operator could never close. Mark it not_applicable so the
+      // group denominator drops by one and the count reflects what's
+      // actually actionable.
+      if (!o.quote_id && !input.quoteAccepted) {
+        return notApplicable();
+      }
       const completedAt = input.quoteAccepted
         ? firstTs(o.created_at)
         : o.created_at && o.quote_id
@@ -1082,7 +1092,18 @@ const CLIENT_LABELS: Partial<Record<StageKey, { label: string; group: StageGroup
   kitchen_prep_in_progress: { label: "Preparing your food", group: "logistics" },
   in_transit:               { label: "On the way",          group: "dispatch" },
   delivered:                { label: "Delivered",           group: "dispatch" },
-  collection_done:          { label: "Equipment collected", group: "post_event" },
+  // Wave 70.49d -- relabelled from "Equipment collected" to "Equipment
+  // returned". Two reasons. First, the old label collided semantically
+  // with the admin-only "Collection scheduled" stage (operators
+  // comparing the two views couldn't tell whether "Equipment collected"
+  // meant scheduling-done or collection-done -- the latter, but the
+  // name read like the former). Second, "Equipment returned" is the
+  // accurate post-event verb for the client's vantage point ("the team
+  // came and picked up our gear after the event"). The admin-side
+  // label stays "Equipment back" (warehouse-vantage); both describe
+  // the same `collection_done` stage from different sides of the
+  // transaction.
+  collection_done:          { label: "Equipment returned",  group: "post_event" },
   balance_paid:             { label: "Final payment received", group: "closure" },
   completed:                { label: "All wrapped up",      group: "closure" },
 };
