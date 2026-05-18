@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -93,7 +92,7 @@ export const equipmentShortageService = {
           equipmentId: flag.equipment_id,
           shortageQuantity: flag.shortage_quantity
         }
-      });
+      } as any);
 
     if (error) {
       console.error("Failed to create shortage notification:", error);

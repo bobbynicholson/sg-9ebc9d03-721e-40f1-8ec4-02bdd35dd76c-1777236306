@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -30,7 +29,7 @@ export const supportTicketService = {
           contact_email: ticketData.contactEmail,
           contact_phone: ticketData.contactPhone,
           status: "open",
-        })
+        } as any)
       .select()
       .single();
 

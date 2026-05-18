@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -118,7 +117,7 @@ export const inventoryService = {
   async createInventoryItem(item: Partial<Inventory>): Promise<Inventory | null> {
     const { data, error } = await supabase
       .from("inventory_items")
-      .insert([item])
+      .insert([item] as any)
       .select()
       .single();
 
