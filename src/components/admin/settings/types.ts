@@ -27,6 +27,15 @@ export interface AutomationSettings {
   complaintResponseHours: number;
 }
 
+export interface PricingSettings {
+  weekendPremium: number;
+  lastMinuteSurcharge: number;
+  earlyBirdDiscount: number;
+  bulkDiscountThreshold: number;
+  bulkDiscountPercent: number;
+  minimumOrderValue: number;
+}
+
 /**
  * Per-key updater partial-applied for one settings category. The
  * parent's full `updateSetting(category, key, value)` is too wide
@@ -41,4 +50,9 @@ export type UpdateNotificationSetting = (
 export type UpdateAutomationSetting = (
   key: keyof AutomationSettings,
   value: number | number[],
+) => void;
+
+export type UpdatePricingSetting = (
+  key: keyof PricingSettings,
+  value: number,
 ) => void;

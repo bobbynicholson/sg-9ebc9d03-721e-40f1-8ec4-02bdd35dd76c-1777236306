@@ -42,9 +42,11 @@ import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSetting
 import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
 import { NotificationsSettingsTab } from "@/components/admin/settings/NotificationsSettingsTab";
 import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSettingsTab";
+import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
 import type {
   NotificationSettings,
   AutomationSettings,
+  PricingSettings,
 } from "@/components/admin/settings/types";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -685,103 +687,10 @@ function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="pricing">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                    <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
-                    Pricing Rules
-                    <InfoTooltip content={"Premium uplifts and discount rules the quote builder applies automatically."} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 px-4 md:px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Weekend Premium (%)
-                        <InfoTooltip content={"Extra percentage added to the menu subtotal when the event date falls on a Saturday or Sunday.\n\n0 disables. 10 means a R5,000 base order becomes R5,500 on a Saturday."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.weekendPremium}
-                        onChange={(e) =>
-                          updateSetting("pricing", "weekendPremium", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Last Minute Surcharge (%)
-                        <InfoTooltip content={"Extra percentage when the event is within 7 days of the quote being created.\n\nCovers the rush cost of pulling stock and staff at short notice. 0 disables."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.lastMinuteSurcharge}
-                        onChange={(e) =>
-                          updateSetting("pricing", "lastMinuteSurcharge", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Early Bird Discount (%)
-                        <InfoTooltip content={"Discount applied when the event is more than 60 days out. Rewards clients who book early so you can lock in suppliers and staffing.\n\n0 disables."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.earlyBirdDiscount}
-                        onChange={(e) =>
-                          updateSetting("pricing", "earlyBirdDiscount", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Bulk Discount Threshold (guests)
-                        <InfoTooltip content={"Number of guests at which the bulk discount kicks in.\n\nMeasured against the quote's guest_count, not item totals. 100 means events of 100+ guests get the bulk-discount %."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.bulkDiscountThreshold}
-                        onChange={(e) =>
-                          updateSetting("pricing", "bulkDiscountThreshold", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Bulk Discount (%)
-                        <InfoTooltip content={"Discount applied when the guest count meets or exceeds the threshold above.\n\nReflects the lower per-head cost of large events. Stacks AFTER weekend / last-minute uplifts."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.bulkDiscountPercent}
-                        onChange={(e) =>
-                          updateSetting("pricing", "bulkDiscountPercent", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base flex items-center gap-1">
-                        Minimum Order Value (R)
-                        <InfoTooltip content={"Quotes whose subtotal falls below this number get a warning at save time so you can decline or upsell.\n\nDoes not auto-block the save. The quote builder is allowed to go below for special cases."} />
-                      </Label>
-                      <Input
-                        type="number"
-                        value={settings.pricing.minimumOrderValue}
-                        onChange={(e) =>
-                          updateSetting("pricing", "minimumOrderValue", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <PricingSettingsTab
+                settings={settings.pricing as PricingSettings}
+                onUpdate={(key, value) => updateSetting("pricing", key, value)}
+              />
             </TabsContent>
 
             <TabsContent value="operations">
