@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 
@@ -174,7 +173,7 @@ export const gamificationService = {
       .select('id, full_name, role, avatar_url');
 
     if (role) {
-      query = query.eq('role', role);
+      query = query.eq('role', role as any);
     }
 
     const { data: users, error } = await query;

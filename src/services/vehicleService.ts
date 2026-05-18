@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * vehicleService - the catering company's fleet brain.
  *
@@ -341,7 +340,7 @@ export const vehicleService = {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as VehicleBooking;
   },
 
   async cancelBookingsForOrder(orderId: string): Promise<void> {

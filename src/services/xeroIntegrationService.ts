@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 
 export interface XeroConnection {
@@ -74,7 +73,7 @@ export const xeroIntegrationService = {
 
     await supabase
       .from("integrations")
-      .update({ is_active: false, disconnected_at: new Date().toISOString() })
+      .update({ is_active: false, disconnected_at: new Date().toISOString() } as any)
       .eq("user_id", user.user.id)
       .eq("integration_type", "xero");
   },

@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
@@ -196,9 +195,9 @@ export const userManagementService = {
       // 3. Update user's company_id and role
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ 
+        .update({
           company_id: invitation.company_id,
-          role: invitation.role 
+          role: invitation.role as any,
         })
         .eq("id", userId);
 

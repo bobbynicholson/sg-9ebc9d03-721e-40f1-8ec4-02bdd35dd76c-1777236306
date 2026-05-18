@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -71,7 +70,7 @@ export const routeStopService = {
       .update({
         departure_time: departureTime.toISOString(),
         duration_minutes: durationMinutes,
-      })
+      } as any)
       .eq("id", stopId)
       .select()
       .single();

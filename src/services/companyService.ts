@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User, Session } from "@supabase/supabase-js";
@@ -599,7 +598,7 @@ export const companyService = {
         .update({
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", companyId);
 
       if (error) throw error;

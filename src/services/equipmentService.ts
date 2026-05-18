@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { equipmentShortageService } from "./equipmentShortageService";
@@ -16,7 +15,7 @@ export const equipmentService = {
       .is("deleted_at", null);
 
     if (regionId) {
-      query = query.eq("region_id", regionId);
+      query = (query as any).eq("region_id", regionId);
     }
 
     const { data, error } = await query.order("name");

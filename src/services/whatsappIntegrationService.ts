@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { isCommsAllowed } from "@/services/commsGuardService";
 
@@ -101,7 +100,7 @@ export const whatsappIntegrationService = {
 
     await supabase
       .from("integrations")
-      .update({ is_active: false, disconnected_at: new Date().toISOString() })
+      .update({ is_active: false, disconnected_at: new Date().toISOString() } as any)
       .eq("company_id", companyId)
       .eq("integration_type", "whatsapp");
   },
