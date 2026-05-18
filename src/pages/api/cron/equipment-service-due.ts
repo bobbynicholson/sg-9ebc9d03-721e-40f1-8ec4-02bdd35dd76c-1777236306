@@ -16,8 +16,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { createPagesServerClient } from "@/lib/supabase/server";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 
+const CRON_NAME = "equipment-service-due";
 const LOOKAHEAD_DAYS = 7;
 const DEDUPE_DAYS = 7;
 
@@ -26,34 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Auth: cron secret OR super_admin session. Same pattern as the
-  // currency-check and reconcile-payfast crons.
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  const isCron = !!expected && auth === `Bearer ${expected}`;
-
-  let isSuperAdmin = false;
-  if (!isCron) {
-    try {
-      const ssr = createPagesServerClient({ req, res });
-      const { data: { user } } = await ssr.auth.getUser();
-      if (user) {
-        const { data: profile } = await ssr
-          .from("profiles")
-          .select("role, active_role")
-          .eq("id", user.id)
-          .maybeSingle();
-        const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
-        isSuperAdmin = role === "super_admin";
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  if (!isCron && !isSuperAdmin) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const sb: any = getServiceSupabase();
 
@@ -71,6 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (equipErr) {
     console.error("[equipment-service-due] equipment lookup failed:", equipErr);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: equipErr.message });
     return res.status(500).json({ error: equipErr.message });
   }
 
@@ -186,6 +163,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  await recordCronHeartbeat(sb, CRON_NAME, "ok", {
+    source: auth.source,
+    checked: dueRows.length,
+    checked_equipment: dueEquipment?.length ?? 0,
+    checked_vehicles: dueVehicles?.length ?? 0,
+    notified,
+    skipped_dedupe: skipped,
+  });
   return res.status(200).json({
     ok: true,
     checked: dueRows.length,

@@ -26,7 +26,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { computeOrderTimeline } from "@/services/order/orderTimeline";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 
+const CRON_NAME = "order-stage-notify";
 const STAGE_ADVANCE_TYPE = "order_stage_advance";
 const STAGE_BLOCKED_TYPE = "order_stage_blocked";
 
@@ -44,11 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  if (expected && auth !== `Bearer ${expected}`) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   const supabase: any = getServiceSupabase();
 
@@ -73,9 +73,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .limit(MAX_ORDERS_PER_RUN);
   if (ordersErr) {
     console.error("[cron/order-stage-notify] orders fetch failed:", ordersErr);
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: ordersErr.message });
     return res.status(500).json({ error: ordersErr.message });
   }
   if (!orders || orders.length === 0) {
+    await recordCronHeartbeat(supabase, CRON_NAME, "ok", { source: auth.source, checked: 0 });
     return res.status(200).json({ ok: true, checked: 0 });
   }
 
@@ -381,6 +383,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  await recordCronHeartbeat(supabase, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+    source: auth.source,
+    checked: orders.length,
+    advance_fired: advanceFired,
+    blocker_fired: blockerFired,
+    unchanged,
+    errors_count: errors.length,
+  });
   return res.status(200).json({
     ok: true,
     checked: orders.length,

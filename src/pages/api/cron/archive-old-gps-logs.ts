@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "archive-old-gps-logs";
 
 /**
  * Cron: prune old driver-tracking GPS log rows.
@@ -13,26 +17,26 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * platform-level storage hygiene choice rather than tenant-facing,
  * so weekly is fine.
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
-    const { data, error } = await (sb as any).rpc("archive_old_gps_logs");
+    const { data, error } = await sb.rpc("archive_old_gps_logs");
     if (error) {
       console.error("[archive-old-gps-logs] RPC failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     const archived = typeof data === "number" ? data : 0;
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, archived });
     return res.status(200).json({ ok: true, archived });
   } catch (e: any) {
     console.error("[archive-old-gps-logs] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

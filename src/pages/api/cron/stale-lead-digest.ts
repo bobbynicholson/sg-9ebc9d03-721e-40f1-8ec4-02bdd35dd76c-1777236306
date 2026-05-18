@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "stale-lead-digest";
 
 /**
  * Wave 50 C2 - weekly stale-lead digest.
@@ -14,27 +18,24 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Email + in-app push the operator (owner / company_admin) with
  * the count + a deeplink to the filtered leads page.
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Group stale-lead counts by tenant in a single query.
-    const { data: rows, error } = await (sb as any)
+    const { data: rows, error } = await sb
       .from("leads")
       .select("company_id")
       .in("status", ["new", "contacted"])
       .lte("created_at", sevenDaysAgo);
     if (error) {
       console.error("[stale-lead-digest] leads fetch failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
 
@@ -58,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           priority: "normal",
           link: `/admin/leads?status=new`,
           dedup: true,
-          dedupWindowMinutes: 60 * 24, // 24h dedup so weekly cron stays weekly
+          dedupWindowMinutes: 60 * 24,
         });
         tenantsNotified += 1;
       } catch (e) {
@@ -66,6 +67,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", {
+      source: auth.source,
+      tenantsScanned: Object.keys(countsByTenant).length,
+      tenantsNotified,
+      totalStaleLeads: Object.values(countsByTenant).reduce((s, n) => s + n, 0),
+    });
     return res.status(200).json({
       ok: true,
       tenantsScanned: Object.keys(countsByTenant).length,
@@ -74,6 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[stale-lead-digest] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

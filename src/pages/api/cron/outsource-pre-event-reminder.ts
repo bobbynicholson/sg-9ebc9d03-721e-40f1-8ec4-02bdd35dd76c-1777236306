@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth, type CronAuthSource } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "outsource-pre-event-reminder";
 
 /**
  * Wave 67.3 - outsource provider pre-event reminder.
@@ -28,15 +32,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // sending a single email.
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
 
+  let authSource: CronAuthSource | "owner_dryrun" = "cron";
   if (!dryRun) {
-    const provided = req.headers.authorization || "";
-    const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-    if (expected && provided !== expected) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    const auth = await requireCronAuth(req, res);
+    if (!auth.ok) return;
+    authSource = auth.source;
   } else {
-    // Dry-run: gate by Supabase auth so a curl from outside the
-    // network can't list provider emails.
+    // Dry-run is intentionally broader than the standard cron auth:
+    // owner / company_admin / admin can fire it for QA without
+    // needing super_admin. Returns provider emails in the preview so
+    // the gate prevents enumeration from outside the network.
     try {
       const { createPagesServerClient } = await import("@/lib/supabase/server");
       const ssr = createPagesServerClient({ req, res });
@@ -47,13 +52,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!new Set(["super_admin", "company_admin", "admin", "owner"]).has(role)) {
         return res.status(403).json({ error: "Owner / admin only" });
       }
+      authSource = "owner_dryrun";
     } catch (e: any) {
       return res.status(500).json({ error: e?.message || "auth check failed" });
     }
   }
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const now = new Date();
     const windowStart = now.toISOString();
     const windowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
@@ -74,9 +80,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) {
       console.error("[outsource-pre-event-reminder] fetch failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: authSource, candidates: 0, sent: 0 });
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
@@ -183,6 +191,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: authSource,
+      dryRun,
+      candidates: assignments.length,
+      sent, skipped,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       dryRun,
@@ -196,6 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: any) {
     console.error("[outsource-pre-event-reminder] crashed:", err);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: err?.message || "Cron crashed" });
     return res.status(500).json({ error: err?.message || "Cron crashed" });
   }
 }

@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "equipment-collection-reminder";
 
 /**
  * Wave 50 C5 - equipment collection reminder.
@@ -18,14 +22,11 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const now = new Date();
     const tomorrowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
 
@@ -37,9 +38,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .lte("scheduled_for", tomorrowEnd);
     if (error) {
       console.error("[equipment-collection-reminder] fetch failed:", error);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, sent: 0 });
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
@@ -111,6 +114,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: auth.source,
+      considered: assignments.length,
+      sent,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       considered: assignments.length,
@@ -119,6 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[equipment-collection-reminder] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

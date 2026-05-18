@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "archive-old-email-rows";
+const ARCHIVE_AGE_DAYS = 180;
 
 /**
  * Cron: hard-delete old rows from email_automation_log and the sent
@@ -23,60 +28,53 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  *   2. outgoing_email_queue:
  *      DELETE WHERE status IN ('sent','failed')
  *        AND created_at < (now - 180 days)
- *      Keep 'pending' / 'scheduled' rows regardless of age (a long-
+ *      Keep 'queued' / 'paused' rows regardless of age (a long-
  *      lead after-sales row scheduled 12 months out must not be
  *      pruned before its scheduled_for hits).
  *
  * Idempotent. Both passes match only rows older than the cutoff so
  * re-running mid-week is a no-op.
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  *
- * Schedule: weekly, Sunday 03:30 UTC - 30 min after the
- * notification archival job so they don't pile on the DB at once.
+ * Schedule: weekly, Sunday 03:30 UTC.
  */
-
-const ARCHIVE_AGE_DAYS = 180;
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const cutoffIso = new Date(Date.now() - ARCHIVE_AGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     // --- Pass 1: email_automation_log ------------------------------
-    const { count: logCount, error: logCountErr } = await (sb as any)
+    const { count: logCount, error: logCountErr } = await sb
       .from("email_automation_log")
       .select("id", { count: "exact", head: true })
       .lt("created_at", cutoffIso);
 
     if (logCountErr) {
       console.error("[archive-old-email-rows] log count failed:", logCountErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: logCountErr.message });
       return res.status(500).json({ error: logCountErr.message });
     }
 
     let logArchived = 0;
     if (logCount && logCount > 0) {
-      const { error: logDelErr } = await (sb as any)
+      const { error: logDelErr } = await sb
         .from("email_automation_log")
         .delete()
         .lt("created_at", cutoffIso);
       if (logDelErr) {
         console.error("[archive-old-email-rows] log delete failed:", logDelErr);
+        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: logDelErr.message });
         return res.status(500).json({ error: logDelErr.message });
       }
       logArchived = logCount;
     }
 
     // --- Pass 2: outgoing_email_queue (terminal rows only) --------
-    // Keep pending / scheduled rows regardless of age. A 12-month
-    // after-sales row scheduled for next year must not be pruned.
-    const { count: queueCount, error: queueCountErr } = await (sb as any)
+    const { count: queueCount, error: queueCountErr } = await sb
       .from("outgoing_email_queue")
       .select("id", { count: "exact", head: true })
       .in("status", ["sent", "failed"])
@@ -84,23 +82,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (queueCountErr) {
       console.error("[archive-old-email-rows] queue count failed:", queueCountErr);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: queueCountErr.message });
       return res.status(500).json({ error: queueCountErr.message });
     }
 
     let queueArchived = 0;
     if (queueCount && queueCount > 0) {
-      const { error: queueDelErr } = await (sb as any)
+      const { error: queueDelErr } = await sb
         .from("outgoing_email_queue")
         .delete()
         .in("status", ["sent", "failed"])
         .lt("created_at", cutoffIso);
       if (queueDelErr) {
         console.error("[archive-old-email-rows] queue delete failed:", queueDelErr);
+        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: queueDelErr.message });
         return res.status(500).json({ error: queueDelErr.message });
       }
       queueArchived = queueCount;
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", {
+      source: auth.source,
+      cutoff_iso: cutoffIso,
+      email_automation_log_archived: logArchived,
+      outgoing_email_queue_archived: queueArchived,
+    });
     return res.status(200).json({
       ok: true,
       cutoff_iso: cutoffIso,
@@ -109,6 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[archive-old-email-rows] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

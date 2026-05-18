@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "check-en-route";
 
 /**
  * Cron: alert dispatch when a driver hasn't confirmed en-route
@@ -11,27 +15,22 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * admin broadcast (Wave 2 fix to sendEnRouteAlert) was correct but
  * unreachable from production.
  *
- * Strategy: every run, scan orders that are status='ready' or
- * 'in_transit' with an event_time in the next 30 minutes, OR an
- * event_date today and event_time within the last 4 hours (catch
- * up after a cron miss). For each, call checkEnRouteConfirmation
- * with the driver(s) assigned; the service handles the per-order
- * "already confirmed?" guard.
+ * Strategy: scan today's orders in status (confirmed, preparing,
+ * ready). For each with a driver assigned, call
+ * checkEnRouteConfirmation; the service handles the per-order
+ * "already confirmed?" + time-window guards.
  *
- * Auth: Authorization: Bearer ${CRON_SECRET}
+ * Auth: Vercel cron bearer OR super_admin session.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const provided = req.headers.authorization || "";
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && provided !== expected) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
+  const sb: any = getServiceSupabase();
   try {
-    const sb = getServiceSupabase();
     const todayIso = new Date().toISOString().slice(0, 10);
 
-    const { data: candidates } = await (sb as any)
+    const { data: candidates } = await sb
       .from("orders")
       .select("id, company_id, assigned_driver_id, driver_id, event_date, event_time, status, order_number")
       .in("status", ["confirmed", "preparing", "ready"])
@@ -47,7 +46,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!driverId) continue;
       scanned += 1;
       try {
-        // Service handles the time-window + already-confirmed check.
         await (driverConfirmationService as any).checkEnRouteConfirmation(
           o.id,
           driverId,
@@ -59,6 +57,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
+      source: auth.source,
+      scanned,
+      alertedCount,
+      errors_count: errors.length,
+    });
     return res.status(200).json({
       ok: true,
       scanned,
@@ -67,6 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("[check-en-route] crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }
