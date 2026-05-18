@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FinancialPrediction {
@@ -206,7 +205,7 @@ export const aiFinancialService = {
           confidence_score: p.confidence_score,
           risk_level: p.risk_level,
           recommendations: p.recommendations,
-        })),
+        })) as any,
         { onConflict: 'prediction_date' }
       );
     if (error) console.error('Error saving predictions batch:', error);
@@ -311,7 +310,7 @@ export const aiFinancialService = {
         confidence_score: prediction.confidence_score,
         risk_level: prediction.risk_level,
         recommendations: prediction.recommendations
-      }], {
+      }] as any, {
         onConflict: 'prediction_date'
       });
 

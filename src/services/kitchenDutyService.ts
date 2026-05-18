@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
@@ -132,7 +131,7 @@ export const kitchenDutyService = {
         is_active: false,
         notes: notes || null,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", shiftId)
       .select()
       .single();
@@ -225,7 +224,7 @@ export const kitchenDutyService = {
       location?: { lat: number; lng: number };
     }
   ): Promise<TaskCompletion> {
-    const taskData: TaskCompletionInsert = {
+    const taskData = {
       user_id: userId,
       order_id: orderId,
       staff_id: staffId,
@@ -237,11 +236,11 @@ export const kitchenDutyService = {
       location_lat: options?.location?.lat || null,
       location_lng: options?.location?.lng || null,
       completed_at: new Date().toISOString(),
-    };
+    } as unknown as TaskCompletionInsert;
 
     const { data, error } = await supabase
       .from("kitchen_task_completions")
-      .insert([taskData])
+      .insert([taskData] as any)
       .select()
       .single();
 

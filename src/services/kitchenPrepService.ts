@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Kitchen prep service: the math layer behind the kitchen flywheel.
  *
@@ -124,7 +123,7 @@ export const kitchenPrepService = {
       defaultPrepMinPerDish:  Number(raw.default_prep_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultPrepMinPerDish),
       defaultCookMinPerDish:  Number(raw.default_cook_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultCookMinPerDish),
       autoGeneratePrepTasks:  Boolean(raw.auto_generate_prep_tasks  ?? DEFAULT_KITCHEN_SETTINGS.autoGeneratePrepTasks),
-    };
+    } as KitchenSettings;
   },
 
   async updateKitchenSettings(companyId: string, s: KitchenSettings): Promise<boolean> {
@@ -1141,7 +1140,7 @@ export const kitchenPrepService = {
     if (yieldUnit) patch.yield_unit = yieldUnit;
     const { error } = await supabase
       .from("kitchen_prep_tasks")
-      .update(patch)
+      .update(patch as any)
       .eq("id", taskId);
     if (error) console.error("Error recording yield:", error);
   },

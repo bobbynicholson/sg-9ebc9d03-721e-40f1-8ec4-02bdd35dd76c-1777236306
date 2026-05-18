@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 
@@ -161,7 +160,7 @@ async function checkProximityAndNotify(
 
     const distanceInMeters = distance * 1000;
 
-    if (distanceInMeters <= 50 && assignment.status !== "arrived") {
+    if (distanceInMeters <= 50 && (assignment.status as any) !== "arrived") {
       await markArrived(assignmentId);
 
       if (order.user_id && order.company_id) {
@@ -184,7 +183,7 @@ async function checkProximityAndNotify(
 
     const estimatedMinutes = (distance / 40) * 60;
 
-    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
+    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && (assignment.status as any) === "in_transit") {
       const { count, error: checkError } = await (supabase as any)
         .from("notifications")
         .select("id", { count: 'exact', head: true })
