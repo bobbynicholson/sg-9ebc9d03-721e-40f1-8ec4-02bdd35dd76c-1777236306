@@ -46,6 +46,7 @@ import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
 import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWidget";
 import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
+import { CashflowSnapshotWidget } from "@/components/admin/CashflowSnapshotWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -102,6 +103,14 @@ const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
+  // AD-6 (admin-dashboard audit): role gate for the Cashflow
+  // Snapshot widget. Same Skylight finance-visibility rule as the
+  // full forecast on /admin/financial-dashboard.
+  const role = String(
+    (user as any)?.active_role || (profile as any)?.role || "",
+  ).toLowerCase();
+  const canSeeFinanceSnapshot =
+    role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
 
@@ -481,6 +490,16 @@ function AdminDashboardPage() {
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
           <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} /></WidgetErrorBoundary>
+
+          {/* AD-6: Cashflow Snapshot. The forward-looking cash
+              question owners ask first ("can I make payroll Friday?")
+              lives here, immediately under TodaysPulse. Role-gated;
+              drills to /admin/financial-dashboard for the full chart. */}
+          {canSeeFinanceSnapshot && companyId ? (
+            <WidgetErrorBoundary label="Cashflow snapshot">
+              <CashflowSnapshotWidget companyId={companyId} currency={tenantCurrency.code} />
+            </WidgetErrorBoundary>
+          ) : null}
 
           {/* Phase 17 #8: recently-viewed shortcut. Tracks the last
               5 entities the operator opened across orders / quotes /
@@ -863,41 +882,27 @@ function AdminDashboardPage() {
             />
           </div>
 
-          {/* Cancellations + refunds tile row. Surfaced separately so a
-              spike in cancellations (or unpaid refund queue) is visible
-              at a glance without having to drill into /admin/refunds. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6">
-            <MetricCard
-              label="Cancellations"
-              value={stats.cancelledOrdersInRange}
-              hint={`In ${range.label.toLowerCase()}`}
-              tooltip={`Orders that ended up cancelled in ${range.label.toLowerCase()}. Top reason: ${stats.topCancelReason}.`}
-              icon={Calendar}
-              iconColor="text-rose-600"
-              loading={loading}
-              href={withSlug("/admin/orders?status=cancelled")}
-            />
-            <MetricCard
-              label="Refunds Outstanding"
-              value={fmt.format(stats.refundsOutstandingValue)}
-              hint={`${stats.refundsOutstandingCount} pending payout${stats.refundsOutstandingCount === 1 ? "" : "s"} (all-time)`}
-              tooltip={"Refunds that have been raised on cancellation but not yet paid out via EFT or gateway. This number is NOT bound to the date filter - it's the live queue regardless of when each refund was raised. Action them on /admin/refunds."}
-              icon={DollarSign}
-              iconColor="text-amber-600"
-              loading={loading}
-              href={withSlug("/admin/refunds")}
-            />
-            <MetricCard
-              label="Top Cancel Reason"
-              value={stats.topCancelReason || "-"}
-              hint={stats.cancelledOrdersInRange === 0 ? "Nothing cancelled in range" : "Most common category"}
-              tooltip={"The most common cancellation reason category for the date range. Useful for spotting patterns: e.g. lots of 'no_payment' tells you to tighten the deposit reminder cadence."}
-              icon={AlertCircle}
-              iconColor="text-orange-600"
-              loading={loading}
-              href={withSlug("/admin/orders?status=cancelled")}
-            />
-          </div>
+          {/* AD-4 (admin-dashboard audit): de-duplicated. Was three
+              tiles + PendingRefundsWidget + CancelledOrdersWidget = 5
+              surfaces for 2 themes. Kept the single Cancellations
+              tile that combines count + top reason (the lossy
+              summary signal); the widgets below carry the full
+              detail. Refunds tile dropped entirely - PendingRefundsWidget
+              already shows count + total + row-level rows. */}
+          {stats.cancelledOrdersInRange > 0 && (
+            <div className="grid grid-cols-1 mb-6">
+              <MetricCard
+                label="Cancellations"
+                value={stats.cancelledOrdersInRange}
+                hint={`In ${range.label.toLowerCase()} - top reason: ${stats.topCancelReason}`}
+                tooltip={`Orders that ended up cancelled in ${range.label.toLowerCase()}. The full row list is in the Cancelled Orders widget above.`}
+                icon={Calendar}
+                iconColor="text-rose-600"
+                loading={loading}
+                href={withSlug("/admin/orders?status=cancelled")}
+              />
+            </div>
+          )}
 
           {/* Quick Actions */}
           <Card className="border-0 shadow-lg mb-6">
@@ -905,7 +910,7 @@ function AdminDashboardPage() {
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                 <Link
                   href={withSlug("/admin/orders")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
@@ -914,6 +919,34 @@ function AdminDashboardPage() {
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Manage Orders</div>
                     <div className="text-xs text-slate-600">{stats.activeOrders} active in range</div>
+                  </div>
+                </Link>
+                {/* AD-2 (admin-dashboard audit) + Bobby's brief:
+                    "if a user needs to go shopping today, there
+                    should be an easy list to print." Drills to
+                    /admin/shopping where the Print today button
+                    renders the buy-now list as a paper-friendly
+                    table. Badge mirrors lowStockItems so the
+                    urgency is visible at a glance. */}
+                <Link
+                  href={withSlug("/admin/shopping")}
+                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg hover:shadow-md transition-all"
+                >
+                  <div className="relative flex-shrink-0">
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+                    {stats.lowStockItems > 0 && (
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
+                        {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm sm:text-base text-slate-900">Today&apos;s Shopping</div>
+                    <div className="text-xs text-slate-600">
+                      {stats.lowStockItems > 0
+                        ? `${stats.lowStockItems} item${stats.lowStockItems !== 1 ? "s" : ""} - print list`
+                        : "Buy-now list + print"}
+                    </div>
                   </div>
                 </Link>
                 <Link

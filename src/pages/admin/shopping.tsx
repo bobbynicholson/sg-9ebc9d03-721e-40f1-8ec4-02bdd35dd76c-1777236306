@@ -31,7 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download } from "lucide-react";
+import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
@@ -410,6 +410,28 @@ function SmartShoppingPage() {
               >
                 <Download className="w-3.5 h-3.5" /> Export buy-now
               </Button>
+              {/* AD-2 (admin-dashboard audit): print-friendly Today's
+                  shopping list. Bobby's brief: "if a user needs to go
+                  shopping today, there should be an easy list to
+                  print." The hidden #print-shopping-list div below
+                  renders a clean paper-friendly table; the print CSS
+                  hides everything else. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (buyNow.length === 0) {
+                    toast({ title: "Nothing to print", description: "Buy now list is empty - stock looks healthy." });
+                    return;
+                  }
+                  // Tiny delay so the button gets to finish its click
+                  // animation before the browser print dialog steals focus.
+                  setTimeout(() => window.print(), 100);
+                }}
+                className="gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print today
+              </Button>
               {pickedCount > 0 && (
                 <Card className="border-0 shadow bg-emerald-50 px-4 py-2 flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -700,6 +722,73 @@ function SmartShoppingPage() {
           </p>
         </div>
       </div>
+
+      {/* AD-2: print-only view of today's shopping list. Hidden on
+          screen via the print CSS below; only renders to paper.
+          One row per buy-now item with a checkbox column so the
+          shopper can tick off in the field. Supplier-grouped so a
+          single shopping run can fan out to multiple suppliers. */}
+      <div id="print-shopping-list" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
+          Shopping list
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {" - "}
+          {buyNow.length} item{buyNow.length === 1 ? "" : "s"} to buy
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ width: "24pt", textAlign: "left", padding: "4pt" }}> </th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Item</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Qty</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Unit</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Supplier</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Buy by</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buyNow.map((r: any) => (
+              <tr key={r.id} style={{ borderBottom: "1px solid #cbd5e1" }}>
+                <td style={{ padding: "6pt 4pt" }}>
+                  <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
+                </td>
+                <td style={{ padding: "6pt 4pt" }}>
+                  <strong>{r.item_name}</strong>
+                  {r.category ? <span style={{ color: "#64748b", marginLeft: "6pt" }}>{r.category}</span> : null}
+                  {r.isUrgent ? <span style={{ marginLeft: "6pt", padding: "1pt 4pt", border: "1pt solid #dc2626", color: "#dc2626", fontSize: "8pt", fontWeight: 700 }}>URGENT</span> : null}
+                </td>
+                <td style={{ padding: "6pt 4pt", textAlign: "right" }}>{r.reorderQty}</td>
+                <td style={{ padding: "6pt 4pt" }}>{r.unit_of_measure || ""}</td>
+                <td style={{ padding: "6pt 4pt" }}>{r.supplier?.supplier_name || ""}</td>
+                <td style={{ padding: "6pt 4pt" }}>{r.buyBy ? toLocalISO(r.buyBy) : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Smart Shopping
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 14mm; }
+          body * { visibility: hidden !important; }
+          #print-shopping-list, #print-shopping-list * { visibility: visible !important; }
+          #print-shopping-list {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }
