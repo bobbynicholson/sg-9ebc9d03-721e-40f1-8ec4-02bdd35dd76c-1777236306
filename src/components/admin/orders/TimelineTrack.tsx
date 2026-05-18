@@ -276,7 +276,7 @@ function StageDot({
                 {STAGE_GROUP_LABELS[stage.group]}
               </div>
             </div>
-            <StatusBadge status={stage.status} />
+            <StatusBadge stage={stage} />
           </div>
 
           {stage.blockedReason && (
@@ -356,13 +356,25 @@ function StageDot({
   return dotWithHover;
 }
 
-function StatusBadge({ status }: { status: OrderTimelineStage["status"] }) {
+function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
   const cfg = (() => {
-    switch (status) {
+    switch (stage.status) {
       case "completed":
         return { label: "Done", cls: "bg-green-50 text-green-700 border-green-200" };
       case "current":
-        return { label: "In progress", cls: "bg-orange-50 text-orange-700 border-orange-200" };
+        // Wave 70.49f - distinguish "actually happening right now" from
+        // "this is the next stage to focus on but nobody has started".
+        // Bobby flagged the misleading "In progress" badge on
+        // /c/order/[id] where an order 2 days out from the event was
+        // showing kitchen prep as "In progress" because the stage was
+        // `current` - but the resolver marks something `current` the
+        // moment it's the NEXT unfinished stage, regardless of whether
+        // work has actually started. The truthful signal is
+        // `startedAt`: set when the underlying entity (prep task,
+        // driver assignment, etc.) has a started_at timestamp.
+        return stage.startedAt
+          ? { label: "In progress", cls: "bg-orange-50 text-orange-700 border-orange-200" }
+          : { label: "Up next",     cls: "bg-amber-50 text-amber-700 border-amber-200" };
       case "blocked":
         return { label: "Blocked", cls: "bg-rose-50 text-rose-700 border-rose-200" };
       case "upcoming":
