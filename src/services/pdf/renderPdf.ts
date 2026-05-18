@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * renderPdf - server-side helpers that turn a typed data shape into
  * a PDF Buffer.

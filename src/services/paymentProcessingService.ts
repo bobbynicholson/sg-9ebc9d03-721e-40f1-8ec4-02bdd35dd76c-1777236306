@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import {
   calculateDepositAndBalance,
