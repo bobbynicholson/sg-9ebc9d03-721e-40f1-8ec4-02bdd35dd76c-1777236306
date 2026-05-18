@@ -2140,12 +2140,19 @@ severity.
    "create missing table", or "remove dead code", ship the fix,
    delete the baseline entry.
 
-2. **Cleaning_event_handovers is the highest-impact**. 13
-   references across the cleaning portal's live-count hook,
-   portal-mode detector, booking facts service and the
-   end-to-end handover service. If they're all silently
-   failing, the cleaning portal's "event handover" workflow is
-   functionally absent. Investigate first.
+2. **Cleaning_event_handovers** - **resolved**. Migration
+   `20260517702400_wave70_24_cleaning_handovers_and_equipment_flags`
+   was on the repo's migration history but only half-applied to
+   the live DB (3 of 6 equipment columns landed, the
+   cleaning_event_handovers table + cleaning_jobs.event_handover_id
+   link never did). Re-applied the migration in full via
+   apply_migration; the IF NOT EXISTS / DROP POLICY IF EXISTS
+   guards in the original DDL made the re-run idempotent. The
+   13 phantom-table references in the cleaning portal +
+   booking-facts service + cleaning-portal hooks are now backed
+   by a real table; baseline entries removed from
+   `scripts/check-status-filters.mjs`. The cleaning portal's
+   event-handover workflow is live.
 
 3. **Wider check: `.update(payload)` / `.insert(payload)`
    table-existence**. Today the guard only checks `.from("X")`.
