@@ -41,6 +41,16 @@ import {
   type OrderAutoEmailSummary,
 } from "@/lib/orderIntelligence";
 import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
+// P2-13 Phase A+B sibling files. The split plan lives at
+// docs/audits/p2-13-orders-split-plan.md.
+import type { OrderStats } from "@/components/admin/orders/types";
+import {
+  STATUS_CONFIG,
+  WORKFLOW_STAGES,
+  getStageStatus,
+  getNextStage,
+} from "@/components/admin/orders/statusConfig";
+import { DuplicateOrderDialog } from "@/components/admin/orders/DuplicateOrderDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
@@ -66,125 +76,9 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 // machines showed 5/16/2026 on SA tenants).
 import { formatDate } from "@/lib/formatters";
 
-interface OrderStats {
-  total: number;
-  byStatus: Record<string, number>;
-  revenue: {
-    /** Firm bookings: confirmed onwards. Excludes pending + cancelled. */
-    booked: number;
-    /** Already-delivered slice of the above - "money in the till". */
-    realised: number;
-    pending: number;
-    paid: number;
-  };
-  upcoming: number;
-  inProgress: number;
-}
-
-// Wave 56 - collapsed from 8 categorical hues to a 3-tone semantic
-// scheme. The status progression is genuinely linear (waiting ->
-// active -> done), not categorical. The previous palette taught the
-// operator nothing because every status was a different unrelated
-// colour. Now: amber = waiting on someone, blue = work in motion,
-// slate = closed, rose = cancelled (the only true alert tone).
-//
-// Icons retained per stage so the badge still carries fast
-// recognition; sentence-case labels match Wave 54.5 dropdown.
-const STATUS_CONFIG = {
-  pending: {
-    label: "Pending",
-    icon: Clock,
-    color: "bg-amber-50 text-amber-800 border-amber-200",
-    dotColor: "bg-amber-500"
-  },
-  confirmed: {
-    label: "Confirmed",
-    icon: CheckCircle2,
-    color: "bg-blue-50 text-blue-800 border-blue-200",
-    dotColor: "bg-blue-500"
-  },
-  preparing: {
-    label: "In prep",
-    icon: Package,
-    color: "bg-blue-50 text-blue-800 border-blue-200",
-    dotColor: "bg-blue-500"
-  },
-  ready: {
-    label: "Ready",
-    icon: CheckCircle2,
-    color: "bg-blue-50 text-blue-800 border-blue-200",
-    dotColor: "bg-blue-500"
-  },
-  in_transit: {
-    label: "In transit",
-    icon: Truck,
-    color: "bg-blue-50 text-blue-800 border-blue-200",
-    dotColor: "bg-blue-500"
-  },
-  delivered: {
-    label: "Delivered",
-    icon: CheckCircle2,
-    color: "bg-blue-50 text-blue-800 border-blue-200",
-    dotColor: "bg-blue-500"
-  },
-  completed: {
-    label: "Completed",
-    icon: CheckCircle2,
-    color: "bg-slate-100 text-slate-700 border-slate-200",
-    dotColor: "bg-slate-400"
-  },
-  paused: {
-    label: "Paused",
-    icon: Clock,
-    color: "bg-slate-100 text-slate-700 border-slate-300",
-    dotColor: "bg-slate-400"
-  },
-  cancelled: {
-    label: "Cancelled",
-    icon: AlertCircle,
-    color: "bg-rose-50 text-rose-800 border-rose-200",
-    dotColor: "bg-rose-400"
-  },
-};
-
-// Workflow stages for timeline view
-const WORKFLOW_STAGES = [
-  { key: "pending", label: "Pending", order: 0 },
-  { key: "confirmed", label: "Confirmed", order: 1 },
-  { key: "preparing", label: "In Prep", order: 2 },
-  { key: "ready", label: "Ready", order: 3 },
-  { key: "in_transit", label: "In Transit", order: 4 },
-  { key: "delivered", label: "Delivered", order: 5 },
-  { key: "completed", label: "Completed", order: 6 },
-];
-
-// Get stage status (completed, current, critical, upcoming)
-const getStageStatus = (order: AppOrder, stageKey: string): "completed" | "current" | "critical" | "upcoming" => {
-  const currentStageOrder = WORKFLOW_STAGES.find(s => s.key === order.status)?.order ?? 0;
-  const thisStageOrder = WORKFLOW_STAGES.find(s => s.key === stageKey)?.order ?? 0;
-  
-  if (thisStageOrder < currentStageOrder) {
-    return "completed";
-  } else if (thisStageOrder === currentStageOrder) {
-    // Check if critical (event date is today or past and not completed)
-    const eventDate = new Date(order.event_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (eventDate <= today && order.status !== "completed" && order.status !== "cancelled") {
-      return "critical";
-    }
-    return "current";
-  }
-  return "upcoming";
-};
-
-// Get next stage
-const getNextStage = (order: AppOrder): string | null => {
-  const currentStageOrder = WORKFLOW_STAGES.find(s => s.key === order.status)?.order ?? 0;
-  const nextStage = WORKFLOW_STAGES.find(s => s.order === currentStageOrder + 1);
-  return nextStage ? nextStage.label : null;
-};
+// OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
+// extracted to sibling files in the P2-13 Phase B split. Imported
+// just below.
 
 function OrderProcessDashboard() {
   const { user } = useAuth();
@@ -498,12 +392,12 @@ function OrderProcessDashboard() {
   // stable when the modal updates its own UI.
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
-  // Wave 55 - duplicate-order dialog state. Replaces the
-  // window.prompt() call. duplicateDate holds the user's pick;
-  // duplicateBusy is the in-flight guard.
+  // Wave 55 - duplicate-order dialog open-state + the operator's
+  // pre-seed (today + 7d). The form's own date + busy state now
+  // live inside DuplicateOrderDialog (P2-13 Phase A split); we just
+  // hand it the seed so it can populate the date input on open.
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [duplicateDate, setDuplicateDate] = useState<string>("");
-  const [duplicateBusy, setDuplicateBusy] = useState(false);
+  const [duplicateDate7DayDefault, setDuplicateDate7DayDefault] = useState<string>("");
   // Amendment / cancellation review drawer state. Driven entirely off
   // the URL: when /admin/orders is loaded with ?amendment=... (or
   // ?cancellation=...) plus an ?orderId=..., the matching drawer opens
@@ -2634,12 +2528,14 @@ function OrderProcessDashboard() {
                       {selectedOrder && (
                         <DropdownMenuItem
                           onClick={() => {
-                            const todayPlus7 = (() => {
+                            // The dialog reads `defaultDate` on open
+                            // and snaps its own input to it; seeding
+                            // here keeps the +7d operator convention.
+                            setDuplicateDate7DayDefault((() => {
                               const d = new Date();
                               d.setDate(d.getDate() + 7);
                               return toLocalISO(d);
-                            })();
-                            setDuplicateDate(todayPlus7);
+                            })());
                             setDuplicateDialogOpen(true);
                           }}
                         >
@@ -4324,67 +4220,16 @@ function OrderProcessDashboard() {
             {/* Wave 55 - replaces window.prompt() for Duplicate.
                 Native prompt was a visual frame regression - no
                 calendar widget, no in-app frame. */}
-            <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Duplicate this order</DialogTitle>
-                  <DialogDescription>
-                    Pick the event date for the new copy. Everything else
-                    (client, menu, equipment, total) carries over and you
-                    can tweak the duplicate after it lands.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3 py-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    New event date
-                    <Input
-                      type="date"
-                      value={duplicateDate}
-                      onChange={(e) => setDuplicateDate(e.target.value)}
-                      className="mt-1"
-                    />
-                  </label>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setDuplicateDialogOpen(false)}
-                    disabled={duplicateBusy}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    disabled={duplicateBusy || !duplicateDate || !/^\d{4}-\d{2}-\d{2}$/.test(duplicateDate)}
-                    onClick={async () => {
-                      if (!selectedOrder) return;
-                      setDuplicateBusy(true);
-                      try {
-                        const res = await orderService.duplicateOrder(selectedOrder.id, duplicateDate);
-                        if (!res.success) {
-                          toast({
-                            title: "Could not duplicate",
-                            description: (res as { success: false; error: string }).error,
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        toast({
-                          title: "Order duplicated",
-                          description: `New order ${(res.data as any).order_number} created on ${duplicateDate}.`,
-                        });
-                        setDuplicateDialogOpen(false);
-                        setIsModalOpen(false);
-                        loadOrders();
-                      } finally {
-                        setDuplicateBusy(false);
-                      }
-                    }}
-                  >
-                    {duplicateBusy ? "Duplicating..." : "Duplicate order"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <DuplicateOrderDialog
+              open={duplicateDialogOpen}
+              onOpenChange={setDuplicateDialogOpen}
+              sourceOrderId={selectedOrder?.id || null}
+              defaultDate={duplicateDate7DayDefault}
+              onDuplicated={() => {
+                setIsModalOpen(false);
+                loadOrders();
+              }}
+            />
 
             {/* Pause dialog - captures reason + expected resume date,
                 runs the pauseOrder cascade (status -> 'paused', email
