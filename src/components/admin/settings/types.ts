@@ -56,6 +56,16 @@ export interface CompanySettings {
   kitchenLng: number;
 }
 
+export interface FinancialSettings {
+  currency: string;
+  taxRate: number;
+  depositPercent: number;
+  balanceDueDays: number;
+  finalOrderChangeDays: number;
+  cancellationFeePercent: number;
+  refundProcessDays: number;
+}
+
 /**
  * Per-key updater partial-applied for one settings category. The
  * parent's full `updateSetting(category, key, value)` is too wide
@@ -84,5 +94,10 @@ export type UpdateOperationsSetting = (
 
 export type UpdateCompanySetting = (
   key: keyof CompanySettings,
+  value: string | number,
+) => void;
+
+export type UpdateFinancialSetting = (
+  key: keyof FinancialSettings,
   value: string | number,
 ) => void;
