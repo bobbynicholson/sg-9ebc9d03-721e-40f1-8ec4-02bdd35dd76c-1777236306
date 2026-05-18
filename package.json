@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "check:status-filters": "node scripts/check-status-filters.mjs",
     "test": "jest --watch",
     "test:ci": "jest --ci --coverage --passWithNoTests"
   },
