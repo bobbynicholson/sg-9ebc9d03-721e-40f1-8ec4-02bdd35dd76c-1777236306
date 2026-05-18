@@ -936,6 +936,17 @@ export async function cancelOrder(
      * user's session automatically.
      */
     client?: any;
+    /**
+     * Wave 70.49g - when true, suppress sendStatusNotifications().
+     * The smoke harness uses this so a smoke cancel doesn't ping
+     * every admin in the company with "SMOKE-* cancelled"
+     * notifications. The release cascade itself still runs and the
+     * audit log still records the cancel; only the
+     * notification fan-out is skipped. Real callers (cancel API,
+     * cancellation-review) leave it false / undefined so production
+     * cancels notify normally.
+     */
+    silent?: boolean;
   } = {},
 ) {
   try {
@@ -1063,10 +1074,15 @@ export async function cancelOrder(
     }
 
     // Run the existing notification fan-out for the cancelled status.
-    try {
-      await sendStatusNotifications(data);
-    } catch (e) {
-      console.warn("[cancelOrder] notifications failed:", e);
+    // Wave 70.49g - skipped when opts.silent is true (smoke harness uses
+    // this so cancelling a SMOKE-* order doesn't ping every admin in
+    // the company with a notification).
+    if (!opts.silent) {
+      try {
+        await sendStatusNotifications(data);
+      } catch (e) {
+        console.warn("[cancelOrder] notifications failed:", e);
+      }
     }
 
     // Wave 70.48 - the cleaning_event_handover cancel previously lived

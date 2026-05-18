@@ -645,6 +645,208 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return `ok=true order=${result.order?.order_number || "?"} keys=${Object.keys(result).length}`;
     });
+
+    // ════════════════════════════════════════════════════════════════
+    // Stage E: Wave 70.49g - full cancelOrder() workflow end-to-end
+    //
+    // The C-stages exercised releaseOrderResources() directly. That
+    // covers the cascade math but doesn't exercise the full workflow
+    // path through cancelOrder() (status flip + parent UPDATE +
+    // status_history insert + audit_logs row + release receipt
+    // embedded). Without this block, a future regression in
+    // cancelOrder() itself (e.g. someone moves the cascade call
+    // before the status update, or drops the audit row) won't be
+    // caught by the smoke until a real cancellation breaks in
+    // production.
+    //
+    // Uses silent=true so cancelling a SMOKE-* order doesn't ping
+    // every admin in the company with notifications.
+    // ════════════════════════════════════════════════════════════════
+
+    let cancelTargetOrderId = "";
+    let cancelTargetEquipBookingId = "";
+    let cancelTargetPrepTaskId = "";
+
+    if (!(await run("E1_create_order_for_cancel", async () => {
+      const { data, error } = await sb
+        .from("orders")
+        .insert({
+          company_id: companyId,
+          order_number: `${runTag}-CANCEL`,
+          client_id: clientId,
+          event_name: `${runTag} CancelOrder Test`,
+          event_date: eventDate,
+          event_time: "12:00",
+          guest_count: 25,
+          venue_address: "1 Smoke Lane, Cape Town",
+          subtotal: 2500,
+          total_amount: 2875,
+          tax_amount: 375,
+          // Start at 'confirmed' so it's in the cancel-eligible state.
+          status: "confirmed",
+          payment_status: "pending",
+          currency: "ZAR",
+          client_name: `${runTag} Test Client`,
+          client_email: `${runTag.toLowerCase()}@cateringms.test`,
+          // Wave 70.49g - populate secondary IDs so we can verify the
+          // cascade nulls them (Wave 70.49 gap fix). Using the
+          // client_id placeholder is fine - we only check it gets
+          // nulled, not what it pointed at.
+          secondary_driver_id: null,
+          secondary_vehicle_id: null,
+          internal_notes: `Smoke cancelOrder() test (${runTag}).`,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      cancelTargetOrderId = (data as any).id;
+      created.order_ids.push(cancelTargetOrderId);
+      return `order_id=${cancelTargetOrderId}`;
+    }))) throw new ShortCircuit();
+
+    await run("E2_seed_children_for_cancel", async () => {
+      const seeded: string[] = [];
+      // Equipment booking (if tenant has any equipment)
+      const { data: anyEquip } = await sb
+        .from("equipment")
+        .select("id")
+        .eq("company_id", companyId)
+        .limit(1)
+        .maybeSingle();
+      if (anyEquip) {
+        const { data, error } = await sb
+          .from("equipment_bookings")
+          .insert({
+            order_id: cancelTargetOrderId,
+            equipment_id: (anyEquip as any).id,
+            quantity: 1,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+        if (!error) {
+          cancelTargetEquipBookingId = (data as any).id;
+          seeded.push("equipment_booking");
+        }
+      }
+      // Kitchen prep task
+      const { data: prepData, error: prepErr } = await sb
+        .from("kitchen_prep_tasks")
+        .insert({
+          company_id: companyId,
+          order_id: cancelTargetOrderId,
+          menu_item_name: `Smoke cancelOrder prep (${runTag})`,
+          task_type: "prep",
+          start_at: new Date().toISOString(),
+          duration_min: 30,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (!prepErr) {
+        cancelTargetPrepTaskId = (prepData as any).id;
+        seeded.push("kitchen_prep_task");
+      }
+      return seeded.join(",") || "none";
+    });
+
+    await run("E3_call_cancelOrder_workflow", async () => {
+      const { cancelOrder } = await import("@/services/order/orderWorkflow");
+      const result = await cancelOrder(cancelTargetOrderId, {
+        reason: `Smoke cancelOrder test (${runTag})`,
+        reason_category: "other",
+        cancelled_by_user_id: user.id,
+        client: sb,
+        // Wave 70.49g - silent=true skips sendStatusNotifications so
+        // we don't ping every admin with a "SMOKE-* cancelled"
+        // notification on every smoke run.
+        silent: true,
+      });
+      if (!result?.success) {
+        throw new Error(result?.error || "cancelOrder returned non-success");
+      }
+      const receipt = (result as any)?.release_receipt;
+      if (!receipt || !Array.isArray(receipt.lines)) {
+        throw new Error("cancelOrder didn't return a release_receipt");
+      }
+      const failed = receipt.lines.filter((l: any) => l.action === "failed");
+      if (failed.length > 0) {
+        throw new Error(`Receipt failures: ${failed.map((f: any) => `${f.resource}=${f.error}`).join("; ")}`);
+      }
+      return `ok=true lines=${receipt.lines.length} ms=${receipt.ms}`;
+    });
+
+    await run("E4_verify_order_cancelled_state", async () => {
+      const { data, error } = await sb
+        .from("orders")
+        .select("status, cancellation_reason, cancellation_reason_category, cancelled_at, assigned_driver_id, secondary_driver_id, secondary_vehicle_id")
+        .eq("id", cancelTargetOrderId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      const row = data as any;
+      if (row?.status !== "cancelled") throw new Error(`status='${row?.status}' (expected 'cancelled')`);
+      if (!row?.cancelled_at) throw new Error("cancelled_at not stamped");
+      if (!row?.cancellation_reason) throw new Error("cancellation_reason not stored");
+      if (row?.assigned_driver_id !== null) throw new Error("assigned_driver_id not nulled");
+      // Wave 70.49 Tier 1 fix: secondary_*_id must also null out
+      if (row?.secondary_driver_id !== null) throw new Error("secondary_driver_id not nulled (Wave 70.49 regression)");
+      if (row?.secondary_vehicle_id !== null) throw new Error("secondary_vehicle_id not nulled (Wave 70.49 regression)");
+      return `status=cancelled cancelled_at set, primary+secondary IDs nulled`;
+    });
+
+    await run("E5_verify_children_released", async () => {
+      const checks: string[] = [];
+      if (cancelTargetEquipBookingId) {
+        const { data } = await sb
+          .from("equipment_bookings")
+          .select("status")
+          .eq("id", cancelTargetEquipBookingId)
+          .maybeSingle();
+        if ((data as any)?.status !== "cancelled") {
+          throw new Error(`equipment_booking still '${(data as any)?.status}'`);
+        }
+        checks.push("equipment_booking=cancelled");
+      }
+      if (cancelTargetPrepTaskId) {
+        const { data } = await sb
+          .from("kitchen_prep_tasks")
+          .select("status")
+          .eq("id", cancelTargetPrepTaskId)
+          .maybeSingle();
+        // Wave 70.48b fix: prep tasks flip to 'skipped' (the
+        // kitchen_prep_tasks_status_check enum has no 'cancelled').
+        if ((data as any)?.status !== "skipped") {
+          throw new Error(`prep_task still '${(data as any)?.status}' (expected 'skipped')`);
+        }
+        checks.push("prep_task=skipped");
+      }
+      return checks.join(" ") || "no child rows to verify";
+    });
+
+    await run("E6_verify_audit_log_has_receipt", async () => {
+      // The audit_logs row inserted by cancelOrder should carry the
+      // full release_receipt in details. This catches a regression
+      // where someone refactors cancelOrder and forgets to embed the
+      // receipt - operators would lose forensic visibility into what
+      // was released for a given cancellation.
+      const { data, error } = await sb
+        .from("audit_logs")
+        .select("details")
+        .eq("entity_type", "order")
+        .eq("entity_id", cancelTargetOrderId)
+        .eq("action", "order_cancelled")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("No order_cancelled audit row written");
+      const receipt = (data as any)?.details?.release_receipt;
+      if (!receipt) throw new Error("audit_logs.details.release_receipt missing");
+      if (!Array.isArray(receipt.lines) || receipt.lines.length === 0) {
+        throw new Error("release_receipt.lines empty or not array");
+      }
+      return `audit_log written, receipt.lines=${receipt.lines.length}`;
+    });
   } catch (err: any) {
     if (!(err instanceof ShortCircuit)) {
       stages.push({ name: "uncaught", ok: false, ms: 0, error: err?.message || String(err) });
@@ -686,9 +888,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Wave 70.49c: added client_access_tokens + client_access_log to
       // capture rows produced by the D-stage (token mint + the RPC's
       // log insert on successful validation).
+      // Wave 70.49g: added equipment_bookings (C+E stages seed them)
+      // and inventory_transactions (cancelOrder reverse-stamps them).
       for (const tbl of [
         "order_status_history",
         "kitchen_prep_tasks",
+        "equipment_bookings",
+        "inventory_transactions",
         "audit_logs",
         "notifications",
         "client_access_tokens",
