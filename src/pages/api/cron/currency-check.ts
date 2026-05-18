@@ -20,42 +20,20 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { currencyMonitoringService } from "@/services/currencyMonitoringService";
+import { requireCronAuth } from "@/lib/cronAuth";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+
+const CRON_NAME = "currency-check";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // - Auth: cron secret OR super_admin session ---------------------
-  const expected = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || "";
-  const isCron = !!expected && auth === `Bearer ${expected}`;
-
-  let isSuperAdmin = false;
-  if (!isCron) {
-    try {
-      const ssr = createPagesServerClient({ req, res });
-      const { data: { user } } = await ssr.auth.getUser();
-      if (user) {
-        const { data: profile } = await ssr
-          .from("profiles")
-          .select("role, active_role")
-          .eq("id", user.id)
-          .maybeSingle();
-        const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
-        isSuperAdmin = role === "super_admin";
-      }
-    } catch {
-      // fall through - isSuperAdmin stays false
-    }
-  }
-
-  if (!isCron && !isSuperAdmin) {
-    return res.status(401).json({ error: "Unauthorised" });
-  }
+  const auth = await requireCronAuth(req, res);
+  if (!auth.ok) return;
 
   // Service role client so the upserts always go through regardless
   // of who the caller is. The check + writes don't need RLS context.
@@ -63,6 +41,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const result = await currencyMonitoringService.runDailyCheck(sb);
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", {
+      source: auth.source,
+      rate: result.rate,
+      fluctuation_pct: result.fluctuation,
+      alert_created: result.alertCreated,
+    });
     return res.status(200).json({
       ok: true,
       rate: result.rate,
@@ -71,6 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (e: any) {
     console.error("/api/cron/currency-check crashed:", e);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", {
+      source: auth.source,
+      error_message: e?.message || "Currency check failed",
+    });
     return res.status(500).json({ error: e?.message || "Currency check failed" });
   }
 }
