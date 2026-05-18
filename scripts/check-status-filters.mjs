@@ -72,6 +72,58 @@ const IGNORE_FILES = new Set([
   "src/services/equipmentTrackingService.ts",
 ]);
 
+// Baseline allow-list for phantom-table references that pre-date
+// this check. Each entry is the (file, table) pair the guard
+// would otherwise flag. Adding to this list is grandfathering -
+// every entry is a real bug or a planned-table-never-created
+// dependency that needs investigation (tracked in A.19 of the
+// audit). Goal is to drive the list to zero, NOT to suppress
+// new occurrences. The check still fails for any new (file,
+// table) combo not on this list.
+const BASELINE_PHANTOM_TABLES = new Set([
+  // cleaning_event_handovers - 13 references across the cleaning
+  // portal. Either the table needs creating, or the call sites
+  // need re-pointing at equipment_handovers (which exists).
+  "src/hooks/useCleaningLiveCounts.ts::cleaning_event_handovers",
+  "src/hooks/useCleaningPortalMode.ts::cleaning_event_handovers",
+  "src/services/booking/bookingFacts.ts::cleaning_event_handovers",
+  "src/services/cleaningHandoverService.ts::cleaning_event_handovers",
+
+  // chat_sessions / chat_messages - chatBotService writes to two
+  // tables that don't exist. ChatBot persistence is silently
+  // failing; every conversation is in-memory only.
+  "src/services/chatBotService.ts::chat_sessions",
+  "src/services/chatBotService.ts::chat_messages",
+
+  // invoice_line_items - Sage accounting sync references this
+  // when fanning out invoice lines. The line-items column on
+  // invoices is jsonb today; either the sync needs to read jsonb
+  // or invoice_line_items needs a real table.
+  "src/pages/api/accounting/sage/sync-invoice.ts::invoice_line_items",
+
+  // onboarding_steps - resend domain-verify writes to a table
+  // that doesn't exist. The onboarding state lives on
+  // onboarding_state (which does exist) - this is a writer
+  // pointed at the wrong table.
+  "src/pages/api/admin/resend/verify-domain.ts::onboarding_steps",
+
+  // imports - shopping receipt + spreadsheet import paths
+  // reference a table that doesn't exist. import_jobs +
+  // import_rows + import_events exist (3-table import schema)
+  // so this looks like an old single-table reference that was
+  // never updated.
+  "src/components/shopping/ReconcileSlipDrawer.tsx::imports",
+  "src/pages/api/imports/receipts/upload.ts::imports",
+  "src/pages/api/imports/upload.ts::imports",
+  "src/pages/team-portal/shopping/orders.tsx::imports",
+
+  // drivers - timeClockService references this when looking up
+  // driver records. The driver identity is on profiles (with
+  // role='driver') + driver_shifts for shift records; there's
+  // no flat drivers table.
+  "src/services/timeClockService.ts::drivers",
+]);
+
 function walk(dir, acc = []) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
@@ -103,10 +155,87 @@ function findTableBefore(src, pos, lookback = 800) {
   return fromMatches[fromMatches.length - 1][1];
 }
 
+// Live DB tables in the `public` schema as of 2026-05-18 (per
+// information_schema.tables). Keep in sync with the actual DB
+// when new tables land. The A.17 #2 bug (querying the non-
+// existent `subscription_invoices`) shows why: an as-any cast on
+// .from() lets a typo / dropped-table reference compile, the
+// supabase-js {error} return shape silences the failure at
+// runtime, and the bug stays invisible until a real human
+// notices the affected surface always reads zero.
+const KNOWN_TABLES = new Set([
+  "account_deletion_requests","accounting_integrations","admin_notifications","allergens",
+  "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
+  "billing_history","blocked_contacts","blog_posts","booking_packages",
+  "cancellation_requests","cleaning_duty_logs","cleaning_jobs","cleaning_machines",
+  "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
+  "companies","company_number_settings","company_number_settings_audit","complaints",
+  "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
+  "delivery_route_stops","delivery_routes","dispatch_messages","driver_assignments",
+  "driver_confirmations","driver_locations","driver_rest_logs","driver_shifts",
+  "email_automation_log","email_notification_preferences","email_provider_settings",
+  "email_settings","email_templates","embed_form_configs","embed_form_submissions",
+  "embed_rate_limits","equipment","equipment_bookings","equipment_damages",
+  "equipment_handovers","equipment_hire_orders","equipment_kit_items","equipment_kits",
+  "equipment_maintenance","equipment_maintenance_log","equipment_shortage_flags",
+  "exchange_rates","financial_depreciation","financial_predictions",
+  "floor_safety_inspections","fuel_stockpile","gamification_achievements",
+  "gamification_points","gps_tracking","health_certificates","import_events",
+  "import_jobs","import_rows","ingredient_substitutions","insurance_policies",
+  "integrations","inventory","inventory_batches","inventory_demand_outlook",
+  "inventory_item_suppliers","inventory_items","inventory_transactions","invoices",
+  "kitchen_duty_shifts","kitchen_handoffs","kitchen_payslips","kitchen_prep_tasks",
+  "kitchen_shifts","kitchen_staff_members","kitchen_staff_shifts","kitchen_stations",
+  "kitchen_task_completions","leads","lighting_tests","loadoff_verifications",
+  "menu_items","notifications","onboarding_state","order_amendment_requests",
+  "order_assignment_audit","order_ingredient_demand","order_items","order_status_history",
+  "orders","outgoing_email_log","outgoing_email_queue","outsource_assignments",
+  "outsource_providers","pat_testing","payment_gateway_credentials","payment_gateways",
+  "payment_reminders","payments","pending_reviews","pest_control_logs",
+  "platform_pricing_plans","profiles","public_holidays","purchase_history",
+  "purchase_line_memory","purchase_receipt_items","purchase_receipts",
+  "quote_acceptances","quote_change_requests","quote_followup_log","quotes",
+  "recipe_ingredients","recipe_scaling_history","recipes","recurring_invoice_runs",
+  "recurring_invoice_templates","regions","return_load_tracking",
+  "sa_tax_deductibility_rules","safety_checks","safety_equipment","shopping_list_items",
+  "shopping_lists","staff_invitations","staff_payment_ledger","staff_shift_tasks",
+  "staff_work_sessions","storage_locations","storage_racks","subscriptions","suppliers",
+  "support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
+  "training_materials","trial_expiry_notifications","user_departments","user_saved_views",
+  "vehicle_bookings","vehicle_maintenance_log","vehicles","waste_logs",
+  "webhook_deliveries","webhook_subscriptions","whatsapp_templates",
+  "won_then_cancelled_quotes","xero_integration_settings",
+]);
+
 function checkFile(path, src) {
   const findings = [];
   const rel = relative(ROOT, path).replace(/\\/g, "/");
   if (IGNORE_FILES.has(rel)) return findings;
+
+  // Table-name existence check. Every `.from("LITERAL")` call site
+  // on a Supabase client must reference a real public-schema table.
+  // Catches typos and dropped-table references; surfaced the A.17
+  // #2 bug (subscription_invoices doesn't exist) in advance of merge.
+  //
+  // Filters out `supabase.storage.from("BUCKET")` (storage buckets,
+  // not tables) by checking the ~40 chars before the .from for a
+  // `.storage` segment.
+  for (const m of src.matchAll(/\.from\(\s*["'`]([a-z_]+)["'`]\s*\)/g)) {
+    const before = src.slice(Math.max(0, m.index - 40), m.index);
+    if (/\.storage\s*$/.test(before)) continue;
+    const table = m[1];
+    if (KNOWN_TABLES.has(table)) continue;
+    if (BASELINE_PHANTOM_TABLES.has(`${rel}::${table}`)) continue;
+    findings.push({
+      file: rel,
+      line: src.slice(0, m.index).split("\n").length,
+      table,
+      column: "(table-existence)",
+      literal: table,
+      allowed: "(known public.* table)",
+      shape: ".from",
+    });
+  }
 
   // Pattern 1: .eq("status", "LITERAL")
   for (const m of src.matchAll(/\.eq\(\s*["'`]status["'`]\s*,\s*["'`]([a-z_]+)["'`]/g)) {

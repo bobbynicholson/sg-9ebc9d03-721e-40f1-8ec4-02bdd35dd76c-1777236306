@@ -2058,3 +2058,100 @@ silenced by `as any` casts and supabase-js's `{error}` return
 shape. Twelve distinct bugs fixed; two layers of static-analysis
 now guard against regressions (PR #61 covers the write side,
 PR #66 covers the read side).
+
+## A.19 Phantom-table reference sweep (2026-05-18)
+
+Extending the PR #66 status-filter check to also validate that
+every `.from("LITERAL")` call site references a real public-schema
+table surfaced **23 phantom-table references** in 10 files. Same
+root pattern as the A.10 / A.16 / A.18 drift sweeps - the
+as-any cast hides the bad reference, supabase-js's {error}
+return shape silences the runtime failure, the affected surface
+silently always returns zero data.
+
+Two fixed immediately (small surface, single PR):
+
+- **`useAdminLiveCounts.refundsPending`** queried a non-existent
+  `refunds` table with status='pending'. Refund records live on
+  `payments` (payment_type='refund', payment_status='pending').
+  Result: the admin alert pill never lit for stalled refunds.
+  Re-targeted at payments with the correct filters.
+
+- **`useAdminLiveCounts.emailFailures`** queried a non-existent
+  `email_send_log` table with status='failed'. The outbox is
+  `outgoing_email_queue` (which has status='failed' in its CHECK).
+  Result: the admin alert pill never lit even when the queue was
+  erroring. Re-targeted at outgoing_email_queue.
+
+Remaining **21 phantom-table references grandfathered into the
+guard's BASELINE_PHANTOM_TABLES set**, each one a distinct A.19
+follow-up to investigate / fix:
+
+1. **`cleaning_event_handovers` (13 refs across 4 files)**.
+   useCleaningLiveCounts, useCleaningPortalMode, booking/
+   bookingFacts, cleaningHandoverService. Either the table needs
+   creating, or the call sites need re-pointing at
+   `equipment_handovers` (which exists and looks like the
+   intended target). The cleaning portal's event-handover flow
+   silently fails today.
+
+2. **`chat_sessions` / `chat_messages` (4 refs in chatBotService)**.
+   ChatBot persistence is silently failing - every conversation
+   is in-memory only. Either the two tables need creating, or
+   the chatbot needs a different persistence model.
+
+3. **`invoice_line_items` (1 ref, Sage sync)**.
+   `/api/accounting/sage/sync-invoice` fans out invoice lines to
+   a table that doesn't exist. Invoices use a jsonb column for
+   lines today; either the sync reads jsonb directly or a real
+   line-items table is needed.
+
+4. **`onboarding_steps` (1 ref, resend verify-domain)**.
+   `/api/admin/resend/verify-domain` writes to a table that
+   doesn't exist. `onboarding_state` exists and looks like the
+   intended target.
+
+5. **`imports` (4 refs, shopping import paths)**.
+   ReconcileSlipDrawer + 3 API routes. The 3-table import schema
+   exists (`import_jobs` + `import_rows` + `import_events`) so
+   this looks like an old single-table reference that was never
+   updated.
+
+6. **`drivers` (1 ref, timeClockService)**.
+   Driver identity lives on `profiles` (role='driver') +
+   `driver_shifts` for shift records. There's no flat `drivers`
+   table.
+
+Each item needs an individual fix - same shape as the A.10 /
+A.16 / A.18 bug-by-bug work but the table-name dimension instead
+of the status-literal dimension. Total impact spans the cleaning
+portal, the ChatBot, the Sage accounting integration, the Resend
+domain-verify flow, the shopping import pipeline, and the time
+clock - five operator-facing surfaces silently broken at varying
+severity.
+
+## A.20 Open follow-ups after A.19
+
+1. **Drive BASELINE_PHANTOM_TABLES to zero**. Each of the 21
+   remaining (file, table) pairs in
+   scripts/check-status-filters.mjs is a distinct bug or a
+   planned-feature gap. Pick one at a time, investigate the
+   call site, decide between "rename to existing table",
+   "create missing table", or "remove dead code", ship the fix,
+   delete the baseline entry.
+
+2. **Cleaning_event_handovers is the highest-impact**. 13
+   references across the cleaning portal's live-count hook,
+   portal-mode detector, booking facts service and the
+   end-to-end handover service. If they're all silently
+   failing, the cleaning portal's "event handover" workflow is
+   functionally absent. Investigate first.
+
+3. **Wider check: `.update(payload)` / `.insert(payload)`
+   table-existence**. Today the guard only checks `.from("X")`.
+   Direct `supabase.from("X").insert(...)` is covered because
+   `.from` runs first; but if there's any pattern that builds
+   the table name from a variable (e.g.
+   `supabase.from(tableName)`), the check skips it. Worth
+   adding a 'no dynamic table name' rule for the same defensive
+   reason the eslint rule discourages `as any` on writes.
