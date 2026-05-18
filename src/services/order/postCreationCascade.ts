@@ -105,6 +105,7 @@ export async function postOrderCreationCascade(
       .from("orders")
       .select("quote_id")
       .eq("id", orderId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (order0?.quote_id) {
       const { data: existing0 } = await (client as any)
@@ -200,6 +201,7 @@ export async function postOrderCreationCascade(
         .from("orders")
         .select("id, order_number, client_email, client_name, event_date, currency, total_amount, company_id")
         .eq("id", orderId)
+        .is("deleted_at", null)
         .maybeSingle();
       if (orderErr) {
         console.error("[order/postCreationCascade] orders fetch failed:", orderErr);
@@ -248,6 +250,7 @@ export async function postOrderCreationCascade(
               .from("invoices")
               .select("public_token")
               .eq("id", receipt.invoice.invoiceId)
+              .is("deleted_at", null)
               .maybeSingle();
             const token = (invRow as any)?.public_token;
             if (token && origin) {
@@ -370,6 +373,7 @@ export async function postOrderCreationCascade(
         .from("orders")
         .select("id, quote_id, event_date, company_id")
         .eq("id", orderId)
+        .is("deleted_at", null)
         .maybeSingle();
       if (orderErr2) {
         console.error("[order/postCreationCascade] orders fetch failed:", orderErr2);
@@ -383,6 +387,7 @@ export async function postOrderCreationCascade(
           .from("quotes")
           .select("equipment_items")
           .eq("id", (order as any).quote_id)
+          .is("deleted_at", null)
           .maybeSingle();
         if (quoteErr) {
           console.error("[order/postCreationCascade] quotes fetch failed:", quoteErr);
@@ -526,6 +531,7 @@ export async function postOrderCreationCascade(
           .from("orders")
           .select("event_date, event_time")
           .eq("id", orderId)
+          .is("deleted_at", null)
           .maybeSingle();
         const eventIso = (ordRow as any)?.event_date as string | null;
         const eventTime = (ordRow as any)?.event_time as string | null;

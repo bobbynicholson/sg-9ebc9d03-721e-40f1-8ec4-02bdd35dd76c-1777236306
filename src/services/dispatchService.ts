@@ -236,7 +236,8 @@ export const dispatchService = {
       .select("id", { count: "exact" })
       .eq("assigned_driver_id", driverId)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      .is("deleted_at", null);
     if (error) {
       console.warn("Error counting driver load:", error);
       return 0;
@@ -251,7 +252,8 @@ export const dispatchService = {
       .select("assigned_driver_id")
       .in("assigned_driver_id", driverIds)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      .is("deleted_at", null);
     if (error) return {};
     const map: Record<string, number> = {};
     for (const id of driverIds) map[id] = 0;
@@ -402,7 +404,8 @@ export const dispatchService = {
       .select("id, order_number, event_time")
       .eq("assigned_driver_id", driverId)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      .is("deleted_at", null);
     if (ignoreOrderId) q = q.neq("id", ignoreOrderId);
     const { data, error } = await q;
     if (error) {
@@ -948,6 +951,7 @@ export const dispatchService = {
       .select("id, event_date, event_time")
       .eq("company_id", companyId)
       .is("assigned_driver_id", null)
+      .is("deleted_at", null)
       .gte("event_date", todayISO)
       .in("status", ["confirmed", "preparing", "ready"]);
 
@@ -967,6 +971,7 @@ export const dispatchService = {
       .from("orders")
       .select("confirmed_at, assigned_at")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .gte("assigned_at", fortnight)
       .not("confirmed_at", "is", null)
       .not("assigned_at", "is", null)
@@ -1064,6 +1069,7 @@ export const dispatchService = {
       .select("id, client_name, event_date, event_time, venue_lat, venue_lng, venue_name")
       .eq("company_id", companyId)
       .is("assigned_driver_id", null)
+      .is("deleted_at", null)
       .gte("event_date", todayISO)
       .in("status", ["confirmed", "preparing", "ready"])
       .not("venue_lat", "is", null)
@@ -1155,7 +1161,8 @@ export const dispatchService = {
       .from("orders")
       .select("event_date, event_time, delivered_at, delivery_distance_km, status")
       .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
-      .gte("event_date", sinceISO.slice(0, 10));
+      .gte("event_date", sinceISO.slice(0, 10))
+      .is("deleted_at", null);
 
     let completedJobs = 0;
     let onTime = 0;

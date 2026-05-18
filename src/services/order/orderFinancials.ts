@@ -257,6 +257,7 @@ export async function reconcileOnComplete(orderId: string): Promise<{
       .from("orders")
       .select("id, company_id, order_number")
       .eq("id", orderId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!order || !(order as any).company_id) {
       return { success: false, totalRecovered, damageCount: rows.length, error: "order_or_company_missing" };
