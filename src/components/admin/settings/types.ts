@@ -36,6 +36,15 @@ export interface PricingSettings {
   minimumOrderValue: number;
 }
 
+export interface OperationsSettings {
+  equipmentCleaningHours: number;
+  kitchenPrepHours: number;
+  deliveryBufferMinutes: number;
+  maxConcurrentEvents: number;
+  driverRadius: number;
+  deliveryCostPerKm: number;
+}
+
 /**
  * Per-key updater partial-applied for one settings category. The
  * parent's full `updateSetting(category, key, value)` is too wide
@@ -54,5 +63,10 @@ export type UpdateAutomationSetting = (
 
 export type UpdatePricingSetting = (
   key: keyof PricingSettings,
+  value: number,
+) => void;
+
+export type UpdateOperationsSetting = (
+  key: keyof OperationsSettings,
   value: number,
 ) => void;
