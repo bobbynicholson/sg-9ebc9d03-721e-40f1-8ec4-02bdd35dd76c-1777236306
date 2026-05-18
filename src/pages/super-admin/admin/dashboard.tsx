@@ -66,7 +66,7 @@ export default function SuperAdminManagementDashboard() {
         .from("companies")
         .select("id", { count: "exact", head: true })
         .is("deleted_at", null)
-        .in("subscription_status", ["trial", "trialing"]),
+        .eq("subscription_status", "trial"),
       (supabase as any)
         .from("subscription_invoices")
         .select("amount, paid_at")

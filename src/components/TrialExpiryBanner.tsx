@@ -47,7 +47,9 @@ export function TrialExpiryBanner() {
   const trialStatus: TrialStatus | null = (() => {
     if (!company) return null;
     const status = company.subscription_status;
-    const isTrialStatus = status === "trial" || status === "trialing";
+    // A.13 #3 sweep: was checking 'trial' OR 'trialing'. 'trialing'
+    // is no longer in the enum (migration 20260518740000).
+    const isTrialStatus = status === "trial";
     if (!isTrialStatus || !company.trial_ends_at) {
       return { isInTrial: false, daysRemaining: 0, trialEndsAt: null };
     }

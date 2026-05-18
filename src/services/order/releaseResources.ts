@@ -229,15 +229,21 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // this shipped silently PGRST204-errored ("could not find the
   // updated_at column"), leaving pending emails un-cancelled.
   // Real symptom: clients receiving "see you tomorrow!" reminder
-  // emails the day before a cancelled event. Status flip alone is
-  // sufficient - the email cron worker only fires on
-  // status='pending', so changing status is the whole job.
+  // emails the day before a cancelled event.
+  //
+  // A.13 #3 (2026-05-18 sweep): also fix the status filter. The
+  // queue's CHECK is (queued, in_progress, paused, sent, failed,
+  // cancelled) per migration 20260518720000 - 'pending' is not in
+  // the set, so this filter never matched a row. Both 'queued' and
+  // 'paused' are valid pre-send states that we want to cancel; we
+  // skip 'in_progress' to avoid racing with the cron worker
+  // mid-send.
   await tryUpdate("outgoing_email_queue", "cancelled", async () => {
     const { count, error } = await sb
       .from("outgoing_email_queue")
       .update({ status: "cancelled" }, { count: "exact" })
       .eq("trigger_ref_id", orderId)
-      .eq("status", "pending");
+      .in("status", ["queued", "paused"]);
     return { error, count };
   });
 

@@ -73,8 +73,6 @@ export default function TrialManagementPage() {
   const loadTrialCompanies = async () => {
     setLoading(true);
     try {
-      // Match either status the codebase uses ("trial" in this DB, "trialing"
-      // in some Stripe-aligned flows). Anything with a trial_ends_at counts.
       const { data: companiesData, error: companiesError } = await supabase
         .from("companies")
         .select(`
@@ -84,7 +82,11 @@ export default function TrialManagementPage() {
           trial_ends_at,
           subscription_status
         `)
-        .in("subscription_status", ["trial", "trialing"])
+        // A.13 #3 sweep: was .in("subscription_status",
+        // ["trial", "trialing"]) defensively. 'trialing' is no
+        // longer in the enum (migration 20260518740000) so 'trial'
+        // is the only value left.
+        .eq("subscription_status", "trial")
         .order("trial_ends_at", { ascending: true, nullsFirst: false });
 
       if (companiesError) throw companiesError;

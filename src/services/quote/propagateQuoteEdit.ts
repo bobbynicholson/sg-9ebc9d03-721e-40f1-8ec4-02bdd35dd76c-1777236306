@@ -545,8 +545,16 @@ async function _restampCollectionAssignment(orderId: string, quote: any): Promis
   }
 }
 
-/** Re-stamp pending pre-event reminder rows in outgoing_email_queue
- *  to the new event_date offsets. */
+/** Re-stamp queued pre-event reminder rows in outgoing_email_queue
+ *  to the new event_date offsets.
+ *
+ *  A.13 #3 (2026-05-18 sweep): was filtering on status='pending',
+ *  which isn't in the queue's CHECK (queued, in_progress, paused,
+ *  sent, failed, cancelled). Result: when an operator edited a
+ *  quote's event_date after dispatch, the queued pre-event reminder
+ *  rows never got re-stamped to the new date - the client would
+ *  receive "see you next Friday!" against the original date even
+ *  after the event was pushed out. */
 async function _restampPendingPreEventReminders(orderId: string, quote: any): Promise<void> {
   if (!quote.event_date) return;
   const eventTs = new Date(`${quote.event_date}T00:00:00`).getTime();
@@ -556,7 +564,7 @@ async function _restampPendingPreEventReminders(orderId: string, quote: any): Pr
     .select("id, template_type")
     .eq("trigger_event", "pre_event")
     .eq("trigger_ref_id", orderId)
-    .eq("status", "pending");
+    .eq("status", "queued");
   if (!rows || rows.length === 0) return;
 
   for (const row of rows as any[]) {
