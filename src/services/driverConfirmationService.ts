@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
@@ -46,7 +45,7 @@ export const driverConfirmationService = {
    * Driver confirms they are en-route to kitchen
    */
   async confirmEnRouteToKitchen(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
         order_id: orderId,
@@ -74,7 +73,7 @@ export const driverConfirmationService = {
    * Driver confirms arrival at kitchen
    */
   async confirmAtKitchen(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
         order_id: orderId,
@@ -105,7 +104,7 @@ export const driverConfirmationService = {
     // Now the kitchen lead's HandoverToDriverPanel sign-off is a
     // hard prerequisite. Bypass available via env flag for dev.
     if (process.env.NEXT_PUBLIC_BYPASS_HANDOVER_GATE !== "true") {
-      const { count: handoverCount, error: handoverErr } = await supabase
+      const { count: handoverCount, error: handoverErr } = await (supabase as any)
         .from("equipment_handovers")
         .select("id", { count: "exact", head: true })
         .eq("order_id", orderId)
@@ -120,7 +119,7 @@ export const driverConfirmationService = {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
         order_id: orderId,
@@ -173,7 +172,7 @@ export const driverConfirmationService = {
     location?: { lat: number; lng: number },
     pod?: { photoUrl?: string; signatureUrl?: string; recipientName?: string; notes?: string },
   ) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
         order_id: orderId,
@@ -197,7 +196,7 @@ export const driverConfirmationService = {
       if (pod.signatureUrl) podUpdate.pod_signature_url = pod.signatureUrl;
       if (pod.recipientName) podUpdate.pod_recipient_name = pod.recipientName;
       try {
-        await supabase.from("orders").update(podUpdate).eq("id", orderId);
+        await (supabase as any).from("orders").update(podUpdate).eq("id", orderId);
       } catch (podErr) {
         console.warn("[confirmAtVenue] POD stamp failed (non-blocking):", podErr);
       }
@@ -225,7 +224,7 @@ export const driverConfirmationService = {
     // never closed the shift - driver_shifts.actual_end stayed null
     // and the next auto-clock-in landed on top of an open shift.
     try {
-      const { data: orderRow } = await supabase
+      const { data: orderRow } = await (supabase as any)
         .from("orders")
         .select("company_id")
         .eq("id", orderId)
@@ -322,7 +321,7 @@ export const driverConfirmationService = {
       }>;
     },
   ) {
-    const { data: confirmation, error } = await supabase
+    const { data: confirmation, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
         order_id: orderId,
@@ -338,7 +337,7 @@ export const driverConfirmationService = {
     // Flip the collection driver_assignment to completed so dispatch
     // stops surfacing it as outstanding.
     try {
-      await supabase
+      await (supabase as any)
         .from("driver_assignments")
         .update({ status: "completed", completed_at: new Date().toISOString() } as any)
         .eq("order_id", orderId)
@@ -383,7 +382,7 @@ export const driverConfirmationService = {
     // on each. Status='returned' is the canonical signal for the
     // availability calculator + the cleaning queue.
     try {
-      const { data: bookings } = await supabase
+      const { data: bookings } = await (supabase as any)
         .from("equipment_bookings")
         .select("id, status")
         .eq("order_id", orderId);
@@ -403,7 +402,7 @@ export const driverConfirmationService = {
     // autoClockOut to close the collection shift. Same pattern as
     // confirmAtVenue so single-driver days end cleanly.
     try {
-      const { data: orderRow } = await supabase
+      const { data: orderRow } = await (supabase as any)
         .from("orders")
         .select("company_id")
         .eq("id", orderId)
@@ -440,7 +439,7 @@ export const driverConfirmationService = {
    */
   async startCollection(orderId: string, driverId: string) {
     try {
-      const { data: orderRow, error: orderRowErr3 } = await supabase
+      const { data: orderRow, error: orderRowErr3 } = await (supabase as any)
         .from("orders")
         .select("company_id")
         .eq("id", orderId)
@@ -464,7 +463,7 @@ export const driverConfirmationService = {
       // Flip the driver_assignment to in_progress so dispatch sees the
       // collection trip is live. en_route_at is the equivalent of a
       // "started" timestamp on this table.
-      await supabase
+      await (supabase as any)
         .from("driver_assignments")
         .update({ status: "in_progress", en_route_at: new Date().toISOString() } as any)
         .eq("order_id", orderId)
@@ -482,7 +481,7 @@ export const driverConfirmationService = {
    */
   async checkEnRouteConfirmation(orderId: string, driverId: string, minutesBeforeFunction: number = 20) {
     // Get order details
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await (supabase as any)
       .from('orders')
       .select('event_date, event_time')
       .eq('id', orderId)
@@ -491,7 +490,7 @@ export const driverConfirmationService = {
     if (orderError || !order) return;
 
     // Check if confirmation exists
-    const { data: confirmation, error: confirmationErr } = await supabase
+    const { data: confirmation, error: confirmationErr } = await (supabase as any)
       .from('driver_confirmations')
       .select('*')
       .eq('order_id', orderId)
@@ -527,7 +526,7 @@ export const driverConfirmationService = {
    * the missing confirmation, recipients are dispatch / admin only.
    */
   async sendEnRouteAlert(orderId: string, driverId: string) {
-    const { data: driver, error: driverErr } = await supabase
+    const { data: driver, error: driverErr } = await (supabase as any)
       .from('profiles')
       .select('full_name, phone_number')
       .eq('id', driverId)
@@ -536,7 +535,7 @@ export const driverConfirmationService = {
       console.error("[driverConfirmationService] profiles fetch failed:", driverErr);
     }
 
-    const { data: order, error: orderErr } = await supabase
+    const { data: order, error: orderErr } = await (supabase as any)
       .from('orders')
       .select('order_number, event_date, event_time, company_id')
       .eq('id', orderId)
@@ -570,7 +569,7 @@ export const driverConfirmationService = {
    * Get all confirmations for an order
    */
   async getOrderConfirmations(orderId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .select(`
         *,
@@ -592,7 +591,7 @@ export const driverConfirmationService = {
   async getTodayConfirmations(driverId: string) {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('driver_confirmations')
       .select(`
         *,
@@ -615,7 +614,7 @@ export const driverConfirmationService = {
    * Notify admin of driver confirmation
    */
   async notifyAdminOfConfirmation(orderId: string, driverId: string, confirmationType: string) {
-    const { data: driver, error: driverErr2 } = await supabase
+    const { data: driver, error: driverErr2 } = await (supabase as any)
       .from('profiles')
       .select('full_name')
       .eq('id', driverId)
@@ -628,7 +627,7 @@ export const driverConfirmationService = {
     // recipient. Previously this used 'admin' / 'system-id' which are
     // not UUIDs - the insert failed silently and dispatch never got
     // the ping.
-    const { data: order, error: orderErr2 } = await supabase
+    const { data: order, error: orderErr2 } = await (supabase as any)
       .from('orders')
       .select('order_number, company_id, user_id')
       .eq('id', orderId)
@@ -669,7 +668,7 @@ export const driverConfirmationService = {
   async sendWhatsAppNotification(orderId: string, templateKey: string) {
     try {
       // Get template
-      const { data: template } = await supabase
+      const { data: template } = await (supabase as any)
         .from('whatsapp_templates')
         .select('*')
         .eq('template_key', templateKey)
@@ -679,7 +678,7 @@ export const driverConfirmationService = {
       if (!template) return; // Template disabled or not found
 
       // Get order details for template variables
-      const { data: order } = await supabase
+      const { data: order } = await (supabase as any)
         .from('orders')
         .select(`
           *,
@@ -763,7 +762,7 @@ async function _stampPostArrivalEvent(opts: {
   const nowIso = new Date().toISOString();
 
   // 1. Audit row (canonical event log)
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('driver_confirmations')
     .insert([{
       order_id: orderId,
@@ -779,7 +778,7 @@ async function _stampPostArrivalEvent(opts: {
 
   // 2. Canonical stamp on orders - only when null (idempotent)
   try {
-    const { data: prior } = await supabase
+    const { data: prior } = await (supabase as any)
       .from('orders')
       .select(`id, ${orderColumn}, company_id, order_number`)
       .eq('id', orderId)
@@ -787,7 +786,7 @@ async function _stampPostArrivalEvent(opts: {
     if (prior && !(prior as any)[orderColumn]) {
       const upd: any = {};
       upd[orderColumn] = nowIso;
-      await supabase.from('orders').update(upd).eq('id', orderId);
+      await (supabase as any).from('orders').update(upd).eq('id', orderId);
     }
 
     // 3. Admin notification so dispatch sees the timeline advance
