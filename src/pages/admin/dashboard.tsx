@@ -186,16 +186,20 @@ function AdminDashboardPage() {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent"]),
-        // Quotes "in circulation" - sent / viewed / revised. These are
-        // out for client response: not drafts, not closed. Pulls the
-        // total_amount for each so the dashboard can show both count
-        // and rand value of pipeline awaiting decision.
+        // Quotes "in circulation" - out for client response, not yet
+        // closed. Wave 70.52a fix: was filtering on ["sent", "viewed",
+        // "revised"] but the quote_status enum only has draft, sent,
+        // accepted, rejected, expired. The 'viewed' and 'revised'
+        // values never existed - PostgREST rejected the filter and
+        // the error was swallowed by the (only ordersRes.error
+        // checked) pattern below, so the tile silently zeroed forever.
+        // Filter on the one real "out for client" value: 'sent'.
         supabase
           .from("quotes")
           .select("total_amount")
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          .in("status", ["sent", "viewed", "revised"]),
+          .in("status", ["sent"]),
         supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -219,6 +223,23 @@ function AdminDashboardPage() {
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
+
+      // Wave 70.52a - surface (don't swallow) errors from every other
+      // parallel query. Previously only ordersRes.error was re-thrown,
+      // so a broken filter on any other res (e.g. the
+      // quotes-in-circulation enum bug) silently zeroed the tile
+      // forever and nobody noticed. console.warn keeps the page alive;
+      // the affected tile renders its empty/zero state. Wave 70.52b
+      // will surface this in a per-tile error chip.
+      [
+        ["quotesAll", quotesRes],
+        ["quotesCirculating", quotesCirculatingRes],
+        ["users", usersRes],
+        ["inventory", invRes],
+        ["closedQuotes", conversionRes],
+      ].forEach(([label, res]: any) => {
+        if (res?.error) console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
+      });
 
       const orders = ordersRes.data || [];
 
@@ -245,6 +266,29 @@ function AdminDashboardPage() {
         const status = String(o.status || "").toLowerCase();
         const pay    = String(o.payment_status || "").toLowerCase();
         const total  = Number(o.total_amount || 0);
+
+        // Wave 70.52a - Collected calc now runs FIRST, BEFORE the
+        // cancelled `continue`. Previously the continue at this point
+        // skipped cancelled orders entirely, so a cancelled order
+        // with a banked deposit (e.g. R300 paid, then client
+        // cancelled, no refund processed yet) was invisible in the
+        // Collected tile. The cash IS in the bank; it stays in
+        // Collected until a refund payment row is recorded (which
+        // is when it should naturally disappear via the refund being
+        // a negative payment). Booked-side calculation still legitly
+        // excludes cancelled (no kitchen commitment, no VAT due).
+        let received = 0;
+        if (Number(o.amount_paid || 0) > 0) {
+          received = Number(o.amount_paid);
+        } else {
+          if (o.deposit_paid && Number(o.deposit_amount || 0) > 0) received += Number(o.deposit_amount);
+          if (o.balance_paid && Number(o.balance_amount || 0) > 0) received += Number(o.balance_amount);
+          // If we have nothing recorded but the order is marked fully paid, take total
+          if (received === 0 && pay === "paid") received = total;
+        }
+        if (received > 0) collectedOrders += 1;
+        collectedRevenue += received;
+
         if (status === "cancelled") continue;
 
         // Booked: client has actually committed to the booking. Gate is
@@ -261,19 +305,6 @@ function AdminDashboardPage() {
           bookedOrders += 1;
           vatCollected += Number(o.tax_amount || 0);
         }
-
-        // Collected: actual money in the bank
-        let received = 0;
-        if (Number(o.amount_paid || 0) > 0) {
-          received = Number(o.amount_paid);
-        } else {
-          if (o.deposit_paid && Number(o.deposit_amount || 0) > 0) received += Number(o.deposit_amount);
-          if (o.balance_paid && Number(o.balance_amount || 0) > 0) received += Number(o.balance_amount);
-          // If we have nothing recorded but the order is marked fully paid, take total
-          if (received === 0 && pay === "paid") received = total;
-        }
-        if (received > 0) collectedOrders += 1;
-        collectedRevenue += received;
       }
 
       const outstandingRevenue = Math.max(0, bookedRevenue - collectedRevenue);
@@ -653,7 +684,9 @@ function AdminDashboardPage() {
                       icon={AlertCircle} accent="border-red-500" iconColor="text-red-600"
                       title={`${stats.pendingQuotes} Pending Quote${stats.pendingQuotes !== 1 ? "s" : ""}`}
                       sub="Require immediate attention"
-                      cta={{ href: "/admin/quotes", label: "Review", variant: "default" }}
+                      // Wave 70.52a - withSlug() applied. Was passing raw
+                      // /admin/quotes which 404s in multi-tenant routing.
+                      cta={{ href: withSlug("/admin/quotes"), label: "Review", variant: "default" }}
                     />
                   )}
                   {stats.lowStockItems > 0 && (
@@ -661,7 +694,7 @@ function AdminDashboardPage() {
                       icon={Package} accent="border-orange-500" iconColor="text-orange-600"
                       title={`${stats.lowStockItems} Low Stock Item${stats.lowStockItems !== 1 ? "s" : ""}`}
                       sub="Need restocking"
-                      cta={{ href: "/admin/inventory", label: "View", variant: "outline" }}
+                      cta={{ href: withSlug("/admin/inventory"), label: "View", variant: "outline" }}
                     />
                   )}
                   {stats.upcomingEvents > 0 && (
@@ -669,7 +702,7 @@ function AdminDashboardPage() {
                       icon={Calendar} accent="border-green-500" iconColor="text-green-600"
                       title={`${stats.upcomingEvents} Upcoming Event${stats.upcomingEvents !== 1 ? "s" : ""}`}
                       sub={`${stats.activeOrders} currently active in range`}
-                      cta={{ href: "/admin/calendar", label: "Calendar", variant: "outline" }}
+                      cta={{ href: withSlug("/admin/calendar"), label: "Calendar", variant: "outline" }}
                     />
                   )}
                 </div>
@@ -679,6 +712,10 @@ function AdminDashboardPage() {
 
           {/* Key revenue metrics, all bound to the date range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+            {/* Wave 70.52a - every MetricCard now carries an href so
+                clicking drills to the dedicated surface for that
+                number. Previously hover:shadow-xl made tiles look
+                clickable while doing nothing. */}
             <MetricCard
               label="Booked Revenue"
               value={fmt.format(stats.bookedRevenue)}
@@ -688,16 +725,18 @@ function AdminDashboardPage() {
               iconColor="text-green-600"
               badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
               loading={loading}
+              href={withSlug("/admin/orders?status=confirmed")}
             />
             <MetricCard
               label="Collected"
               value={fmt.format(stats.collectedRevenue)}
               hint={`Money received in ${range.label}`}
-              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices.\n\nPulled from recorded payments on each order."}
+              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. Cancelled-with-deposit cash stays counted here until a refund payment is recorded (Wave 70.52a).\n\nPulled from recorded payments on each order."}
               icon={CheckCircle}
               iconColor="text-emerald-600"
               badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
               loading={loading}
+              href={withSlug("/admin/financial-dashboard")}
             />
             <MetricCard
               label="Outstanding"
@@ -708,6 +747,7 @@ function AdminDashboardPage() {
               iconColor="text-blue-600"
               badge={{ text: "Owed", tone: "blue" }}
               loading={loading}
+              href={withSlug("/admin/invoices")}
             />
             <MetricCard
               label="Active Orders"
@@ -718,6 +758,7 @@ function AdminDashboardPage() {
               iconColor="text-purple-600"
               badge={{ text: "In progress", tone: "purple" }}
               loading={loading}
+              href={withSlug("/admin/orders")}
             />
           </div>
 
@@ -738,18 +779,22 @@ function AdminDashboardPage() {
                   iconColor="text-amber-600"
                   badge={{ text: "Period", tone: "amber" }}
                   loading={loading}
+                  href={withSlug("/admin/financial-dashboard")}
                 />
               )}
               {stats.quoteConversionSample > 0 && (
                 <MetricCard
                   label="Quote conversion"
                   value={`${stats.quoteConversionRate.toFixed(0)}%`}
-                  hint={`${stats.quoteConversionSample} closed in range`}
+                  hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
                   tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
                   icon={CheckCircle}
                   iconColor="text-emerald-600"
-                  badge={{ text: "Closed", tone: "green" }}
+                  badge={stats.quoteConversionSample < 5
+                    ? { text: "Low n", tone: "amber" }
+                    : { text: "Closed", tone: "green" }}
                   loading={loading}
+                  href={withSlug("/admin/quotes")}
                 />
               )}
             </div>
@@ -766,11 +811,12 @@ function AdminDashboardPage() {
               label="Quotes in circulation"
               value={fmt.format(stats.quotesInCirculationValue)}
               hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
-              tooltip={"Total rand value of quotes that have been sent to clients but haven't yet been accepted or declined. Includes 'sent', 'viewed' and 'revised' statuses; excludes drafts and closed quotes.\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
+              tooltip={"Total rand value of quotes sent to clients but not yet accepted or declined. Filters on the 'sent' status (Wave 70.52a fix - previously also queried for 'viewed' and 'revised' which don't exist in the quote_status enum; PostgREST silently rejected the filter and the tile read R0 forever).\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
               icon={FileText}
               iconColor="text-amber-600"
               badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
               loading={loading}
+              href={withSlug("/admin/quotes")}
             />
           </div>
 
@@ -779,29 +825,32 @@ function AdminDashboardPage() {
             <MetricCard
               label="Avg Order Value"
               value={fmt.format(stats.averageOrderValue)}
-              hint="Per booked order"
-              tooltip={"Average value per booked order in this period. A higher number means bigger events or a richer mix."}
+              hint="Mean per booked order"
+              tooltip={"Mean value per booked order in this period (cancelled orders excluded from both numerator and denominator). A higher number means bigger events or a richer mix."}
               icon={TrendingUp}
               iconColor="text-emerald-600"
               loading={loading}
+              href={withSlug("/admin/financial-dashboard")}
             />
             <MetricCard
               label="Completion Rate"
               value={`${stats.completionRate.toFixed(1)}%`}
               hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
-              tooltip={"Share of orders in this period that finished as completed. Anything below 95% is worth a closer look."}
+              tooltip={"Share of orders in this period that finished as completed. Note: events in the future count against the denominator until they happen, so a normal Monday may show a low number even when nothing is wrong. Anything below 95% on already-happened events is worth a closer look."}
               icon={CheckCircle}
               iconColor="text-green-600"
               loading={loading}
+              href={withSlug("/admin/orders")}
             />
             <MetricCard
               label="Upcoming Events"
               value={stats.upcomingEvents}
-              hint="Confirmed, event_date >= today"
-              tooltip={"Confirmed events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next."}
+              hint="Today or later, not cancelled"
+              tooltip={"Events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next.\n\nDifferent from Active Orders: Upcoming includes pending orders; Active counts only confirmed/preparing/ready/in_transit."}
               icon={Calendar}
               iconColor="text-indigo-600"
               loading={loading}
+              href={withSlug("/admin/calendar")}
             />
             <MetricCard
               label="Team Members"
@@ -811,6 +860,7 @@ function AdminDashboardPage() {
               icon={Users}
               iconColor="text-cyan-600"
               loading={loading}
+              href={withSlug("/admin/users")}
             />
           </div>
 
@@ -826,15 +876,17 @@ function AdminDashboardPage() {
               icon={Calendar}
               iconColor="text-rose-600"
               loading={loading}
+              href={withSlug("/admin/orders?status=cancelled")}
             />
             <MetricCard
               label="Refunds Outstanding"
               value={fmt.format(stats.refundsOutstandingValue)}
-              hint={`${stats.refundsOutstandingCount} pending payout${stats.refundsOutstandingCount === 1 ? "" : "s"}`}
-              tooltip={"Refunds that have been raised on cancellation but not yet paid out via EFT or gateway. Action them on /admin/refunds."}
+              hint={`${stats.refundsOutstandingCount} pending payout${stats.refundsOutstandingCount === 1 ? "" : "s"} (all-time)`}
+              tooltip={"Refunds that have been raised on cancellation but not yet paid out via EFT or gateway. This number is NOT bound to the date filter - it's the live queue regardless of when each refund was raised. Action them on /admin/refunds."}
               icon={DollarSign}
               iconColor="text-amber-600"
               loading={loading}
+              href={withSlug("/admin/refunds")}
             />
             <MetricCard
               label="Top Cancel Reason"
@@ -844,6 +896,7 @@ function AdminDashboardPage() {
               icon={AlertCircle}
               iconColor="text-orange-600"
               loading={loading}
+              href={withSlug("/admin/orders?status=cancelled")}
             />
           </div>
 

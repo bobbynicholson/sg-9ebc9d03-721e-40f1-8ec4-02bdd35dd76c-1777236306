@@ -5,6 +5,7 @@
  * box and becomes "sum of confirmed bookings, source: orders.total_amount
  * filtered by event_date in selected range".
  */
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -24,6 +25,15 @@ interface MetricCardProps {
   iconColor?: string;
   /** Show a small loading skeleton when data isn't ready. */
   loading?: boolean;
+  /**
+   * Wave 70.52a - optional drill-down link. When provided, wraps the
+   * tile in a Next.js Link so clicking opens the dedicated surface
+   * for that number (e.g. Outstanding -> /admin/invoices?overdue=1).
+   * Caller is responsible for tenant slug (use withSlug from
+   * useTenantHref). Previously the card had hover:shadow-xl but no
+   * click handler - operators got a hover affordance for a dead tile.
+   */
+  href?: string;
 }
 
 const BADGE_TONES = {
@@ -36,10 +46,14 @@ const BADGE_TONES = {
 };
 
 export function MetricCard({
-  label, value, hint, tooltip, badge, icon: Icon, iconColor = "text-slate-600", loading,
+  label, value, hint, tooltip, badge, icon: Icon, iconColor = "text-slate-600", loading, href,
 }: MetricCardProps) {
-  return (
-    <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+  const cardBody = (
+    <Card
+      className={`border-0 shadow-lg transition-shadow ${
+        href ? "hover:shadow-xl cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-900/40" : "hover:shadow-xl"
+      }`}
+    >
       <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
         <CardTitle className="flex items-start justify-between gap-2 text-xs sm:text-sm font-medium">
           <span className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -68,4 +82,15 @@ export function MetricCard({
       </CardContent>
     </Card>
   );
+
+  // Wave 70.52a - wrap in Link when href is provided. Plain card
+  // returns directly so this is a no-op for the non-clickable case.
+  if (href) {
+    return (
+      <Link href={href} className="block" aria-label={`${label}: open details`}>
+        {cardBody}
+      </Link>
+    );
+  }
+  return cardBody;
 }
