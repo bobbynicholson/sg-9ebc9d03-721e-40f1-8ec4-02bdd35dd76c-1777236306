@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -51,7 +50,7 @@ export const timeClockService = {
         location_lat: location?.lat,
         location_lng: location?.lng,
         notes,
-      })
+      } as any)
       .select()
       .single();
 
@@ -103,7 +102,7 @@ export const timeClockService = {
         location_lat: location?.lat,
         location_lng: location?.lng,
         notes,
-      })
+      } as any)
       .select()
       .single();
 
@@ -150,7 +149,7 @@ export const timeClockService = {
     let hourlyRate = Number((profile as any)?.hourly_rate) || 0;
     if (hourlyRate <= 0) {
       // Walk the role-specific tables that store rate independently.
-      const { data: ks, error: ksErr } = await supabase
+      const { data: ks, error: ksErr } = await (supabase as any)
         .from("kitchen_staff_members")
         .select("hourly_rate")
         .eq("profile_id", staffId)
@@ -163,7 +162,7 @@ export const timeClockService = {
       }
     }
     if (hourlyRate <= 0) {
-      const { data: dr, error: drErr } = await supabase
+      const { data: dr, error: drErr } = await (supabase as any)
         .from("drivers")
         .select("hourly_rate, hourly_rate_normal")
         .eq("profile_id", staffId)
@@ -297,7 +296,7 @@ export const timeClockService = {
       .update({
         payment_status: "paid",
         paid_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", sessionId)
       .select()
       .single();
@@ -312,7 +311,7 @@ export const timeClockService = {
       .update({
         payment_status: "paid",
         paid_at: new Date().toISOString(),
-      })
+      } as any)
       .in("id", sessionIds)
       .select();
 
