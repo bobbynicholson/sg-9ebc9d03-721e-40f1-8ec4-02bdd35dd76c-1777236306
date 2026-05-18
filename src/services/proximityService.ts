@@ -128,6 +128,41 @@ function calculateDistance(
   return R * c;
 }
 
+/**
+ * Has a notification of `type` been fired for `orderId` in the last
+ * `withinMinutes` minutes? Used to dedup the proximity-driven driver
+ * pings so a driver looping in and out of the geofence (or the
+ * markArrived revert path) doesn't spam the client.
+ *
+ * Filter is on (related_entity_type='order', related_entity_id=orderId,
+ * notification_type=type, created_at >= cutoff). Prior code queried a
+ * `order_id` column that doesn't exist on notifications, so the dedup
+ * never matched - the 10-min-away path silently bailed out on the
+ * DB error and the arrival path had no dedup at all.
+ */
+async function notificationFiredRecently(
+  orderId: string,
+  type: string,
+  withinMinutes: number,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("related_entity_type", "order")
+    .eq("related_entity_id", orderId)
+    .eq("notification_type", type)
+    .gte("created_at", cutoff);
+  if (error) {
+    // Fail-open: if the dedup lookup errors, we'd rather re-fire than
+    // suppress a legitimate ping. Log so the operator can see the
+    // gate isn't working.
+    console.warn("[proximityService] notification dedup check failed:", error.message);
+    return false;
+  }
+  return (count || 0) > 0;
+}
+
 async function checkProximityAndNotify(
   assignmentId: string,
   currentLat: number,
@@ -173,56 +208,68 @@ async function checkProximityAndNotify(
       await markArrived(assignmentId);
 
       if (order.user_id && order.company_id) {
-        // Client-facing arrival ping. Deep-links to the client portal
-        // tracking page where they can see the live driver position.
-        await notificationService.createNotification({
-          company_id: order.company_id,
-          user_id: order.user_id,
-          recipient_id: order.client_id || order.user_id,
-          notification_type: "driver_arrived",
-          title: "Driver Has Arrived! 🎉",
-          message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
-          priority: "high",
-          link: `/client-portal/tracking?orderId=${order.id}`,
-          related_entity_type: "order",
-          related_entity_id: order.id,
-        });
+        // Dedup the arrival ping. The status flip to 'at_venue' is the
+        // primary gate, but a driver looping in and out of the 50m
+        // ring (or markArrived's revert path firing on order-flip
+        // failure) can put the status back to en_route and let this
+        // branch re-fire on the next proximity tick. A 2h notification
+        // lookup on the order is the belt-and-braces dedup.
+        const arrived = await notificationFiredRecently(
+          order.id,
+          "driver_arrived",
+          120,
+        );
+        if (!arrived) {
+          // Client-facing arrival ping. Deep-links to the client portal
+          // tracking page where they can see the live driver position.
+          await notificationService.createNotification({
+            company_id: order.company_id,
+            user_id: order.user_id,
+            recipient_id: order.client_id || order.user_id,
+            notification_type: "driver_arrived",
+            title: "Driver Has Arrived! 🎉",
+            message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
+            priority: "high",
+            link: `/client-portal/tracking?orderId=${order.id}`,
+            related_entity_type: "order",
+            related_entity_id: order.id,
+          });
+        }
       }
     }
 
     const estimatedMinutes = (distance / 40) * 60;
 
     if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "en_route") {
-      const { count, error: checkError } = await (supabase as any)
-        .from("notifications")
-        .select("id", { count: 'exact', head: true })
-        .eq("order_id", order.id)
-        .eq("notification_type", "driver_10_minutes_away")
-        .limit(1);
-
-      if (checkError) {
-        console.error("Error checking for existing notification:", checkError);
-        return;
-      }
-
-      if (count === 0) {
-          if(order.user_id && order.company_id){
-             // Client-facing ETA ping. Same deep-link target as the
-             // arrival notification - the tracking page is where they
-             // can watch the driver come in.
-             await notificationService.createNotification({
-                company_id: order.company_id,
-                user_id: order.user_id,
-                recipient_id: order.client_id || order.user_id,
-                notification_type: "driver_10_minutes_away",
-                title: "Driver 10 Minutes Away ⏰",
-                message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
-                priority: "high",
-                link: `/client-portal/tracking?orderId=${order.id}`,
-                related_entity_type: "order",
-                related_entity_id: order.id,
-            });
-          }
+      // The prior dedup filtered on `.eq("order_id", order.id)`, but
+      // notifications has no `order_id` column - it carries
+      // related_entity_id + related_entity_type. The Postgres error
+      // ("column 'order_id' does not exist") was caught by the
+      // checkError early-return below, which then bailed without
+      // firing the notification. Result: the 10-min-away alert never
+      // fired AND wasn't dedup-gated. Use the helper that queries the
+      // right columns.
+      const recent = await notificationFiredRecently(
+        order.id,
+        "driver_10_minutes_away",
+        60,
+      );
+      if (!recent && order.user_id && order.company_id) {
+        // Client-facing ETA ping. Same deep-link target as the
+        // arrival notification - the tracking page is where they
+        // can watch the driver come in.
+        await notificationService.createNotification({
+          company_id: order.company_id,
+          user_id: order.user_id,
+          recipient_id: order.client_id || order.user_id,
+          notification_type: "driver_10_minutes_away",
+          title: "Driver 10 Minutes Away ⏰",
+          message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
+          priority: "high",
+          link: `/client-portal/tracking?orderId=${order.id}`,
+          related_entity_type: "order",
+          related_entity_id: order.id,
+        });
       }
     }
   } catch (error) {
