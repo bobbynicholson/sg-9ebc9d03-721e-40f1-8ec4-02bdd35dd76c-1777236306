@@ -60,8 +60,12 @@ export function DeclineAssignmentDialog({
     try {
       const composed = note.trim() ? `${reasonKey}: ${note.trim()}` : reasonKey;
 
-      // Update assignment row
-      const { error: aErr } = await supabase
+      // Update assignment row. `rejected` is a terminal assignment_status
+      // value (added in migration 20260518710000) distinct from `cancelled`
+      // (admin/system-initiated). Prior to that migration this write
+      // silently failed at the DB layer - the audit + order unassign
+      // below succeeded, masking the broken assignment row state.
+      const { error: aErr } = await (supabase as any)
         .from("driver_assignments")
         .update({
           status: "rejected",

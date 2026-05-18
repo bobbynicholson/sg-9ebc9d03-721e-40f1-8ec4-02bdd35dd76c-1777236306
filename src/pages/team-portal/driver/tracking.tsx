@@ -74,7 +74,7 @@ export default function DriverTracking() {
         )
       `)
       .eq("driver_id", user.id)
-      .in("status", ["assigned", "accepted", "en_route", "picked_up"])
+      .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
       .order("assigned_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -119,10 +119,16 @@ export default function DriverTracking() {
   const markArrived = async () => {
     if (!delivery) return;
     setUpdating(true);
+    // `at_venue` is the canonical "driver has reached the delivery
+    // venue" state in assignment_status. Prior code wrote `picked_up`
+    // here, which is the earlier lifecycle moment (driver collected
+    // food from the kitchen) - so "Mark arrived" was writing the wrong
+    // state and the toast copy ("Status updated to picked up") was
+    // misleading.
     const { error } = await supabase
       .from("driver_assignments")
       .update({
-        status: "picked_up",
+        status: "at_venue",
         arrived_at_venue_at: new Date().toISOString(),
       })
       .eq("id", delivery.assignmentId);
@@ -132,7 +138,7 @@ export default function DriverTracking() {
       toast({ title: "Could not update", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Marked as arrived", description: "Status updated to picked up." });
+    toast({ title: "Marked as arrived", description: "Status updated to at venue." });
     loadActiveDelivery();
   };
 
@@ -233,7 +239,7 @@ export default function DriverTracking() {
                       <Navigation className="w-4 h-4 mr-2" />
                       Open in Navigation App
                     </Button>
-                    {delivery.status !== "picked_up" && (
+                    {delivery.status !== "at_venue" && (
                       <Button
                         variant="outline"
                         className="w-full"
