@@ -1525,7 +1525,7 @@ phase closeout for the full narrative and the per-finding context.
 | P2-10 | fixed | P5 `9e53759` + 2026-05-18 PRs #14, #15, #16, #17, #18, #19, #20, #21 (all 47 remaining services cleared) |
 | P2-11 | fixed | P6 `e41310c` |
 | P2-12 | fixed | P4 `2421d06` |
-| P2-13 | still-open | deferred (five-file splits) |
+| P2-13 | partial | admin/settings.tsx fully split (PRs #49-#55, A.14); admin/orders.tsx Phase A/B done; Phase C/D deferred; account/settings still pending |
 | P2-14 | fixed | P3 `6e4cb40` + P4 reframe `2fbb555` |
 | P2-15 | fixed | P9 `9afe16c` |
 | P2-16 | fixed (three of four dashboards) | P6 `e5613a9`; cleaning dashboard gated on UX call |
@@ -1836,3 +1836,73 @@ Bug fixes alongside the wiring:
    silenced by `as any` casts and supabase-js's `{error}` return
    shape vs throwing). Worth a PR-review check or a lint rule that
    flags `as any` on supabase write payloads as needing explanation.
+
+## A.14 P2-13 admin/settings.tsx split closeout (2026-05-18)
+
+`src/pages/admin/settings.tsx` was 1,241 lines at the time of the
+original audit and was carrying every settings tab inline. Split
+plan in `docs/audits/p2-13-admin-settings-split-plan.md` laid out
+seven phases; all seven shipped in this session:
+
+| Phase | Tab               | PR   | Tab component                                            |
+|-------|-------------------|------|----------------------------------------------------------|
+| A     | notifications     | #49  | `src/components/admin/settings/NotificationsSettingsTab` |
+| B     | automation        | #50  | `src/components/admin/settings/AutomationSettingsTab`    |
+| C     | pricing           | #51  | `src/components/admin/settings/PricingSettingsTab`       |
+| D     | operations        | #52  | `src/components/admin/settings/OperationsSettingsTab`    |
+| E     | company           | #53  | `src/components/admin/settings/CompanySettingsTab`       |
+| F     | email-automation  | #54  | `src/components/admin/settings/EmailAutomationSettingsTab` |
+| G     | financial         | #55  | `src/components/admin/settings/FinancialSettingsTab`     |
+
+Shared types + per-category `Update*Setting` callback types live in
+`src/components/admin/settings/types.ts`. The parent's
+`updateSetting(category, key, value)` is partial-applied at the
+tab boundary so sub-components stay free of the parent's internal
+shape.
+
+Final line counts:
+- `src/pages/admin/settings.tsx`: 1,241 -> 675 (`-566`, -46%).
+- Inline `lucide-react` imports trimmed (Clock dropped in B; whole
+  `@/components/ui/select` import group dropped in G; AddressAutocomplete
+  moved with the company tab in E).
+- Every tab is now ~100-220 lines of focused JSX rather than buried
+  inside a 1,200-line file.
+
+P2-13's admin/settings line ticks off cleanly. The two remaining
+P2-13 lines are:
+- `admin/orders.tsx` - now 4,288 lines (was 4,443 before A.11; now
+  4,288 because of the Phase A/B dialog extraction). Phase C
+  (Order Details Modal, 1,708-line inner component) is the next
+  pure-LOC win but carries real regression risk because the modal
+  is a closure-heavy inner component on a daily-driver page. The
+  C1 single-component option in the split plan still applies but
+  needs a session that can pair with browser smoke testing.
+- `account/settings.tsx` - profile + security tabs still inline.
+  Lower-traffic page, can pick up in the same future session.
+
+## A.15 Open follow-ups from the admin/settings split
+
+1. **admin/orders.tsx Phase C**. Order Details Modal (lines
+   1826-3534, 1,708 lines) is a closure-heavy inner component
+   that reads ~30 parent symbols (selectedOrder, isModalOpen,
+   handlers, etc). Lifting them all as props is feasible but every
+   change there ships with browser regression risk - it's the
+   modal the operator opens for every active booking. Plan: pair
+   this with a session that has a live tenant to click through
+   each of the 6 inner tabs after the extraction lands.
+
+2. **admin/orders.tsx Phases D1-D3**. KPI tiles, filters bar,
+   orders table. Each is a more conventional JSX extraction and
+   would each shave 200-700 lines off the parent. Lower risk than
+   Phase C; can ship before Phase C if Phase C's browser-verify
+   step is the bottleneck.
+
+3. **account/settings.tsx profile + security tabs**. Lower traffic
+   than admin/settings, but the same monolithic shape. Same
+   split-pattern as the seven settings phases above.
+
+4. **Lint rule for unused state setters after a split**. Several
+   of the settings tabs lifted state types that are easy to forget
+   to update on the parent if a tab gains a new field. Worth a CI
+   check that `keyof XSettings` and the literal keys in the
+   parent's default-state object stay in sync.
