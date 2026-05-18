@@ -18,3 +18,18 @@ export interface OrderStats {
   upcoming: number;
   inProgress: number;
 }
+
+/**
+ * Snapshot of the four filter inputs an operator can name and recall
+ * from the saved-views chip strip on /admin/orders. Persisted to
+ * localStorage under `cateringms.adminOrders.savedViews.v1`.
+ */
+export interface SavedView {
+  id: string;
+  name: string;
+  searchTerm: string;
+  statusFilter: string;
+  dateFilter: string;
+  dateFrom: string;
+  dateTo: string;
+}
