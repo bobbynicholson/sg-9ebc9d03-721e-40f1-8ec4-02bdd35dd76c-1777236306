@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -99,7 +98,7 @@ export const paymentLedgerService = {
         payment_reference: paymentData.payment_reference,
         payment_date: new Date().toISOString(),
         notes: paymentData.notes,
-      })
+      } as any)
       .select()
       .single();
 
@@ -225,9 +224,9 @@ export const paymentLedgerService = {
 
     const totalHours = sessions.reduce((sum, s) => sum + Number(s.total_hours || 0), 0);
     const totalAmount = sessions.reduce((sum, s) => sum + Number(s.total_earnings || 0), 0);
-    const hourlyRate = sessions[0]?.hourly_rate || 0;
+    const hourlyRate = (sessions[0] as any)?.hourly_rate || 0;
 
-    const dates = sessions.map(s => new Date(s.clock_in_time));
+    const dates = sessions.map(s => new Date((s as any).clock_in_time));
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
 
@@ -247,7 +246,7 @@ export const paymentLedgerService = {
       .update({
         payment_status: "paid",
         paid_at: new Date().toISOString(),
-      })
+      } as any)
       .in("id", sessionIds);
 
     if (updateError) throw updateError;

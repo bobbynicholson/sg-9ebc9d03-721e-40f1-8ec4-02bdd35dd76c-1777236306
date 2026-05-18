@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -319,7 +318,7 @@ export const subscriptionService = {
 
     let hasUnreadNotifications = false;
     if (profile?.company_id) {
-      const { data: notifications, error: notificationsErr } = await supabase
+      const { data: notifications, error: notificationsErr } = await (supabase as any)
         .from("trial_expiry_notifications")
         .select("id")
         .eq("company_id", profile.company_id)
@@ -361,7 +360,7 @@ export const subscriptionService = {
       .update({
         dashboard_seen: true,
         dashboard_seen_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", notificationId);
 
     if (error) {
@@ -511,7 +510,7 @@ export const subscriptionService = {
   },
 
   async acceptPriceChange(subscriptionId: string): Promise<boolean> {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .rpc('accept_price_change', {
         p_subscription_id: subscriptionId
       });

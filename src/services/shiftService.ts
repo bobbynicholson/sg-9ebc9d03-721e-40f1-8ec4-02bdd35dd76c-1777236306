@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 
 export type ShiftStatus = "scheduled" | "active" | "completed" | "missed" | "cancelled";
@@ -38,7 +37,7 @@ export const shiftService = {
       console.error("Error fetching driver shifts:", error);
       return [];
     }
-    return data || [];
+    return (data || []) as unknown as DriverShift[];
   },
 
   /**
@@ -56,7 +55,7 @@ export const shiftService = {
       console.error("Error fetching company shifts:", error);
       return [];
     }
-    return data || [];
+    return (data || []) as unknown as DriverShift[];
   },
 
   /**
@@ -111,12 +110,12 @@ export const shiftService = {
       const { data, error } = await supabase
         .from("driver_shifts").update(row).eq("id", payload.id).select().single();
       if (error) throw error;
-      return data;
+      return data as unknown as DriverShift;
     }
     const { data, error } = await supabase
       .from("driver_shifts").insert([row]).select().single();
     if (error) throw error;
-    return data;
+    return data as unknown as DriverShift;
   },
 
   async clockIn(shiftId: string): Promise<boolean> {
