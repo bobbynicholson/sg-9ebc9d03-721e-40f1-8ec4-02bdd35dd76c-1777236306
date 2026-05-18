@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Event Calendar - rebuilt for actual UX. Each day cell now shows event
  * pills (truncated client names) instead of an opaque count badge, click
@@ -62,6 +61,11 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 // Anything past these (accepted -> already an order, rejected -> dead,
 // expired -> dead unless re-quoted) is excluded so the calendar only
 // shows quotes that could still convert to a booking.
+// Generated supabase types narrow quotes.status to a strict 5-member
+// enum, but the live CHECK + downstream code accepts "viewed",
+// "pending", "revised" too. Cast as any[] at the .in call site to
+// avoid the false-positive type error without weakening the rest of
+// the file.
 const OPEN_QUOTE_STATUSES = ["draft", "sent", "viewed", "pending", "revised"];
 
 interface OpenQuote {
@@ -146,7 +150,7 @@ function AdminCalendar() {
         .from("quotes")
         .select("id, client_name, event_date, event_time, total, status, valid_until, sent_at")
         .eq("company_id", user.company_id)
-        .in("status", OPEN_QUOTE_STATUSES)
+        .in("status", OPEN_QUOTE_STATUSES as any[])
         .not("event_date", "is", null);
       setOpenQuotes((data || []) as OpenQuote[]);
     } catch (e) {
