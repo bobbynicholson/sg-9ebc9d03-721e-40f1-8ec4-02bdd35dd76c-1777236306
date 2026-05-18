@@ -82,39 +82,36 @@ const IGNORE_FILES = new Set([
 // new occurrences. The check still fails for any new (file,
 // table) combo not on this list.
 const BASELINE_PHANTOM_TABLES = new Set([
-  // chat_sessions / chat_messages - chatBotService writes to two
-  // tables that don't exist. ChatBot persistence is silently
-  // failing; every conversation is in-memory only.
+  // A.20 #3 - chat_sessions / chat_messages: chatBotService
+  // expects two persistence tables that don't exist. ChatBot
+  // sessions are effectively in-memory only - conversations
+  // don't survive a page reload. Either the tables get created
+  // (heavier lift), or chatBotService falls back to localStorage
+  // / no-persistence with a clear flag. Tracked as a follow-up;
+  // not urgent because the ChatBot is a polish feature, not on
+  // any critical path.
   "src/services/chatBotService.ts::chat_sessions",
   "src/services/chatBotService.ts::chat_messages",
 
-  // invoice_line_items - Sage accounting sync references this
-  // when fanning out invoice lines. The line-items column on
-  // invoices is jsonb today; either the sync needs to read jsonb
-  // or invoice_line_items needs a real table.
+  // A.20 #5 - invoice_line_items: Sage accounting sync references
+  // a table that doesn't exist. The Sage adapter is post-launch
+  // deferred per running-todo ("Sync-quote endpoints for Xero /
+  // QuickBooks / Sage" - Sage scaffold needs to be cloned from
+  // the existing Xero adapter). Leave grandfathered until the
+  // Sage path actually ships - the sync function is dead code
+  // today.
   "src/pages/api/accounting/sage/sync-invoice.ts::invoice_line_items",
 
-  // onboarding_steps - resend domain-verify writes to a table
-  // that doesn't exist. The onboarding state lives on
-  // onboarding_state (which does exist) - this is a writer
-  // pointed at the wrong table.
+  // A.20 #6 - onboarding_steps: resend domain-verify treats the
+  // table as an OPTIONAL persistence target. The writer
+  // explicitly swallows error code 42P01 ("relation does not
+  // exist") and falls back to no-persistence. Design intent,
+  // not a bug: if a tenant adds the table for per-step
+  // onboarding tracking, the writer starts populating it; if
+  // not, the rest of the flow degrades gracefully. Keep the
+  // baseline entry as a marker that the table is intentionally
+  // optional.
   "src/pages/api/admin/resend/verify-domain.ts::onboarding_steps",
-
-  // imports - shopping receipt + spreadsheet import paths
-  // reference a table that doesn't exist. import_jobs +
-  // import_rows + import_events exist (3-table import schema)
-  // so this looks like an old single-table reference that was
-  // never updated.
-  "src/components/shopping/ReconcileSlipDrawer.tsx::imports",
-  "src/pages/api/imports/receipts/upload.ts::imports",
-  "src/pages/api/imports/upload.ts::imports",
-  "src/pages/team-portal/shopping/orders.tsx::imports",
-
-  // drivers - timeClockService references this when looking up
-  // driver records. The driver identity is on profiles (with
-  // role='driver') + driver_shifts for shift records; there's
-  // no flat drivers table.
-  "src/services/timeClockService.ts::drivers",
 ]);
 
 function walk(dir, acc = []) {

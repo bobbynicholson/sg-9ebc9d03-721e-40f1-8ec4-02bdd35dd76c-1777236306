@@ -161,18 +161,18 @@ export const timeClockService = {
         hourlyRate = Number((ks as any).hourly_rate);
       }
     }
-    if (hourlyRate <= 0) {
-      const { data: dr, error: drErr } = await (supabase as any)
-        .from("drivers")
-        .select("hourly_rate, hourly_rate_normal")
-        .eq("profile_id", staffId)
-        .maybeSingle();
-      if (drErr) {
-        console.error("[timeClockService] drivers fetch failed:", drErr);
-      }
-      const r = Number((dr as any)?.hourly_rate) || Number((dr as any)?.hourly_rate_normal) || 0;
-      if (r > 0) hourlyRate = r;
-    }
+    // A.20 #4 (2026-05-18 phantom-table sweep): dropped a dead
+    // fallback that looked up driver hourly_rate from a table
+    // that doesn't exist in the live schema and never has.
+    // Driver identity lives on profiles (role=driver) +
+    // driver_shifts for shift records; the hourly_rate field is
+    // on profiles, which is already the FIRST lookup in this
+    // chain. The dead fallback was always returning the supabase
+    // {error} sentinel, the cast hid it, and the warning below
+    // was the only user-visible signal. If per-role rate
+    // variance is ever needed for drivers (the way
+    // kitchen_staff_members holds a kitchen-specific rate),
+    // create a real per-role rates table at that point.
     if (hourlyRate <= 0) {
       console.warn(
         `[timeClockService.clockOut] no hourly_rate set for staff ${staffId}; earnings recorded as 0. Set a rate on /admin/users so wages compute correctly.`,

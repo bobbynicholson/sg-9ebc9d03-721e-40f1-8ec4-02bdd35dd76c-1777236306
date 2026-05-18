@@ -2111,16 +2111,23 @@ follow-up to investigate / fix:
    doesn't exist. `onboarding_state` exists and looks like the
    intended target.
 
-5. **`imports` (4 refs, shopping import paths)**.
-   ReconcileSlipDrawer + 3 API routes. The 3-table import schema
-   exists (`import_jobs` + `import_rows` + `import_events`) so
-   this looks like an old single-table reference that was never
-   updated.
+5. **`imports` (4 refs)** - **false positive, resolved**.
+   All 6 `.from("imports")` calls are Supabase Storage chains
+   (`supabase.storage.from("imports").upload(...)` for shopping
+   receipts + spreadsheet import payloads), not table queries.
+   The script's `.storage.` negative lookbehind catches them;
+   the original 23-hit count included them only because the
+   baseline grandfathering bypassed the storage filter. Baseline
+   entries removed.
 
-6. **`drivers` (1 ref, timeClockService)**.
-   Driver identity lives on `profiles` (role='driver') +
-   `driver_shifts` for shift records. There's no flat `drivers`
-   table.
+6. **`drivers` (1 ref, timeClockService)** - **resolved**.
+   The lookup was a dead fallback for driver hourly_rate from a
+   table that never existed. Driver rates are on
+   `profiles.hourly_rate` (already the first lookup in the
+   clockOut chain). Removed the dead fallback. If per-role rate
+   variance is ever needed for drivers (the way
+   `kitchen_staff_members` holds a kitchen-specific rate),
+   create a real per-role rates table at that point.
 
 Each item needs an individual fix - same shape as the A.10 /
 A.16 / A.18 bug-by-bug work but the table-name dimension instead
