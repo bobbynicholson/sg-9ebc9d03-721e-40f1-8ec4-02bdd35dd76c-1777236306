@@ -23,6 +23,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { createPagesServerClient } from "@/lib/supabase/server";
 import { emailService } from "@/services/emailService";
 
 const MAX_ATTEMPTS = 5;
@@ -34,11 +35,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Auth - shared secret check. Vercel Cron passes
-  // Authorization: Bearer ${CRON_SECRET}.
+  // Auth path 1: Vercel Cron carries the shared-secret bearer token.
+  // Auth path 2: an authenticated super_admin (manual operator trigger
+  // from the browser) can fire the cron on demand, useful when the
+  // Vercel cron schedule isn't firing or when the operator wants to
+  // drain a backed-up queue immediately rather than waiting for the
+  // 15-min tick. Returns the same JSON summary either way.
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.authorization || "";
-  if (expected && auth !== `Bearer ${expected}`) {
+  const isCronBearer = expected && auth === `Bearer ${expected}`;
+
+  let isSuperAdmin = false;
+  if (!isCronBearer) {
+    try {
+      const ssr = createPagesServerClient({ req, res });
+      const { data: { user } } = await ssr.auth.getUser();
+      if (user) {
+        const { data: profile } = await ssr
+          .from("profiles")
+          .select("role, active_role")
+          .eq("id", user.id)
+          .maybeSingle();
+        const role = (profile as any)?.active_role || (profile as any)?.role;
+        isSuperAdmin = role === "super_admin";
+      }
+    } catch {
+      // fall through to 401
+    }
+  }
+
+  if (!isCronBearer && !isSuperAdmin) {
     return res.status(401).json({ error: "Unauthorised" });
   }
 
