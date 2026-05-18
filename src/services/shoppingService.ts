@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
@@ -83,10 +82,10 @@ export const shoppingService = {
   async assignShoppingList(listId: string, shopperId: string, shopperEmail?: string, shopperPhone?: string): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
-      .update({ 
+      .update({
         shopper_id: shopperId,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", listId)
       .select()
       .single();
@@ -134,11 +133,11 @@ export const shoppingService = {
   async startShopping(listId: string): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
-      .update({ 
+      .update({
         status: "in_progress",
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", listId)
       .select()
       .single();
@@ -171,12 +170,12 @@ export const shoppingService = {
   async completeShopping(listId: string, totalCost?: number): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
-      .update({ 
+      .update({
         status: "completed",
         completed_at: new Date().toISOString(),
         total_cost: totalCost || null,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", listId)
       .select()
       .single();
@@ -261,11 +260,11 @@ export const shoppingService = {
   async uploadShoppingReceipt(listId: string, receiptUrl: string, totalCost: number): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
-      .update({ 
+      .update({
         receipt_url: receiptUrl,
         total_cost: totalCost,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", listId)
       .select()
       .single();
