@@ -1737,14 +1737,102 @@ direction or wider scope):
    tenant. PR #26's description includes the SQL to manually purge
    rows older than 24h if the operator wants to suppress the burst.
 
-4. **Cron schedule confirmation**. `vercel.json` schedules
-   `process-email-queue` every 15 min. Confirm Vercel actually runs
-   these in production (the queue being broken for months suggests
-   no one was watching the success metric).
+## A.12 Cron health infrastructure (2026-05-18 evening)
 
-5. **Wider enum / CHECK drift sweep**. The cleanups above audited
-   `assignment_status` and `outgoing_email_queue.status` end-to-end.
-   Other status columns (e.g. `subscriptions.status`,
+The email-queue investigation surfaced a broader problem: DB probes
+suggested Vercel-scheduled crons may not be firing at all in production
+(exchange_rates last updated 2026-04-27, 48 queue rows at attempts=0
+for 5+ days, no audit_logs rows of any cron kind). Built a shared
+infrastructure so we never have to guess again.
+
+`src/lib/cronAuth.ts` exports `requireCronAuth(req, res)` which
+accepts either:
+- Vercel cron bearer token (`CRON_SECRET` env var)
+- An authenticated super_admin session (lets operator hit any cron
+  endpoint from the browser to fire it manually + see what happens)
+
+`src/lib/cronHeartbeat.ts` exports `recordCronHeartbeat(supabase,
+name, status, meta)` which writes one `audit_logs` row per cron
+invocation with `action='cron.<name>'`.
+
+Wired into **all 25 crons** across PRs #28-#30, #36-#37. Operator
+health query:
+
+```sql
+SELECT action, max(created_at), count(*), max(details::text)
+  FROM audit_logs
+ WHERE action LIKE 'cron.%'
+   AND created_at > now() - interval '24 hours'
+ GROUP BY action ORDER BY action;
+```
+
+After 24h of Vercel cron running, the result should include every
+cron name. Missing rows = that schedule isn't firing.
+
+The 2 outsource crons (`outsource-pre-event-reminder`,
+`outsource-post-event-thanks`) preserve their pre-existing `dryRun=1`
+owner/admin gate (broader than super_admin so tenant ops can QA
+the email preview without sending). Heartbeat captures whether the
+fire came from `cron`, `super_admin`, or `owner_dryrun`.
+
+Bug fixes alongside the wiring:
+
+- PR #31 - `claim_email_batch` RPC wrote `updated_at` (column doesn't
+  exist on `outgoing_email_queue`). Fixed.
+- PR #32 - Cron retry path wrote `status='pending'` (not in CHECK),
+  off-by-one on attempts increment, silent supabase-js error
+  swallowing. Fixed; 25 orphaned `in_progress` rows reset to queued.
+- PR #33 - `recordCronHeartbeat` itself wrote to wrong audit_logs
+  columns (`metadata`/`entity_id`) and silently failed every insert.
+  Fixed.
+- PR #34 - `expire-stale-quotes` filtered on `"viewed"`/`"negotiating"`
+  (not in `quote_status` enum); `deposit-paid-sweeper` filtered on
+  `"draft"` (not in `order_status` enum). Both 500'd every run.
+- PR #35 - `propagateQuoteEdit` wrote `status='requires_dispatch_review'`
+  and `status='applied'` to `order_amendment_requests` (CHECK is
+  pending/approved/rejected/auto_rejected_late/cancelled_by_client).
+  Two more silent feature breakages closed.
+
+## A.13 Open follow-ups from the cron infrastructure work
+
+1. **Cron schedule confirmation**. `vercel.json` schedules every
+   cron (~15-min cadence for most, daily for some). Now that
+   heartbeats land in `audit_logs`, give it 24h and query - if some
+   crons have zero entries after a full day, Vercel scheduling is
+   actually broken for them and the env-var / plan / dashboard
+   config needs investigation. Manual super_admin triggers work
+   regardless and can be used as an interim drain.
+
+2. **Tenant email provider blocking deliveries**. Spit Braai has no
+   working provider configured: SMTP row has no password, Resend
+   row has `resend_domain_status='pending'` (DNS records added
+   2026-05-15 but not verified). The queue and cron infrastructure
+   are now correct - the tenant config gate is the only remaining
+   blocker. Operator action.
+
+3. **Wider enum / CHECK drift sweep**. The cleanups above audited
+   `assignment_status`, `outgoing_email_queue.status`, `quote_status`,
+   `order_status`, and `order_amendment_requests.status` end-to-end.
+   Other status columns (`subscriptions.status`,
    `kitchen_shifts.status`, `outsource_assignments.status`,
-   `billing_history.status`) weren't deep-traced this round. Same
+   `billing_history.status`, `cleaning_jobs.status`,
+   `kitchen_prep_tasks.status`, etc.) weren't deep-traced. Same
    pattern of TS-types-vs-DB-schema may yield more silent failures.
+
+4. **`recordCronHeartbeat` schema guarantee**. Audit_logs schema
+   could drift again (e.g. `details` renamed to `metadata` in a
+   future migration). Worth adding a CI check that the helper's
+   write shape matches the table.
+
+5. **Notification idempotency on driver_arrived**. PR #23 fixed the
+   `assignment.status` mismatch that re-fired the "Driver has
+   arrived!" client notification on every proximity poll. Even with
+   the fix, a driver loitering within 50m can re-cross the
+   threshold and re-trigger. A dedup gate on the notification
+   creation would belt-and-braces the fix.
+
+6. **Pattern guardrail**. The session uncovered ~10 distinct bugs
+   from one root pattern (TypeScript types vs DB enum/CHECK drift,
+   silenced by `as any` casts and supabase-js's `{error}` return
+   shape vs throwing). Worth a PR-review check or a lint rule that
+   flags `as any` on supabase write payloads as needing explanation.
