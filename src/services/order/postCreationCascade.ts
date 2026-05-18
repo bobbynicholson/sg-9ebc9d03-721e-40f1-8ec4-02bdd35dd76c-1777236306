@@ -125,6 +125,36 @@ export async function postOrderCreationCascade(
             ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
             : [];
         const guestCount = Number((quote0 as any)?.guest_count || 0);
+
+        // PR-B (cashflow cost mapping): snapshot menu_items.cost_per_unit
+        // onto order_items.unit_cost at this conversion moment. One
+        // batch fetch for every menu_item_id referenced in the quote;
+        // the cost is then attached to the corresponding insert row.
+        // Rows where menu_item_id is null (free-text quote lines) or
+        // where the menu item has no cost set stay NULL on unit_cost.
+        const menuItemIds = Array.from(
+          new Set(
+            (items as any[])
+              .map((it) => it.menu_item_id)
+              .filter((x): x is string => typeof x === "string" && x.length > 0),
+          ),
+        );
+        const costById = new Map<string, number>();
+        if (menuItemIds.length > 0) {
+          try {
+            const { data: menuRows } = await (client as any)
+              .from("menu_items")
+              .select("id, cost_per_unit")
+              .in("id", menuItemIds);
+            for (const m of (menuRows || []) as any[]) {
+              const c = Number(m?.cost_per_unit);
+              if (Number.isFinite(c) && c > 0) costById.set(m.id, c);
+            }
+          } catch (e) {
+            console.warn("[postOrderCreationCascade] menu_items cost lookup failed:", { orderId, error: e });
+          }
+        }
+
         const rows = items
           .map((it: any) => {
             const name = it.item_name || it.name || "";
@@ -136,13 +166,18 @@ export async function postOrderCreationCascade(
               : (mode === "flat" ? 1 : baseQty);
             const unit = Number(it.unit_price ?? it.unitPrice ?? it.pricePerPerson ?? 0);
             const lineTotal = Number(it.line_total ?? (qty * unit));
+            const menuItemId = it.menu_item_id || null;
+            const unitCost = menuItemId && costById.has(menuItemId)
+              ? costById.get(menuItemId)!
+              : null;
             return {
               order_id: orderId,
-              menu_item_id: it.menu_item_id || null,
+              menu_item_id: menuItemId,
               item_name: name,
               description: it.category || it.dietary_tags?.join?.(", ") || null,
               quantity: qty,
               unit_price: unit,
+              unit_cost: unitCost,
               line_total: lineTotal,
             };
           })
