@@ -12,7 +12,6 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
-import { orderService } from "@/services/orderService";
 import driverService from "@/services/driverService";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
@@ -87,22 +86,37 @@ export default function AdminTracking() {
     try {
       const companyId = user.company_id;
 
-      // LIVE scope: orders with active statuses AND event_date >= today.
-      // Past events stay off this view - they belong on the orders page.
-      const allOrders = await orderService.getAllOrders(companyId);
+      // LO-C (LO-17): server-side scope. Previously
+      // orderService.getAllOrders pulled the whole company history
+      // and the client-side filter narrowed to today+active. On a
+      // busy tenant that meant hauling back 1000+ rows then keeping
+      // ~30. The query now applies both filters server-side. Null
+      // event_dates are kept (legacy rows) via the .or clause so
+      // staff can still find them.
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString().slice(0, 10);
 
-      const activeStatuses = ["confirmed", "preparing", "ready", "in_transit", "delivered"];
-      const activeOrders = allOrders.filter((order: any) => {
-        if (!activeStatuses.includes(order.status || "")) return false;
-        // event_date may be null on some legacy rows - include them so
-        // staff can still find the order if they're looking for it.
-        if (!order.event_date) return true;
-        const eventDate = new Date(order.event_date);
-        eventDate.setHours(0, 0, 0, 0);
-        return eventDate.getTime() >= today.getTime();
-      });
+      const { data: rawOrders, error: ordersErr } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          client:clients(*),
+          order_items(*),
+          quote:quotes!orders_quote_id_fkey(public_token, quote_number),
+          assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
+          assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email),
+          assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey(id, plate, nickname, refrigerated, has_warmer, max_pax_served, capacity_kg, owner_kind, requires_two_people)
+        `)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
+        .or(`event_date.gte.${todayISO},event_date.is.null`)
+        .order("created_at", { ascending: false });
+      if (ordersErr) {
+        console.error("[admin/tracking] active-orders query error:", ordersErr);
+      }
+      const activeOrders = (rawOrders || []) as any[];
 
       // Load driver data. Phase 2 #1: enrich with the latest pin from
       // driver_locations - profiles.current_lat / current_lng is the
