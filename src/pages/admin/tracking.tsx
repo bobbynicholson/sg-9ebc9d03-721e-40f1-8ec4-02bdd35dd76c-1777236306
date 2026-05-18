@@ -13,6 +13,8 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import driverService from "@/services/driverService";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import dynamic from "next/dynamic";
@@ -49,7 +51,7 @@ const AdminTrackingMap = dynamic(
  * GPS pings ticking through. Audience is whoever's worried about whether
  * the food is going to land where it's meant to land, on time.
  */
-export default function AdminTracking() {
+function AdminTrackingInner() {
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
@@ -800,7 +802,15 @@ export default function AdminTracking() {
                                     {order.driver_phone && (
                                       <div className="flex items-center gap-2">
                                         <Phone className="w-4 h-4 flex-shrink-0" />
-                                        <span>{order.driver_phone}</span>
+                                        {/* LO-D (LO-15): tel: link so dispatch
+                                            can tap-to-call on a tablet without
+                                            copy-paste. */}
+                                        <a
+                                          href={`tel:${order.driver_phone}`}
+                                          className="text-slate-700 hover:text-slate-900 hover:underline"
+                                        >
+                                          {order.driver_phone}
+                                        </a>
                                       </div>
                                     )}
                                   </>
@@ -929,5 +939,17 @@ export default function AdminTracking() {
 
       <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
+  );
+}
+
+// LO-D (LO-2): ProtectedRoute wrapper for defense-in-depth. Middleware
+// already gates /admin/* to admin roles - this is the second layer so
+// the rule stays explicit at the component boundary and matches every
+// other admin page.
+export default function AdminTracking() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <AdminTrackingInner />
+    </ProtectedRoute>
   );
 }
