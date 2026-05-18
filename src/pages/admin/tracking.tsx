@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -585,6 +585,24 @@ export default function AdminTracking() {
                 >
                   <Download className="w-4 h-4" /> Export CSV
                 </Button>
+
+                {/* LO-B: print-friendly run-status sheet. Morning
+                    standup wants paper. Walks 'filteredOrders' so
+                    status / driver / search filters all flow into
+                    the printed sheet. */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (filteredOrders.length === 0) {
+                      toast({ title: "Nothing to print", description: "Adjust filters until at least one order is visible." });
+                      return;
+                    }
+                    setTimeout(() => window.print(), 100);
+                  }}
+                  className="w-full md:w-auto gap-1.5"
+                >
+                  <Printer className="w-4 h-4" /> Print status sheet
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -808,6 +826,92 @@ export default function AdminTracking() {
 
         <Footer />
       </div>
+
+      {/* LO-B: print-only run-status sheet. Hidden on screen via the
+          print CSS below. One row per filtered order, grouped by status
+          so the morning standup reads it from preparing -> ready ->
+          in_transit. Risk badges as red bold ASCII so it scans on
+          paper. */}
+      <div id="print-live-ops" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
+          Live ops - status sheet
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {" - "}
+          {filteredOrders.length} order{filteredOrders.length === 1 ? "" : "s"} in flight
+          {" · "}
+          {stats.atRisk} at risk
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Status</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Risk</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Client</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Venue</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Event</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Driver</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Phone</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>ETA</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(filteredOrders as any[]).map((o) => {
+              const tier = o.risk_tier as ("ok" | "watch" | "high" | "critical" | undefined);
+              const tierLabel = tier === "critical" ? "CRITICAL" : tier === "high" ? "AT RISK" : tier === "watch" ? "WATCH" : "";
+              const arrived = o.delivery_status === "arrived";
+              return (
+                <tr key={o.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid" }}>
+                  <td style={{ padding: "6pt 4pt", textTransform: "uppercase", fontSize: "8.5pt", letterSpacing: "0.5pt" }}>
+                    {o.status || ""}
+                  </td>
+                  <td style={{ padding: "6pt 4pt", color: tier === "critical" || tier === "high" ? "#dc2626" : tier === "watch" ? "#b45309" : "#64748b", fontWeight: tierLabel ? 700 : 400, fontSize: "8.5pt" }}>
+                    {arrived ? "ARRIVED" : tierLabel}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}><strong>{o.client_name || ""}</strong></td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.venue_address || o.venue_name || ""}</td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.event_date || ""}{o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.driver_name || <span style={{ color: "#dc2626", fontWeight: 700 }}>UNASSIGNED</span>}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.driver_phone || ""}</td>
+                  <td style={{ padding: "6pt 4pt", textAlign: "right" }}>
+                    {o.eta_minutes != null ? `${o.eta_minutes}m` : ""}
+                  </td>
+                  <td style={{ padding: "6pt 4pt", textAlign: "right", color: o.margin_minutes != null && o.margin_minutes < 0 ? "#dc2626" : "#0f172a", fontWeight: o.margin_minutes != null && o.margin_minutes < 0 ? 700 : 400 }}>
+                    {o.margin_minutes != null ? (o.margin_minutes >= 0 ? `${Math.round(o.margin_minutes)}m` : `${Math.round(o.margin_minutes)}m`) : ""}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Live Operations
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; size: landscape; }
+          body * { visibility: hidden !important; }
+          #print-live-ops, #print-live-ops * { visibility: visible !important; }
+          #print-live-ops {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
 
       <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
