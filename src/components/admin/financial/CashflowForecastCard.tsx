@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
 import type { Order } from "@/types";
 
 interface Props {
@@ -119,7 +120,7 @@ export function CashflowForecastCard({
     label: string;
     amount: number;
     date: string;
-    category: "equipment_hire" | "shopping";
+    category: "equipment_hire" | "shopping" | "supplier_payable" | "fixed_cost" | "food_cogs";
   }
   const [scheduledCosts, setScheduledCosts] = useState<ScheduledCost[]>([]);
 
@@ -148,35 +149,50 @@ export function CashflowForecastCard({
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      // Pull cash_on_hand + the two scheduled-cost feeds in parallel.
-      const [companyRes, hireRes, shoppingRes] = await Promise.all([
+      // Pull cash_on_hand + the five scheduled-cost feeds in parallel.
+      // PR-E (cashflow cost mapping): payables + fixed_costs + COGS
+      // join the existing equipment_hire + shopping feeds.
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const [companyRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
         (supabase as any)
           .from("companies")
           .select("cash_on_hand_cents, cash_on_hand_updated_at")
           .eq("id", companyId)
           .single(),
-        // equipment_hire_orders: pending pickups in the next 120
-        // days (longest forecast horizon). Treat total_cost as due
-        // on expected_pickup_date - that's when the supplier
-        // typically invoices.
         (supabase as any)
           .from("equipment_hire_orders")
           .select("id, equipment_name, total_cost, expected_pickup_date, status")
           .eq("company_id", companyId)
           .not("expected_pickup_date", "is", null)
-          .gte("expected_pickup_date", new Date().toISOString().slice(0, 10))
+          .gte("expected_pickup_date", todayIso)
           .not("status", "in", "(completed,cancelled,returned)"),
-        // shopping_lists: open lists (not completed/cancelled) with
-        // a list_date in the future. estimated_total is the
-        // committed cash-out figure; actual_total only populates
-        // post-purchase.
         (supabase as any)
           .from("shopping_lists")
           .select("id, title, estimated_total, list_date, status")
           .eq("company_id", companyId)
           .not("list_date", "is", null)
-          .gte("list_date", new Date().toISOString().slice(0, 10))
+          .gte("list_date", todayIso)
           .not("status", "in", "(completed,cancelled)"),
+        // PR-C: pending supplier payables in window.
+        (supabase as any)
+          .from("supplier_payables")
+          .select("id, amount_cents, due_date, invoice_ref, supplier:supplier_id(supplier_name)")
+          .eq("company_id", companyId)
+          .eq("status", "pending")
+          .is("deleted_at", null)
+          .gte("due_date", todayIso),
+        // PR-D: active fixed costs - all of them, the in-memory
+        // walker will expand occurrences for the selected horizon.
+        fixedCostsService.list(companyId, { activeOnly: true }),
+        // PR-B: per-order COGS for upcoming events. Joins
+        // order_items.unit_cost * quantity for orders with
+        // event_date inside the longest forecast horizon.
+        (supabase as any)
+          .from("orders")
+          .select("id, event_date, client_name, order_items(menu_item_id, quantity, unit_cost)")
+          .eq("company_id", companyId)
+          .gte("event_date", todayIso)
+          .neq("status", "cancelled"),
       ]);
       if (cancelled) return;
 
@@ -214,6 +230,64 @@ export function CashflowForecastCard({
           category: "shopping",
         });
       }
+
+      // PR-C: supplier_payables
+      for (const r of (payablesRes as any)?.data || []) {
+        const amount = Number(r.amount_cents) / 100;
+        if (amount <= 0 || !r.due_date) continue;
+        const supplierName = r.supplier?.supplier_name || "Supplier";
+        const ref = r.invoice_ref ? ` (${r.invoice_ref})` : "";
+        costs.push({
+          id: `pay-${r.id}`,
+          label: `${supplierName}${ref}`,
+          amount,
+          date: r.due_date,
+          category: "supplier_payable",
+        });
+      }
+
+      // PR-D: fixed_costs - expand occurrences across the longest
+      // horizon so the chart can render any window the operator
+      // picks without a refetch.
+      const fixedExpanded = fixedCostsService.expandOccurrences(
+        (fixedRows as FixedCost[]) || [],
+        90,
+      );
+      for (const o of fixedExpanded) {
+        const amount = o.amount_cents / 100;
+        if (amount <= 0) continue;
+        costs.push({
+          id: `fixed-${o.id}`,
+          label: o.label,
+          amount,
+          date: o.date,
+          category: "fixed_cost",
+        });
+      }
+
+      // PR-B: per-order COGS for upcoming events. Sum of (quantity *
+      // unit_cost) across order_items where unit_cost was snapshot
+      // at quote-accept. Bucket onto the event_date - that's when
+      // the food has to be bought / cooked.
+      for (const ord of (orderItemsRes as any)?.data || []) {
+        if (!ord?.event_date) continue;
+        const orderItems = (ord.order_items as any[]) || [];
+        let cogs = 0;
+        for (const oi of orderItems) {
+          const qty = Number(oi.quantity) || 0;
+          const cost = Number(oi.unit_cost) || 0;
+          if (qty > 0 && cost > 0) cogs += qty * cost;
+        }
+        if (cogs <= 0) continue;
+        costs.push({
+          id: `cogs-${ord.id}`,
+          label: `Food cost - ${ord.client_name || "Order"}`,
+          amount: cogs,
+          date: ord.event_date,
+          category: "food_cogs",
+        });
+      }
+
       setScheduledCosts(costs);
 
       setLoading(false);
@@ -242,11 +316,18 @@ export function CashflowForecastCard({
       income: number;
       costsHire: number;
       costsShopping: number;
+      costsPayable: number;
+      costsFixed: number;
+      costsCogs: number;
       orders: Array<{ id: string; client: string; amount: number }>;
       costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
     }> = {};
     for (let d = 0; d <= horizonDays; d++) {
-      bucketsByDay[d] = { income: 0, costsHire: 0, costsShopping: 0, orders: [], costs: [] };
+      bucketsByDay[d] = {
+        income: 0, costsHire: 0, costsShopping: 0,
+        costsPayable: 0, costsFixed: 0, costsCogs: 0,
+        orders: [], costs: [],
+      };
     }
 
     for (const o of orders || []) {
@@ -276,6 +357,9 @@ export function CashflowForecastCard({
       if (dayOffset < 0 || dayOffset > horizonDays) continue;
       if (c.category === "equipment_hire") bucketsByDay[dayOffset].costsHire += c.amount;
       if (c.category === "shopping") bucketsByDay[dayOffset].costsShopping += c.amount;
+      if (c.category === "supplier_payable") bucketsByDay[dayOffset].costsPayable += c.amount;
+      if (c.category === "fixed_cost") bucketsByDay[dayOffset].costsFixed += c.amount;
+      if (c.category === "food_cogs") bucketsByDay[dayOffset].costsCogs += c.amount;
       bucketsByDay[dayOffset].costs.push({
         id: c.id, label: c.label, amount: c.amount, category: c.category,
       });
@@ -295,12 +379,20 @@ export function CashflowForecastCard({
       income: number;
       costsHire: number;
       costsShopping: number;
+      costsPayable: number;
+      costsFixed: number;
+      costsCogs: number;
       orders: Array<{ id: string; client: string; amount: number }>;
       costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
     }> = [];
     for (let d = 0; d <= horizonDays; d++) {
       const b = bucketsByDay[d];
-      running += b.income - b.costsHire - b.costsShopping;
+      running += b.income
+        - b.costsHire
+        - b.costsShopping
+        - b.costsPayable
+        - b.costsFixed
+        - b.costsCogs;
       const dt = new Date(today.getTime() + d * dayMs);
       out.push({
         day: d,
@@ -310,6 +402,9 @@ export function CashflowForecastCard({
         income: b.income,
         costsHire: b.costsHire,
         costsShopping: b.costsShopping,
+        costsPayable: b.costsPayable,
+        costsFixed: b.costsFixed,
+        costsCogs: b.costsCogs,
         orders: b.orders,
         costs: b.costs,
       });
@@ -323,6 +418,18 @@ export function CashflowForecastCard({
   );
   const totalShoppingForWindow = useMemo(
     () => series.reduce((s, p) => s + p.costsShopping, 0),
+    [series],
+  );
+  const totalPayablesForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsPayable, 0),
+    [series],
+  );
+  const totalFixedForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsFixed, 0),
+    [series],
+  );
+  const totalCogsForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsCogs, 0),
     [series],
   );
 
@@ -560,6 +667,30 @@ export function CashflowForecastCard({
                   </span>
                 </div>
               )}
+              {totalCogsForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Food cost (COGS)</span>
+                  <span className="tabular-nums text-red-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalCogsForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalPayablesForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Supplier payables</span>
+                  <span className="tabular-nums text-red-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalPayablesForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalFixedForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Fixed costs</span>
+                  <span className="tabular-nums text-red-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalFixedForWindow, currency)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-slate-600">
                 <span className="flex items-center gap-1">
                   Contingency
@@ -760,7 +891,14 @@ export function CashflowForecastCard({
                               <span className="text-sm text-slate-900 truncate flex-1">
                                 {c.label}
                                 <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
-                                  {c.category === "equipment_hire" ? "hire" : "shopping"}
+                                  {
+                                  c.category === "equipment_hire" ? "hire"
+                                  : c.category === "shopping" ? "shopping"
+                                  : c.category === "supplier_payable" ? "supplier"
+                                  : c.category === "fixed_cost" ? "fixed"
+                                  : c.category === "food_cogs" ? "food"
+                                  : c.category
+                                }
                                 </span>
                               </span>
                               <span className="ml-3 tabular-nums text-sm text-red-700">
@@ -868,10 +1006,17 @@ function downloadCsv(
     income: number;
     costsHire: number;
     costsShopping: number;
+    costsPayable: number;
+    costsFixed: number;
+    costsCogs: number;
   }>,
   currency: string,
 ) {
-  const header = ["date", "day_offset", "balance", "income", "costs_hire", "costs_shopping"];
+  const header = [
+    "date", "day_offset", "balance", "income",
+    "costs_hire", "costs_shopping", "costs_payable",
+    "costs_fixed", "costs_cogs",
+  ];
   const rows = series.map((p) => [
     p.date,
     p.day,
@@ -879,6 +1024,9 @@ function downloadCsv(
     Math.round(p.income),
     Math.round(p.costsHire),
     Math.round(p.costsShopping),
+    Math.round(p.costsPayable),
+    Math.round(p.costsFixed),
+    Math.round(p.costsCogs),
   ]);
   const csv = "﻿" + [header, ...rows].map((r) => r.join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });

@@ -41,6 +41,14 @@ interface FinancialMetrics {
   // 35% margin and a health-score celebration off invented numbers.
   inventoryCosts: number | null;
   profitMargin: number | null;
+  /** PR-F (cashflow cost mapping) - orders within the 90d window
+   *  whose order_items rows had no unit_cost snapshot. Surface as
+   *  a "X orders missing cost data" caveat on the Profit Margin
+   *  tile so the owner sees the limitation. */
+  ordersMissingCost: number;
+  /** Orders that DID have cost data and were included in the
+   *  margin calculation. */
+  ordersCounted: number;
   healthScore: number;
 }
 
@@ -109,10 +117,11 @@ export default function FinancialDashboardPage() {
       // revenue horizon below.
       const cogsSince = new Date();
       cogsSince.setDate(cogsSince.getDate() - 90);
-      const inventoryCosts = (user as any)?.company_id
+      const cogsData = (user as any)?.company_id
         ? await fetchRealCogs((user as any).company_id as string, cogsSince.toISOString())
         : null;
-      const profitMargin = calculateProfitMargin(ordersData, inventoryCosts);
+      const inventoryCosts = cogsData ? cogsData.cogs : null;
+      const profitMargin = calculateProfitMargin(ordersData, cogsData);
       const healthScore = calculateHealthScore({
         currentCashFlow,
         projectedRevenue30Days,
@@ -131,6 +140,8 @@ export default function FinancialDashboardPage() {
         unpaidStaffCount,
         inventoryCosts,
         profitMargin,
+        ordersMissingCost: cogsData?.ordersMissingCost ?? 0,
+        ordersCounted: cogsData?.ordersCounted ?? 0,
         healthScore
       });
       setLoadedAt(Date.now());
@@ -197,32 +208,68 @@ export default function FinancialDashboardPage() {
   // shows "No usage data yet" honestly.
   //
   // Helpers are now closures so we can read companyId + the period
-  // bound (current run defaults to "last 90 days").
-  const fetchRealCogs = async (companyId: string, sinceIso: string): Promise<number | null> => {
+  // PR-F (cashflow cost mapping): real COGS from order_items.
+  // unit_cost. The previous inventory_transactions-based path was
+  // returning null for tenants who never populated that pipeline.
+  // unit_cost is snapshotted at quote-accept (PR-B), so margins
+  // are honest about which orders have cost data and which don't.
+  //
+  // Walks order_items where parent order is paid + delivered/
+  // completed and created_at >= sinceIso. SUM(line_total) is the
+  // revenue side; SUM(quantity * unit_cost) is the COGS. Orders
+  // where every line has unit_cost=NULL are excluded from both
+  // sides (legacy data, pre-snapshot) and surfaced as the "missing
+  // cost data" count returned alongside the figures.
+  const fetchRealCogs = async (
+    companyId: string,
+    sinceIso: string,
+  ): Promise<{ revenue: number; cogs: number; ordersCounted: number; ordersMissingCost: number } | null> => {
     if (!companyId) return null;
     const { data, error } = await (supabase as any)
-      .from("inventory_transactions")
-      .select("quantity, unit_cost, order_id, orders!inner(payment_status, company_id)")
+      .from("orders")
+      .select("id, total_amount, payment_status, status, order_items(quantity, unit_cost, line_total)")
       .eq("company_id", companyId)
-      .eq("transaction_type", "usage")
+      .eq("payment_status", "paid")
+      .in("status", ["delivered", "completed"])
       .gte("created_at", sinceIso);
     if (error || !data) return null;
-    const rows = (data as any[]).filter((r) => (r as any).orders?.payment_status === "paid");
-    if (rows.length === 0) return null;
-    return rows.reduce(
-      (sum, r) => sum + Number((r as any).quantity || 0) * Number((r as any).unit_cost || 0),
-      0,
-    );
+    let revenue = 0;
+    let cogs = 0;
+    let ordersCounted = 0;
+    let ordersMissingCost = 0;
+    for (const ord of data as any[]) {
+      const items = (ord.order_items as any[]) || [];
+      let orderRevenue = 0;
+      let orderCogs = 0;
+      let hasCost = false;
+      for (const oi of items) {
+        const qty = Number(oi.quantity) || 0;
+        const lineTotal = Number(oi.line_total) || 0;
+        const cost = Number(oi.unit_cost);
+        orderRevenue += lineTotal;
+        if (Number.isFinite(cost) && cost > 0 && qty > 0) {
+          orderCogs += qty * cost;
+          hasCost = true;
+        }
+      }
+      if (!hasCost) {
+        ordersMissingCost++;
+        continue;
+      }
+      revenue += orderRevenue;
+      cogs += orderCogs;
+      ordersCounted++;
+    }
+    if (revenue <= 0) return { revenue: 0, cogs: 0, ordersCounted, ordersMissingCost };
+    return { revenue, cogs, ordersCounted, ordersMissingCost };
   };
 
-  const calculateProfitMargin = (orders: Order[], inventoryCost: number | null): number | null => {
-    if (inventoryCost == null) return null;
-    const totalRevenue = orders
-      .filter((o) => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-    if (totalRevenue <= 0) return null;
-    const profit = totalRevenue - inventoryCost;
-    return (profit / totalRevenue) * 100;
+  const calculateProfitMargin = (
+    _orders: Order[],
+    cogsData: { revenue: number; cogs: number; ordersCounted: number; ordersMissingCost: number } | null,
+  ): number | null => {
+    if (!cogsData || cogsData.revenue <= 0 || cogsData.ordersCounted === 0) return null;
+    return ((cogsData.revenue - cogsData.cogs) / cogsData.revenue) * 100;
   };
 
   const calculateHealthScore = (data: any) => {
@@ -520,7 +567,7 @@ export default function FinancialDashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
-                    <InfoTooltip content={"(Revenue - real ingredient COGS) / revenue, on PAID orders in the last 90 days.\n\nIngredient cost comes from inventory_transactions where transaction_type='usage' joined to the order's unit_cost. Payroll, supplier invoices and other operating costs are NOT yet folded in - the figure here is a top-line gross margin, not net."} />
+                    <InfoTooltip content={"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\n\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\n\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See /admin/financial-dashboard cashflow forecast for the net picture."} />
                   </CardTitle>
                   <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-purple-600" : "text-slate-400"}`} />
                 </div>
@@ -534,6 +581,12 @@ export default function FinancialDashboardPage() {
                     <p className="text-sm text-slate-600 mt-2">
                       Gross margin (90 days)
                     </p>
+                    {(metrics?.ordersMissingCost || 0) > 0 && (
+                      <p className="text-[11px] text-amber-700 mt-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {metrics.ordersMissingCost} order{metrics.ordersMissingCost === 1 ? "" : "s"} missing cost data
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
@@ -541,7 +594,9 @@ export default function FinancialDashboardPage() {
                       No data yet
                     </div>
                     <p className="text-sm text-slate-500 mt-2">
-                      No paid orders with recipe deductions in the last 90 days.
+                      {(metrics?.ordersMissingCost || 0) > 0
+                        ? `${metrics?.ordersMissingCost} paid orders in the last 90 days but none have menu costs set. Open /admin/menu to fill in cost_per_unit per item.`
+                        : "No paid delivered orders in the last 90 days yet."}
                     </p>
                   </>
                 )}
