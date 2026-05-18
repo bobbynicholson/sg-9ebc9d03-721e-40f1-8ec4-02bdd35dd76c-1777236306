@@ -4,10 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -15,28 +12,20 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalLayout } from "@/components/Layout";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Building2, 
-  Save, 
-  CheckCircle, 
-  Camera, 
-  Briefcase, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  Shield,
-  Bell,
-  Globe,
-} from "lucide-react";
-import { ROLE_NAMES } from "@/lib/authGuards";
+import { User, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationsTab } from "@/components/account/settings/NotificationsTab";
 import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
-import type { NotificationPreferences, PrivacySettings } from "@/components/account/settings/types";
+import { ProfileTab } from "@/components/account/settings/ProfileTab";
+import { SecurityTab } from "@/components/account/settings/SecurityTab";
+import type {
+  NotificationPreferences,
+  PrivacySettings,
+  AccountPreferences,
+  ProfileFormData,
+  PasswordFormData,
+} from "@/components/account/settings/types";
 
 function ProfileSettingsPage() {
   // Pull `company` alongside `profile` so we can show the canonical
@@ -51,12 +40,9 @@ function ProfileSettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     full_name: "",
     email: "",
     phone_number: "",
@@ -64,7 +50,7 @@ function ProfileSettingsPage() {
     avatar_url: "",
   });
 
-  const [passwordData, setPasswordData] = useState({
+  const [passwordData, setPasswordData] = useState<PasswordFormData>({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -87,7 +73,7 @@ function ProfileSettingsPage() {
     allow_analytics: true,
   });
 
-  const [preferences, setPreferences] = useState({
+  const [preferences, setPreferences] = useState<AccountPreferences>({
     language: "en",
     timezone: "Africa/Johannesburg",
     date_format: "DD/MM/YYYY",
@@ -393,33 +379,6 @@ function ProfileSettingsPage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
-    if (!password) return { strength: 0, label: "", color: "" };
-    
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (password.length >= 12) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-
-    if (strength <= 2) return { strength, label: "Weak", color: "text-red-600" };
-    if (strength <= 4) return { strength, label: "Medium", color: "text-yellow-600" };
-    return { strength, label: "Strong", color: "text-green-600" };
-  };
-
-  const passwordStrength = getPasswordStrength(passwordData.newPassword);
-
   if (!user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -496,376 +455,31 @@ function ProfileSettingsPage() {
 
             {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-6">
-              {/* Profile Overview */}
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <User className="w-5 h-5" />
-                    Profile Overview
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row gap-6 items-start">
-                    <div className="flex flex-col items-center gap-3">
-                      <Avatar className="w-24 h-24">
-                        <AvatarImage src={formData.avatar_url} />
-                        <AvatarFallback className="text-2xl bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
-                          {getInitials(formData.full_name || "User")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        className="hidden"
-                        onChange={handleAvatarChange}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={handleAvatarPick}
-                        disabled={uploadingAvatar}
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        {uploadingAvatar ? "Uploading..." : "Change Photo"}
-                      </Button>
-                      <p className="text-[10px] text-slate-500 text-center">JPG, PNG or WebP. Max 5 MB.</p>
-                    </div>
-
-                    <div className="flex-1 space-y-4">
-                      <div>
-                        <Label className="text-sm text-slate-600 dark:text-slate-400">Role</Label>
-                        <div className="mt-1">
-                          <Badge variant="secondary" className="text-sm">
-                            <Briefcase className="w-3 h-3 mr-1" />
-                            {ROLE_NAMES[(profile.role as string) as keyof typeof ROLE_NAMES] || profile.role}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-sm text-slate-600 dark:text-slate-400">Account Created</Label>
-                        <p className="text-slate-900 dark:text-slate-100">
-                          {new Date(profile.created_at || "").toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                      </div>
-
-                      {(company?.company_name || profile.company_name) && (
-                        <div>
-                          <Label className="text-sm text-slate-600 dark:text-slate-400">Company</Label>
-                          <p className="text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            <Building2 className="w-4 h-4" />
-                            {company?.company_name || profile.company_name}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Personal Information */}
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <User className="w-5 h-5" />
-                    Personal Information
-                  </CardTitle>
-                  <CardDescription className="dark:text-slate-400">Update your personal details and contact information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          value={formData.full_name}
-                          onChange={(e) => handleInputChange("full_name", e.target.value)}
-                          placeholder="John Doe"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          placeholder="john@example.com"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          value={formData.phone_number}
-                          onChange={(e) => handleInputChange("phone_number", e.target.value)}
-                          placeholder="+27 12 345 6789"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Company Name</Label>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          value={formData.company_name}
-                          onChange={(e) => handleInputChange("company_name", e.target.value)}
-                          placeholder="Your Company Ltd"
-                          disabled={
-                            (profile.role as string) !== "owner"
-                            && (profile.role as string) !== "admin"
-                            && (profile.role as string) !== "super_admin"
-                          }
-                        />
-                      </div>
-                      {((profile.role as string) === "owner"
-                        || (profile.role as string) === "admin"
-                        || (profile.role as string) === "super_admin") && (
-                        <p className="text-[11px] text-slate-500">Renames your company everywhere, invoices, emails, dashboard.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button
-                      onClick={handleSave}
-                      disabled={loading}
-                      className="bg-orange-600 hover:bg-orange-700"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Display Preferences */}
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <Globe className="w-5 h-5" />
-                    Display & Regional Preferences
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Language</Label>
-                      <Select value={preferences.language} onValueChange={(value) => setPreferences({...preferences, language: value})}>
-                        <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="af">Afrikaans</SelectItem>
-                          <SelectItem value="zu">Zulu</SelectItem>
-                          <SelectItem value="xh">Xhosa</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Timezone</Label>
-                      <Select value={preferences.timezone} onValueChange={(value) => setPreferences({...preferences, timezone: value})}>
-                        <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Africa/Johannesburg">Johannesburg (CAT)</SelectItem>
-                          <SelectItem value="Africa/Cairo">Cairo (EET)</SelectItem>
-                          <SelectItem value="Europe/London">London (GMT)</SelectItem>
-                          <SelectItem value="America/New_York">New York (EST)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Date Format</Label>
-                      <Select value={preferences.date_format} onValueChange={(value) => setPreferences({...preferences, date_format: value})}>
-                        <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                          <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                          <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Currency Display</Label>
-                      <Select value={preferences.currency_display} onValueChange={(value) => setPreferences({...preferences, currency_display: value})}>
-                        <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="symbol">Symbol (R, $, £)</SelectItem>
-                          <SelectItem value="code">Code (ZAR, USD, GBP)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
-                    <Button onClick={handlePreferencesUpdate} className="bg-orange-600 hover:bg-orange-700">
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Preferences
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <ProfileTab
+                profile={profile}
+                company={company}
+                formData={formData}
+                onFormChange={handleInputChange}
+                onSave={handleSave}
+                saving={loading}
+                uploadingAvatar={uploadingAvatar}
+                fileInputRef={fileInputRef}
+                onAvatarPick={handleAvatarPick}
+                onAvatarChange={handleAvatarChange}
+                preferences={preferences}
+                onPreferencesChange={setPreferences}
+                onPreferencesSave={handlePreferencesUpdate}
+              />
             </TabsContent>
 
             {/* Security Tab */}
             <TabsContent value="security" className="space-y-6">
-              <Card className="border-0 shadow-lg dark:bg-slate-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 dark:text-white">
-                    <Shield className="w-5 h-5" />
-                    Password & Security
-                  </CardTitle>
-                  <CardDescription className="dark:text-slate-400">Update your password to keep your account secure</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Current Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 pr-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          type={showCurrentPassword ? "text" : "password"}
-                          value={passwordData.currentPassword}
-                          onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
-                          placeholder="Enter current password"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                        >
-                          {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">New Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 pr-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          type={showNewPassword ? "text" : "password"}
-                          value={passwordData.newPassword}
-                          onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
-                          placeholder="Enter new password"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                        >
-                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      {passwordData.newPassword && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${
-                                passwordStrength.strength <= 2
-                                  ? "bg-red-500 w-1/3"
-                                  : passwordStrength.strength <= 4
-                                  ? "bg-yellow-500 w-2/3"
-                                  : "bg-green-500 w-full"
-                              }`}
-                            />
-                          </div>
-                          <span className={`text-xs font-medium ${passwordStrength.color}`}>
-                            {passwordStrength.label}
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Must be at least 8 characters with uppercase, lowercase, and numbers
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="dark:text-slate-200">Confirm New Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                        <Input
-                          className="pl-10 pr-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={passwordData.confirmPassword}
-                          onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
-                          placeholder="Confirm new password"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
-                        <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                          <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-                          Passwords do not match
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handlePasswordUpdate}
-                    disabled={passwordLoading}
-                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
-                  >
-                    {passwordLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Updating Password...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 mr-2" />
-                        Update Password
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+              <SecurityTab
+                passwordData={passwordData}
+                onFieldChange={handlePasswordChange}
+                onUpdate={handlePasswordUpdate}
+                busy={passwordLoading}
+              />
             </TabsContent>
 
             {/* Notifications Tab */}

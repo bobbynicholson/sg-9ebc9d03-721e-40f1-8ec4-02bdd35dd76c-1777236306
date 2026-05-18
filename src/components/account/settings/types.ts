@@ -19,3 +19,24 @@ export interface PrivacySettings {
   show_phone: boolean;
   allow_analytics: boolean;
 }
+
+export interface ProfileFormData {
+  full_name: string;
+  email: string;
+  phone_number: string;
+  company_name: string;
+  avatar_url: string;
+}
+
+export interface AccountPreferences {
+  language: string;
+  timezone: string;
+  date_format: string;
+  currency_display: string;
+}
+
+export interface PasswordFormData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
