@@ -418,7 +418,13 @@ export default function ClientOrderPage() {
                     invoices: invoice ? [invoice] : [],
                   });
                   const clientTl = toClientTimeline(operatorTl);
-                  return <TimelineTrack timeline={clientTl} />;
+                  // Wave 70.49e - hide the operator glossary in the
+                  // per-stage tooltip ("Completes when / All
+                  // kitchen_prep_tasks marked done / Owner: Head chef"
+                  // etc). That copy is internal operational language;
+                  // clients should never see table names or role
+                  // assignments.
+                  return <TimelineTrack timeline={clientTl} hideOperatorGlossary />;
                 })()}
               </CardContent>
             </Card>

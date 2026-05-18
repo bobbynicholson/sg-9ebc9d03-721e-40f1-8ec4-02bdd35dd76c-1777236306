@@ -58,6 +58,15 @@ interface TimelineTrackProps {
    *  seeing two banners reading the same situation. Client portals
    *  + the order detail drawer keep the banner (no chip there). */
   hideOperatorBanner?: boolean;
+  /** Wave 70.49e - when true, suppress the "Completes when" / Owner
+   *  glossary block in the per-stage hover tooltip. The glossary
+   *  copy is internal operational language (mentions table names like
+   *  "kitchen_prep_tasks marked done", scheduling jargon like
+   *  "Backplanned from pickup time", and Owner role assignments) that
+   *  belongs on the operator surface, NOT on a client-facing magic-link
+   *  view. /c/order/[id] sets this true; admin surfaces keep the
+   *  glossary so chefs / drivers / dispatchers can see the trigger. */
+  hideOperatorGlossary?: boolean;
 }
 
 const CLUSTER_ORDER: StageGroup[] = [
@@ -186,11 +195,16 @@ function StageDot({
   size = "default",
   onStageClick,
   withSlug,
+  hideOperatorGlossary,
 }: {
   stage: OrderTimelineStage;
   size?: "default" | "small";
   onStageClick?: (stage: OrderTimelineStage) => void;
   withSlug: (href: string) => string;
+  /** Wave 70.49e - suppress the operator glossary block in the tooltip
+   *  (Completes when / Owner). Set by the client magic-link surface so
+   *  customers don't see internal table-name jargon. */
+  hideOperatorGlossary?: boolean;
 }) {
   const isCompleted = stage.status === "completed";
   const isCurrent = stage.status === "current";
@@ -309,7 +323,7 @@ function StageDot({
             </div>
           )}
 
-          {glossary && (
+          {glossary && !hideOperatorGlossary && (
             <div className="text-xs border-t border-slate-100 pt-2 space-y-1">
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
                 Completes when
@@ -373,11 +387,13 @@ function ClusterBand({
   stages,
   onStageClick,
   withSlug,
+  hideOperatorGlossary,
 }: {
   group: StageGroup;
   stages: OrderTimelineStage[];
   onStageClick?: (stage: OrderTimelineStage) => void;
   withSlug: (href: string) => string;
+  hideOperatorGlossary?: boolean;
 }) {
   const visible = stages.filter((s) => s.status !== "not_applicable");
   if (visible.length === 0) {
@@ -455,7 +471,7 @@ function ClusterBand({
                     : "bg-slate-200";
           return (
             <div key={s.key} className="flex items-center gap-1.5">
-              <StageDot stage={s} onStageClick={onStageClick} withSlug={withSlug} />
+              <StageDot stage={s} onStageClick={onStageClick} withSlug={withSlug} hideOperatorGlossary={hideOperatorGlossary} />
               {next && (
                 <div className={`h-[3px] w-5 rounded-full ${connectorClass}`} />
               )}
@@ -573,7 +589,7 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
 
 // --- Main export ------------------------------------------------------------
 
-export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBanner }: TimelineTrackProps) {
+export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBanner, hideOperatorGlossary }: TimelineTrackProps) {
   const [expanded, setExpanded] = useState(false);
   const { withSlug } = useTenantHref();
 
@@ -621,7 +637,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
               .map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <StageDot stage={s} size="small" onStageClick={onStageClick} withSlug={withSlug} />
+                    <StageDot stage={s} size="small" onStageClick={onStageClick} withSlug={withSlug} hideOperatorGlossary={hideOperatorGlossary} />
                     <span className={
                       s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
@@ -737,6 +753,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                 stages={stagesByCluster.get(g) || []}
                 onStageClick={onStageClick}
                 withSlug={withSlug}
+                hideOperatorGlossary={hideOperatorGlossary}
               />
             </div>
             {idx < CLUSTER_ORDER.length - 1 && (
