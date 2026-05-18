@@ -37,6 +37,7 @@ const SRC = join(ROOT, "src");
 // Pulled from the live DB's information_schema + pg_enum as of
 // 2026-05-18. Keep in sync with the actual CHECK / enum.
 const STATUS_VOCAB = {
+  cleaning_event_handovers: ["expected", "in_progress", "complete", "cancelled"],
   outgoing_email_queue: ["queued", "in_progress", "paused", "sent", "failed", "cancelled"],
   driver_assignments: [
     "assigned", "accepted", "en_route", "picked_up", "at_venue",
@@ -81,14 +82,6 @@ const IGNORE_FILES = new Set([
 // new occurrences. The check still fails for any new (file,
 // table) combo not on this list.
 const BASELINE_PHANTOM_TABLES = new Set([
-  // cleaning_event_handovers - 13 references across the cleaning
-  // portal. Either the table needs creating, or the call sites
-  // need re-pointing at equipment_handovers (which exists).
-  "src/hooks/useCleaningLiveCounts.ts::cleaning_event_handovers",
-  "src/hooks/useCleaningPortalMode.ts::cleaning_event_handovers",
-  "src/services/booking/bookingFacts.ts::cleaning_event_handovers",
-  "src/services/cleaningHandoverService.ts::cleaning_event_handovers",
-
   // chat_sessions / chat_messages - chatBotService writes to two
   // tables that don't exist. ChatBot persistence is silently
   // failing; every conversation is in-memory only.
@@ -167,7 +160,7 @@ const KNOWN_TABLES = new Set([
   "account_deletion_requests","accounting_integrations","admin_notifications","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
-  "cancellation_requests","cleaning_duty_logs","cleaning_jobs","cleaning_machines",
+  "cancellation_requests","cleaning_duty_logs","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
   "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
   "companies","company_number_settings","company_number_settings_audit","complaints",
   "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
