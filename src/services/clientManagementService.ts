@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -33,7 +32,7 @@ export const clientManagementService = {
       // Get all client_ids from orders for this company
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
-        .select("client_id, total, created_at")
+        .select("client_id, total_amount, created_at")
         .eq("company_id", companyId)
         .not("client_id", "is", null);
 
@@ -222,7 +221,7 @@ export const clientManagementService = {
           client_phone: clientData.phone,
           status: 'manual_add',
           source: 'manual',
-        })
+        } as any)
         .select()
         .single();
 
