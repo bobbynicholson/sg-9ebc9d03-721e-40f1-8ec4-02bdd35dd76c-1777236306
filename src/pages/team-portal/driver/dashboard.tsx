@@ -194,7 +194,7 @@ export default function DriverDashboard() {
           )
         `)
         .eq("driver_id", user.id)
-        .in("status", ["assigned", "accepted", "en_route", "picked_up"])
+        .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
         .order("assigned_at", { ascending: false });
 
       if (assignmentsError) {
