@@ -29,11 +29,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const todayIso = new Date().toISOString().slice(0, 10);
 
+    // `quote_status` enum is (draft, sent, accepted, rejected,
+    // expired). Non-terminal states that should still be expired by
+    // valid_until are draft + sent. Prior code listed "viewed" and
+    // "negotiating" too, but neither value is in the enum - the
+    // .in filter raised a CHECK violation at the DB layer and the
+    // cron returned 500 with no rows processed. Confirmed via live
+    // schema query on 2026-05-18.
     const { data: stale, error: selErr } = await sb
       .from("quotes")
       .select("id")
       .lt("valid_until", todayIso)
-      .in("status", ["draft", "sent", "viewed", "negotiating"])
+      .in("status", ["draft", "sent"])
       .is("deleted_at", null)
       .limit(500);
     if (selErr) {
