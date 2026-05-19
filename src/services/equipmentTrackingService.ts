@@ -449,6 +449,13 @@ ${companyName}`;
   async startCleaningDuty(params: {
     userId: string;
     companyId: string;
+    // CLN2-H (CLN2-68): optional GPS captured by the widget. All three
+    // are nullable because the cleaner can refuse geolocation and we
+    // still let them clock in - admin sees the NULL coords and decides
+    // whether to follow up.
+    clockInLat?: number | null;
+    clockInLng?: number | null;
+    clockInAccuracyM?: number | null;
   }): Promise<CleaningDutyLog> {
     const { data, error } = await supabase
       .from("cleaning_duty_logs")
@@ -457,6 +464,9 @@ ${companyName}`;
         company_id: params.companyId,
         on_duty: true,
         duty_started_at: new Date().toISOString(),
+        clock_in_lat: params.clockInLat ?? null,
+        clock_in_lng: params.clockInLng ?? null,
+        clock_in_accuracy_m: params.clockInAccuracyM ?? null,
       } as any)
       .select()
       .single();

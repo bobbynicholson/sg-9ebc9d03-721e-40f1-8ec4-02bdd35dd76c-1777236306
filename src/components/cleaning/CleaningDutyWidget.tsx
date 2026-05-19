@@ -129,15 +129,67 @@ export function CleaningDutyWidget() {
     return () => clearInterval(t);
   }, [loadOnDutyStaff]);
 
+  // CLN2-H (CLN2-68): best-effort GPS capture at clock-in. Resolves
+  // with NULL coords on denial / unsupported / timeout so we still
+  // let the cleaner start their shift. 8-second timeout matches the
+  // driver geofence path so the device doesn't sit on the spinner.
+  const captureGeolocation = (): Promise<{
+    lat: number | null;
+    lng: number | null;
+    accuracyM: number | null;
+  }> => {
+    return new Promise((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve({ lat: null, lng: null, accuracyM: null });
+        return;
+      }
+      let settled = false;
+      const failsafe = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve({ lat: null, lng: null, accuracyM: null });
+        }
+      }, 8000);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(failsafe);
+          resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracyM: pos.coords.accuracy ?? null,
+          });
+        },
+        () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(failsafe);
+          resolve({ lat: null, lng: null, accuracyM: null });
+        },
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 30_000 },
+      );
+    });
+  };
+
   const handleStartDuty = async () => {
     if (!user?.id || !companyId) return;
     setBusy(true);
     try {
+      const { lat, lng, accuracyM } = await captureGeolocation();
       await equipmentTrackingService.startCleaningDuty({
         userId: user.id,
         companyId,
+        clockInLat: lat,
+        clockInLng: lng,
+        clockInAccuracyM: accuracyM,
       });
-      toast({ title: "Clocked in", description: "Welcome to your cleaning shift." });
+      toast({
+        title: "Clocked in",
+        description: lat != null
+          ? "Welcome to your cleaning shift."
+          : "Welcome - GPS unavailable, admin may follow up.",
+      });
       await loadOnDutyStaff();
     } catch (e: any) {
       toast({
