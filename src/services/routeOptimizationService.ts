@@ -12,6 +12,11 @@ export interface DeliveryStop {
   venue_lat: number;
   venue_lng: number;
   delivery_time: string;
+  /** Wall-clock HH:MM the driver leaves the kitchen with the food.
+   *  Distinct from delivery_time (when they arrive at venue) - the
+   *  driver's first question is "when do I collect?" not "when do
+   *  I drop?". Optional because not every tenant fills it in. */
+  pickup_time?: string | null;
   priority: number;
   status: string;
   /** Phase 2B: arrival buffer in minutes used to check feasibility. */
@@ -364,6 +369,7 @@ export const routeOptimizationService = {
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
         delivery_time: deliveryTime,
+        pickup_time: order.pickup_time ?? null,
         priority: order.priority || 2,
         status: order.status,
       };
@@ -420,6 +426,7 @@ export const routeOptimizationService = {
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
         delivery_time: deliveryTime,
+        pickup_time: order.pickup_time ?? null,
         priority: order.priority || 2,
         status: order.status,
         arrival_buffer_minutes: arrivalBufferMinutes,

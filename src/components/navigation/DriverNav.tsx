@@ -52,6 +52,7 @@ const config: PortalSidebarConfig = {
       items: [
         { title: "Today",        href: "/team-portal/driver/dashboard", icon: LayoutDashboard, description: "Today's deliveries" },
         { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving" },
+        { title: "Calendar",     href: "/team-portal/driver/calendar",  icon: Calendar,        description: "Your bookings and jobs you can claim" },
         { title: "GPS Tracking", href: "/team-portal/driver/tracking",  icon: MapPin,          description: "Live status updates" },
       ],
     },
