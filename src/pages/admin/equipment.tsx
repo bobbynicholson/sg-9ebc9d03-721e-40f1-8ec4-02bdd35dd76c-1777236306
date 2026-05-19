@@ -810,7 +810,12 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
 
       {/* Edit / add dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-        <DialogContent className="max-w-xl">
+        {/* max-h + overflow keeps the dialog inside the viewport on
+            short laptop screens. The previous max-w-xl alone let the
+            tall form (cleaning + hire-in + maintenance sections)
+            push past the bottom edge and clip the Save / Cancel
+            controls. */}
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing?.id && rows.some((r) => r.id === editing.id) ? "Edit equipment" : "Add equipment"}</DialogTitle>
             <DialogDescription>
@@ -1164,7 +1169,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Log a service</DialogTitle>
             <DialogDescription>
