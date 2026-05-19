@@ -49,7 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
-import { driverPayService, resolveEffectiveRates, type DriverPayRates } from "@/services/driverPayService";
+import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 type Order = Tables<"orders">;
@@ -87,24 +87,12 @@ function DriverDashboardInner() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
-  // Real pay rates for the signed-in driver (per-driver override
-  // falling back to companies.default_*). Loaded once on mount; used
-  // to compute "Today's Potential Earnings" from callout + round-trip
-  // distance * rate instead of the previous hardcoded R250 per stop.
-  const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
-
-  useEffect(() => {
-    if (!user?.id || !user?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      const [defaults, profile] = await Promise.all([
-        driverPayService.getCompanyDefaults(user.company_id),
-        driverPayService.getDriverProfile(user.id),
-      ]);
-      if (!cancelled) setPayRates(resolveEffectiveRates(profile, defaults));
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id, user?.company_id]);
+  // DRV-C (driver deep audit, DRV-9): payRates resolution lifted to
+  // a shared hook so /routes and /dashboard read from the same
+  // source. The hook handles per-driver override falling back to
+  // companies.default_*; used to compute "Today's Potential
+  // Earnings" from callout + round-trip distance * rate.
+  const { payRates } = useDriverPayRates();
 
   // Wave 70.12 - today's clocked hours so the earnings widget can
   // include the hourly portion (clocked_hours x hourly_rate) on top

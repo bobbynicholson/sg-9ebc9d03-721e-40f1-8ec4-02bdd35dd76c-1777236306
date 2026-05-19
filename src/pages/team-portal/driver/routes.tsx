@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
 import driverService from "@/services/driverService";
-import { driverPayService, resolveEffectiveRates, type DriverPayRates } from "@/services/driverPayService";
+import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
@@ -54,7 +54,9 @@ export default function DriverRoutes() {
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
   // Per-driver pay rates (override falling back to companies.default_*)
   // - used so the earnings tiles show the real number, not R250.
-  const [payRates, setPayRates] = useState<DriverPayRates | null>(null);
+  // DRV-C (driver deep audit, DRV-9): payRates lifted to a shared
+  // hook. Was a duplicate of the same fetch on /dashboard.
+  const { payRates } = useDriverPayRates();
   // Wave 24: tenant-currency aware so non-ZAR tenants don't see "R"
   // hardcoded on the route stop callout/distance summary.
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
@@ -64,19 +66,6 @@ export default function DriverRoutes() {
       loadOptimizedRoute();
     }
   }, [user]);
-
-  useEffect(() => {
-    if (!user?.id || !user?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      const [defaults, profile] = await Promise.all([
-        driverPayService.getCompanyDefaults(user.company_id),
-        driverPayService.getDriverProfile(user.id),
-      ]);
-      if (!cancelled) setPayRates(resolveEffectiveRates(profile, defaults));
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id, user?.company_id]);
 
   const loadOptimizedRoute = async () => {
     if (!user?.id) return;
