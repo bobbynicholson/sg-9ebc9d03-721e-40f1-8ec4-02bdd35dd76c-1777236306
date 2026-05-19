@@ -37,6 +37,7 @@ interface OpenOrder {
   client_phone: string | null;
   event_date: string | null;
   event_time: string | null;
+  pickup_time: string | null;
   guest_count: number | null;
   venue_address: string | null;
   total_amount: number | null;
@@ -78,7 +79,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     const { data, error } = await (supabase as any)
       .from("orders")
       .select(
-        "id, order_number, client_name, client_phone, event_date, event_time, guest_count, venue_address, total_amount, special_instructions",
+        "id, order_number, client_name, client_phone, event_date, event_time, pickup_time, guest_count, venue_address, total_amount, special_instructions",
       )
       .eq("company_id", companyId)
       .in("status", ["confirmed", "preparing", "ready"])
@@ -278,6 +279,16 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       </>
                     )}
                   </span>
+                  {/* Collection time is what the driver wants to know
+                      first - "when do I leave the kitchen?". Render
+                      as a blue pill so it stands out from the event
+                      time. */}
+                  {o.pickup_time && (
+                    <span className="inline-flex items-center gap-1 text-blue-700 font-medium">
+                      <Clock className="w-3 h-3" />
+                      Collect {o.pickup_time.slice(0, 5)}
+                    </span>
+                  )}
                   {o.guest_count != null && (
                     <span className="inline-flex items-center gap-1">
                       <Users className="w-3 h-3" />
@@ -359,6 +370,17 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                         </>
                       )}
                     </div>
+                    {confirmRow.pickup_time && (
+                      <div className="flex items-center gap-2 text-blue-700 font-medium">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>
+                          Collect from kitchen at{" "}
+                          <span className="tabular-nums">
+                            {confirmRow.pickup_time.slice(0, 5)}
+                          </span>
+                        </span>
+                      </div>
+                    )}
                     {confirmRow.venue_address && (
                       <div className="flex items-start gap-2 text-slate-700">
                         <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />

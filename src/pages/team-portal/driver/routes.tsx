@@ -615,9 +615,19 @@ export default function DriverRoutes() {
                       </div>
 
                       <div className="space-y-2 text-sm">
+                        {/* Collection time is the driver's FIRST
+                            question - "when do I leave the kitchen?".
+                            Render it above delivery because that's
+                            the action the driver takes first. */}
+                        {currentStop.pickup_time && (
+                          <div className="flex items-center gap-2 font-semibold">
+                            <Clock className="w-4 h-4" />
+                            <span>Collect: {currentStop.pickup_time.slice(0, 5)}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          <span>Delivery: {new Date(currentStop.delivery_time).toLocaleTimeString()}</span>
+                          <span>Delivery: {new Date(currentStop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4" />
@@ -794,10 +804,19 @@ export default function DriverRoutes() {
                                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                 {stop.venue_address}
                               </p>
-                              <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                                {/* Collect time leads the row because
+                                    that's the actionable next step for
+                                    the driver. Delivery follows. */}
+                                {stop.pickup_time && (
+                                  <span className="flex items-center gap-1 text-blue-700 font-medium">
+                                    <Clock className="w-3 h-3" />
+                                    Collect {stop.pickup_time.slice(0, 5)}
+                                  </span>
+                                )}
                                 <span className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {new Date(stop.delivery_time).toLocaleString()}
+                                  Deliver {new Date(stop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <DollarSign className="w-3 h-3" />
