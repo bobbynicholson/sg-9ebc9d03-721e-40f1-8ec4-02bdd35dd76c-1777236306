@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -54,7 +56,7 @@ interface DriverProfile {
  * portal then renders. After a route is applied the order disappears from
  * the unassigned list and shows up in the driver's portal.
  */
-export default function RoutePlanning() {
+function RoutePlanningInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -890,5 +892,16 @@ export default function RoutePlanning() {
       <Footer />
       <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
+  );
+}
+
+// RTE-A (route-planning audit, RTE-1 + RTE-2): defense-in-depth +
+// admit sales_admin (visibility for client calls) and region_admin
+// (RLS-narrowed regional queue).
+export default function RoutePlanning() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <RoutePlanningInner />
+    </ProtectedRoute>
   );
 }
