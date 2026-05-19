@@ -93,6 +93,10 @@ export interface UseActiveShoppingList {
    *  Stored as a notes prefix `[OOS@SupplierName]`. Tapping again
    *  removes the tag (idempotent). */
   flagOutOfStock: (itemId: string, supplierName: string | null) => Promise<void>;
+  /** SHP2-H: tick a list row by inventory_item_id resolved from a barcode scan. */
+  tickByInventoryItemId: (
+    inventoryItemId: string,
+  ) => Promise<{ found: boolean; alreadyPurchased: boolean; itemName: string | null }>;
 }
 
 const ACTIVE_STATUSES = ["draft", "pending", "in_progress", "shopping", "open"];
@@ -515,6 +519,20 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     }
   }, [items]);
 
+  // SHP2-H (shopping deep audit, SHP2-22): tick by inventory_item_id
+  // resolved from a barcode scan. Finds the matching shopping_list_items
+  // row and flips purchased via togglePurchased so the SHP2-B inventory
+  // chain reaction fires identically to a manual row tap.
+  const tickByInventoryItemId = useCallback(async (
+    inventoryItemId: string,
+  ): Promise<{ found: boolean; alreadyPurchased: boolean; itemName: string | null }> => {
+    const target = items.find((i) => i.item_id === inventoryItemId);
+    if (!target) return { found: false, alreadyPurchased: false, itemName: null };
+    if (target.purchased) return { found: true, alreadyPurchased: true, itemName: target.name };
+    await togglePurchased(target.id, true);
+    return { found: true, alreadyPurchased: false, itemName: target.name };
+  }, [items, togglePurchased]);
+
   return {
     list,
     items,
@@ -526,5 +544,6 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     addItems,
     completeList,
     flagOutOfStock,
+    tickByInventoryItemId,
   };
 }
