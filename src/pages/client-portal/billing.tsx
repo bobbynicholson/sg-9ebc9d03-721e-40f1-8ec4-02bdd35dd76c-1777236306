@@ -13,6 +13,7 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantClientIds } from "@/hooks/useTenantClientIds";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceDetailModal } from "@/components/billing/InvoiceDetailModal";
 import { PaymentModal } from "@/components/billing/PaymentModal";
@@ -58,6 +59,16 @@ function currencySymbolFor(code: string): string {
 
 export default function ClientBillingPage() {
   const { user, company } = useAuth() as any;
+  // CLI-B (client deep audit, CLI-10): unified tenant-scoped client-id
+  // lookup. Same hook drives /billing here so future pages added under
+  // /client-portal/ inherit the canonical resolver instead of
+  // re-deriving the query (which is how the original
+  // billing-misses-pre-signup-orders bug landed - email fallback
+  // diverged across surfaces).
+  const { clientIds: hookClientIds, loading: clientIdsLoading } = useTenantClientIds(
+    user?.id ?? null,
+    company?.id ?? null,
+  );
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,11 +84,11 @@ export default function ClientBillingPage() {
   const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
+    if (user && !clientIdsLoading) {
       loadInvoices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, company?.id]);
+  }, [user, company?.id, clientIdsLoading, hookClientIds.length]);
 
   // Status filter + sort happen first; the fuzzy hook ranks the rest.
   const statusSortedInvoices = useMemo(() => {
@@ -125,18 +136,16 @@ export default function ClientBillingPage() {
         return;
       }
 
-      // Resolve every clients.id this user owns under this tenant.
-      // Invoices have a NOT NULL client_id and no client_email column
-      // so we have to go through clients - the magic-link relink in
+      // CLI-B: source of truth is useTenantClientIds. Invoices have a
+      // NOT NULL client_id and no client_email column so we cannot
+      // OR-fallback on email here - the magic-link relink in
       // client-provision-profile.ts is what guarantees clients.user_id
       // is populated for any orphan rows the caterer added before the
-      // user signed up.
-      const { data: clientRows } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("company_id", tenantCompanyId);
-      const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
+      // user signed up. Don't show stale data while the hook resolves.
+      if (clientIdsLoading) {
+        return;
+      }
+      const clientIds = hookClientIds;
       if (clientIds.length === 0) {
         setInvoices([]);
         return;
