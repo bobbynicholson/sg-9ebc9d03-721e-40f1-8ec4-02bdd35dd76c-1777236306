@@ -23,6 +23,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
+import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
@@ -126,6 +127,12 @@ export default function KitchenDashboard() {
   // id. Used by the print run sheet "Coming up" section so the
   // chef can see ready / not-ready on paper before service.
   const [checklistStatusByOrder, setChecklistStatusByOrder] = useState<Record<string, "ready" | "in_progress" | "pending">>({});
+
+  // Cleaning schedule peek. Replaces the old Link-to-cleaning-portal
+  // CTA that swapped sidebar + active-role lens. The chef opens a
+  // read-only dialog instead so they can sense-check tomorrow's
+  // cleaning state without leaving the kitchen portal.
+  const [cleaningDialogOpen, setCleaningDialogOpen] = useState(false);
 
   // KIT2-R (kitchen deep audit, KIT2-34 / KIT2-85): ingredient delta
   // banner. When the shopper ticks items on /team-portal/shopping
@@ -716,14 +723,15 @@ export default function KitchenDashboard() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Kitchen Dashboard</h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">Manage prep, duty shifts, and inventory</p>
             </div>
-            {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84):
-                Bobby's "kitchen should see cleaning schedule" CTA, now
-                with the live state chip. Shows tomorrow's cleaning
-                progress so the chef knows whether to expect ready
-                kit at prep o'clock. Visible on every viewport
-                (KIT2-66 fix). */}
-            <Link
-              href="/team-portal/cleaning/dashboard"
+            {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84)
+                + Bobby's "don't swap portals" follow-up: shows
+                tomorrow's cleaning progress at-a-glance and opens
+                a read-only dialog with the cleaning team, active
+                wash jobs and per-event checklist - all without
+                changing the active portal / role lens. */}
+            <button
+              type="button"
+              onClick={() => setCleaningDialogOpen(true)}
               className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition ${
                 cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
@@ -753,7 +761,7 @@ export default function KitchenDashboard() {
                   {cleaningReadiness.complete}/{cleaningReadiness.total}
                 </Badge>
               )}
-            </Link>
+            </button>
             {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
                 backup of today's prep + tomorrow's preview. Bobby's
                 explicit P1 ask. Chef prep-day morning wants one
@@ -1478,6 +1486,17 @@ export default function KitchenDashboard() {
 
       {/* AI Chatbot */}
       <ChatBot userRole="kitchen" companyId={user?.company_id} />
+
+      {/* Cleaning schedule peek - opened from the header chip.
+          Read-only by design; the chef stays in the kitchen portal. */}
+      {user?.company_id && (
+        <CleaningScheduleDialog
+          open={cleaningDialogOpen}
+          onOpenChange={setCleaningDialogOpen}
+          companyId={user.company_id}
+          cleaningReadiness={cleaningReadiness}
+        />
+      )}
 
       {/* Allergen safety gate, blocks Mark Ready if dietary requirements
           collide with an item's allergen codes. Forces a deliberate override
