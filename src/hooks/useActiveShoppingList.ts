@@ -89,6 +89,10 @@ export interface UseActiveShoppingList {
   /** Mark the entire list complete (records actual_total, sets
    *  status='completed', stamps completed_at). */
   completeList: (actualTotal?: number) => Promise<void>;
+  /** SHP2-I: toggle the "out of stock at supplier" tag on an item.
+   *  Stored as a notes prefix `[OOS@SupplierName]`. Tapping again
+   *  removes the tag (idempotent). */
+  flagOutOfStock: (itemId: string, supplierName: string | null) => Promise<void>;
 }
 
 const ACTIVE_STATUSES = ["draft", "pending", "in_progress", "shopping", "open"];
@@ -462,6 +466,55 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     await load();
   }, [list, load, userId, companyId]);
 
+  // SHP2-I (shopping deep audit, SHP2-33): toggle "out of stock at
+  // this supplier" tag on an item. Stored as a notes prefix
+  // `[OOS@SupplierName] ` so the data survives a roundtrip without
+  // a schema migration. The admin shopping + receipts pages can
+  // parse the tag to surface re-shop tasks later.
+  //
+  // V1 keeps the existing notes intact - if there's already a body,
+  // we prepend the tag. Toggling again removes the tag (idempotent).
+  const flagOutOfStock = useCallback(async (
+    itemId: string,
+    supplierName: string | null,
+  ): Promise<void> => {
+    const target = items.find((i) => i.id === itemId);
+    if (!target) return;
+    const supplier = supplierName ?? "Unknown";
+    const tag = `[OOS@${supplier}]`;
+    const tagRegex = new RegExp(`\\s*\\[OOS@[^\\]]+\\]\\s*`, "g");
+    const currentNotes = target.notes ?? "";
+    const alreadyFlagged = tagRegex.test(currentNotes);
+    tagRegex.lastIndex = 0; // reset state after test()
+    let nextNotes: string;
+    if (alreadyFlagged) {
+      // Remove every OOS tag so the row can be tried again at this
+      // (or a different) supplier without piling up stale tags.
+      nextNotes = currentNotes.replace(tagRegex, " ").trim();
+    } else {
+      nextNotes = currentNotes
+        ? `${tag} ${currentNotes}`.trim()
+        : tag;
+    }
+    // Optimistic update.
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, notes: nextNotes || null } : i)),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { error: updErr } = await sb
+      .from("shopping_list_items")
+      .update({ notes: nextNotes || null })
+      .eq("id", itemId);
+    if (updErr) {
+      // Rollback on failure.
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, notes: currentNotes || null } : i)),
+      );
+      setError(updErr.message || "Could not save out-of-stock flag");
+    }
+  }, [items]);
+
   return {
     list,
     items,
@@ -472,5 +525,6 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     addItem,
     addItems,
     completeList,
+    flagOutOfStock,
   };
 }

@@ -130,6 +130,36 @@ function ShoppingDashboardInner() {
     await activeList.togglePurchased(itemId, !currentValue);
   };
 
+  // SHP2-I (SHP2-33): parses the [OOS@Supplier] tag back out of the
+  // notes string for chip display. Empty array when the item has no
+  // OOS tags yet.
+  const OOS_TAG_RE = /\[OOS@([^\]]+)\]/g;
+  const readOosSuppliers = (notes: string | null | undefined): string[] => {
+    if (!notes) return [];
+    const out: string[] = [];
+    let m: RegExpExecArray | null;
+    OOS_TAG_RE.lastIndex = 0;
+    while ((m = OOS_TAG_RE.exec(notes))) out.push(m[1].trim());
+    return out;
+  };
+  // Strips the tags out of the notes string for the "real notes"
+  // body that renders below the title - so the user doesn't see the
+  // raw [OOS@PnP] token alongside the chip.
+  const stripOosTags = (notes: string | null | undefined): string => {
+    if (!notes) return "";
+    return notes.replace(/\[OOS@[^\]]+\]\s*/g, "").trim();
+  };
+
+  const handleFlagOOS = async (
+    e: React.MouseEvent | React.KeyboardEvent,
+    itemId: string,
+    supplierName: string | null,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await activeList.flagOutOfStock(itemId, supplierName);
+  };
+
   const handleCompleteOpen = () => {
     setActualTotalInput("");
     setCompleteOpen(true);
@@ -467,13 +497,50 @@ function ShoppingDashboardInner() {
                                       <Badge variant="outline" className="text-xs tabular-nums">
                                         {Number(item.quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })} {item.unit || ""}
                                       </Badge>
+                                      {/* SHP2-I (SHP2-33): per-supplier OOS chips parsed from notes. */}
+                                      {readOosSuppliers(item.notes).map((s) => (
+                                        <Badge
+                                          key={`oos-${item.id}-${s}`}
+                                          variant="outline"
+                                          className="text-[10px] bg-rose-50 text-rose-700 border-rose-300"
+                                        >
+                                          Not at {s}
+                                        </Badge>
+                                      ))}
                                     </div>
-                                    {item.notes && (
-                                      <p className="text-xs sm:text-sm text-slate-600 italic truncate">
-                                        {item.notes}
-                                      </p>
-                                    )}
+                                    {(() => {
+                                      const cleanNotes = stripOosTags(item.notes);
+                                      return cleanNotes ? (
+                                        <p className="text-xs sm:text-sm text-slate-600 italic truncate">
+                                          {cleanNotes}
+                                        </p>
+                                      ) : null;
+                                    })()}
                                   </div>
+                                  {/* SHP2-I (SHP2-33): "Not here" button
+                                      next to the status icon. Lets the
+                                      shopper at PnP flag tomatoes as
+                                      out-of-stock at PnP, item stays
+                                      pending but gets a chip + survives
+                                      to the next supplier in the run.
+                                      Hidden once purchased. */}
+                                  {!item.purchased && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleFlagOOS(e, item.id, item.supplier_name)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
+                                      }}
+                                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 ${
+                                        readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
+                                          ? "bg-rose-100 text-rose-800 border-rose-300"
+                                          : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                      }`}
+                                      title="Mark as out of stock at this supplier"
+                                    >
+                                      Not here
+                                    </button>
+                                  )}
                                   {item.purchased ? (
                                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                                   ) : (
@@ -524,12 +591,32 @@ function ShoppingDashboardInner() {
                                 {Number(item.quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })} {item.unit || ""}
                               </Badge>
                             </div>
-                            {item.notes && (
-                              <p className="text-xs sm:text-sm text-slate-600 italic truncate">
-                                {item.notes}
-                              </p>
-                            )}
+                            {(() => {
+                              const cleanNotes = stripOosTags(item.notes);
+                              return cleanNotes ? (
+                                <p className="text-xs sm:text-sm text-slate-600 italic truncate">
+                                  {cleanNotes}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
+                          {!item.purchased && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleFlagOOS(e, item.id, item.supplier_name)}
+                              onKeyDown={(e) => {
+                                if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
+                              }}
+                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 ${
+                                readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
+                                  ? "bg-rose-100 text-rose-800 border-rose-300"
+                                  : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                              }`}
+                              title="Mark as out of stock at this supplier"
+                            >
+                              Not here
+                            </button>
+                          )}
                           {item.purchased ? (
                             <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                           ) : (
