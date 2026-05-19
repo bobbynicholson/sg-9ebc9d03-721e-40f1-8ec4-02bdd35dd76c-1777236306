@@ -66,7 +66,19 @@ export default function KitchenDashboard() {
   // "Order detail" button; real kitchen_staff get just "Kitchen
   // ticket" (the middleware would 403 them on /admin/orders).
   const userRole = ((user as any)?.role || "").toString().toLowerCase();
-  const canSeeAdminOrderDetail = ["super_admin", "company_admin", "admin", "owner", "region_admin", "sales_admin"].includes(userRole);
+  // KIT2-H (kitchen deep audit, KIT2-40): drop sales_admin from the
+  // kitchen admin-tier gates. sales_admin's job is quote pipeline +
+  // client comms; they shouldn't see force-close-stuck-order or the
+  // /admin/orders deep-link from the kitchen tablet because:
+  //   1. The force-close panel mutates kitchen + driver state -
+  //      sales_admin has no operational context to call that
+  //      shot.
+  //   2. The /admin/orders panel surfaces internal margin + cost
+  //      data that's owner/admin-only per the Skylight finance-
+  //      visibility rule.
+  // region_admin stays - they're an operational tier that does
+  // run their region's kitchen.
+  const canSeeAdminOrderDetail = ["super_admin", "company_admin", "admin", "owner", "region_admin"].includes(userRole);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -513,9 +525,29 @@ export default function KitchenDashboard() {
     return `in ${d} days`;
   };
 
-  const todayOrders = orders.filter(
-    (o) => o.event_date === new Date().toISOString().split("T")[0]
-  );
+  // KIT2-P (kitchen deep audit, KIT2-43): fix the UTC drift bug
+  // (matched KIT2-G's load query) + scope Production Priority to
+  // imminent orders only. Pre-fix, Production Priority duplicated
+  // every kanban card with an "event today" date; for a kitchen
+  // with 8 confirmed events spaced through the day, the top-3
+  // priority list was just a redundant ranking of the same cards.
+  // Now: same local-tz today filter, used for the kanban + KPI
+  // tiles. Production Priority then narrows further to the next-
+  // 4-hours window for the actual "imminent attention" call-out.
+  const localToday = new Date();
+  const todayLocalISO = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
+  const todayOrders = orders.filter((o) => o.event_date === todayLocalISO);
+  // Imminent = event_time within the next 4 hours. Catches the
+  // "starting prep right now" cases without dragging dinner
+  // events 8h away into the alarm list.
+  const imminentOrders = todayOrders.filter((o) => {
+    if (!(o as any).event_time) return false;
+    const [h, m] = String((o as any).event_time).split(":");
+    const eventAt = new Date(localToday);
+    eventAt.setHours(parseInt(h, 10) || 0, parseInt(m, 10) || 0, 0, 0);
+    const minsAway = (eventAt.getTime() - localToday.getTime()) / 60000;
+    return minsAway >= -60 && minsAway <= 240; // 1h late through 4h ahead
+  });
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -639,18 +671,25 @@ export default function KitchenDashboard() {
             <KitchenStaffTileBoard />
           </div>
 
-          {/* Today's Production Priority */}
-          {todayOrders.length > 0 && (
+          {/* KIT2-P: Production Priority now lists ONLY the next-
+              4-hours imminent orders, not "first 3 today" which
+              duplicated the kanban. Pinned card disappears when
+              nothing is imminent so the dashboard de-clutters once
+              the rush passes. */}
+          {imminentOrders.length > 0 && (
             <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-slate-800 dark:to-slate-900 mb-6 sm:mb-8">
               <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                  Today's Production Priority
+                  Imminent (next 4 hours)
+                  <Badge variant="outline" className="ml-1 bg-white text-orange-700 border-orange-300 tabular-nums">
+                    {imminentOrders.length}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-6">
                 <div className="space-y-2 sm:space-y-3">
-                  {todayOrders.slice(0, 3).map((order, index) => {
+                  {imminentOrders.slice(0, 5).map((order, index) => {
                     const urgency = getUrgencyLevel(order.event_date, order.event_time);
                     const eventTime = order.event_time || "TBC";
 
