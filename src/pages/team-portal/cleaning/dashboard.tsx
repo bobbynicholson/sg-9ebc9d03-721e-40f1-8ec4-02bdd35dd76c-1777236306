@@ -13,9 +13,11 @@ import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
+import { PreEventCleanlinessPanel } from "@/components/cleaning/PreEventCleanlinessPanel";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
-import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
+import { DamageFlagForm } from "@/components/cleaning/DamageFlagForm";
+import { RecentDamagesStrip } from "@/components/cleaning/RecentDamagesStrip";
 import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
@@ -235,6 +237,14 @@ function CleaningDashboardInner() {
               wrong, missing schema columns added via migration). */}
           <CleaningDutyWidget />
 
+          {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
+              cleanliness checklist for tomorrow's events. The
+              formal closure of the cleaning to kitchen-readiness
+              loop that KIT2-O's chip was a v1 stand-in for. Mobile
+              first - accordion strip per event so a 6-event day
+              doesn't render a 30-cell table on a tablet. */}
+          <PreEventCleanlinessPanel />
+
           {/* Wave 70.24 - new event-grouped board is the primary
               cleaning surface. Shows expected handovers (anticipation),
               in-progress (active work), done-today (throughput).
@@ -423,14 +433,17 @@ function CleaningDashboardInner() {
                 <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50">
                   <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-red-600" />
-                    Equipment Damages & Losses
+                    Flag damaged equipment
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Track broken, lost, or damaged equipment with cost breakdown and analysis
+                    Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment.
                   </p>
                 </CardHeader>
-                <CardContent className="pt-6">
-                  <BrokenEquipmentDashboard />
+                {/* CLN2-I: cleaner gets a tight flag-form + recent
+                    strip only. Cost analytics moved to admin. */}
+                <CardContent className="pt-6 space-y-4">
+                  <DamageFlagForm />
+                  <RecentDamagesStrip />
                 </CardContent>
               </Card>
             </TabsContent>

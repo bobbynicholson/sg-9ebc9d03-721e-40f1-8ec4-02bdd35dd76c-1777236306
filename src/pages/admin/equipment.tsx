@@ -56,6 +56,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { equipmentManagementService } from "@/services/equipmentManagementService";
 import { ShortagesPanel } from "@/components/admin/equipment/ShortagesPanel";
 import { HireInPanel } from "@/components/admin/equipment/HireInPanel";
+import { DamageAnalytics } from "@/components/cleaning/DamageAnalytics";
 import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -120,7 +121,7 @@ const SUGGESTED_CATEGORIES = [
   "glassware", "lighting", "gas", "serving", "decor", "other",
 ];
 
-const TABS = ["catalog", "availability", "shortages", "hire-in"] as const;
+const TABS = ["catalog", "availability", "shortages", "hire-in", "damages"] as const;
 type TabKey = typeof TABS[number];
 
 const safeNum = (v: any) => {
@@ -193,11 +194,12 @@ function EquipmentPage() {
           </div>
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full md:w-auto h-auto">
+            <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full md:w-auto h-auto">
               <TabsTrigger value="catalog" className="text-xs md:text-sm">Catalog</TabsTrigger>
               <TabsTrigger value="availability" className="text-xs md:text-sm">Availability</TabsTrigger>
               <TabsTrigger value="shortages" className="text-xs md:text-sm">Shortages</TabsTrigger>
               <TabsTrigger value="hire-in" className="text-xs md:text-sm">Hire-in orders</TabsTrigger>
+              <TabsTrigger value="damages" className="text-xs md:text-sm">Damages</TabsTrigger>
             </TabsList>
 
             <TabsContent value="catalog" className="mt-6">
@@ -214,6 +216,14 @@ function EquipmentPage() {
 
             <TabsContent value="hire-in" className="mt-6">
               <HireInPanel />
+            </TabsContent>
+
+            {/* CLN2-I: cost-breakdown analytics moved off the
+                cleaner daily dashboard onto the admin equipment
+                hub. The cleaner sees a flag-form + recent strip
+                only - finance-grade roll-ups belong here. */}
+            <TabsContent value="damages" className="mt-6">
+              <DamageAnalytics />
             </TabsContent>
           </Tabs>
         </div>

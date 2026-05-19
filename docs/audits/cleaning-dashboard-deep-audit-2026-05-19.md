@@ -220,3 +220,16 @@ P1 = 26. First-wave PRs = 10. Three structural gaps swallow most of the value:
 
 This PR ships CLN2-D (nav unify) bundled with CLN2-C (KITCHEN_STAFF admit -
 the P0 fixing Bobby's broken cross-role CTA). CLN2-A + CLN2-B follow.
+
+---
+
+## Status log
+
+- **CLN2-I closed** (2026-05-19): split BrokenEquipmentDashboard into
+  `DamageFlagForm` (cleaner) + `RecentDamagesStrip` (cleaner) +
+  `DamageAnalytics` (admin). Cleaner dashboard's Damages tab now
+  shows only the flag-form + last-5 strip; cost / trend / repair-vs-
+  replace analytics moved to `/admin/equipment?tab=damages`. Closes
+  CLN2-42 + CLN2-37 + CLN2-43.  Flag-form emits
+  `cateringms:equipment-damaged`; KIT2-O readiness chip listens and
+  re-fetches without a focus / poll round-trip.
