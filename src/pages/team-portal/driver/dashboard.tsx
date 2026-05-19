@@ -37,8 +37,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
-import { DynamicNav } from "@/components/DynamicNav";
+import { DriverNav } from "@/components/navigation/DriverNav";
 import { UserRole } from "@/types/app";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
@@ -71,7 +72,7 @@ interface Job {
   special_instructions?: string | null;
 }
 
-export default function DriverDashboard() {
+function DriverDashboardInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   // Wave 24: tenant-currency aware so a UK / US driver doesn't see "R"
@@ -492,7 +493,7 @@ export default function DriverDashboard() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.DRIVER} />
+      <DriverNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
@@ -932,5 +933,19 @@ export default function DriverDashboard() {
       {/* AI Chatbot */}
       <ChatBot userRole="driver" companyId={user?.company_id} />
     </>
+  );
+}
+
+// DRV-A (driver deep audit, DRV-1 / DRV-2 / DRV-21): defense-in-depth.
+// Every other dashboard in the audit programme is wrapped in
+// ProtectedRoute; driver dashboard previously relied purely on
+// `useAuth().user` for fetching, so a logged-in non-driver hitting
+// the URL rendered a blank-data dashboard rather than getting bounced.
+// Admin roles are admitted for support / cross-tenant troubleshooting.
+export default function DriverDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <DriverDashboardInner />
+    </ProtectedRoute>
   );
 }
