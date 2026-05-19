@@ -186,6 +186,17 @@ export function useActiveShoppingList(): UseActiveShoppingList {
   }, [load]);
 
   const togglePurchased = useCallback(async (itemId: string, nextValue: boolean) => {
+    // SHP2-B (shopping deep audit, SHP2-22): tick must bump inventory.
+    // The admin /admin/shopping page already does this; the staff side
+    // used to flip a boolean and stop. Net effect was a "vibes-only"
+    // dashboard - shopper ticks, nothing downstream knows.
+    //
+    // We use the in-memory row to find item_id + quantity (no extra
+    // SELECT needed). When item_id is null (free-text additions like
+    // "extra serviettes" that aren't linked to inventory_items), we
+    // skip the stock bump.
+    const target = items.find(i => i.id === itemId);
+
     // Optimistic update for instant feedback.
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: nextValue } : i));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -198,8 +209,50 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       // Rollback on failure.
       setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !nextValue } : i));
       setError(updErr.message || "Could not save");
+      return;
     }
-  }, []);
+
+    // Inventory bump - non-blocking on the user-visible toggle. If
+    // this fails, the tick still stuck (the row is updated) and we
+    // log a warning rather than rolling back, because the tick is
+    // the source of truth and inventory can be reconciled later.
+    if (target && target.item_id && Number.isFinite(Number(target.quantity))) {
+      const qty = Number(target.quantity);
+      const delta = nextValue ? qty : -qty;
+      try {
+        const { data: invRow, error: readErr } = await sb
+          .from("inventory_items")
+          .select("current_stock")
+          .eq("id", target.item_id)
+          .maybeSingle();
+        if (readErr || !invRow) {
+          console.warn("[useActiveShoppingList] inventory read failed:", readErr);
+        } else {
+          const newStock = Number(invRow.current_stock || 0) + delta;
+          const { error: writeErr } = await sb
+            .from("inventory_items")
+            .update({ current_stock: newStock, updated_at: new Date().toISOString() })
+            .eq("id", target.item_id);
+          if (writeErr) {
+            console.warn("[useActiveShoppingList] inventory bump failed:", writeErr);
+          }
+        }
+      } catch (e) {
+        console.warn("[useActiveShoppingList] inventory bump threw:", e);
+      }
+    }
+
+    // SHP2-C (SHP2-23): cross-tab signal. Admin /admin/shopping +
+    // /admin/inventory + cashflow forecast all want to know. Generic
+    // event payload so listeners can decide whether to refetch.
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("cateringms:shopping-updated", {
+          detail: { itemId, purchased: nextValue, inventoryItemId: target?.item_id ?? null },
+        }));
+      } catch { /* old browsers without CustomEvent polyfill */ }
+    }
+  }, [items]);
 
   // Create a fresh list, auto-assigning shopper_id to current user.
   const ensureList = useCallback(async (): Promise<string | null> => {
