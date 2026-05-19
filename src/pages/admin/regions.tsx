@@ -131,7 +131,11 @@ const emptyForm = (): RegionFormState => {
 
 export default function ProtectedRegionsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // REG-B (REG-3): admit region_admin (their region edit + KPI)
+    // + sales_admin (read-only delivery_radius + operating_hours
+    // for quote feasibility). RLS narrows region_admin to their
+    // regions_covered rows.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <RegionsPage />
     </ProtectedRoute>
   );
@@ -338,6 +342,35 @@ function RegionsPage() {
       return asPercentToDecimal ? n / 100 : n;
     };
 
+    // REG-B (REG-2): server-side validation gate. Catch a "150" VAT
+    // typo or negative cost before the row persists. The DB has no
+    // CHECK constraints on these columns yet so the form is the
+    // last line of defence.
+    const vat = parseOverride(form.vat_rate_override, true);
+    if (vat != null && (vat < 0 || vat > 1)) {
+      setSubmitting(false);
+      toast({ title: "VAT rate out of range", description: "Enter a percentage between 0 and 100.", variant: "destructive" });
+      return;
+    }
+    const dep = parseOverride(form.deposit_percent_override);
+    if (dep != null && (dep < 0 || dep > 100)) {
+      setSubmitting(false);
+      toast({ title: "Deposit % out of range", description: "Enter a percentage between 0 and 100.", variant: "destructive" });
+      return;
+    }
+    const dcpk = parseOverride(form.delivery_cost_per_km_override);
+    if (dcpk != null && dcpk < 0) {
+      setSubmitting(false);
+      toast({ title: "Delivery cost negative", description: "Cost per km must be ≥ 0.", variant: "destructive" });
+      return;
+    }
+    const mdf = parseOverride(form.min_delivery_fee_override);
+    if (mdf != null && mdf < 0) {
+      setSubmitting(false);
+      toast({ title: "Min delivery fee negative", description: "Min delivery fee must be ≥ 0.", variant: "destructive" });
+      return;
+    }
+
     const payload: Record<string, any> = {
       company_id: user.company_id,
       name: form.name.trim(),
@@ -360,10 +393,10 @@ function RegionsPage() {
       auto_assign_orders: form.auto_assign_orders,
       is_active: form.is_active,
       notes: form.notes || null,
-      vat_rate: parseOverride(form.vat_rate_override, true),
-      deposit_percent: parseOverride(form.deposit_percent_override),
-      delivery_cost_per_km: parseOverride(form.delivery_cost_per_km_override),
-      min_delivery_fee: parseOverride(form.min_delivery_fee_override),
+      vat_rate: vat,
+      deposit_percent: dep,
+      delivery_cost_per_km: dcpk,
+      min_delivery_fee: mdf,
       notify_manager_on_new_lead: form.notify_manager_on_new_lead,
       notify_manager_on_new_order: form.notify_manager_on_new_order,
       notify_manager_on_prep_alert: form.notify_manager_on_prep_alert,
