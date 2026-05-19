@@ -13,6 +13,7 @@ import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
+import { PreEventCleanlinessPanel } from "@/components/cleaning/PreEventCleanlinessPanel";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { DamageFlagForm } from "@/components/cleaning/DamageFlagForm";
@@ -235,6 +236,14 @@ function CleaningDashboardInner() {
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
           <CleaningDutyWidget />
+
+          {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
+              cleanliness checklist for tomorrow's events. The
+              formal closure of the cleaning to kitchen-readiness
+              loop that KIT2-O's chip was a v1 stand-in for. Mobile
+              first - accordion strip per event so a 6-event day
+              doesn't render a 30-cell table on a tablet. */}
+          <PreEventCleanlinessPanel />
 
           {/* Wave 70.24 - new event-grouped board is the primary
               cleaning surface. Shows expected handovers (anticipation),

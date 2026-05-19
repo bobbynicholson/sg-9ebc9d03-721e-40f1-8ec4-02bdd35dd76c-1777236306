@@ -46,6 +46,7 @@ import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { markOrderReady } from "@/services/order/orderWorkflow";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
+import { onCleaningReady } from "@/lib/events/cleaningEvents";
 import { useToast } from "@/hooks/use-toast";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
@@ -121,6 +122,11 @@ export default function KitchenDashboard() {
     complete: number;
   } | null>(null);
 
+  // CLN2-F: per-order pre-event checklist status, keyed by order
+  // id. Used by the print run sheet "Coming up" section so the
+  // chef can see ready / not-ready on paper before service.
+  const [checklistStatusByOrder, setChecklistStatusByOrder] = useState<Record<string, "ready" | "in_progress" | "pending">>({});
+
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -177,6 +183,14 @@ export default function KitchenDashboard() {
         event: "*", schema: "public", table: "kitchen_prep_tasks",
         filter: `company_id=eq.${user.company_id}`,
       }, refresh)
+      // CLN2-F: cleaning_event_checklists drives the chip now.
+      // A cleaner ticking the last required item on another device
+      // should flip this tablet to green within a beat.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "cleaning_event_checklists",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
       .subscribe();
 
     // In-browser cross-tab bus. The dispatch / orders / driver
@@ -190,6 +204,12 @@ export default function KitchenDashboard() {
     // gap without paying for another channel.
     const offDamage = onEquipmentDamaged(() => { refresh(); });
 
+    // CLN2-F same-device fast path: the cleaning dashboard fires
+    // cateringms:cleaning-ready as soon as the supabase write
+    // returns. Catches the same-tablet case before the channel
+    // round-trips back.
+    const offCleaning = onCleaningReady(() => { refresh(); });
+
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
     return () => {
@@ -197,6 +217,7 @@ export default function KitchenDashboard() {
       window.removeEventListener("focus", onFocus);
       offBus();
       offDamage();
+      offCleaning();
       void sub.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,39 +316,71 @@ export default function KitchenDashboard() {
         console.warn("Settings load failed:", sErr);
       }
 
-      // KIT2-O: cleaning readiness for tomorrow's events. Count
-      // cleaning_jobs whose triggered_by_event_id is in tomorrow's
-      // order set, total vs status='complete'. The chip on the
-      // header reads off this state. Best-effort - a failure here
-      // doesn't block the rest of the dashboard.
+      // KIT2-O + CLN2-F: cleaning readiness for tomorrow's events.
+      // CLN2-F (#TBD) added the formal cleaning_event_checklists
+      // table. We prefer it when any rows exist for tomorrow; if
+      // not, fall back to the v1 cleaning_jobs count. That keeps
+      // the chip alive for tenants who haven't started ticking the
+      // new checklist yet - they keep the equipment-side signal
+      // until they migrate.
+      //
+      // Local-timezone tomorrow (KIT2-G fix preserved): build the
+      // YYYY-MM-DD string from local components, not toISOString,
+      // so the SAST 23:00 boundary doesn't roll forward early.
       try {
-        // KIT2-G (KIT2-67): local-timezone tomorrow. Pre-fix this
-        // used toISOString().slice(0, 10) which forced UTC - at
-        // 23:00 SAST the chip was already counting the day after
-        // tomorrow's cleaning. Build the YYYY-MM-DD string from
-        // local components.
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowISO = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
         const tomorrowOrderIds = (ordersData || [])
           .filter((o: any) => o.event_date === tomorrowISO)
           .map((o: any) => o.id);
+
         if (tomorrowOrderIds.length === 0) {
           setCleaningReadiness(null);
+          setChecklistStatusByOrder({});
         } else {
-          const { data: cjRows, error: cjErr } = await (supabase as any)
-            .from("cleaning_jobs")
-            .select("id, status")
+          // CLN2-F preferred source.
+          const { data: cecRows, error: cecErr } = await (supabase as any)
+            .from("cleaning_event_checklists")
+            .select("order_id, status")
             .eq("company_id", user.company_id)
-            .in("triggered_by_event_id", tomorrowOrderIds);
-          if (cjErr) {
-            console.warn("[team-portal/kitchen/dashboard] cleaning readiness fetch failed:", cjErr);
-            setCleaningReadiness(null);
+            .eq("kind", "pre_event")
+            .is("deleted_at", null)
+            .in("order_id", tomorrowOrderIds);
+
+          if (!cecErr && cecRows && cecRows.length > 0) {
+            const rows = cecRows as Array<{ order_id: string; status: string }>;
+            const total = tomorrowOrderIds.length;
+            const ready = rows.filter((r) => r.status === "ready").length;
+            setCleaningReadiness({ total, complete: ready });
+            const map: Record<string, "ready" | "in_progress" | "pending"> = {};
+            for (const r of rows) {
+              if (r.status === "ready" || r.status === "in_progress" || r.status === "pending") {
+                map[r.order_id] = r.status;
+              }
+            }
+            setChecklistStatusByOrder(map);
           } else {
-            const rows = (cjRows || []) as Array<{ id: string; status: string }>;
-            const total = rows.length;
-            const complete = rows.filter((r) => r.status === "complete").length;
-            setCleaningReadiness(total === 0 ? null : { total, complete });
+            setChecklistStatusByOrder({});
+            if (cecErr) {
+              console.warn("[team-portal/kitchen/dashboard] checklist fetch failed, falling back to cleaning_jobs:", cecErr);
+            }
+            // KIT2-O fallback: count cleaning_jobs whose
+            // triggered_by_event_id is in tomorrow's order set.
+            const { data: cjRows, error: cjErr } = await (supabase as any)
+              .from("cleaning_jobs")
+              .select("id, status")
+              .eq("company_id", user.company_id)
+              .in("triggered_by_event_id", tomorrowOrderIds);
+            if (cjErr) {
+              console.warn("[team-portal/kitchen/dashboard] cleaning readiness fetch failed:", cjErr);
+              setCleaningReadiness(null);
+            } else {
+              const rows = (cjRows || []) as Array<{ id: string; status: string }>;
+              const total = rows.length;
+              const complete = rows.filter((r) => r.status === "complete").length;
+              setCleaningReadiness(total === 0 ? null : { total, complete });
+            }
           }
         }
       } catch (cjFatal) {
@@ -1489,15 +1542,39 @@ export default function KitchenDashboard() {
                 </p>
                 {day.items.length > 0 && (
                   <ul style={{ margin: 0, paddingLeft: "16pt", fontSize: "9.5pt", color: "#0f172a", fontFamily: "sans-serif" }}>
-                    {day.items.map((item) => (
-                      <li key={item.id} style={{ marginBottom: "2pt" }}>
-                        <strong>{item.event_time || "TBD"}</strong>
-                        {" - "}
-                        {item.event_name}
-                        {item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}
-                        {item.guest_count ? <span style={{ color: "#64748b" }}> · {item.guest_count} guests</span> : null}
-                      </li>
-                    ))}
+                    {day.items.map((item) => {
+                      // CLN2-F: paper signal for the pre-event
+                      // cleanliness state. Only populated for
+                      // tomorrow's orders today; day-after items
+                      // skip the chip.
+                      const checklistStatus = checklistStatusByOrder[item.id];
+                      const chipLabel = checklistStatus === "ready"
+                        ? "Clean - ready"
+                        : checklistStatus === "in_progress"
+                        ? "Clean - in progress"
+                        : checklistStatus === "pending"
+                        ? "Clean - not started"
+                        : null;
+                      const chipColor = checklistStatus === "ready"
+                        ? "#065f46"
+                        : checklistStatus === "in_progress"
+                        ? "#92400e"
+                        : "#475569";
+                      return (
+                        <li key={item.id} style={{ marginBottom: "2pt" }}>
+                          <strong>{item.event_time || "TBD"}</strong>
+                          {" - "}
+                          {item.event_name}
+                          {item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}
+                          {item.guest_count ? <span style={{ color: "#64748b" }}> · {item.guest_count} guests</span> : null}
+                          {chipLabel ? (
+                            <span style={{ color: chipColor, marginLeft: "6pt", fontWeight: 600 }}>
+                              [{chipLabel}]
+                            </span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

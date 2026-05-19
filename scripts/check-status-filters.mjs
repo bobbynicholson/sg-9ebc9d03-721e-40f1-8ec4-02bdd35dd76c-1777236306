@@ -54,6 +54,7 @@ const STATUS_VOCAB = {
   supplier_payables: ["pending", "paid", "disputed", "written_off"],
   billing_history: ["pending", "completed", "failed", "refunded"],
   cleaning_jobs: ["queued", "in_progress", "complete", "cancelled"],
+  cleaning_event_checklists: ["pending", "in_progress", "ready"],
   kitchen_prep_tasks: ["pending", "in_progress", "done", "skipped"],
 };
 
@@ -148,7 +149,7 @@ const KNOWN_TABLES = new Set([
   "account_deletion_requests","accounting_integrations","admin_notifications","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
-  "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
+  "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_checklists","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
   "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
   "companies","company_number_settings","company_number_settings_audit","complaints",
   "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
