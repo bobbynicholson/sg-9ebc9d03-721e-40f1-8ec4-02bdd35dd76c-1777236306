@@ -167,6 +167,31 @@ function DriverDashboardInner() {
     try {
       setLoading(true);
 
+      // DRV-B (driver deep audit, DRV-5 / DRV-13 / DRV-46):
+      //
+      // We keep two queries because they cover different concerns:
+      //   (a) driver_assignments captures mid-flight dispatch state
+      //       (assigned -> accepted -> en_route -> picked_up -> at_venue).
+      //   (b) orders.assigned_driver_id / driver_id catches newly-confirmed
+      //       orders that don't yet have a driver_assignments row (legacy
+      //       dispatch path).
+      //
+      // Both queries now:
+      //   - filter `deleted_at IS NULL` (DRV-13) so soft-deleted rows
+      //     can't ghost into the active list.
+      //   - apply a server-side date window of [today, today + 14 days)
+      //     on event_date (DRV-46) so a multi-year tenant doesn't haul
+      //     back the entire history on every load + realtime tick.
+      //
+      // The dedup further down is assignment-wins (assignments are
+      // pushed into the array first, then filtered by index === first
+      // appearance) so the more-granular dispatch status takes
+      // precedence over the bare order status when both exist.
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const horizonDate = new Date();
+      horizonDate.setDate(horizonDate.getDate() + 14);
+      const horizonISO = horizonDate.toISOString().slice(0, 10);
+
       // Get driver's assignments
       // Wave 46 T5 - pull client_phone + special_instructions so the
       // driver doesn't get stuck at a locked venue with no number
@@ -177,7 +202,7 @@ function DriverDashboardInner() {
           id,
           order_id,
           status,
-          orders (
+          orders!inner (
             id,
             order_number,
             client_name,
@@ -195,7 +220,10 @@ function DriverDashboardInner() {
           )
         `)
         .eq("driver_id", user.id)
+        .is("deleted_at", null)
         .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
+        .gte("orders.event_date", todayISO)
+        .lte("orders.event_date", horizonISO)
         .order("assigned_at", { ascending: false });
 
       if (assignmentsError) {
@@ -205,15 +233,16 @@ function DriverDashboardInner() {
 
       // Also get orders directly assigned to driver. Catering orders may
       // have either `driver_id` (legacy) or `assigned_driver_id` (current
-      // dispatch flow) populated, so we OR across both columns. Status
-      // values use the canonical set (preparing / in_transit), not the
-      // legacy strings the page used to filter on.
+      // dispatch flow) populated, so we OR across both columns.
       const { data: directOrders, error: ordersError } = await supabase
         .from("orders")
         .select("*")
         .eq("company_id", user.company_id)
+        .is("deleted_at", null)
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        .gte("event_date", todayISO)
+        .lte("event_date", horizonISO)
         .order("event_date", { ascending: true });
 
       if (ordersError) {
