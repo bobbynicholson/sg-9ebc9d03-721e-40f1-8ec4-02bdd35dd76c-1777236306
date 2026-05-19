@@ -17,6 +17,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,7 +84,7 @@ function safeNum(n: any): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-export default function AdminQuoteDetail() {
+function AdminQuoteDetailInner() {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
@@ -1161,5 +1163,15 @@ export default function AdminQuoteDetail() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// QTS-A (QTS-8): match the quotes-index + new wrapper. sales_admin
+// is the page's primary user.
+export default function AdminQuoteDetail() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <AdminQuoteDetailInner />
+    </ProtectedRoute>
   );
 }

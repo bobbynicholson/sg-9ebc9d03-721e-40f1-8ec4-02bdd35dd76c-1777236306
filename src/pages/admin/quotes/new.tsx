@@ -245,9 +245,11 @@ function newQuoteNumber(): string {
 
 // ── Page ─────────────────────────────────────────────────────────────
 
+// QTS-A (QTS-8): admit sales_admin + region_admin to match the
+// index + [id] wrappers. sales_admin is the page's primary user.
 export default function ProtectedNewQuotePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <NewQuotePage />
     </ProtectedRoute>
   );
