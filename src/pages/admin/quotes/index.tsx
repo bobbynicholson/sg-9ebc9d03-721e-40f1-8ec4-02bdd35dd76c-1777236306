@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -262,7 +264,7 @@ function PipelineBoard({
   );
 }
 
-export default function AdminQuotes() {
+function AdminQuotesInner() {
   const { user, profile } = useAuth() as any;
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -2676,6 +2678,19 @@ export default function AdminQuotes() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// QTS-A (quotes audit, QTS-8): Quotes is the sales_admin's primary
+// pipeline view. /admin/quotes/new wraps in ProtectedRoute with the
+// admin trio; index + [id] previously relied only on middleware.
+// Adding the component-level guard for defense-in-depth and
+// extending to sales_admin + region_admin.
+export default function AdminQuotes() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <AdminQuotesInner />
+    </ProtectedRoute>
   );
 }
 
