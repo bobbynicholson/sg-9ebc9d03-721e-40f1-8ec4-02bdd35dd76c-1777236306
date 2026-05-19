@@ -288,6 +288,16 @@ function ClientPortalDashboardInner() {
     valid_until: string | null;
   };
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
+  // CLI-F (client deep audit, CLI-32 / CLI-61): outstanding-balance
+  // tile. Pre-fix, the client had to navigate to /billing to find
+  // money owed. Now the dashboard surfaces the unpaid total above
+  // the past-events strip with a one-tap Pay action. Drives the
+  // 5-second-answer hierarchy Bobby's brief specified.
+  const [outstanding, setOutstanding] = useState<{
+    total: number;
+    invoiceCount: number;
+    overdueCount: number;
+  }>({ total: 0, invoiceCount: 0, overdueCount: 0 });
 
   // Rebook dialog state - when the client taps "Rebook" on a past
   // event we open the RebookDialog component, which presents:
@@ -464,6 +474,48 @@ function ClientPortalDashboardInner() {
         const { data: quoteRows } = await quotesQuery;
         if (!cancelled) {
           setQuotes(((quoteRows as PortalQuote[]) || []));
+        }
+
+        // CLI-F (CLI-32 / CLI-61): outstanding-balance aggregation.
+        // Fetch invoices in pending/overdue status for this client +
+        // sum balance_due. Same client-scoping pattern as the rest
+        // of the page. Failure is best-effort - tile stays at 0
+        // rather than blocking the dashboard.
+        try {
+          const baseInvoices = (supabase as any)
+            .from("invoices")
+            .select("id, status, balance_due, total_amount, due_date")
+            .eq("company_id", tenantCompanyId)
+            .in("status", ["pending", "overdue"]);
+          let invoicesQuery = baseInvoices;
+          if (clientIds.length > 0 && user.email) {
+            invoicesQuery = invoicesQuery.or(
+              `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+            );
+          } else if (clientIds.length > 0) {
+            invoicesQuery = invoicesQuery.in("client_id", clientIds);
+          } else if (user.email) {
+            invoicesQuery = invoicesQuery.ilike("client_email", user.email);
+          }
+          const { data: invoiceRows } = await invoicesQuery;
+          if (!cancelled) {
+            const todayMS = Date.now();
+            const rows = (invoiceRows || []) as Array<{ id: string; status: string; balance_due: number | null; total_amount: number | null; due_date: string | null }>;
+            const total = rows.reduce((sum, r) => sum + Number(r.balance_due ?? r.total_amount ?? 0), 0);
+            const overdueCount = rows.filter((r) => {
+              if (r.status === "overdue") return true;
+              if (r.status !== "pending" || !r.due_date) return false;
+              const due = new Date(r.due_date).getTime();
+              return Number.isFinite(due) && due < todayMS;
+            }).length;
+            setOutstanding({
+              total: Math.max(0, total),
+              invoiceCount: rows.length,
+              overdueCount,
+            });
+          }
+        } catch (invErr) {
+          console.warn("[client-portal/dashboard] outstanding-balance fetch failed:", invErr);
         }
       } catch (e) {
         console.error("Client dashboard load failed:", e);
@@ -925,6 +977,52 @@ function ClientPortalDashboardInner() {
               driverPin={driverPin}
               fmtMoney={fmtMoney}
             />
+          )}
+
+          {/* CLI-F (client deep audit, CLI-32 / CLI-61): outstanding-
+              balance tile + one-tap Pay. Renders only when there is
+              actually money owed - dashboard stays uncluttered for
+              fully-paid-up clients. Overdue invoices get a rose
+              accent vs an amber accent for in-window pending. */}
+          {outstanding.total > 0 && (
+            <div
+              className={`rounded-xl border-2 px-4 py-4 flex items-center justify-between gap-3 ${
+                outstanding.overdueCount > 0
+                  ? "border-rose-300 bg-rose-50"
+                  : "border-amber-300 bg-amber-50"
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Receipt className={`w-6 h-6 shrink-0 ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`} />
+                <div className="min-w-0">
+                  <p className={`text-xs uppercase tracking-wide ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`}>
+                    Outstanding balance
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
+                    {fmtMoney.format(outstanding.total)}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {outstanding.invoiceCount} {outstanding.invoiceCount === 1 ? "invoice" : "invoices"}
+                    {outstanding.overdueCount > 0 && (
+                      <span className="text-rose-700 font-semibold">
+                        {" - "}{outstanding.overdueCount} overdue
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={withSlug("/client-portal/billing")}
+                className={`inline-flex items-center gap-2 px-4 py-3 rounded-lg font-semibold text-white shadow-sm min-h-11 shrink-0 ${
+                  outstanding.overdueCount > 0
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                Pay
+              </Link>
+            </div>
           )}
 
           {/* ── Quick actions ───────────────────────────────────────── */}
