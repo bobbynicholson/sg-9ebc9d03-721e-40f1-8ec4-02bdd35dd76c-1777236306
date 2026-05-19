@@ -21,7 +21,6 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,7 +125,13 @@ function CleaningDashboardInner() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.CLEANING_STAFF} />
+      {/* CLN2-D (cleaning deep audit, CLN2-8): use CleaningNav like
+          every other cleaning page. The DynamicNav delegation here
+          was an inconsistency with the sibling pages (damage,
+          equipment, handovers, notifications, schedules, settings,
+          supplies, tasks, workflows) - any cleaning nav change had
+          to be made in two places. */}
+      <CleaningNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-cyan-50 py-8 lg:pl-72 xl:pl-80">
         <div className="max-w-full px-4 sm:px-6 lg:px-8">
@@ -423,11 +428,20 @@ function CleaningDashboardInner() {
  * overview into line with what the new CleaningJobsQueue surface
  * shows the team.
  */
+// CLN2-C (cleaning deep audit, CLN2-33, P0): KITCHEN_STAFF added.
+// PR #115 KIT2-A added a "Cleaning schedule" CTA on the kitchen
+// dashboard header that links here - per Bobby's "kitchen should
+// see cleaning schedule" directive. Before this fix, the
+// ProtectedRoute wrapper bounced kitchen leads out of their own
+// CTA. Write actions are still gated per-component (CleaningDuty
+// widget Start-duty button etc) so a kitchen lead reading this
+// page can't accidentally clock in as a cleaner.
 export default function CleaningDashboard() {
   return (
     <ProtectedRoute
       allowedRoles={[
         UserRole.CLEANING_STAFF,
+        UserRole.KITCHEN_STAFF,
         UserRole.COMPANY_ADMIN,
         UserRole.ADMIN,
         UserRole.SUPER_ADMIN,
