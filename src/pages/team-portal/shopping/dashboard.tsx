@@ -17,7 +17,8 @@
  * silent auto-creation of synthetic lists.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,47 @@ function ShoppingDashboardInner() {
   // "tom" and immediately see tomatoes - faster than scrolling 30
   // rows. Case-insensitive substring match against item name + notes.
   const [searchTerm, setSearchTerm] = useState("");
+
+  // SHP2-J (shopping deep audit, SHP2-34): cross-page peeks. Two
+  // counts surface alongside the Buy-list + Receipts action tiles:
+  //   - pendingReceiptsCount: completed lists with no receipt_url
+  //     yet. The shopper needs a nudge to snap before the lifecycle
+  //     finishes.
+  //   - lowStockCount: distinct inventory_items where current_stock
+  //     < minimum_stock. Tomorrow's prep is about to be short.
+  // Both refresh on the same realtime sub the hook owns; failures
+  // are best-effort (badge just stays at 0).
+  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    const fetchPeeks = async () => {
+      try {
+        const [{ count: receiptsCount }, { count: lowCount }] = await Promise.all([
+          (supabase as any)
+            .from("shopping_lists")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .eq("status", "completed")
+            .is("receipt_url", null),
+          (supabase as any)
+            .from("inventory_items")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", companyId)
+            .filter("current_stock", "lt", "minimum_stock"),
+        ]);
+        if (cancelled) return;
+        setPendingReceiptsCount(receiptsCount ?? 0);
+        setLowStockCount(lowCount ?? 0);
+      } catch (e) {
+        // Counts are non-critical, log + leave at 0.
+        console.warn("[shopping/dashboard] peek counts failed:", e);
+      }
+    };
+    void fetchPeeks();
+    return () => { cancelled = true; };
+  }, [companyId, activeList.list?.status]);
 
   const items = activeList.items;
   const bought = items.filter(i => i.purchased);
@@ -292,12 +334,34 @@ function ShoppingDashboardInner() {
                         <Button variant="outline" className="w-full text-sm sm:text-base h-10 sm:h-11 gap-1.5">
                           <ListChecks className="w-4 h-4" />
                           Add more from Buy list
+                          {/* SHP2-J: low-stock peek - tomorrow's prep
+                              has shortfalls the buy-list will surface. */}
+                          {lowStockCount > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="ml-1 bg-amber-100 text-amber-800 border-amber-300 tabular-nums"
+                              title={`${lowStockCount} inventory items below minimum stock`}
+                            >
+                              {lowStockCount} low
+                            </Badge>
+                          )}
                         </Button>
                       </Link>
                       <Link href={withSlug("/team-portal/shopping/receipts")} className="flex-1">
                         <Button variant="outline" className="w-full text-sm sm:text-base h-10 sm:h-11 gap-1.5">
                           <Camera className="w-4 h-4" />
                           Snap a receipt
+                          {/* SHP2-J: receipt peek - completed shopping
+                              lists awaiting a receipt upload. */}
+                          {pendingReceiptsCount > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="ml-1 bg-rose-100 text-rose-800 border-rose-300 tabular-nums"
+                              title={`${pendingReceiptsCount} completed list${pendingReceiptsCount === 1 ? "" : "s"} need a receipt`}
+                            >
+                              {pendingReceiptsCount} to upload
+                            </Badge>
+                          )}
                         </Button>
                       </Link>
                       {/* SHP2-A (shopping audit, SHP2-2): paper for the
