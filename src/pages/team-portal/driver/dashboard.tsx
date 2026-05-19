@@ -42,6 +42,7 @@ import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -921,7 +922,16 @@ function DriverDashboardInner() {
           onOpenChange={open => !open && setPodJob(null)}
           orderId={podJob.id}
           clientName={podJob.client_name}
-          onSaved={() => { setPodJob(null); loadDriverJobs(); }}
+          onSaved={() => {
+            const orderId = podJob.id;
+            setPodJob(null);
+            // DRV-E (driver deep audit, DRV-16): broadcast on the
+            // cross-tab event bus so dispatch / kitchen / calendar /
+            // client portal pick up the delivered state without
+            // waiting for the realtime sub.
+            emitOrderUpdated(orderId, "driver/dashboard:pod-saved", ["status", "handover"]);
+            loadDriverJobs();
+          }}
         />
       )}
 
@@ -934,7 +944,15 @@ function DriverDashboardInner() {
           driverId={user.id}
           orderId={declineCtx.orderId}
           clientName={declineCtx.clientName}
-          onDeclined={() => { setDeclineCtx(null); loadDriverJobs(); }}
+          onDeclined={() => {
+            const orderId = declineCtx.orderId;
+            setDeclineCtx(null);
+            // DRV-E (DRV-16): same recipe - decline frees the order
+            // back to dispatch + clears assigned_driver_id. Dispatch's
+            // open tab needs to see the row flip immediately.
+            emitOrderUpdated(orderId, "driver/dashboard:declined", ["driver", "status"]);
+            loadDriverJobs();
+          }}
         />
       )}
 
