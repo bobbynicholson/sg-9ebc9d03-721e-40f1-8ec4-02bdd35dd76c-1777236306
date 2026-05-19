@@ -39,7 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { markOrderReady } from "@/services/order/orderWorkflow";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
@@ -113,6 +113,68 @@ export default function KitchenDashboard() {
     if (user?.company_id) {
       loadDashboardData();
     }
+  }, [user?.company_id]);
+
+  // KIT2-Q (kitchen deep audit, KIT2-44 / KIT2-79): supabase realtime
+  // sub on orders + kitchen_prep_tasks + order_items, scoped to the
+  // tenant. The kitchen lead's tablet refreshes within seconds when:
+  //   - admin / dispatcher flips an order status from another tab
+  //   - the driver acks pickup
+  //   - a prep task is ticked on a sibling device
+  //   - the chef adjusts the order_items on the admin orders page
+  //
+  // Combined with the cateringms:order-updated event bus listener
+  // below, this covers BOTH cross-device (channel) and in-browser
+  // cross-tab (event) cases. Visibility-aware: pauses while the tab
+  // is hidden so 8 open tabs in the kitchen don't burn CPU.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let pendingWhileHidden = false;
+    const refresh = () => {
+      if (document.hidden) {
+        pendingWhileHidden = true;
+        return;
+      }
+      loadDashboardData();
+    };
+    const onVisibility = () => {
+      if (!document.hidden && pendingWhileHidden) {
+        pendingWhileHidden = false;
+        loadDashboardData();
+      }
+    };
+    // Window focus also triggers a refresh - covers the case where
+    // a chef switches back from a sibling tab.
+    const onFocus = () => { refresh(); };
+
+    const sub = supabase
+      .channel(`kitchen-dashboard-${user.company_id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "orders",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "kitchen_prep_tasks",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      .subscribe();
+
+    // In-browser cross-tab bus. The dispatch / orders / driver
+    // pages emit this on mutations - the listener catches them
+    // even when the postgres channel is mid-reconnect.
+    const offBus = onOrderUpdated(() => { refresh(); });
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      offBus();
+      void sub.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const loadDashboardData = async () => {
