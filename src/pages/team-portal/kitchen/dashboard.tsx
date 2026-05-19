@@ -952,6 +952,21 @@ export default function KitchenDashboard() {
                                     {order.order_number}
                                   </span>
                                 </div>
+                                {/* KIT2-I (kitchen deep audit, KIT2-62 /
+                                    82 / 90): allergen badge at first
+                                    render. Bobby's brief: chef sees the
+                                    warning at the planning stage, not
+                                    just at Mark-ready. Red ribbon below
+                                    the title so it's the second thing
+                                    the eye lands on. */}
+                                {(order as any).dietary_requirements && String((order as any).dietary_requirements).trim() && (
+                                  <div className="mb-1 flex items-center gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                                    <p className="text-[11px] font-semibold text-red-800 truncate" title={String((order as any).dietary_requirements)}>
+                                      {String((order as any).dietary_requirements)}
+                                    </p>
+                                  </div>
+                                )}
                                 {(order as any).venue_address && (
                                   <p className="text-[11px] text-slate-500 truncate mb-1">
                                     📍 {(order as any).venue_address}
