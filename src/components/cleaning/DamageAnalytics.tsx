@@ -1,3 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * DamageAnalytics - CLN2-I (extracted from BrokenEquipmentDashboard).
+ *
+ * Why: cost / breakdown / repair-vs-replace analytics belong on
+ * /admin/equipment (admin, finance-adjacent) not on the cleaner
+ * daily dashboard. The cleaner sees DamageFlagForm + a recent
+ * strip; this component is the admin-side cost view.
+ */
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,11 +17,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, Package, DollarSign, Calendar as CalendarIcon } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
+import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
 import { format } from "date-fns";
 
-export function BrokenEquipmentDashboard() {
+export function DamageAnalytics() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [damages, setDamages] = useState<any[]>([]);
   const [breakdown, setBreakdown] = useState<any>(null);
   const [dateRange, setDateRange] = useState({
@@ -23,6 +33,14 @@ export function BrokenEquipmentDashboard() {
 
   useEffect(() => {
     loadDamages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, dateRange, selectedType]);
+
+  // Refresh when a cleaner flags new damage in another tab / page.
+  useEffect(() => {
+    const off = onEquipmentDamaged(() => { loadDamages(); });
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dateRange, selectedType]);
 
   const loadDamages = async () => {
@@ -31,7 +49,6 @@ export function BrokenEquipmentDashboard() {
     setLoading(true);
     try {
       const filters: any = {
-        userId: user.id,
         startDate: dateRange.from.toISOString(),
         endDate: dateRange.to.toISOString(),
       };
@@ -60,7 +77,7 @@ export function BrokenEquipmentDashboard() {
 
   const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`;
 
-  const damageTypeColors: Record<DamageType, string> = {
+  const damageTypeColours: Record<DamageType, string> = {
     broken: "bg-red-500",
     lost: "bg-orange-500",
     stolen: "bg-purple-500",
@@ -74,9 +91,15 @@ export function BrokenEquipmentDashboard() {
     damaged: "Damaged",
   };
 
+  // Repair-vs-replace heuristic: if avg cost per incident on an
+  // item exceeds 60% of its full replacement, the line item is
+  // flagged "replace" so the admin can sense-check the call. The
+  // cut-off is intentionally simple and lives here, not in the
+  // service, because the rule is UI guidance not source-of-truth.
+  const replaceThresholdRatio = 0.6;
+
   return (
     <div className="space-y-6">
-      {/* Header with Filters */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Equipment Losses & Damages</h2>
         <div className="flex gap-2">
@@ -111,7 +134,6 @@ export function BrokenEquipmentDashboard() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       {breakdown && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -132,8 +154,8 @@ export function BrokenEquipmentDashboard() {
             <Card key={type}>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 ${damageTypeColors[type as DamageType]} bg-opacity-10 rounded-lg`}>
-                    <AlertTriangle className={`h-6 w-6 ${damageTypeColors[type as DamageType].replace('bg-', 'text-')}`} />
+                  <div className={`p-3 ${damageTypeColours[type as DamageType]} bg-opacity-10 rounded-lg`}>
+                    <AlertTriangle className={`h-6 w-6 ${damageTypeColours[type as DamageType].replace("bg-", "text-")}`} />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{damageTypeLabels[type as DamageType]}</p>
@@ -146,12 +168,12 @@ export function BrokenEquipmentDashboard() {
         </div>
       )}
 
-      {/* Tabs for Different Views */}
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="items">By Item</TabsTrigger>
           <TabsTrigger value="stage">By Stage</TabsTrigger>
-          <TabsTrigger value="recent">Recent Incidents</TabsTrigger>
+          <TabsTrigger value="trend">Trend</TabsTrigger>
+          <TabsTrigger value="recent">Recent</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4 mt-4">
@@ -164,22 +186,37 @@ export function BrokenEquipmentDashboard() {
                 <p className="text-center text-muted-foreground py-8">No damages in this period</p>
               ) : (
                 <div className="space-y-3">
-                  {breakdown?.items.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-background rounded">
-                          <Package className="h-5 w-5" />
+                  {breakdown?.items.map((item: any, index: number) => {
+                    const avgCost = item.count > 0 ? item.cost / item.count : 0;
+                    const unitCost = (() => {
+                      const match = damages.find((d) => (d.equipment?.name || "Unknown") === item.name);
+                      return Number(match?.unit_cost || 0);
+                    })();
+                    const replaceFlag = unitCost > 0 && avgCost / unitCost >= replaceThresholdRatio;
+                    return (
+                      <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-background rounded">
+                            <Package className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.count} items - avg {formatCurrency(avgCost)} per loss
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.count} items</p>
+                        <div className="text-right">
+                          <p className="font-bold text-lg">{formatCurrency(item.cost)}</p>
+                          {replaceFlag ? (
+                            <Badge variant="destructive" className="mt-1">Replace</Badge>
+                          ) : (
+                            <Badge variant="outline" className="mt-1">Repair</Badge>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg">{formatCurrency(item.cost)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -208,6 +245,46 @@ export function BrokenEquipmentDashboard() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="trend" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Cost Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                if (damages.length === 0) {
+                  return <p className="text-center text-muted-foreground py-8">No damages in this period</p>;
+                }
+                const byDay = new Map<string, number>();
+                damages.forEach((d: any) => {
+                  const day = format(new Date(d.created_at), "yyyy-MM-dd");
+                  byDay.set(day, (byDay.get(day) || 0) + Number(d.total_cost || 0));
+                });
+                const rows = Array.from(byDay.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
+                const max = Math.max(...rows.map(([, v]) => v), 1);
+                return (
+                  <div className="space-y-2">
+                    {rows.map(([day, cost]) => (
+                      <div key={day} className="flex items-center gap-3">
+                        <span className="text-xs font-mono w-24 text-muted-foreground">
+                          {format(new Date(day), "MMM d")}
+                        </span>
+                        <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
+                          <div
+                            className="h-full bg-red-400"
+                            style={{ width: `${(cost / max) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-24 text-right">{formatCurrency(cost)}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -250,8 +327,8 @@ export function BrokenEquipmentDashboard() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h4 className="font-semibold">{damage.equipment?.name}</h4>
-                          <Badge className={damageTypeColors[damage.damage_type]}>
-                            {damageTypeLabels[damage.damage_type]}
+                          <Badge className={damageTypeColours[damage.damage_type as DamageType]}>
+                            {damageTypeLabels[damage.damage_type as DamageType]}
                           </Badge>
                         </div>
                         <div className="space-y-1 text-sm text-muted-foreground">
