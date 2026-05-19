@@ -316,6 +316,24 @@ function ClientPortalDashboardInner() {
   // Branding tones - fall back to a calm emerald so unbranded companies
   // still look polished.
   const brandPrimary = company?.primary_color || "#059669";
+  // CLI-H (client deep audit, CLI-27 / CLI-59): pick legible text
+  // colour for the brand background. Pre-fix every brand-tile
+  // hardcoded text-white - fine for emerald, broken for a yellow /
+  // peach / cream brand. YIQ luminance is good enough for the
+  // hex-shorthand palettes tenants pick (more accurate is WCAG
+  // contrast ratio but YIQ avoids a lib dep).
+  const contrastText = (hex: string | null | undefined): "white" | "black" => {
+    if (!hex) return "white";
+    const h = hex.replace("#", "");
+    if (h.length < 6) return "white";
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (Number.isNaN(r + g + b)) return "white";
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 160 ? "black" : "white";
+  };
+  const brandText = contrastText(brandPrimary);
   const brandSecondary = company?.secondary_color || "#10b981";
   const brandGradient = `linear-gradient(135deg, ${brandPrimary} 0%, ${brandSecondary} 100%)`;
   const brandSoftBg = `linear-gradient(135deg, ${brandPrimary}10 0%, ${brandSecondary}10 100%)`;
@@ -909,7 +927,7 @@ function ClientPortalDashboardInner() {
                   <div className="flex items-start gap-3 min-w-0">
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: brandPrimary, color: "white" }}
+                      style={{ background: brandPrimary, color: brandText }}
                     >
                       <RotateCcw className="w-5 h-5" />
                     </div>
@@ -1489,18 +1507,22 @@ function PastEventTile({
       </Link>
       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
         {order.rating ? (
-          <div className="flex items-center gap-0.5" title={`You rated ${order.rating} out of 5`}>
+          <div className="flex items-center gap-1" title={`You rated ${order.rating} out of 5`}>
             {[1, 2, 3, 4, 5].map((n) => (
               <Star
                 key={n}
-                className={`w-3.5 h-3.5 ${n <= (order.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`}
+                className={`w-5 h-5 ${n <= (order.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`}
               />
             ))}
           </div>
         ) : (
-          // Inline rating: each star is its own click target. We track
-          // a hover index for the fill preview, and disable the row
-          // mid-submit so a double-click doesn't insert two rows.
+          // CLI-H (client deep audit, CLI-26 / CLI-58): interactive
+          // stars were ~16x16px tap targets - far below the Apple HIG
+          // 44px floor + impossible to land cleanly with a finger.
+          // Now: each button is min-w-11 + min-h-11 with a bigger
+          // w-6 h-6 star icon. Touch area scales the right way; the
+          // visual row is still compact because the stars are
+          // centred in the larger tap zone.
           <div
             className="flex items-center gap-0.5"
             onMouseLeave={() => setHover(null)}
@@ -1525,11 +1547,11 @@ function PastEventTile({
                       setSubmitting(false);
                     }
                   }}
-                  className="p-0.5 -m-0.5 disabled:opacity-50"
+                  className="inline-flex items-center justify-center min-w-11 min-h-11 disabled:opacity-50"
                   aria-label={`Rate ${n} out of 5`}
                 >
                   <Star
-                    className={`w-3.5 h-3.5 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"}`}
+                    className={`w-6 h-6 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"}`}
                   />
                 </button>
               );
