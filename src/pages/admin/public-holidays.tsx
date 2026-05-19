@@ -72,6 +72,20 @@ function PublicHolidaysAdmin() {
 
   useEffect(() => { reload(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // PHO-A (public-holidays audit, PHO-2): supabase realtime sub on
+  // public_holidays. Catches a concurrent admin's add / delete so the
+  // list stays current without a manual refresh. Filter is just
+  // company-scope; gazetted (company_id IS NULL) changes are rare.
+  useEffect(() => {
+    if (!companyId) return;
+    const sub = supabase
+      .channel(`public-holidays-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "public_holidays", filter: `company_id=eq.${companyId}` }, () => { reload(); })
+      .subscribe();
+    return () => { sub.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
   const filtered = useMemo(() => {
     return holidays.filter((h) => {
       const d = new Date(h.date);
@@ -289,6 +303,15 @@ function PublicHolidaysAdmin() {
                     .eq("id", confirmDelete.id);
                   if (error) throw error;
                   toast({ title: "Holiday removed" });
+                  // PHO-A (PHO-5): broadcast to any open wage / payroll
+                  // tab so cached rates refresh. No shared helper for
+                  // this domain - inline CustomEvent is the cheapest
+                  // forward-compat hook.
+                  if (typeof window !== "undefined") {
+                    try {
+                      window.dispatchEvent(new CustomEvent("cateringms:holidays-updated", { detail: { id: confirmDelete.id, action: "delete" } }));
+                    } catch { /* old browsers without CustomEvent polyfill */ }
+                  }
                   setConfirmDelete(null);
                   reload();
                 } catch (e: any) {
@@ -333,6 +356,30 @@ function AddHolidayDialog({
       toast({ title: "Name is required", variant: "destructive" });
       return;
     }
+    // PHO-A (PHO-6): date sanity check. The form silently accepted
+    // dates in any year, so "27 Dec 2024" entered in 2026 would
+    // persist as a historical record that the wage system would
+    // never apply. Require the date to be parseable, not in the
+    // distant past (>30 days back), and not too far in the future
+    // (>3 years ahead). is_recurring is hardcoded false so true
+    // historical entries can't auto-replay.
+    const parsed = new Date(date);
+    if (!Number.isFinite(parsed.getTime())) {
+      toast({ title: "Date invalid", description: "Pick a calendar date.", variant: "destructive" });
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ms = parsed.getTime() - today.getTime();
+    const days = Math.round(ms / (1000 * 60 * 60 * 24));
+    if (days < -30) {
+      toast({ title: "Date too far in the past", description: "Pick a date within the last month or in the future.", variant: "destructive" });
+      return;
+    }
+    if (days > 365 * 3) {
+      toast({ title: "Date too far ahead", description: "Pick a date within the next 3 years.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
@@ -346,6 +393,12 @@ function AddHolidayDialog({
         });
       if (error) throw error;
       toast({ title: "Holiday added" });
+      // PHO-A (PHO-5): same broadcast pattern as the delete handler.
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("cateringms:holidays-updated", { detail: { action: "add" } }));
+        } catch { /* old browsers without CustomEvent polyfill */ }
+      }
       onSaved();
     } catch (e: any) {
       toast({ title: "Couldn't save", description: e?.message, variant: "destructive" });

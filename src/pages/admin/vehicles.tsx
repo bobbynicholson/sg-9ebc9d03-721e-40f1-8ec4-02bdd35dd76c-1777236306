@@ -181,6 +181,20 @@ function VehiclesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // VEH-B (vehicles audit, VEH-3): supabase realtime sub on the
+  // fleet so colleague hires / service log updates land without a
+  // manual refresh. Filter by company_id so multi-tenant noise is
+  // muted.
+  useEffect(() => {
+    if (!companyId) return;
+    const sub = supabase
+      .channel(`vehicles-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicles",                 filter: `company_id=eq.${companyId}` }, () => { load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicle_maintenance_log",  filter: `company_id=eq.${companyId}` }, () => { load(); })
+      .subscribe();
+    return () => { sub.unsubscribe(); };
+  }, [companyId, load]);
+
   // Pull the utilisation rollup whenever the user opens the tab or
   // adjusts the window. Cheap query: one indexed range scan + a per-
   // vehicle sum in JS.
@@ -1236,7 +1250,9 @@ function UtilisationView({
 
 export default function ProtectedVehiclesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // VEH-B (VEH-2): admit sales_admin (capability matrix for client
+    // advisory) + region_admin (regional fleet via RLS narrowing).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <VehiclesPage />
     </ProtectedRoute>
   );
