@@ -32,6 +32,13 @@ export interface ActiveListItem {
   purchased: boolean;
   notes: string | null;
   created_at: string | null;
+  // SHP2-F (shopping deep audit, SHP2-31): supplier metadata pulled
+  // through inventory_items.preferred_supplier_id so the dashboard
+  // can group "buy these at PnP" / "buy these at Makro". Null when
+  // the row is a freestyle add (no inventory_item linked) or the
+  // linked inventory item has no preferred supplier.
+  supplier_id: string | null;
+  supplier_name: string | null;
 }
 
 export interface ActiveList {
@@ -162,9 +169,21 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         isYours,
       });
 
+      // SHP2-F (SHP2-31): pull the linked inventory_item's preferred
+      // supplier so the dashboard can group "buy at PnP" vs "buy at
+      // Makro". One round trip - the select reaches through item_id
+      // -> inventory_items -> suppliers via the standard FK joins.
+      // Items without an inventory link (freestyle adds) get null
+      // supplier and fall into an "Other" group.
       const { data: itemRows, error: itemsErr } = await sb
         .from("shopping_list_items")
-        .select("*")
+        .select(`
+          *,
+          inventory_items:item_id (
+            preferred_supplier_id,
+            suppliers:preferred_supplier_id ( supplier_name )
+          )
+        `)
         .eq("shopping_list_id", row.id)
         // SHP2-D (SHP2-15): same soft-delete guard on items.
         .is("deleted_at", null)
@@ -175,7 +194,14 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         setError(itemsErr.message || "Could not load list items");
         setItems([]);
       } else {
-        setItems((itemRows || []) as ActiveListItem[]);
+        // Flatten the join into supplier_id / supplier_name on the
+        // ActiveListItem shape. Keeps the consumer code simple.
+        const flat = (itemRows || []).map((r: any) => ({
+          ...r,
+          supplier_id: r.inventory_items?.preferred_supplier_id ?? null,
+          supplier_name: r.inventory_items?.suppliers?.supplier_name ?? null,
+        })) as ActiveListItem[];
+        setItems(flat);
         setError(null);
       }
     } catch (e) {
