@@ -24,6 +24,7 @@ import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/formatters";
+import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { Calendar as CalendarIcon, MapPin, ArrowLeft, Layers, Plus, X, Trash2, AlertTriangle, Edit3, Save, Link as LinkIcon } from "lucide-react";
 
 type BookingPackageStatus = "draft" | "active" | "completed" | "cancelled";
@@ -60,7 +61,8 @@ const STATUS_TONE: Record<BookingPackageStatus, string> = {
 
 export default function ProtectedPackageDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // PKG-A (PKG-7): same role set as the list.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <PackageDetailPage />
     </ProtectedRoute>
   );
@@ -103,6 +105,19 @@ function PackageDetailPage() {
   };
 
   useEffect(() => { void load(); }, [packageId]);
+
+  // PKG-A (PKG-6): refetch on cateringms:order-updated so an order
+  // edit on /admin/orders / /admin/dispatch refreshes the package's
+  // timeline + totals without a manual reload. Window focus also
+  // refetches in case the event-emit path was missed.
+  useEffect(() => {
+    if (!packageId) return;
+    const off = onOrderUpdated(() => { void load(); });
+    const onFocus = () => { void load(); };
+    window.addEventListener("focus", onFocus);
+    return () => { off(); window.removeEventListener("focus", onFocus); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packageId]);
 
   const totalGuests = useMemo(() => (pkg?.orders || []).reduce((s, o) => s + (o.guest_count || 0), 0), [pkg]);
   const totalRevenue = useMemo(() => (pkg?.orders || []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0), [pkg]);

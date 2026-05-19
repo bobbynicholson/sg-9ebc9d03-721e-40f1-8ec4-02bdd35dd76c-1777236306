@@ -59,7 +59,9 @@ const STATUS_TONE: Record<BookingPackageStatus, string> = {
 
 export default function ProtectedPackagesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // PKG-A (packages audit, PKG-7): sales_admin builds packages
+    // (wedding sales reps); region_admin sees their region.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <PackagesPage />
     </ProtectedRoute>
   );
