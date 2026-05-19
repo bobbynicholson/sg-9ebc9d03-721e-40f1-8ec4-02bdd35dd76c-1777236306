@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package } from "lucide-react";
+import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, Printer } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -189,10 +189,31 @@ function CleaningDashboardInner() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold text-slate-900">Cleaning Dashboard</h1>
               <p className="text-slate-600">Equipment maintenance and tracking</p>
             </div>
+            {/* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
+                cleaning lead handing off to a fresh shift wants a
+                printed checklist - equipment categories + today's
+                cleaning jobs grouped by status. Same recipe as DRV-J /
+                KIT2-N / SHP2-A. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (equipment.length === 0) {
+                  // No data to print - cheap feedback rather than
+                  // a blank A4 surprise.
+                  alert("No equipment loaded yet. Wait a moment then try again.");
+                  return;
+                }
+                setTimeout(() => window.print(), 100);
+              }}
+              className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Print roster
+            </Button>
           </div>
 
           <TeamWelcomeBanner role="cleaning" userId={user?.id} />
@@ -460,6 +481,111 @@ function CleaningDashboardInner() {
       </div>
 
       <ChatBot userRole="cleaning" companyId={user?.company_id} />
+
+      {/* CLN2-J (cleaning deep audit, CLN2-19): print-only roster.
+          Hidden on screen via the print CSS below. Three blocks:
+          equipment by status (available / in_use / cleaning /
+          damaged), today's cleaning jobs grouped by status, and a
+          tick-off section the lead can use during the floor walk
+          for the next shift handover. */}
+      <div id="print-cleaning-roster" className="print-only">
+        <h1 style={{ fontSize: "20pt", marginBottom: "4pt", fontFamily: "sans-serif" }}>
+          Cleaning roster
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {" - "}
+          {equipment.length} equipment row{equipment.length === 1 ? "" : "s"} tracked
+        </p>
+
+        {/* Equipment status table */}
+        <h2 style={{ fontSize: "13pt", marginTop: "8pt", marginBottom: "6pt", fontFamily: "sans-serif", borderBottom: "1pt solid #0f172a", paddingBottom: "2pt" }}>
+          Equipment status
+        </h2>
+        {(() => {
+          const grouped: Record<string, EquipmentRow[]> = {
+            damaged: [],
+            cleaning: [],
+            in_use: [],
+            available: [],
+          };
+          for (const eq of equipment) grouped[eq.status]?.push(eq);
+          const sectionLabels: Array<{ key: EquipmentStatus; label: string; tone: string }> = [
+            { key: "damaged",  label: "Damaged - needs attention",     tone: "#dc2626" },
+            { key: "cleaning", label: "Currently in cleaning",          tone: "#0891b2" },
+            { key: "in_use",   label: "In use",                         tone: "#b45309" },
+            { key: "available",label: "Available",                      tone: "#15803d" },
+          ];
+          return sectionLabels.map((sec) => {
+            const items = grouped[sec.key] || [];
+            if (items.length === 0) return null;
+            return (
+              <div key={sec.key} style={{ marginBottom: "10pt", pageBreakInside: "avoid" }}>
+                <p style={{ fontSize: "11pt", fontWeight: 700, marginBottom: "3pt", color: sec.tone, fontFamily: "sans-serif" }}>
+                  {sec.label} ({items.length})
+                </p>
+                <ul style={{ margin: 0, paddingLeft: "16pt", fontSize: "9.5pt", color: "#0f172a", fontFamily: "sans-serif" }}>
+                  {items.map((eq) => (
+                    <li key={eq.id} style={{ marginBottom: "2pt" }}>
+                      <strong>{eq.name}</strong>
+                      <span style={{ color: "#64748b" }}> - {eq.available_quantity} of {eq.quantity} available</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          });
+        })()}
+
+        {/* Tick-off floor walk - the lead can pace the kitchen and
+            tick each station off in person before handover. */}
+        <h2 style={{ fontSize: "13pt", marginTop: "16pt", marginBottom: "6pt", fontFamily: "sans-serif", borderBottom: "1pt solid #0f172a", paddingBottom: "2pt" }}>
+          Floor-walk checklist
+        </h2>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", fontFamily: "sans-serif" }}>
+          <tbody>
+            {[
+              "Surfaces wiped",
+              "Sinks cleared",
+              "Bins emptied",
+              "Floor mopped",
+              "Fridge spot-checked",
+              "Equipment trolley returned",
+              "Shift notes left for next lead",
+            ].map((task) => (
+              <tr key={task} style={{ borderBottom: "0.5pt solid #cbd5e1", pageBreakInside: "avoid" }}>
+                <td style={{ width: "22pt", padding: "6pt 4pt" }}>
+                  <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
+                </td>
+                <td style={{ padding: "6pt 4pt" }}>{task}</td>
+                <td style={{ padding: "6pt 4pt", textAlign: "right", color: "#64748b" }}>By: ______________</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <p style={{ marginTop: "20pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Cleaning Portal
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; }
+          body * { visibility: hidden !important; }
+          #print-cleaning-roster, #print-cleaning-roster * { visibility: visible !important; }
+          #print-cleaning-roster {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }
