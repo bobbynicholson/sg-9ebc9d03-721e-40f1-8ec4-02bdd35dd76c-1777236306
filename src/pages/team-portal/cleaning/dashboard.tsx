@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,60 +63,110 @@ function CleaningDashboardInner() {
     return () => clearTimeout(t);
   }, [router.asPath]);
 
+  // CLN2-E (cleaning deep audit, CLN2-13): extracted to useCallback so
+  // the realtime sub effect can re-call it on cleaning_jobs / equipment
+  // changes. Pre-fix the load fired once on mount + relied on tab
+  // switches to refresh; a colleague moving a teapot from broken to
+  // available stayed invisible to other devices.
+  const loadEquipment = useCallback(async () => {
+    if (!user?.company_id) return;
+    setLoadingEquipment(true);
+    const { data: equipmentData, error: equipmentErr } = await supabase
+      .from("equipment")
+      .select("id, name, condition, quantity, available_quantity")
+      .eq("company_id", user.company_id);
+
+    if (equipmentErr) {
+      console.error("Error loading equipment:", equipmentErr);
+      setEquipment([]);
+      setLoadingEquipment(false);
+      return;
+    }
+
+    // Wave 41 Phase 2: cleaning_jobs is now the source of truth
+    // for "what's currently being cleaned" (units, not just a
+    // boolean flag on the equipment). Falls back gracefully if
+    // the company hasn't started using cleaning_jobs yet - the
+    // map will simply be empty.
+    const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
+
+    const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
+      const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
+      // Subtract active-cleaning units from nominal availability
+      // so the operator sees what's truly available right now.
+      const trueAvailable = Math.max(0, (eq.available_quantity ?? 0) - inCleaning);
+      let status: EquipmentStatus;
+      if (eq.condition === "damaged" || eq.condition === "broken") {
+        status = "damaged";
+      } else if (inCleaning > 0) {
+        status = "cleaning";
+      } else if (trueAvailable < (eq.quantity ?? 0)) {
+        status = "in_use";
+      } else {
+        status = "available";
+      }
+      return {
+        id: eq.id,
+        name: eq.name,
+        status,
+        quantity: eq.quantity ?? 0,
+        available_quantity: trueAvailable,
+      };
+    });
+
+    setEquipment(rows);
+    setLoadingEquipment(false);
+  }, [user?.company_id]);
+
   useEffect(() => {
     if (!user?.company_id) return;
+    void loadEquipment();
+  }, [user?.company_id, loadEquipment]);
 
-    const loadEquipment = async () => {
-      setLoadingEquipment(true);
-      const { data: equipmentData, error: equipmentErr } = await supabase
-        .from("equipment")
-        .select("id, name, condition, quantity, available_quantity")
-        .eq("company_id", user.company_id);
-
-      if (equipmentErr) {
-        console.error("Error loading equipment:", equipmentErr);
-        setEquipment([]);
-        setLoadingEquipment(false);
+  // CLN2-E (CLN2-13): supabase realtime sub on cleaning_jobs +
+  // equipment. The cleaning lead in the prep room updates a job;
+  // the dispatcher's screen on the wall refreshes within seconds.
+  //
+  // Visibility-aware throttling: when the tab is hidden, we only
+  // queue a single deferred refresh and let it fire on visibility
+  // change. Multi-device usage on the catering floor (back-room
+  // tablet + walking lead's phone) doesn't need the hidden tab
+  // burning CPU on every channel event.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let pendingWhileHidden = false;
+    const refresh = () => {
+      if (document.hidden) {
+        pendingWhileHidden = true;
         return;
       }
-
-      // Wave 41 Phase 2: cleaning_jobs is now the source of truth
-      // for "what's currently being cleaned" (units, not just a
-      // boolean flag on the equipment). Falls back gracefully if
-      // the company hasn't started using cleaning_jobs yet - the
-      // map will simply be empty.
-      const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
-
-      const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
-        const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
-        // Subtract active-cleaning units from nominal availability
-        // so the operator sees what's truly available right now.
-        const trueAvailable = Math.max(0, (eq.available_quantity ?? 0) - inCleaning);
-        let status: EquipmentStatus;
-        if (eq.condition === "damaged" || eq.condition === "broken") {
-          status = "damaged";
-        } else if (inCleaning > 0) {
-          status = "cleaning";
-        } else if (trueAvailable < (eq.quantity ?? 0)) {
-          status = "in_use";
-        } else {
-          status = "available";
-        }
-        return {
-          id: eq.id,
-          name: eq.name,
-          status,
-          quantity: eq.quantity ?? 0,
-          available_quantity: trueAvailable,
-        };
-      });
-
-      setEquipment(rows);
-      setLoadingEquipment(false);
+      void loadEquipment();
     };
-
-    loadEquipment();
-  }, [user?.company_id]);
+    const onVisibility = () => {
+      if (!document.hidden && pendingWhileHidden) {
+        pendingWhileHidden = false;
+        void loadEquipment();
+      }
+    };
+    const sub = supabase
+      .channel(`cleaning-dashboard-${user.company_id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "cleaning_jobs",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "equipment",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      .subscribe();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      void sub.unsubscribe();
+    };
+  }, [user?.company_id, loadEquipment]);
 
   return (
     <>
