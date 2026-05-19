@@ -479,6 +479,17 @@ function OrderProcessDashboard() {
           loadOrders();
         },
       )
+      // ORD-A (orders audit, ORD-4): payments captured in another tab
+      // change the paid balance + payment_status on the order. The
+      // orders UPDATE channel only fires when orders rows mutate, not
+      // when a payments row lands. Refetch quietly.
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
+        () => {
+          loadOrders();
+        },
+      )
       .subscribe();
     return () => {
       (supabase as any).removeChannel(channel);
@@ -1187,6 +1198,12 @@ function OrderProcessDashboard() {
       setOrders((prev) =>
         prev.map((o) => (selectedIds.has((o as any).id) ? ({ ...o, status: newStatus } as AppOrder) : o)),
       );
+      // ORD-A (orders audit, ORD-5): emit cateringms:order-updated for
+      // each affected row so dispatch / kitchen / calendar / contacts
+      // pick up the bulk change without manual refresh.
+      for (const id of ids) {
+        emitOrderUpdated(id, "admin/orders:bulk-status", ["status"]);
+      }
       toast({
         title: "Bulk update",
         description: `${ids.length} order${ids.length === 1 ? "" : "s"} moved to ${newStatus}.`,
@@ -1711,6 +1728,11 @@ function OrderProcessDashboard() {
               onPaused={() => {
                 setIsModalOpen(false);
                 loadOrders();
+                // ORD-A (ORD-5): pause cascade is a status transition
+                // that calendar / dispatch / kitchen all care about.
+                if (pauseDialogOrderId) {
+                  emitOrderUpdated(pauseDialogOrderId, "admin/orders:pause", ["status"]);
+                }
               }}
             />
 
@@ -1749,7 +1771,10 @@ function OrderProcessDashboard() {
 
 export default function AdminOrders() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // ORD-A (ORD-6): admit sales_admin + region_admin. sales_admin
+    // needs to see their lead -> order conversions; region_admin sees
+    // their region's orders via RLS narrowing.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <OrderProcessDashboard />
     </ProtectedRoute>
   );
