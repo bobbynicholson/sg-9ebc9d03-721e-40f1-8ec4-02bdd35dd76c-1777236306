@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Smart Shopping - the procurement brain.
  *
@@ -853,7 +852,7 @@ function ItemTable({
                       <div>
                         <div className="font-medium text-slate-900 flex items-center gap-1.5">
                           {r.item_name}
-                          {r.is_perishable && <Snowflake className="w-3 h-3 text-cyan-500" title="Perishable" />}
+                          {r.is_perishable && <span title="Perishable"><Snowflake className="w-3 h-3 text-cyan-500" /></span>}
                         </div>
                         <div className="text-xs text-slate-500">
                           {r.category || "Uncategorised"}{showShelfLife && r.shelf_life_days ? ` - ${r.shelf_life_days}d shelf life` : ""}
@@ -946,9 +945,12 @@ function ItemTable({
   );
 }
 
+// SHP-B (shopping audit, SHP-3): admit shopping_staff (own the
+// buy-now flow + receipts) + region_admin (regional read). RLS
+// narrows per-region writes.
 export default function ProtectedShopping() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SHOPPING_STAFF, UserRole.REGION_ADMIN]}>
       <SmartShoppingPage />
     </ProtectedRoute>
   );

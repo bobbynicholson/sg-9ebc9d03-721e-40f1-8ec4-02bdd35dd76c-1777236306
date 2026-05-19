@@ -138,7 +138,9 @@ const fmtR = (v: number) =>
 
 export default function ProtectedEquipmentPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // EQP-A (equipment audit, EQP-3): admit sales_admin (hire-in
+    // capability check) + region_admin (regional fleet RLS).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <EquipmentPage />
     </ProtectedRoute>
   );

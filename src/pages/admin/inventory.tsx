@@ -2177,7 +2177,9 @@ function BranchScopePicker({
 
 export function ProtectedInventoryPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // INV2-A (inventory audit, INV2-3): admit region_admin (regional
+    // RLS-narrowed view) + sales_admin (read-only context for quotes).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <AdminInventory />
     </ProtectedRoute>
   );

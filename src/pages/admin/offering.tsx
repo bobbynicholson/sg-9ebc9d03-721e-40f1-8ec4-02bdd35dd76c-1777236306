@@ -392,7 +392,9 @@ function OfferingPage() {
 
 export default function AdminOfferingPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // OFR-A (offering audit, OFR-2): admit sales_admin (capability
+    // snapshot for client advisories) + region_admin (regional view).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <OfferingPage />
     </ProtectedRoute>
   );

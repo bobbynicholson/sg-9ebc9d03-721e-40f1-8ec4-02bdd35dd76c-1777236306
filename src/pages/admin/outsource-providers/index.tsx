@@ -876,7 +876,9 @@ function CronDryRunPanel() {
 
 export default function ProtectedOutsourceProvidersPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // OUT-A (outsource-providers audit, OUT-2): admit sales_admin
+    // (advise on per-event chef / florist / photographer) + region.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ProvidersList />
     </ProtectedRoute>
   );

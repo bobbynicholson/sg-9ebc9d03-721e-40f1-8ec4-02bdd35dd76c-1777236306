@@ -468,7 +468,8 @@ function ProviderDetail() {
 
 export default function ProtectedProviderDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // OUT-A (OUT-2): match index role set.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ProviderDetail />
     </ProtectedRoute>
   );

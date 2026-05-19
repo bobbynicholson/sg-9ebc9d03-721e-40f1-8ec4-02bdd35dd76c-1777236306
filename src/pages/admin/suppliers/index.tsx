@@ -544,7 +544,9 @@ function SupplierFormDialog({
 
 export default function SuppliersPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // SUP-A (suppliers audit, SUP-2): admit sales_admin (supplier
+    // contact for client advisories) + region_admin (regional view).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <SuppliersList />
     </ProtectedRoute>
   );
