@@ -27,6 +27,11 @@ import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
+// KIT2-L (kitchen deep audit, KIT2-41): per-task countdown chips
+// over kitchen_prep_tasks. Lives on every preparing-column card,
+// auto-expanded (no more <details>) so the chef sees timers
+// without expanding each card.
+import { PrepTaskTimer } from "@/components/kitchen/PrepTaskTimer";
 // Wave 49 B3 - kitchen-to-driver handover surface. Mounts on every
 // "ready" + "preparing" order so the kitchen lead has a single tap
 // to sign food + equipment over to the driver. This row is the gate
@@ -1271,20 +1276,30 @@ export default function KitchenDashboard() {
                                   );
                                 })()}
 
-                                {/* Per-task tick UI lives inside TaskCompletionButtons (existing component) */}
+                                {/* KIT2-L: prep-task timers + checklist
+                                    are auto-expanded now. The previous
+                                    <details> hid both behind a "Tasks ▾"
+                                    summary so the chef had to expand
+                                    every preparing card just to see
+                                    whether a timer was running. Inline
+                                    means the timers are glanceable from
+                                    the kanban at a normal arm's reach.
+                                    PrepTaskTimer reads kitchen_prep_tasks
+                                    (per-menu-item prep + cook rows);
+                                    TaskCompletionButtons reads
+                                    kitchen_task_completions (the four
+                                    macro Food/Cutlery/Crockery/Pickup
+                                    gates). Both surfaces stay - they're
+                                    different responsibilities. */}
                                 {col.key === "preparing" && (
-                                  <details className="mt-2 group">
-                                    <summary className="text-[11px] text-slate-500 cursor-pointer hover:text-slate-900 select-none">
-                                      Tasks ▾
-                                    </summary>
-                                    <div className="mt-1 pt-1 border-t border-slate-200">
-                                      <TaskCompletionButtons
-                                        orderId={order.id}
-                                        orderNumber={order.order_number}
-                                        clientName={order.client_name || order.event_name}
-                                      />
-                                    </div>
-                                  </details>
+                                  <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
+                                    <PrepTaskTimer orderId={order.id} />
+                                    <TaskCompletionButtons
+                                      orderId={order.id}
+                                      orderNumber={order.order_number}
+                                      clientName={order.client_name || order.event_name}
+                                    />
+                                  </div>
                                 )}
 
                                 {/* Wave 49 B3 - the kitchen-to-driver
