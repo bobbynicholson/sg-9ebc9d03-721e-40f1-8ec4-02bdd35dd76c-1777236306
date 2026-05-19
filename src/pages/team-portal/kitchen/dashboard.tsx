@@ -40,6 +40,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { markOrderReady } from "@/services/order/orderWorkflow";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
+import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
 import { useToast } from "@/hooks/use-toast";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
@@ -177,6 +178,12 @@ export default function KitchenDashboard() {
     // pages emit this on mutations - the listener catches them
     // even when the postgres channel is mid-reconnect.
     const offBus = onOrderUpdated(() => { refresh(); });
+    // CLN2-I: when a cleaner flags damaged equipment, the
+    // KIT2-O cleaning readiness chip should re-roll-up
+    // cleaning_jobs vs damages immediately. Postgres realtime on
+    // cleaning_jobs is not subscribed here - this bus fills the
+    // gap without paying for another channel.
+    const offDamage = onEquipmentDamaged(() => { refresh(); });
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
@@ -184,6 +191,7 @@ export default function KitchenDashboard() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
       offBus();
+      offDamage();
       void sub.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
