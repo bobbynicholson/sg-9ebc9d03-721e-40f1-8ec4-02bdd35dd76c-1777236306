@@ -39,6 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { markOrderReady } from "@/services/order/orderWorkflow";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
@@ -212,6 +213,14 @@ export default function KitchenDashboard() {
         await kitchenPrepService.recordAllergenCheck(orderId, user.id, checkResult);
       }
       await markOrderReady(orderId);
+      // KIT2-E (kitchen deep audit, KIT2-29, P0): broadcast on the
+      // cross-tab event bus so admin /admin/orders, /admin/calendar,
+      // /admin/order-assignments, /track/{order_number} (public
+      // client portal), and /admin/financial-dashboard all reflect
+      // the ready state without waiting for window focus or polling.
+      // Driver dashboard's realtime sub on `orders.status='ready'`
+      // already catches this - the emit covers everyone else.
+      emitOrderUpdated(orderId, "kitchen/dashboard:mark-ready", ["status"]);
       toast({
         title: "Order ready",
         description: clientName ? `${clientName} marked ready. Driver notified.` : "Driver notified.",
@@ -312,6 +321,14 @@ export default function KitchenDashboard() {
         toast({ title: "Couldn't close order", description: data.error || "Server error", variant: "destructive" });
         return;
       }
+      // KIT2-E (KIT2-30, P1): force-close cascade is the biggest
+      // status fan-out on the page (prep tasks done + status to
+      // delivered + audit row). Same surfaces as Mark-ready need the
+      // signal. Force-close from /admin/orders already emits
+      // readiness-chip:force-close; this dashboard variant now
+      // matches that contract via the shared cateringms:order-updated
+      // bus.
+      emitOrderUpdated(orderId, "kitchen/dashboard:force-close", ["status", "prep", "handover"]);
       toast({ title: "Order closed", description: data.message });
       await loadDashboardData();
     } catch (e: any) {
