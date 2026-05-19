@@ -36,6 +36,7 @@ import {
 import {
   ShoppingCart, CheckCircle, Clock, Package, ListChecks, Camera,
   ArrowRight, Loader2, User, Users as UsersIcon, AlertCircle, Sparkles,
+  Printer,
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -216,6 +217,23 @@ export default function ShoppingDashboard() {
                           Snap a receipt
                         </Button>
                       </Link>
+                      {/* SHP2-A (shopping audit, SHP2-2): paper for the
+                          shopper. Admin /admin/shopping shipped print
+                          via AD-2; staff finally gets it here. */}
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-sm sm:text-base h-10 sm:h-11 gap-1.5"
+                        onClick={() => {
+                          if (remaining.length === 0) {
+                            toast({ title: "Nothing to print", description: "All items already ticked off." });
+                            return;
+                          }
+                          setTimeout(() => window.print(), 100);
+                        }}
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print
+                      </Button>
                       {remaining.length === 0 && items.length > 0 && (
                         <Button
                           onClick={handleCompleteOpen}
@@ -399,6 +417,70 @@ export default function ShoppingDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* SHP2-A (SHP2-2): print-only view of the active shopping list.
+          Hidden on screen via the print CSS below. One row per
+          remaining item with a checkbox so the shopper can tick off
+          on paper. Bought items at the bottom in muted style. */}
+      <div id="print-shopping-staff-list" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
+          {activeList.list?.title || "Shopping list"}
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {" - "}
+          {remaining.length} of {items.length} item{items.length === 1 ? "" : "s"} left
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ width: "24pt", textAlign: "left", padding: "4pt" }}> </th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Item</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Qty</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Unit</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid", color: item.purchased ? "#94a3b8" : "#0f172a" }}>
+                <td style={{ padding: "6pt 4pt" }}>
+                  <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle", backgroundColor: item.purchased ? "#0f172a" : "transparent" }} />
+                </td>
+                <td style={{ padding: "6pt 4pt", textDecoration: item.purchased ? "line-through" : "none" }}>
+                  <strong>{item.name}</strong>
+                </td>
+                <td style={{ padding: "6pt 4pt", textAlign: "right" }}>
+                  {Number(item.quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </td>
+                <td style={{ padding: "6pt 4pt" }}>{item.unit || ""}</td>
+                <td style={{ padding: "6pt 4pt", color: "#64748b" }}>{item.notes || ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Shopping
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 14mm; }
+          body * { visibility: hidden !important; }
+          #print-shopping-staff-list, #print-shopping-staff-list * { visibility: visible !important; }
+          #print-shopping-staff-list {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
 
       <ChatBot userRole="shopping" companyId={companyId} />
     </>
