@@ -700,23 +700,25 @@ export default function KitchenDashboard() {
                               Desktop: buttons sit alongside the badge.
                               Mobile: stacks under the title so the
                               tap targets stay big-thumb friendly. */}
+                          {/* KIT2-K (KIT2-39): Production Priority row
+                              buttons up to min-h-11 (44px). */}
                           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
                             <Link
                               href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                              className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
+                              className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
                               title="Open the printable kitchen ticket"
                             >
-                              <ChefHat className="w-3.5 h-3.5" />
+                              <ChefHat className="w-4 h-4" />
                               <span className="hidden xs:inline sm:inline">Kitchen ticket</span>
                               <span className="xs:hidden sm:hidden">Ticket</span>
                             </Link>
                             {canSeeAdminOrderDetail && (
                               <Link
                                 href={withSlug(`/admin/orders?orderId=${order.id}`)}
-                                className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                                className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
                                 title="Open the order detail in admin"
                               >
-                                <ExternalLink className="w-3.5 h-3.5" />
+                                <ExternalLink className="w-4 h-4" />
                                 <span className="hidden xs:inline sm:inline">Order</span>
                               </Link>
                             )}
@@ -1136,35 +1138,45 @@ export default function KitchenDashboard() {
                                     Routes to the team-portal/kitchen URL
                                     space so the middleware doesn't block
                                     real kitchen-staff users. */}
+                                {/* KIT2-K (KIT2-39): tap targets bumped
+                                    from h-8 (32px) to min-h-11 (44px).
+                                    Floured-hands tap landing. */}
                                 <div className={`mt-2 grid gap-1.5 ${canSeeAdminOrderDetail ? "grid-cols-2" : "grid-cols-1"}`}>
                                   <Link
                                     href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                                    className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
                                     title="Open the printable kitchen ticket"
                                   >
-                                    <ChefHat className="w-3.5 h-3.5" />
+                                    <ChefHat className="w-4 h-4" />
                                     Kitchen ticket
                                   </Link>
                                   {canSeeAdminOrderDetail && (
                                     <Link
                                       href={withSlug(`/admin/orders?orderId=${order.id}`)}
-                                      className="inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+                                      className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
                                       title="Open the order detail in admin"
                                     >
-                                      <ExternalLink className="w-3.5 h-3.5" />
+                                      <ExternalLink className="w-4 h-4" />
                                       Order detail
                                     </Link>
                                   )}
                                 </div>
 
-                                {/* Mark ready, one click, only when In prep */}
+                                {/* KIT2-K (kitchen deep audit, KIT2-39 /
+                                    KIT2-71 / KIT2-92): Mark ready
+                                    bumped to min-h-11 (44px Apple HIG)
+                                    so a chef with floured hands can
+                                    land the tap reliably. The
+                                    allergen-conflict AlertDialog
+                                    already gates the destructive
+                                    path; making the button bigger
+                                    just helps the right path. */}
                                 {col.key === "preparing" && (
                                   <Button
-                                    size="sm"
-                                    className="w-full mt-2 h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                                    className="w-full mt-2 min-h-11 text-sm gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                                     onClick={() => handleMarkReady(order.id, order.client_name || order.event_name)}
                                   >
-                                    <CheckCircle className="w-3 h-3" />
+                                    <CheckCircle className="w-4 h-4" />
                                     Mark ready (notify driver)
                                   </Button>
                                 )}
