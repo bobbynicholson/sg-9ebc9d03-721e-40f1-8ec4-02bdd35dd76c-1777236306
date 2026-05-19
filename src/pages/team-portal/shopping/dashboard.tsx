@@ -65,13 +65,23 @@ function ShoppingDashboardInner() {
   const [completing, setCompleting] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [actualTotalInput, setActualTotalInput] = useState("");
+  // SHP2-G (shopping deep audit, SHP2-32 part b): live search input so
+  // a shopper holding a phone in one hand at the supplier can type
+  // "tom" and immediately see tomatoes - faster than scrolling 30
+  // rows. Case-insensitive substring match against item name + notes.
+  const [searchTerm, setSearchTerm] = useState("");
 
   const items = activeList.items;
   const bought = items.filter(i => i.purchased);
   const remaining = items.filter(i => !i.purchased);
+  const trimmedSearch = searchTerm.trim().toLowerCase();
   const filteredItems = items.filter(i => {
-    if (filter === "pending") return !i.purchased;
-    if (filter === "purchased") return i.purchased;
+    if (filter === "pending" && i.purchased) return false;
+    if (filter === "purchased" && !i.purchased) return false;
+    if (trimmedSearch) {
+      const haystack = `${i.name} ${i.notes ?? ""} ${i.supplier_name ?? ""}`.toLowerCase();
+      if (!haystack.includes(trimmedSearch)) return false;
+    }
     return true;
   });
 
@@ -323,6 +333,35 @@ function ShoppingDashboardInner() {
                 />
               </div>
 
+              {/* SHP2-G (shopping deep audit, SHP2-32): live search
+                  + filter chips. Search input first so a shopper at
+                  the supplier with one hand free can type and the
+                  list immediately filters. Cleared by tapping X
+                  inside the input. */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Input
+                    type="text"
+                    inputMode="search"
+                    placeholder="Search items, notes, or supplier..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pr-9 h-11"
+                    aria-label="Search items"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700"
+                      aria-label="Clear search"
+                    >
+                      <span className="text-lg leading-none">×</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Filter chips */}
               <div className="flex gap-2 mb-4">
                 {(["pending", "all", "purchased"] as const).map(f => (
@@ -385,19 +424,36 @@ function ShoppingDashboardInner() {
                                   : `${group.items.length} done`}
                               </Badge>
                             </div>
+                            {/* SHP2-G (SHP2-32): whole row tappable via
+                                role=button + onClick on the wrapper div.
+                                Visible checkbox is preserved so the
+                                affordance stays obvious; checkbox click
+                                stops propagation so it doesn't fire twice. */}
                             <div className="space-y-2 sm:space-y-3">
                               {group.items.map(item => (
                                 <div
                                   key={item.id}
-                                  className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors ${
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => handleToggle(item.id, item.purchased)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === " " || e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleToggle(item.id, item.purchased);
+                                    }
+                                  }}
+                                  className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
                                     item.purchased
                                       ? "bg-green-50 border-green-200"
-                                      : "bg-white border-slate-200 hover:border-emerald-300"
+                                      : "bg-white border-slate-200 hover:border-emerald-300 active:bg-emerald-50"
                                   }`}
+                                  aria-pressed={item.purchased}
+                                  aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
                                 >
                                   <Checkbox
                                     checked={item.purchased}
                                     onCheckedChange={() => handleToggle(item.id, item.purchased)}
+                                    onClick={(e) => e.stopPropagation()}
                                     className="w-5 h-5 flex-shrink-0"
                                     aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
                                   />
@@ -433,15 +489,27 @@ function ShoppingDashboardInner() {
                       filteredItems.map(item => (
                         <div
                           key={item.id}
-                          className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors ${
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleToggle(item.id, item.purchased)}
+                          onKeyDown={(e) => {
+                            if (e.key === " " || e.key === "Enter") {
+                              e.preventDefault();
+                              handleToggle(item.id, item.purchased);
+                            }
+                          }}
+                          className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
                             item.purchased
                               ? "bg-green-50 border-green-200"
-                              : "bg-white border-slate-200 hover:border-emerald-300"
+                              : "bg-white border-slate-200 hover:border-emerald-300 active:bg-emerald-50"
                           }`}
+                          aria-pressed={item.purchased}
+                          aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
                         >
                           <Checkbox
                             checked={item.purchased}
                             onCheckedChange={() => handleToggle(item.id, item.purchased)}
+                            onClick={(e) => e.stopPropagation()}
                             className="w-5 h-5 flex-shrink-0"
                             aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
                           />
