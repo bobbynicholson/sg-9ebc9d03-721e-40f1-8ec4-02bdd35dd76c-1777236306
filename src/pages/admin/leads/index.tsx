@@ -41,6 +41,8 @@ import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 // Per-lead provenance summary - which quotes/orders/clients have
@@ -361,7 +363,7 @@ function templateForLeadAction(
   }
 }
 
-export default function AdminLeads() {
+function AdminLeadsInner() {
   const { user, profile } = useAuth() as any;
   // Email-settings status banner. If the tenant hasn't configured a
   // Resend or SMTP provider, embed-form / quote-acceptance / lead
@@ -547,6 +549,25 @@ export default function AdminLeads() {
       loadLeads();
     }
   }, [user]);
+
+  // LDS-A (leads audit, LDS-2): supabase realtime sub on leads +
+  // quotes + orders filtered by company_id. When a quote is sent
+  // from /admin/quotes or an order lands from acceptance, the lead
+  // row's status + suggested-action recompute without a manual
+  // refresh. Mirrors the CAL-2 / CTS-2 pattern.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const refetch = () => { loadLeads(); };
+    const sub = supabase
+      .channel(`leads-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads",  filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, refetch)
+      .subscribe();
+    return () => { sub.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   const loadLeads = async () => {
     if (!user?.company_id) {
@@ -1318,10 +1339,14 @@ export default function AdminLeads() {
                               </span>
                             )}
                             {lead.client_phone && (
-                              <span className="flex items-center gap-1">
+                              <a
+                                href={`tel:${lead.client_phone}`}
+                                className="flex items-center gap-1 hover:text-slate-900 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Phone className="w-3 h-3" />
                                 {lead.client_phone}
-                              </span>
+                              </a>
                             )}
                           </div>
                         </div>
@@ -1704,6 +1729,17 @@ export default function AdminLeads() {
         }}
       />
     </>
+  );
+}
+
+// LDS-A (LDS-10): leads is the sales_admin's primary CRM surface.
+// Middleware already gates /admin/* to them; matching the component-
+// level rule. Region admin reads via RLS narrowing.
+export default function AdminLeads() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <AdminLeadsInner />
+    </ProtectedRoute>
   );
 }
 
