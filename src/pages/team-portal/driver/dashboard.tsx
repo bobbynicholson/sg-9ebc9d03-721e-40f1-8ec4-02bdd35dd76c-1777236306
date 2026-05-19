@@ -50,6 +50,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
 import { useDriverPayRates } from "@/hooks/useDriverPayRates";
+import { driverPayService } from "@/services/driverPayService";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 type Order = Tables<"orders">;
@@ -366,31 +367,47 @@ function DriverDashboardInner() {
     };
   }, [user?.id, toast]);
 
-  // Load total outstanding earnings (completed deliveries)
+  // DRV-D (driver deep audit, DRV-10 / DRV-23 / DRV-47): earnings
+  // totals agreement.
+  //
+  // Pre-fix: this effect summed `driver_assignments.total_earnings`
+  // across ALL TIME for the driver. A 3-year tenured driver saw a
+  // giant cumulative rand figure and the /earnings page (which
+  // computes via driverPayService.getPaySummary on a date window)
+  // reported a completely different "this month" number. Two
+  // surfaces, two contradictory truths.
+  //
+  // Post-fix: scope to the month-to-date window that /earnings
+  // defaults to. Compute through the same getPaySummary code path
+  // so the dashboard tile and /earnings always agree. The hourly
+  // + distance + callout split is summed into grand_total here -
+  // the tile just shows one number.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
+    let cancelled = false;
 
     const loadEarnings = async () => {
-      const { data, error } = await supabase
-        .from("driver_assignments")
-        .select("total_earnings")
-        .eq("driver_id", user.id)
-        .in("status", ["completed", "delivered"]);
-
-      if (error) {
-        console.error("Error loading driver earnings:", error);
-        return;
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const fromIso = startOfMonth.toISOString().slice(0, 10);
+        const toIso = now.toISOString().slice(0, 10);
+        const summary = await driverPayService.getPaySummary({
+          companyId: user.company_id,
+          driverId: user.id,
+          range: { from: fromIso, to: toIso },
+        });
+        if (!cancelled) {
+          setTotalEarnings(summary.totals.grand_total || 0);
+        }
+      } catch (e) {
+        console.error("Error loading driver earnings:", e);
       }
-
-      const total = (data || []).reduce(
-        (sum: number, row: any) => sum + (Number(row.total_earnings) || 0),
-        0
-      );
-      setTotalEarnings(total);
     };
 
     loadEarnings();
-  }, [user?.id, jobs.length]);
+    return () => { cancelled = true; };
+  }, [user?.id, user?.company_id, jobs.length]);
 
   // Subscribe to order updates (when status changes)
   useEffect(() => {
@@ -743,7 +760,9 @@ function DriverDashboardInner() {
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 flex items-center justify-center mb-2 mx-auto sm:mx-0">
                       <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     </div>
-                    <p className="text-xs text-slate-600 text-center sm:text-right">Outstanding</p>
+                    {/* DRV-D: label clarifies the window so the chef
+                        knows this matches the /earnings page MTD view. */}
+                    <p className="text-xs text-slate-600 text-center sm:text-right">This month</p>
                     <p className="text-base sm:text-lg font-bold text-slate-900 text-center sm:text-right">
                       {tenantCurrency.format(totalEarnings, 0)}
                     </p>
@@ -851,9 +870,9 @@ function DriverDashboardInner() {
             <MetricCard
               icon={DollarSign}
               iconColor="text-green-600"
-              label="Earnings"
+              label="This month"
               value={tenantCurrency.format(totalEarnings)}
-              tooltip="What you've earned from finished deliveries that haven't been paid out yet."
+              tooltip="Earnings this month - hourly + distance + callout. Matches the /earnings page for the same window."
             />
           </div>
 
