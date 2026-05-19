@@ -47,6 +47,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { onOrderUpdated } from "@/lib/events/orderEvents";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -481,6 +482,17 @@ function ClientPortalDashboardInner() {
     // and the payload includes the full row of every order change
     // depending on REPLICA IDENTITY - a real leak vector if RLS
     // ever wavers on the realtime channel. Filter by company_id.
+    // CLI-D (client deep audit, CLI-16 / CLI-19 / CLI-20): broaden
+    // the realtime channel to cover invoices, quotes, and payments
+    // alongside orders. Pre-fix:
+    //   - admin "Mark paid" only flipped /admin/invoices; client
+    //     /dashboard had no signal until window focus
+    //   - admin "Send quote" wrote to quotes; pending-quotes hero
+    //     band didn't surface until reload
+    //   - admin "Capture payment" wrote to payments; outstanding
+    //     balance (when CLI-F lands) wouldn't refresh
+    // All four tables are company-scoped via filter so RLS + the
+    // server-side filter together stop cross-tenant leakage.
     const channel = supabase
       .channel(`client-orders-${user.id}-${tenantCompanyId}`)
       .on(
@@ -495,11 +507,61 @@ function ClientPortalDashboardInner() {
           if (!cancelled) load();
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "invoices",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => {
+          if (!cancelled) load();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "quotes",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => {
+          if (!cancelled) load();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => {
+          if (!cancelled) load();
+        },
+      )
       .subscribe();
+
+    // CLI-D (CLI-16): cross-tab event bus listener.
+    // /admin/orders, /admin/invoices, /admin/quotes, driver / kitchen
+    // dashboards all emit `cateringms:order-updated` on their action
+    // callbacks (DRV-E, KIT2-E, etc.). The postgres realtime sub
+    // above catches DB changes cross-device, but a driver in
+    // another tab of the SAME browser session may not see the row
+    // mutation on the realtime channel if the connection is still
+    // re-establishing. The event bus is the in-browser belt-and-
+    // braces.
+    const offOrderUpdated = onOrderUpdated(() => {
+      if (!cancelled) load();
+    });
 
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      offOrderUpdated();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.email, company?.id]);
