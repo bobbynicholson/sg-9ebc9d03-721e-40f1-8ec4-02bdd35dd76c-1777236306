@@ -8,8 +8,9 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { DynamicNav } from "@/components/DynamicNav";
+import { DriverNav } from "@/components/navigation/DriverNav";
 import { UserRole } from "@/types/app";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -40,7 +41,7 @@ const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   picked_up: { label: "Picked Up", tone: "bg-purple-100 text-purple-800" },
 };
 
-export default function DriverTracking() {
+function DriverTrackingInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [delivery, setDelivery] = useState<ActiveDelivery | null>(null);
@@ -159,7 +160,7 @@ export default function DriverTracking() {
         <title>Delivery Tracking - Driver Portal</title>
       </Head>
 
-      <DynamicNav userRole={UserRole.DRIVER} />
+      <DriverNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 md:py-8 lg:py-12 max-w-4xl">
@@ -280,5 +281,15 @@ export default function DriverTracking() {
 
       <ChatBot userRole="driver" companyId={user?.company_id} />
     </>
+  );
+}
+
+// DRV-A (driver deep audit, DRV-1 / DRV-2 / DRV-21): defense-in-depth.
+// Matches the dashboard wrapper.
+export default function DriverTracking() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <DriverTrackingInner />
+    </ProtectedRoute>
   );
 }
