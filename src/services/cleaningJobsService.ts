@@ -290,11 +290,80 @@ export async function completeJob(
   supabase: SupabaseClient,
   jobId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await (supabase as any)
+  // CLN2-A (cleaning deep audit, CLN2-26, P0):
+  //
+  // Before this fix the function flipped status='complete' and wrote
+  // actual_end, then stopped. Equipment.available_quantity was NOT
+  // incremented back. The cleaning ledger and the equipment table
+  // disagreed - same class of "vibes only" bug as SHP2-22 on shopping.
+  //
+  // The fix: read the job (need equipment_id + quantity), update the
+  // status, then bump equipment.available_quantity by the job's
+  // quantity. Failure on the inventory bump is logged but does NOT
+  // roll back the status change - the tick is the source of truth
+  // and inventory can be reconciled via the admin adjustment flow,
+  // matching the SHP2-B pattern.
+  //
+  // Also emits cateringms:order-updated via a window event so the
+  // dashboard's overview tile / admin /admin/equipment / dispatch
+  // readiness all refresh in their own tabs without a manual reload.
+
+  const sb = supabase as any;
+
+  // 1. Pull equipment_id + quantity for the bump.
+  const { data: jobRow, error: readErr } = await sb
+    .from("cleaning_jobs")
+    .select("equipment_id, quantity")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+
+  // 2. Mark complete.
+  const { error: completeErr } = await sb
     .from("cleaning_jobs")
     .update({ status: "complete", actual_end: new Date().toISOString() })
     .eq("id", jobId);
-  if (error) return { ok: false, error: error.message };
+  if (completeErr) return { ok: false, error: completeErr.message };
+
+  // 3. Bump inventory back. Non-blocking on the user-visible tick.
+  if (jobRow?.equipment_id && Number.isFinite(Number(jobRow.quantity))) {
+    const qty = Number(jobRow.quantity);
+    try {
+      const { data: invRow, error: invReadErr } = await sb
+        .from("equipment")
+        .select("available_quantity")
+        .eq("id", jobRow.equipment_id)
+        .maybeSingle();
+      if (invReadErr || !invRow) {
+        // eslint-disable-next-line no-console
+        console.warn("[cleaningJobsService.completeJob] inventory read failed:", invReadErr);
+      } else {
+        const newAvail = Number(invRow.available_quantity || 0) + qty;
+        const { error: bumpErr } = await sb
+          .from("equipment")
+          .update({ available_quantity: newAvail, updated_at: new Date().toISOString() })
+          .eq("id", jobRow.equipment_id);
+        if (bumpErr) {
+          // eslint-disable-next-line no-console
+          console.warn("[cleaningJobsService.completeJob] inventory bump failed:", bumpErr);
+        }
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[cleaningJobsService.completeJob] inventory bump threw:", e);
+    }
+  }
+
+  // 4. Cross-tab signal. Listeners on admin /admin/equipment,
+  // /admin/order-assignments, and the kitchen dashboard refetch.
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("cateringms:cleaning-job-completed", {
+        detail: { jobId, equipmentId: jobRow?.equipment_id ?? null, quantity: jobRow?.quantity ?? null },
+      }));
+    } catch { /* old browsers without CustomEvent polyfill */ }
+  }
+
   return { ok: true };
 }
 
