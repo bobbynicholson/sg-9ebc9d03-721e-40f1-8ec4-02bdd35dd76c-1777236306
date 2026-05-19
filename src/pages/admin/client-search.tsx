@@ -19,7 +19,10 @@ import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedClientSearchPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    // CS-A (client-search audit, CS-1 + CS-5): fixed the duplicate
+    // COMPANY_ADMIN typo and admitted sales_admin + region_admin who
+    // need client lookup pre-quote.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ClientSearchPage />
     </ProtectedRoute>
   );
@@ -287,16 +290,24 @@ function ClientSearchPage() {
                           </div>
                           <div className="grid sm:grid-cols-2 gap-2 text-sm text-slate-600">
                             {client.email && (
-                              <div className="flex items-center gap-2">
+                              // CS-A (CS-6): mailto: link for tap-to-email.
+                              <a
+                                href={`mailto:${client.email}`}
+                                className="flex items-center gap-2 hover:text-slate-900 hover:underline"
+                              >
                                 <Mail className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{client.email}</span>
-                              </div>
+                              </a>
                             )}
                             {client.phone && (
-                              <div className="flex items-center gap-2">
+                              // CS-A (CS-6): tel: link for tap-to-call.
+                              <a
+                                href={`tel:${client.phone}`}
+                                className="flex items-center gap-2 hover:text-slate-900 hover:underline"
+                              >
                                 <Phone className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{client.phone}</span>
-                              </div>
+                              </a>
                             )}
                             {client.company_name && (
                               <div className="flex items-center gap-2">
