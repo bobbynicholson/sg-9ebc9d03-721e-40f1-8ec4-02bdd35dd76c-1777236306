@@ -19,6 +19,7 @@ import {
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
 import { RunningLateChips } from "@/components/driver/RunningLateChips";
+import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
@@ -139,6 +140,14 @@ function DriverDashboardInner() {
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
   // Phase 5B: chat dialog
   const [chatJob, setChatJob] = useState<Job | null>(null);
+  // DRV-H (driver deep audit, DRV-34 / DRV-49): "Status step" dialog
+  // that surfaces the full DriverConfirmationPanel (4-stage flow:
+  // en route to kitchen / at kitchen / departed / at venue) one tap
+  // from the home screen. The panel lives at
+  // /team-portal/driver/deliveries today, so the driver couldn't
+  // confirm en-route + arrived from the dashboard without
+  // navigating away.
+  const [confirmJob, setConfirmJob] = useState<Job | null>(null);
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
@@ -948,6 +957,22 @@ function DriverDashboardInner() {
                           <MessageCircle className="w-4 h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Chat</span>
                         </Button>
+                        {/* DRV-H (driver deep audit, DRV-34 / DRV-49):
+                            opens the 4-stage status checklist dialog
+                            (en route / at kitchen / departed / at
+                            venue). One tap from the dashboard so the
+                            driver doesn't have to navigate to
+                            /deliveries to stamp a milestone. Available
+                            on every active job. */}
+                        <Button
+                          variant="outline"
+                          onClick={() => setConfirmJob(job)}
+                          className="flex-1 sm:flex-none min-h-11 px-3 text-sm"
+                          title="Stamp status milestone (en route / at kitchen / arrived)"
+                        >
+                          <CheckCircle className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Status</span>
+                        </Button>
 
                         {/* POD capture dialog. Only shows once the
                             order is packed and moving: ready,
@@ -1065,6 +1090,30 @@ function DriverDashboardInner() {
               userId={user.id}
               senderRole="driver"
               maxHeight="320px"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DRV-H (DRV-34 / DRV-49): 4-stage status checklist surfaced
+          as a dialog on the dashboard. Lets the driver tap "Arrived
+          at venue" from the home screen without navigating to
+          /deliveries. The panel does its own GPS + write workflow
+          via driverConfirmationService. */}
+      <Dialog open={!!confirmJob} onOpenChange={(open) => !open && setConfirmJob(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              Status · {confirmJob?.client_name}
+            </DialogTitle>
+          </DialogHeader>
+          {confirmJob && (
+            <DriverConfirmationPanel
+              orderId={confirmJob.id}
+              orderNumber={confirmJob.order_number}
+              eventTime={confirmJob.event_time}
+              venueAddress={confirmJob.venue_address}
             />
           )}
         </DialogContent>
