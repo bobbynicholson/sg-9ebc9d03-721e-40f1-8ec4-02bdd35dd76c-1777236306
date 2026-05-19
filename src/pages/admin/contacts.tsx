@@ -626,6 +626,24 @@ function ClientsCRM() {
     loadContacts();
   }, [loadContacts]);
 
+  // CTS-B (contacts audit, CTS-2): supabase realtime sub on the four
+  // feeds the contact status derives from. When a new quote / order /
+  // lead / invoice lands in another tab, the contact's status +
+  // next-action recompute without a manual refresh. Mirrors the
+  // CAL-2 calendar pattern.
+  useEffect(() => {
+    if (!companyId) return;
+    const refetch = () => { loadContacts(); };
+    const sub = supabase
+      .channel(`contacts-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders",   filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotes",   filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads",    filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` }, refetch)
+      .subscribe();
+    return () => { sub.unsubscribe(); };
+  }, [companyId, loadContacts]);
+
   // Deep-link handler - when /admin/contacts?clientId=<uuid> is in
   // the URL (typically from Client Search), find the contact whose
   // backing client row matches, drop any active filter so the row is
@@ -1220,20 +1238,29 @@ function ClientsCRM() {
                                     </span>
                                   )}
                                 </div>
+                                {/* CTS-C (CTS-8): tap-to-call + tap-to-email
+                                    on every phone / mail render. Sales rep on
+                                    a tablet shouldn't have to copy-paste. */}
                                 <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
-                                  {c.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>}
+                                  {c.email && (
+                                    <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                      <Mail className="w-3 h-3" />{c.email}
+                                    </a>
+                                  )}
                                   {c.mobile_number ? (
-                                    <span className="flex items-center gap-1" title="Mobile">
+                                    <a href={`tel:${c.mobile_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Mobile" onClick={(e) => e.stopPropagation()}>
                                       <Phone className="w-3 h-3 text-emerald-600" />{c.mobile_number}
-                                    </span>
+                                    </a>
                                   ) : null}
                                   {c.landline_number ? (
-                                    <span className="flex items-center gap-1" title="Landline">
+                                    <a href={`tel:${c.landline_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Landline" onClick={(e) => e.stopPropagation()}>
                                       <Phone className="w-3 h-3" />{c.landline_number}
-                                    </span>
+                                    </a>
                                   ) : null}
                                   {!c.mobile_number && !c.landline_number && c.phone ? (
-                                    <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
+                                    <a href={`tel:${c.phone}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                      <Phone className="w-3 h-3" />{c.phone}
+                                    </a>
                                   ) : null}
                                   {(c.historicalTotalEvents != null || c.historicalLifetimeSpend != null) && (
                                     <span className="flex items-center gap-1 text-violet-700" title="Imported event history">
@@ -2193,7 +2220,10 @@ function ClientFormDialog({
 
 export default function ClientsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // CTS-C (CTS-5): sales_admin is the contact-page primary user
+    // (chase quotes, log calls). Middleware already gates /admin/*
+    // to them; matching the component-level rule.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN]}>
       <ClientsCRM />
     </ProtectedRoute>
   );
