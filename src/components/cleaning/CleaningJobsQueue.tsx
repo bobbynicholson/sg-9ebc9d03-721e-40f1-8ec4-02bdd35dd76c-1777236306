@@ -175,23 +175,27 @@ export function CleaningJobsQueue() {
                         )}
                       </div>
                     </div>
+                    {/* CLN2-H (cleaning deep audit, CLN2-71): 44px tap
+                        targets on the queue actions. Cleaners often
+                        operate on a wet tablet beside the dishwasher;
+                        Apple HIG / WCAG min-tappable surface keeps
+                        mis-taps on Complete (irreversible) low. */}
                     <div className="flex items-center gap-2 shrink-0">
                       {r.status === "queued" && (
                         <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => onStart(r.id)}
                           disabled={isBusy}
+                          className="min-h-11 px-3"
                         >
                           {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           <span className="ml-1">Start</span>
                         </Button>
                       )}
                       <Button
-                        size="sm"
                         onClick={() => onComplete(r.id)}
                         disabled={isBusy}
-                        className="bg-emerald-600 hover:bg-emerald-700"
+                        className="bg-emerald-600 hover:bg-emerald-700 min-h-11 px-3"
                       >
                         {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                         <span className="ml-1">Complete</span>
