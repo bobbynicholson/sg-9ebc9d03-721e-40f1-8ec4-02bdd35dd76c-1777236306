@@ -99,9 +99,16 @@ function ShoppingDashboardInner() {
     setCompleting(true);
     try {
       await activeList.completeList(parsed);
+      // SHP2-E (SHP2-30): completeList now writes supplier_payables
+      // when an actual total was entered. The cashflow forecast
+      // refreshes via the cateringms:shopping-updated event listener.
+      // Nudge the shopper to snap the receipt so the bookkeeper can
+      // reconcile against the payable.
       toast({
-        title: "List complete",
-        description: "Snap the receipt to close it out.",
+        title: parsed && parsed > 0 ? "List complete · payable recorded" : "List complete",
+        description: parsed && parsed > 0
+          ? "Snap the receipt to reconcile - cashflow is already updated."
+          : "Snap the receipt to close it out.",
       });
       setCompleteOpen(false);
     } finally {

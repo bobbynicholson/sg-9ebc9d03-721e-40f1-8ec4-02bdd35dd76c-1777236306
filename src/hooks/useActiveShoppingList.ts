@@ -389,6 +389,39 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       setError(cErr.message || "Could not complete list");
       return;
     }
+    // SHP2-E (shopping deep audit, SHP2-30): when the shopper records
+    // an actual spend, write a matching supplier_payables row so the
+    // cashflow forecast immediately picks it up instead of waiting on
+    // the bookkeeper to type it in by hand. v1 writes a single
+    // mixed-supplier payable (supplier_id = null) with a 30-day net
+    // due date - the shopping run typically spans multiple suppliers
+    // and the receipts page is where per-supplier splits get
+    // reconciled later. Notes link back to the list for traceability.
+    if (typeof actualTotal === "number" && actualTotal > 0 && companyId) {
+      try {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        const amountCents = Math.round(actualTotal * 100);
+        const { error: payErr } = await sb
+          .from("supplier_payables")
+          .insert({
+            company_id: companyId,
+            supplier_id: null,
+            amount_cents: amountCents,
+            due_date: toLocalISO(dueDate),
+            notes: `Shopping run · list ${list.id.slice(0, 8)} · ${list.title || "shopping list"}`,
+            status: "pending",
+            created_by: userId ?? null,
+          });
+        if (payErr) {
+          // Don't roll back the list-complete - bookkeeper can still
+          // record manually. Just warn so we see this in logs.
+          console.warn("[useActiveShoppingList] supplier_payables write failed:", payErr);
+        }
+      } catch (e) {
+        console.warn("[useActiveShoppingList] supplier_payables threw:", e);
+      }
+    }
     // SHP2-C (SHP2-24): completeList broadcasts so cashflow forecast
     // moves committed -> actual, payables surface refreshes, and
     // admin /admin/shopping "today's run" badge clears. Listeners
@@ -401,7 +434,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       } catch { /* old browsers without CustomEvent polyfill */ }
     }
     await load();
-  }, [list, load]);
+  }, [list, load, userId, companyId]);
 
   return {
     list,
