@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Camera, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,6 +65,12 @@ export function DamageFlagForm({ onFlagged }: Props) {
   const [quantity, setQuantity] = useState<number>(1);
   const [reason, setReason] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
+  // CLN2-H (CLN2-69): camera capture. The cleaner picks an image via
+  // <input capture="environment"> which opens the back camera on a
+  // phone and the file picker on desktop. We upload on submit so the
+  // cleaner can swap photos before committing.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -108,10 +114,51 @@ export function DamageFlagForm({ onFlagged }: Props) {
 
   const canSubmit = !!equipmentId && !!orderId && quantity > 0 && !!reason.trim() && !submitting;
 
+  // CLN2-H camera capture: file picked from <input>. We revoke the
+  // prior preview URL to avoid leaking object URLs when the user
+  // re-shoots before submit.
+  const handlePhotoPick = (file: File | null) => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      return;
+    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      // CLN2-H (CLN2-69): if the cleaner captured a photo, upload it
+      // to the equipment-damage-photos bucket first and use the
+      // resulting public URL on the damage record. We do this BEFORE
+      // reportDamage so the photo url is attached on the initial
+      // insert - no follow-up update / orphan-row risk.
+      let resolvedPhotoUrl = photoUrl.trim() || undefined;
+      if (photoFile && companyId) {
+        const ext = photoFile.name.split(".").pop()?.toLowerCase() || "jpg";
+        const photoPath = `${companyId}/${orderId}/${Date.now()}-damage.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("equipment-damage-photos")
+          .upload(photoPath, photoFile, { upsert: true, contentType: photoFile.type });
+        if (upErr) {
+          console.error("[DamageFlagForm] photo upload failed:", upErr);
+          toast({
+            title: "Photo upload failed",
+            description: "Saving damage flag without the photo.",
+            variant: "destructive",
+          });
+        } else {
+          const { data: pub } = supabase.storage
+            .from("equipment-damage-photos")
+            .getPublicUrl(photoPath);
+          if (pub?.publicUrl) resolvedPhotoUrl = pub.publicUrl;
+        }
+      }
+
       // damage_stage="return" - this form is the cleaner flagging
       // an item that came back wrong. Driver / kitchen stages flow
       // through their own panels (EquipmentVerificationPanel etc.).
@@ -125,7 +172,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
         responsibleUserId: user?.id,
         responsibleName: user?.email || "Cleaning Team",
         description: reason.trim(),
-        photoUrl: photoUrl.trim() || undefined,
+        photoUrl: resolvedPhotoUrl,
       });
 
       emitEquipmentDamaged({
@@ -146,6 +193,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
       setQuantity(1);
       setReason("");
       setPhotoUrl("");
+      handlePhotoPick(null);
       setDamageType("broken");
       onFlagged?.();
     } catch (e: any) {
@@ -246,14 +294,54 @@ export function DamageFlagForm({ onFlagged }: Props) {
             />
           </div>
 
+          {/* CLN2-H (CLN2-69): in-field camera capture. The label is
+              also the tap target so phones open the camera straight
+              to the back lens via capture="environment". Desktop falls
+              back to a normal file picker. URL input stays as a paste
+              fallback for the case where someone already has a hosted
+              link (DM photo, drive link). */}
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="dmg-photo">Photo URL (optional)</Label>
+            <Label>Photo (optional)</Label>
+            {photoPreview ? (
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoPreview}
+                  alt="Damage preview"
+                  className="rounded-lg border border-slate-200 max-h-48 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => handlePhotoPick(null)}
+                  className="absolute -top-2 -right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-300 text-slate-700 shadow"
+                  aria-label="Remove photo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label
+                htmlFor="dmg-photo-file"
+                className="flex items-center justify-center gap-2 min-h-11 px-4 rounded-md border border-dashed border-slate-300 text-sm text-slate-600 cursor-pointer hover:bg-slate-50"
+              >
+                <Camera className="w-4 h-4" />
+                Tap to take a photo
+                <input
+                  id="dmg-photo-file"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(e) => handlePhotoPick(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            )}
             <Input
               id="dmg-photo"
               type="url"
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
-              placeholder="Paste a photo link if you have one"
+              placeholder="Or paste a photo link"
             />
           </div>
         </div>
