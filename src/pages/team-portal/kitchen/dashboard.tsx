@@ -183,19 +183,40 @@ export default function KitchenDashboard() {
     try {
       setLoading(true);
 
-      // Load orders for today and next 2 days
-      const threeDaysFromNow = new Date();
+      // KIT2-G (kitchen deep audit, KIT2-12 / KIT2-67 / KIT2-69):
+      // Three fixes batched in this query:
+      //   1. Local-timezone date boundary. Pre-fix this used
+      //      `new Date().toISOString().split("T")[0]` which converts
+      //      to UTC first - at 02:00 SAST on a Sunday the page was
+      //      already serving Monday's events. Use the local-tz
+      //      helper instead.
+      //   2. Soft-delete guard. The `orders` table has a deleted_at
+      //      column and the rest of the codebase respects it; the
+      //      kitchen page did not. A soft-deleted order silently
+      //      remained on the prep board.
+      //   3. Server-side LIMIT. Without it, a tenant with 30+
+      //      events on the same weekend would pull all rows and
+      //      let the kitchen lead scroll through 8 pages of cards.
+      //      Cap at 50 - the kitchen workload-per-period rarely
+      //      exceeds that, and the truncated view forces filtering
+      //      via tabs / Plenty-of-time rather than firehose render.
+      const localToday = new Date();
+      const todayIso = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
+      const threeDaysFromNow = new Date(localToday);
       threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 2);
+      const horizonIso = `${threeDaysFromNow.getFullYear()}-${String(threeDaysFromNow.getMonth() + 1).padStart(2, "0")}-${String(threeDaysFromNow.getDate()).padStart(2, "0")}`;
 
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select("*")
         .eq("company_id", user.company_id)
-        .gte("event_date", new Date().toISOString().split("T")[0])
-        .lte("event_date", threeDaysFromNow.toISOString().split("T")[0])
+        .is("deleted_at", null)
+        .gte("event_date", todayIso)
+        .lte("event_date", horizonIso)
         .in("status", ["confirmed", "preparing", "ready"])
         .order("event_date", { ascending: true })
-        .order("event_time", { ascending: true });
+        .order("event_time", { ascending: true })
+        .limit(50);
 
       if (ordersError) {
         console.error("Error loading orders:", ordersError);
@@ -255,9 +276,14 @@ export default function KitchenDashboard() {
       // header reads off this state. Best-effort - a failure here
       // doesn't block the rest of the dashboard.
       try {
+        // KIT2-G (KIT2-67): local-timezone tomorrow. Pre-fix this
+        // used toISOString().slice(0, 10) which forced UTC - at
+        // 23:00 SAST the chip was already counting the day after
+        // tomorrow's cleaning. Build the YYYY-MM-DD string from
+        // local components.
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowISO = tomorrow.toISOString().slice(0, 10);
+        const tomorrowISO = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
         const tomorrowOrderIds = (ordersData || [])
           .filter((o: any) => o.event_date === tomorrowISO)
           .map((o: any) => o.id);
