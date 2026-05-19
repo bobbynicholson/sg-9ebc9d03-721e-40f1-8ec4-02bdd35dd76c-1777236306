@@ -2,11 +2,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  MapPin, 
-  Navigation, 
-  Clock, 
-  CheckCircle, 
+import {
+  MapPin,
+  Navigation,
+  Clock,
+  CheckCircle,
   Route as RouteIcon,
   TrendingUp,
   DollarSign,
@@ -16,8 +16,14 @@ import {
   Map,
   AlertCircle,
   Play,
-  Flag
+  Pause,
+  Flag,
+  X,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -34,6 +40,8 @@ import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useDriverTripTimer } from "@/hooks/useDriverTripTimer";
+import { updateDeliveryStatus as updateDeliveryStatusRaw } from "@/services/driver/deliveryManagement";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -60,6 +68,16 @@ export default function DriverRoutes() {
   // Wave 24: tenant-currency aware so non-ZAR tenants don't see "R"
   // hardcoded on the route stop callout/distance summary.
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+
+  // Driver trip timer + Pause / Cancel controls. Bobby's brief:
+  // Start Trip flipped a hidden boolean and showed nothing for
+  // accountability. The hook persists clock to localStorage so a
+  // phone lock or reload doesn't lose it, and resets when the
+  // set of stops changes (claimed a different job).
+  const stopIds = (route?.stops || []).map((s) => s.order_id);
+  const trip = useDriverTripTimer(user?.id ?? null, stopIds);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -108,19 +126,23 @@ export default function DriverRoutes() {
 
   const startTrip = async () => {
     if (!route || route.stops.length === 0) return;
-    
+
     try {
       const firstStop = route.stops[0];
-      
+
       // Start the first assignment
       await driverService.startJob(firstStop.order_id);
-      
+
       setTripStarted(true);
+      // Start the visible timer alongside the DB status flip. The
+      // hook persists to localStorage so a refresh or phone lock
+      // keeps the clock running.
+      trip.start();
       toast({
         title: "Trip Started! 🚗",
         description: "GPS tracking activated. Drive safely!",
       });
-      
+
       // Reload to get updated status
       await loadOptimizedRoute();
     } catch (error) {
@@ -130,6 +152,61 @@ export default function DriverRoutes() {
         description: "Failed to start trip. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Pause / Resume control the timer only. Order status stays as
+  // in_transit because the driver is still on the trip - they're
+  // just stopped for a break, traffic, or admin.
+  const togglePause = () => {
+    if (!trip.isActive) return;
+    if (trip.isPaused) {
+      trip.resume();
+      toast({ title: "Trip resumed", description: "Clock is ticking again." });
+    } else {
+      trip.pause();
+      toast({ title: "Trip paused", description: "Clock saved. Resume when you're moving again." });
+    }
+  };
+
+  // Cancel: revert order statuses (in_transit -> ready), wipe the
+  // timer, reset UI. Only available before any stop has been
+  // completed - otherwise the driver should finish the trip rather
+  // than discard a successful delivery.
+  const handleCancelTrip = async () => {
+    if (!route || cancelling) return;
+    setCancelling(true);
+    try {
+      const userId = user?.id;
+      if (!userId) throw new Error("Not authenticated");
+      // Walk every in-flight stop back to ready. Stops already
+      // delivered are left alone - cancelling shouldn't un-deliver
+      // history.
+      const REVERTABLE = new Set(["in_transit", "in_progress", "at_venue", "picked_up", "en_route"]);
+      for (const stop of route.stops) {
+        const stat = String((stop as any).status || "").toLowerCase();
+        if (REVERTABLE.has(stat)) {
+          try {
+            await updateDeliveryStatusRaw(stop.order_id, "ready" as any, userId);
+          } catch (revertErr) {
+            console.warn("[routes/cancel] revert failed for", stop.order_id, revertErr);
+          }
+        }
+      }
+      trip.cancel();
+      setTripStarted(false);
+      setShowCancelDialog(false);
+      toast({ title: "Trip cancelled", description: "Clock reset. The trip can be started again any time." });
+      await loadOptimizedRoute();
+    } catch (err) {
+      console.error("Error cancelling trip:", err);
+      toast({
+        title: "Couldn't cancel",
+        description: err instanceof Error ? err.message : "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -175,11 +252,14 @@ export default function DriverRoutes() {
         }
       }
       
+      // Freeze the timer at the final elapsed - the driver still
+      // wants to see "trip ran 1h 23m" in the completed summary.
+      trip.stop();
       toast({
         title: "Excellent Work! 🎊",
-        description: "Trip completed successfully. Your earnings have been recorded.",
+        description: `Trip completed in ${trip.elapsedLabel}. Earnings recorded.`,
       });
-      
+
       // Reload route (will show as completed)
       await loadOptimizedRoute();
     } catch (error) {
@@ -315,29 +395,74 @@ export default function DriverRoutes() {
                 </div>
               </div>
               
-              {/* Trip Control Buttons */}
+              {/* Trip Control Buttons + elapsed timer */}
               {!loading && route && route.stops.length > 0 && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {!tripStarted && !tripCompleted && (
                     <Button
                       size="lg"
                       onClick={startTrip}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-11"
                     >
                       <Play className="w-5 h-5 mr-2" />
                       Start Trip
                     </Button>
                   )}
                   {tripStarted && !tripCompleted && (
-                    <Badge className="bg-blue-500 text-white text-base px-4 py-2">
-                      <Navigation className="w-4 h-4 mr-2 animate-pulse" />
-                      Trip In Progress
-                    </Badge>
+                    <>
+                      {/* Live elapsed clock - the visible "trip is
+                          running" signal Bobby asked for. Pulses
+                          while running, dimmed while paused so the
+                          driver can tell at a glance. */}
+                      <div
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold tabular-nums shadow-sm ${
+                          trip.isPaused
+                            ? "bg-amber-100 text-amber-900 border border-amber-300"
+                            : "bg-blue-500 text-white"
+                        }`}
+                        aria-live="polite"
+                      >
+                        <Clock className={`w-4 h-4 ${trip.isPaused ? "" : "animate-pulse"}`} />
+                        {trip.elapsedLabel}
+                        {trip.isPaused && (
+                          <span className="text-xs font-normal opacity-80">paused</span>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={togglePause}
+                        className="min-h-11"
+                        aria-label={trip.isPaused ? "Resume trip" : "Pause trip"}
+                      >
+                        {trip.isPaused ? (
+                          <>
+                            <Play className="w-4 h-4 mr-1.5" />
+                            Resume
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="w-4 h-4 mr-1.5" />
+                            Pause
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowCancelDialog(true)}
+                        className="min-h-11 text-red-700 border-red-300 hover:bg-red-50"
+                        aria-label="Cancel trip"
+                      >
+                        <X className="w-4 h-4 mr-1.5" />
+                        Cancel
+                      </Button>
+                    </>
                   )}
                   {tripCompleted && (
                     <Badge className="bg-green-500 text-white text-base px-4 py-2">
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Trip Completed
+                      Trip Completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
                     </Badge>
                   )}
                 </div>
@@ -751,6 +876,47 @@ export default function DriverRoutes() {
       )}
 
       <ChatBot userRole="driver" companyId={user?.company_id} />
+
+      {/* Cancel-trip confirmation. Spells out what reverts so the
+          driver doesn't accidentally throw away a partially-done
+          trip. Delivered stops are NOT touched - only in-flight
+          ones revert to ready. */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <X className="w-5 h-5 text-red-600" />
+              Cancel this trip?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  The clock resets to 0 and any in-flight stops revert to
+                  &quot;ready&quot; so dispatch can re-route them. Stops you've
+                  already delivered stay delivered.
+                </p>
+                <p className="text-slate-500 text-xs">
+                  Trip ran for {trip.elapsedLabel} - this elapsed time is
+                  discarded on cancel.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep trip</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleCancelTrip();
+              }}
+              disabled={cancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancelling ? "Cancelling..." : "Yes, cancel"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
