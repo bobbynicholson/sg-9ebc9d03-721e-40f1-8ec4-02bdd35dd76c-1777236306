@@ -384,7 +384,10 @@ function KitchenStaffPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+    // STA-A (staff audit, STA-2): admin trio per cross-page
+    // consistency. COMPANY_ADMIN was missing - same pattern as
+    // ORD-6 / LDS-10 pre-fix.
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
       <Head><title>Kitchen Staff, CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />

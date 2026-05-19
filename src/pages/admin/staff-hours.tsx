@@ -24,7 +24,9 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedStaffHoursPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    // STH-A (staff-hours audit, STH-3): dedupe COMPANY_ADMIN
+    // copy-paste typo. Same pattern as CS-1.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <StaffHoursPage />
     </ProtectedRoute>
   );
