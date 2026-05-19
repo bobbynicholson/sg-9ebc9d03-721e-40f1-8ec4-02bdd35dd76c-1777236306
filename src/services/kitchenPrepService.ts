@@ -1036,6 +1036,13 @@ export const kitchenPrepService = {
       console.error("[kitchenPrepService] order_items fetch failed:", itemsErr);
     }
 
+    // KIT2-I (kitchen deep audit, KIT2-18): whole-word boundary
+    // matching. The previous substring match flagged "nut" inside
+    // "minute", "egg" inside "leggings", "soy" inside "soya"
+    // bidirectionally. Now we build a regex per code with \b word
+    // boundaries on each side, case-insensitive, and apply it to the
+    // dietary text. Safety surface needs precise hits, not fuzzy.
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const conflicts: Array<{ menuItem: string; allergens: string[] }> = [];
     for (const it of (items as any[]) || []) {
       const codes: string[] = (it.menu_items?.allergen_codes as string[] | null) || [];
@@ -1043,7 +1050,9 @@ export const kitchenPrepService = {
       const all = [...codes, ...(info ? info.split(/[,;\s]+/) : [])].filter(Boolean);
       const hits = all.filter(code => {
         const c = code.toLowerCase().trim();
-        return c.length > 2 && dietaryLower.includes(c);
+        if (c.length <= 2) return false;
+        const re = new RegExp(`\\b${escapeRegex(c)}\\b`, "i");
+        return re.test(dietaryLower);
       });
       if (hits.length > 0) {
         conflicts.push({ menuItem: it.item_name, allergens: Array.from(new Set(hits)) });
@@ -1069,7 +1078,16 @@ export const kitchenPrepService = {
         allergen_check_by: userId,
       })
       .eq("order_id", orderId);
-    if (error) console.error("Error recording allergen check:", error);
+    // KIT2-I (KIT2-38): hard-fail. Safety surface with a one-way
+    // failure mode is wrong - if the audit insert fails (RLS,
+    // network), the chef must NOT silently flip the order to ready
+    // with no audit trail. Throw so the caller's try/catch sees it
+    // and can either block the ready transition or surface a
+    // clear toast.
+    if (error) {
+      console.error("Error recording allergen check:", error);
+      throw new Error(`Allergen check could not be recorded: ${error.message}`);
+    }
   },
 
   // ── Phase 3: shopping list from aggregated shortfall ─────────────────────
