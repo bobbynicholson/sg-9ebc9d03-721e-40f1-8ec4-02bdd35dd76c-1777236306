@@ -12,14 +12,14 @@
  * kitchen dashboard's KIT2-O readiness chip can refetch the
  * cleaning_jobs roll-up without waiting for window focus.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Loader2, Camera, X } from "lucide-react";
+import { AlertTriangle, Loader2, Camera, Mic, MicOff, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +72,70 @@ export function DamageFlagForm({ onFlagged }: Props) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // CLN2-H (CLN2-71): voice note dictation for the reason field.
+  // Cleaner taps the mic, narrates the damage ("rim cracked, fell
+  // off the trolley"), Web Speech API converts to text and appends
+  // to the textarea. Wet hands + tablet = typing is a non-starter
+  // for the long-form description, so this is the highest-leverage
+  // place to wire dictation in the cleaning portal.
+  const [listening, setListening] = useState(false);
+  const [supportsSpeech, setSupportsSpeech] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recogRef = useRef<any>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => unknown;
+      webkitSpeechRecognition?: new () => unknown;
+    };
+    setSupportsSpeech(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+  const stopListening = useCallback(() => {
+    try { recogRef.current?.stop(); } catch { /* noop */ }
+    recogRef.current = null;
+    setListening(false);
+  }, []);
+  const startListening = useCallback(() => {
+    const w = window as unknown as {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      SpeechRecognition?: new () => any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      webkitSpeechRecognition?: new () => any;
+    };
+    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Ctor) {
+      toast({
+        title: "Voice not supported",
+        description: "Use Chrome or Edge on the tablet to dictate.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const r = new Ctor();
+    r.lang = "en-GB";
+    r.interimResults = false;
+    r.continuous = false;
+    r.maxAlternatives = 1;
+    r.onresult = (ev: any) => {
+      const transcript = ev.results?.[0]?.[0]?.transcript;
+      if (transcript) {
+        setReason((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript));
+      }
+    };
+    r.onerror = () => { stopListening(); };
+    r.onend = () => { setListening(false); recogRef.current = null; };
+    recogRef.current = r;
+    setListening(true);
+    try {
+      r.start();
+    } catch {
+      // Already started or browser blocked; the recognition handlers
+      // will reset listening state anyway.
+      stopListening();
+    }
+  }, [toast, stopListening]);
+  useEffect(() => () => { stopListening(); }, [stopListening]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -283,8 +347,27 @@ export function DamageFlagForm({ onFlagged }: Props) {
             />
           </div>
 
+          {/* CLN2-H (CLN2-71): voice dictation. The mic button is
+              gated on Web Speech API support so unsupported tablets
+              just see the textarea unchanged. While listening, a red
+              recording badge + MicOff icon doubles as "tap to stop". */}
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="dmg-reason">What happened?</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dmg-reason">What happened?</Label>
+              {supportsSpeech && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={listening ? "destructive" : "outline"}
+                  onClick={listening ? stopListening : startListening}
+                  className="gap-1.5 min-h-11"
+                  aria-label={listening ? "Stop dictation" : "Dictate the description"}
+                >
+                  {listening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                  {listening ? "Listening..." : "Dictate"}
+                </Button>
+              )}
+            </div>
             <Textarea
               id="dmg-reason"
               rows={3}
