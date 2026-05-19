@@ -106,12 +106,17 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
 
+      // SHP2-D (shopping deep audit, SHP2-14): soft-delete guard on
+      // shopping_lists reads. driver_shifts has this; shopping did not.
+      // A soft-deleted list could ghost into the user's "active list".
+
       // 1. Try lists assigned to the current shopper first.
       const { data: mineRows } = await sb
         .from("shopping_lists")
         .select("*")
         .eq("company_id", companyId)
         .eq("shopper_id", userId)
+        .is("deleted_at", null)
         .in("status", ACTIVE_STATUSES)
         .order("list_date", { ascending: false })
         .limit(1);
@@ -127,6 +132,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           .select("*")
           .eq("company_id", companyId)
           .is("shopper_id", null)
+          .is("deleted_at", null)
           .in("status", ACTIVE_STATUSES)
           .order("list_date", { ascending: false })
           .limit(1);
@@ -160,6 +166,8 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         .from("shopping_list_items")
         .select("*")
         .eq("shopping_list_id", row.id)
+        // SHP2-D (SHP2-15): same soft-delete guard on items.
+        .is("deleted_at", null)
         .order("purchased", { ascending: true })
         .order("name", { ascending: true });
 
@@ -184,6 +192,25 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
+
+  // SHP2-C (shopping deep audit, SHP2-25 / SHP2-26): supabase realtime
+  // sub so multi-device usage (desktop for buy-list pickabout + phone
+  // in the supermarket) syncs without a tab-focus event. Channel-level
+  // filter on shopping_list_id; admin reassignments to the list flip
+  // via the shopping_lists sub on the same channel.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeListId = (list as any)?.id ?? null;
+  useEffect(() => {
+    if (!activeListId) return;
+    const sub = supabase
+      .channel(`shopping-list-${activeListId}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "shopping_list_items", filter: `shopping_list_id=eq.${activeListId}` }, () => { void load(); })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "shopping_lists", filter: `id=eq.${activeListId}` }, () => { void load(); })
+      .subscribe();
+    return () => { void sub.unsubscribe(); };
+  }, [activeListId, load]);
 
   const togglePurchased = useCallback(async (itemId: string, nextValue: boolean) => {
     // SHP2-B (shopping deep audit, SHP2-22): tick must bump inventory.
@@ -361,6 +388,17 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     if (cErr) {
       setError(cErr.message || "Could not complete list");
       return;
+    }
+    // SHP2-C (SHP2-24): completeList broadcasts so cashflow forecast
+    // moves committed -> actual, payables surface refreshes, and
+    // admin /admin/shopping "today's run" badge clears. Listeners
+    // for cateringms:shopping-updated can act on detail.completed=true.
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("cateringms:shopping-updated", {
+          detail: { listId: list.id, completed: true, actualTotal: actualTotal ?? null },
+        }));
+      } catch { /* old browsers without CustomEvent polyfill */ }
     }
     await load();
   }, [list, load]);
