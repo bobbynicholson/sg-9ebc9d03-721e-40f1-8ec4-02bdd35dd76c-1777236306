@@ -49,7 +49,16 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   "/team-portal/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_staff"],
   "/team-portal/shopping": [...ADMIN_PORTAL_ROLES, "shopping_staff"],
   "/team-portal/driver": [...ADMIN_PORTAL_ROLES, "driver"],
-  "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_staff"],
+  // CLN2-C follow-up (2026-05-19): admit kitchen_staff to
+  // /team-portal/cleaning. PR #115 (KIT2-A) put a "Cleaning schedule"
+  // CTA in the kitchen dashboard header per Bobby's "kitchen sees
+  // cleaning schedule" directive. PR #123 admitted kitchen_staff at
+  // the page-level ProtectedRoute - but THIS middleware was still
+  // bouncing them at the route layer. Both gates have to allow the
+  // role or the CTA 403s. Write actions on the cleaning dashboard
+  // (clock-in button, damage report) stay gated per-component, so a
+  // kitchen lead reading this page can still only read - not write.
+  "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_staff", "kitchen_staff"],
   "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
   "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
   "/client-portal": [...ADMIN_PORTAL_ROLES, "client"],
