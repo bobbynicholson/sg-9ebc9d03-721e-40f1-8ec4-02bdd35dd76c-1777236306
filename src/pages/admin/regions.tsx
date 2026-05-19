@@ -1,5 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
@@ -234,7 +233,7 @@ function RegionsPage() {
             .from("quotes")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
-            .in("status", ["draft", "sent", "revised"]),
+            .in("status", ["draft", "sent", "revised"] as any[]),
         ]);
         const mtdRevenue = (mtdRevenueRes?.data || []).reduce(
           (sum: number, row: any) => sum + Number(row?.total_amount || 0),
@@ -372,9 +371,9 @@ function RegionsPage() {
 
     let error: any;
     if (editing) {
-      ({ error } = await supabase.from("regions").update(payload).eq("id", editing.id));
+      ({ error } = await supabase.from("regions").update(payload as any).eq("id", editing.id));
     } else {
-      ({ error } = await supabase.from("regions").insert(payload));
+      ({ error } = await supabase.from("regions").insert(payload as any));
     }
     setSubmitting(false);
 
@@ -1007,7 +1006,7 @@ function RegionsPage() {
   );
 }
 
-function StatTile({ label, value, accent = "text-slate-900", tooltip }: { label: string; value: number; accent?: string; tooltip?: string }) {
+function StatTile({ label, value, accent = "text-slate-900", tooltip }: { label: string; value: number | string; accent?: string; tooltip?: string }) {
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4">
