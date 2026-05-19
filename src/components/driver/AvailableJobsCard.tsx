@@ -21,7 +21,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, Users, Loader2, Hand, Inbox } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Calendar, Clock, MapPin, Users, Loader2, Hand, Inbox, Phone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +63,11 @@ export function AvailableJobsCard({ onClaimed }: Props) {
   const [rows, setRows] = useState<OpenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Bobby's brief: drivers were tapping Claim without realising the
+  // commitment. Two-step confirm with the order facts spelled out so
+  // the driver consciously accepts the date / time / venue before the
+  // RPC fires. Stash the candidate row here while the dialog is open.
+  const [confirmRow, setConfirmRow] = useState<OpenOrder | null>(null);
   // Refs used inside the realtime closure so we don't need to
   // re-subscribe on every render.
   const refreshRef = useRef<() => Promise<void>>();
@@ -302,7 +311,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
               </div>
               <Button
                 size="sm"
-                onClick={() => onClaim(o.id)}
+                onClick={() => setConfirmRow(o)}
                 disabled={isBusy}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
@@ -317,6 +326,85 @@ export function AvailableJobsCard({ onClaimed }: Props) {
           );
         })}
       </CardContent>
+
+      {/* Claim confirmation dialog. Surfaces the order facts the
+          driver is committing to (date, time, venue, guests) so a
+          stray thumb tap doesn't turn into an accepted delivery the
+          driver hasn't read. */}
+      <AlertDialog open={!!confirmRow} onOpenChange={(o) => { if (!o) setConfirmRow(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Hand className="w-5 h-5 text-emerald-600" />
+              Claim this delivery?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Claiming locks the order to you. You become responsible for picking up from the kitchen and getting it to the client on time. Dispatch and the company admin are notified.
+                </p>
+                {confirmRow && (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-1.5">
+                    <p className="font-semibold text-slate-900">
+                      {confirmRow.order_number ? `${confirmRow.order_number} - ` : ""}
+                      {confirmRow.client_name || "Unknown client"}
+                    </p>
+                    <div className="flex items-center gap-2 text-slate-700">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{fmtDate(confirmRow.event_date)}</span>
+                      {confirmRow.event_time && (
+                        <>
+                          <Clock className="w-3.5 h-3.5 ml-1" />
+                          <span className="tabular-nums">{confirmRow.event_time.slice(0, 5)}</span>
+                        </>
+                      )}
+                    </div>
+                    {confirmRow.venue_address && (
+                      <div className="flex items-start gap-2 text-slate-700">
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>{confirmRow.venue_address}</span>
+                      </div>
+                    )}
+                    {confirmRow.guest_count != null && (
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{confirmRow.guest_count} guests</span>
+                      </div>
+                    )}
+                    {confirmRow.client_phone && (
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <Phone className="w-3.5 h-3.5" />
+                        <span className="tabular-nums">{confirmRow.client_phone}</span>
+                      </div>
+                    )}
+                    {confirmRow.special_instructions && (
+                      <p className="text-xs text-rose-700 italic mt-2">
+                        {confirmRow.special_instructions}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500">
+                  You can release the order later from your active deliveries if plans change. Repeated late releases may affect future dispatch.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = confirmRow?.id;
+                setConfirmRow(null);
+                if (id) void onClaim(id);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Yes, claim it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
