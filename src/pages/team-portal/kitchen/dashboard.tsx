@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2 } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { Footer } from "@/components/Footer";
@@ -406,10 +406,23 @@ export default function KitchenDashboard() {
             <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg flex-shrink-0">
               <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Kitchen Dashboard</h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">Manage prep, duty shifts, and inventory</p>
             </div>
+            {/* KIT2-A (kitchen dashboard audit, KIT2-3): Bobby's explicit
+                ask was "kitchen should see cleaning schedule". Quick CTA
+                straight to /team-portal/cleaning so the kitchen lead can
+                check today's cleaning roster without leaving the portal.
+                Lives in the header to keep it one tap from anywhere. */}
+            <Link
+              href="/team-portal/cleaning/dashboard"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 text-sm font-medium hover:bg-cyan-100 transition"
+              title="View the cleaning schedule"
+            >
+              <Sparkles className="w-4 h-4" />
+              Cleaning schedule
+            </Link>
           </div>
 
           <TeamWelcomeBanner role="kitchen" userId={user?.id} />
