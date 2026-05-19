@@ -45,6 +45,8 @@ import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -239,7 +241,7 @@ function smartStatusCopy(order: Order): { headline: string; sub: string } {
 
 // ── Page ──────────────────────────────────────────────────────────────
 
-export default function ClientPortalDashboard() {
+function ClientPortalDashboardInner() {
   const { user, profile, company } = useAuth() as any;
   const router = useRouter();
   const { toast } = useToast();
@@ -550,7 +552,13 @@ export default function ClientPortalDashboard() {
             lng: Number((pin as any).longitude),
             driver_name: driver.full_name || "Your driver",
             driver_phone: driver.phone || driver.phone_number || undefined,
-            last_updated: (pin as any).timestamp,
+            // CLI-A (client deep audit, CLI-8): the select pulls
+            // `updated_at` (the canonical driver_locations column
+            // after the P1-23 split); reading `timestamp` here was
+            // a stale column name that always evaluated to undefined.
+            // Any "Last updated 2 min ago" UI on the map was
+            // silently rendering wrong.
+            last_updated: (pin as any).updated_at,
           });
         }
       } catch {
@@ -1014,6 +1022,20 @@ export default function ClientPortalDashboard() {
 
       <ChatBot userRole="client" companyId={company?.id} />
     </>
+  );
+}
+
+// CLI-A (client deep audit, CLI-3): defense-in-depth at the
+// component layer. Driver / shopping / cleaning / kitchen all wrap
+// in ProtectedRoute now; the client portal dashboard was the last
+// staff/role surface relying purely on the inner loader returning
+// empty when role/company didn't match. Admin trio admitted for
+// "view as client" cross-tenant support.
+export default function ClientPortalDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <ClientPortalDashboardInner />
+    </ProtectedRoute>
   );
 }
 
