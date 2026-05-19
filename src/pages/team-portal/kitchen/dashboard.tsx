@@ -127,6 +127,15 @@ export default function KitchenDashboard() {
   // chef can see ready / not-ready on paper before service.
   const [checklistStatusByOrder, setChecklistStatusByOrder] = useState<Record<string, "ready" | "in_progress" | "pending">>({});
 
+  // KIT2-R (kitchen deep audit, KIT2-34 / KIT2-85): ingredient delta
+  // banner. When the shopper ticks items on /team-portal/shopping
+  // (SHP2-B bumps inventory_items.current_stock), we want the kitchen
+  // lead to see WHICH ingredients just arrived without scrolling the
+  // Low Stock list. Keyed by inventory item id so a second restock of
+  // the same item replaces the prior entry instead of doubling up.
+  // Cleared on the per-mount "Got it" dismiss action.
+  const [restockDeltas, setRestockDeltas] = useState<Record<string, { name: string; delta: number; unit: string }>>({});
+
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -200,6 +209,35 @@ export default function KitchenDashboard() {
         event: "INSERT", schema: "public", table: "order_chat_messages",
         filter: `company_id=eq.${user.company_id}`,
       }, refresh)
+      // KIT2-R (KIT2-34 / KIT2-85): inventory_items UPDATE feeds the
+      // ingredient delta banner. We compute new.current_stock minus
+      // old.current_stock and, if positive, surface the item name +
+      // delta. refresh() also runs so the Low Stock card recomputes.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "UPDATE", schema: "public", table: "inventory_items",
+        filter: `company_id=eq.${user.company_id}`,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }, (payload: any) => {
+        const next = payload?.new;
+        const prev = payload?.old;
+        if (next && prev) {
+          const nextStock = Number(next.current_stock) || 0;
+          const prevStock = Number(prev.current_stock) || 0;
+          const delta = nextStock - prevStock;
+          if (delta > 0 && next.item_name) {
+            setRestockDeltas((curr) => ({
+              ...curr,
+              [next.id]: {
+                name: next.item_name as string,
+                delta,
+                unit: (next.unit_of_measure as string) || "",
+              },
+            }));
+          }
+        }
+        refresh();
+      })
       .subscribe();
 
     // In-browser cross-tab bus. The dispatch / orders / driver
@@ -887,6 +925,42 @@ export default function KitchenDashboard() {
               tooltip="Orders packed and waiting for the driver to collect.\n\nDrivers see these the moment you mark them ready."
             />
           </div>
+
+          {/* KIT2-R: ingredient delta banner. Sits ABOVE Low Stock so
+              the moment butter arrives the chef sees "+2 kg butter"
+              before Low Stock recomputes and quietly drops the row.
+              Teal accent to distinguish from the amber Low Stock card. */}
+          {Object.keys(restockDeltas).length > 0 && (
+            <Card className="border-0 shadow-lg mb-6 sm:mb-8 border-l-4 border-l-teal-500">
+              <CardHeader className="px-3 sm:px-4 md:px-6 pb-3 flex flex-row items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-teal-700 dark:text-teal-400">
+                  <Package className="w-5 h-5" />
+                  Just restocked
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setRestockDeltas({})}
+                  className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-h-11 px-3"
+                  aria-label="Clear restock list"
+                >
+                  Got it
+                </button>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-4 md:px-6">
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(restockDeltas).map(([id, info]) => (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 text-sm font-medium"
+                    >
+                      <span className="text-teal-600 dark:text-teal-400">+{info.delta}{info.unit ? ` ${info.unit}` : ""}</span>
+                      <span>{info.name}</span>
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
