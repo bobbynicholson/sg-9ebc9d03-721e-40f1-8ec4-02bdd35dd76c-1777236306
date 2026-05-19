@@ -300,7 +300,8 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Money",
       defaultOpen: false,
       items: [
-        { title: "Financial dashboard", href: "/admin/financial-dashboard", icon: DollarSign, description: "Revenue, profitability, cashflow" },
+        { title: "Financial dashboard", href: "/admin/financial-dashboard", icon: DollarSign, description: "Revenue + profitability snapshot" },
+        { title: "Cashflow dashboard", href: "/admin/cashflow-dashboard", icon: TrendingUp, description: "30-day forecast, payables and fixed costs" },
         {
           title: "Invoices",
           href: "/admin/invoices",
