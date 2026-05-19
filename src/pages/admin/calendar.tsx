@@ -17,7 +17,6 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPi
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { orderService } from "@/services/orderService";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -92,13 +91,17 @@ function AdminCalendar() {
   const focusedRef = useRef<HTMLButtonElement | null>(null);
   const [focusedISO, setFocusedISO] = useState<string | null>(null);
 
+  // CAL-B (calendar audit, CAL-3): re-fetch orders when the visible
+  // month changes so the sliding ±6-month window stays centred on
+  // what the user is looking at. Open quotes are a small dataset
+  // and don't need windowing.
   useEffect(() => {
     if (user?.company_id) {
       loadOrders();
       loadOpenQuotes();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id]);
+  }, [user?.company_id, currentDate.getFullYear(), currentDate.getMonth()]);
 
   // Wave 70.37 - live refresh hooks. The calendar previously only
   // refetched on mount and on company_id change. When Bobby edited
@@ -121,9 +124,18 @@ function AdminCalendar() {
     window.addEventListener("focus", onFocus);
     // Wave 70.40: shared helper from src/lib/events/orderEvents.
     const offOrderUpdated = onOrderUpdated(() => { refetch(); });
+    // CAL-B (CAL-2): supabase realtime sub on orders + quotes so
+    // cross-tab edits land without a focus event or order-updated
+    // emit. Mirrors the /admin/tracking pattern (LO-9/10).
+    const sub = supabase
+      .channel(`calendar-${user.company_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${user.company_id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${user.company_id}` }, () => refetch())
+      .subscribe();
     return () => {
       window.removeEventListener("focus", onFocus);
       offOrderUpdated();
+      sub.unsubscribe();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
@@ -131,8 +143,40 @@ function AdminCalendar() {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const all = await orderService.getAllOrders(user.company_id);
-      setOrders(all as unknown as AppOrder[]);
+      // CAL-B (CAL-3): sliding ±6-month window around the visible
+      // month. Previously getAllOrders hauled the entire company
+      // history every time. ±6 covers the prev/next navigation arc
+      // without immediate refetch; navigating further triggers a
+      // refetch via the useEffect above.
+      const windowStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 6, 1);
+      const windowEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0);
+      const startISO = toLocalISO(windowStart);
+      const endISO = toLocalISO(windowEnd);
+
+      // Null event_dates can't render on a calendar grid - drop
+      // them from the load. They're still visible on /admin/orders.
+      const { data, error } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          client:clients(*),
+          order_items(*),
+          quote:quotes!orders_quote_id_fkey(public_token, quote_number),
+          assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
+          assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
+        `)
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .gte("event_date", startISO)
+        .lte("event_date", endISO)
+        .order("event_date", { ascending: true });
+
+      if (error) {
+        console.error("Calendar load failed:", error);
+        setOrders([]);
+        return;
+      }
+      setOrders((data || []) as unknown as AppOrder[]);
     } catch (e) {
       console.error("Calendar load failed:", e);
     } finally {
