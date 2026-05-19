@@ -689,7 +689,9 @@ function AdminUsersPage() {
 
 export default function UsersPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    // USR-A (users audit, USR-2): dedupe COMPANY_ADMIN copy-paste
+    // typo. Same pattern as CS-1 / STH-3 / HRS-1.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminUsersPage />
     </ProtectedRoute>
   );

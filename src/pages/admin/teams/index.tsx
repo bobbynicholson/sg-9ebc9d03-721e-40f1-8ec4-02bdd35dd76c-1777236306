@@ -384,7 +384,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export default function AdminTeamsIndexPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // TMS-A (teams audit, TMS-2): teams hub has a region filter
+    // built in - admit region_admin so they see their regional team
+    // metrics. RLS narrows the staff query per region.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
       <TeamsIndexPage />
     </ProtectedRoute>
   );

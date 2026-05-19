@@ -91,7 +91,9 @@ const hrFeatures = [
 
 export default function ProtectedHRSolutionsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    // HRS-A (HR solutions audit, HRS-1): dedupe COMPANY_ADMIN
+    // copy-paste typo. Same pattern as CS-1 / STH-3 / USR-2.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminHRSolutions />
     </ProtectedRoute>
   );
