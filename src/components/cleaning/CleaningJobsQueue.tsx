@@ -17,7 +17,7 @@
  * billable=FALSE, no extra payroll cost.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,16 @@ export function CleaningJobsQueue() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  // CLN2-H (cleaning deep audit, CLN2-69): hold-to-confirm pattern on
+  // the Complete button. Complete is irreversible - flips the
+  // equipment back into inventory; a wet thumb on a sloped tablet
+  // beside the dishwasher should not be able to mis-trigger it. We
+  // arm by holding for 600ms; releasing earlier cancels.
+  const HOLD_MS = 600;
+  const [holdingId, setHoldingId] = useState<string | null>(null);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const holdStartRef = useRef<number>(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -109,6 +119,43 @@ export function CleaningJobsQueue() {
     toast({ title: "Cleaning job complete", description: "Equipment back in inventory." });
     await refresh();
   };
+
+  // CLN2-H hold-to-confirm: timers cleared on cancel / completion /
+  // unmount. Light haptic ping at arm so the cleaner feels the
+  // commit point on a phone.
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+  const onHoldStart = (jobId: string) => {
+    if (busyId) return;
+    setHoldingId(jobId);
+    setHoldProgress(0);
+    holdStartRef.current = Date.now();
+    clearHoldTimer();
+    holdTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - holdStartRef.current;
+      const ratio = Math.min(1, elapsed / HOLD_MS);
+      setHoldProgress(ratio);
+      if (ratio >= 1) {
+        clearHoldTimer();
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          try { (navigator as any).vibrate?.(40); } catch { /* ignore */ }
+        }
+        setHoldingId(null);
+        setHoldProgress(0);
+        void onComplete(jobId);
+      }
+    }, 40);
+  };
+  const onHoldEnd = () => {
+    clearHoldTimer();
+    setHoldingId(null);
+    setHoldProgress(0);
+  };
+  useEffect(() => () => clearHoldTimer(), []);
 
   return (
     <>
@@ -192,13 +239,33 @@ export function CleaningJobsQueue() {
                           <span className="ml-1">Start</span>
                         </Button>
                       )}
+                      {/* CLN2-H: hold-to-confirm. Mouse / touch /
+                          pointer all map to the same arm window so the
+                          thumb-on-tablet and mouse-on-desktop UX match.
+                          A linear fill animates from left to right
+                          underneath the label as proof-of-progress. */}
                       <Button
-                        onClick={() => onComplete(r.id)}
+                        onPointerDown={() => onHoldStart(r.id)}
+                        onPointerUp={onHoldEnd}
+                        onPointerLeave={onHoldEnd}
+                        onPointerCancel={onHoldEnd}
+                        onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") onHoldStart(r.id); }}
+                        onKeyUp={onHoldEnd}
                         disabled={isBusy}
-                        className="bg-emerald-600 hover:bg-emerald-700 min-h-11 px-3"
+                        className="relative overflow-hidden bg-emerald-600 hover:bg-emerald-700 min-h-11 px-3"
+                        aria-label="Hold to complete cleaning job"
                       >
-                        {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        <span className="ml-1">Complete</span>
+                        {holdingId === r.id && (
+                          <span
+                            aria-hidden="true"
+                            className="absolute inset-y-0 left-0 bg-emerald-800/40 transition-[width] duration-75"
+                            style={{ width: `${Math.round(holdProgress * 100)}%` }}
+                          />
+                        )}
+                        <span className="relative flex items-center">
+                          {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                          <span className="ml-1">{holdingId === r.id ? "Hold..." : "Complete"}</span>
+                        </span>
                       </Button>
                     </div>
                   </div>
