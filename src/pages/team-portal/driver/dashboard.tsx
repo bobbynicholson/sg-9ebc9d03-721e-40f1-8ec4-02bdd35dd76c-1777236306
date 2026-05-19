@@ -15,6 +15,7 @@ import {
   Camera,
   X,
   Printer,
+  Route as RouteIcon,
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
@@ -553,6 +554,22 @@ function DriverDashboardInner() {
                 <p className="text-xs sm:text-sm md:text-base text-slate-600">
                   {loading ? "Loading your deliveries..." : `${jobs.length} active ${jobs.length === 1 ? "delivery" : "deliveries"}`}
                 </p>
+                {/* Bobby's brief: after a claim, the driver should
+                    see an unmistakable path to the route page where
+                    the new job lives. The active deliveries text
+                    above is informational; this chip is the action. */}
+                {!loading && jobs.length > 0 && (
+                  <Link
+                    href="/team-portal/driver/routes"
+                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition"
+                  >
+                    <RouteIcon className="w-3.5 h-3.5" />
+                    View today's route
+                    <Badge variant="outline" className="ml-1 tabular-nums bg-white">
+                      {jobs.length}
+                    </Badge>
+                  </Link>
+                )}
               </div>
               <div className="flex gap-2">
                 {unreadCount > 0 && (

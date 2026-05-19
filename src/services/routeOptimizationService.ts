@@ -343,17 +343,31 @@ export const routeOptimizationService = {
       return [];
     }
 
-    return ((data as any[]) || []).map((order) => ({
-      id: order.id,
-      order_id: order.id,
-      client_name: order.client_name,
-      venue_address: order.venue_address,
-      venue_lat: order.venue_lat,
-      venue_lng: order.venue_lng,
-      delivery_time: order.delivery_time || order.event_date,
-      priority: order.priority || 2,
-      status: order.status,
-    }));
+    return ((data as any[]) || []).map((order) => {
+      // Bug fix: when delivery_time is NULL the previous fallback was
+      // order.event_date alone - a bare "2026-05-21" - which the UI's
+      // new Date(...).toLocaleTimeString() rendered as "2:00:00 AM"
+      // (UTC midnight in SAST). Mirror the same logic as
+      // getUnassignedOrders below: prefer the real delivery_time,
+      // else combine event_date + event_time, else event_date noon.
+      let deliveryTime = order.delivery_time;
+      if (!deliveryTime && order.event_date) {
+        deliveryTime = order.event_time
+          ? `${order.event_date}T${order.event_time}`
+          : `${order.event_date}T12:00`;
+      }
+      return {
+        id: order.id,
+        order_id: order.id,
+        client_name: order.client_name,
+        venue_address: order.venue_address,
+        venue_lat: order.venue_lat,
+        venue_lng: order.venue_lng,
+        delivery_time: deliveryTime,
+        priority: order.priority || 2,
+        status: order.status,
+      };
+    });
   },
 
   /**

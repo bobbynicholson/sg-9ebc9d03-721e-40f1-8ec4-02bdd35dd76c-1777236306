@@ -526,7 +526,13 @@ export default function DriverRoutes() {
                           className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          {tripStarted ? "Mark Complete" : "Processing..."}
+                          {/* Bug fix: previously read "Processing..."
+                              when the trip wasn't started yet -
+                              wrong tense, wrong meaning. The button
+                              is disabled in this state, so the label
+                              should describe the gate, not pretend
+                              work is happening. */}
+                          {tripStarted ? "Mark Complete" : "Start trip first"}
                         </Button>
                       </div>
                     </>
@@ -696,7 +702,7 @@ export default function DriverRoutes() {
                               >
                                 <CheckCircle className="w-4 h-4 sm:mr-2" />
                                 <span className="hidden sm:inline">
-                                  {tripStarted ? "Complete" : "Processing..."}
+                                  {tripStarted ? "Complete" : "Start trip first"}
                                 </span>
                               </Button>
                             </div>
