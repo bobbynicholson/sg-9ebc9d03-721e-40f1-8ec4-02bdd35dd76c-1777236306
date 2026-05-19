@@ -191,6 +191,15 @@ export default function KitchenDashboard() {
         event: "*", schema: "public", table: "cleaning_event_checklists",
         filter: `company_id=eq.${user.company_id}`,
       }, refresh)
+      // CLI-J (CLI-31): catch inbound client-facing chat threads
+      // on this tenant. The bell broadcast surfaces the actual
+      // message ping; refresh() keeps any derived state on the
+      // dashboard (counts, badges) in sync alongside it.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "INSERT", schema: "public", table: "order_chat_messages",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
       .subscribe();
 
     // In-browser cross-tab bus. The dispatch / orders / driver

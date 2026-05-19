@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as supabaseTyped } from "@/integrations/supabase/client";
+// WHY: order_chat_messages was added in 20260519120000 and the
+// generated supabase types file doesn't include it yet. Cast once at
+// the module boundary so the service body keeps its real types.
+const supabase = supabaseTyped as any;
 
 // CLI-J: client <-> caterer thread per order. Parallel to
 // dispatchMessageService (driver <-> dispatcher) because the audiences

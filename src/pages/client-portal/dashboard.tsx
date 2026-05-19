@@ -43,6 +43,15 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
+import { orderChatService } from "@/services/orderChatService";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -346,6 +355,12 @@ function ClientPortalDashboardInner() {
   // Quote-edits dialog state - the client opens this from the
   // dashboard hero band when they want changes before accepting.
   const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
+  // CLI-J (CLI-31): per-order chat thread dialog. Opens from the hero
+  // card + past event tiles. Same OrderClientChatPanel is reused on
+  // the admin side via the OrderDetailsModal Messages tab so both
+  // ends share one render path.
+  const [messageOrder, setMessageOrder] = useState<Order | null>(null);
+  const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
 
   // Branding tones - fall back to a calm emerald so unbranded companies
   // still look polished.
@@ -669,6 +684,91 @@ function ClientPortalDashboardInner() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.email, company?.id]);
+
+  // ── CLI-J: per-order chat unread counts + realtime ping ─────────────
+  // Loads initial unread counts for every order on screen, then keeps
+  // them fresh via a postgres_changes sub on order_chat_messages
+  // scoped to this tenant. A staff -> client message fires the chime
+  // and a toast so the client notices even with the dashboard buried
+  // behind another tab. The dialog itself marks-read on open.
+  useEffect(() => {
+    if (!user?.id || !company?.id || orders.length === 0) return;
+    let cancelled = false;
+    const tenantCompanyId = company.id;
+
+    const loadUnread = async () => {
+      const orderIds = orders.map((o) => o.id);
+      const map = await orderChatService.getUnreadCountByOrder("client", {
+        companyId: tenantCompanyId,
+        orderIds,
+      });
+      if (!cancelled) setUnreadByOrder(map);
+    };
+    loadUnread();
+
+    const playChime = () => {
+      try {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.05;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+        osc.stop(ctx.currentTime + 0.25);
+        setTimeout(() => ctx.close(), 400);
+      } catch {
+        // best-effort; toast still fires
+      }
+    };
+
+    const channel = supabase
+      .channel(`client-order-chat-${user.id}-${tenantCompanyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "order_chat_messages",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row || cancelled) return;
+          // Only ping for staff -> client messages, and only for
+          // orders this client actually owns.
+          if (row.sender_role === "client") return;
+          if (!orders.some((o) => o.id === row.order_id)) return;
+          setUnreadByOrder((prev) => ({
+            ...prev,
+            [row.order_id]: (prev[row.order_id] || 0) + 1,
+          }));
+          // Suppress the chime when the dialog for that order is
+          // already open - the message renders inline anyway.
+          if (messageOrder?.id === row.order_id) return;
+          playChime();
+          toast({
+            title: "New message from the team",
+            description: (row.body && row.body.length > 140)
+              ? `${row.body.slice(0, 137)}...`
+              : (row.body || ""),
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, company?.id, orders.map((o) => o.id).join(","), messageOrder?.id]);
 
   // ── Live driver tracking polling for the headline event ─────────────
   // Polls every 30 seconds whenever the headline event is out for
@@ -1032,6 +1132,11 @@ function ClientPortalDashboardInner() {
               brandGradient={brandGradient}
               driverPin={driverPin}
               fmtMoney={fmtMoney}
+              unreadCount={unreadByOrder[headline.id] || 0}
+              onMessage={() => {
+                setUnreadByOrder((prev) => ({ ...prev, [headline.id]: 0 }));
+                setMessageOrder(headline);
+              }}
             />
           )}
 
@@ -1182,6 +1287,11 @@ function ClientPortalDashboardInner() {
                     brandPrimary={brandPrimary}
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     fmtMoney={fmtMoney}
+                    unreadCount={unreadByOrder[o.id] || 0}
+                    onMessage={(target) => {
+                      setUnreadByOrder((prev) => ({ ...prev, [target.id]: 0 }));
+                      setMessageOrder(target);
+                    }}
                     onRebook={(target) => {
                       // Open the RebookDialog - it manages its own
                       // form state internally now (date, items, notes).
@@ -1287,6 +1397,41 @@ function ClientPortalDashboardInner() {
         }}
       />
 
+      {/* CLI-J (CLI-31): per-order chat thread dialog. Renders the
+          shared OrderClientChatPanel scoped to the selected order
+          with sender_role="client". Two-way realtime is handled by
+          the panel itself - posting a message also fires a tenant
+          notification broadcast so admin + kitchen see it. */}
+      <Dialog
+        open={!!messageOrder}
+        onOpenChange={(o) => {
+          if (!o) setMessageOrder(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Message the team
+              {messageOrder?.event_name ? ` - ${messageOrder.event_name}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {messageOrder?.event_date
+                ? `Event ${new Date(messageOrder.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}. We usually reply within working hours.`
+                : "We usually reply within working hours."}
+            </DialogDescription>
+          </DialogHeader>
+          {messageOrder && user?.id && company?.id && (
+            <OrderClientChatPanel
+              companyId={company.id}
+              orderId={messageOrder.id}
+              userId={user.id}
+              senderRole="client"
+              orderLabel={messageOrder.event_name || messageOrder.order_number || null}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ChatBot userRole="client" companyId={company?.id} />
     </>
   );
@@ -1315,6 +1460,8 @@ function HeroCard({
   brandGradient,
   driverPin,
   fmtMoney,
+  unreadCount,
+  onMessage,
 }: {
   order: Order;
   brandPrimary: string;
@@ -1325,6 +1472,9 @@ function HeroCard({
   // so the totals render in the actual tenant currency, not a
   // module-scope ZAR constant.
   fmtMoney: Intl.NumberFormat;
+  // CLI-J (CLI-31): unread chat count + open-thread callback.
+  unreadCount: number;
+  onMessage: () => void;
 }) {
   const copy = smartStatusCopy(order);
   const tone = STATUS_TONES[order.status] || STATUS_TONES.pending;
@@ -1342,15 +1492,30 @@ function HeroCard({
               <h2 className="text-xl sm:text-2xl font-bold mt-0.5">{copy.headline}</h2>
               <p className="text-sm text-white/90 mt-1">{copy.sub}</p>
             </div>
-            {driverPin?.driver_phone && (
-              <a
-                href={`tel:${driverPin.driver_phone}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-sm font-semibold hover:bg-white/30 transition"
+            <div className="flex items-center gap-2 flex-wrap">
+              {driverPin?.driver_phone && (
+                <a
+                  href={`tel:${driverPin.driver_phone}`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-sm font-semibold hover:bg-white/30 transition min-h-11"
+                >
+                  <Phone className="w-4 h-4" />
+                  Call {driverPin.driver_name?.split(" ")[0] || "driver"}
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={onMessage}
+                className="relative inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-sm font-semibold hover:bg-white/30 transition min-h-11"
               >
-                <Phone className="w-4 h-4" />
-                Call {driverPin.driver_name?.split(" ")[0] || "driver"}
-              </a>
-            )}
+                <MessageSquare className="w-4 h-4" />
+                Message
+                {unreadCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
         <div className="h-64 sm:h-80">
@@ -1396,9 +1561,24 @@ function HeroCard({
               {order.event_time && ` • ${order.event_time}`}
             </p>
           </div>
-          <Badge variant="outline" className={`${tone} border capitalize text-xs flex-shrink-0`}>
-            {order.status.replace(/_/g, " ")}
-          </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant="outline" className={`${tone} border capitalize text-xs`}>
+              {order.status.replace(/_/g, " ")}
+            </Badge>
+            <button
+              type="button"
+              onClick={onMessage}
+              className="relative inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 backdrop-blur text-xs font-semibold hover:bg-white/30 transition min-h-11"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Message
+              {unreadCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1553,6 +1733,8 @@ function PastEventTile({
   brandPrimary,
   onRebook,
   onRate,
+  onMessage,
+  unreadCount,
   slugPrefix,
   fmtMoney,
 }: {
@@ -1560,6 +1742,9 @@ function PastEventTile({
   brandPrimary: string;
   onRebook: (o: Order) => void;
   onRate: (o: Order, rating: number) => Promise<void> | void;
+  // CLI-J: open the chat thread for this order.
+  onMessage: (o: Order) => void;
+  unreadCount: number;
   slugPrefix: string;
   fmtMoney: Intl.NumberFormat;
 }) {
@@ -1647,19 +1832,40 @@ function PastEventTile({
             })}
           </div>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onRebook(order);
-          }}
-          className="text-xs font-semibold flex items-center gap-1 hover:underline"
-          style={{ color: brandPrimary }}
-        >
-          <RotateCcw className="w-3 h-3" />
-          Rebook
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onMessage(order);
+            }}
+            className="relative text-xs font-semibold flex items-center gap-1 hover:underline min-h-11 px-2"
+            style={{ color: brandPrimary }}
+            aria-label="Message the team about this event"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Message
+            {unreadCount > 0 && (
+              <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRebook(order);
+            }}
+            className="text-xs font-semibold flex items-center gap-1 hover:underline min-h-11 px-2"
+            style={{ color: brandPrimary }}
+          >
+            <RotateCcw className="w-3 h-3" />
+            Rebook
+          </button>
+        </div>
       </div>
     </div>
   );

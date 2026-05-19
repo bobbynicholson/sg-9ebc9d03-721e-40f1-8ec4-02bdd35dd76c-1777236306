@@ -55,6 +55,7 @@ import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPan
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
 import { OrderTimesStrip } from "@/components/admin/orders/OrderTimesStrip";
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
+import { OrderMessagesTab } from "@/components/admin/orders/OrderMessagesTab";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
@@ -1083,10 +1084,11 @@ return (
         }}
         className="mt-6"
       >
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="menu">Menu Items</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="amendments">Amendments</TabsTrigger>
           <TabsTrigger value="cancellations">Cancellations</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -1693,6 +1695,21 @@ return (
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* CLI-J (CLI-31): per-order client <-> caterer chat. Same
+            OrderClientChatPanel the client uses, scoped to this
+            order with sender_role="admin". OrderMessagesTab resolves
+            the client's auth.users id so the outbound notification
+            on staff sends targets the owning client directly. */}
+        <TabsContent value="messages" className="space-y-4 mt-4">
+          <OrderMessagesTab
+            orderId={editedOrder.id}
+            companyId={companyId}
+            adminUserId={(user as any)?.id || null}
+            clientId={(editedOrder as any).client_id || null}
+            orderLabel={(editedOrder as any).order_number || editedOrder.event_name || null}
+          />
         </TabsContent>
 
         <TabsContent value="amendments" className="space-y-4 mt-4">
