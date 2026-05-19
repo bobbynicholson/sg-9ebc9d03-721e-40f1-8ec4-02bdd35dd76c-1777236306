@@ -155,6 +155,40 @@ function greetingFor(date: Date): string {
  *      "your event was on Sunday" rather than going blank.
  *   4. null if there's nothing live
  */
+/**
+ * CLI-E (client deep audit, CLI-25): pick a just-delivered event
+ * worth celebrating on the dashboard. A client whose meal arrived
+ * yesterday + hasn't left a star rating gets a soft banner with a
+ * party-popper icon + "How was it?" CTA scrolling to the rating
+ * row. Closes within 7 days regardless to keep the dashboard
+ * non-cluttered for inactive clients.
+ *
+ * Returns null when:
+ *   - No order delivered in the last 7 days
+ *   - The latest delivered order is already rated
+ *   - There's a live in-flight headline (don't fight the hero band)
+ */
+function pickJustDeliveredEvent(orders: Order[]): Order | null {
+  const live = orders.find((o) =>
+    ["in_transit", "ready", "preparing"].includes(o.status),
+  );
+  if (live) return null;
+  const todayISO = toLocalISO(new Date());
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const cutoffISO = toLocalISO(sevenDaysAgo);
+  const recent = orders
+    .filter(
+      (o) =>
+        o.event_date <= todayISO &&
+        o.event_date >= cutoffISO &&
+        (o.status === "delivered" || o.status === "completed") &&
+        !o.rating,
+    )
+    .sort((a, b) => b.event_date.localeCompare(a.event_date));
+  return recent[0] || null;
+}
+
 function pickHeadlineEvent(orders: Order[]): Order | null {
   const live = orders.find((o) =>
     ["in_transit", "ready", "preparing"].includes(o.status),
@@ -642,6 +676,10 @@ function ClientPortalDashboardInner() {
   // mounted, but we keep the hero "ETA: 12 minutes" line fresh by
   // pulling the same gps_tracking row server-side.
   const headline = useMemo(() => pickHeadlineEvent(orders), [orders]);
+  // CLI-E (CLI-25): just-delivered celebration. Renders only when
+  // there's no live headline + a delivered order from the last
+  // 7 days is unrated.
+  const justDelivered = useMemo(() => pickJustDeliveredEvent(orders), [orders]);
   const headlineIsLive =
     headline && headline.status === "in_transit";
 
@@ -995,6 +1033,57 @@ function ClientPortalDashboardInner() {
               driverPin={driverPin}
               fmtMoney={fmtMoney}
             />
+          )}
+
+          {/* CLI-E (client deep audit, CLI-25): just-delivered
+              celebration. When the most-recent delivered order is
+              still unrated and there's no live headline, surface a
+              soft banner with a party popper + a "How was it?" CTA
+              scrolling to the past-events strip below. Renders only
+              when justDelivered is non-null (closes itself after the
+              rating is left, or after 7 days regardless). */}
+          {!headline && justDelivered && (
+            <Card
+              className="border-2 shadow-md"
+              style={{ borderColor: brandPrimary, background: brandSoftBg }}
+            >
+              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <PartyPopper
+                    className="w-8 h-8 shrink-0"
+                    style={{ color: brandPrimary }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: brandPrimary }}>
+                      How was it?
+                    </p>
+                    <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                      Your {justDelivered.event_name || "event"} on
+                      {" "}
+                      {new Date(justDelivered.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                      {" "}was delivered.
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                      Tap a star below to let {companyName} know how it went.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="#past-events"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById("past-events")?.scrollIntoView({
+                      behavior: "smooth", block: "start",
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg font-semibold shadow-sm min-h-11 shrink-0"
+                  style={{ background: brandPrimary, color: brandText }}
+                >
+                  <Star className="w-4 h-4" />
+                  Rate
+                </a>
+              </CardContent>
+            </Card>
           )}
 
           {/* CLI-F (client deep audit, CLI-32 / CLI-61): outstanding-
