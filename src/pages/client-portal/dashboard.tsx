@@ -476,12 +476,24 @@ function ClientPortalDashboardInner() {
           setTenantClientId(clientRows[0].id || null);
         }
 
+        // CLI-C (client deep audit, CLI-14 / CLI-15 / CLI-51 / CLI-52):
+        // server-side date window on orders. Pre-fix the dashboard
+        // pulled every order this client had ever placed - five years
+        // of weekly events for a long-running corporate client meant
+        // 200+ rows on every load, including realtime refetches.
+        // Past-events strip caps at 8 anyway. Two-year window is
+        // generous for both "upcoming" and "past" visible bands.
+        const lookbackIso = new Date(Date.now() - 365 * 2 * 24 * 60 * 60 * 1000)
+          .toISOString().slice(0, 10);
+
         let q = supabase
           .from("orders")
           .select(
             "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id",
           )
-          .order("event_date", { ascending: false });
+          .gte("event_date", lookbackIso)
+          .order("event_date", { ascending: false })
+          .limit(60);
 
         if (clientIds.length > 0 && user.email) {
           // Match on either client_id (canonical link) OR client_email
