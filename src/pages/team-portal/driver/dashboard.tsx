@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
+import { RunningLateChips } from "@/components/driver/RunningLateChips";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
@@ -971,6 +972,22 @@ function DriverDashboardInner() {
                           </Button>
                         )}
                       </div>
+                      {/* DRV-G (driver deep audit, DRV-33): one-tap
+                          running-late broadcast. Shows once the job
+                          is in motion (ready / in_transit / picked
+                          up / at venue). 15/30/60-minute presets
+                          with a two-tap confirm so an accidental
+                          steering-wheel bump doesn't spam admin. */}
+                      {["ready", "in_transit", "picked_up", "at_venue"].includes(job.status) && (
+                        <div className="mt-2 pt-2 border-t border-slate-200">
+                          <RunningLateChips
+                            orderId={job.id}
+                            onBroadcast={() => {
+                              emitOrderUpdated(job.id, "driver/dashboard:running-late", ["status"]);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
