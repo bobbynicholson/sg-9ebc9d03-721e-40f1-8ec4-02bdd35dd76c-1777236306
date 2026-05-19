@@ -90,6 +90,18 @@ export default function KitchenDashboard() {
     items: Array<{ id: string; event_name: string; client_name: string | null; event_time: string | null; guest_count: number; status: string }>;
   }>>([]);
   const [maxHotHoldMin, setMaxHotHoldMin] = useState(90);
+  // KIT2-O (kitchen deep audit, KIT2-35 / KIT2-36 / KIT2-84): cleaning
+  // readiness chip on the header. Tells the chef "of tomorrow's
+  // cleaning jobs, X of Y are done" so the KIT2-A "Cleaning schedule"
+  // CTA carries live state instead of being a static link. Bobby's
+  // brief: "when cleaning team marks all of tomorrow's equipment
+  // cleaned, kitchen flips a chip". V1 surfaces the count; CLN2-F
+  // (pre-event cleanliness checklist) will add the formal "ready
+  // for prep" signal later.
+  const [cleaningReadiness, setCleaningReadiness] = useState<{
+    total: number;
+    complete: number;
+  } | null>(null);
 
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
@@ -173,6 +185,41 @@ export default function KitchenDashboard() {
         if (ks.maxHotHoldMin) setMaxHotHoldMin(Number(ks.maxHotHoldMin));
       } catch (sErr) {
         console.warn("Settings load failed:", sErr);
+      }
+
+      // KIT2-O: cleaning readiness for tomorrow's events. Count
+      // cleaning_jobs whose triggered_by_event_id is in tomorrow's
+      // order set, total vs status='complete'. The chip on the
+      // header reads off this state. Best-effort - a failure here
+      // doesn't block the rest of the dashboard.
+      try {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowISO = tomorrow.toISOString().slice(0, 10);
+        const tomorrowOrderIds = (ordersData || [])
+          .filter((o: any) => o.event_date === tomorrowISO)
+          .map((o: any) => o.id);
+        if (tomorrowOrderIds.length === 0) {
+          setCleaningReadiness(null);
+        } else {
+          const { data: cjRows, error: cjErr } = await (supabase as any)
+            .from("cleaning_jobs")
+            .select("id, status")
+            .eq("company_id", user.company_id)
+            .in("triggered_by_event_id", tomorrowOrderIds);
+          if (cjErr) {
+            console.warn("[team-portal/kitchen/dashboard] cleaning readiness fetch failed:", cjErr);
+            setCleaningReadiness(null);
+          } else {
+            const rows = (cjRows || []) as Array<{ id: string; status: string }>;
+            const total = rows.length;
+            const complete = rows.filter((r) => r.status === "complete").length;
+            setCleaningReadiness(total === 0 ? null : { total, complete });
+          }
+        }
+      } catch (cjFatal) {
+        console.warn("[team-portal/kitchen/dashboard] cleaning readiness threw:", cjFatal);
+        setCleaningReadiness(null);
       }
     } catch (error) {
       console.error("Dashboard load error:", error);
@@ -427,18 +474,43 @@ export default function KitchenDashboard() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Kitchen Dashboard</h1>
               <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">Manage prep, duty shifts, and inventory</p>
             </div>
-            {/* KIT2-A (kitchen dashboard audit, KIT2-3): Bobby's explicit
-                ask was "kitchen should see cleaning schedule". Quick CTA
-                straight to /team-portal/cleaning so the kitchen lead can
-                check today's cleaning roster without leaving the portal.
-                Lives in the header to keep it one tap from anywhere. */}
+            {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84):
+                Bobby's "kitchen should see cleaning schedule" CTA, now
+                with the live state chip. Shows tomorrow's cleaning
+                progress so the chef knows whether to expect ready
+                kit at prep o'clock. Visible on every viewport
+                (KIT2-66 fix). */}
             <Link
               href="/team-portal/cleaning/dashboard"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 text-sm font-medium hover:bg-cyan-100 transition"
-              title="View the cleaning schedule"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition ${
+                cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : cleaningReadiness && cleaningReadiness.complete > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  : "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+              }`}
+              title={
+                cleaningReadiness
+                  ? `Tomorrow's cleaning: ${cleaningReadiness.complete} of ${cleaningReadiness.total} done`
+                  : "View the cleaning schedule"
+              }
             >
               <Sparkles className="w-4 h-4" />
-              Cleaning schedule
+              <span>Cleaning schedule</span>
+              {cleaningReadiness && (
+                <Badge
+                  variant="outline"
+                  className={`ml-1 tabular-nums ${
+                    cleaningReadiness.complete === cleaningReadiness.total
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : cleaningReadiness.complete > 0
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-cyan-100 text-cyan-800 border-cyan-300"
+                  }`}
+                >
+                  {cleaningReadiness.complete}/{cleaningReadiness.total}
+                </Badge>
+              )}
             </Link>
           </div>
 
