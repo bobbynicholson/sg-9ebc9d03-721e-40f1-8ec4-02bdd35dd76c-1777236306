@@ -30,9 +30,12 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 
+// CAL-C (CAL-4): region_admin + sales_admin need diary access.
+// RLS on orders narrows region_admin to their regions_covered
+// rows; sales_admin reads all to slot quotes into the diary.
 export default function ProtectedCalendarPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN, UserRole.SALES_ADMIN]}>
       <AdminCalendar />
     </ProtectedRoute>
   );
@@ -246,11 +249,17 @@ function AdminCalendar() {
     return map;
   }, [openQuotes]);
 
-  /** maxConcurrentEvents from operations settings. Read from
-   *  localStorage where the settings page persists it; default 5
-   *  matches the settings tab default. Used to flag days at / over
-   *  capacity. */
+  /** CAL-C (CAL-5): maxConcurrentEvents from operations settings.
+   *  Canonical store is auth user_metadata.admin_settings (mirrored
+   *  to localStorage by /admin/settings for offline fallback). Read
+   *  from user_metadata first so a fresh-device user gets their
+   *  persisted value; fall back to localStorage; finally default 5
+   *  matching the settings tab default. */
   const maxConcurrent = useMemo(() => {
+    const fromMeta = Number(
+      (user as any)?.user_metadata?.admin_settings?.operations?.maxConcurrentEvents,
+    );
+    if (fromMeta > 0) return fromMeta;
     try {
       const raw = typeof window !== "undefined"
         ? window.localStorage.getItem("admin_settings")
@@ -259,7 +268,7 @@ function AdminCalendar() {
       const s = JSON.parse(raw);
       return Number(s?.operations?.maxConcurrentEvents) || 5;
     } catch { return 5; }
-  }, []);
+  }, [user]);
 
   const todayISO = useMemo(() => toLocalISO(new Date()), []);
   const monthNames = [
