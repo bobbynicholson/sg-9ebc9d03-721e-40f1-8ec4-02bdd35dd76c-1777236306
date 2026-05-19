@@ -17,7 +17,7 @@
  * silent auto-creation of synthetic lists.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,41 @@ function ShoppingDashboardInner() {
     if (filter === "purchased") return i.purchased;
     return true;
   });
+
+  // SHP2-F (shopping deep audit, SHP2-31): group items by supplier so
+  // the shopper can walk through PnP first, then Checkers, then Makro
+  // - one shop per visit instead of zig-zagging. Items with no
+  // inventory link or no preferred_supplier_id collect into an
+  // "Other" bucket pinned to the bottom. Stable insertion order
+  // keeps the list non-jumpy as items get ticked.
+  const itemsBySupplier = useMemo(() => {
+    const buckets = new Map<string, { id: string | null; name: string; items: typeof filteredItems }>();
+    for (const it of filteredItems) {
+      const key = it.supplier_id ?? "__other__";
+      const existing = buckets.get(key);
+      if (existing) {
+        existing.items.push(it);
+      } else {
+        buckets.set(key, {
+          id: it.supplier_id,
+          name: it.supplier_name ?? "Other / no supplier",
+          items: [it],
+        });
+      }
+    }
+    return Array.from(buckets.values()).sort((a, b) => {
+      // Pin the "Other" group last; everything else alphabetical by
+      // supplier_name so the order stays stable as items are ticked.
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [filteredItems]);
+
+  // Render-time helper: does the active list span more than one
+  // supplier? If everything is at one shop (or all "Other"), skip
+  // the grouped layout and render the flat list.
+  const showSupplierGroups = itemsBySupplier.length > 1;
 
   // Rough estimate from the notes ("Need X unit, have Y") isn't
   // reliable, so we use the list's estimated_total if set,
@@ -331,6 +366,69 @@ function ShoppingDashboardInner() {
                           </p>
                         )}
                       </div>
+                    ) : showSupplierGroups ? (
+                      // SHP2-F (SHP2-31): per-supplier shopping. Each
+                      // supplier becomes a header strip with an item
+                      // count + pending count, then the items render
+                      // beneath in the same style as the flat layout.
+                      itemsBySupplier.map((group) => {
+                        const pendingCount = group.items.filter(i => !i.purchased).length;
+                        return (
+                          <div key={group.id ?? "__other__"} className="mb-3">
+                            <div className="flex items-center justify-between gap-2 px-2 py-2 mb-2 rounded-md bg-slate-100 border border-slate-200">
+                              <p className="text-xs sm:text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                                {group.name}
+                              </p>
+                              <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
+                                {pendingCount > 0
+                                  ? `${pendingCount} of ${group.items.length} to buy`
+                                  : `${group.items.length} done`}
+                              </Badge>
+                            </div>
+                            <div className="space-y-2 sm:space-y-3">
+                              {group.items.map(item => (
+                                <div
+                                  key={item.id}
+                                  className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors ${
+                                    item.purchased
+                                      ? "bg-green-50 border-green-200"
+                                      : "bg-white border-slate-200 hover:border-emerald-300"
+                                  }`}
+                                >
+                                  <Checkbox
+                                    checked={item.purchased}
+                                    onCheckedChange={() => handleToggle(item.id, item.purchased)}
+                                    className="w-5 h-5 flex-shrink-0"
+                                    aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                      <h4 className={`font-semibold text-sm sm:text-base ${
+                                        item.purchased ? "line-through text-slate-500" : "text-slate-900"
+                                      }`}>
+                                        {item.name}
+                                      </h4>
+                                      <Badge variant="outline" className="text-xs tabular-nums">
+                                        {Number(item.quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })} {item.unit || ""}
+                                      </Badge>
+                                    </div>
+                                    {item.notes && (
+                                      <p className="text-xs sm:text-sm text-slate-600 italic truncate">
+                                        {item.notes}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {item.purchased ? (
+                                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
                       filteredItems.map(item => (
                         <div
