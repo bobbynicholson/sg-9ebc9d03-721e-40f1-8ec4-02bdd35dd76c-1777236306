@@ -23,14 +23,16 @@
 import React from "react";
 import { QuoteDocument, type QuotePdfData } from "./QuoteDocument";
 import { InvoiceDocument, type InvoicePdfData } from "./InvoiceDocument";
+import { ReceiptDocument, type ReceiptPdfData } from "./ReceiptDocument";
 import {
   buildQuoteCacheKey,
   buildInvoiceCacheKey,
+  buildReceiptCacheKey,
   pdfCacheGet,
   pdfCacheSet,
 } from "./pdfCache";
 
-export type { QuotePdfData, InvoicePdfData };
+export type { QuotePdfData, InvoicePdfData, ReceiptPdfData };
 
 /**
  * Optional cache hint. When the caller passes one we look up a
@@ -51,6 +53,15 @@ export interface InvoicePdfRenderOptions {
     invoiceId: string;
     invoiceUpdatedAt?: string | null;
     orderUpdatedAt?: string | null;
+    companyUpdatedAt?: string | null;
+  };
+}
+
+export interface ReceiptPdfRenderOptions {
+  cacheKey?: {
+    invoiceId: string;
+    paidAt?: string | null;
+    invoiceUpdatedAt?: string | null;
     companyUpdatedAt?: string | null;
   };
 }
@@ -176,6 +187,56 @@ export async function renderInvoicePdf(
 
   const reactPdf = loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(InvoiceDocument, { data }));
+  const result = await instance.toBuffer();
+  const buffer = await streamToBuffer(result);
+
+  if (cacheKey) {
+    pdfCacheSet(cacheKey, buffer);
+  }
+  return buffer;
+}
+
+/**
+ * Render a receipt PDF (CLI-I / CLI-30). Mirrors renderInvoicePdf
+ * but pipes through ReceiptDocument so the visual + the data shape
+ * stay focused on "this invoice has been paid" rather than the full
+ * billing document.
+ *
+ * Cache key folds in paid_at because a receipt is allowed to re-
+ * generate when an admin corrects the payment date or method
+ * post-recording.
+ */
+export async function renderReceiptPdf(
+  data: ReceiptPdfData,
+  options?: ReceiptPdfRenderOptions,
+): Promise<Buffer> {
+  const cacheKey = options?.cacheKey
+    ? buildReceiptCacheKey(
+        options.cacheKey.invoiceId,
+        options.cacheKey.paidAt,
+        options.cacheKey.invoiceUpdatedAt,
+        options.cacheKey.companyUpdatedAt,
+      )
+    : null;
+
+  if (cacheKey) {
+    const lookup = pdfCacheGet(cacheKey);
+    if (lookup.hit && lookup.buffer) {
+      console.info("[pdf cache] hit", {
+        kind: "receipt",
+        id: options!.cacheKey!.invoiceId,
+        age_ms: lookup.ageMs ?? 0,
+      });
+      return lookup.buffer;
+    }
+    console.info("[pdf cache] miss", {
+      kind: "receipt",
+      id: options!.cacheKey!.invoiceId,
+    });
+  }
+
+  const reactPdf = loadReactPdf();
+  const instance = reactPdf.pdf(React.createElement(ReceiptDocument, { data }));
   const result = await instance.toBuffer();
   const buffer = await streamToBuffer(result);
 

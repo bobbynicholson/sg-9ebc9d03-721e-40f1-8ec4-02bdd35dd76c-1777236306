@@ -43,6 +43,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
+import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -332,6 +333,24 @@ function ClientPortalDashboardInner() {
     invoiceCount: number;
     overdueCount: number;
   }>({ total: 0, invoiceCount: 0, overdueCount: 0 });
+  // CLI-I (client deep audit, CLI-30): paid-invoice lookup. Two
+  // shapes:
+  //   - paidInvoiceByOrderId: map order_id -> {invoiceId, invoiceNumber}
+  //     so each past-event tile can offer a per-event Receipt button
+  //     when the underlying invoice settled.
+  //   - lastPaidInvoice: most recent paid invoice the client owns
+  //     full-stop, surfaced as a small "Download last receipt" link
+  //     beside the outstanding-balance tile so a partially-paid
+  //     client can still grab proof of their last payment from the
+  //     dashboard.
+  const [paidInvoiceByOrderId, setPaidInvoiceByOrderId] = useState<
+    Record<string, { invoiceId: string; invoiceNumber: string | null }>
+  >({});
+  const [lastPaidInvoice, setLastPaidInvoice] = useState<{
+    invoiceId: string;
+    invoiceNumber: string | null;
+    paidAt: string | null;
+  } | null>(null);
 
   // Rebook dialog state - when the client taps "Rebook" on a past
   // event we open the RebookDialog component, which presents:
@@ -568,6 +587,69 @@ function ClientPortalDashboardInner() {
           }
         } catch (invErr) {
           console.warn("[client-portal/dashboard] outstanding-balance fetch failed:", invErr);
+        }
+
+        // CLI-I (CLI-30): paid-invoice lookup. Pull every paid
+        // invoice for this client under this tenant so:
+        //   1. PastEventTile knows which past orders have a
+        //      receipt to download (by order_id)
+        //   2. The outstanding-balance tile can surface a
+        //      "Download last receipt" link to the most-recent
+        //      one, even when the client still has other invoices
+        //      outstanding (the partial-payment case)
+        // Best-effort - if this fails the dashboard still works,
+        // the Receipt link just doesn't appear.
+        try {
+          const basePaid = (supabase as any)
+            .from("invoices")
+            .select("id, invoice_number, order_id, paid_at")
+            .eq("company_id", tenantCompanyId)
+            .eq("status", "paid")
+            .not("paid_at", "is", null)
+            .order("paid_at", { ascending: false });
+          let paidQuery = basePaid;
+          if (clientIds.length > 0 && user.email) {
+            paidQuery = paidQuery.or(
+              `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+            );
+          } else if (clientIds.length > 0) {
+            paidQuery = paidQuery.in("client_id", clientIds);
+          } else if (user.email) {
+            paidQuery = paidQuery.ilike("client_email", user.email);
+          }
+          const { data: paidRows } = await paidQuery;
+          if (!cancelled) {
+            const rows = (paidRows || []) as Array<{
+              id: string;
+              invoice_number: string | null;
+              order_id: string | null;
+              paid_at: string | null;
+            }>;
+            const byOrder: Record<string, { invoiceId: string; invoiceNumber: string | null }> = {};
+            for (const r of rows) {
+              if (r.order_id && !byOrder[r.order_id]) {
+                byOrder[r.order_id] = {
+                  invoiceId: r.id,
+                  invoiceNumber: r.invoice_number,
+                };
+              }
+            }
+            setPaidInvoiceByOrderId(byOrder);
+            // Rows already sorted paid_at desc, so [0] is the
+            // most recent. Stash it for the outstanding-tile link.
+            const head = rows[0];
+            setLastPaidInvoice(
+              head
+                ? {
+                    invoiceId: head.id,
+                    invoiceNumber: head.invoice_number,
+                    paidAt: head.paid_at,
+                  }
+                : null,
+            );
+          }
+        } catch (paidErr) {
+          console.warn("[client-portal/dashboard] paid-invoice fetch failed:", paidErr);
         }
       } catch (e) {
         console.error("Client dashboard load failed:", e);
@@ -1030,6 +1112,8 @@ function ClientPortalDashboardInner() {
               brandPrimary={brandPrimary}
               brandSecondary={brandSecondary}
               brandGradient={brandGradient}
+              brandText={brandText}
+              companyName={companyName}
               driverPin={driverPin}
               fmtMoney={fmtMoney}
             />
@@ -1090,45 +1174,65 @@ function ClientPortalDashboardInner() {
               balance tile + one-tap Pay. Renders only when there is
               actually money owed - dashboard stays uncluttered for
               fully-paid-up clients. Overdue invoices get a rose
-              accent vs an amber accent for in-window pending. */}
+              accent vs an amber accent for in-window pending.
+              CLI-I (CLI-30): when a paid invoice also exists, a
+              "Download last receipt" link sits in the tile footer
+              so partially-paid clients can grab proof of the last
+              payment from the same place they go to pay. */}
           {outstanding.total > 0 && (
             <div
-              className={`rounded-xl border-2 px-4 py-4 flex items-center justify-between gap-3 ${
+              className={`rounded-xl border-2 px-4 py-4 flex flex-col gap-3 ${
                 outstanding.overdueCount > 0
                   ? "border-rose-300 bg-rose-50"
                   : "border-amber-300 bg-amber-50"
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <Receipt className={`w-6 h-6 shrink-0 ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`} />
-                <div className="min-w-0">
-                  <p className={`text-xs uppercase tracking-wide ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`}>
-                    Outstanding balance
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
-                    {fmtMoney.format(outstanding.total)}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    {outstanding.invoiceCount} {outstanding.invoiceCount === 1 ? "invoice" : "invoices"}
-                    {outstanding.overdueCount > 0 && (
-                      <span className="text-rose-700 font-semibold">
-                        {" - "}{outstanding.overdueCount} overdue
-                      </span>
-                    )}
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Receipt className={`w-6 h-6 shrink-0 ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`} />
+                  <div className="min-w-0">
+                    <p className={`text-xs uppercase tracking-wide ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`}>
+                      Outstanding balance
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
+                      {fmtMoney.format(outstanding.total)}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {outstanding.invoiceCount} {outstanding.invoiceCount === 1 ? "invoice" : "invoices"}
+                      {outstanding.overdueCount > 0 && (
+                        <span className="text-rose-700 font-semibold">
+                          {" - "}{outstanding.overdueCount} overdue
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
+                <Link
+                  href={withSlug("/client-portal/billing")}
+                  className={`inline-flex items-center gap-2 px-4 py-3 rounded-lg font-semibold text-white shadow-sm min-h-11 shrink-0 ${
+                    outstanding.overdueCount > 0
+                      ? "bg-rose-600 hover:bg-rose-700"
+                      : "bg-amber-600 hover:bg-amber-700"
+                  }`}
+                >
+                  <Receipt className="w-4 h-4" />
+                  Pay
+                </Link>
               </div>
-              <Link
-                href={withSlug("/client-portal/billing")}
-                className={`inline-flex items-center gap-2 px-4 py-3 rounded-lg font-semibold text-white shadow-sm min-h-11 shrink-0 ${
-                  outstanding.overdueCount > 0
-                    ? "bg-rose-600 hover:bg-rose-700"
-                    : "bg-amber-600 hover:bg-amber-700"
-                }`}
-              >
-                <Receipt className="w-4 h-4" />
-                Pay
-              </Link>
+              {/* CLI-I (CLI-30): last-receipt footer. Surfaces a
+                  Download receipt link when the client has at
+                  least one paid invoice on file alongside the
+                  outstanding balance. Hidden when there's no
+                  paid history to download. */}
+              {lastPaidInvoice && (
+                <a
+                  href={`/api/invoices/${lastPaidInvoice.invoiceId}/receipt-pdf`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:underline self-start"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  Download last receipt{lastPaidInvoice.invoiceNumber ? ` (${lastPaidInvoice.invoiceNumber})` : ""}
+                </a>
+              )}
             </div>
           )}
 
@@ -1182,6 +1286,7 @@ function ClientPortalDashboardInner() {
                     brandPrimary={brandPrimary}
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     fmtMoney={fmtMoney}
+                    paidInvoice={paidInvoiceByOrderId[o.id] || null}
                     onRebook={(target) => {
                       // Open the RebookDialog - it manages its own
                       // form state internally now (date, items, notes).
@@ -1313,6 +1418,8 @@ function HeroCard({
   brandPrimary,
   brandSecondary,
   brandGradient,
+  brandText,
+  companyName,
   driverPin,
   fmtMoney,
 }: {
@@ -1320,6 +1427,12 @@ function HeroCard({
   brandPrimary: string;
   brandSecondary: string;
   brandGradient: string;
+  // CLI-I (CLI-29): the calendar event SUMMARY embeds the caterer's
+  // name + the brand-coloured button is rendered with the same
+  // contrast helper the rest of the dashboard uses, so the props
+  // come through from the page rather than being recomputed here.
+  brandText: "white" | "black";
+  companyName: string;
   driverPin: DriverPin | null;
   // Wave 18: tenant currency formatter passed down from the parent
   // so the totals render in the actual tenant currency, not a
@@ -1330,6 +1443,29 @@ function HeroCard({
   const tone = STATUS_TONES[order.status] || STATUS_TONES.pending;
   const isLive = order.status === "in_transit";
   const t = timeUntil(order.event_date, order.event_time);
+
+  // CLI-I (CLI-29): Add-to-calendar payload. Kept inline rather
+  // than memoised because HeroCard is one element per dashboard
+  // render. Skipped when the event is past - no point adding a
+  // historical event to a calendar.
+  const calendarEvent = !t.isPast
+    ? {
+        eventDate: order.event_date,
+        eventTime: order.event_time,
+        summary: order.event_name
+          ? `${order.event_name} - ${companyName}`
+          : `Catering by ${companyName}`,
+        location: order.venue_address || order.venue_name || null,
+        description: [
+          order.event_name ? `Event: ${order.event_name}` : null,
+          order.guest_count ? `Guests: ${order.guest_count}` : null,
+          `Catered by ${companyName}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        orderNumber: order.order_number,
+      }
+    : null;
 
   // Live tracking variant: map takes the spotlight, summary below.
   if (isLive && order.venue_lat && order.venue_lng) {
@@ -1370,6 +1506,20 @@ function HeroCard({
           <Stat label="Guests" value={`${order.guest_count || 0}`} />
           <Stat label="Total" value={fmtMoney.format(Number(order.total_amount || 0))} />
         </div>
+        {/* CLI-I (CLI-29): Add to calendar on the in-transit
+            variant too - a client tracking the truck may still want
+            to drop the event into their calendar from the same
+            screen. */}
+        {calendarEvent && (
+          <div className="px-5 sm:px-6 pb-4 -mt-1 flex">
+            <AddToCalendarButton
+              event={calendarEvent}
+              brandPrimary={brandPrimary}
+              brandText={brandText}
+              variant="solid"
+            />
+          </div>
+        )}
       </Card>
     );
   }
@@ -1474,6 +1624,21 @@ function HeroCard({
           <Stat icon={Users} label="Guests" value={`${order.guest_count || 0}`} />
           <Stat icon={MapPin} label="Venue" value={order.venue_name || "TBD"} />
         </div>
+
+        {/* CLI-I (CLI-29): Add to calendar. Renders a brand-coloured
+            solid button so it lands inside the hero's existing
+            visual hierarchy. Hidden when the event is already past
+            (calendarEvent === null). */}
+        {calendarEvent && (
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex">
+            <AddToCalendarButton
+              event={calendarEvent}
+              brandPrimary={brandPrimary}
+              brandText={brandText}
+              variant="solid"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1555,6 +1720,7 @@ function PastEventTile({
   onRate,
   slugPrefix,
   fmtMoney,
+  paidInvoice,
 }: {
   order: Order;
   brandPrimary: string;
@@ -1562,6 +1728,10 @@ function PastEventTile({
   onRate: (o: Order, rating: number) => Promise<void> | void;
   slugPrefix: string;
   fmtMoney: Intl.NumberFormat;
+  // CLI-I (CLI-30): paid invoice for this order, if any. When
+  // present the tile shows a small "Receipt" link in the footer
+  // that downloads the receipt PDF for this order's invoice.
+  paidInvoice: { invoiceId: string; invoiceNumber: string | null } | null;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1647,19 +1817,41 @@ function PastEventTile({
             })}
           </div>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onRebook(order);
-          }}
-          className="text-xs font-semibold flex items-center gap-1 hover:underline"
-          style={{ color: brandPrimary }}
-        >
-          <RotateCcw className="w-3 h-3" />
-          Rebook
-        </button>
+        <div className="flex items-center gap-3">
+          {/* CLI-I (CLI-30): per-tile receipt link. Renders only
+              when the tenant has a paid invoice linked to this
+              order. The aria-label embeds the invoice number for
+              screen readers; the visible label stays terse so it
+              fits the narrow tile footer beside Rebook. */}
+          {paidInvoice && (
+            <a
+              href={`/api/invoices/${paidInvoice.invoiceId}/receipt-pdf`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-semibold flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
+              aria-label={
+                paidInvoice.invoiceNumber
+                  ? `Download receipt ${paidInvoice.invoiceNumber}`
+                  : "Download receipt"
+              }
+            >
+              <Receipt className="w-3 h-3" />
+              Receipt
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRebook(order);
+            }}
+            className="text-xs font-semibold flex items-center gap-1 hover:underline"
+            style={{ color: brandPrimary }}
+          >
+            <RotateCcw className="w-3 h-3" />
+            Rebook
+          </button>
+        </div>
       </div>
     </div>
   );
