@@ -32,7 +32,7 @@ const MAX_ENTRIES = 50;
 // "drop the oldest" semantics on writes.
 const store: Map<string, CacheEntry> = new Map();
 
-export type PdfCacheKind = "quote" | "invoice";
+export type PdfCacheKind = "quote" | "invoice" | "receipt";
 
 export interface PdfCacheLookupResult {
   hit: boolean;
@@ -108,6 +108,20 @@ export function buildInvoiceCacheKey(
   companyUpdatedAt: string | null | undefined,
 ): string {
   return `invoice:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
+}
+
+/**
+ * Build a cache key for a receipt render (CLI-30). Folds paid_at
+ * into the key so an admin correction of the payment date or
+ * method invalidates a previously rendered receipt automatically.
+ */
+export function buildReceiptCacheKey(
+  invoiceId: string,
+  paidAt: string | null | undefined,
+  invoiceUpdatedAt: string | null | undefined,
+  companyUpdatedAt: string | null | undefined,
+): string {
+  return `receipt:${invoiceId}:${paidAt || "0"}:${invoiceUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
 }
 
 /**

@@ -24,11 +24,19 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
+import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarButton";
+import { toLocalISO } from "@/lib/localDate";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
   id: string;
   event_date: string;
+  // CLI-I (client deep audit, CLI-29): event_time + order_number
+  // are required for the .ics file. Both are nullable on the row;
+  // the calendar generator defaults event_time to midday when
+  // missing.
+  event_time?: string | null;
+  order_number?: string | null;
   event_name?: string | null;
   venue_name?: string | null;
   venue_address: string;
@@ -155,7 +163,7 @@ export default function MyOrders() {
         // payment / delivery state.
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at, shopping_completed_at")
+          .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at, shopping_completed_at")
           .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
@@ -325,6 +333,41 @@ export default function MyOrders() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
+                          {/* CLI-I (client deep audit, CLI-29): Add to
+                              calendar. Renders only for future events
+                              that aren't cancelled - no point dropping
+                              a past or void event into the user's
+                              calendar. Uses the chip variant so it
+                              sits comfortably alongside Track / View
+                              without dominating the row. */}
+                          {order.event_date >= toLocalISO(new Date()) &&
+                            order.status !== "cancelled" && (
+                              <AddToCalendarButton
+                                event={{
+                                  eventDate: order.event_date,
+                                  eventTime: order.event_time,
+                                  summary: order.event_name
+                                    ? `${order.event_name} - ${company?.company_name || "Catering"}`
+                                    : `Catering by ${company?.company_name || "your caterer"}`,
+                                  location:
+                                    order.venue_address || order.venue_name || null,
+                                  description: [
+                                    order.event_name ? `Event: ${order.event_name}` : null,
+                                    order.guest_count ? `Guests: ${order.guest_count}` : null,
+                                    company?.company_name
+                                      ? `Catered by ${company.company_name}`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join("\n"),
+                                  orderNumber: order.order_number,
+                                }}
+                                variant="chip"
+                                label="Calendar"
+                                brandPrimary={company?.primary_color || undefined}
+                                className="w-full sm:w-auto justify-center"
+                              />
+                            )}
                           <Link href={`/client-portal/tracking?orderId=${order.id}`}>
                             <Button size="sm" variant="outline" className="w-full sm:w-auto">
                               <Truck className="w-4 h-4 mr-2" />
