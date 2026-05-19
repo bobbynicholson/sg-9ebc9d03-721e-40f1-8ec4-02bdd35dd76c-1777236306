@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, Timer, AlertTriangle } from "lucide-react";
+import { Play, Check, X, Timer, AlertTriangle, Mic, MicOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,13 +11,18 @@ import { useToast } from "@/hooks/use-toast";
  * per prep task. When the chef taps Start, we stamp started_at on
  * the row and the chip ticks down from duration_min. Hits zero ->
  * one short chime + a yellow/red dismissible flash so the chef
- * doesn't miss it while heads-down at the station. Tap Complete
+ * does not miss it while heads-down at the station. Tap Complete
  * to stamp completed_at and drop the row.
+ *
+ * KIT2-M (KIT2-42): mic button next to the list. Web Speech API
+ * recognises "tick / done / complete {task name}", fuzzy-matches
+ * the visible labels, fires handleComplete on the best match. Toast
+ * "Ticked: {label}" on success; silent on no-match.
  *
  * Why a separate component (not folded into TaskCompletionButtons):
  *   - TaskCompletionButtons writes kitchen_task_completions (the
- *     four macro "Food Ready / Cutlery / Crockery / Ready for
- *     pickup" gates).
+ *     four macro Food Ready / Cutlery / Crockery / Ready-for-pickup
+ *     gates).
  *   - This writes kitchen_prep_tasks (the per-menu-item prep + cook
  *     rows with duration_min and started_at / completed_at).
  *   Two tables, two responsibilities. The kanban card now mounts
@@ -128,7 +133,7 @@ function PrepTaskTimerRow({
 
 function timerChime() {
   // Same WebAudio approach as NotificationBell - no asset shipped,
-  // silent fallback if the audio context can't be made.
+  // silent fallback if the audio context cannot be made.
   try {
     const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
       || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -149,6 +154,38 @@ function timerChime() {
   } catch {
     // Best-effort.
   }
+}
+
+// KIT2-M token-overlap match. Splits the spoken phrase and each task
+// label into lowercase tokens, scores each task by how many of its
+// tokens appear in the phrase. The leading verb (tick / done /
+// complete) is stripped so a one-word task name (Lasagne) is not
+// shadowed. Threshold of half the label tokens (with substring
+// containment as a hard match) keeps "complete" alone from ticking
+// a task literally called "complete".
+export function fuzzyMatchTask(phrase: string, candidates: PrepTask[]): PrepTask | null {
+  const cleaned = phrase
+    .toLowerCase()
+    .replace(/^(tick|ticked|done|complete|completed|finish|finished)\b/i, "")
+    .trim();
+  if (!cleaned) return null;
+  const phraseTokens = new Set(cleaned.split(/\s+/).filter(Boolean));
+  if (phraseTokens.size === 0) return null;
+
+  let best: { task: PrepTask; score: number } | null = null;
+  for (const t of candidates) {
+    const labelLower = t.menu_item_name.toLowerCase();
+    const labelTokens = labelLower.split(/\s+/).filter(Boolean);
+    if (labelTokens.length === 0) continue;
+    const hits = labelTokens.filter(tok => phraseTokens.has(tok)).length;
+    const score = hits / labelTokens.length;
+    const subBoost = cleaned.includes(labelLower) ? 1 : 0;
+    const finalScore = score + subBoost;
+    if (finalScore >= 0.5 && (!best || finalScore > best.score)) {
+      best = { task: t, score: finalScore };
+    }
+  }
+  return best?.task ?? null;
 }
 
 export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
@@ -175,17 +212,11 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // 1s tick so the countdown chips stay live. We render minutes only,
-  // but ticking at 1s means the overrun threshold trips within a
-  // second of the deadline, not up to a minute later.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Realtime so a sibling tab ticking a task is reflected here. The
-  // dashboard already subscribes to kitchen_prep_tasks but it
-  // reloads orders, not the per-order task list this component owns.
   useEffect(() => {
     const sub = supabase
       .channel(`prep-timer-${orderId}`)
@@ -226,8 +257,6 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
     }
     try {
       await kitchenPrepService.completeTask(taskId, user.id);
-      // Clear any active alert tied to this task - completing it
-      // means the chef has acknowledged the timer.
       setAlerts(prev => prev.filter(a => a.id !== taskId));
       await load();
     } catch (e) {
@@ -235,6 +264,86 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
       toast({ title: "Could not complete task", description: msg, variant: "destructive" });
     }
   }, [user?.id, toast, load]);
+
+  // KIT2-M voice tick. Web Speech API is not in lib.dom for every
+  // target so we feature-detect via window globals and gate the
+  // mic button on it. Eslint-disabled any is the pragmatic shape
+  // - the spec types for SpeechRecognition are not first-class.
+  const [listening, setListening] = useState(false);
+  const [supportsSpeech, setSupportsSpeech] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recogRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => unknown;
+      webkitSpeechRecognition?: new () => unknown;
+    };
+    setSupportsSpeech(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  const stopListening = useCallback(() => {
+    try { recogRef.current?.stop(); } catch { /* noop */ }
+    recogRef.current = null;
+    setListening(false);
+  }, []);
+
+  const startListening = useCallback(() => {
+    const w = window as unknown as {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      SpeechRecognition?: new () => any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      webkitSpeechRecognition?: new () => any;
+    };
+    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Ctor) {
+      toast({
+        title: "Voice not supported",
+        description: "This browser does not expose the Web Speech API. Use Chrome or Edge on the tablet.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const r = new Ctor();
+    r.lang = "en-GB";
+    r.interimResults = false;
+    r.continuous = false;
+    r.maxAlternatives = 3;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    r.onresult = (ev: any) => {
+      const result = ev.results?.[0];
+      if (!result) return;
+      const alternatives: string[] = [];
+      for (let i = 0; i < result.length; i++) {
+        const alt = result[i]?.transcript;
+        if (alt) alternatives.push(String(alt));
+      }
+      for (const phrase of alternatives) {
+        const match = fuzzyMatchTask(phrase, tasks);
+        if (match) {
+          void handleComplete(match.id);
+          toast({ title: `Ticked: ${match.menu_item_name}` });
+          return;
+        }
+      }
+      // No match - intentionally silent.
+    };
+
+    r.onerror = () => { stopListening(); };
+    r.onend = () => { setListening(false); recogRef.current = null; };
+
+    recogRef.current = r;
+    setListening(true);
+    try {
+      r.start();
+    } catch {
+      stopListening();
+    }
+  }, [handleComplete, stopListening, tasks, toast]);
+
+  useEffect(() => () => { stopListening(); }, [stopListening]);
 
   if (tasks.length === 0) return null;
 
@@ -264,6 +373,28 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
           ))}
         </div>
       )}
+
+      {/* KIT2-M: mic chip above the list. Hidden if the browser
+          does not expose SpeechRecognition - silent fallback is
+          fine because the on-screen taps still work. */}
+      {supportsSpeech && (
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[10px] text-slate-500">
+            {listening ? "Listening: say 'done {dish}'..." : "Hands full? Tap mic and say 'done {dish}'"}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant={listening ? "default" : "outline"}
+            className={`min-h-9 min-w-11 px-2 text-xs ${listening ? "bg-red-600 hover:bg-red-700 animate-pulse" : ""}`}
+            onClick={listening ? stopListening : startListening}
+            aria-label={listening ? "Stop listening" : "Start voice tick"}
+          >
+            {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </Button>
+        </div>
+      )}
+
       {tasks.map(t => (
         <PrepTaskTimerRow
           key={t.id}
