@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Sparkles, Printer } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { Footer } from "@/components/Footer";
@@ -512,6 +512,24 @@ export default function KitchenDashboard() {
                 </Badge>
               )}
             </Link>
+            {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
+                backup of today's prep + tomorrow's preview. Bobby's
+                explicit P1 ask. Chef prep-day morning wants one
+                printable run-sheet not 12 per-order tickets. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (orders.length === 0 && upcoming.length === 0) {
+                  toast({ title: "Nothing to print", description: "No orders today or in the next 2 days." });
+                  return;
+                }
+                setTimeout(() => window.print(), 100);
+              }}
+              className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Print run sheet
+            </Button>
           </div>
 
           <TeamWelcomeBanner role="kitchen" userId={user?.id} />
@@ -1204,6 +1222,159 @@ export default function KitchenDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): print-only
+          kitchen run sheet. Hidden on screen via the print CSS below.
+          Bobby's brief: chef prep-day morning wants paper - one
+          run-sheet that covers today + tomorrow + day-after, not 12
+          per-order kitchen tickets. Allergens render with bold red
+          flags so they survive the printer. */}
+      <div id="print-kitchen-run-sheet" className="print-only">
+        <h1 style={{ fontSize: "20pt", marginBottom: "4pt", fontFamily: "sans-serif" }}>
+          Kitchen run sheet
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {" - "}
+          {orders.length} {orders.length === 1 ? "order" : "orders"} today + next 2 days
+        </p>
+
+        {/* Today's active orders */}
+        {orders.length > 0 && (
+          <>
+            <h2 style={{ fontSize: "13pt", marginTop: "12pt", marginBottom: "6pt", fontFamily: "sans-serif", borderBottom: "1pt solid #0f172a", paddingBottom: "2pt" }}>
+              Active prep
+            </h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+              <thead>
+                <tr style={{ borderBottom: "1.5pt solid #0f172a" }}>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Event</th>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Time</th>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Pickup</th>
+                  <th style={{ textAlign: "right", padding: "4pt" }}>Guests</th>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Status</th>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Prep</th>
+                  <th style={{ textAlign: "left", padding: "4pt" }}>Allergens / notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => {
+                  const o = order as any;
+                  const prog = progressByOrder[o.id] || { total: 0, done: 0 };
+                  return (
+                    <tr key={o.id} style={{ borderBottom: "0.5pt solid #cbd5e1", pageBreakInside: "avoid" }}>
+                      <td style={{ padding: "5pt 4pt" }}>
+                        <strong>{o.event_name || o.client_name || "Order"}</strong>
+                        {o.event_name && o.client_name ? <span style={{ color: "#64748b" }}> ({o.client_name})</span> : null}
+                      </td>
+                      <td style={{ padding: "5pt 4pt", whiteSpace: "nowrap" }}>
+                        {o.event_date}
+                        {o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                      </td>
+                      <td style={{ padding: "5pt 4pt", whiteSpace: "nowrap" }}>
+                        {o.pickup_time ? <strong>{o.pickup_time}</strong> : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
+                      </td>
+                      <td style={{ padding: "5pt 4pt", textAlign: "right" }}>{o.guest_count ?? ""}</td>
+                      <td style={{ padding: "5pt 4pt", textTransform: "uppercase", fontSize: "8.5pt", letterSpacing: "0.5pt" }}>
+                        {o.status}
+                      </td>
+                      <td style={{ padding: "5pt 4pt", textAlign: "right", whiteSpace: "nowrap" }}>
+                        {prog.total > 0 ? `${prog.done}/${prog.total}` : "–"}
+                      </td>
+                      <td style={{ padding: "5pt 4pt" }}>
+                        {o.dietary_requirements ? (
+                          <span style={{ color: "#dc2626", fontWeight: 700 }}>
+                            ⚠ {o.dietary_requirements}
+                          </span>
+                        ) : null}
+                        {o.special_instructions ? (
+                          <div style={{ color: "#475569", fontSize: "8.5pt", marginTop: "2pt" }}>
+                            {o.special_instructions}
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* Tomorrow + day-after preview */}
+        {upcoming.length > 0 && (
+          <>
+            <h2 style={{ fontSize: "13pt", marginTop: "18pt", marginBottom: "6pt", fontFamily: "sans-serif", borderBottom: "1pt solid #0f172a", paddingBottom: "2pt" }}>
+              Coming up
+            </h2>
+            {upcoming.map((day) => (
+              <div key={day.date} style={{ marginBottom: "10pt", pageBreakInside: "avoid" }}>
+                <p style={{ fontSize: "11pt", fontWeight: 700, marginBottom: "3pt", fontFamily: "sans-serif" }}>
+                  {new Date(day.date).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })}
+                  {" - "}
+                  <span style={{ fontWeight: 400, color: "#475569" }}>
+                    {day.orders} {day.orders === 1 ? "order" : "orders"} / {day.guests} guests
+                  </span>
+                </p>
+                {day.items.length > 0 && (
+                  <ul style={{ margin: 0, paddingLeft: "16pt", fontSize: "9.5pt", color: "#0f172a", fontFamily: "sans-serif" }}>
+                    {day.items.map((item) => (
+                      <li key={item.id} style={{ marginBottom: "2pt" }}>
+                        <strong>{item.event_time || "TBD"}</strong>
+                        {" - "}
+                        {item.event_name}
+                        {item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}
+                        {item.guest_count ? <span style={{ color: "#64748b" }}> · {item.guest_count} guests</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Low stock alerts */}
+        {lowStockItems.length > 0 && (
+          <>
+            <h2 style={{ fontSize: "13pt", marginTop: "18pt", marginBottom: "6pt", fontFamily: "sans-serif", borderBottom: "1pt solid #0f172a", paddingBottom: "2pt" }}>
+              Low stock
+            </h2>
+            <ul style={{ margin: 0, paddingLeft: "16pt", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+              {lowStockItems.map((item) => (
+                <li key={item.id} style={{ marginBottom: "2pt" }}>
+                  <strong>{item.item_name}</strong>
+                  <span style={{ color: "#dc2626" }}>
+                    {" - "}{item.current_stock} / min {item.minimum_stock}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <p style={{ marginTop: "20pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Kitchen Portal
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; size: landscape; }
+          body * { visibility: hidden !important; }
+          #print-kitchen-run-sheet, #print-kitchen-run-sheet * { visibility: visible !important; }
+          #print-kitchen-run-sheet {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }
