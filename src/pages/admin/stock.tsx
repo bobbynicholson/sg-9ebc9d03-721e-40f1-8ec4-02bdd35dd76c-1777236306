@@ -509,7 +509,9 @@ function StockPage() {
 
 export default function AdminStockPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // STK-A (stock audit, STK-3): admit sales_admin (advise on
+    // ordering) + region_admin (regional inventory pressure).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <StockPage />
     </ProtectedRoute>
   );
