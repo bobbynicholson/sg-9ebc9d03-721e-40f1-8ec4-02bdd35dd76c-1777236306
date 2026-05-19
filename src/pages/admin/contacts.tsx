@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Catering CRM - a single view of every person ever on this company's
  * radar (existing client, lead, anyone who placed an order). For each
