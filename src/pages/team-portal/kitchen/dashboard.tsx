@@ -404,12 +404,21 @@ export default function KitchenDashboard() {
       hasExplicitTime: boolean;
     } | null = null;
     for (const o of live as any[]) {
-      const dt = o.event_time
-        ? new Date(`${o.event_date}T${o.event_time}`)
+      // KIT2-J (kitchen deep audit, KIT2-37 / KIT2-65): kitchen
+      // cares about PICKUP time, not event time. Driver collects
+      // ~30 min before the guests eat - food has to be plated and
+      // boxed by then, not "at event_time". Pre-fix this used
+      // event_time, which silently let the chef think they had 30
+      // more minutes. pickup_time on the order is the source of
+      // truth (set by dispatcher on /admin/order-assignments).
+      // Fall back to event_time when pickup_time isn't set yet.
+      const timeStr = o.pickup_time || o.event_time;
+      const dt = timeStr
+        ? new Date(`${o.event_date}T${timeStr}`)
         : new Date(`${o.event_date}T12:00`);
       if (isNaN(dt.getTime())) continue;
       const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
-      // Skip stuck orders more than the grace window past event time.
+      // Skip stuck orders more than the grace window past pickup time.
       if (minutesAway < -PAST_PICKUP_GRACE_MIN) continue;
       if (!earliest || minutesAway < earliest.minutesAway) {
         earliest = {
@@ -418,7 +427,7 @@ export default function KitchenDashboard() {
           client: o.client_name || "",
           minutesAway,
           eventDate: dt,
-          hasExplicitTime: !!o.event_time,
+          hasExplicitTime: !!timeStr,
         };
       }
     }
