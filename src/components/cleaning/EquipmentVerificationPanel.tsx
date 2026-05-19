@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface VerificationItem {
   handoverId: string;
@@ -28,6 +29,7 @@ interface VerificationItem {
 
 export function EquipmentVerificationPanel() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
   const [selectedHandover, setSelectedHandover] = useState<string | null>(null);
@@ -41,38 +43,70 @@ export function EquipmentVerificationPanel() {
 
   const loadPendingVerifications = async () => {
     if (!user) return;
-    
+
+    // CLN2-B (cleaning deep audit, CLN2-19, P0):
+    //
+    // Before this fix the loader filtered
+    //   data.filter(item => item.order?.user_id === user.id)
+    // which compared the ORDER's user_id (= the client who placed
+    // the order) to the CURRENT user (= the cleaner). The two never
+    // match, so the panel rendered empty for every real cleaner.
+    // The verification surface was de facto dead for months.
+    //
+    // The right scope is company-wide: every handover with
+    // to_stage='kitchen' that hasn't been received yet is something
+    // the cleaning team needs to verify, regardless of who placed
+    // the order. The .eq("company_id", ...) gate replaces the
+    // broken JS filter and adds explicit defense-in-depth on top of
+    // RLS.
+
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+
     try {
-      // Load handovers that are returning to kitchen (not yet verified)
-      const { data } = await supabase
+      // The supabase-generated types are stale on equipment_handovers
+      // (company_id present in the migration but missing from the
+      // local type bundle). Cast to any at the call site to scope
+      // the relaxation tightly without disabling type-checking on
+      // the rest of the file.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from("equipment_handovers")
         .select(`
           *,
           equipment:equipment_id (
             name,
-            category
+            category,
+            unit_cost
           ),
           order:order_id (
-            order_number,
-            user_id
+            order_number
           )
         `)
+        .eq("company_id", companyId)
         .eq("to_stage", "kitchen")
         .is("received_at", null)
         .order("handed_at", { ascending: false });
 
-      if (data) {
-        const filtered = data.filter((item: any) => item.order?.user_id === user.id);
-        setPendingVerifications(filtered);
+      if (error) {
+        console.error("Error loading pending verifications:", error);
+        return;
       }
+      setPendingVerifications(data || []);
     } catch (error) {
       console.error("Error loading pending verifications:", error);
     }
   };
 
   const handleVerifyEquipment = async (handover: any) => {
+    // CLN2-B (CLN2-56): native alert() loses focus and is hard to
+    // dismiss with wet hands in a dish area. Toast is non-blocking.
     if (!actualCount) {
-      alert("Please enter the actual quantity received");
+      toast({
+        title: "Quantity required",
+        description: "Enter the actual quantity received before verifying.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -80,7 +114,11 @@ export function EquipmentVerificationPanel() {
     const hasDiscrepancy = quantityReceived !== handover.quantity_sent;
 
     if (hasDiscrepancy && !notes.trim()) {
-      alert("Please provide notes explaining the discrepancy");
+      toast({
+        title: "Notes required",
+        description: "Briefly explain the discrepancy before saving.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -123,9 +161,19 @@ export function EquipmentVerificationPanel() {
       setActualCount("");
       setNotes("");
       await loadPendingVerifications();
+      toast({
+        title: "Verified",
+        description: hasDiscrepancy
+          ? `Saved with discrepancy (${quantityReceived} of ${handover.quantity_sent}).`
+          : "Handover received and logged for cleaning.",
+      });
     } catch (error) {
       console.error("Error verifying equipment:", error);
-      alert("Failed to verify equipment");
+      toast({
+        title: "Could not verify",
+        description: error instanceof Error ? error.message : "Try again or contact admin.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
