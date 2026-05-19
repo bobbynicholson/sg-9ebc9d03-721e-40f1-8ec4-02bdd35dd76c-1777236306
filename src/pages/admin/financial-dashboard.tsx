@@ -22,6 +22,8 @@ import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -59,7 +61,7 @@ interface CashFlowAlert {
   predictedDate?: string;
 }
 
-export default function FinancialDashboardPage() {
+function FinancialDashboardInner() {
   const { user } = useAuth();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -948,6 +950,19 @@ export default function FinancialDashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+// FIN-A (financial-dashboard audit, FIN-7): defense-in-depth at the
+// component layer. Page was previously bare default with only an
+// in-render canSeeFinanceForecast gate around the Cashflow Forecast
+// Card - revenue tiles + profit margin rendered before auth context
+// resolved. Tight finance roles only per Skylight rule.
+export default function FinancialDashboardPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <FinancialDashboardInner />
+    </ProtectedRoute>
   );
 }
 

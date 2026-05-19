@@ -33,6 +33,8 @@ import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawe
 import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { format } from "date-fns";
@@ -46,7 +48,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 
-export default function InvoicesPage() {
+function InvoicesPageInner() {
   const router = useRouter();
   const { user, activeRole, loading: authLoading } = useAuth() as any;
   const { toast } = useToast();
@@ -2352,5 +2354,19 @@ export default function InvoicesPage() {
         formatMoney={tenantMoney.format}
       />
     </div>
+  );
+}
+
+// INV-A (invoices audit, INV-1): defense-in-depth at the component
+// layer. The page previously had an in-render role check at the top
+// of InvoicesPage that lets the DOM start rendering before auth
+// context resolves. Same role set as the inline check (admin trio +
+// sales_admin + region_admin); the inline check stays as a
+// belt-and-braces redirect.
+export default function InvoicesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <InvoicesPageInner />
+    </ProtectedRoute>
   );
 }
