@@ -14,6 +14,7 @@ import {
   Bell,
   Camera,
   X,
+  Printer,
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
@@ -547,6 +548,25 @@ function DriverDashboardInner() {
                     </span>
                   </div>
                 )}
+                {/* DRV-J (driver deep audit, DRV-32 / DRV-60):
+                    paper backup. A driver in a cab at 6am with a
+                    flat phone battery still needs to know who's
+                    where today. Print walks the current jobs list
+                    (already date-windowed by DRV-B). */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (jobs.length === 0) {
+                      toast({ title: "Nothing to print", description: "No deliveries scheduled in the next 14 days." });
+                      return;
+                    }
+                    setTimeout(() => window.print(), 100);
+                  }}
+                  className="h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base gap-1.5"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print run sheet
+                </Button>
                 <Button
                   onClick={() => setShowGame(true)}
                   className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base"
@@ -979,6 +999,89 @@ function DriverDashboardInner() {
 
       {/* AI Chatbot */}
       <ChatBot userRole="driver" companyId={user?.company_id} />
+
+      {/* DRV-J (DRV-32 / DRV-60): print-only day's run sheet. Hidden
+          on screen via the print CSS below. One row per active job
+          with the data a driver needs at a venue with no signal:
+          event date+time, pickup, client + phone, venue address,
+          guest count, special instructions, status. Walks the same
+          jobs array as the on-screen list (already date-windowed). */}
+      <div id="print-driver-run-sheet" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "4pt", fontFamily: "sans-serif" }}>
+          {driverName} - run sheet
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {" - "}
+          {jobs.length} {jobs.length === 1 ? "delivery" : "deliveries"}
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Event</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Pickup</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Client</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Phone</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Venue</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Guests</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.map((job) => (
+              <tr key={job.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid" }}>
+                <td style={{ padding: "6pt 4pt" }}>
+                  <strong>{job.event_date}</strong>
+                  {job.event_time ? <span style={{ color: "#64748b" }}> {job.event_time}</span> : null}
+                </td>
+                <td style={{ padding: "6pt 4pt" }}>
+                  {job.pickup_time
+                    ? <strong>{job.pickup_time}</strong>
+                    : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
+                </td>
+                <td style={{ padding: "6pt 4pt" }}>{job.client_name}</td>
+                <td style={{ padding: "6pt 4pt" }}>{job.client_phone || ""}</td>
+                <td style={{ padding: "6pt 4pt" }}>{job.venue_address}</td>
+                <td style={{ padding: "6pt 4pt", textAlign: "right" }}>{job.guest_count}</td>
+                <td style={{ padding: "6pt 4pt", textTransform: "uppercase", fontSize: "8.5pt", letterSpacing: "0.5pt", color: "#475569" }}>
+                  {job.status}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {jobs.some((j) => j.special_instructions) && (
+          <div style={{ marginTop: "14pt", borderTop: "1px solid #cbd5e1", paddingTop: "10pt" }}>
+            <p style={{ fontSize: "10pt", fontWeight: 700, marginBottom: "6pt", fontFamily: "sans-serif" }}>Special instructions</p>
+            {jobs.filter((j) => j.special_instructions).map((j) => (
+              <p key={j.id} style={{ fontSize: "9.5pt", marginBottom: "4pt", fontFamily: "sans-serif" }}>
+                <strong>{j.client_name}</strong> - {j.special_instructions}
+              </p>
+            ))}
+          </div>
+        )}
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Driver Portal
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; size: landscape; }
+          body * { visibility: hidden !important; }
+          #print-driver-run-sheet, #print-driver-run-sheet * { visibility: visible !important; }
+          #print-driver-run-sheet {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }
