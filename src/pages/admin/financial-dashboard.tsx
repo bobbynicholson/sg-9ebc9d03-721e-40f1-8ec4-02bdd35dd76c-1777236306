@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
@@ -37,6 +38,13 @@ interface FinancialMetrics {
   unpaidSessionsCount: number;
   /** Distinct staff with at least one unpaid session. */
   unpaidStaffCount: number;
+  /** Bug fix (financial-summary parity with CashflowForecastCard):
+   *  sum of fixed_costs occurrences and unpaid supplier_payables
+   *  due in the next 30 days. Both feed into the forecast chart
+   *  above the summary; before this fix the summary ignored them
+   *  and Net Cash Flow contradicted the projected balance trend. */
+  fixedCostsNext30: number;
+  supplierPayablesNext30: number;
   // null until a real COGS pipeline is wired (inventory_transactions
   // + supplier invoices + payroll). Previous fixed-multiplier maths
   // was removed in the May 2026 audit because it produced a constant
@@ -108,12 +116,58 @@ function FinancialDashboardInner() {
       // Calculate metrics
       const cashReceived = calculateCashReceived(ordersData);
       const staffPaymentsOwed = ledgerData.totalOwed || 0;
-      const currentCashFlow = cashReceived - staffPaymentsOwed;
       const projectedRevenue30Days = calculateProjectedRevenue(ordersData, 30);
       const projectedRevenue90Days = calculateProjectedRevenue(ordersData, 90);
       const pendingPayments = calculatePendingPayments(ordersData);
       const unpaidSessionsCount = (ledgerData.unpaidSessions || []).length;
       const unpaidStaffCount = ledgerData.staffCount || 0;
+
+      // Bug fix (financial-summary parity): mirror the cost feeds the
+      // CashflowForecastCard reads (fixed_costs + supplier_payables)
+      // so the Financial Summary's Net Cash Flow ties out with the
+      // forecast chart's R0 line dipping. Both loads tolerant of
+      // RLS / missing tables - we default to 0 on failure so the
+      // summary still renders.
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const thirtyIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10);
+      let fixedCostsNext30 = 0;
+      let supplierPayablesNext30 = 0;
+      try {
+        const fixedRows = await fixedCostsService.list(
+          (user as any).company_id,
+          { activeOnly: true },
+        );
+        const expanded = fixedCostsService.expandOccurrences(fixedRows, 30);
+        fixedCostsNext30 = expanded.reduce(
+          (sum, o) => sum + o.amount_cents / 100,
+          0,
+        );
+      } catch (fcErr) {
+        console.warn("[financial-dashboard] fixed_costs load failed:", fcErr);
+      }
+      try {
+        const { data: payables } = await (supabase as any)
+          .from("supplier_payables")
+          .select("amount_cents, due_date")
+          .eq("company_id", (user as any).company_id)
+          .eq("status", "pending")
+          .is("deleted_at", null)
+          .gte("due_date", todayIso)
+          .lte("due_date", thirtyIso);
+        supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
+          .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
+      } catch (spErr) {
+        console.warn("[financial-dashboard] supplier_payables load failed:", spErr);
+      }
+
+      // The 4-tile strip above keeps its simpler currentCashFlow
+      // breakdown (Received / Wages owed). The Financial Summary
+      // card recomputes Net inline against the new fixedCostsNext30
+      // and supplierPayablesNext30 fields so the two surfaces stay
+      // labelled honestly: one is "right now", the other is "30d
+      // matches the forecast".
+      const currentCashFlow = cashReceived - staffPaymentsOwed;
       // 90-day lookback for COGS so the tile aggregates enough usage
       // transactions to be meaningful. Synced with the projected-
       // revenue horizon below.
@@ -144,7 +198,9 @@ function FinancialDashboardInner() {
         profitMargin,
         ordersMissingCost: cogsData?.ordersMissingCost ?? 0,
         ordersCounted: cogsData?.ordersCounted ?? 0,
-        healthScore
+        healthScore,
+        fixedCostsNext30,
+        supplierPayablesNext30,
       });
       setLoadedAt(Date.now());
 
@@ -642,6 +698,22 @@ function FinancialDashboardInner() {
                         {formatCurrency(metrics?.staffPaymentsOwed || 0)}
                       </span>
                     </div>
+                    {/* Bug fix: surface fixed costs + supplier payables
+                        the forecast chart already subtracts so the
+                        summary's Net line ties out with the projected
+                        balance trend instead of contradicting it. */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 flex items-center gap-1">Fixed Costs (next 30d) <InfoTooltip content={"Recurring rent / software / vehicle costs falling due in the next 30 days. Pulled from the Fixed Costs page. Subtracted from Net Cash Flow."} /></span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(metrics?.fixedCostsNext30 || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 flex items-center gap-1">Supplier Payables (next 30d) <InfoTooltip content={"Unpaid supplier invoices with a due date in the next 30 days. Pulled from the Payables page. Subtracted from Net Cash Flow."} /></span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(metrics?.supplierPayablesNext30 || 0)}
+                      </span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 flex items-center gap-1">Inventory Costs <InfoTooltip content={"Sum of ingredient cost on PAID orders in the last 90 days (quantity * unit_cost on usage transactions). Supplier invoices / payroll not yet folded in."} /></span>
                       {metrics?.inventoryCosts != null ? (
@@ -654,14 +726,24 @@ function FinancialDashboardInner() {
                         </span>
                       )}
                     </div>
-                    <div className="border-t pt-4 flex justify-between items-center">
-                      <span className="font-semibold flex items-center gap-1">Net Cash Flow <InfoTooltip content={"Money in from paid orders less wages still owed.\n\nMatches the Current Cash Flow figure shown above."} /></span>
-                      <span className={`font-bold text-lg ${
-                        (metrics?.currentCashFlow || 0) > 0 ? "text-green-600" : "text-red-600"
-                      }`}>
-                        {formatCurrency(metrics?.currentCashFlow || 0)}
-                      </span>
-                    </div>
+                    {(() => {
+                      // Net Cash Flow now matches the CashflowForecastCard:
+                      // cashReceived - wages - fixed costs - supplier payables.
+                      // currentCashFlow alone (the 4-tile breakdown above)
+                      // does not include the recurring outflows the
+                      // forecast already prices in.
+                      const net = (metrics?.currentCashFlow || 0)
+                        - (metrics?.fixedCostsNext30 || 0)
+                        - (metrics?.supplierPayablesNext30 || 0);
+                      return (
+                        <div className="border-t pt-4 flex justify-between items-center">
+                          <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs and supplier payables due in the next 30 days.\n\nMatches the projected balance trend shown in the chart above."} /></span>
+                          <span className={`font-bold text-lg ${net > 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(net)}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
 
