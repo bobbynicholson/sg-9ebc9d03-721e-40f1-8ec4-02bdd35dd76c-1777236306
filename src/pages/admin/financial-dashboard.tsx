@@ -517,22 +517,31 @@ function FinancialDashboardInner() {
             )}
           </div>
 
-          {/* Cashflow Forecast Card - operator/director-only forward-
-              looking read. Sits above the backward-looking metrics
-              grid because it answers the question owners actually
-              want answered first ("can I pay this week?"). Gated
-              by useAuth role per the finance-visibility rule. */}
-          {canSeeFinanceForecast && user?.company_id && (
-            <div className="mb-6">
-              <CashflowForecastCard
-                companyId={user.company_id}
-                loadedAt={loadedAt}
-                orders={orders}
-                staffPaymentsOwed={metrics?.staffPaymentsOwed || 0}
-                currency={(user as any)?.currency || "ZAR"}
-                userId={user.id}
-              />
-            </div>
+          {/* Forecast moved to /admin/cashflow-dashboard. This page
+              keeps the backward-looking health / margin / order
+              story; the forecast chart + payables / fixed costs
+              roll-up + cashflow alerts live on the focused page. */}
+          {canSeeFinanceForecast && (
+            <Card className="mb-6 border-2 border-emerald-200 bg-emerald-50/40">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Cashflow forecast moved</p>
+                    <p className="text-sm text-slate-600">
+                      The 30-day projected balance chart, payables and fixed costs now live on the Cashflow dashboard.
+                    </p>
+                  </div>
+                </div>
+                <Link href={withSlug("/admin/cashflow-dashboard")}>
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
+                    Open cashflow dashboard
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
           )}
 
           {/* Key Metrics Grid */}

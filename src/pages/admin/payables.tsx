@@ -161,8 +161,11 @@ function PayablesPage() {
         <title>Payables - Admin</title>
       </Head>
       <NoIndexMeta />
-      <div className="min-h-screen bg-slate-50">
-        <AdminNav />
+      <AdminNav />
+      {/* Match the standard admin layout (AdminNav is a fixed sidebar
+          at lg+). Without lg:ml-64 xl:ml-72 the page contents render
+          under the sidebar and the cards sit behind the menu. */}
+      <div className="min-h-screen bg-slate-50 lg:ml-64 xl:ml-72">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
           <div className="flex items-start justify-between mb-6 gap-3">
             <div>
