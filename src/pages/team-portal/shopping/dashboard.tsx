@@ -46,13 +46,14 @@ import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 
-export default function ShoppingDashboard() {
+function ShoppingDashboardInner() {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
@@ -484,5 +485,17 @@ export default function ShoppingDashboard() {
 
       <ChatBot userRole="shopping" companyId={companyId} />
     </>
+  );
+}
+
+// SHP2-D (shopping deep audit, SHP2-7 / SHP2-31): defense-in-depth.
+// Every admin dashboard in the audit programme wraps in ProtectedRoute;
+// this page did not. shopping_staff owns the buy-now flow, region_admin
+// reads regional shops, admin trio supports cross-tenant.
+export default function ShoppingDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+      <ShoppingDashboardInner />
+    </ProtectedRoute>
   );
 }
