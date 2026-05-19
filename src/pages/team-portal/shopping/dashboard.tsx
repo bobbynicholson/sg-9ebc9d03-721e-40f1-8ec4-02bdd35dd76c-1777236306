@@ -50,6 +50,7 @@ import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
+import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
@@ -806,6 +807,32 @@ function ShoppingDashboardInner() {
           .print-only { display: none !important; }
         }
       `}</style>
+
+      {/* SHP2-H (shopping deep audit, SHP2-22): barcode-scan FAB.
+          Bottom-right floating camera button. Only renders when an
+          active list exists. On scan-match the hook flips purchased
+          via togglePurchased so the SHP2-B inventory chain still
+          fires. */}
+      <BarcodeScanFab
+        companyId={companyId}
+        visible={!!activeList.list}
+        onScanMatch={async (inventoryItemId, barcode) => {
+          const r = await activeList.tickByInventoryItemId(inventoryItemId);
+          if (!r.found) {
+            toast({
+              title: "Found in inventory, not on your list",
+              description: "Tap Add to buy list to bring it onto today’s run.",
+            });
+            return;
+          }
+          if (r.alreadyPurchased) {
+            toast({
+              title: "Already ticked: " + (r.itemName ?? "item"),
+              description: "Barcode " + barcode + " matched but already bought.",
+            });
+          }
+        }}
+      />
 
       <ChatBot userRole="shopping" companyId={companyId} />
     </>
