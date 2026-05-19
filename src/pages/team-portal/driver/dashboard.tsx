@@ -577,6 +577,53 @@ function DriverDashboardInner() {
               </div>
             </div>
 
+            {/* DRV-F (driver deep audit, DRV-38): "Next pickup at HH:MM
+                @ {venue}" as the largest glanceable element. Most-asked
+                driver question - currency (in the Earnings card below)
+                is motivation; pickup time is action. High-contrast for
+                sunlight legibility; tap-to-call client phone built in. */}
+            {!loading && jobs.length > 0 && (() => {
+              // Sort by event_date asc, then pickup_time asc, take the
+              // earliest still-pending job. Filter out delivered so the
+              // banner advances to the next stop after each handover.
+              const nextPickup = [...jobs]
+                .filter((j) => j.status !== "delivered" && j.status !== "completed")
+                .sort((a, b) => {
+                  const aKey = `${a.event_date} ${a.pickup_time || a.event_time || ""}`;
+                  const bKey = `${b.event_date} ${b.pickup_time || b.event_time || ""}`;
+                  return aKey.localeCompare(bKey);
+                })[0];
+              if (!nextPickup) return null;
+              const pickupLabel = nextPickup.pickup_time || nextPickup.event_time;
+              return (
+                <div className="mb-4 sm:mb-6 rounded-xl border-2 border-orange-400 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg p-4 sm:p-5">
+                  <p className="text-xs sm:text-sm uppercase tracking-wide opacity-90 mb-1">Next pickup</p>
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums leading-tight">
+                        {pickupLabel || "Time TBD"}
+                      </p>
+                      <p className="text-base sm:text-lg font-semibold mt-1 truncate">
+                        {nextPickup.client_name}
+                      </p>
+                      <p className="text-sm sm:text-base opacity-90 truncate">
+                        {nextPickup.venue_address}
+                      </p>
+                    </div>
+                    {nextPickup.client_phone && (
+                      <a
+                        href={`tel:${nextPickup.client_phone}`}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white text-orange-700 font-semibold min-h-11 hover:bg-orange-50 transition"
+                      >
+                        <Bell className="w-4 h-4" />
+                        Call client
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <TeamWelcomeBanner role="driver" userId={user?.id} />
 
             {/* Wave 42 Tier 3: personal shift card. Lists today's
@@ -869,24 +916,28 @@ function DriverDashboardInner() {
                           </div>
                         </div>
                       </div>
+                      {/* DRV-H (driver deep audit, DRV-36): Navigate /
+                          Chat / Confirm delivery / Decline previously
+                          used size="sm" (32px height). Drivers wearing
+                          gloves at 5am will miss. min-h-11 = 44px
+                          (Apple HIG minimum), with px-3 horizontal so
+                          the icon-only collapsed view stays tappable. */}
                       <div className="flex flex-wrap gap-2">
                         <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => openNavigation(job)}
-                          className="flex-1 sm:flex-none text-xs sm:text-sm"
+                          className="flex-1 sm:flex-none min-h-11 px-3 text-sm"
                         >
-                          <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                          <Navigation className="w-4 h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Navigate</span>
                         </Button>
                         <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => setChatJob(job)}
-                          className="flex-1 sm:flex-none text-xs sm:text-sm"
+                          className="flex-1 sm:flex-none min-h-11 px-3 text-sm"
                           title="Chat with dispatcher"
                         >
-                          <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                          <MessageCircle className="w-4 h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Chat</span>
                         </Button>
 
@@ -896,11 +947,10 @@ function DriverDashboardInner() {
                             POD if missing). */}
                         {["ready", "in_transit", "delivered"].includes(job.status) && (
                           <Button
-                            size="sm"
-                            className="flex-1 sm:flex-none text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 gap-1"
+                            className="flex-1 sm:flex-none min-h-11 px-3 text-sm bg-emerald-600 hover:bg-emerald-700 gap-1"
                             onClick={() => setPodJob(job)}
                           >
-                            <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <Camera className="w-4 h-4" />
                             <span>Confirm delivery</span>
                           </Button>
                         )}
@@ -908,16 +958,15 @@ function DriverDashboardInner() {
                         {/* Phase 5: Decline (only when still pending) */}
                         {(job.status === "assigned" || job.status === "accepted") && assignmentByOrder[job.id] && (
                           <Button
-                            size="sm"
                             variant="outline"
-                            className="flex-1 sm:flex-none text-xs sm:text-sm text-red-700 border-red-200 hover:bg-red-50"
+                            className="flex-1 sm:flex-none min-h-11 px-3 text-sm text-red-700 border-red-200 hover:bg-red-50"
                             onClick={() => setDeclineCtx({
                               assignmentId: assignmentByOrder[job.id],
                               orderId: job.id,
                               clientName: job.client_name,
                             })}
                           >
-                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <X className="w-4 h-4" />
                             <span className="hidden sm:inline">Decline</span>
                           </Button>
                         )}
