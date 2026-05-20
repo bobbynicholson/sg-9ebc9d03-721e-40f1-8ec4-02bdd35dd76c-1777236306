@@ -19,11 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2, ExternalLink, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { DriverNav } from "@/components/navigation/DriverNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
+import { DriverPageShell } from "@/components/driver/DriverPageShell";
 
 const PRIORITY_TONE: Record<string, string> = {
   urgent: "bg-rose-100 text-rose-800 border-rose-200",
@@ -144,48 +143,39 @@ export default function DriverNotificationsPage() {
     }
   };
 
+  const headerActions = (
+    <div className="flex items-center gap-2 flex-wrap">
+      {staleCount > 0 && (
+        <Button
+          variant="outline"
+          onClick={onClearStale}
+          size="sm"
+          disabled={actingId === "__bulk__"}
+          title="Delete notifications older than 14 days"
+        >
+          <Archive className="w-4 h-4 mr-2" />
+          Clear stale ({staleCount})
+        </Button>
+      )}
+      {unreadCount > 0 && (
+        <Button variant="outline" onClick={onMarkAllRead} size="sm">
+          <CheckCircle2 className="w-4 h-4 mr-2" />
+          Mark all read
+        </Button>
+      )}
+    </div>
+  );
+
   return (
-    <>
-      <NoIndexMeta />
-      <Head><title>Notifications - Driver Portal</title></Head>
-      <DriverNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 max-w-3xl space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                <Bell className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Notifications</h1>
-                <p className="text-slate-600 mt-0.5 text-sm">
-                  Dispatch alerts, route changes, customer messages.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {staleCount > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={onClearStale}
-                  size="sm"
-                  disabled={actingId === "__bulk__"}
-                  title="Delete notifications older than 14 days"
-                >
-                  <Archive className="w-4 h-4 mr-2" />
-                  Clear stale ({staleCount})
-                </Button>
-              )}
-              {unreadCount > 0 && (
-                <Button variant="outline" onClick={onMarkAllRead} size="sm">
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Mark all read
-                </Button>
-              )}
-            </div>
-          </div>
-
+    <DriverPageShell
+      pageTitle="Notifications - Driver Portal"
+      heading="Notifications"
+      subheading="Dispatch alerts, route changes, customer messages."
+      icon={Bell}
+      width="narrow"
+      headerAction={headerActions}
+    >
+      <div className="space-y-4">
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
             <button
               type="button"
@@ -309,8 +299,7 @@ export default function DriverNotificationsPage() {
               })}
             </ul>
           )}
-        </div>
       </div>
-    </>
+    </DriverPageShell>
   );
 }
