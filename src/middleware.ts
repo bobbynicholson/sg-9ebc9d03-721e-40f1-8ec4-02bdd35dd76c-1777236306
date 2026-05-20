@@ -209,7 +209,13 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
-    pathname.includes(".") // crude check for files
+    // Tightened from pathname.includes(".") - that crude check matched
+    // /api/foo.bar style paths too. Only skip the session check for the
+    // last segment carrying a static-file extension (ico/png/jpg/webp/
+    // svg/gif/woff/woff2/css/js/map/txt/xml/json/pdf). The check is
+    // anchored to the trailing segment so a route like /clients/john.doe
+    // wouldn't be misclassified as a file.
+    /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf)$/i.test(pathname)
   ) {
     return response;
   }

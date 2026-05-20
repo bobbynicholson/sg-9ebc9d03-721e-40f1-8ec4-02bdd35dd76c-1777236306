@@ -236,10 +236,10 @@ const auditCards: SprintCard[] = [
       { title: "Lock down /api/admin/create-user", detail: "Resolved. Handler enforces CALLER_ROLES_ALLOWED (super_admin / company_admin / admin / owner) by looking up the caller's profile.active_role on the authenticated session. Role + company_id from the request body are ignored unless the caller is authorised.", status: "shipped", ref: "src/pages/api/admin/create-user.ts:79" },
       { title: "Lock down /api/test-email and /api/send-email", detail: "Resolved. Both endpoints require an authenticated session (ssr.auth.getUser) + profile.company_id + role check. No open relay path remains.", status: "shipped", ref: "src/pages/api/send-email.ts:56" },
       { title: "OAuth state validation (Xero, QuickBooks)", detail: "Resolved. Both /api/accounting/xero/callback and /api/accounting/quickbooks/callback validate the state query param against an HttpOnly oauth_state cookie issued at /authorize, then clear the cookie single-use. Mismatch returns 400 instead of completing the OAuth handshake.", status: "shipped", ref: "src/pages/api/accounting/xero/callback.ts:27" },
-      { title: "Tighten middleware file-extension regex", detail: "Current pathname.includes('.') matches /api/foo.bar style paths", status: "todo" },
+      { title: "Tighten middleware file-extension regex", detail: "Resolved. middleware.ts now matches a trailing-segment regex covering ico/png/jpg/jpeg/webp/svg/gif/avif/woff/woff2/css/js/map/txt/xml/json/pdf instead of the crude pathname.includes('.') check. Routes like /clients/john.doe stop bypassing the session check.", status: "shipped", ref: "src/middleware.ts:212" },
       { title: "Per-key rate limit on /api/integrations/{leads,quotes,invoice-paid}", detail: "Leaked Zapier key currently = unlimited pollution", status: "todo" },
       { title: "Tighten cookie scope on tokenised client view", detail: "Path=/ + SameSite=Lax wider than /c/ requires", status: "todo" },
-      { title: "Sign-out completeness", detail: "signOut.ts only nukes Path=/ cookies, leaves Domain=.cateringms.com behind", status: "todo" },
+      { title: "Sign-out completeness", detail: "Resolved. signOutAndRedirect iterates every (domain, path) combination: bare host, apex (cateringms.com), .apex, plus paths / /c /q /pay /client-portal /admin. Followed by localStorage.clear + sessionStorage.clear. No Domain=.cateringms.com cookies survive.", status: "shipped", ref: "src/lib/signOut.ts:81" },
     ],
   },
   {
@@ -294,7 +294,7 @@ const auditCards: SprintCard[] = [
       { title: "ALTER staff_invitations company_id NOT NULL + role to enum", detail: "Still pending: staff_invitations.company_id is_nullable=YES and role is still text. A backfill + ALTER pass is needed before the NOT NULL can land safely.", status: "todo" },
       { title: "ALTER orders.status SET NOT NULL", detail: "Resolved. orders.status is_nullable=NO confirmed via information_schema.", status: "shipped" },
       { title: "Add (company_id, email) UNIQUE on clients", detail: "Resolved. Partial unique index uq_clients_company_lower_email on (company_id, lower(email)) WHERE email IS NOT NULL AND deleted_at IS NULL. Verified zero pre-existing duplicates before applying.", status: "shipped", ref: "supabase/migrations/20260520030000_clients_unique_email_and_won_cancelled_view.sql" },
-      { title: "Tighten audit_logs and notifications INSERT policies", detail: "WITH CHECK (user_id = auth.uid() OR service_role)", status: "todo" },
+      { title: "Tighten audit_logs and notifications INSERT policies", detail: "Resolved. audit_logs INSERT now requires service_role OR (user_id IS NULL OR user_id = auth.uid()) AND company_id matches caller's profile. notifications already had the tenant_or_self_create_notifications policy (recipient_id = self OR user_id = self OR company_id = caller's).", status: "shipped", ref: "supabase/migrations/20260520040000_tighten_audit_logs_insert_policy.sql" },
     ],
   },
   {
