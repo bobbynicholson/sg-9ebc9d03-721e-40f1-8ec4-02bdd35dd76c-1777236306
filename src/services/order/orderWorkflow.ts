@@ -1490,6 +1490,41 @@ async function sendStatusNotifications(order: any) {
         }).catch((e) => {
           console.warn("[sendStatusNotifications] kitchen broadcast failed:", e);
         });
+
+        // Bobby's brief: drivers had no notification path when a new
+        // claimable order landed. AvailableJobsCard polls every 60s
+        // and subscribes to postgres_changes, but a driver only sees
+        // it if they're already on the dashboard. Broadcast to every
+        // driver in the region the moment the order is confirmed
+        // AND still unassigned. The link drops the driver on
+        // /team-portal/driver/dashboard where AvailableJobsCard
+        // surfaces the same order with the Claim button + the
+        // confirm dialog (#173) that walks them through the details
+        // before committing.
+        //
+        // Dedup on (companyId, order id, type) within a 24h window
+        // so a cancel-then-re-confirm flip doesn't double-blast.
+        // Region scoped so a CPT confirm doesn't ping JHB drivers.
+        const orderHasDriver =
+          (order as any).assigned_driver_id || (order as any).driver_id;
+        if (!orderHasDriver) {
+          void notificationService.broadcastNotification({
+            companyId: order.company_id,
+            regionId: (order as any).region_id || null,
+            targetRoles: ["driver" as any],
+            title: "New job to claim",
+            message: `Order ${orderNumber}${eventDateLabel ? ` on ${eventDateLabel}` : ""}${venueShort ? ` to ${venueShort}` : ""}. Tap to open and claim before another driver does.`,
+            type: "new_job_available",
+            priority: "high",
+            link: "/team-portal/driver/dashboard",
+            relatedEntityType: "order",
+            relatedEntityId: order.id,
+            dedup: true,
+            dedupWindowMinutes: 60 * 24,
+          }).catch((e) => {
+            console.warn("[sendStatusNotifications] driver job-available broadcast failed:", e);
+          });
+        }
       }
       break;
     case "preparing":
