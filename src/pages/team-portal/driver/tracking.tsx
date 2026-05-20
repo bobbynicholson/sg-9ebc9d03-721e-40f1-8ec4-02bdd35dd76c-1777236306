@@ -3,12 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Clock, CheckCircle, Package } from "lucide-react";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { DriverNav } from "@/components/navigation/DriverNav";
+import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,29 +175,14 @@ function DriverTrackingInner() {
   const statusMeta = delivery ? STATUS_LABELS[delivery.status] || { label: delivery.status, tone: "bg-slate-100 text-slate-800" } : null;
 
   return (
-    <>
-      <NoIndexMeta />
-      <Head>
-        <title>Delivery Tracking - Driver Portal</title>
-      </Head>
-
-      <DriverNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-4xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-              <Navigation className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                Current Delivery
-                <InfoTooltip content="The delivery you're working on right now.\n\nShows whichever job is in progress, from assigned all the way through to picked up." />
-              </h1>
-              <p className="text-slate-600">Track your active delivery</p>
-            </div>
-          </div>
-
+    <DriverPageShell
+      pageTitle="Delivery Tracking - Driver Portal"
+      heading="Current Delivery"
+      subheading="Track your active delivery"
+      icon={Navigation}
+      width="narrow"
+      hideFooter
+    >
           {loading ? (
             <Card className="border-0 shadow-lg">
               <CardContent className="py-12 text-center text-slate-600">Loading...</CardContent>
@@ -307,13 +289,9 @@ function DriverTrackingInner() {
               )}
             </div>
           )}
-        </div>
-
-        <Footer />
-      </div>
 
       <ChatBot userRole="driver" companyId={user?.company_id} />
-    </>
+    </DriverPageShell>
   );
 }
 

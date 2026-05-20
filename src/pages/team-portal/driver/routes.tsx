@@ -24,11 +24,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DriverNav } from "@/components/navigation/DriverNav";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
@@ -287,75 +284,46 @@ export default function DriverRoutes() {
     }
   };
 
-  // Wave 24: standard header on every state (loading, empty, populated)
-  // so the page header matches every other driver portal screen
-  // (deliveries, tracking, notifications). Previously the empty +
-  // loading branches rendered without a header at all - a driver
-  // landing on Today's Routes for the first time saw a bare card with
-  // no orientation, while every other tab had the title-tile +
-  // subtitle pattern.
-  const PageHeader = () => (
-    <div className="mb-6 lg:mb-8">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-          <RouteIcon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Today&apos;s Routes</h1>
-          <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
-        </div>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
-      <>
-        <NoIndexMeta />
-        <Head>
-          <title>My Routes - Driver Portal</title>
-        </Head>
-        <DriverNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-          <div className="px-4 py-6 lg:py-12 max-w-6xl">
-            <PageHeader />
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center">
-                <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
-                <p className="text-slate-600">Loading your optimized route...</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </>
+      <DriverPageShell
+        pageTitle="My Routes - Driver Portal"
+        heading="Today's Routes"
+        subheading="AI-optimized delivery sequence for maximum efficiency"
+        icon={RouteIcon}
+        width="full"
+      >
+        <Card className="border-0 shadow-lg">
+          <CardContent className="py-12 text-center">
+            <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
+            <p className="text-slate-600">Loading your optimized route...</p>
+          </CardContent>
+        </Card>
+      </DriverPageShell>
     );
   }
 
   if (!route || route.stops.length === 0) {
     return (
-      <>
-        <NoIndexMeta />
-        <Head>
-          <title>My Routes - Driver Portal</title>
-        </Head>
-        <DriverNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-          <div className="px-4 py-6 lg:py-12 max-w-6xl">
-            <PageHeader />
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center">
-                <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">No Route Assigned</h3>
-                <p className="text-slate-600 mb-6">
-                  You don&apos;t have any optimized routes at the moment. Check back later or contact dispatch.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-          <Footer />
-        </div>
+      <DriverPageShell
+        pageTitle="My Routes - Driver Portal"
+        heading="Today's Routes"
+        subheading="AI-optimized delivery sequence for maximum efficiency"
+        icon={RouteIcon}
+        width="full"
+        hideFooter
+      >
+        <Card className="border-0 shadow-lg">
+          <CardContent className="py-12 text-center">
+            <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Route Assigned</h3>
+            <p className="text-slate-600 mb-6">
+              You don&apos;t have any optimized routes at the moment. Check back later or contact dispatch.
+            </p>
+          </CardContent>
+        </Card>
         <ChatBot userRole="driver" companyId={user?.company_id} />
-      </>
+      </DriverPageShell>
     );
   }
 
@@ -371,104 +339,89 @@ export default function DriverRoutes() {
     ? Math.round(route.stops.length * calloutFee + route.total_distance * distanceRate)
     : 0;
 
+  // Trip-control cluster lives on the right side of the shell header.
+  // Extracted from the inline JSX so the populated render is just
+  // <DriverPageShell ...>{contents}</DriverPageShell> without the
+  // ad-hoc flex wrapper.
+  const tripControls = (
+    <div className="flex flex-wrap items-center gap-2">
+      {!tripStarted && !tripCompleted && (
+        <Button
+          size="lg"
+          onClick={startTrip}
+          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-11"
+        >
+          <Play className="w-5 h-5 mr-2" />
+          Start Trip
+        </Button>
+      )}
+      {tripStarted && !tripCompleted && (
+        <>
+          <div
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold tabular-nums shadow-sm ${
+              trip.isPaused
+                ? "bg-amber-100 text-amber-900 border border-amber-300"
+                : "bg-blue-500 text-white"
+            }`}
+            aria-live="polite"
+          >
+            <Clock className={`w-4 h-4 ${trip.isPaused ? "" : "animate-pulse"}`} />
+            {trip.elapsedLabel}
+            {trip.isPaused && (
+              <span className="text-xs font-normal opacity-80">paused</span>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={togglePause}
+            className="min-h-11"
+            aria-label={trip.isPaused ? "Resume trip" : "Pause trip"}
+          >
+            {trip.isPaused ? (
+              <>
+                <Play className="w-4 h-4 mr-1.5" />
+                Resume
+              </>
+            ) : (
+              <>
+                <Pause className="w-4 h-4 mr-1.5" />
+                Pause
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowCancelDialog(true)}
+            className="min-h-11 text-red-700 border-red-300 hover:bg-red-50"
+            aria-label="Cancel trip"
+          >
+            <X className="w-4 h-4 mr-1.5" />
+            Cancel
+          </Button>
+        </>
+      )}
+      {tripCompleted && (
+        <Badge className="bg-green-500 text-white text-base px-4 py-2">
+          <CheckCircle className="w-4 h-4 mr-2" />
+          Trip Completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
+        </Badge>
+      )}
+    </div>
+  );
+
   return (
-    <>
-      <NoIndexMeta />
-      <Head>
-        <title>My Routes - Driver Portal</title>
-      </Head>
-
-      <DriverNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 lg:py-12 max-w-full">
-          {/* Header */}
+    <DriverPageShell
+      pageTitle="My Routes - Driver Portal"
+      heading="Today's Routes"
+      subheading="AI-optimized delivery sequence for maximum efficiency"
+      icon={RouteIcon}
+      width="full"
+      headerAction={tripControls}
+      hideFooter
+    >
           <div className="mb-6 lg:mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                  <RouteIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Today&apos;s Routes</h1>
-                  <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
-                </div>
-              </div>
-              
-              {/* Trip Control Buttons + elapsed timer */}
-              {!loading && route && route.stops.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {!tripStarted && !tripCompleted && (
-                    <Button
-                      size="lg"
-                      onClick={startTrip}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-11"
-                    >
-                      <Play className="w-5 h-5 mr-2" />
-                      Start Trip
-                    </Button>
-                  )}
-                  {tripStarted && !tripCompleted && (
-                    <>
-                      {/* Live elapsed clock - the visible "trip is
-                          running" signal Bobby asked for. Pulses
-                          while running, dimmed while paused so the
-                          driver can tell at a glance. */}
-                      <div
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold tabular-nums shadow-sm ${
-                          trip.isPaused
-                            ? "bg-amber-100 text-amber-900 border border-amber-300"
-                            : "bg-blue-500 text-white"
-                        }`}
-                        aria-live="polite"
-                      >
-                        <Clock className={`w-4 h-4 ${trip.isPaused ? "" : "animate-pulse"}`} />
-                        {trip.elapsedLabel}
-                        {trip.isPaused && (
-                          <span className="text-xs font-normal opacity-80">paused</span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={togglePause}
-                        className="min-h-11"
-                        aria-label={trip.isPaused ? "Resume trip" : "Pause trip"}
-                      >
-                        {trip.isPaused ? (
-                          <>
-                            <Play className="w-4 h-4 mr-1.5" />
-                            Resume
-                          </>
-                        ) : (
-                          <>
-                            <Pause className="w-4 h-4 mr-1.5" />
-                            Pause
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowCancelDialog(true)}
-                        className="min-h-11 text-red-700 border-red-300 hover:bg-red-50"
-                        aria-label="Cancel trip"
-                      >
-                        <X className="w-4 h-4 mr-1.5" />
-                        Cancel
-                      </Button>
-                    </>
-                  )}
-                  {tripCompleted && (
-                    <Badge className="bg-green-500 text-white text-base px-4 py-2">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Trip Completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Progress Banner */}
             <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-cyan-50">
               <CardContent className="p-4 lg:p-6">
@@ -875,10 +828,6 @@ export default function DriverRoutes() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        <Footer />
-      </div>
 
       {/* Delivery Status Modal */}
       {selectedDelivery && (
@@ -936,6 +885,6 @@ export default function DriverRoutes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </DriverPageShell>
   );
 }

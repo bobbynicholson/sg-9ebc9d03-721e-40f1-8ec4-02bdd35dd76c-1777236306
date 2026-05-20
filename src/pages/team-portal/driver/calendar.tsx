@@ -17,7 +17,6 @@
  * commitment story as the dashboard.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +25,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock,
   Users, Loader2, Hand, ExternalLink,
 } from "lucide-react";
-import { DriverNav } from "@/components/navigation/DriverNav";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -211,30 +209,13 @@ export default function DriverCalendarPage() {
   const selectedOrders = selectedDay ? ordersByDay.get(selectedDay) || [] : [];
 
   return (
-    <>
-      <NoIndexMeta />
-      <Head>
-        <title>Calendar - Driver Portal</title>
-      </Head>
-
-      <DriverNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-screen-2xl">
-          {/* Header */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <CalendarIcon className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-slate-900">My Calendar</h1>
-              <p className="text-slate-600 mt-1">
-                Blue dots = jobs already yours. Amber dots = jobs in your company
-                waiting to be claimed.
-              </p>
-            </div>
-          </div>
-
+    <DriverPageShell
+      pageTitle="Calendar - Driver Portal"
+      heading="My Calendar"
+      subheading="Blue dots = jobs already yours. Amber dots = jobs in your company waiting to be claimed."
+      icon={CalendarIcon}
+      width="wide"
+    >
           {/* Month nav */}
           <Card className="border-0 shadow-lg mb-4">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -451,8 +432,6 @@ export default function DriverCalendarPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
-    </>
+    </DriverPageShell>
   );
 }
