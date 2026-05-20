@@ -10,6 +10,7 @@ import { orderService } from "@/services/orderService";
 import { feedbackService } from "@/services/feedbackService";
 import { ChatBot } from "@/components/ChatBot";
 import { DeliveryFeedbackModal, FeedbackData } from "@/components/DeliveryFeedbackModal";
+import { formatLocalTime } from "@/lib/localFormat";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";
@@ -557,7 +558,7 @@ export default function ClientTracking() {
                       <div className="flex items-center gap-4 text-sm text-slate-600 mt-3">
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
-                          <span>{new Date(order.delivery_time).toLocaleTimeString()}</span>
+                          <span>{formatLocalTime(order.delivery_time)}</span>
                         </div>
                         {order.status === "in_transit" && (
                           <div className="flex items-center gap-1 text-emerald-600 font-medium">
@@ -586,7 +587,7 @@ export default function ClientTracking() {
                   ))}
                   
                   <div className="pt-3 border-t text-center text-xs text-slate-500">
-                    Last updated: {lastRefresh.toLocaleTimeString()}
+                    Last updated: {formatLocalTime(lastRefresh)}
                   </div>
                 </CardContent>
               </Card>

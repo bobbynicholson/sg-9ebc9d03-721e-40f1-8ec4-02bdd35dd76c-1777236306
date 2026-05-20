@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Power, PowerOff } from "lucide-react";
 import { kitchenDutyService } from "@/services/kitchenDutyService";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatLocalTime } from "@/lib/localFormat";
 
 interface DutyShift {
   id: string;
@@ -97,7 +98,7 @@ export function DutyToggleWidget() {
             </div>
             {isOnDuty && (
               <p className="text-xs text-muted-foreground">
-                Started: {new Date(currentShift!.shift_start).toLocaleTimeString()}
+                Started: {formatLocalTime(currentShift!.shift_start)}
               </p>
             )}
           </div>

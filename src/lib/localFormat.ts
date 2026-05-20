@@ -37,10 +37,14 @@ const DATETIME_OPTS: Intl.DateTimeFormatOptions = {
   hour12: false,
 };
 
-function asDate(input: string | Date | null | undefined): Date | null {
+function asDate(input: string | Date | number | null | undefined): Date | null {
   if (input == null) return null;
   if (input instanceof Date) {
     return isNaN(input.getTime()) ? null : input;
+  }
+  if (typeof input === "number") {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
   }
   const trimmed = String(input).trim();
   if (!trimmed) return null;
@@ -53,7 +57,7 @@ function asDate(input: string | Date | null | undefined): Date | null {
  * input can't be parsed.
  */
 export function formatLocalDate(
-  input: string | Date | null | undefined,
+  input: string | Date | number | null | undefined,
   fallback = "",
 ): string {
   const d = asDate(input);
@@ -67,7 +71,7 @@ export function formatLocalDate(
  * accuracy across timezones.
  */
 export function formatLocalTime(
-  input: string | Date | null | undefined,
+  input: string | Date | number | null | undefined,
   fallback = "",
 ): string {
   if (input == null) return fallback;
@@ -88,7 +92,7 @@ export function formatLocalTime(
  * "21 May 2026, 14:30". Combined display for timestamps.
  */
 export function formatLocalDateTime(
-  input: string | Date | null | undefined,
+  input: string | Date | number | null | undefined,
   fallback = "",
 ): string {
   const d = asDate(input);
