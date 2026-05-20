@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
+import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -243,7 +244,7 @@ export default function ShoppingInventoryPage() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                const stamp = new Date().toISOString().slice(0, 10);
+                const stamp = toLocalISO(new Date());
                 a.download = `inventory_${stamp}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);

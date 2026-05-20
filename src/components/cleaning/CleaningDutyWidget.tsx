@@ -29,6 +29,7 @@ import { Loader2, Clock, CheckCircle2, Activity, Play, Square, Sparkles, Calenda
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toLocalISO } from "@/lib/localDate";
 import { useToast } from "@/hooks/use-toast";
 
 interface DutyRow {
@@ -101,7 +102,7 @@ export function CleaningDutyWidget() {
 
       // Wave 40.4: pull today's planned cleaning shift if any.
       try {
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = toLocalISO(new Date());
         const { data: rosterRow } = await (supabase as any)
           .from("kitchen_shifts")
           .select("id, planned_start, planned_end, actual_start, shift_type")

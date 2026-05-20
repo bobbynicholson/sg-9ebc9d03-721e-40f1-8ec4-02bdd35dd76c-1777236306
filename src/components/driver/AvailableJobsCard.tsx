@@ -29,6 +29,7 @@ import { Calendar, Clock, MapPin, Users, Loader2, Hand, Inbox, Phone } from "luc
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OpenOrder {
   id: string;
@@ -75,7 +76,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
 
   const refresh = useCallback(async () => {
     if (!companyId || !userId) return;
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = toLocalISO(new Date());
     const { data, error } = await (supabase as any)
       .from("orders")
       .select(
