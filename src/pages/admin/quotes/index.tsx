@@ -66,6 +66,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { formatLocalDate } from "@/lib/localFormat";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import {
@@ -1855,7 +1856,7 @@ function AdminQuotesInner() {
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Calendar className="w-4 h-4" />
-                              <span className="text-sm">{displayEventDate ? new Date(displayEventDate).toLocaleDateString() : "—"}</span>
+                              <span className="text-sm">{formatLocalDate(displayEventDate, "—")}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Users className="w-4 h-4" />

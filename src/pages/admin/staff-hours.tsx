@@ -13,6 +13,7 @@ import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download } from "luc
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
+import { formatLocalDate } from "@/lib/localFormat";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
@@ -433,7 +434,7 @@ function StaffHoursPage() {
                         <div key={session.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{new Date(session.clock_in_time).toLocaleDateString()}</span>
+                            <span>{formatLocalDate(session.clock_in_time)}</span>
                           </div>
                           <div className="flex items-center gap-4">
                             <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
@@ -514,7 +515,7 @@ function StaffHoursPage() {
                         <div className="flex-1">
                           <div className="font-medium">{payment.staff?.full_name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(payment.payment_period_start).toLocaleDateString()} - {new Date(payment.payment_period_end).toLocaleDateString()}
+                            {formatLocalDate(payment.payment_period_start)} - {formatLocalDate(payment.payment_period_end)}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {Number(payment.total_hours).toFixed(1)} hours @ {C}{Number(payment.hourly_rate).toFixed(2)}/hr
@@ -528,7 +529,7 @@ function StaffHoursPage() {
                             {payment.payment_method.replace("_", " ")}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {new Date(payment.payment_date).toLocaleDateString()}
+                            {formatLocalDate(payment.payment_date)}
                           </div>
                         </div>
                       </div>

@@ -38,6 +38,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { formatLocalDate } from "@/lib/localFormat";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
@@ -526,7 +527,7 @@ function AdminUsersPage() {
                               </p>
                             )}
                             {targetUser.company_name && <p>Company: {targetUser.company_name}</p>}
-                            <p>Joined: {new Date(targetUser.created_at || Date.now()).toLocaleDateString()}</p>
+                            <p>Joined: {formatLocalDate(targetUser.created_at || Date.now())}</p>
                           </div>
 
                           {editingUser !== targetUser.id && (

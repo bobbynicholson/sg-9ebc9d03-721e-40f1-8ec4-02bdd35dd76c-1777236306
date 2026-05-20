@@ -38,6 +38,7 @@ import { quoteService } from "@/services/quoteService";
 import { Quote } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { formatLocalDate } from "@/lib/localFormat";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
@@ -617,7 +618,7 @@ function AdminQuoteDetailInner() {
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Event Date</p>
                         <p className="text-slate-900 font-medium">
-                          {quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "—"}
+                          {formatLocalDate(quote.event_date, "—")}
                           {(quote as any).event_time
                             ? ` · ${String((quote as any).event_time).slice(0, 5)} start`
                             : ""}
