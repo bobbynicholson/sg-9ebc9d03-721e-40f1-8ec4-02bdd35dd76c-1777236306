@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
+import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1297,7 +1298,7 @@ function InvoicesPageInner() {
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              const stamp = new Date().toISOString().slice(0, 10);
+              const stamp = toLocalISO(new Date());
               a.download = `invoices_${stamp}.csv`;
               a.click();
               URL.revokeObjectURL(url);

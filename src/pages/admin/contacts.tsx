@@ -906,7 +906,7 @@ function ClientsCRM() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  const stamp = new Date().toISOString().slice(0, 10);
+                  const stamp = toLocalISO(new Date());
                   a.download = `contacts_${stamp}.csv`;
                   a.click();
                   URL.revokeObjectURL(url);
@@ -2176,7 +2176,7 @@ function ClientFormDialog({
                   const a = document.createElement("a");
                   a.href = url;
                   const safeName = (form.client_name || "client").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-                  a.download = `client_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `client_${safeName}_${toLocalISO(new Date())}.csv`;
                   a.click();
                   URL.revokeObjectURL(url);
                   toast({ title: "Client data exported", description: "CSV download started." });

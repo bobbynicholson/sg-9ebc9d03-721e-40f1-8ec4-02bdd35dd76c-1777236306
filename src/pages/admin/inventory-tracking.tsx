@@ -3,6 +3,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -347,7 +348,7 @@ export default function InventoryTracking() {
         .insert([{ 
           company_id: profile?.company_id, 
           status: 'pending', 
-          list_date: new Date().toISOString().split('T')[0] 
+          list_date: toLocalISO(new Date())
         }])
         .select()
         .single();
@@ -515,7 +516,7 @@ export default function InventoryTracking() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+                a.download = `inventory-${toLocalISO(new Date())}.csv`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

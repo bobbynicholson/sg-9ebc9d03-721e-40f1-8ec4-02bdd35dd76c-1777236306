@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
+import { toLocalISO } from "@/lib/localDate";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -468,7 +469,7 @@ function KitchenStaffPage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `kitchen-staff-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `kitchen-staff-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

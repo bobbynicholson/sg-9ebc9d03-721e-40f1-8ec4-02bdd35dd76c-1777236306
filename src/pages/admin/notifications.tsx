@@ -3,6 +3,7 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,7 +201,7 @@ function NotificationsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `notifications-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `notifications-${toLocalISO(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

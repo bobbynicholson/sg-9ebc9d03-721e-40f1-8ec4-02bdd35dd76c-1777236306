@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
@@ -100,9 +101,8 @@ function CashflowDashboardInner() {
       // Mirror the CashflowForecastCard cost feeds so the summary
       // and chart move in sync. Best-effort: a missing table / RLS
       // refusal logs and zeroes the row instead of nuking the page.
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const thirtyIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString().slice(0, 10);
+      const todayIso = toLocalISO(new Date());
+      const thirtyIso = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       let fixedCostsNext30 = 0;
       let supplierPayablesNext30 = 0;
       try {

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { composeEmail } from "@/lib/composeEmail";
 import { formatLocalDate } from "@/lib/localFormat";
+import { toLocalISO } from "@/lib/localDate";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
@@ -957,7 +958,7 @@ function AdminLeadsInner() {
                   const lines = [headers.join(",")];
                   for (const l of filteredLeads as any[]) {
                     lines.push([
-                      esc(l.created_at ? new Date(l.created_at).toISOString().slice(0, 10) : ""),
+                      esc(l.created_at ? toLocalISO(new Date(l.created_at)) : ""),
                       esc(l.status || ""),
                       esc(l.client_name || ""),
                       esc(l.client_email || ""),
@@ -976,7 +977,7 @@ function AdminLeadsInner() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `leads-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
