@@ -5,6 +5,7 @@ import { Download, Printer, Calendar, MapPin, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { formatLocalDate } from "@/lib/localFormat";
 
 interface Invoice {
   id: string;
@@ -81,7 +82,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
               <div className="text-right">
                 <p className="text-sm text-slate-600">Invoice Date</p>
                 <p className="font-semibold text-slate-900">
-                  {new Date(invoice.invoice_date).toLocaleDateString()}
+                  {formatLocalDate(invoice.invoice_date)}
                 </p>
               </div>
             </div>
@@ -95,7 +96,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                 <Calendar className="w-4 h-4 text-slate-500" />
                 <span className="text-slate-600">Event Date:</span>
                 <span className="font-medium text-slate-900">
-                  {new Date(invoice.event_date).toLocaleDateString()}
+                  {formatLocalDate(invoice.event_date)}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
@@ -121,7 +122,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
               <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-600">Due Date</span>
                 <span className="font-semibold text-slate-900">
-                  {new Date(invoice.due_date).toLocaleDateString()}
+                  {formatLocalDate(invoice.due_date)}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
@@ -142,7 +143,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">Payment Date</span>
                   <span className="font-semibold text-green-800">
-                    {new Date(invoice.paid_at).toLocaleDateString()}
+                    {formatLocalDate(invoice.paid_at)}
                   </span>
                 </div>
               )}

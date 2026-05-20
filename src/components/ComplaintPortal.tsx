@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatLocalDate } from "@/lib/localFormat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -292,7 +293,7 @@ export function ComplaintPortal() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4 flex-shrink-0" />
-                        {new Date(complaint.submittedAt).toLocaleDateString()}
+                        {formatLocalDate(complaint.submittedAt)}
                       </span>
                       <Badge variant="outline" className="text-xs w-fit">{getCategoryLabel(complaint.category)}</Badge>
                     </div>
@@ -314,7 +315,7 @@ export function ComplaintPortal() {
                       </div>
                       {complaint.resolvedAt && (
                         <span className="text-xs sm:text-sm text-green-700">
-                          • Resolved {new Date(complaint.resolvedAt).toLocaleDateString()}
+                          • Resolved {formatLocalDate(complaint.resolvedAt)}
                         </span>
                       )}
                     </div>

@@ -12,6 +12,7 @@ import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
+import { formatLocalDate } from "@/lib/localFormat";
 import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import Link from "next/link";
@@ -505,7 +506,7 @@ function FinancialDashboardInner() {
                           </p>
                           {alert.predictedDate && (
                             <Badge variant="outline" className="text-xs">
-                              Expected: {new Date(alert.predictedDate).toLocaleDateString()}
+                              Expected: {formatLocalDate(alert.predictedDate)}
                             </Badge>
                           )}
                         </div>
@@ -909,7 +910,7 @@ function FinancialDashboardInner() {
                             <div>
                               <h4 className="font-semibold">{order.client_name}</h4>
                               <p className="text-sm text-slate-600">
-                                {new Date(order.event_date).toLocaleDateString()}
+                                {formatLocalDate(order.event_date)}
                               </p>
                             </div>
                           </div>

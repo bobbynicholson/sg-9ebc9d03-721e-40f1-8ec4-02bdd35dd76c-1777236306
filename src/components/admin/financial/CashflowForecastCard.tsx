@@ -36,6 +36,7 @@ import * as currencyUtils from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
 import type { Order } from "@/types";
+import { formatLocalDate } from "@/lib/localFormat";
 
 interface Props {
   companyId: string;
@@ -1058,5 +1059,5 @@ function formatRelativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatLocalDate(iso);
 }
