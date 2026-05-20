@@ -23,11 +23,20 @@ export interface NavDestination {
 }
 
 function formatPoint(p: { lat?: number | null; lng?: number | null; address?: string | null }): string | null {
-  if (p.lat != null && p.lng != null && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng))) {
-    return `${p.lat},${p.lng}`;
-  }
+  // Prefer the human-readable address when present so Google Maps
+  // labels the start / end points with their real names instead of
+  // reverse-geocoding lat/lng to whatever business happens to sit
+  // closest to those coords. Bobby's bug report: the kitchen HQ
+  // coords were resolving to a neighbouring electrical supplies
+  // shop because Google reverse-looked up the lat/lng to a nearby
+  // listed business. Passing the actual address string forces
+  // Google to use the catering company's own location label.
+  // Lat/lng is the precise fallback when no address is on file.
   if (p.address && p.address.trim().length > 0) {
     return p.address.trim();
+  }
+  if (p.lat != null && p.lng != null && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng))) {
+    return `${p.lat},${p.lng}`;
   }
   return null;
 }
