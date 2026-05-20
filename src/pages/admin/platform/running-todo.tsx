@@ -316,8 +316,8 @@ const auditCards: SprintCard[] = [
       { title: "Inventory deduction idempotency", detail: "Resolved. deductInventoryForOrder gates on orders.inventory_deducted_at IS NULL (line 440), stamps timestamp on success (line 614), and reverseInventoryDeduction NULLs the stamp so a clean re-run is possible.", status: "shipped", ref: "src/services/inventoryDeductionService.ts:440" },
       { title: "FX rates from exchange_rates table", detail: "Resolved. lib/currencyUtils.ts reads the latest rate from the exchange_rates table (line 43) instead of hardcoded constants. Falls back to a baseline if the lookup fails.", status: "shipped", ref: "src/lib/currencyUtils.ts:43" },
       { title: "Quote-time FX rate locking", detail: "Snapshot rate on quote, copy to order, never recompute", status: "todo" },
-      { title: "Read company tax_rate, drop hardcoded 15% VAT", detail: "Multi-region app currently calculates ZA VAT for everyone", status: "todo" },
-      { title: "Cancelled orders excluded from inventory_demand_outlook", detail: "Audit view definition, shopping team buying for ghost events", status: "todo" },
+      { title: "Read company tax_rate, drop hardcoded 15% VAT", detail: "Resolved. orderFinancials.ts (line 325) selects companies.vat_rate + pricing_includes_vat and uses the tenant's stored rate. 0.15 only appears as a defensive fallback when the column is NULL. UK / EU / US tenants get their own configured rate.", status: "shipped", ref: "src/services/order/orderFinancials.ts:325" },
+      { title: "Cancelled orders excluded from inventory_demand_outlook", detail: "Resolved. Verified via pg_get_viewdef: order_ingredient_demand filters o.status <> 'cancelled' AND o.deleted_at IS NULL at the source. inventory_demand_outlook further restricts to status IN ('confirmed','preparing','ready'). Ghost-event ingredients no longer appear in either view.", status: "shipped", ref: "pg_get_viewdef public.order_ingredient_demand + public.inventory_demand_outlook" },
     ],
   },
   {
