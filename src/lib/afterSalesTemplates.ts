@@ -3,6 +3,7 @@
 // decide per send. No em dashes, no emoji, no asterisk-bold. Six
 // touchpoints over the year, each short enough to read on a phone in
 // under 30 seconds.
+import { formatLocalDate } from "@/lib/localFormat";
 export const defaultAfterSalesTemplates = [
   {
     id: "after-sales-1",
@@ -154,7 +155,7 @@ export function getEmailVariables(orderId: string, clientName: string, eventType
   return {
     clientName,
     eventType,
-    eventDate: eventDateTime.toLocaleDateString(),
+    eventDate: formatLocalDate(eventDateTime),
     eventMonth: monthNames[eventDateTime.getMonth()],
     orderId,
     year: eventDateTime.getFullYear().toString(),

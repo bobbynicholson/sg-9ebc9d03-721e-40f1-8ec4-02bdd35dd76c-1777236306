@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { composeEmail } from "@/lib/composeEmail";
+import { formatLocalDate } from "@/lib/localFormat";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
@@ -1258,7 +1259,7 @@ function AdminLeadsInner() {
                                       </span>
                                       {q.createdAt && (
                                         <span className="text-[11px] text-slate-500">
-                                          Created {new Date(q.createdAt).toLocaleDateString()}
+                                          Created {formatLocalDate(q.createdAt)}
                                         </span>
                                       )}
                                     </DropdownMenuItem>
@@ -1450,7 +1451,7 @@ function AdminLeadsInner() {
                                         </span>
                                         {q.createdAt && (
                                           <span className="text-[11px] text-slate-500">
-                                            Created {new Date(q.createdAt).toLocaleDateString()}
+                                            Created {formatLocalDate(q.createdAt)}
                                           </span>
                                         )}
                                       </DropdownMenuItem>
@@ -1514,7 +1515,7 @@ function AdminLeadsInner() {
                             <p className="text-slate-500 text-xs mb-1">Event Date</p>
                             <p className="text-slate-900 font-medium">
                               {links.resolved.eventDate
-                                ? new Date(links.resolved.eventDate).toLocaleDateString()
+                                ? formatLocalDate(links.resolved.eventDate)
                                 : "TBD"}
                             </p>
                           </div>

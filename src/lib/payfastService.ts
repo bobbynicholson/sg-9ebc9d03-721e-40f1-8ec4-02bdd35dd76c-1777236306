@@ -1,5 +1,6 @@
 import { SubscriptionPlan, PaymentGatewayConfig } from "@/types/payments";
 import crypto from "crypto";
+import { formatLocalDate } from "@/lib/localFormat";
 
 export interface PayFastConfig {
   merchantId: string;
@@ -605,11 +606,11 @@ export function getOrderModificationStatus(
   
   let message = "";
   if (daysRemaining > 7) {
-    message = `You can modify your order until ${changeDeadline.toLocaleDateString()}`;
+    message = `You can modify your order until ${formatLocalDate(changeDeadline)}`;
   } else if (daysRemaining > 0) {
     message = `Last chance! Order modifications close in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`;
   } else {
-    message = `Order modifications are no longer allowed (deadline was ${changeDeadline.toLocaleDateString()})`;
+    message = `Order modifications are no longer allowed (deadline was ${formatLocalDate(changeDeadline)})`;
   }
   
   return {

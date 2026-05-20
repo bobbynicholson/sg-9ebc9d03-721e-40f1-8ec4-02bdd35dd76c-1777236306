@@ -69,6 +69,7 @@ import { useInventoryViews, type SavedView } from "@/hooks/useInventoryViews";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { Bookmark, BookmarkPlus, Keyboard } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { formatLocalDate } from "@/lib/localFormat";
 
 interface InventoryItem {
   id: string;
@@ -186,7 +187,7 @@ function relativeTime(iso: string): string {
   if (diffDay < 30) return `${diffDay} days ago`;
   const diffMonth = Math.round(diffDay / 30);
   if (diffMonth < 12) return `${diffMonth} months ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatLocalDate(iso);
 }
 
 function readableTransactionType(t: string): string {

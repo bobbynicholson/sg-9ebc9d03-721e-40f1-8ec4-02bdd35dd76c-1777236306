@@ -31,6 +31,7 @@
 import * as React from "react";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatLocalDate } from "@/lib/localFormat";
 
 export interface AllergenReviewBadgeProps {
   reviewedAt: string | null | undefined;
@@ -59,7 +60,7 @@ export function AllergenReviewBadge({
           compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs",
           className,
         )}
-        title={`Allergens reviewed ${new Date(reviewedAt).toLocaleDateString()}`}
+        title={`Allergens reviewed ${formatLocalDate(reviewedAt)}`}
       >
         <ShieldCheck className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} aria-hidden="true" />
         Allergens reviewed
