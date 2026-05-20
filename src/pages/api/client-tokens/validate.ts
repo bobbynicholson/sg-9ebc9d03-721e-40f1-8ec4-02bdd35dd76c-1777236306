@@ -81,13 +81,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: result?.code || "invalid" });
   }
 
-  // Set a cookie so the page doesn't have to keep the token in the URL
+  // Set a cookie so the page doesn't have to keep the token in the URL.
+  // Path=/c narrows the cookie to the tokenised client surfaces only
+  // (the /c/* tree), so it never ships on /api/*, /admin/*, or the
+  // tenant pages where it has no business going. Previously Path=/
+  // sent this cookie on every request including admin pages, which
+  // gave network sniffers a much larger exposure window than needed.
   const expiresAt = new Date(result.token.expires_at);
   const maxAgeSec = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
   const cookie = [
     `cms_client_token_${orderId}=${tokenHash}`,
     `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 60)}`,
-    "Path=/",
+    "Path=/c",
     "HttpOnly",
     "SameSite=Lax",
     "Secure",

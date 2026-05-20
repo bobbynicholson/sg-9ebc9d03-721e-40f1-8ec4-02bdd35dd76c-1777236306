@@ -70,8 +70,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (rawToken) {
       // Fresh token but invalid - don't set a cookie
     } else {
-      // Cookie was bad - clear it
-      res.setHeader("Set-Cookie", `cms_client_account_token=; Max-Age=0; Path=/`);
+      // Cookie was bad - clear it. Send on both paths so legacy
+      // Path=/ cookies from before the narrowing migration are
+      // dropped alongside the current Path=/c scope.
+      res.setHeader("Set-Cookie", [
+        `cms_client_account_token=; Max-Age=0; Path=/c`,
+        `cms_client_account_token=; Max-Age=0; Path=/`,
+      ]);
     }
     return res.status(401).json({ error: result?.code || "invalid" });
   }
@@ -80,10 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (rawToken) {
     const expiresAt = new Date(result.token.expires_at);
     const maxAgeSec = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+    // Path=/c narrows the cookie to tokenised client surfaces only
+    // (the /c/* tree). Previously Path=/ shipped this cookie on
+    // every request including /admin and /api routes that don't
+    // need it, widening the exposure surface unnecessarily.
     const cookie = [
       `cms_client_account_token=${tokenHash}`,
       `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 180)}`,
-      "Path=/",
+      "Path=/c",
       "HttpOnly",
       "SameSite=Lax",
       "Secure",
