@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Clock, CheckCircle, Package } from "lucide-react";
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from "@/components/ui/accordion";
+import {
+  MapPin, Navigation, Clock, CheckCircle, Package, Users,
+  UtensilsCrossed, AlertTriangle, ChefHat, Phone, Calendar,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
@@ -10,14 +16,28 @@ import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+
+interface MenuLine {
+  id: string;
+  name: string;
+  quantity: number;
+  description: string | null;
+  special_instructions: string | null;
+}
+
+interface EquipmentLine {
+  id: string;
+  name: string;
+  quantity: number;
+}
 
 interface ActiveDelivery {
   assignmentId: string;
   orderId: string;
   orderNumber: string;
+  eventName: string | null;
   clientName: string;
   clientPhone: string | null;
   venueAddress: string;
@@ -26,13 +46,18 @@ interface ActiveDelivery {
   guestCount: number;
   eventDate: string;
   eventTime: string | null;
+  setupTime: string | null;
   /** Kitchen collection time (HH:MM, no date). Surfaces alongside
    *  event_time so the driver knows when to leave the kitchen, not
    *  just when they need to arrive. */
   pickupTime: string | null;
+  specialInstructions: string | null;
+  dietaryRequirements: string | null;
   status: string;
   picked_up_at: string | null;
   arrived_at_venue_at: string | null;
+  menuItems: MenuLine[];
+  equipment: EquipmentLine[];
 }
 
 /** Format "14:30:00" / "14:30" / "" -> "14:30" or fallback. Driver
@@ -83,6 +108,7 @@ function DriverTrackingInner() {
         arrived_at_venue_at,
         orders (
           order_number,
+          event_name,
           client_name,
           client_phone,
           venue_address,
@@ -91,7 +117,10 @@ function DriverTrackingInner() {
           guest_count,
           event_date,
           event_time,
-          pickup_time
+          setup_time,
+          pickup_time,
+          special_instructions,
+          dietary_requirements
         )
       `)
       .eq("driver_id", user.id)
@@ -114,10 +143,44 @@ function DriverTrackingInner() {
     }
 
     const order: any = data.orders;
+
+    // Pull the food + equipment manifest in parallel. These two
+    // lists are what the driver actually loads off the kitchen
+    // bench. Best-effort - a missing read collapses the
+    // accordion section to empty rather than blocking the page.
+    const [itemsRes, equipRes] = await Promise.all([
+      supabase
+        .from("order_items")
+        .select("id, item_name, quantity, description, special_instructions")
+        .eq("order_id", data.order_id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("equipment_bookings")
+        .select("id, quantity, equipment:equipment_id(id, name)")
+        .eq("order_id", data.order_id),
+    ]);
+
+    const menuItems: MenuLine[] = ((itemsRes.data as any[]) || []).map((r) => ({
+      id: r.id,
+      name: r.item_name || "Item",
+      quantity: Number(r.quantity) || 0,
+      description: r.description || null,
+      special_instructions: r.special_instructions || null,
+    }));
+
+    const equipment: EquipmentLine[] = ((equipRes.data as any[]) || [])
+      .map((r) => ({
+        id: r.id,
+        name: r.equipment?.name || "Equipment",
+        quantity: Number(r.quantity) || 0,
+      }))
+      .filter((r) => r.quantity > 0);
+
     setDelivery({
       assignmentId: data.id,
       orderId: data.order_id,
       orderNumber: order.order_number,
+      eventName: order.event_name ?? null,
       clientName: order.client_name,
       clientPhone: order.client_phone,
       venueAddress: order.venue_address,
@@ -126,10 +189,15 @@ function DriverTrackingInner() {
       guestCount: order.guest_count,
       eventDate: order.event_date,
       eventTime: order.event_time,
+      setupTime: order.setup_time ?? null,
       pickupTime: order.pickup_time ?? null,
+      specialInstructions: order.special_instructions ?? null,
+      dietaryRequirements: order.dietary_requirements ?? null,
       status: data.status,
       picked_up_at: data.picked_up_at,
       arrived_at_venue_at: data.arrived_at_venue_at,
+      menuItems,
+      equipment,
     });
     setLoading(false);
   };
@@ -196,57 +264,251 @@ function DriverTrackingInner() {
             </Card>
           ) : (
             <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{delivery.clientName}</span>
-                    <Badge className={statusMeta!.tone}>
-                      <Navigation className="w-4 h-4 mr-1" />
+              {/* Single delivery card. Sections (collect / deliver /
+                  items / instructions / contact / actions) live
+                  together so the driver isn't hopping between
+                  cards on a phone. Accordion collapses items by
+                  default; everything time-critical is above the
+                  fold. */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wider opacity-80">
+                        {delivery.orderNumber}
+                      </p>
+                      <CardTitle className="text-xl text-white truncate">
+                        {delivery.eventName || delivery.clientName}
+                      </CardTitle>
+                      <p className="text-sm opacity-90 truncate">
+                        For {delivery.clientName}
+                      </p>
+                    </div>
+                    <Badge className={`${statusMeta!.tone} shrink-0`}>
                       {statusMeta!.label}
                     </Badge>
-                  </CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
-                      Order
-                      <InfoTooltip content="The order reference you can use when chatting with dispatch or the client." />
-                    </p>
-                    <p className="font-medium">{delivery.orderNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
-                      Destination
-                      <InfoTooltip content="The venue address for this delivery.\n\nTap the navigate button below to open it in Google Maps." />
-                    </p>
-                    <p className="font-medium flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-blue-600" />
-                      {delivery.venueAddress}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm flex-wrap">
-                    {/* Collection time leads. Driver's first action
-                        is "leave the kitchen", and they want to see
-                        that time prominently before the event time. */}
-                    {delivery.pickupTime && (
-                      <div className="flex items-center gap-2 text-blue-700 font-medium">
-                        <Clock className="w-4 h-4" />
-                        <span>Collect {fmtClockTime(delivery.pickupTime)}</span>
+
+                <CardContent className="p-0 divide-y divide-slate-100">
+                  {/* COLLECT FROM KITCHEN. First-action info. Big
+                      pickup_time, kitchen origin if we have it. */}
+                  <div className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                        <ChefHat className="w-5 h-5 text-blue-600" />
                       </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-orange-600" />
-                      <span>
-                        {fmtEventDate(delivery.eventDate)}
-                        {delivery.eventTime ? ` • ${fmtClockTime(delivery.eventTime)}` : ""}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-blue-600" />
-                      <span>{delivery.guestCount} guests</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                          Collect from kitchen
+                        </p>
+                        {delivery.pickupTime ? (
+                          <p className="text-2xl font-bold text-slate-900 tabular-nums mt-1">
+                            {fmtClockTime(delivery.pickupTime)}
+                          </p>
+                        ) : (
+                          <p className="text-sm italic text-slate-500 mt-1">
+                            Pickup time not set - check with dispatch.
+                          </p>
+                        )}
+                        {kitchenOrigin?.address && (
+                          <p className="text-sm text-slate-600 mt-1 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {kitchenOrigin.address}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="pt-4 space-y-2">
+
+                  {/* DELIVER TO VENUE. Address + event time + guest count
+                      grouped so the driver sees "where + when + how many"
+                      in one glance. */}
+                  <div className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                          Deliver to venue
+                        </p>
+                        <p className="font-semibold text-slate-900 mt-1">
+                          {delivery.venueAddress}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {fmtEventDate(delivery.eventDate)}
+                          </span>
+                          {delivery.setupTime && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                              Setup {fmtClockTime(delivery.setupTime)}
+                            </span>
+                          )}
+                          {delivery.eventTime && (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-orange-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Event {fmtClockTime(delivery.eventTime)}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5" />
+                            {delivery.guestCount} guests
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DIETARY + SPECIAL INSTRUCTIONS. Red strip - the
+                      driver needs to see allergens / special asks
+                      before they hit the venue. */}
+                  {(delivery.dietaryRequirements || delivery.specialInstructions) && (
+                    <div className="p-5 bg-rose-50">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1 text-sm">
+                          {delivery.dietaryRequirements && (
+                            <p>
+                              <span className="font-semibold text-rose-800">Dietary: </span>
+                              <span className="text-rose-900">{delivery.dietaryRequirements}</span>
+                            </p>
+                          )}
+                          {delivery.specialInstructions && (
+                            <p>
+                              <span className="font-semibold text-rose-800">Notes: </span>
+                              <span className="text-rose-900">{delivery.specialInstructions}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ITEMS TO LOAD. Accordion housed inside the same
+                      card. Collapsed by default - the driver opens it
+                      while loading the bakkie, then closes it and
+                      drives. Two sections: food + equipment, each
+                      with a quantity total in the trigger. */}
+                  {(delivery.menuItems.length > 0 || delivery.equipment.length > 0) && (
+                    <div className="px-2 sm:px-3">
+                      <Accordion type="multiple" className="w-full">
+                        {delivery.menuItems.length > 0 && (
+                          <AccordionItem value="food" className="border-0">
+                            <AccordionTrigger className="hover:no-underline py-4 px-3">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                  <UtensilsCrossed className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                                    Food to load
+                                  </p>
+                                  <p className="text-sm text-slate-700">
+                                    {delivery.menuItems.length} {delivery.menuItems.length === 1 ? "item" : "items"}
+                                    {" · "}
+                                    {delivery.menuItems.reduce((s, i) => s + i.quantity, 0)} portions
+                                  </p>
+                                </div>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-3 pb-3">
+                              <ul className="space-y-2">
+                                {delivery.menuItems.map((m) => (
+                                  <li
+                                    key={m.id}
+                                    className="flex items-start justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-medium text-slate-900">{m.name}</p>
+                                      {m.description && (
+                                        <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>
+                                      )}
+                                      {m.special_instructions && (
+                                        <p className="text-xs text-rose-700 italic mt-1">
+                                          Note: {m.special_instructions}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <Badge variant="outline" className="tabular-nums shrink-0">
+                                      x{m.quantity}
+                                    </Badge>
+                                  </li>
+                                ))}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+
+                        {delivery.equipment.length > 0 && (
+                          <AccordionItem value="equipment" className="border-0">
+                            <AccordionTrigger className="hover:no-underline py-4 px-3">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+                                  <Package className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-xs font-semibold uppercase tracking-wider text-purple-700">
+                                    Equipment to load
+                                  </p>
+                                  <p className="text-sm text-slate-700">
+                                    {delivery.equipment.length} {delivery.equipment.length === 1 ? "type" : "types"}
+                                    {" · "}
+                                    {delivery.equipment.reduce((s, e) => s + e.quantity, 0)} units
+                                  </p>
+                                </div>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-3 pb-3">
+                              <ul className="space-y-2">
+                                {delivery.equipment.map((e) => (
+                                  <li
+                                    key={e.id}
+                                    className="flex items-center justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white"
+                                  >
+                                    <p className="font-medium text-slate-900">{e.name}</p>
+                                    <Badge variant="outline" className="tabular-nums shrink-0">
+                                      x{e.quantity}
+                                    </Badge>
+                                  </li>
+                                ))}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                      </Accordion>
+                    </div>
+                  )}
+
+                  {/* CLIENT CONTACT row - inline so the driver doesn't
+                      need to scroll to a separate card. tel: link on
+                      mobile pops the dialer. */}
+                  {delivery.clientPhone && (
+                    <a
+                      href={`tel:${delivery.clientPhone}`}
+                      className="flex items-center gap-3 p-5 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                        <Phone className="w-5 h-5 text-slate-700" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Client contact
+                        </p>
+                        <p className="font-medium text-slate-900 tabular-nums">
+                          {delivery.clientPhone}
+                        </p>
+                      </div>
+                      <span className="text-xs text-blue-600 font-medium shrink-0">Tap to call</span>
+                    </a>
+                  )}
+
+                  {/* ACTIONS. Primary nav button + Mark arrived gate.
+                      Kept at the bottom so the driver scrolls past
+                      the manifest first. */}
+                  <div className="p-5 space-y-2">
                     <Button
                       className="w-full"
                       size="lg"
@@ -270,23 +532,6 @@ function DriverTrackingInner() {
                   </div>
                 </CardContent>
               </Card>
-
-              {delivery.clientPhone && (
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Client Contact</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => window.open(`tel:${delivery.clientPhone}`, "_self")}
-                    >
-                      Call Client: {delivery.clientPhone}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           )}
 
