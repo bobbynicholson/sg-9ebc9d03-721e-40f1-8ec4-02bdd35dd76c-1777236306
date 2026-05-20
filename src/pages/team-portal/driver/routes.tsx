@@ -121,32 +121,52 @@ export default function DriverRoutes() {
     }
   };
 
-  const startTrip = async () => {
+  // Bobby's separation-of-concerns brief:
+  //   - "Start shift" (top-right) is generic. Driver clocks on to
+  //     the timer. No order writes. No client notification. Just
+  //     proof-of-shift + GPS pinger activation.
+  //   - "Start delivery" (per-stop) is order-specific. Flips that
+  //     stop's order to in_transit so the orderWorkflow cascade
+  //     fires sendStatusNotifications -> client "Driver on the way"
+  //     in-app + cateringms:order-updated bus broadcast that the
+  //     client portal subscribes to.
+  // Previously startTrip implicitly fired the first-stop order
+  // write, which conflated shift-tracking with per-order comms
+  // and broke on routes with multiple stops.
+  const startShift = async () => {
     if (!route || route.stops.length === 0) return;
+    setTripStarted(true);
+    trip.start();
+    toast({
+      title: "Shift started",
+      description: "GPS tracking on. Tap Start delivery on each stop when you set off.",
+    });
+  };
 
+  /** Per-stop: flip this order to in_transit so the client gets
+   *  the "Driver on the way" push + the dispatch + kitchen dashboards
+   *  see the rolling status. Idempotent if already in_transit. */
+  const startStopDelivery = async (stopIndex: number) => {
+    if (!route) return;
+    const stop = route.stops[stopIndex];
+    if (!stop) return;
     try {
-      const firstStop = route.stops[0];
-
-      // Start the first assignment
-      await driverService.startJob(firstStop.order_id);
-
-      setTripStarted(true);
-      // Start the visible timer alongside the DB status flip. The
-      // hook persists to localStorage so a refresh or phone lock
-      // keeps the clock running.
-      trip.start();
+      await driverService.startJob(stop.order_id);
       toast({
-        title: "Trip Started! 🚗",
-        description: "GPS tracking activated. Drive safely!",
+        title: "Delivery started",
+        description: `Client notified you're on the way to ${stop.client_name}.`,
       });
-
-      // Reload to get updated status
+      // Refresh so the per-stop status reflects in_transit; the timer
+      // (if not already running) starts now too so the driver has
+      // proof-of-shift even if they skipped the top-right button.
+      if (!trip.isActive) trip.start();
+      setTripStarted(true);
       await loadOptimizedRoute();
     } catch (error) {
-      console.error("Error starting trip:", error);
+      console.error("Error starting delivery:", error);
       toast({
         title: "Error",
-        description: "Failed to start trip. Please try again.",
+        description: "Failed to start delivery. Please try again.",
         variant: "destructive",
       });
     }
@@ -348,11 +368,12 @@ export default function DriverRoutes() {
       {!tripStarted && !tripCompleted && (
         <Button
           size="lg"
-          onClick={startTrip}
+          onClick={startShift}
           className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-11"
+          title="Start your driving shift. Each stop has its own Start delivery button that notifies the client."
         >
           <Play className="w-5 h-5 mr-2" />
-          Start Trip
+          Start shift
         </Button>
       )}
       {tripStarted && !tripCompleted && (
@@ -588,41 +609,60 @@ export default function DriverRoutes() {
                         </div>
                       </div>
 
-                      {!tripStarted && (
-                        <div className="bg-white/10 rounded-lg p-3 text-sm">
-                          <p className="flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            Click "Start Trip" above to begin navigation
-                          </p>
-                        </div>
-                      )}
+                      {(() => {
+                        // Per-stop gate (Bobby's brief): the page-level
+                        // "Start shift" is for the driver's clock. The
+                        // client notification "Driver on the way" only
+                        // fires when THIS stop's order flips to
+                        // in_transit. So Navigate + Mark Complete here
+                        // gate on the stop's own status, not on the
+                        // generic shift flag.
+                        const stopStatus = String((currentStop as any).status || "").toLowerCase();
+                        const stopIsRolling = ["in_transit", "picked_up", "at_venue", "en_route"].includes(stopStatus);
+                        return (
+                          <>
+                            {!stopIsRolling && (
+                              <div className="bg-white/10 rounded-lg p-3 text-sm">
+                                <p className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                  Tap <strong>Start delivery</strong> to let the client know you're on the way.
+                                </p>
+                              </div>
+                            )}
 
-                      <div className="space-y-2 pt-2">
-                        <Button
-                          onClick={() => openNavigation(currentStop)}
-                          disabled={!tripStarted}
-                          className="w-full bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                          size="lg"
-                        >
-                          <Navigation className="w-4 h-4 mr-2" />
-                          Navigate Now
-                        </Button>
-                        <Button
-                          onClick={() => markStopComplete(currentStopIndex)}
-                          disabled={!tripStarted}
-                          variant="outline"
-                          className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          {/* Bug fix: previously read "Processing..."
-                              when the trip wasn't started yet -
-                              wrong tense, wrong meaning. The button
-                              is disabled in this state, so the label
-                              should describe the gate, not pretend
-                              work is happening. */}
-                          {tripStarted ? "Mark Complete" : "Start trip first"}
-                        </Button>
-                      </div>
+                            <div className="space-y-2 pt-2">
+                              {!stopIsRolling && (
+                                <Button
+                                  onClick={() => startStopDelivery(currentStopIndex)}
+                                  className="w-full bg-white text-blue-600 hover:bg-blue-50"
+                                  size="lg"
+                                >
+                                  <Play className="w-4 h-4 mr-2" />
+                                  Start delivery
+                                </Button>
+                              )}
+                              <Button
+                                onClick={() => openNavigation(currentStop)}
+                                disabled={!stopIsRolling}
+                                className="w-full bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                size="lg"
+                              >
+                                <Navigation className="w-4 h-4 mr-2" />
+                                Navigate Now
+                              </Button>
+                              <Button
+                                onClick={() => markStopComplete(currentStopIndex)}
+                                disabled={!stopIsRolling}
+                                variant="outline"
+                                className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {stopIsRolling ? "Mark Complete" : "Start delivery first"}
+                              </Button>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   ) : tripCompleted ? (
                     <div className="text-center py-8">
@@ -779,31 +819,45 @@ export default function DriverRoutes() {
                             </div>
                           </div>
 
-                          {!isCompleted && isCurrent && (
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openNavigation(stop)}
-                                disabled={!tripStarted}
-                                className="flex-1 sm:flex-none"
-                              >
-                                <Navigation className="w-4 h-4 sm:mr-2" />
-                                <span className="hidden sm:inline">Navigate</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => markStopComplete(index)}
-                                disabled={!tripStarted}
-                                className="flex-1 sm:flex-none"
-                              >
-                                <CheckCircle className="w-4 h-4 sm:mr-2" />
-                                <span className="hidden sm:inline">
-                                  {tripStarted ? "Complete" : "Start trip first"}
-                                </span>
-                              </Button>
-                            </div>
-                          )}
+                          {!isCompleted && isCurrent && (() => {
+                            const stopStat = String((stop as any).status || "").toLowerCase();
+                            const rolling = ["in_transit", "picked_up", "at_venue", "en_route"].includes(stopStat);
+                            return (
+                              <div className="flex gap-2 mt-3">
+                                {!rolling && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => startStopDelivery(index)}
+                                    className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700"
+                                  >
+                                    <Play className="w-4 h-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Start delivery</span>
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openNavigation(stop)}
+                                  disabled={!rolling}
+                                  className="flex-1 sm:flex-none"
+                                >
+                                  <Navigation className="w-4 h-4 sm:mr-2" />
+                                  <span className="hidden sm:inline">Navigate</span>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => markStopComplete(index)}
+                                  disabled={!rolling}
+                                  className="flex-1 sm:flex-none"
+                                >
+                                  <CheckCircle className="w-4 h-4 sm:mr-2" />
+                                  <span className="hidden sm:inline">
+                                    {rolling ? "Complete" : "Start delivery first"}
+                                  </span>
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 
