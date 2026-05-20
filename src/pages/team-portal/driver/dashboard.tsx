@@ -544,8 +544,13 @@ function DriverDashboardInner() {
 
       <DriverNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
+      {/* Dashboard intentionally keeps its bespoke "Welcome back, {name}"
+          header (different from the icon+title pattern used by every
+          other driver page) but the wrapper - background gradient,
+          sidebar offset and container width - matches DriverPageShell
+          so the visual rhythm carries across the whole portal. */}
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 lg:py-12 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
