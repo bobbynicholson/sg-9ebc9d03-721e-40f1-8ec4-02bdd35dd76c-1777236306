@@ -151,7 +151,19 @@ export default function DriverRoutes() {
     const stop = route.stops[stopIndex];
     if (!stop) return;
     try {
-      await driverService.startJob(stop.order_id);
+      const result = await driverService.startJob(stop.order_id);
+      if (!result?.success) {
+        // Most likely cause: the temporal guard in orderWorkflow
+        // (event > 24h away). Surface the service-supplied error so
+        // the driver sees "Too early - event is 47h away" rather
+        // than a generic failure toast.
+        toast({
+          title: "Can't start delivery yet",
+          description: result?.error || "Try again in a few minutes.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Delivery started",
         description: `Client notified you're on the way to ${stop.client_name}.`,

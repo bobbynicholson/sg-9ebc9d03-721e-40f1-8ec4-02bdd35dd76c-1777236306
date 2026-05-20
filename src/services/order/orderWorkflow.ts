@@ -127,6 +127,49 @@ export async function updateOrderStatus(
       }
     }
 
+    // Temporal sanity guard on in_transit. A driver tapping
+    // "Start delivery" two days before the event is almost
+    // certainly a misclick - "in_transit" semantically means
+    // "rolling toward the venue right now", not "I'll be rolling
+    // on Saturday". Without this gate the status badge reads
+    // "En Route" on the GPS Tracking page for the entire window
+    // between claim and the actual event - misleading the client
+    // (who already got the "Driver on the way" push) and breaking
+    // the on-time KPIs (picked_up_at lands two days early).
+    //
+    // Window: allow in_transit only when the event is within the
+    // next 24 hours. Outside that, return a clear error the UI
+    // can surface as a toast. Past-event orders are still
+    // allowed to roll (recovery flows).
+    if (newStatus === "in_transit") {
+      try {
+        const { data: tempCheck } = await supabase
+          .from("orders")
+          .select("event_date, event_time")
+          .eq("id", orderId)
+          .maybeSingle();
+        const eventDate = (tempCheck as any)?.event_date as string | null;
+        if (eventDate) {
+          const eventTime = ((tempCheck as any)?.event_time as string | null) || "00:00";
+          const eventStart = new Date(`${eventDate}T${eventTime.slice(0, 5)}:00`);
+          if (!isNaN(eventStart.getTime())) {
+            const hoursUntilEvent = (eventStart.getTime() - Date.now()) / 3_600_000;
+            if (hoursUntilEvent > 24) {
+              return {
+                success: false,
+                error: `Too early to mark this order in transit - the event is ${Math.round(hoursUntilEvent)} hours away. Start delivery within 24 hours of the event start.`,
+              };
+            }
+          }
+        }
+      } catch (eventErr) {
+        // Lookup failure is non-fatal - we'd rather let the status
+        // change through than block a legitimate roll on a
+        // transient read error.
+        console.warn("[orderWorkflow] event window check crashed (non-blocking):", eventErr);
+      }
+    }
+
     // Stamp every lifecycle moment the first time an order reaches
     // it. Audit (May 2026, Wave 5): the previous block only wrote
     // confirmed_at. Downstream KPIs key off picked_up_at and (more
