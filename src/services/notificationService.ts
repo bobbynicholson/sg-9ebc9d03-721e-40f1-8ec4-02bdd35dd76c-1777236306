@@ -144,6 +144,10 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "domain_verified",
   // Added in 20260514170000_notification_type_enum_quote_rejected.
   "quote_rejected",
+  // Added in 20260520080000_notification_type_enum_new_job_available.
+  // Broadcast to drivers when a confirmed order is still unassigned
+  // and so eligible for self-claim via /team-portal/driver/dashboard.
+  "new_job_available",
 ]);
 
 export const notificationService = {
