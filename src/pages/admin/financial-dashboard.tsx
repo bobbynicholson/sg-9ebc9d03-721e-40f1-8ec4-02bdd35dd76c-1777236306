@@ -13,6 +13,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { formatLocalDate } from "@/lib/localFormat";
+import { toLocalISO } from "@/lib/localDate";
 import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import Link from "next/link";
@@ -129,9 +130,8 @@ function FinancialDashboardInner() {
       // forecast chart's R0 line dipping. Both loads tolerant of
       // RLS / missing tables - we default to 0 on failure so the
       // summary still renders.
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const thirtyIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString().slice(0, 10);
+      const todayIso = toLocalISO(new Date());
+      const thirtyIso = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       let fixedCostsNext30 = 0;
       let supplierPayablesNext30 = 0;
       try {
@@ -429,7 +429,7 @@ function FinancialDashboardInner() {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
-                      a.download = `financial-snapshot-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.download = `financial-snapshot-${toLocalISO(new Date())}.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);

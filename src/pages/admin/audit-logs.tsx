@@ -19,6 +19,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -313,7 +314,7 @@ function CompanyAuditLogsViewer() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const stamp = new Date().toISOString().slice(0, 10);
+      const stamp = toLocalISO(new Date());
       a.download = `audit_logs_${stamp}.csv`;
       a.click();
       URL.revokeObjectURL(url);

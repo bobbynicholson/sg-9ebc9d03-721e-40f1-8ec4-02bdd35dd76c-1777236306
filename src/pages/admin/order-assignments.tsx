@@ -653,7 +653,7 @@ function DispatchQueuePage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `dispatch-queue-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `dispatch-queue-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

@@ -3,6 +3,7 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
+import { toLocalISO } from "@/lib/localDate";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -869,7 +870,7 @@ function MenuPage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `menu-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `menu-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
