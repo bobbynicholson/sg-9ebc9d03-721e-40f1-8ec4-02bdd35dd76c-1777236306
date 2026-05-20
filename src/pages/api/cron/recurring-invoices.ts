@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 
 const CRON_NAME = "recurring-invoices";
 
@@ -32,13 +33,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const sb: any = getServiceSupabase();
   try {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    // UTC tomorrow is the loose upper bound. Per-template we then
+    // re-check next_run_at against THAT tenant's local today so a
+    // cron running at UTC midnight doesn't fire SAST templates a
+    // day early.
+    const utcTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
 
+    // Pull the template + the tenant timezone so each row can be
+    // evaluated against its own local day.
     const { data: templates, error: tErr } = await sb
       .from("recurring_invoice_templates")
-      .select("*")
+      .select("*, company:companies(timezone)")
       .eq("active", true)
-      .lte("next_run_at", todayIso);
+      .lte("next_run_at", utcTomorrow);
     if (tErr) {
       console.error("[recurring-invoices] templates fetch failed:", tErr);
       await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: tErr.message });
@@ -54,9 +63,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const errors: string[] = [];
 
     for (const t of templates as any[]) {
-      // Honour pause + end gates.
+      const tenantTz = t.company?.timezone || DEFAULT_TENANT_TIMEZONE;
+      const todayIso = toZonedISO(now, tenantTz);
+
+      // Honour pause + end gates against tenant local date.
       if (t.pause_until && String(t.pause_until) > todayIso) continue;
       if (t.end_date && String(t.end_date) < todayIso) continue;
+      // Tenant local today must have actually reached next_run_at;
+      // the UTC pre-filter above is intentionally loose.
+      if (t.next_run_at && String(t.next_run_at) > todayIso) continue;
 
       try {
         // Build invoice row. Uses the same shape ensureInvoiceForOrder
@@ -64,9 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // are a separate flow from order-driven invoicing.
         const invoiceNumber = await _consumeInvoiceNumber(sb, t.company_id);
         const dueDate = (() => {
-          const d = new Date();
-          d.setDate(d.getDate() + 14); // 14-day terms
-          return d.toISOString().slice(0, 10);
+          // 14 days from tenant local today, expressed as tenant
+          // local date. Stamping a UTC due_date would render off by
+          // a day for SAST tenants when this cron fires at UTC
+          // midnight.
+          const future = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+          return toZonedISO(future, tenantTz);
         })();
         const { data: insertedInvoice, error: invErr } = await (sb as any)
           .from("invoices")
