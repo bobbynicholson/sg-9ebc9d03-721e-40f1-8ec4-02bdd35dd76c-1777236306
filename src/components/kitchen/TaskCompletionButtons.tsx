@@ -13,6 +13,7 @@ import {
 import { kitchenDutyService } from "@/services/kitchenDutyService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
+import { formatLocalTime } from "@/lib/localFormat";
 
 type TaskCompletionWithStaff = Database["public"]["Tables"]["kitchen_task_completions"]["Row"] & {
   staff: {
@@ -170,7 +171,7 @@ export function TaskCompletionButtons({
                 {status?.completed && status.completedAt && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {new Date(status.completedAt).toLocaleTimeString()}
+                    {formatLocalTime(status.completedAt)}
                     {status.completedBy && ` by ${status.completedBy}`}
                   </div>
                 )}

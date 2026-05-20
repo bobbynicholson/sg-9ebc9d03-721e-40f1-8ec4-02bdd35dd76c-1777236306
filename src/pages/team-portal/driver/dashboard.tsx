@@ -54,6 +54,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { driverPayService } from "@/services/driverPayService";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatLocalTime } from "@/lib/localFormat";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -725,7 +726,7 @@ function DriverDashboardInner() {
                     <MapPin className="w-3 h-3 mr-1 animate-pulse" />
                     GPS sharing on
                     {lastPingAt
-                      ? ` • last ping ${new Date(lastPingAt).toLocaleTimeString()}`
+                      ? ` • last ping ${formatLocalTime(lastPingAt)}`
                       : ""}
                   </Badge>
                 ) : (

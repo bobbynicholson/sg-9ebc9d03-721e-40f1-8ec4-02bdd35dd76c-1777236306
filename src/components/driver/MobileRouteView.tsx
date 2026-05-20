@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, MapPin, Clock, CheckCircle, Circle, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatLocalDateTime } from "@/lib/localFormat";
 
 interface RouteStop {
   id: string;
@@ -135,7 +136,7 @@ export function MobileRouteView({
             <div className="flex-1">
               <p className="text-sm font-medium mb-1">Delivery Time</p>
               <p className="text-sm text-muted-foreground">
-                {new Date(currentStop.delivery_time).toLocaleString()}
+                {formatLocalDateTime(currentStop.delivery_time)}
               </p>
             </div>
           </div>

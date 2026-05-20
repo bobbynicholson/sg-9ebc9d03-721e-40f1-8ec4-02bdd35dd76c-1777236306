@@ -7,6 +7,7 @@ import { driverConfirmationService } from "@/services/driverConfirmationService"
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { formatLocalTime } from "@/lib/localFormat";
 
 interface DriverConfirmationPanelProps {
   orderId: string;
@@ -138,7 +139,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
 
   const getConfirmationTime = (type: string) => {
     const confirmation = confirmations.find(c => c.confirmation_type === type);
-    return confirmation ? new Date(confirmation.confirmed_at).toLocaleTimeString() : null;
+    return confirmation ? formatLocalTime(confirmation.confirmed_at) : null;
   };
 
   return (

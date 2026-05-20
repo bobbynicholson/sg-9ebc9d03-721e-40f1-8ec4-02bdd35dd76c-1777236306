@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { routeStopService } from "@/services/routeStopService";
+import { formatLocalTime } from "@/lib/localFormat";
 
 interface RouteStopManagerProps {
   orderId: string;
@@ -211,13 +212,13 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
                   {stop.arrival_time && (
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Clock className="h-4 w-4" />
-                      Arrived: {new Date(stop.arrival_time).toLocaleTimeString()}
+                      Arrived: {formatLocalTime(stop.arrival_time)}
                     </div>
                   )}
                   {stop.departure_time && (
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Clock className="h-4 w-4" />
-                      Left: {new Date(stop.departure_time).toLocaleTimeString()}
+                      Left: {formatLocalTime(stop.departure_time)}
                     </div>
                   )}
                   {stop.amount_spent && (
