@@ -48,8 +48,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (error) return res.status(500).json({ error: "Lookup failed" });
   const result = data as any;
   if (!result?.ok) {
-    // Clear stale cookie
-    res.setHeader("Set-Cookie", `${cookieName}=; Max-Age=0; Path=/`);
+    // Clear stale cookie. Sent on BOTH paths (legacy Path=/ rows
+    // from before the narrowing migration and the current Path=/c)
+    // so the browser drops both during the upgrade window.
+    res.setHeader("Set-Cookie", [
+      `${cookieName}=; Max-Age=0; Path=/c`,
+      `${cookieName}=; Max-Age=0; Path=/`,
+    ]);
     return res.status(401).json({ error: result?.code || "invalid" });
   }
   return res.status(200).json(result);
