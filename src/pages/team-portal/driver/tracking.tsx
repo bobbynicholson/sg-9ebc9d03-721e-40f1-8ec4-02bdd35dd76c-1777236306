@@ -29,9 +29,31 @@ interface ActiveDelivery {
   guestCount: number;
   eventDate: string;
   eventTime: string | null;
+  /** Kitchen collection time (HH:MM, no date). Surfaces alongside
+   *  event_time so the driver knows when to leave the kitchen, not
+   *  just when they need to arrive. */
+  pickupTime: string | null;
   status: string;
   picked_up_at: string | null;
   arrived_at_venue_at: string | null;
+}
+
+/** Format "14:30:00" / "14:30" / "" -> "14:30" or fallback. Driver
+ *  surfaces never want seconds. */
+function fmtClockTime(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+  return s.length >= 5 ? s.slice(0, 5) : s;
+}
+
+/** SA locale date format so a UK / US browser default doesn't flip
+ *  21 May to 5/21. */
+function fmtEventDate(iso: string | null | undefined): string {
+  if (!iso) return "TBD";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
@@ -71,7 +93,8 @@ function DriverTrackingInner() {
           venue_lng,
           guest_count,
           event_date,
-          event_time
+          event_time,
+          pickup_time
         )
       `)
       .eq("driver_id", user.id)
@@ -106,6 +129,7 @@ function DriverTrackingInner() {
       guestCount: order.guest_count,
       eventDate: order.event_date,
       eventTime: order.event_time,
+      pickupTime: order.pickup_time ?? null,
       status: data.status,
       picked_up_at: data.picked_up_at,
       arrived_at_venue_at: data.arrived_at_venue_at,
@@ -219,11 +243,20 @@ function DriverTrackingInner() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4 text-sm flex-wrap">
+                    {/* Collection time leads. Driver's first action
+                        is "leave the kitchen", and they want to see
+                        that time prominently before the event time. */}
+                    {delivery.pickupTime && (
+                      <div className="flex items-center gap-2 text-blue-700 font-medium">
+                        <Clock className="w-4 h-4" />
+                        <span>Collect {fmtClockTime(delivery.pickupTime)}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-orange-600" />
                       <span>
-                        {new Date(delivery.eventDate).toLocaleDateString()}
-                        {delivery.eventTime ? ` • ${delivery.eventTime}` : ""}
+                        {fmtEventDate(delivery.eventDate)}
+                        {delivery.eventTime ? ` • ${fmtClockTime(delivery.eventTime)}` : ""}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
