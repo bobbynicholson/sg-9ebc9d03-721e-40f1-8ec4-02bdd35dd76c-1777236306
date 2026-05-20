@@ -22,6 +22,7 @@
  * `returned_quantity` so partial returns release stock correctly.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 // Active booking statuses - anything not in this set is either
 // cancelled, fully returned, or not yet committed.
@@ -106,8 +107,8 @@ export async function getEquipmentAvailability(
   winStart.setDate(target.getDate() - windowDays);
   const winEnd = new Date(target);
   winEnd.setDate(target.getDate() + windowDays);
-  const winStartISO = winStart.toISOString().slice(0, 10);
-  const winEndISO = winEnd.toISOString().slice(0, 10);
+  const winStartISO = toLocalISO(winStart);
+  const winEndISO = toLocalISO(winEnd);
 
   // Postgres interval-overlap rule: A.start <= B.end AND A.end >= B.start.
   // We pull bookings whose booked_from <= winEnd AND booked_until >= winStart.
@@ -244,10 +245,10 @@ export async function listUpcomingReservations(
 ): Promise<EquipmentReservationRow[]> {
   if (!companyId || !equipmentId) return [];
   const days = opts.days ?? 90;
-  const fromDate = opts.fromDate || new Date().toISOString().slice(0, 10);
+  const fromDate = opts.fromDate || toLocalISO(new Date());
   const to = new Date(fromDate);
   to.setDate(to.getDate() + days);
-  const toISO = to.toISOString().slice(0, 10);
+  const toISO = toLocalISO(to);
 
   // Read directly from `equipment_bookings` - the older path that
   // pulled `orders.equipment_items` always failed silently because

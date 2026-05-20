@@ -19,6 +19,7 @@ import { shiftService } from "./shiftService";
  * order_assignment_audit so dispatch decisions are traceable.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -942,7 +943,7 @@ export const dispatchService = {
     onShiftDrivers: number;
   }> {
     const settings = await this.getDispatchSettings(companyId);
-    const todayISO = new Date().toISOString().slice(0, 10);
+    const todayISO = toLocalISO(new Date());
 
     // Unassigned + future
     const { data: unassigned } = await supabase
@@ -1061,7 +1062,7 @@ export const dispatchService = {
     minutes_apart: number;
   }>> {
     const settings = await this.getDispatchSettings(companyId);
-    const todayISO = new Date().toISOString().slice(0, 10);
+    const todayISO = toLocalISO(new Date());
 
     const { data: orders } = await supabase
       .from("orders")

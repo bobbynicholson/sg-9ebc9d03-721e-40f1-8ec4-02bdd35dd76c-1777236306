@@ -18,6 +18,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
@@ -483,7 +484,7 @@ export const kitchenPrepService = {
       // force=false.
       if ((orderMeta as any).event_date && !opts.force) {
         const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = toLocalISO(new Date());
         if (eventDateIso < todayIso) {
           console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} - skipping prep generation (pass force=true to override)`);
           return { created: 0, skippedReason: "event_in_past" };

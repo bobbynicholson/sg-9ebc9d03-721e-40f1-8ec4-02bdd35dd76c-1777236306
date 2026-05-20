@@ -24,6 +24,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
 
 export interface AccountingLineItem {
   /** Free-text item description shown on the document. */
@@ -132,7 +133,7 @@ export function buildAccountingDocumentFromQuote(args: {
     ...equipItems.map((it: any) => buildLine(it, "Equipment")),
   ];
 
-  const issueDate = (q.created_at ? new Date(q.created_at) : new Date()).toISOString().slice(0, 10);
+  const issueDate = toLocalISO(q.created_at ? new Date(q.created_at) : new Date());
   const expiryOrDue = q.valid_until || null;
 
   return {
