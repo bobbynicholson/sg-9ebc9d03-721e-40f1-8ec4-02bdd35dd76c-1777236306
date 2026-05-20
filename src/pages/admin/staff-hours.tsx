@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
 import { formatLocalDate } from "@/lib/localFormat";
+import { toLocalISO } from "@/lib/localDate";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
@@ -220,7 +221,7 @@ function StaffHoursPage() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                const stamp = new Date().toISOString().slice(0, 10);
+                const stamp = toLocalISO(new Date());
                 a.download = `staff-hours_${period}_${stamp}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
@@ -497,7 +498,7 @@ function StaffHoursPage() {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
-                      a.download = `payment-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.download = `payment-ledger-${toLocalISO(new Date())}.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);

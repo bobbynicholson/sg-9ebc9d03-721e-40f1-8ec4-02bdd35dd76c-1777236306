@@ -600,7 +600,7 @@ function AdminQuotesInner() {
       // failure here is harmless because the derive helper still
       // shows the expired state in the UI.
       try {
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = toLocalISO(new Date());
         await (supabase as any)
           .from("quotes")
           .update({ status: "expired" })
@@ -1325,7 +1325,7 @@ function AdminQuotesInner() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    const stamp = new Date().toISOString().slice(0, 10);
+                    const stamp = toLocalISO(new Date());
                     a.download = `quotes_${stamp}.csv`;
                     a.click();
                     URL.revokeObjectURL(url);
@@ -2078,7 +2078,7 @@ function AdminQuotesInner() {
                                   const todayPlus7 = (() => {
                                     const d = new Date();
                                     d.setDate(d.getDate() + 7);
-                                    return d.toISOString().slice(0, 10);
+                                    return toLocalISO(d);
                                   })();
                                   const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
                                   if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;

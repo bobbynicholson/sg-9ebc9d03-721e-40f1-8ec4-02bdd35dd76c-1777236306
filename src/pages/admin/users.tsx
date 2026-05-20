@@ -39,6 +39,7 @@ import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
+import { toLocalISO } from "@/lib/localDate";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
@@ -352,14 +353,14 @@ function AdminUsersPage() {
                         esc(u.phone || ""),
                         esc(u.primary_department || ""),
                         esc((u.departments || []).join("; ")),
-                        esc(u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : ""),
+                        esc(u.created_at ? toLocalISO(new Date(u.created_at)) : ""),
                       ].join(","));
                     }
                     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `team-${new Date().toISOString().slice(0, 10)}.csv`;
+                    a.download = `team-${toLocalISO(new Date())}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

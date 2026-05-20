@@ -41,6 +41,7 @@ import {
   type PayableStatus,
 } from "@/services/supplierPayablesService";
 import * as currencyUtils from "@/lib/currencyUtils";
+import { toLocalISO } from "@/lib/localDate";
 
 export default function ProtectedPayablesPage() {
   return (
@@ -151,7 +152,7 @@ function PayablesPage() {
     [rows],
   );
   const overdueCount = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalISO(new Date());
     return rows.filter((r) => r.status === "pending" && r.due_date < today).length;
   }, [rows]);
 
@@ -241,7 +242,7 @@ function PayablesPage() {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {rows.map((r) => {
-                    const today = new Date().toISOString().slice(0, 10);
+                    const today = toLocalISO(new Date());
                     const isOverdue = r.status === "pending" && r.due_date < today;
                     return (
                       <div key={r.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">

@@ -19,6 +19,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,7 +84,7 @@ export default function RecurringInvoicesPage() {
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [frequency, setFrequency] = useState<string>("monthly");
-  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState<string>(() => toLocalISO(new Date()));
   const [lineItems, setLineItems] = useState<LineItem[]>([emptyLine()]);
 
   const subtotal = useMemo(
@@ -96,7 +97,7 @@ export default function RecurringInvoicesPage() {
     setClientName("");
     setClientEmail("");
     setFrequency("monthly");
-    setStartDate(new Date().toISOString().slice(0, 10));
+    setStartDate(toLocalISO(new Date()));
     setLineItems([emptyLine()]);
   };
 
