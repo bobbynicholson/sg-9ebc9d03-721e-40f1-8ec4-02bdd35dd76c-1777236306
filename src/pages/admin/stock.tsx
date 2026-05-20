@@ -9,6 +9,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
-import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
+import { useTenantHref } from "@/lib/tenantUrl";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
   Boxes, ClipboardList, ArrowRight, Filter, MapPin, Download,
@@ -420,7 +421,7 @@ function StockPage() {
                       const url = URL.createObjectURL(blob);
                       const link = document.createElement("a");
                       link.href = url;
-                      link.download = `stock-alerts-${new Date().toISOString().slice(0, 10)}.csv`;
+                      link.download = `stock-alerts-${toLocalISO(new Date())}.csv`;
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);

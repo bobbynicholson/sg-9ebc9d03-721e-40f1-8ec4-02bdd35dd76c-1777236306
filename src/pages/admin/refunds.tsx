@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -726,7 +727,7 @@ function RefundsPage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  const stamp = new Date().toISOString().slice(0, 10);
+                  const stamp = toLocalISO(new Date());
                   a.download = `refunds_${stamp}.csv`;
                   a.click();
                   URL.revokeObjectURL(url);

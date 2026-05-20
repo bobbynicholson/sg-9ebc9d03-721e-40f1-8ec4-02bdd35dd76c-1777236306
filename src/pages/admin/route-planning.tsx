@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { toLocalISO } from "@/lib/localDate";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -562,7 +563,7 @@ function RoutePlanningInner() {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
                         a.href = url;
-                        a.download = `unassigned-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+                        a.download = `unassigned-orders-${toLocalISO(new Date())}.csv`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);

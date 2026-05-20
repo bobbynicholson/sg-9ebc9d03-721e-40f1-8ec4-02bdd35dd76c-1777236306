@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,7 @@ function AdminTrackingInner() {
       // staff can still find them.
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString().slice(0, 10);
+      const todayISO = toLocalISO(today);
 
       const { data: rawOrders, error: ordersErr } = await supabase
         .from("orders")
@@ -591,7 +592,7 @@ function AdminTrackingInner() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `tracking-${new Date().toISOString().slice(0, 10)}.csv`;
+                    a.download = `tracking-${toLocalISO(new Date())}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

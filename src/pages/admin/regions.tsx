@@ -3,6 +3,7 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,6 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Region {
@@ -545,7 +545,7 @@ function RegionsPage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `regions-${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.download = `regions-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
