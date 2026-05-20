@@ -30,6 +30,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toLocalISO } from "@/lib/localDate";
 
 export type PortalServiceMode = "off" | "prep" | "service" | "close";
 
@@ -135,7 +136,7 @@ export function usePortalServiceMode(): PortalServiceModeState {
     (async () => {
       setLoading(true);
       try {
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = toLocalISO(new Date());
         const { data } = await (supabase as any)
           .from("orders")
           .select("event_time")

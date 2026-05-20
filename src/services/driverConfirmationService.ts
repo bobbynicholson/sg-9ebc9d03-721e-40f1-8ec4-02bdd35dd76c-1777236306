@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
+import { toLocalISO } from "@/lib/localDate";
 
 // Admin-side roles that should receive dispatch / driver-status pings.
 // Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
@@ -599,7 +600,7 @@ export const driverConfirmationService = {
    * Get driver's confirmations for today
    */
   async getTodayConfirmations(driverId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalISO(new Date());
 
     const { data, error } = await (supabase as any)
       .from('driver_confirmations')

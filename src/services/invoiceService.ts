@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toLocalISO } from "@/lib/localDate";
 
 export interface InvoiceCompanyDetails {
   name: string;
@@ -224,10 +225,8 @@ export const invoiceService = {
     const profile: any = profileData;
 
     const invoiceNumber = `INV-${subscription.id.substring(0, 8).toUpperCase()}`;
-    const invoiceDate = new Date().toISOString().split("T")[0];
-    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+    const invoiceDate = toLocalISO(new Date());
+    const dueDate = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
     const invoiceData: InvoiceData = {
       invoiceNumber,
@@ -382,10 +381,8 @@ export const invoiceService = {
     if (!invoiceNumber) {
       invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
     }
-    const invoiceDate = edits?.invoiceDate || new Date().toISOString().split("T")[0];
-    const dueDate = edits?.dueDate || order.event_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+    const invoiceDate = edits?.invoiceDate || toLocalISO(new Date());
+    const dueDate = edits?.dueDate || order.event_date || toLocalISO(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
     const invoiceData: InvoiceData = {
       invoiceNumber,

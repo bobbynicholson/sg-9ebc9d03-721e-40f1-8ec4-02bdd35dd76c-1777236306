@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { toLocalISO } from "@/lib/localDate";
 
 export type Inventory = Tables<"inventory_items">;
 
@@ -441,7 +442,7 @@ export const inventoryService = {
           company_id: payload.companyId,
           inventory_item_id: line.itemId,
           batch_number: line.batchNumber || null,
-          received_date: payload.receivedDate || new Date().toISOString().slice(0, 10),
+          received_date: payload.receivedDate || toLocalISO(new Date()),
           expiry_date: line.expiryDate || null,
           quantity: qty,
           initial_quantity: qty,
