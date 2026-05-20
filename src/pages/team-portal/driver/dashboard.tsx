@@ -55,6 +55,7 @@ import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { driverPayService } from "@/services/driverPayService";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { formatLocalTime } from "@/lib/localFormat";
+import { toLocalISO } from "@/lib/localDate";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -108,7 +109,7 @@ function DriverDashboardInner() {
     if (!user?.id) return;
     let cancelled = false;
     const fetchHours = async () => {
-      const todayIso = new Date().toISOString().slice(0, 10);
+      const todayIso = toLocalISO(new Date());
       const { data, error } = await (supabase as any)
         .from("driver_shifts")
         .select("actual_start, actual_end, status")
@@ -190,10 +191,10 @@ function DriverDashboardInner() {
       // pushed into the array first, then filtered by index === first
       // appearance) so the more-granular dispatch status takes
       // precedence over the bare order status when both exist.
-      const todayISO = new Date().toISOString().slice(0, 10);
+      const todayISO = toLocalISO(new Date());
       const horizonDate = new Date();
       horizonDate.setDate(horizonDate.getDate() + 14);
-      const horizonISO = horizonDate.toISOString().slice(0, 10);
+      const horizonISO = toLocalISO(horizonDate);
 
       // Get driver's assignments
       // Wave 46 T5 - pull client_phone + special_instructions so the
@@ -401,8 +402,8 @@ function DriverDashboardInner() {
       try {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const fromIso = startOfMonth.toISOString().slice(0, 10);
-        const toIso = now.toISOString().slice(0, 10);
+        const fromIso = toLocalISO(startOfMonth);
+        const toIso = toLocalISO(now);
         const summary = await driverPayService.getPaySummary({
           companyId: user.company_id,
           driverId: user.id,
@@ -457,7 +458,7 @@ function DriverDashboardInner() {
   }, [user?.id, user?.company_id]);
 
   const todaysJobs = jobs.filter(
-    (j) => j.event_date === new Date().toISOString().split("T")[0]
+    (j) => j.event_date === toLocalISO(new Date())
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
   // Wave 70.12 - Potential earnings now includes THREE components:

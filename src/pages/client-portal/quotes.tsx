@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
+import { toLocalISO } from "@/lib/localDate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
@@ -275,7 +276,7 @@ export default function ClientQuotesPage() {
             depositAmount: 0,
             depositPaid: false,
             eventDate:
-              declineQuote.event_date || new Date().toISOString().slice(0, 10),
+              declineQuote.event_date || toLocalISO(new Date()),
             status: declineQuote.status || "sent",
             policy: ((company as any)?.cancellation_policy as any) || {},
           }}

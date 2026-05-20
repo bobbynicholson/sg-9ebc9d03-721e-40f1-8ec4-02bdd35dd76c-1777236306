@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Play, Square, Loader2 } from "lucide-react";
+import { toLocalISO } from "@/lib/localDate";
 
 interface OpenShift {
   id: string;
@@ -92,7 +93,7 @@ export function DriverClockButton({
       // on the off-shift state so the driver sees "Rostered 06:00-15:00
       // today" and on the on-shift state so they know what's expected
       // of them. No-op for walk-in drivers with no roster.
-      const todayIso = new Date().toISOString().slice(0, 10);
+      const todayIso = toLocalISO(new Date());
       const { data: planned } = await (supabase as any)
         .from("driver_shifts")
         .select("id, planned_start, planned_end")

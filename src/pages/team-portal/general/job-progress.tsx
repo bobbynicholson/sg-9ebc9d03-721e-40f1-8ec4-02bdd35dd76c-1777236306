@@ -7,6 +7,7 @@ import { Clock, CheckCircle, AlertCircle, Calendar, Users, ChefHat, Truck, Packa
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
 import { Header } from "@/components/Header";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,8 +64,8 @@ export default function StaffJobProgress() {
       today.setHours(0, 0, 0, 0);
       const weekAhead = new Date(today);
       weekAhead.setDate(today.getDate() + 7);
-      const fromISO = today.toISOString().split("T")[0];
-      const toISO = weekAhead.toISOString().split("T")[0];
+      const fromISO = toLocalISO(today);
+      const toISO = toLocalISO(weekAhead);
 
       const { data, error } = await supabase
         .from("orders")
