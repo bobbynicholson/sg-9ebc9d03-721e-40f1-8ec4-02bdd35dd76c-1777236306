@@ -308,7 +308,9 @@ export function CommandPalette() {
     { id: "go-shopping",    label: "Shopping Dashboard",  icon: ShoppingCart, href: "/admin/shopping",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["buy","procurement","shopping"] },
     { id: "go-vehicles",    label: "Vehicles",            icon: Truck,        href: "/admin/vehicles",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["fleet","cold-chain"] },
     { id: "go-shortages",   label: "Equipment Shortages", icon: Package,      href: "/admin/equipment?tab=shortages", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["short","missing"] },
-    { id: "go-job-prog",    label: "Job Progress",        icon: TrendingUp,   href: "/admin/job-progress-overview", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["progress","status"] },
+    // Phase 3 admin sweep: "go-job-prog" pointed at a redirect stub.
+    // Dropped from the palette; orders/dispatch/tracking cover the
+    // same job. See docs/personas/admin.md.
     { id: "go-tax",         label: "Tax Overview",        icon: FileText,     href: "/admin/tax-purchases",       group: "Navigate", roles: ["company_admin","owner","super_admin"], keywords: ["tax","sars","deductible"] },
     { id: "go-wages",       label: "All Wages Dashboard", icon: DollarSign,   href: "/admin/wages",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","wage","payroll"] },
     { id: "go-staff-rates", label: "Staff & Rates",       icon: Users,        href: "/admin/staff",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","rates"] },

@@ -286,7 +286,11 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Plan routes",    href: "/admin/route-planning",        icon: Route,    description: "Auto-assign + optimise tomorrow" },
         { title: "Vehicles",       href: "/admin/vehicles",              icon: Truck,    description: "Fleet roster + cold-chain" },
         { title: "Regions",        href: "/admin/regions",               icon: Map,      description: "Manage service regions" },
-        { title: "Job progress",   href: "/admin/job-progress-overview", icon: Activity, description: "Cross-team progress on today's jobs" },
+        // Phase 3 admin sweep: "Job progress" pointed at
+        // /admin/job-progress-overview which was a redirect stub to
+        // /admin/orders. The fan-out across orders + dispatch +
+        // tracking already covers the same intent. Dropped from nav;
+        // see docs/personas/admin.md.
         { title: "Public holidays", href: "/admin/public-holidays",      icon: CalendarHeart, description: "SA gazetted dates - drives 2x BCEA rate" },
       ],
     },
