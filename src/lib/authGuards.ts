@@ -126,7 +126,20 @@ export const ADMIN_ROLES: UserRole[] = [
   UserRole.ADMIN,
 ];
 
-// Roles with full company access (all data, all operations)
+// Roles with full company access (all data, all operations).
+//
+// "Owner" persona note (Phase 3f, docs/personas/owner.md): the
+// codebase has ~66 literal-string checks against `'owner'` from
+// before the role list was rationalised. The Postgres `user_role`
+// enum and the TypeScript `UserRole` enum do not contain an OWNER
+// member, so every `role === 'owner'` branch is dead today. The
+// canonical "business owner" role is `company_admin`. The dead
+// branches are kept because (a) they're harmless (they never fire),
+// (b) stripping 66 files raises diff risk for no behaviour change,
+// and (c) Bobby's roadmap calls for a real owner-only landing page
+// in a future phase, at which point we'd add UserRole.OWNER + the
+// enum migration + activate those checks. Until then, treat owner
+// as a synonym for company_admin.
 export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.COMPANY_ADMIN,
