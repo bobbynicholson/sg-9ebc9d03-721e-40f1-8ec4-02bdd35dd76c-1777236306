@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
+import { buildUnsubscribeUrl } from "@/lib/emailUnsubscribe";
 
 export interface EmailSettings {
   id: string;
@@ -71,6 +72,14 @@ export interface SendEmailPayload {
    * may be a Buffer (preferred) or a base64-encoded string.
    */
   attachments?: EmailAttachment[];
+  /**
+   * Suppress the auto-appended unsubscribe footer for this single
+   * send. Reserved for sender-verification / domain-test pings where
+   * the recipient is the operator themselves and a footer would be
+   * noise. Do NOT use for normal client comms - opt-out compliance
+   * needs every commercial send to carry the link.
+   */
+  skipUnsubscribeFooter?: boolean;
 }
 
 export interface EmailLog {
@@ -108,6 +117,48 @@ export type EmailErrorCode =
   | "quarantined_recipient"
   | "missing_fields"
   | "unknown";
+
+/**
+ * Resolve the public base URL for unsubscribe links. Prefers
+ * NEXT_PUBLIC_APP_URL (set in Vercel for prod / preview) then
+ * NEXT_PUBLIC_SITE_URL, falling back to https://app.cateringms.com.
+ * The fallback exists so dev sends still mint plausible links
+ * without crashing the email path.
+ */
+function resolveBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://app.cateringms.com"
+  );
+}
+
+/**
+ * Append the standard unsubscribe footer to the outgoing HTML body.
+ * If the body looks like HTML (contains </body>) we slot the footer
+ * inside that tag so the closing markup stays valid. Otherwise we
+ * concatenate plus a hr separator.
+ *
+ * Footer copy is deliberately short - clients trust the catering
+ * brand, not CateringMS - so we don't mention the platform.
+ */
+function appendUnsubscribeFooter(
+  body: string,
+  companyId: string,
+  recipientEmail: string,
+): string {
+  const url = buildUnsubscribeUrl(resolveBaseUrl(), recipientEmail, companyId);
+  const footer = `
+  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;font-family:-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.5;">
+    You're receiving this because you've been in touch with us about an event.
+    <a href="${url}" style="color:#64748b;text-decoration:underline;">Unsubscribe</a>
+    to stop receiving these emails.
+  </div>`;
+  if (/<\/body>/i.test(body)) {
+    return body.replace(/<\/body>/i, `${footer}</body>`);
+  }
+  return `${body}${footer}`;
+}
 
 export interface EmailSendDetailed {
   success: boolean;
@@ -472,6 +523,24 @@ export const emailService = {
 
     const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});
     finalBody = this.replaceVariables(finalBody, payload.variables || {});
+
+    // Unsubscribe-footer adoption (docs/notifications.md follow-up 6.6).
+    // Every commercial send carries the one-click opt-out link in the
+    // footer. The link is HMAC-signed via emailUnsubscribe so it
+    // resolves on /u/[token] -> /api/public/unsubscribe without a
+    // tokens table. Skipped when:
+    //   - the caller explicitly opts out (skipUnsubscribeFooter)
+    //   - the body already includes "/u/" (template wrote its own)
+    //   - we can't build the link (no companyId / no recipient)
+    if (!payload.skipUnsubscribeFooter && payload.companyId && recipientLower && !finalBody.includes("/u/")) {
+      try {
+        finalBody = appendUnsubscribeFooter(finalBody, payload.companyId, recipientLower);
+      } catch (footerErr) {
+        // Never block the send on a footer build failure. Log loudly
+        // so the platform team notices the regression.
+        console.warn("[emailService] unsubscribe footer build failed, sending without:", footerErr);
+      }
+    }
 
     try {
       // Pre-flight gates for Resend that don't require burning an API
