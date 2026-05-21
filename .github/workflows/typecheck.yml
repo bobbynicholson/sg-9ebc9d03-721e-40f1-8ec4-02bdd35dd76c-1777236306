@@ -49,3 +49,14 @@ jobs:
         # the same file. Override with `-- RLS_OPT_OUT: <reason>`.
         # See docs/security-posture.md section 6.
         run: npm run check:migration-rls
+
+      - name: Check realtime channel scoping
+        # Phase 6 audit follow-up - fails the build if any
+        # .channel(...) call uses a string literal (no interpolation).
+        # The audit found two cross-tenant amplification leaks from
+        # globally-named channels. Template literals with any ${...}
+        # are accepted on the assumption that reviewers verify the
+        # interpolated value is tenant-bound. Override with a
+        # `// CHANNEL_OPT_OUT: <reason>` comment above the call.
+        # See docs/perf-and-ops.md section 2.
+        run: npm run check:realtime-channels
