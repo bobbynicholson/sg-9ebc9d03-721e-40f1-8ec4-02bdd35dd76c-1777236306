@@ -75,11 +75,9 @@ Documented, each landing as its own focused PR.
 
 Fix shape: migration to add `equipment_id uuid REFERENCES equipment(id)`, update the insert payload, update damage ledger UI to show the equipment name from the join. Defer because the fix touches the equipment shortage detail page too.
 
-### 5.2 Post-return doesn't notify kitchen
+### 5.2 ~~Post-return doesn't notify kitchen~~ - Done
 
-`EquipmentVerificationPanel.tsx` lets cleaners verify post-return counts. Once `handovers/[id].tsx` "Mark all done" is tapped, the handover is complete - but the kitchen dashboard's pre-event chip only reads the pre-event signal, not the post-return one. Chef can't see when the post-return verification is done so they don't know when stock is back in circulation.
-
-Fix shape: emit a notification to kitchen-aware roles when handover is signed off, similar to the damage notification added in 4.1.
+Resolved in post-audit follow-up. `handovers/[id].tsx` `handleCompleteHandover` now broadcasts a notification to `kitchen_staff / company_admin / admin / owner` when the post-return handover is signed off. Message includes the order number + verified item count. Dedup window 60min on the same handover. Uses notification_type `delivered` (kitchen's "equipment back in stock" signal). Non-fatal on broadcast failure.
 
 ### 5.3 Supplies low without proactive alert
 

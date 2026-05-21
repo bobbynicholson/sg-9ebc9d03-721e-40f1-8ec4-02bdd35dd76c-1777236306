@@ -125,6 +125,32 @@ function HandoverDetailInner() {
         return;
       }
       toast({ title: "Handover complete", description: "The event has been signed off." });
+
+      // Cleaning persona follow-up (cleaning.md 5.2): notify kitchen
+      // when post-return verification is signed off. Kitchen needs
+      // this signal because returned equipment is now back in stock
+      // and can be allocated to upcoming events. Previously the
+      // signal lived only on the cleaning page; kitchen had to
+      // refresh to discover that equipment counts had changed.
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.broadcastNotification({
+          companyId: (handover as any).company_id,
+          targetRoles: ["kitchen_staff", "company_admin", "admin", "owner"] as any,
+          title: "Cleaning handover complete",
+          message: `Cleaning team signed off ${handover.order_number ? `order ${handover.order_number}` : "an event"}. ${totalReturned} item${totalReturned === 1 ? "" : "s"} verified - equipment is back in stock.`,
+          type: "delivered" as any,
+          priority: "normal",
+          link: `/team-portal/cleaning/handovers/${handover.id}`,
+          relatedEntityType: "cleaning_handover",
+          relatedEntityId: handover.id,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        });
+      } catch (notifErr) {
+        console.warn("[handovers/[id]] kitchen notification failed:", notifErr);
+      }
+
       void load();
     } finally {
       setCompleting(false);

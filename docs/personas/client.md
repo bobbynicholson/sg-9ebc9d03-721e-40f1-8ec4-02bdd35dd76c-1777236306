@@ -107,11 +107,16 @@ Defer because the right path picks between "ask for email + slug" (simple, frict
 
 Resolved before this phase by `pickJustDeliveredEvent` in `dashboard.tsx`. When there's no upcoming/live headline AND there's a delivered (or completed) order within the last 7 days that hasn't been rated, a celebration banner renders in the headline slot ("How was it? Your {event} on {date} was delivered. Tap a star below to let {company} know how it went."). Brand-coloured border + primary CTA scrolling to the rating row. Matches the audit's intent; flagged as a no-op follow-up after re-verification.
 
-### 5.4 Client-id lookup duplicated across 3 portal pages
+### 5.4 ~~Client-id lookup duplicated across 3 portal pages~~ - hook exists, partial adoption
 
-`dashboard.tsx`, `billing.tsx`, `tracking.tsx` each resolve the client_id list independently. Cleanup target: shared `useTenantClientIds()` hook.
+`src/hooks/useTenantClientIds.ts` is the canonical resolver, exposing both `clientIds` and an `applyTenantClientFilter(builder, email)` helper that composes the standard `client_id.in.(...) OR client_email.ilike <email>` union every portal page needs.
 
-(Already flagged as CLI-10 in the dashboard audit.)
+Adoption:
+- `billing.tsx` already uses the hook (verified at line 68).
+- `dashboard.tsx` keeps an inline clients query because it also needs `client_name` (for the greeting) and the canonical `tenantClientId` (for the inline rating widget) from the same row. The OR-clause pattern is documented inline so future drift is visible.
+- `tracking.tsx` - similar pattern, defer migration until a touch-up on that page.
+
+Marked partial - any new portal page should consume the hook from day one. Migrating dashboard / tracking is low-priority polish, not a correctness fix.
 
 ### 5.5 No realtime listeners on payments / quotes for the client view
 
