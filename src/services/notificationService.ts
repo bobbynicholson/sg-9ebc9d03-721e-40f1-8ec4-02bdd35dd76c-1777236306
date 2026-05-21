@@ -524,6 +524,31 @@ export const notificationService = {
   ): Promise<number> {
     const sb = client || supabase;
 
+    // Notifications backbone follow-up: per-tenant type-level mute.
+    // Tenants set companies.notification_settings.mutedTypes[] (jsonb)
+    // to silence whole notification types - useful for types that
+    // become noise after the tenant settles in (domain_verified,
+    // subscription_renewed, etc). When the broadcast's type is in
+    // the muted list, the whole fan-out is skipped (returns 0).
+    // Missing column / null value / empty array = no mutes.
+    //
+    // Single-flight lookup per broadcast. Probe failure (column not
+    // yet migrated, transient DB blip) opens the gate so a misconfig
+    // can't silently drop legitimate alerts.
+    try {
+      const { data: companyRow } = await sb
+        .from("companies")
+        .select("notification_settings")
+        .eq("id", params.companyId)
+        .maybeSingle();
+      const muted = (companyRow as any)?.notification_settings?.mutedTypes;
+      if (Array.isArray(muted) && muted.includes(params.type)) {
+        return 0;
+      }
+    } catch (muteErr) {
+      console.warn("[broadcastNotification] tenant mute probe failed; sending:", muteErr);
+    }
+
     // Wave 24: optional soft-dedup. Mirrors createNotification's gate
     // but at broadcast scope: if ANY notification of the same type
     // pointing at the same relatedEntityId exists for this company

@@ -150,8 +150,8 @@ Template editors for email + WhatsApp content. Tenant-tunable per channel. Indep
 
 ### 4.3 What's still missing
 
-- Per-tenant "shut off this whole notification type for everyone" toggle. Useful for noisy types the tenant doesn't care about (e.g. `domain_verified` after the first verification).
-- Per-recipient channel preference enforcement in the fan-out itself (see section 6).
+- ~~Per-tenant "shut off this whole notification type for everyone" toggle.~~ Done. `companies.notification_settings.mutedTypes` (jsonb array of `notification_type` values) - `broadcastNotification` checks before fan-out and skips muted types entirely. UI surface to manage the list is the next step (admin settings page that toggles types in/out of the array).
+- ~~Per-recipient channel preference enforcement in the fan-out itself~~ Done in PR #222.
 - SMS provider integration.
 
 ---
