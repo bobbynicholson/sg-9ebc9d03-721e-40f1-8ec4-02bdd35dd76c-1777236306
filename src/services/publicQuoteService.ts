@@ -42,6 +42,13 @@ export interface PublicQuoteView {
   discount_amount: number | null;
   total: number;
   total_amount: number;
+  /**
+   * Percentage of total_amount the client needs to pay to confirm.
+   * Null when the tenant hasn't configured a deposit. Phase 3e client
+   * sweep surfaces this on the accept button so the client knows the
+   * deposit size before tapping Accept.
+   */
+  deposit_percentage: number | null;
   status: string | null;
   valid_until: string | null;
   sent_at: string | null;
@@ -93,6 +100,7 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
       id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, status,
+      deposit_percentage,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,
       valid_until, sent_at, viewed_at, accepted_at,
       company:company_id (
