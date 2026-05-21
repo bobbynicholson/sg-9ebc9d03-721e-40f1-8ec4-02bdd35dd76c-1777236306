@@ -42,3 +42,10 @@ jobs:
         # `status: "X"` payload sites against a hardcoded
         # table->CHECK/enum vocab map.
         run: npm run check:status-filters
+
+      - name: Check migration RLS
+        # Phase 1 audit guard - fails the build if a post-baseline
+        # migration creates a public table without enabling RLS in
+        # the same file. Override with `-- RLS_OPT_OUT: <reason>`.
+        # See docs/security-posture.md section 6.
+        run: npm run check:migration-rls

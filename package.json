@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "check:status-filters": "node scripts/check-status-filters.mjs",
+    "check:migration-rls": "node scripts/check-migration-rls.mjs",
     "test": "jest --watch",
     "test:ci": "jest --ci --coverage --passWithNoTests"
   },
