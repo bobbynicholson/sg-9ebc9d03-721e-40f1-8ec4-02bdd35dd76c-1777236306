@@ -176,9 +176,25 @@ Backed by 18 unit tests (`src/__tests__/services/orderPaymentStatus.test.ts`).
 
 `computeCancellationTerms.test.ts` has 30 tests across 7 categories: tier matching, legacy fallback, override window, postponement, amount-paid base selection, committed-cost notes, blocked paths, credit bonus, freed-slot note, reasoning trail. Branch coverage is high. No new tests needed in this phase.
 
-### 3.5 DEFER - no central writer for invoices.status
+### 3.5 PARTIALLY DONE - central writer for invoices.status
 
-Four separate writers (invoice generation, payment trigger, admin send button, overdue cron). No bugs found in current behaviour but the same drift-class as `orders.payment_status` is latent here. Track for a follow-up phase.
+Post-audit follow-up added `src/services/order/invoiceStatus.ts` exporting `setInvoiceStatus(invoiceId, newStatus, opts)`. Same pattern as `setOrderPaymentStatus`: enum validation, transition allowlist (draft -> sent | voided, etc.), idempotency, audit row on every flip.
+
+Allowed transitions:
+
+```
+draft           -> sent | voided
+sent            -> partially_paid | paid | overdue | voided | written_off
+partially_paid  -> paid | partially_paid | sent | overdue | voided | written_off
+paid            -> partially_paid | voided | written_off
+overdue         -> partially_paid | paid | voided | written_off
+written_off     -> (terminal)
+voided          -> (terminal)
+```
+
+Wired as proof-of-concept on `admin/invoices.tsx` send button (the "Mark as sent" flip). Existing callers that mutate `invoices.status` directly are documented but not yet migrated - same incremental rollout as the Phase 2 work.
+
+Call sites to migrate (deferred follow-up): payment-confirmation webhook, recurring-invoices cron, balance-reminder cron, invoiceGenerationService, mark-paid/bulk-mark-paid endpoints, write-off flows, xero/sage/quickbooks sync.
 
 ### 3.6 DEFER - dual-purpose payment_status enum
 
