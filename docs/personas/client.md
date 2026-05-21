@@ -119,15 +119,18 @@ Client tracking + dashboard only re-fetch on mount. If a payment lands or a quot
 
 (Dashboard audit CLI-16, CLI-20.)
 
-### 5.6 Rating stars below 44px tap target on mobile
+### 5.6 ~~Rating stars below 44px tap target on mobile~~ - already implemented
 
-Post-delivery rating component on the dashboard - tap targets too small.
+Resolved before this phase (CLI-H from the dashboard deep audit). Each interactive star button on past-event tiles has `min-w-11 min-h-11` (44px) tap zones with `w-6 h-6` star icons inside. Touch area scales correctly while the visual row stays compact. Verified at `client-portal/dashboard.tsx:1990-2014`.
 
-(Dashboard audit CLI-43.)
+### 5.7 ~~No contact fallback when phone is null~~ - Done (partial)
 
-### 5.7 No contact fallback when phone is null
+Resolved in post-audit follow-up. Re-verified: email + phone + website are all rendered conditionally - the page never showed phone-only. Three improvements landed in this PR:
+- Empty-state fallback: when none of email/phone/website are set, render "No contact info on file. Reply to your booking-confirmation email if you need to reach the team."
+- Mailto links now pre-fill the subject with the order number for context.
+- All three contact rows bumped to `min-h-11` tap zones for mobile.
 
-`/c/order/[id]` contact card only shows phone. If the company hasn't set one, client has no way to reach the caterer from the system. Add email fallback (always present) and an inline message-the-caterer form.
+Inline "message the caterer" form deferred - the caterer's email link covers 95% of the case and an in-app messaging surface needs its own design call.
 
 ---
 
