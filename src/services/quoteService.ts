@@ -65,15 +65,32 @@ export async function duplicateQuote(
   }
 }
 
+/**
+ * Default soft cap for getQuotes. Phase 6 follow-up audit found this
+ * fn previously had no limit / range - on a tenant that has run
+ * thousands of quotes the /admin/quotes load was unbounded. Cap at
+ * 500 by default; callers needing more pass `{ limit: N }`.
+ */
+const DEFAULT_QUOTES_LIMIT = 500;
+
+export interface GetQuotesOpts {
+  limit?: number;
+  offset?: number;
+}
+
 export const quoteService = {
   duplicateQuote,
-  async getQuotes(companyId: string): Promise<Quote[]> {
+  async getQuotes(companyId: string, opts: GetQuotesOpts = {}): Promise<Quote[]> {
+    const limit = Math.max(1, Math.min(opts.limit ?? DEFAULT_QUOTES_LIMIT, 2000));
+    const offset = Math.max(0, opts.offset ?? 0);
+
     const { data, error } = await supabase
       .from("quotes")
       .select("*")
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Error fetching quotes:", error);

@@ -179,13 +179,37 @@ export async function getOrderById(orderId: string, companyId?: string) {
   }
 }
 
-export async function getAllOrders(companyId: string) {
+/**
+ * Default soft cap for getAllOrders. The /admin/orders page paginates
+ * client-side; this cap stops the page from melting on a 5000-order
+ * tenant. Callers that need more can pass `{ limit: N }` explicitly.
+ *
+ * Phase 6 follow-up audit: this function previously had no limit, no
+ * range. On a mature tenant a single page load pulled every order +
+ * 7 nested joins (~MB of JSON over the wire). Capping at 500 by
+ * default keeps the network bill bounded; the proper fix - a
+ * server-paginated list endpoint - is a separate follow-up that
+ * touches the UI.
+ */
+const DEFAULT_ORDERS_LIMIT = 500;
+
+export interface GetAllOrdersOpts {
+  /** Max rows returned. Defaults to DEFAULT_ORDERS_LIMIT. */
+  limit?: number;
+  /** Optional offset for server-paginated callers. */
+  offset?: number;
+}
+
+export async function getAllOrders(companyId: string, opts: GetAllOrdersOpts = {}) {
   try {
     // Wave 27.1: pulled the linked quote's public_token + quote_number
     // so the /admin/orders "from quote" badge can deep-link to the
     // polished branded /q/{public_token} client view, not the bare
     // /admin/quotes/{id} editor screen. Operator gets a one-click
     // window into "what does the client actually see for this order".
+    const limit = Math.max(1, Math.min(opts.limit ?? DEFAULT_ORDERS_LIMIT, 2000));
+    const offset = Math.max(0, opts.offset ?? 0);
+
     const { data, error } = await supabase
       .from("orders")
       .select(`
@@ -199,7 +223,8 @@ export async function getAllOrders(companyId: string) {
       `)
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
     return data || [];
