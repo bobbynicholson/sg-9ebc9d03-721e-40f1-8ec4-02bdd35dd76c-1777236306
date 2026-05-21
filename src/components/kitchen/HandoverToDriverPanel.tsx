@@ -167,6 +167,37 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
     );
   }
 
+  // Kitchen persona follow-up (kitchen.md 5.5): split states by
+  // signal so the kitchen lead knows what action is actually needed.
+  //   - No driver assigned yet  -> red, action: nudge dispatch
+  //   - Driver assigned          -> amber, action: sign over
+  // Previously both looked the same (amber "Awaiting handover sign-
+  // off") which hid the dispatch escalation.
+  if (!state.driverId) {
+    return (
+      <div className="flex items-center justify-between p-3 rounded-lg border border-rose-200 bg-rose-50">
+        <div className="flex items-center gap-2 text-sm">
+          <ArrowRightLeft className="h-4 w-4 text-rose-700" />
+          <div>
+            <p className="font-semibold text-rose-900">Ready, no driver assigned</p>
+            <p className="text-xs text-rose-800">
+              Food + equipment are ready. Dispatch hasn't assigned a driver yet.
+            </p>
+          </div>
+        </div>
+        <Button
+          asChild
+          size="sm"
+          className="bg-rose-600 hover:bg-rose-700 text-white"
+        >
+          <a href={`/admin/order-assignments?orderId=${encodeURIComponent(orderId)}`}>
+            Nudge dispatch
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50">
       <div className="flex items-center gap-2 text-sm">
@@ -174,16 +205,14 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         <div>
           <p className="font-semibold text-amber-900">Awaiting handover sign-off</p>
           <p className="text-xs text-amber-800">
-            {state.driverName
-              ? `Driver: ${state.driverName}. Tap when food + equipment are loaded.`
-              : "No driver assigned yet - ask dispatch."}
+            Driver: {state.driverName || "assigned"}. Tap when food + equipment are loaded.
           </p>
         </div>
       </div>
       <Button
         size="sm"
         onClick={handleSign}
-        disabled={state.loading || !state.driverId}
+        disabled={state.loading}
         className="bg-amber-600 hover:bg-amber-700 text-white"
       >
         Sign over to driver

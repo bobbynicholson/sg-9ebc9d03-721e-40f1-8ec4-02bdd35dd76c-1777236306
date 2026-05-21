@@ -233,14 +233,25 @@ export default function KitchenDashboard() {
           const prevStock = Number(prev.current_stock) || 0;
           const delta = nextStock - prevStock;
           if (delta > 0 && next.item_name) {
-            setRestockDeltas((curr) => ({
-              ...curr,
-              [next.id]: {
-                name: next.item_name as string,
-                delta,
-                unit: (next.unit_of_measure as string) || "",
-              },
-            }));
+            // Kitchen persona follow-up (kitchen.md 5.6): previously
+            // a second restock of the same item replaced the first
+            // entry (object spread overwrites the key). Chef saw the
+            // latest delta but lost any earlier ones from the same
+            // shift. Now we accumulate the delta on existing entries
+            // so two restocks of the same item read as "+ X total"
+            // instead of just the most recent.
+            setRestockDeltas((curr) => {
+              const existing = curr[next.id];
+              const cumulative = existing ? existing.delta + delta : delta;
+              return {
+                ...curr,
+                [next.id]: {
+                  name: next.item_name as string,
+                  delta: cumulative,
+                  unit: (next.unit_of_measure as string) || "",
+                },
+              };
+            });
           }
         }
         refresh();
