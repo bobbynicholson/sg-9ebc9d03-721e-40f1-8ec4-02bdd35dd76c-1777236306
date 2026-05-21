@@ -19,10 +19,12 @@ import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Calendar, Clock, MapPin, Users, Truck, CheckCircle2, AlertTriangle,
   Mail, Phone, Globe, Loader2, ShieldCheck, Sparkles, ChefHat, Receipt,
-  Radar, ArrowRight,
+  Radar, ArrowRight, Send,
 } from "lucide-react";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -228,30 +230,7 @@ export default function ClientOrderPage() {
   }
 
   if (error || !view) {
-    return (
-      <>
-        <NoIndexMeta />
-        <Head><title>Booking link - CateringMS</title></Head>
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-          <Card className="max-w-md w-full border-0 shadow-lg">
-            <CardContent className="pt-8 pb-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-6 h-6 text-amber-600" />
-              </div>
-              <h1 className="text-xl font-bold text-slate-900 mb-2">This link can't be opened</h1>
-              <p className="text-sm text-slate-600 mb-1">
-                {error === "expired" ? "The link has expired." :
-                 error === "revoked" ? "The catering company has revoked this link." :
-                 "We couldn't verify this booking link."}
-              </p>
-              <p className="text-xs text-slate-500 mt-3">
-                Ask the catering company to send you a fresh link.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
+    return <ExpiredLinkCard reason={error} />;
   }
 
   const { order, items, company, invoice } = view;
@@ -885,5 +864,149 @@ function Row({ label, value, paid }: { label: string; value: string; paid?: bool
       <span className="text-slate-600">{label}</span>
       <span className={`font-semibold tabular-nums ${paid ? "text-emerald-600" : "text-slate-900"}`}>{value}</span>
     </div>
+  );
+}
+
+/**
+ * Client persona follow-up: previously this error card was a dead end -
+ * "Ask the catering company to send you a fresh link." Now offers a
+ * self-serve recovery: the user enters their email + the catering
+ * company's slug, we POST to /api/client-tokens/request which is
+ * rate-limited (3/min/email) and always returns 200 for privacy.
+ *
+ * Slug is best-effort pre-populated from the URL when the tenant uses
+ * slug-aware routing (/{slug}/c/order/[id]). The user can edit it if
+ * we got it wrong.
+ *
+ * See docs/personas/client.md section 5.1.
+ */
+function ExpiredLinkCard({ reason }: { reason: string | null }) {
+  const router = useRouter();
+  // Try to recover the tenant slug from the URL. URL pattern is
+  // either /c/order/[id] (root) or /{slug}/c/order/[id] (per-tenant).
+  const detectedSlug = (() => {
+    if (typeof window === "undefined") return "";
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    // Path like ['my-slug','c','order','xyz'] -> slug is parts[0].
+    // Path like ['c','order','xyz'] -> no slug, root tenant.
+    if (parts.length >= 4 && parts[1] === "c" && parts[2] === "order") {
+      return parts[0];
+    }
+    return "";
+  })();
+
+  const [email, setEmail] = useState("");
+  const [slug, setSlug] = useState(detectedSlug);
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [formErr, setFormErr] = useState<string | null>(null);
+
+  const handleRequest = async () => {
+    setFormErr(null);
+    const cleanEmail = email.trim();
+    const cleanSlug = slug.trim();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setFormErr("Enter a valid email.");
+      return;
+    }
+    if (!cleanSlug) {
+      setFormErr("Enter the catering company's URL slug.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const resp = await fetch("/api/client-tokens/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_slug: cleanSlug, email: cleanEmail }),
+      });
+      // The endpoint always returns 200 for privacy (doesn't confirm
+      // whether an email is on file). Treat any non-200 as a server
+      // hiccup the user should retry.
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      setSent(true);
+    } catch (e: any) {
+      setFormErr(e?.message || "Couldn't request a fresh link. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head><title>Booking link - CateringMS</title></Head>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
+        <Card className="max-w-md w-full border-0 shadow-lg">
+          <CardContent className="pt-8 pb-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <h1 className="text-xl font-bold text-slate-900 mb-2">This link can't be opened</h1>
+              <p className="text-sm text-slate-600">
+                {reason === "expired" ? "The link has expired." :
+                 reason === "revoked" ? "The catering company has revoked this link." :
+                 "We couldn't verify this booking link."}
+              </p>
+            </div>
+
+            {sent ? (
+              <div className="mt-6 rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-emerald-900">Check your inbox</p>
+                <p className="text-xs text-emerald-800 mt-1">
+                  If we have an order on file for that email, a fresh link is on its way.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
+                <p className="text-sm text-slate-700 font-medium">Get a fresh link emailed to you</p>
+                <div className="space-y-2">
+                  <Label htmlFor="freshlink-email" className="text-xs text-slate-600">Your email</Label>
+                  <Input
+                    id="freshlink-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={submitting}
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="freshlink-slug" className="text-xs text-slate-600">
+                    Catering company URL <span className="text-slate-400">(the bit before "/c/order")</span>
+                  </Label>
+                  <Input
+                    id="freshlink-slug"
+                    placeholder="your-caterer"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+                {formErr && (
+                  <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
+                    <p className="text-xs text-rose-700">{formErr}</p>
+                  </div>
+                )}
+                <Button
+                  onClick={handleRequest}
+                  disabled={submitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {submitting ? "Sending..." : "Email me a fresh link"}
+                </Button>
+                <p className="text-[11px] text-slate-500 text-center">
+                  For privacy we don't confirm whether your email is on file. If it is, a link will arrive within a minute.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
