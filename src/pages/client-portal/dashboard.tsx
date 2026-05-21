@@ -449,14 +449,14 @@ function ClientPortalDashboardInner() {
     const load = async () => {
       setLoading(true);
       try {
-        // Find every clients row this user owns - under THIS tenant
-        // only. Catering companies often create order rows before the
-        // user signs up (linked by email only), and a single user might
-        // also have multiple client rows under the same company through
-        // historical data entry. We collect every candidate id and
-        // email so the orders query catches all of them. Tenant scope
-        // is enforced by company_id; user might be a client of several
-        // companies but this portal renders one tenant at a time.
+        // Client-id resolution. The shared `useTenantClientIds` hook
+        // (src/hooks/useTenantClientIds.ts) is used by billing.tsx,
+        // but the dashboard's clients query also needs the
+        // client_name for the greeting and the canonical
+        // tenantClientId for the inline rating widget, so we keep an
+        // inline query here. The OR-clause pattern below is the same
+        // one applyTenantClientFilter implements - any change to one
+        // must mirror to the other. See client.md 5.4.
         const { data: clientRowsRaw, error: clientRowsError } = await supabase
           .from("clients")
           .select("id, client_name")
@@ -467,10 +467,6 @@ function ClientPortalDashboardInner() {
         }
         const clientRows = ((clientRowsRaw as any[]) || []);
         const clientIds = clientRows.map((r) => r.id);
-        // Pick the most recent clients.client_name as the tenant-scoped
-        // greeting. When there are multiple historical rows for the
-        // same email, the latest one is most likely what the catering
-        // team currently uses.
         if (clientRows.length > 0 && !cancelled) {
           setClientName(clientRows[0].client_name || null);
           setTenantClientId(clientRows[0].id || null);
