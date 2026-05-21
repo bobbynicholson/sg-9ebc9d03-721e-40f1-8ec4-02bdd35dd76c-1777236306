@@ -186,7 +186,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {
-    console.error("[yoco-webhook] crashed:", e, "raw:", raw.slice(0, 200));
+    // Phase 6 follow-up: same rationale as PayFast webhook capture.
+    const { captureException } = await import("@/lib/observability");
+    captureException(e, {
+      tags: { route: "/api/webhooks/yoco-confirmation", provider: "yoco" },
+      level: "error",
+      extra: { raw_preview: raw.slice(0, 200) },
+    });
     return res.status(500).json({ error: e?.message || "Yoco webhook failed" });
   }
 }

@@ -223,6 +223,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCompany(userCompany);
           setUserRoles([]);
           setActiveRole(roleValue);
+
+          // Phase 6 follow-up: bind tenant tags to the observability
+          // scope so every subsequent captureException carries company
+          // + user + role context. No-op when Sentry isn't wired in;
+          // becomes live the moment SENTRY_DSN lands. See
+          // src/lib/observability.ts.
+          try {
+            const { setGlobalTags } = await import("@/lib/observability");
+            setGlobalTags({
+              companyId: userProfile.company_id || null,
+              userId: session.user.id,
+              role: roleValue,
+            });
+          } catch { /* non-fatal */ }
         }
       } else {
         setUser(null);
@@ -230,6 +244,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCompany(null);
         setUserRoles([]);
         setActiveRole(UserRole.CLIENT);
+
+        try {
+          const { setGlobalTags } = await import("@/lib/observability");
+          setGlobalTags({ companyId: null, userId: null, role: null });
+        } catch { /* non-fatal */ }
       }
     } catch (err) {
       console.error("Auth error:", err);
