@@ -99,9 +99,9 @@ The `/api/client-tokens/request` endpoint already exists (POST `{company_slug, e
 
 Defer because the right path picks between "ask for email + slug" (simple, friction) and "find by email + order_id" (zero friction, new endpoint).
 
-### 5.2 Cancellation flow consequence copy is inconsistent
+### 5.2 ~~Cancellation flow consequence copy is inconsistent~~ - Done
 
-`/c/order/[id]` postpone panel (~line 740) says "your deposit travels with you" but the cancellation wizard at line 819+ shows the full refund / forfeit consequence. Clients don't know cancellation rules until the wizard's final step. Postpone copy should mirror the wizard's consequence preview style.
+Resolved. The postpone panel on `/c/order/[id]` now renders a consequence-preview block matching the CancellationWizard's tone. Three bullets cover: deposit moves with you (no forfeit), team review + alternative suggestions, same-week postponements may incur committed-cost charges (shopping done, kitchen prep started). Client sees the rules before they commit.
 
 ### 5.3 ~~Delivered orders disappear from the dashboard headline~~ - already implemented
 

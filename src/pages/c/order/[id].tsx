@@ -715,8 +715,25 @@ export default function ClientOrderPage() {
                 {cancelOpen && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
                     <p className="text-sm font-semibold text-slate-900">Postpone this booking</p>
+                    {/* Client persona follow-up (client.md 5.2):
+                        consequence preview that mirrors the
+                        CancellationWizard's shape - what happens to
+                        deposit, what gets carried, what's at risk.
+                        The original copy was just "deposit travels
+                        with you" which hides edge cases
+                        (postponement notice window, the caterer's
+                        right to refuse). Now matches the cancel
+                        wizard's tone. */}
+                    <div className="rounded-md bg-white/60 border border-amber-200 px-3 py-2 text-xs text-slate-700 space-y-1">
+                      <p className="font-medium text-slate-900">What happens when you postpone</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                        <li>Your deposit moves to the new date - no refund processed, nothing forfeit.</li>
+                        <li>The team reviews the new date and confirms by email. If they can't cover it they'll suggest alternatives.</li>
+                        <li>Same-week postponements may incur a committed-cost charge (shopping already done, kitchen prep started). The team will tell you on review.</li>
+                      </ul>
+                    </div>
                     <p className="text-xs text-slate-600">
-                      Pick a new date and the team will confirm by email. Your deposit travels with you to the new date - nothing is lost.
+                      Pick a new date and the team will confirm by email.
                     </p>
                     <div>
                       <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
