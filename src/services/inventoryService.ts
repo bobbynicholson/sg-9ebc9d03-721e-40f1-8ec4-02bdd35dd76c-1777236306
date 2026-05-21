@@ -208,6 +208,41 @@ export const inventoryService = {
       }]);
     }
 
+    // Cleaning persona follow-up (docs/personas/cleaning.md 5.3):
+    // when an outflow drops stock from above-par to at-or-below-par,
+    // ping the shopping team. The page-level "low stock" filter is
+    // reactive (chef has to check); this is the proactive signal.
+    // Only fires on the FIRST crossing per direction so re-saving
+    // usage on an already-low item doesn't spam admins. Dedup window
+    // is 24h on the same item to be defensive against multiple
+    // consume cycles in one shift.
+    try {
+      const minStock = Number((current as any).minimum_stock || 0);
+      const crossedBelowPar =
+        delta < 0 && previous > minStock && newStock <= minStock && minStock > 0;
+      if (crossedBelowPar && current.company_id) {
+        const { notificationService } = await import("@/services/notificationService");
+        const itemName = (current as any).item_name || "Item";
+        const unit = (current as any).unit_of_measure || "";
+        await notificationService.broadcastNotification({
+          companyId: current.company_id,
+          targetRoles: ["company_admin", "admin", "owner", "shopping_staff"] as any,
+          title: `Low stock: ${itemName}`,
+          message: `${itemName} dropped to ${newStock} ${unit} (par ${minStock}). Restock soon.`,
+          type: "stock_low" as any,
+          priority: newStock <= 0 ? "high" : "normal",
+          link: "/admin/inventory",
+          relatedEntityType: "inventory_item",
+          relatedEntityId: itemId,
+          dedup: true,
+          dedupWindowMinutes: 60 * 24,
+        });
+      }
+    } catch (notifErr) {
+      // Non-fatal: stock row already saved.
+      console.warn("[inventoryService.adjustStock] stock_low notify failed:", notifErr);
+    }
+
     return data;
   },
 

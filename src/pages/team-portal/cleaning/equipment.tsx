@@ -13,7 +13,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Package, Search, Loader2, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Package, Search, Loader2, CheckCircle2, AlertTriangle, ShieldCheck, BookOpen } from "lucide-react";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
@@ -230,6 +231,21 @@ export default function CleaningEquipmentPage() {
                           <span className="text-base font-semibold">{Number(i.available_quantity ?? 0)}</span>
                           <span className="text-xs text-slate-500">/{Number(i.quantity ?? 0)}</span>
                         </span>
+                        {/* Cleaning follow-up (cleaning.md 5.4): inline
+                            SOP link. workflows.tsx has cleaning steps
+                            by category but nothing on this page surfaced
+                            them. Now one tap from a verification row to
+                            "how do I clean this category?". */}
+                        {i.category && (
+                          <Link
+                            href={`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`}
+                            className="inline-flex items-center text-xs text-blue-700 hover:underline"
+                            title={`How to clean ${i.category}`}
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            <span className="sr-only">How to clean {i.category}</span>
+                          </Link>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => openVerify(i)}>
                           <CheckCircle2 className="h-4 w-4 mr-1" />Verify
                         </Button>
