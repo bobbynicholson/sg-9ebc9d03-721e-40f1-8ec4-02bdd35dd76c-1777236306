@@ -79,6 +79,11 @@ function CashflowDashboardInner() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadedAt, setLoadedAt] = useState<number>(0);
+  // Admin persona follow-up (admin.md section 5): money pages
+  // previously silently rendered zeros on failure. Now we track a
+  // load-error so the page can show "couldn't load - retry" instead
+  // of pretending everything's R0.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const currency = (user as any)?.currency || "ZAR";
   const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
@@ -87,6 +92,7 @@ function CashflowDashboardInner() {
     if (!user?.company_id) return;
     try {
       setLoading(true);
+      setLoadError(null);
 
       const companyId = user.company_id;
       const ordersData = await orderService.getAllOrders(companyId);
@@ -151,8 +157,9 @@ function CashflowDashboardInner() {
         upcomingExpenses: staffPaymentsOwed + fixedCostsNext30 + supplierPayablesNext30,
       });
       setAlerts(generatedAlerts);
-    } catch (e) {
+    } catch (e: any) {
       console.error("[cashflow-dashboard] load failed:", e);
+      setLoadError(e?.message || "Couldn't load the cashflow figures. Try again.");
     } finally {
       setLoading(false);
     }
@@ -177,6 +184,27 @@ function CashflowDashboardInner() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4" />
             <p>Loading cashflow data...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Admin persona follow-up: when the load failed AND we have no
+  // cached metrics, show a recovery card instead of a wall of zeros.
+  if (loadError && !metrics) {
+    return (
+      <>
+        <Head><title>Cashflow Dashboard - Admin</title></Head>
+        <NoIndexMeta />
+        <AdminNav />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:ml-64 xl:ml-72">
+          <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load cashflow</h2>
+            <p className="text-sm text-slate-600 mb-4">{loadError}</p>
+            <Button onClick={() => { void load(); }} className="bg-emerald-600 hover:bg-emerald-700">
+              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            </Button>
           </div>
         </div>
       </>
@@ -218,6 +246,34 @@ function CashflowDashboardInner() {
               </Button>
             </div>
           </div>
+
+          {/* Admin follow-up (admin.md): zero-data empty state.
+              Replace the chart + KPI tiles with a "no activity yet"
+              card when the tenant has no orders + no inflows + no
+              outflows. Otherwise the page renders a wall of R0
+              that looks broken. */}
+          {orders.length === 0
+            && (metrics?.cashReceived || 0) === 0
+            && (metrics?.pendingPayments || 0) === 0
+            && (metrics?.fixedCostsNext30 || 0) === 0
+            && (metrics?.supplierPayablesNext30 || 0) === 0 ? (
+            <div className="mb-6 rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-sm">
+              <TrendingUp className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+              <h2 className="text-lg font-bold text-slate-900 mb-2">No cashflow activity yet</h2>
+              <p className="text-sm text-slate-600 max-w-md mx-auto">
+                Once you confirm your first order or record your first payment, this dashboard
+                will start projecting your cash position forward 30 days.
+              </p>
+              <div className="mt-4 inline-flex gap-2">
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                  <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={withSlug("/admin/payables")}>Add a payable</Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Cashflow forecast chart - the main attraction. Same
               component the old Financial dashboard mounted, now
