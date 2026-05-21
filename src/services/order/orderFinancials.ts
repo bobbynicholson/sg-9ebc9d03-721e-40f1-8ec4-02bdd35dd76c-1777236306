@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  deriveOrderPaymentStatus,
+  setOrderPaymentStatus,
+} from "@/services/order/orderPaymentStatus";
 
 /**
  * Order Financial Operations
@@ -112,37 +116,56 @@ export async function recordPayment(
   }
 }
 
+/**
+ * Recompute orders.payment_status from the payments ledger.
+ *
+ * Phase 2 audit (docs/money-flow.md): this used to write the literal
+ * "unpaid" which is not a member of the `payment_status` enum, so the
+ * write silently failed and the order's payment_status would stay
+ * stuck. Now derives the canonical value via deriveOrderPaymentStatus
+ * (returns pending | partial | paid) and routes the write through the
+ * single setOrderPaymentStatus gate so the transition allowlist
+ * applies (e.g. you can't downgrade a refunded order back to pending
+ * just because a payment row was deleted).
+ *
+ * Returns the derived status even if the write was blocked by the
+ * allowlist - the caller can decide whether to escalate.
+ */
 export async function updateOrderPaymentStatus(orderId: string) {
   try {
-    // Get order total and payments
     const { data: order } = await supabase
       .from("orders")
       .select("total_amount, deposit_amount")
       .eq("id", orderId)
       .single();
 
-    // Reads payment_status (canonical enum). Phase 4B dropped the legacy text column.
+    // Sum only successfully-completed payment rows. partial / pending
+    // / processing / failed are ignored - they're not committed money.
     const { data: payments } = await supabase
       .from("payments")
       .select("amount")
       .eq("order_id", orderId)
       .eq("payment_status", "completed" as any);
 
-    const totalPaid = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-    const totalAmount = order?.total_amount || 0;
+    const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+    const totalAmount = Number(order?.total_amount || 0);
+    const paymentStatus = deriveOrderPaymentStatus(totalPaid, totalAmount);
 
-    let paymentStatus: any = "unpaid";
-    if (totalPaid >= totalAmount) {
-      paymentStatus = "paid";
-    } else if (totalPaid > 0) {
-      paymentStatus = "partial";
+    const res = await setOrderPaymentStatus(orderId, paymentStatus, {
+      client: supabase,
+      reason: `recomputed from payments ledger (paid ${totalPaid.toFixed(2)} of ${totalAmount.toFixed(2)})`,
+    });
+
+    // success=false from setOrderPaymentStatus means the transition
+    // was blocked by the allowlist (e.g. trying to demote a refunded
+    // order). Surface that as a non-error - the underlying payment
+    // ledger is still correct, only the projection refused.
+    if (!res.success) {
+      console.warn(
+        "[updateOrderPaymentStatus] derived status blocked by allowlist:",
+        res.error,
+      );
     }
-
-    await supabase
-      .from("orders")
-      .update({ payment_status: paymentStatus })
-      .eq("id", orderId);
-
     return { success: true, paymentStatus };
   } catch (error: any) {
     console.error("Error updating payment status:", error);

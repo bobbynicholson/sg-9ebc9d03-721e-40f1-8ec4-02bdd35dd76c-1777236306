@@ -24,6 +24,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail } from "@/services/email/cancellationEmails";
+import { setOrderPaymentStatus } from "@/services/order/orderPaymentStatus";
 
 export interface AutoCancelInput {
   supabase: SupabaseClient;
@@ -158,10 +159,21 @@ export async function runAutoCancel(
       console.warn("[runAutoCancel] credit_issue insert failed:", credErr);
     } else {
       credit_payment_id = credRow?.id || null;
-      await sb
-        .from("orders")
-        .update({ payment_status: "refunded" })
-        .eq("id", input.orderId);
+      // Route the payment_status flip through the single guarded
+      // writer. Phase 2 audit: the bare update on this site used to
+      // set "refunded" regardless of how much had actually been paid,
+      // which lied to the books. We still set "refunded" here because
+      // a credit-issue extinguishes the client's claim on what they
+      // paid - but now the allowlist enforces that the source state
+      // was something it makes sense to refund from.
+      const psRes = await setOrderPaymentStatus(input.orderId, "refunded", {
+        client: input.supabase,
+        actorUserId: input.cancelledByUserId,
+        reason: `cancellation credit issued (${credit_pct}% of paid)`,
+      });
+      if (!psRes.success) {
+        console.warn("[runAutoCancel] payment_status flip blocked:", psRes.error);
+      }
     }
     try {
       await sb.from("audit_logs").insert({
@@ -202,15 +214,18 @@ export async function runAutoCancel(
       console.warn("[runAutoCancel] refund insert failed:", payErr);
     } else {
       refund_payment_id = payRow?.id || null;
-      await sb
-        .from("orders")
-        .update({
-          payment_status:
-            refund_final >= Number(snap.total_amount_paid || 0)
-              ? "refunded"
-              : "partially_refunded",
-        })
-        .eq("id", input.orderId);
+      const nextPaymentStatus =
+        refund_final >= Number(snap.total_amount_paid || 0)
+          ? "refunded"
+          : "partially_refunded";
+      const psRes = await setOrderPaymentStatus(input.orderId, nextPaymentStatus, {
+        client: input.supabase,
+        actorUserId: input.cancelledByUserId,
+        reason: `cancellation refund queued (${refund_pct}% of paid, R${refund_final.toFixed(2)})`,
+      });
+      if (!psRes.success) {
+        console.warn("[runAutoCancel] payment_status flip blocked:", psRes.error);
+      }
       // Auto-process refund - same gateway logic as the admin route.
       if (refund_payment_id) {
         try {
