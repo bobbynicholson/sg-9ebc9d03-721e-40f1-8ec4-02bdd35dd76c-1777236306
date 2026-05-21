@@ -16,6 +16,7 @@ import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashb
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
+import { FirstEventWalkthrough } from "@/components/admin/FirstEventWalkthrough";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
@@ -741,6 +742,16 @@ function AdminDashboardPage() {
           {companyId && !isFreshTenant ? (
             <WidgetErrorBoundary label="First steps">
               <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
+            </WidgetErrorBoundary>
+          ) : null}
+
+          {/* First-event walkthrough. Picks up once FirstStepsCard
+              gets out of the way (onboarding_completed_at set) and
+              guides the owner through their first quote -> first
+              event flow. Self-hides once any order exists. */}
+          {companyId ? (
+            <WidgetErrorBoundary label="First event walkthrough">
+              <FirstEventWalkthrough companyId={companyId} slug={companySlug || ""} />
             </WidgetErrorBoundary>
           ) : null}
 
