@@ -81,35 +81,27 @@ Already flagged in `docs/personas/admin.md` section 6. The 7-day-by-N-chef grid 
 
 Fix shape: render a card-stack on mobile (one card per day, expandable for chef list) and keep the existing grid at `md+`. File: `src/pages/admin/kitchen-schedule.tsx` line ~470-654.
 
-### 5.2 No "what's next" cue after a prep task completes
+### 5.2 ~~No "what's next" cue after a prep task completes~~ - already implemented
 
-Chef finishes a task on `/team-portal/kitchen/production`, the task row updates in realtime, but nothing surfaces "your next critical task is X". The chef has to scan the full timeline to find it.
-
-Fix shape: after task completion, compute the next-most-urgent task across all orders (sort by `event_time - now - prep_duration`) and surface as a chip near the just-completed row. File: `src/pages/team-portal/kitchen/production.tsx`.
+Resolved by the existing "Start cooking next" widget on `production.tsx` (the orange-tinted card at the top of day view). It ranks every pending-not-started task by `start_at` and surfaces the top 5 with live countdowns. After a task completes it drops out of the queue and the next-most-urgent rises to the top automatically. Combined with the Phase 6 follow-up overdue toast (5.3), the chef gets both a queued list and a proactive alert.
 
 ### 5.3 ~~No overdue toast when a prep task's countdown goes negative~~ - Done
 
 Resolved in post-audit follow-up. `src/pages/team-portal/kitchen/production.tsx` now runs a 60-second tick and an overdue-task watcher. When a pending (not-started) task's `start_at` crosses into the past, a destructive toast fires ("Prep task overdue: {item} should have started at {time}."). Tracked via `alertedOverdueRef` so the same task doesn't toast every minute it stays late. Garbage-collected when the task leaves the queued window (started, deleted, day rolled over). Soft-alarm-sound deferred (browser audio policies make this fiddly).
 
-### 5.4 prep-list page has no cue when an order is ready for driver handover
+### 5.4 ~~Prep-list page has no cue when an order is ready for driver handover~~ - already implemented
 
-Chef is deep in `/team-portal/kitchen/prep-list` working through ingredients when a parallel order hits "ready". The handover panel only renders on the dashboard, so the chef doesn't see it until they navigate back. The handover-pending count should surface as a chip in the `KitchenNav` header so it follows the chef across pages.
+The `KitchenNav` live-state strip already surfaces this via `counts.onPass` (orders with `status='ready'` for today) via the `useKitchenLiveCounts` hook. When > 0, the nav shows "N on pass" in warning tone. The hook refreshes every 60s + on tab focus, so a chef on prep-list sees the chip pop without having to leave the page. Strictly speaking this isn't a `NOT EXISTS (handover signed)` filter - the count includes orders where handover IS signed - but the practical signal is the same ("food is ready, where is it going").
 
-Fix shape: subscribe to `orders.status='ready' AND NOT EXISTS (handover signed)` count in `KitchenNav`, show a clickable chip when > 0. File: `src/components/navigation/KitchenNav.tsx`.
+### 5.5 ~~Handover panel doesn't distinguish "no driver yet" from "ready to sign"~~ - Done
 
-### 5.5 Handover panel doesn't distinguish "no driver yet" from "ready to sign"
+Resolved in post-audit follow-up. The panel now renders two distinct states:
+- **No driver assigned**: rose-tinted box, "Ready, no driver assigned. Food + equipment are ready. Dispatch hasn't assigned a driver yet." Action button: "Nudge dispatch" linking to `/admin/order-assignments?orderId=...`.
+- **Driver assigned, awaiting sign**: amber as before, "Driver: {name}. Tap when food + equipment are loaded." Action button: "Sign over to driver".
 
-`HandoverToDriverPanel.tsx` shows "No driver assigned yet" when there's no `driver_assignments` row. The kitchen lead can't tell if dispatch has been notified or is unaware. Should split into two states with different CTAs:
-- No driver assigned -> red, action: "Call dispatch"
-- Driver assigned, awaiting sign-off -> amber, action: "Sign over to {driverName}"
+### 5.6 ~~Restock delta banner only shows the most recent bump~~ - Done
 
-File: `src/components/kitchen/HandoverToDriverPanel.tsx` line ~170-180.
-
-### 5.6 Restock delta banner only shows the most recent bump
-
-`dashboard.tsx` keyed restock deltas by `inventory_item_id`. If the shopper restocks the same item twice in one day, the second delta overwrites the first - chef sees the latest delta but never knew about the first. Pile them up instead of replacing.
-
-File: `src/pages/team-portal/kitchen/dashboard.tsx` line ~137-244.
+Resolved in post-audit follow-up. The realtime listener at `dashboard.tsx` now accumulates the delta when an item already has a banner entry: `cumulative = existing ? existing.delta + delta : delta`. Two consecutive restocks of "Bell Pepper" by 5 and 3 now read as "+8 total" instead of just "+3".
 
 ---
 
@@ -124,10 +116,10 @@ Deferred - the move is small but every breadcrumb / inbound link needs to follow
 ## 7. Open follow-ups summary
 
 1. `kitchen-schedule.tsx` mobile redesign (card-stack < md).
-2. `production.tsx` "next critical task" chip on task completion.
-3. `production.tsx` overdue toast + alarm.
-4. `KitchenNav.tsx` handover-pending chip.
-5. `HandoverToDriverPanel.tsx` split state for "no driver" vs "awaiting sign".
-6. `dashboard.tsx` restock delta pile-up (don't overwrite).
+2. ~~`production.tsx` "next critical task" chip on task completion.~~ Already implemented via the "Start cooking next" widget.
+3. ~~`production.tsx` overdue toast + alarm.~~ Toast done in post-audit; alarm sound deferred.
+4. ~~`KitchenNav.tsx` handover-pending chip.~~ Already implemented via `counts.onPass`.
+5. ~~`HandoverToDriverPanel.tsx` split state for "no driver" vs "awaiting sign".~~ Done in post-audit.
+6. ~~`dashboard.tsx` restock delta pile-up (don't overwrite).~~ Done in post-audit.
 7. Move `/admin/kitchen-settings` into a tab inside `/admin/teams/kitchen` (during the People persona phase).
 8. Delete `src/pages/admin/kitchen-duty-tracking.tsx` once the 180-day notification retention sweep clears old rows.
