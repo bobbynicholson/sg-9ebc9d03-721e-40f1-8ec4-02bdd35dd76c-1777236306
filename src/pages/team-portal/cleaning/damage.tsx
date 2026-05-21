@@ -31,6 +31,7 @@ interface Damage {
   resolved: boolean | null;
   reported_by: string | null;
   order_id: string | null;
+  equipment_id: string | null;
   created_at: string | null;
 }
 
@@ -133,6 +134,11 @@ export default function CleaningDamagePage() {
         .from("equipment_damages")
         .insert([{
           company_id: user.company_id,
+          // Cleaning follow-up (migration 20260521120000): the form's
+          // equipment-picker now persists to a real column instead of
+          // being silently dropped. Nullable for the case where the
+          // cleaner doesn't know which specific item is involved.
+          equipment_id: equipmentId || null,
           damage_type: damageType,
           notes: notes.trim(),
           repair_cost: repairCost ? Number(repairCost) : null,
@@ -251,12 +257,26 @@ export default function CleaningDamagePage() {
                 </div>
               ) : (
                 <ul className="divide-y divide-slate-100">
-                  {filtered.map((d) => (
+                  {filtered.map((d) => {
+                    // Cleaning follow-up: now that equipment_id
+                    // persists, surface the equipment name on the
+                    // ledger row so admins can correlate damages with
+                    // specific items at a glance. Fall back to no chip
+                    // for legacy rows (equipment_id NULL).
+                    const eq = d.equipment_id
+                      ? equipment.find((e) => e.id === d.equipment_id)
+                      : null;
+                    return (
                     <li key={d.id} className="p-4 flex items-start gap-3">
                       <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-emerald-500" : "text-amber-500"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <Badge variant="outline" className={`${typeTone[d.damage_type ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize`}>{d.damage_type ?? "damage"}</Badge>
+                          {eq?.name && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-xs font-medium">
+                              {eq.name}
+                            </Badge>
+                          )}
                           {d.resolved ? (
                             <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Resolved</Badge>
                           ) : (
@@ -277,7 +297,8 @@ export default function CleaningDamagePage() {
                         </Button>
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </CardContent>
