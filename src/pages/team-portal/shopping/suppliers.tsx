@@ -65,7 +65,29 @@ export default function ShoppingSuppliersPage() {
 
   useEffect(() => {
     if (!user?.company_id) return;
-    load();
+    void load();
+
+    // Shopping persona follow-up (shopping.md 5.5): realtime refresh
+    // on supplier changes. Previously the list was mount-only - a
+    // supplier added on the admin side stayed invisible until the
+    // shopper hard-refreshed. Per-tenant channel + company_id filter
+    // matches the docs/perf-and-ops.md realtime pattern.
+    const channel = supabase
+      .channel(`shopping-suppliers:${user.company_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "suppliers",
+          filter: `company_id=eq.${user.company_id}`,
+        },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.company_id]);
 
   const load = async () => {

@@ -82,15 +82,15 @@ Fix shape: "Accept all lines" button when the scanner has high confidence on eve
 
 Resolved in post-audit follow-up. `receiveStock()` now auto-creates a `supplier_payables` row when the receipt has a known supplier + at least one priced line. Total = sum of `qty * unitCost` across lines (rounded to cents). Due date = `receivedDate + suppliers.payment_terms` days (defaults to 30). Idempotent: a dedup probe on `(company_id, supplier_id, invoice_ref)` prevents double-billing if the same receipt is committed twice. Non-fatal: payables insert failure logs but doesn't roll back the stock receive - the stock IS in the building, AP can catch up via `/admin/payables` manual entry.
 
-### 5.4 No shopper-handoff visibility on the buy list
+### 5.4 ~~No shopper-handoff visibility on the buy list~~ - schema landed, UI deferred
 
-Two shoppers working the same day cannot see which one claimed which buy-list line. Risk of duplicate purchases.
+Schema landed in migration `20260521130000_shopping_list_items_assigned_shopper`. The column is in place + indexed when non-NULL + properly typed (FK to `profiles(id)` ON DELETE SET NULL). Legacy and unclaimed lines stay NULL.
 
-Fix shape: add `assigned_shopper_id` column to `shopping_list_items`, badge each row "claimed by @X" on the buy list. Schema change required.
+Deferred to a follow-up UI PR: the "claim this line" button + badge on `dashboard.tsx` / `buy-list.tsx`. Bigger because it interacts with the active-list state model in `useActiveShoppingList`. The schema is ready so the UI PR doesn't need a migration.
 
-### 5.5 Suppliers list stale (no realtime)
+### 5.5 ~~Suppliers list stale (no realtime)~~ - Done
 
-`suppliers.tsx` loads once on mount. If admin adds a supplier on the admin side, the shopper has to hard-refresh to see it. Low impact (suppliers don't change often) but flagged for the realtime sweep.
+`team-portal/shopping/suppliers.tsx` now subscribes to a per-tenant `shopping-suppliers:${companyId}` realtime channel with a `company_id=eq.<id>` filter on the `suppliers` table. Any add/edit/delete on the admin side propagates to the shopper's open page within a tick. Matches the docs/perf-and-ops.md realtime pattern.
 
 ### 5.6 No "expected delivery date" tracking on receipts
 
