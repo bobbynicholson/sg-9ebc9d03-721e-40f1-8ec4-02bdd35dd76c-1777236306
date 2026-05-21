@@ -75,11 +75,13 @@ This document. The friction items are scoped as follow-ups because their fixes n
 
 These are real friction points found in the audit. Each lands as its own focused PR because the right fix needs in-shift validation, not desktop guessing.
 
-### 5.1 Mobile-broken kitchen-schedule
+### 5.1 ~~Mobile-broken kitchen-schedule~~ - Done
 
-Already flagged in `docs/personas/admin.md` section 6. The 7-day-by-N-chef grid renders at `min-w-[110px]` per day column, requiring horizontal scroll at any width below ~1200px. A kitchen manager checking tomorrow's roster on their phone gets a soup of overlapping cells.
+Resolved in post-audit follow-up. The week view on `/admin/kitchen-schedule` now renders two layouts:
+- **< md**: card-stack, one card per day. Each card shows the day label + date, total rostered hours + chef count, an "Events" block listing today's orders + guest counts (rose-tinted when there's no chef rostered against an event), then a per-chef list with planned hours. Today's card gets an orange ring.
+- **md+**: the original 7-day-by-N-chef table grid.
 
-Fix shape: render a card-stack on mobile (one card per day, expandable for chef list) and keep the existing grid at `md+`. File: `src/pages/admin/kitchen-schedule.tsx` line ~470-654.
+Both render from the same shift data; the mobile layout collapses the visual density without dropping any of the actionable signals (event overlay, needs-cover red ring, today highlight).
 
 ### 5.2 ~~No "what's next" cue after a prep task completes~~ - already implemented
 

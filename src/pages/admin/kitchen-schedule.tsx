@@ -467,7 +467,107 @@ function KitchenScheduleGrid() {
                     No kitchen staff in this company yet. Add one from /admin/kitchen-staff.
                   </div>
                 ) : viewMode === "week" ? (
-                  <div className="overflow-x-auto">
+                  <>
+                  {/* Kitchen persona follow-up (kitchen.md 5.1):
+                      mobile card-stack. The 7-day-by-N-chef grid
+                      below needs ~1200px to render without scroll.
+                      On mobile we collapse to one card per day with
+                      that day's chef list, total hours and event
+                      overlay. Sticky-day-picker is the next polish.
+                      md+ falls through to the existing table. */}
+                  <div className="md:hidden space-y-3">
+                    {weekDays.map((d, dayIdx) => {
+                      const iso = toLocalISO(d);
+                      const dayOrders = ordersByDate.get(iso) || [];
+                      const isToday = iso === todayIso;
+                      const cellsForDay = staff
+                        .map((p) => {
+                          const cellShifts = shiftIndex[`${p.id}|${iso}`] || [];
+                          const totalPlanned = cellShifts.reduce(
+                            (acc, s) => acc + plannedHours(s.planned_start, s.planned_end),
+                            0,
+                          );
+                          return { p, shifts: cellShifts, totalPlanned };
+                        })
+                        .filter((c) => c.shifts.length > 0);
+                      const dayTotalHours = cellsForDay.reduce((acc, c) => acc + c.totalPlanned, 0);
+                      const dayHasChef = cellsForDay.length > 0;
+                      const needsCover = dayOrders.length > 0 && !dayHasChef;
+                      return (
+                        <Card
+                          key={dayIdx}
+                          className={`border ${
+                            isToday ? "border-orange-300 ring-1 ring-orange-200" :
+                            needsCover ? "border-rose-300 ring-1 ring-rose-200" :
+                            "border-slate-200"
+                          }`}
+                        >
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className={`text-sm font-semibold ${isToday ? "text-orange-700" : "text-slate-900"}`}>
+                                  {DAY_LABELS[dayIdx]}
+                                </p>
+                                <p className="text-xs text-slate-500 tabular-nums">
+                                  {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                  {isToday ? " (today)" : ""}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-semibold tabular-nums">
+                                  {dayTotalHours.toFixed(1)}h
+                                </p>
+                                <p className="text-[11px] text-slate-500">{cellsForDay.length} chef{cellsForDay.length === 1 ? "" : "s"}</p>
+                              </div>
+                            </div>
+
+                            {dayOrders.length > 0 && (
+                              <div className={`rounded-md border px-2 py-1.5 ${needsCover ? "border-rose-200 bg-rose-50" : "border-blue-200 bg-blue-50"}`}>
+                                <p className={`text-[10px] uppercase tracking-wider font-semibold mb-1 ${needsCover ? "text-rose-700" : "text-blue-700"}`}>
+                                  Events ({dayOrders.length}){needsCover ? " - needs cover" : ""}
+                                </p>
+                                <ul className="space-y-1">
+                                  {dayOrders.map((o) => (
+                                    <li key={o.id} className="text-xs flex items-center justify-between gap-2">
+                                      <Link
+                                        href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                        className={`truncate ${needsCover ? "text-rose-900" : "text-blue-900"} font-medium`}
+                                      >
+                                        {o.client_name || o.order_number || "Event"}
+                                      </Link>
+                                      <span className={`tabular-nums ${needsCover ? "text-rose-700" : "text-blue-700"}`}>
+                                        <Users className="w-3 h-3 inline mr-0.5" />
+                                        {o.guest_count ?? "?"}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {cellsForDay.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">No shifts rostered.</p>
+                            ) : (
+                              <ul className="space-y-1">
+                                {cellsForDay.map((c) => (
+                                  <li key={c.p.id} className="flex items-center justify-between text-xs">
+                                    <span className="font-medium text-slate-900 truncate">
+                                      {c.p.full_name || c.p.email}
+                                    </span>
+                                    <span className="text-slate-600 tabular-nums shrink-0">
+                                      {c.totalPlanned.toFixed(1)}h
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
@@ -652,6 +752,7 @@ function KitchenScheduleGrid() {
                       </tfoot>
                     </table>
                   </div>
+                  </>
                 ) : (
                   // Wave 66.2 - month view. 5-6 row calendar grid
                   // showing chef count + event count per day. The
