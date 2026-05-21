@@ -1044,7 +1044,10 @@ export default function AdminInventory() {
                   </p>
                 </div>
                 {atRiskItems.length > 0 && (
-                  <Link href="/team-portal/shopping/alerts">
+                  // Phase 3d shopping sweep: re-pointed from /alerts
+                  // (legacy passive table) to /buy-list (canonical
+                  // action surface with bulk-add).
+                  <Link href="/team-portal/shopping/buy-list">
                     <Button size="sm" variant="outline" className="gap-2">
                       <TrendingDown className="w-4 h-4" />
                       Build shopping list
