@@ -97,7 +97,12 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
     dashboardHref: "/team-portal/shopping/dashboard",
     // Static fallback. The smart renderer below normally takes over.
     mobileQuickActions: [
-      { href: "/team-portal/shopping/alerts",   label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-green-500 to-emerald-500" },
+      // Phase 3d shopping sweep: the static fallback used to point
+      // "Buy list" at /alerts (the legacy passive table). Canonical
+      // buy-list surface is /buy-list (action-driven with checkboxes
+      // and bulk-add). /alerts kept as a deprecated alias for
+      // bookmarks.
+      { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-green-500 to-emerald-500" },
       { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
       { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: "from-amber-500 to-orange-500" },
     ],
