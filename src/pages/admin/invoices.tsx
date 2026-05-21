@@ -900,10 +900,22 @@ function InvoicesPageInner() {
     // the status didn't flip - they can hit "Mark as sent" or retry
     // without firing a second email.
     try {
-      const { error } = await supabase
+      // Money-flow follow-up: the "sent" flip now routes through
+      // setInvoiceStatus (transition-allowlist + idempotent +
+      // audited). We stamp sent_at separately because the chokepoint
+      // is status-only by design. See docs/money-flow.md.
+      const { setInvoiceStatus } = await import("@/services/order/invoiceStatus");
+      const statusRes = await setInvoiceStatus(invoice.id, "sent", {
+        client: supabase,
+        reason: "Marked as sent from admin invoice list",
+      });
+      const { error: stampErr } = await supabase
         .from("invoices")
-        .update({ sent_at: new Date().toISOString(), status: "sent" })
+        .update({ sent_at: new Date().toISOString() })
         .eq("id", invoice.id);
+      const error = !statusRes.success
+        ? new Error(statusRes.error || "status flip failed")
+        : (stampErr ? new Error(stampErr.message) : null);
       if (error) {
         toast({
           title: "Email sent, but status didn't update",
