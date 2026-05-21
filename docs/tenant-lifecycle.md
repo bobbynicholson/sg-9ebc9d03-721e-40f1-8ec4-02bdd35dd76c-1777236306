@@ -156,11 +156,17 @@ This document.
 
 ## 7. Open follow-ups
 
-1. **Default region at onboarding** - implicitly create a "Main" region on `onboarding_completed_at` flip so the tenant's first order has a region_id. (Section 3.3)
-2. **Required-region enforcement** - schema-level `NOT NULL` on `orders.region_id` + a migration that backfills `region_id` for existing rows. (Section 3.2)
-3. **Accounting sync endpoints region-scoped** - audit `/api/integrations/xero/*` + `/api/integrations/quickbooks/*` and add region filter. (Section 3.2)
-4. **Data export endpoint** - `/api/admin/export-company-data` that zips clients, orders, invoices, quotes. GDPR/POPIA compliance. (Section 4.2)
-5. **Tenant offboarding flow** - "wind down the whole tenant" path with 30-day cooldown + final data export. (Section 4.2)
-6. **First-event walkthrough** - lightweight in-app coachmarks after onboarding completes, walking new tenants through menu -> client -> quote -> order -> delivered. (Section 2)
-7. **Subscription feature gating** - when pricing tiers go live, wire `companies.subscription_status` checks into the creation paths for orders, clients, drivers. (Section 5)
-8. **Stripe/PayFast subscription webhook** - populate the `subscriptions` ledger so the gates have a real source of truth. (Section 5.1)
+### Done in Phase 5 follow-up PR
+
+- **Default region at onboarding** - `onboardingProgressService.markComplete` now idempotently inserts a "Main" region for the company if none exist. Seeds country / city / address / lat / lng from the `companies` HQ fields. Non-fatal on insert failure (tenant can still create a region manually from `/admin/regions`).
+- **Data export endpoint** - `/api/admin/export-company-data` (GET) returns a JSON blob with company + clients + orders + invoices + quotes + payments. 50,000-row cap per entity with metadata flagging capped entities. Super-admin can override the target via `?company_id=`. Wired into the `/admin/subscription` deletion form so ticking "Export my data" downloads the dump in-browser before the deletion request fires.
+- **Subscription gating scaffold** - `src/lib/subscriptionGate.ts` exports `requireSubscriptionFeature(client, companyId, feature)`. Reads `companies.subscription_status`, blocks `cancelled` / `suspended`, allows `trial` / `active` / `past_due`. Permissive by default so the codebase stays shippable while the tier matrix is being designed. Wired as proof-of-concept on `/api/admin/leads/[id]/convert-to-order.ts` (returns 402 with `code: "subscription_gate"` when the gate blocks).
+
+### Deferred with reasons
+
+- **Accounting sync region scope** - reclassified as accept-with-reason. Xero / QuickBooks / Sage integrations are per-tenant (one external org per CateringMS company). Pushing all of a company's invoices to its single Xero org doesn't leak cross-region data - the books are unified at the tenant level. Region filtering would be wrong here.
+- **`orders.region_id NOT NULL`** + backfill migration. Risky on live data because existing orders have NULL region_id. Phase 5 follow-up addresses the new-row case (default region at onboarding); the backfill needs a deliberate migration with rollback plan.
+- **Tenant-level offboarding flow** - "wind down the whole tenant" path with 30-day cooldown + final data export. Today only single-user delete via `/api/admin/delete-user.ts`. Deferred to a focused PR.
+- **First-event walkthrough coachmarks** - wizard dumps the tenant into the dashboard cold after step 9. Lightweight coachmarks for menu -> client -> quote -> order -> delivered. Deferred - product design call needed first.
+- **Subscription tier matrix** - the gating scaffold is in place but every access-granting status unlocks every feature. When pricing tiers go live, replace the permissive default in `requireSubscriptionFeature` with a real tier -> feature map.
+- **Stripe/PayFast subscription webhook** - the `subscriptions` ledger is 0 rows because no webhook populates it. Real integration work; deferred until a paying tier exists.

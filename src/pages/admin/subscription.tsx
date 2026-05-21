@@ -139,6 +139,37 @@ function SubscriptionPage() {
     if (!user) return;
 
     try {
+      // Phase 5 follow-up: if the user ticked "export my data", trigger
+      // a download of /api/admin/export-company-data BEFORE the deletion
+      // request fires. The deletion is queued (soft-delete) so doing the
+      // export inline at request time means the user walks away with
+      // their data in hand on the same click. Browser handles the
+      // download via Content-Disposition: attachment.
+      if (exportData) {
+        try {
+          const resp = await fetch("/api/admin/export-company-data");
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ error: "Export request failed" }));
+            throw new Error(err?.error || `HTTP ${resp.status}`);
+          }
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `cateringms-export-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (exportErr: any) {
+          // Don't block the deletion request - export failures get
+          // surfaced via a warning and the user can retry from this
+          // page after the deletion request lands.
+          console.warn("[subscription] data export failed:", exportErr);
+          alert(`Data export failed: ${exportErr?.message || "Unknown error"}. You can retry the export from this page before the deletion processes.`);
+        }
+      }
+
       await subscriptionService.requestAccountDeletion(user.id, deleteReason, exportData);
       setDeleteDialogOpen(false);
       await loadSubscriptionData();

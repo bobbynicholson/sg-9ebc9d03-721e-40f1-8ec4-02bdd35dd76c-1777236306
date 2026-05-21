@@ -32,6 +32,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { lifecycleService } from "@/services/lifecycleService";
 import { postOrderCreationCascade } from "@/services/order/postCreationCascade";
+import { requireSubscriptionFeature } from "@/lib/subscriptionGate";
 
 /**
  * Build an absolute origin from an incoming Next.js API request.
@@ -112,6 +113,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (profile as any)?.company_id !== (lead as any).company_id
     ) {
       return res.status(403).json({ error: "Wrong company" });
+    }
+
+    // Phase 5 follow-up: subscription feature gate. This is the
+    // proof-of-concept gate - the helper is defined in
+    // src/lib/subscriptionGate.ts and is intentionally permissive
+    // today (every access-granting status unlocks every feature).
+    // The wiring is here so the next person adding a tier matrix
+    // doesn't have to also retrofit the call site. See
+    // docs/tenant-lifecycle.md section 5.
+    const gate = await requireSubscriptionFeature(svc, (lead as any).company_id, "create_order");
+    if (!gate.allowed) {
+      return res.status(402).json({
+        error: gate.reason || "Subscription does not grant access",
+        code: "subscription_gate",
+        status: gate.status,
+      });
     }
 
     // Gate: refuse to convert a lead with no email on file unless
