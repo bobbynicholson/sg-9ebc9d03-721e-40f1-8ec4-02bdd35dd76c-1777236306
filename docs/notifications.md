@@ -134,7 +134,15 @@ The page now:
 4. On save: upserts to the DB (source of truth), mirrors to `localStorage` (instant next-load).
 5. Tooltips updated to stop lying - they now reference this doc for what's wired and what's pending.
 
-**Consumer-side wiring is the open follow-up** (section 6). `notificationService.broadcastNotification` does not yet read `email_notification_preferences.preferences` before fan-out, so the toggles are saved but not yet honoured per recipient. Tracked.
+**Consumer-side wiring landed** (post-audit follow-up). `notificationService.broadcastNotification` now resolves each broadcast's push category via `resolvePushCategory(type, priority)` and filters out recipients whose `preferences.push.<category>` is explicitly `false`. Missing rows = allow (legacy users keep getting everything). Lookup failures log a warn and fall through to unfiltered fan-out so a transient DB blip can't silently drop legitimate notifications. The mapping (notification_type -> push category) lives in `src/services/notificationService.ts:resolvePushCategory` and is conservative:
+
+| Type / priority | Category |
+|---|---|
+| `priority='urgent'` | `urgentAlerts` |
+| `order_confirmed`, `new_job_available`, `order_ready`, `out_for_delivery`, `delivered` | `newOrders` |
+| `driver_assigned`, `driver_replacement_needed`, `kitchen_clock_in`, `kitchen_clock_out`, `amendment_*`, `cancellation_*`, `postponement_*` | `staffUpdates` |
+| `stock_low`, `equipment_shortage` | `inventoryAlerts` |
+| everything else (incl. payments) | no filter, always sent |
 
 ### 4.2 `/admin/messaging-templates` and `/admin/email-templates`
 
