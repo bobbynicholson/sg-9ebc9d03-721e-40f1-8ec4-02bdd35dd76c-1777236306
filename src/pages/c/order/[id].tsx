@@ -760,26 +760,38 @@ export default function ClientOrderPage() {
             </Card>
           )}
 
-          {/* Catering company contact */}
+          {/* Catering company contact. Client persona follow-up
+              (client.md 5.7): defensive fallback when the company
+              hasn't filled in email + phone + website at all. Rare
+              case (admin email is required at signup) but possible
+              for tenants who haven't completed onboarding. */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Get in touch with {company.company_name}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {company.email && (
-                <a href={`mailto:${company.email}`} className="flex items-center gap-2 text-slate-700 hover:text-slate-900">
+                <a
+                  href={`mailto:${company.email}?subject=${encodeURIComponent(`Booking ${order.order_number || order.id}`)}`}
+                  className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1"
+                >
                   <Mail className="w-4 h-4" style={{ color: primary }} /> {company.email}
                 </a>
               )}
               {company.phone && (
-                <a href={`tel:${company.phone}`} className="flex items-center gap-2 text-slate-700 hover:text-slate-900">
+                <a href={`tel:${company.phone}`} className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
                   <Phone className="w-4 h-4" style={{ color: primary }} /> {company.phone}
                 </a>
               )}
               {company.website && (
-                <a href={company.website} target="_blank" rel="noopener" className="flex items-center gap-2 text-slate-700 hover:text-slate-900">
+                <a href={company.website} target="_blank" rel="noopener" className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
                   <Globe className="w-4 h-4" style={{ color: primary }} /> {company.website}
                 </a>
+              )}
+              {!company.email && !company.phone && !company.website && (
+                <p className="text-sm text-slate-500 italic">
+                  No contact info on file. Reply to your booking-confirmation email if you need to reach the team.
+                </p>
               )}
             </CardContent>
           </Card>
