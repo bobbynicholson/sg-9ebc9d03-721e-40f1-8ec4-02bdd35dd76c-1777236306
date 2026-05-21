@@ -26,8 +26,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, CheckCircle2, AlertTriangle, Trash2 } from "lucide-react";
-import Head_ from "next/head";
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -42,6 +41,129 @@ import {
 } from "@/services/supplierPayablesService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { toLocalISO } from "@/lib/localDate";
+
+/**
+ * Bulk-import row shape. One entry per CSV line after parsing /
+ * validation. `error` is set when the row can't be saved (missing
+ * supplier match, bad amount, bad date). Rows with errors are skipped
+ * on import - the rest still go through, and the result panel reports
+ * the split.
+ */
+interface BulkRow {
+  line: number;
+  supplier_name: string;
+  supplier_id: string | null;
+  amount_cents: number;
+  due_date: string;
+  invoice_ref: string | null;
+  notes: string | null;
+  error: string | null;
+}
+
+/**
+ * Split a CSV line on commas, honouring double-quoted fields so
+ * something like `"Acme, Ltd",1500,2026-06-01` parses as 3 fields
+ * not 4. Good enough for hand-typed and Excel-exported CSVs;
+ * doesn't try to be a full RFC 4180 parser.
+ */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+/**
+ * Parse a money cell. Strips currency symbols (R, $, £, €), spaces,
+ * and thousands-separator commas. Returns NaN if the result isn't a
+ * positive number so the row can be flagged.
+ */
+function parseAmount(raw: string): number {
+  const cleaned = raw.replace(/[R$£€\s]/g, "").replace(/,(?=\d{3}(\D|$))/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n > 0 ? n : NaN;
+}
+
+/**
+ * Parse a date cell. Accepts ISO (YYYY-MM-DD), DD/MM/YYYY, or
+ * YYYY/MM/DD. Returns ISO string or null on failure. We default to
+ * day-first because the tenant base is SA/UK; if the input is
+ * ambiguous (e.g. 03/04/2026) day-first is what users expect.
+ */
+function parseDate(raw: string): string | null {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const slash = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
+  if (slash) {
+    const [, a, b, c] = slash;
+    // YYYY/MM/DD
+    if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
+    // DD/MM/YYYY (SA / UK convention)
+    if (c.length === 4) return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
+  }
+  // Last-ditch attempt via Date - catches "1 June 2026" etc.
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+/**
+ * Build the bulk preview. Header row auto-detected if first line
+ * contains the word "supplier" or "amount" - that line gets skipped.
+ * Required columns: supplier_name, amount, due_date. Optional:
+ * invoice_ref, notes.
+ */
+function parseBulkCsv(
+  csv: string,
+  suppliers: Array<{ id: string; supplier_name: string }>,
+): BulkRow[] {
+  const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const supLookup = new Map(suppliers.map((s) => [s.supplier_name.trim().toLowerCase(), s.id]));
+  const out: BulkRow[] = [];
+  const startsWithHeader = /supplier|amount/i.test(lines[0]);
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0 && startsWithHeader) continue;
+    const cols = splitCsvLine(lines[i]);
+    const supplierName = cols[0] || "";
+    const amountRaw = cols[1] || "";
+    const dueRaw = cols[2] || "";
+    const invoiceRef = (cols[3] || "").trim() || null;
+    const notes = (cols[4] || "").trim() || null;
+    const errs: string[] = [];
+    if (!supplierName) errs.push("supplier name missing");
+    const supId = supLookup.get(supplierName.trim().toLowerCase()) || null;
+    if (supplierName && !supId) errs.push(`no supplier matched "${supplierName}"`);
+    const amt = parseAmount(amountRaw);
+    if (!Number.isFinite(amt)) errs.push(`bad amount "${amountRaw}"`);
+    const due = parseDate(dueRaw);
+    if (!due) errs.push(`bad date "${dueRaw}"`);
+    out.push({
+      line: i + 1,
+      supplier_name: supplierName,
+      supplier_id: supId,
+      amount_cents: Number.isFinite(amt) ? Math.round(amt * 100) : 0,
+      due_date: due || "",
+      invoice_ref: invoiceRef,
+      notes,
+      error: errs.length ? errs.join("; ") : null,
+    });
+  }
+  return out;
+}
 
 export default function ProtectedPayablesPage() {
   return (
@@ -75,6 +197,15 @@ function PayablesPage() {
     notes: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // Bulk-import state. Lets admin paste a CSV of payables instead of typing
+  // each row in the single-row dialog. Common case: opening a new month
+  // with 20+ supplier invoices from the prior week's deliveries.
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCsv, setBulkCsv] = useState("");
+  const [bulkPreview, setBulkPreview] = useState<BulkRow[] | null>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ ok: number; failed: number } | null>(null);
 
   const load = async () => {
     if (!companyId) return;
@@ -138,6 +269,56 @@ function PayablesPage() {
     }
   };
 
+  const openBulk = () => {
+    setBulkCsv("");
+    setBulkPreview(null);
+    setBulkResult(null);
+    setBulkOpen(true);
+  };
+
+  const handleBulkPreview = () => {
+    const rows = parseBulkCsv(bulkCsv, suppliers);
+    setBulkPreview(rows);
+    setBulkResult(null);
+  };
+
+  const handleBulkImport = async () => {
+    if (!companyId || !bulkPreview) return;
+    const valid = bulkPreview.filter((r) => !r.error);
+    if (valid.length === 0) {
+      toast({ title: "Nothing to import", description: "All rows have errors. Fix them first.", variant: "destructive" });
+      return;
+    }
+    setBulkImporting(true);
+    // Sequential to keep RLS-friendly error capture per row. Cost is
+    // 20-50ms per row; for the usual 20-50 row import that's <2s.
+    let ok = 0;
+    let failed = 0;
+    for (const r of valid) {
+      const row = await supplierPayablesService.create({
+        company_id: companyId,
+        supplier_id: r.supplier_id,
+        amount_cents: r.amount_cents,
+        due_date: r.due_date,
+        invoice_ref: r.invoice_ref,
+        notes: r.notes,
+        created_by: userId,
+      });
+      if (row) ok++; else failed++;
+    }
+    setBulkImporting(false);
+    setBulkResult({ ok, failed });
+    if (ok > 0) {
+      toast({
+        title: `Imported ${ok} payable${ok === 1 ? "" : "s"}`,
+        description: failed > 0 ? `${failed} failed - check the report below.` : "Cashflow forecast picks them up on next load.",
+      });
+      void load();
+    } else {
+      toast({ title: "Import failed", description: "No rows saved. Check supplier names and amounts.", variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this payable? Soft-delete - can be restored by support.")) return;
     const ok = await supplierPayablesService.softDelete(id);
@@ -179,10 +360,16 @@ function PayablesPage() {
                 .
               </p>
             </div>
-            <Button onClick={() => setDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Add payable
-            </Button>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={openBulk} variant="outline">
+                <Upload className="w-4 h-4 mr-1.5" />
+                Bulk import
+              </Button>
+              <Button onClick={() => setDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add payable
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -367,6 +554,98 @@ function PayablesPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
               {saving ? "Saving..." : "Add payable"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Bulk import payables</DialogTitle>
+            <DialogDescription>
+              Paste CSV rows. Format: <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">supplier_name, amount, due_date, invoice_ref, notes</code>.
+              Header row optional. Dates: <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">YYYY-MM-DD</code> or <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">DD/MM/YYYY</code>. Amounts can include the currency symbol and commas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Textarea
+              rows={8}
+              value={bulkCsv}
+              onChange={(e) => { setBulkCsv(e.target.value); setBulkPreview(null); setBulkResult(null); }}
+              placeholder={`supplier_name, amount, due_date, invoice_ref, notes\nFresh Produce Co, R 2,450.00, 2026-06-15, INV-8821, Weekly veg drop\nKwik Meats, 8900, 15/06/2026, INV-553, `}
+              className="font-mono text-xs"
+            />
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-slate-500">
+                {bulkPreview === null
+                  ? `${suppliers.length} suppliers available for matching.`
+                  : `${bulkPreview.filter((r) => !r.error).length} ready, ${bulkPreview.filter((r) => r.error).length} need fixing.`}
+              </p>
+              <Button variant="outline" size="sm" onClick={handleBulkPreview} disabled={!bulkCsv.trim()}>
+                Preview rows
+              </Button>
+            </div>
+
+            {bulkPreview && bulkPreview.length > 0 && (
+              <div className="border rounded-md max-h-80 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr className="text-left text-slate-600">
+                      <th className="px-2 py-1.5 font-medium">#</th>
+                      <th className="px-2 py-1.5 font-medium">Supplier</th>
+                      <th className="px-2 py-1.5 font-medium text-right">Amount</th>
+                      <th className="px-2 py-1.5 font-medium">Due</th>
+                      <th className="px-2 py-1.5 font-medium">Ref</th>
+                      <th className="px-2 py-1.5 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {bulkPreview.map((r) => (
+                      <tr key={r.line} className={r.error ? "bg-rose-50" : ""}>
+                        <td className="px-2 py-1.5 tabular-nums text-slate-400">{r.line}</td>
+                        <td className="px-2 py-1.5">
+                          <div className="font-medium text-slate-900">{r.supplier_name || <span className="text-slate-400 italic">missing</span>}</div>
+                          {r.supplier_id && <div className="text-[10px] text-emerald-700">matched</div>}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums text-right">
+                          {r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-rose-600">-</span>}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums">
+                          {r.due_date || <span className="text-rose-600">-</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.invoice_ref || ""}</td>
+                        <td className="px-2 py-1.5">
+                          {r.error
+                            ? <span className="text-rose-700 text-[11px]">{r.error}</span>
+                            : <span className="text-emerald-700 text-[11px]">Ready</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {bulkResult && (
+              <div className={`rounded-md border px-3 py-2 text-sm ${bulkResult.failed === 0 ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+                Imported <strong>{bulkResult.ok}</strong> payable{bulkResult.ok === 1 ? "" : "s"}.
+                {bulkResult.failed > 0 && <> {bulkResult.failed} failed - check the rows still flagged above.</>}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkImporting}>Close</Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={bulkImporting || !bulkPreview || bulkPreview.filter((r) => !r.error).length === 0}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {bulkImporting
+                ? "Importing..."
+                : bulkPreview
+                  ? `Import ${bulkPreview.filter((r) => !r.error).length} ready row${bulkPreview.filter((r) => !r.error).length === 1 ? "" : "s"}`
+                  : "Import"}
             </Button>
           </DialogFooter>
         </DialogContent>
