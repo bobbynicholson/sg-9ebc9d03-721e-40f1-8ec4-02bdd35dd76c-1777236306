@@ -98,8 +98,8 @@ scrolls into view.
 | `invoice_issued`                 | client          | `/client-portal/billing?invoiceId={id}`                        | invoice / invoiceId      |
 | `equipment_damage`               | admin           | `/admin/equipment?tab=shortages&equipmentId={id}`              | equipment / equipmentId  |
 | `cleaning_completed`             | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
-| `kitchen_clock_in`               | admin           | `/admin/kitchen-duty-tracking?shiftId={id}`                    | kitchen_shift / shiftId  |
-| `kitchen_clock_out`              | admin           | `/admin/kitchen-duty-tracking?shiftId={id}`                    | kitchen_shift / shiftId  |
+| `kitchen_clock_in`               | admin           | `/admin/kitchen-schedule?shiftId={id}`                         | kitchen_shift / shiftId  |
+| `kitchen_clock_out`              | admin           | `/admin/kitchen-schedule?shiftId={id}`                         | kitchen_shift / shiftId  |
 | `kitchen_task_completed`         | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
 | `kitchen_emergency`              | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
 | `shopping_started`               | admin           | `/admin/shopping?listId={id}`                                  | shopping_list / listId   |

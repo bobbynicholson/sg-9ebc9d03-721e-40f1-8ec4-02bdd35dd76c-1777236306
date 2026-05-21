@@ -110,7 +110,13 @@ export const kitchenDutyService = {
           message: `${profile?.full_name || "A staff member"} has clocked in for kitchen duty.`,
           targetRoles: KITCHEN_ADMIN_ROLES,
           priority: "low",
-          link: `/admin/kitchen-duty-tracking?shiftId=${data.id}`,
+          // Phase 3b kitchen sweep: the old link targeted the
+          // /admin/kitchen-duty-tracking redirect stub. Admins were
+          // bounced into the kitchen-staff portal which is the wrong
+          // context. Point at the dispatcher view (weekly schedule
+          // with late/missed badges) so the admin lands where the
+          // signal is actionable.
+          link: `/admin/kitchen-schedule?shiftId=${data.id}`,
           relatedEntityType: "kitchen_shift",
           relatedEntityId: data.id,
         });
@@ -150,7 +156,10 @@ export const kitchenDutyService = {
                 message: `A staff member has clocked out from kitchen duty.`,
                 notification_type: "kitchen_clock_out",
                 priority: "low",
-                link: `/admin/kitchen-duty-tracking?shiftId=${shiftId}`,
+                // Phase 3b kitchen sweep: see the clock-in notification
+                // above. Point at the dispatcher's weekly schedule
+                // instead of the redirect-to-kitchen-portal stub.
+                link: `/admin/kitchen-schedule?shiftId=${shiftId}`,
                 related_entity_type: "kitchen_shift",
                 related_entity_id: shiftId,
             });
