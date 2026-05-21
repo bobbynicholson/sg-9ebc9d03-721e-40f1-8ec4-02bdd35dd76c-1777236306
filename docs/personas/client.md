@@ -103,11 +103,9 @@ Defer because the right path picks between "ask for email + slug" (simple, frict
 
 `/c/order/[id]` postpone panel (~line 740) says "your deposit travels with you" but the cancellation wizard at line 819+ shows the full refund / forfeit consequence. Clients don't know cancellation rules until the wizard's final step. Postpone copy should mirror the wizard's consequence preview style.
 
-### 5.3 Delivered orders disappear from the dashboard headline
+### 5.3 ~~Delivered orders disappear from the dashboard headline~~ - already implemented
 
-`/client-portal/dashboard.tsx` headline picker skips orders with `status='delivered'`. Client who just had an event delivered yesterday sees a stale "upcoming" event or no event at all. Should keep delivered orders headlined for 24h with a "thanks for the booking" feel + a rating CTA.
-
-(Already flagged in `docs/audits/client-dashboard-deep-audit-2026-05-19.md` as CLI-9.)
+Resolved before this phase by `pickJustDeliveredEvent` in `dashboard.tsx`. When there's no upcoming/live headline AND there's a delivered (or completed) order within the last 7 days that hasn't been rated, a celebration banner renders in the headline slot ("How was it? Your {event} on {date} was delivered. Tap a star below to let {company} know how it went."). Brand-coloured border + primary CTA scrolling to the rating row. Matches the audit's intent; flagged as a no-op follow-up after re-verification.
 
 ### 5.4 Client-id lookup duplicated across 3 portal pages
 
@@ -135,9 +133,9 @@ Post-delivery rating component on the dashboard - tap targets too small.
 
 ## 6. Open follow-ups summary
 
-1. "Request a new link" CTA on `/c/order/[id]` error card (5.1).
+1. ~~"Request a new link" CTA on `/c/order/[id]` error card (5.1).~~ Done in post-audit PR #224.
 2. Unify cancellation/postpone consequence copy (5.2).
-3. Dashboard headline includes delivered orders for 24h (5.3).
+3. ~~Dashboard headline includes delivered orders for 24h (5.3).~~ Already implemented via `pickJustDeliveredEvent`; verified.
 4. `useTenantClientIds` shared hook to dedupe lookups (5.4).
 5. Realtime listeners on payments + quotes for the client view (5.5).
 6. Rating stars >= 44px tap target (5.6).

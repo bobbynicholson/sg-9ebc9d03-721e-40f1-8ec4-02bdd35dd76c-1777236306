@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -97,6 +97,23 @@ export default function KitchenProductionPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Kitchen persona follow-up (docs/personas/kitchen.md section 5.3).
+  // The "Start cooking next" widget renders countdowns derived from
+  // Date.now() inline, so the late-badge classes go stale until the
+  // next data refresh. A 60s tick re-renders the widget and feeds the
+  // overdue-toast watcher below, so a task slipping past its deadline
+  // pings the chef proactively instead of waiting for them to look.
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Track which task ids we've already toasted as overdue so a task
+  // that stays late for an hour doesn't toast 60 times. Cleared by
+  // task completion (the task drops out of the queued list).
+  const alertedOverdueRef = useRef<Set<string>>(new Set());
 
   // Phase 4: recipe accuracy report - always loads the trailing 30 days so
   // the panel reflects actual yield history, not just the day on screen.
@@ -205,6 +222,42 @@ export default function KitchenProductionPage() {
       return ts >= start && ts < end;
     });
   }, [tasks, view, anchor]);
+
+  // Overdue-task watcher. Fires a destructive toast the first time a
+  // pending task's start_at crosses into the past. Only checks day
+  // view's tasks (week view is too coarse to surface live alerts) and
+  // only checks pending-not-started tasks (a started or completed
+  // task is no longer overdue in the actionable sense).
+  // Tracked via alertedOverdueRef so a task staying late for an hour
+  // doesn't toast 60 times. The set self-cleans when the task drops
+  // out of tasksOnAnchor (started, deleted, day rolled over).
+  useEffect(() => {
+    if (view !== "day") return;
+    const stillVisibleIds = new Set<string>();
+    const newlyOverdue: any[] = [];
+    for (const t of tasksOnAnchor) {
+      if (t.status !== "pending" || t.started_at) continue;
+      stillVisibleIds.add(t.id as string);
+      const startMs = new Date(t.start_at).getTime();
+      if (startMs <= nowMs && !alertedOverdueRef.current.has(t.id as string)) {
+        newlyOverdue.push(t);
+      }
+    }
+    // Garbage-collect ids no longer in the queued window so a task
+    // re-added (rare - admin rolls back a status) can re-alert.
+    for (const id of Array.from(alertedOverdueRef.current)) {
+      if (!stillVisibleIds.has(id)) alertedOverdueRef.current.delete(id);
+    }
+    for (const t of newlyOverdue) {
+      alertedOverdueRef.current.add(t.id as string);
+      const dueClock = new Date(t.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+      toast({
+        title: "Prep task overdue",
+        description: `${t.menu_item_name || "Item"} should have started at ${dueClock}.`,
+        variant: "destructive",
+      });
+    }
+  }, [tasksOnAnchor, nowMs, view, toast]);
 
   // Task position helper for the day grid
   const taskPosition = (task: any): { leftPct: number; widthPct: number } | null => {
@@ -344,7 +397,8 @@ export default function KitchenProductionPage() {
               Shows for day view only (week view is too coarse).
               Self-hides when nothing's queued. */}
           {!loading && view === "day" && (() => {
-            const nowMs = Date.now();
+            // nowMs comes from the 60s tick state declared above so
+            // this IIFE re-renders with fresh countdowns every minute.
             const queued = tasksOnAnchor
               .filter((t: any) => t.status === "pending" && !t.started_at)
               .map((t: any) => {

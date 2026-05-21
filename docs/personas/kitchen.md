@@ -87,11 +87,9 @@ Chef finishes a task on `/team-portal/kitchen/production`, the task row updates 
 
 Fix shape: after task completion, compute the next-most-urgent task across all orders (sort by `event_time - now - prep_duration`) and surface as a chip near the just-completed row. File: `src/pages/team-portal/kitchen/production.tsx`.
 
-### 5.3 No overdue toast when a prep task's countdown goes negative
+### 5.3 ~~No overdue toast when a prep task's countdown goes negative~~ - Done
 
-The dashboard re-renders every 60s with the new countdown, but a task slipping past its deadline only shows a static red number. Chefs miss it visually during a busy service.
-
-Fix shape: `useEffect` watching each task's `formatCountdown(mins) < 0` flip from false to true, emit a destructive toast + soft alarm sound. File: `src/pages/team-portal/kitchen/production.tsx` (or wherever the countdown logic lives).
+Resolved in post-audit follow-up. `src/pages/team-portal/kitchen/production.tsx` now runs a 60-second tick and an overdue-task watcher. When a pending (not-started) task's `start_at` crosses into the past, a destructive toast fires ("Prep task overdue: {item} should have started at {time}."). Tracked via `alertedOverdueRef` so the same task doesn't toast every minute it stays late. Garbage-collected when the task leaves the queued window (started, deleted, day rolled over). Soft-alarm-sound deferred (browser audio policies make this fiddly).
 
 ### 5.4 prep-list page has no cue when an order is ready for driver handover
 
