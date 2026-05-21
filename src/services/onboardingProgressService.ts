@@ -271,7 +271,62 @@ export const onboardingProgressService = {
       .from("companies")
       .update({ onboarding_completed_at: new Date().toISOString() })
       .eq("id", companyId);
-    return error ? { error: error.message } : {};
+    if (error) return { error: error.message };
+
+    // Phase 5 follow-up: ensure a default region exists for the
+    // company. Without one, the first order the tenant creates lands
+    // with region_id=NULL and region scoping silently fails open
+    // (RLS region_scope_* policies match on user_can_access_region
+    // which returns false for NULL). Single-region tenants (most
+    // caterers) never visit /admin/regions and would otherwise hit
+    // this trap on day one. The default region is created idempotently:
+    // we only insert if none exist for the company, so re-running
+    // markComplete (e.g. if the user toggles dismiss/complete) is a
+    // no-op. See docs/tenant-lifecycle.md section 3.3.
+    try {
+      const { data: existing } = await supabase
+        .from("regions")
+        .select("id")
+        .eq("company_id", companyId)
+        .limit(1);
+      if (!existing || existing.length === 0) {
+        // Pull the company's HQ details to seed the region with
+        // sensible defaults. Anything we can't resolve falls back
+        // to the column defaults (country=ZA, timezone=Africa/Johannesburg,
+        // currency=ZAR, etc).
+        const { data: company } = await supabase
+          .from("companies")
+          .select("city, address_line1, country, headquarters_lat, headquarters_lng")
+          .eq("id", companyId)
+          .maybeSingle();
+        const co = (company as any) || {};
+        const { error: regionErr } = await supabase
+          .from("regions")
+          .insert({
+            company_id: companyId,
+            name: "Main",
+            code: "MAIN",
+            country: co.country || "ZA",
+            city: co.city || null,
+            address: co.address_line1 || null,
+            lat: co.headquarters_lat || null,
+            lng: co.headquarters_lng || null,
+            is_active: true,
+            notes: "Auto-created at onboarding completion. Rename or split into multiple regions from /admin/regions.",
+          } as any);
+        if (regionErr) {
+          // Non-fatal: the tenant can manually create a region later
+          // from /admin/regions. Logging the failure here surfaces it
+          // for the next person debugging "why does my new order have
+          // no region".
+          console.warn("[onboardingProgressService.markComplete] default region create failed:", regionErr);
+        }
+      }
+    } catch (e) {
+      console.warn("[onboardingProgressService.markComplete] default region check crashed (non-blocking):", e);
+    }
+
+    return {};
   },
 
   async unmarkComplete(companyId: string): Promise<{ error?: string }> {
