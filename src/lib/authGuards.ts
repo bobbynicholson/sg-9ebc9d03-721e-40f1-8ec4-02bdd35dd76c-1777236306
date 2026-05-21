@@ -15,6 +15,12 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/*",
     "/team-portal/*",
   ],
+  // Owner is treated as company_admin for routing until the
+  // owner-specific dashboard ships. Same access surface for now.
+  [UserRole.OWNER]: [
+    "/admin/*",
+    "/team-portal/*",
+  ],
   [UserRole.REGION_ADMIN]: [
     "/admin/dashboard",
     "/admin/leads",
@@ -120,6 +126,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
 // Admin roles that can access admin dashboard
 export const ADMIN_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
   UserRole.COMPANY_ADMIN,
   UserRole.REGION_ADMIN,
   UserRole.SALES_ADMIN,
@@ -128,20 +135,18 @@ export const ADMIN_ROLES: UserRole[] = [
 
 // Roles with full company access (all data, all operations).
 //
-// "Owner" persona note (Phase 3f, docs/personas/owner.md): the
-// codebase has ~66 literal-string checks against `'owner'` from
-// before the role list was rationalised. The Postgres `user_role`
-// enum and the TypeScript `UserRole` enum do not contain an OWNER
-// member, so every `role === 'owner'` branch is dead today. The
-// canonical "business owner" role is `company_admin`. The dead
-// branches are kept because (a) they're harmless (they never fire),
-// (b) stripping 66 files raises diff risk for no behaviour change,
-// and (c) Bobby's roadmap calls for a real owner-only landing page
-// in a future phase, at which point we'd add UserRole.OWNER + the
-// enum migration + activate those checks. Until then, treat owner
-// as a synonym for company_admin.
+// Owner role scaffold update (May 2026): UserRole.OWNER + the
+// matching Postgres enum value are now in place. The role is
+// treated as a synonym for company_admin for every gate until the
+// owner-specific dashboard ships - same routes, same data access,
+// same finance visibility. The ~66 historical `role === 'owner'`
+// literal checks across the codebase now actually fire (instead of
+// being dead branches), and any new RLS policy / gate added from
+// here on should include 'owner' in its allowlist alongside
+// 'company_admin'.
 export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
   UserRole.COMPANY_ADMIN,
 ];
 
@@ -150,6 +155,7 @@ export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
 // global region dropdown.
 export const CROSS_BRANCH_ADMIN_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
   UserRole.COMPANY_ADMIN,
   UserRole.SALES_ADMIN,
 ];
@@ -180,6 +186,7 @@ export const FINANCE_ROUTES = [
 export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
   [UserRole.SUPER_ADMIN]: "Platform Administrator",
+  [UserRole.OWNER]: "Owner",
   [UserRole.COMPANY_ADMIN]: "Company Administrator",
   [UserRole.REGION_ADMIN]: "Branch Manager",
   [UserRole.SALES_ADMIN]: "Sales Admin",
@@ -199,6 +206,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 // request.
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/admin/platform/dashboard",
+  [UserRole.OWNER]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.REGION_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.SALES_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
