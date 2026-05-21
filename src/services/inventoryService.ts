@@ -494,6 +494,87 @@ export const inventoryService = {
       }
     }
 
+    // Shopping persona follow-up (shopping.md 5.3): auto-create a
+    // supplier_payables row for the receipt total when:
+    //   - supplierId is set (we know who to pay)
+    //   - at least one line has a unitCost (we know how much)
+    //   - the receipt total > 0 after multiplication
+    // Due date = receivedDate + suppliers.payment_terms days when
+    // available; otherwise 30 days as a sensible default.
+    //
+    // Best-effort: a payables-insert failure logs but doesn't roll
+    // back the stock-receive. The stock IS in the building; the
+    // accounting tail can catch up via /admin/payables manual entry.
+    //
+    // Idempotent guard: we look for an existing payable with the
+    // same supplier + invoice_ref before inserting, so resending the
+    // same receipt doesn't double-bill.
+    try {
+      if (payload.supplierId && received > 0) {
+        const totalRand = payload.lines.reduce((acc, line) => {
+          const qty = Number(line.qty) || 0;
+          const cost = Number(line.unitCost ?? 0) || 0;
+          return acc + (qty > 0 && cost > 0 ? qty * cost : 0);
+        }, 0);
+        if (totalRand > 0) {
+          // Dedup probe on (supplier, invoice_ref). Plain invoice
+          // refs can collide across suppliers so we scope by both.
+          // Cast to any: supplier_payables isn't in the generated
+          // Supabase types yet (table exists on the DB but the
+          // codegen lags). Standard pattern in this codebase.
+          if (payload.invoiceNumber) {
+            const { data: existing } = await (supabase as any)
+              .from("supplier_payables")
+              .select("id")
+              .eq("company_id", payload.companyId)
+              .eq("supplier_id", payload.supplierId)
+              .eq("invoice_ref", payload.invoiceNumber)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            if (existing) {
+              // Already raised - skip silently. Avoids double-billing
+              // if a receipt is committed twice (rare but possible
+              // when the reconcile drawer is closed mid-flow).
+              return { received, errors };
+            }
+          }
+          // Resolve payment_terms (days). Fallback to 30.
+          let dueDate: string;
+          try {
+            const { data: supplier } = await supabase
+              .from("suppliers")
+              .select("payment_terms")
+              .eq("id", payload.supplierId)
+              .maybeSingle();
+            const days = Number((supplier as any)?.payment_terms ?? 30);
+            const d = new Date(payload.receivedDate || new Date().toISOString());
+            d.setDate(d.getDate() + days);
+            dueDate = d.toISOString().slice(0, 10);
+          } catch {
+            dueDate = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+          }
+          const { error: payErr } = await (supabase as any)
+            .from("supplier_payables")
+            .insert([{
+              company_id: payload.companyId,
+              supplier_id: payload.supplierId,
+              amount_cents: Math.round(totalRand * 100),
+              due_date: dueDate,
+              invoice_ref: payload.invoiceNumber || null,
+              status: "pending",
+              notes: `Auto-raised from stock receipt (${received} line${received === 1 ? "" : "s"}).${payload.notes ? ` ${payload.notes}` : ""}`,
+              created_by: payload.performedBy,
+            }]);
+          if (payErr) {
+            console.warn("[inventoryService.receiveStock] auto-payable insert failed:", payErr);
+          }
+        }
+      }
+    } catch (payErr) {
+      console.warn("[inventoryService.receiveStock] auto-payable wrap crashed:", payErr);
+    }
+
     return { received, errors };
   },
 

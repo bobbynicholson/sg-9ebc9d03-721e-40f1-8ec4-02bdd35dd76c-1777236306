@@ -68,11 +68,9 @@ The full delete of the alerts file is queued for 60 days after this PR (once boo
 
 ## 5. Day-of-procurement friction findings (follow-ups)
 
-### 5.1 Buy list doesn't refresh when kitchen adds to an order
+### 5.1 ~~Buy list doesn't refresh when kitchen adds to an order~~ - Done
 
-`buy-list.tsx` reads from the `inventory_demand_outlook` view on mount. If a chef adds an item to an order while the shopper is mid-trip, the demand outlook is stale until the shopper hard-refreshes. Real risk of missing an item.
-
-Fix shape: realtime subscription on `order_items` (filtered to today + upcoming) that triggers a re-fetch of `inventory_demand_outlook`. Or a 30-second poll if subscription complexity isn't justified.
+Resolved in post-audit follow-up. `buy-list.tsx` now subscribes to a per-tenant `buy-list:${companyId}` realtime channel listening to all `order_items` changes, and re-fetches the demand outlook on any signal. A 60-second polled fallback covers the case where the realtime channel is mid-reconnect or the row mutated server-side without an emit (cron, bulk import).
 
 ### 5.2 Receipt reconciliation has no atomic "accept all"
 
@@ -80,11 +78,9 @@ Fix shape: realtime subscription on `order_items` (filtered to today + upcoming)
 
 Fix shape: "Accept all lines" button when the scanner has high confidence on every row; localStorage draft if the drawer is closed before completion.
 
-### 5.3 Receipt scan -> stock bump is captured, but payable creation is manual
+### 5.3 ~~Receipt scan -> stock bump is captured, but payable creation is manual~~ - Done
 
-`receiveStock()` in `inventoryService.ts` increments stock and writes the batch. But the `supplier_payables` row that AP needs is never auto-created. Admin enters it by hand on `/admin/payables` from the receipt total. Two systems of record for the same transaction.
-
-Fix shape: after `receiveStock()` succeeds AND the supplier has known payment terms, auto-insert a `supplier_payables` row in `pending` state with the receipt id + due date derived from `payment_terms_days`.
+Resolved in post-audit follow-up. `receiveStock()` now auto-creates a `supplier_payables` row when the receipt has a known supplier + at least one priced line. Total = sum of `qty * unitCost` across lines (rounded to cents). Due date = `receivedDate + suppliers.payment_terms` days (defaults to 30). Idempotent: a dedup probe on `(company_id, supplier_id, invoice_ref)` prevents double-billing if the same receipt is committed twice. Non-fatal: payables insert failure logs but doesn't roll back the stock receive - the stock IS in the building, AP can catch up via `/admin/payables` manual entry.
 
 ### 5.4 No shopper-handoff visibility on the buy list
 

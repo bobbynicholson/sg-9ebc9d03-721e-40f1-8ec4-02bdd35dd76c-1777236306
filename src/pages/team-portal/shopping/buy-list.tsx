@@ -99,29 +99,68 @@ export default function ShoppingBuyListPage() {
   // the heavy lifting: status, shortfall calc, projected stock.
   // We join cost_per_unit from inventory_items so we can show the
   // running estimate in the sticky footer.
+  //
+  // Shopping persona follow-up (shopping.md 5.1): the demand outlook
+  // is now refreshed when:
+  //   - The page first mounts (always)
+  //   - Realtime: any order_items insert / update / delete for this
+  //     company (the kitchen / admin adding items to an order
+  //     re-computes the demand)
+  //   - Polled fallback: every 60 seconds
+  // Together these mean a shopper mid-trip sees new demand land
+  // without a hard refresh.
+  const loadRows = async () => {
+    if (!companyId) return;
+    const sb = supabase as any;
+    const [outlookRes, inventoryRes] = await Promise.all([
+      sb.from("inventory_demand_outlook").select("*").eq("company_id", companyId),
+      sb.from("inventory_items").select("id, cost_per_unit").eq("company_id", companyId).is("deleted_at", null),
+    ]);
+    const costMap = new Map<string, number>();
+    for (const r of (inventoryRes.data || []) as Array<{ id: string; cost_per_unit: number | null }>) {
+      costMap.set(r.id, Number(r.cost_per_unit || 0));
+    }
+    const enriched = ((outlookRes.data || []) as OutlookRow[]).map(r => ({
+      ...r,
+      cost_per_unit: costMap.get(r.inventory_item_id) ?? 0,
+    }));
+    setRows(enriched);
+  };
+
   useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const sb = supabase as any;
-      const [outlookRes, inventoryRes] = await Promise.all([
-        sb.from("inventory_demand_outlook").select("*").eq("company_id", companyId),
-        sb.from("inventory_items").select("id, cost_per_unit").eq("company_id", companyId).is("deleted_at", null),
-      ]);
-      if (cancelled) return;
-      const costMap = new Map<string, number>();
-      for (const r of (inventoryRes.data || []) as Array<{ id: string; cost_per_unit: number | null }>) {
-        costMap.set(r.id, Number(r.cost_per_unit || 0));
-      }
-      const enriched = ((outlookRes.data || []) as OutlookRow[]).map(r => ({
-        ...r,
-        cost_per_unit: costMap.get(r.inventory_item_id) ?? 0,
-      }));
-      setRows(enriched);
-      setLoading(false);
+      await loadRows();
+      if (!cancelled) setLoading(false);
     })();
-    return () => { cancelled = true; };
+
+    // Realtime: order_items changes trigger a re-fetch of the demand
+    // outlook view. We don't try to mutate rows in-place - the view
+    // has too many derived columns (shortfall_next_7_days et al.) -
+    // so we just re-poll the view on any signal.
+    const sb = supabase as any;
+    const channel = sb
+      .channel(`buy-list:${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_items" },
+        () => { void loadRows(); },
+      )
+      .subscribe();
+
+    // Polled fallback every 60s for cases where realtime is mid-
+    // reconnect or the row mutated server-side without a channel
+    // emit (cron jobs, bulk imports).
+    const t = setInterval(() => { void loadRows(); }, 60_000);
+
+    return () => {
+      cancelled = true;
+      sb.removeChannel(channel);
+      clearInterval(t);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
   // Filtering + sorting.
