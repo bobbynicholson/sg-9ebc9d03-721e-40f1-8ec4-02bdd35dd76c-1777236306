@@ -672,7 +672,20 @@ export default async function handler(
     });
 
   } catch (error) {
-    console.error("Webhook error:", error);
+    // Phase 6 follow-up: webhook errors used to land only in
+    // console.error which is invisible outside DevTools / Vercel
+    // function logs. PayFast IPN failures = customer paid but order
+    // didn't flip to paid (incident runbook section 5.1). Capture
+    // with tenant context so the operator sees it the moment Sentry
+    // is wired in.
+    const { captureException } = await import("@/lib/observability");
+    captureException(error, {
+      tags: {
+        route: "/api/webhooks/payment-confirmation",
+        provider: "payfast",
+      },
+      level: "error",
+    });
     return res.status(500).json({ error: "Internal server error" });
   }
 }

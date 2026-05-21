@@ -160,7 +160,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {
-    console.error("[stripe-webhook] crashed:", e);
+    // Phase 6 follow-up: same rationale as PayFast webhook capture.
+    const { captureException } = await import("@/lib/observability");
+    captureException(e, {
+      tags: { route: "/api/webhooks/stripe-confirmation", provider: "stripe" },
+      level: "error",
+    });
     return res.status(500).json({ error: e?.message || "Stripe webhook failed" });
   }
 }
