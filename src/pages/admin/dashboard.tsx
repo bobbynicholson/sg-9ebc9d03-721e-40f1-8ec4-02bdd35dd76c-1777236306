@@ -513,6 +513,23 @@ function AdminDashboardPage() {
             </WidgetErrorBoundary>
           ) : null}
 
+          {/* Admin persona follow-up (admin.md section 5): promote
+              the metrics-load failure to a prominent rose-tinted
+              recovery card directly under the header, instead of
+              the inline banner buried halfway down the page. The
+              old placement at line ~730 was below year-over-year,
+              widgets, and three full screens of scroll - operators
+              never saw it. */}
+          {error && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load dashboard metrics</h2>
+              <p className="text-sm text-slate-600 mb-3">{error}</p>
+              <Button onClick={loadMetrics} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <TrendingUp className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
           {/* AD-7 (admin-dashboard audit): fresh-tenant empty
               state. When the tenant has zero data across every
               dimension the page would normally show, render the
@@ -726,13 +743,6 @@ function AdminDashboardPage() {
               thisYearOrders={stats.bookedOrders}
             />
           </WidgetErrorBoundary>
-
-          {error && (
-            <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">{error}</p>
-              <Button onClick={loadMetrics} size="sm" className="mt-2">Retry</Button>
-            </div>
-          )}
 
           {/* Day-zero "First Steps" card. Self-hides once required steps
               are in or the owner dismisses / completes onboarding.
