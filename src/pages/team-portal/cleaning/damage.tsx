@@ -20,6 +20,7 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 
 interface Damage {
@@ -128,16 +129,54 @@ export default function CleaningDamagePage() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("equipment_damages").insert([{
-        company_id: user.company_id,
-        damage_type: damageType,
-        notes: notes.trim(),
-        repair_cost: repairCost ? Number(repairCost) : null,
-        reported_by: user.id,
-        resolved: false,
-      }] as never);
+      const { data: inserted, error } = await supabase
+        .from("equipment_damages")
+        .insert([{
+          company_id: user.company_id,
+          damage_type: damageType,
+          notes: notes.trim(),
+          repair_cost: repairCost ? Number(repairCost) : null,
+          reported_by: user.id,
+          resolved: false,
+        }] as never)
+        .select("id")
+        .single();
       if (error) throw error;
       toast({ title: "Damage report created" });
+
+      // Phase 3c cleaning sweep: previously the damage row landed in
+      // the DB and nobody downstream got told. Kitchen / admin only
+      // saw it on their next manual review of the damage ledger,
+      // which meant a broken chafing dish at Friday's event was
+      // discovered when packing Saturday's equipment. Broadcast to
+      // kitchen-aware admin roles so they can replan / re-stock.
+      // notification_type 'equipment_shortage' is the existing enum
+      // value that already carries the same kitchen-impact semantic
+      // (no new enum migration required).
+      try {
+        const eqLabel = equipmentId
+          ? (equipment.find((e) => e.id === equipmentId)?.name || "an item")
+          : "an item";
+        const costLabel = repairCost ? ` Repair estimate R${Number(repairCost).toFixed(2)}.` : "";
+        await notificationService.broadcastNotification({
+          companyId: user.company_id,
+          targetRoles: ["company_admin", "admin", "owner"] as any,
+          title: `Equipment damage logged: ${damageType}`,
+          message: `Cleaning reported ${damageType} on ${eqLabel}.${costLabel} ${notes.trim().slice(0, 120)}`,
+          type: "equipment_shortage" as any,
+          priority: "high",
+          link: "/admin/equipment?tab=shortages",
+          relatedEntityType: "equipment_damage",
+          relatedEntityId: (inserted as any)?.id || null,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        });
+      } catch (notifErr) {
+        // Non-fatal: the damage row is the source of truth, the
+        // notification is the heads-up. Log + continue.
+        console.warn("[damage.tsx] notification broadcast failed:", notifErr);
+      }
+
       closeCreate();
       load();
     } catch (e: any) {
