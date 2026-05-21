@@ -425,8 +425,12 @@ function DriverDashboardInner() {
   useEffect(() => {
     if (!user?.id || !user?.company_id) return;
 
+    // Phase 6 audit: per-tenant channel name + existing company_id
+    // filter. Previously the channel name was shared across every
+    // driver from every tenant; the filter kept payloads tenant-safe
+    // but the broadcast namespace was unnecessarily global.
     const channel = supabase
-      .channel("driver-orders")
+      .channel(`driver-orders:${user.company_id}`)
       .on(
         "postgres_changes",
         {

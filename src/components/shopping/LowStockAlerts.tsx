@@ -30,9 +30,12 @@ export function LowStockAlerts() {
     if (profile?.company_id) {
       loadLowStockItems();
       
-      // Set up real-time subscription
+      // Set up real-time subscription. Phase 6 audit: per-tenant
+      // channel name. Existing company_id filter kept payloads safe;
+      // the channel name was previously global which is harmless but
+      // noisy.
       const channel = supabase
-        .channel('inventory-changes')
+        .channel(`inventory-changes:${profile.company_id}`)
         .on(
           'postgres_changes',
           {

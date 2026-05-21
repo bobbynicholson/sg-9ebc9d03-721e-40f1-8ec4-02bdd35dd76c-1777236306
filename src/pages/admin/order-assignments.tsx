@@ -232,13 +232,26 @@ function DispatchQueuePage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Realtime: any order change refetches KPIs and the queue.
+  // Realtime: any order change for THIS tenant refetches KPIs + queue.
+  // Phase 6 audit fix: the channel was previously "dispatch-queue" with
+  // no postgres_changes filter, so cross-tenant order edits triggered
+  // re-fetches here. Same amplification + row-content-in-transit issue
+  // as /admin/dashboard. Per-tenant channel name + company_id filter
+  // close both. See docs/perf-and-ops.md section 2.
   useEffect(() => {
     if (!companyId) return;
     const sub = supabase
-      .channel("dispatch-queue")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadAll())
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_assignment_audit" }, () => loadAll())
+      .channel(`dispatch-queue:${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_assignment_audit", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [companyId, loadAll]);

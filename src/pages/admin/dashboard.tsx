@@ -430,10 +430,29 @@ function AdminDashboardPage() {
   useEffect(() => {
     if (!companyId) return;
     loadMetrics();
-    // Realtime: any order change refetches the current range.
+    // Realtime: any order change for THIS tenant refetches the current
+    // range. Phase 6 audit fix: the channel was previously named
+    // "admin-dashboard-orders" with no postgres_changes filter, so every
+    // order INSERT/UPDATE/DELETE on every tenant globally re-triggered
+    // loadMetrics() on every admin dashboard. Two problems with that:
+    //   1. Massive amplification - in a multi-tenant deployment with N
+    //      concurrent admin sessions, one order edit fired N re-fetches.
+    //   2. Postgres_changes payloads ride the channel even when the
+    //      receiving session can't read the row under RLS. Other tenants'
+    //      order content was in transit across the wire.
+    // Per-tenant channel name + a company_id=eq filter close both.
     const sub = supabase
-      .channel("admin-dashboard-orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadMetrics())
+      .channel(`admin-dashboard-orders:${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => loadMetrics(),
+      )
       .subscribe();
     return () => { sub.unsubscribe(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
