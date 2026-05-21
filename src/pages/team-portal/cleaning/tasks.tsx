@@ -143,7 +143,7 @@ export default function CleaningTasksPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
                 Cleaning Tasks
               </h1>
-              <p className="text-sm text-slate-600 mt-0.5">What needs cleaning right now, start, complete, log notes</p>
+              <p className="text-sm text-slate-600 mt-0.5">Today's open cleaning tasks - start, complete, log notes. <a href="/team-portal/cleaning/schedules" className="text-cyan-600 hover:text-cyan-700 underline">Manage the recurring schedule</a> if you need to add a new repeating area.</p>
             </div>
           </div>
 

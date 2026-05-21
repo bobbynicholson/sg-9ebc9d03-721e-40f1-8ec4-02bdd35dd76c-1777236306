@@ -91,11 +91,13 @@ Fix shape: dashboard banner when any cleaning supply hits 60% of par, plus a `st
 
 Fix shape: add an inline "How to clean?" icon next to each equipment row that links to `workflows.tsx?category=<x>`.
 
-### 5.5 tasks.tsx and schedules.tsx near-duplicates
+### 5.5 ~~tasks.tsx and schedules.tsx near-duplicates~~ - Clarified
 
-Both show scheduled cleaning work. Schedules owns recurring assignment, tasks owns one-off completion. The boundary works but the discovery is poor - cleaners hit both with similar expectations.
+Resolved with header copy clarity + cross-links. Each page now spells out its job and points at the other:
+- `tasks.tsx`: "Today's open cleaning tasks - start, complete, log notes." with an inline link to schedules for "Manage the recurring schedule if you need to add a new repeating area."
+- `schedules.tsx`: "Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's tasks that the team actually ticks off." with an inline link back to tasks.
 
-Fix shape: either consolidate to a single page with tabs (Recurring | One-off), or clarify the headers + add cross-page links explaining the split.
+Full consolidation into one tabbed page rejected because the two views serve different cadences (daily vs weekly+monthly) and audiences (floor team vs supervisor). The cross-links solve the discovery gap without forcing a redesign.
 
 ### 5.6 Admin landing page is sparse
 
