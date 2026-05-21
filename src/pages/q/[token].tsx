@@ -283,6 +283,23 @@ export default function PublicQuotePage() {
   // Phase 5 #10: tenant currency. Lives on company.currency now;
   // ZAR fallback for legacy rows where it's NULL.
   const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
+
+  // Phase 3e client sweep: surface the deposit size on the accept
+  // confirm panel + the next-steps timeline + the accept button.
+  // Previously the client tapped Accept without knowing whether the
+  // deposit was R500 or R50,000 - a trust problem on a high-stakes
+  // commitment surface. depositPercentage is null on legacy quotes
+  // where the tenant hasn't configured one; in that case we fall
+  // back to the original "deposit invoice will follow" copy.
+  const depositPct = quote.deposit_percentage != null && quote.deposit_percentage > 0
+    ? Number(quote.deposit_percentage)
+    : null;
+  const depositAmount = depositPct != null
+    ? Math.round((Number(quote.total_amount) || 0) * (depositPct / 100) * 100) / 100
+    : null;
+  const depositLabel = depositAmount != null && depositAmount > 0
+    ? `${fmtMoney(depositAmount)} (${depositPct}%) deposit`
+    : null;
   const companyAddress = [company?.address_line1, company?.address_line2, company?.city]
     .filter(Boolean).join(", ") || null;
   const accepted = !!quote.accepted_at;
@@ -753,8 +770,14 @@ export default function PublicQuotePage() {
                     <li className="flex items-start gap-3">
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-stone-900">Deposit invoice</p>
-                        <p className="text-xs text-stone-600">{companyName} will send the deposit invoice to lock in your event date.</p>
+                        <p className="text-sm font-semibold text-stone-900">
+                          {depositLabel ? `Deposit invoice - ${depositLabel}` : "Deposit invoice"}
+                        </p>
+                        <p className="text-xs text-stone-600">
+                          {depositLabel
+                            ? `${companyName} will send the ${fmtMoney(depositAmount as number)} deposit invoice to lock in your event date.`
+                            : `${companyName} will send the deposit invoice to lock in your event date.`}
+                        </p>
                       </div>
                     </li>
                     <li className="flex items-start gap-3">
@@ -804,7 +827,8 @@ export default function PublicQuotePage() {
                     <div className="space-y-3">
                       <p className="text-sm font-semibold text-stone-900">Confirm acceptance</p>
                       <p className="text-sm text-stone-600">
-                        Type your name to lock this in. {companyName} will follow up with the deposit invoice.
+                        Type your name to lock this in. {companyName} will follow up with
+                        {depositLabel ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)})` : " the deposit invoice"}.
                       </p>
                       <Input
                         value={acceptName}
@@ -852,7 +876,10 @@ export default function PublicQuotePage() {
                         </p>
                       )}
                       <p className="text-sm text-stone-700">
-                        Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
+                        Happy with the quote? Hit accept and {companyName} will send
+                        {depositLabel
+                          ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)}).`
+                          : " the deposit invoice."}
                       </p>
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
                         {/* Primary - Accept. Green so it reads as
