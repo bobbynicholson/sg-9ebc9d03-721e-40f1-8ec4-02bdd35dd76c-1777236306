@@ -94,7 +94,13 @@ function KitchenTeamPage() {
 
   const tiles = [
     { href: "/admin/kitchen-staff", icon: Users, label: "Kitchen staff", sub: "Roster, rates, departments", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
-    { href: "/admin/kitchen-duty-tracking", icon: ClipboardList, label: "Duty tracking", sub: "Active shifts and clock-ins", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
+    // Phase 3 admin sweep: "Duty tracking" tile pointed at
+    // /admin/kitchen-duty-tracking which is a redirect to the kitchen
+    // portal duty roster. The actual live-ops view of who's clocked
+    // in lives at /admin/kitchen-schedule (weekly grid with late/
+    // missed badges) - point operators there instead. The redirect
+    // file stays in place so existing notification links still work.
+    { href: "/admin/kitchen-schedule", icon: ClipboardList, label: "Schedule + clock-ins", sub: "Weekly roster, late/missed badges", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
     { href: "/admin/inventory-recipes", icon: BookOpen, label: "Recipes & inventory", sub: "Link recipes to stock", bg: "from-emerald-50 to-teal-50", iconColor: "text-emerald-600" },
   ];
 
