@@ -66,6 +66,13 @@ function SupplierDetail() {
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [summary, setSummary] = useState<SupplierPurchaseSummary | null>(null);
   const [receipts, setReceipts] = useState<SupplierReceiptRow[]>([]);
+  // Shopping persona follow-up (shopping.md 5.6): "related orders"
+  // - orders whose event_date falls inside the same window as the
+  // receipts. Doesn't claim the orders consumed THIS supplier's
+  // items (would require a 6-join recipe-chain query) - just gives
+  // admin the temporal context: "you spent R12k with this supplier
+  // in May, and these are the events that ran in May."
+  const [relatedOrders, setRelatedOrders] = useState<Array<{ id: string; order_number: string; event_name: string | null; event_date: string; guest_count: number | null; status: string; total_amount: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [composeOpen, setComposeOpen] = useState(false);
   const [linkProductOpen, setLinkProductOpen] = useState(false);
@@ -89,16 +96,30 @@ function SupplierDetail() {
   const reload = async () => {
     if (!supplierId || !companyId) return;
     setLoading(true);
-    const [s, prods, sum, rcpts] = await Promise.all([
+    const fromDate = fromIso.slice(0, 10);
+    const toDate = toIso.slice(0, 10);
+    const [s, prods, sum, rcpts, relRes] = await Promise.all([
       supplierService.getById(supplierId),
       supplierService.listProducts(supplierId),
       supplierService.getPurchaseSummary({ supplierId, companyId, fromIso, toIso }),
       supplierService.listReceipts({ supplierId, companyId, fromIso, toIso }),
+      // Related-orders fetch: orders with event_date in the window.
+      // Tenant-scoped via company_id; soft-deletes excluded.
+      (supabase as any)
+        .from("orders")
+        .select("id, order_number, event_name, event_date, guest_count, status, total_amount")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("event_date", fromDate)
+        .lte("event_date", toDate)
+        .order("event_date", { ascending: false })
+        .limit(50),
     ]);
     setSupplier(s);
     setProducts(prods);
     setSummary(sum);
     setReceipts(rcpts);
+    setRelatedOrders(((relRes as any)?.data || []) as any[]);
     setLoading(false);
   };
 
@@ -259,6 +280,76 @@ function SupplierDetail() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Shopping persona follow-up (shopping.md 5.6):
+                  "Events during this period" - orders whose
+                  event_date falls inside the selected window.
+                  Doesn't claim the orders consumed THIS supplier's
+                  items (that would need a 6-join recipe-chain
+                  query). Gives the admin the temporal context
+                  for the spend on this page. Tap a row to open the
+                  order. */}
+              <Card className="border-0 shadow-sm mb-5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Events during this period
+                    <Badge variant="outline" className="text-[10px] bg-slate-50">{relatedOrders.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {relatedOrders.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">
+                      No events booked in this window. Adjust the date range above to see surrounding orders.
+                    </p>
+                  ) : (
+                    <div className="rounded-lg border border-slate-200 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                          <tr>
+                            <th className="text-left py-2 px-3">Event date</th>
+                            <th className="text-left py-2 px-3">Order</th>
+                            <th className="text-left py-2 px-3">Status</th>
+                            <th className="text-right py-2 px-3">Guests</th>
+                            <th className="text-right py-2 px-3">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {relatedOrders.slice(0, 25).map((o) => (
+                            <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
+                              <td className="py-2 px-3 text-xs tabular-nums text-slate-700">
+                                {new Date(o.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "2-digit" })}
+                              </td>
+                              <td className="py-2 px-3">
+                                <Link
+                                  href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                  className="text-blue-700 hover:text-blue-900 font-medium inline-flex items-center gap-1"
+                                >
+                                  {o.order_number}
+                                  {o.event_name ? ` - ${o.event_name}` : ""}
+                                  <ExternalLink className="w-3 h-3" />
+                                </Link>
+                              </td>
+                              <td className="py-2 px-3 text-xs">
+                                <Badge variant="outline" className="text-[10px] capitalize">{o.status}</Badge>
+                              </td>
+                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">{o.guest_count ?? "-"}</td>
+                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                                R {Number(o.total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {relatedOrders.length > 25 && (
+                        <p className="text-[11px] text-slate-500 text-center py-2 border-t border-slate-100">
+                          Showing 25 of {relatedOrders.length}. Narrow the date range above to drill in.
+                        </p>
+                      )}
                     </div>
                   )}
                 </CardContent>

@@ -106,5 +106,5 @@ Useful for flagging late deliveries vs the supplier's promised lead time. Defer 
 4. `shopping_list_items.assigned_shopper_id` schema + badge (5.4).
 5. `suppliers.tsx` realtime refresh (5.5).
 6. Delete `alerts.tsx` redirect stub after 60 days of zero bookmark traffic (4.1).
-7. Supplier detail page should show related orders pulling from this supplier (admin audit gap).
+7. ~~Supplier detail page should show related orders pulling from this supplier (admin audit gap).~~ Done. `/admin/suppliers/[id]` now shows "Events during this period" - orders whose event_date falls inside the selected date range. 25-row cap with a "narrow the window" hint. Pragmatic - it gives admin the temporal context for the spend without the 6-join recipe-chain query the strict "ordersconsumed this supplier's items" linkage would need.
 8. Bulk import of supplier payables (admin audit gap).
