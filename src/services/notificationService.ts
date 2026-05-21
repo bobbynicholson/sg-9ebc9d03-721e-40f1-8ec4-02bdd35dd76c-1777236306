@@ -128,6 +128,77 @@ interface NotificationFilters {
  * `type` NULL - safer than failing the broadcast on an enum cast
  * error when a new type ships before its enum migration.
  */
+/**
+ * Phase 4/6 follow-up: per-user notification preferences are now
+ * persisted on `email_notification_preferences.preferences` (jsonb).
+ * The /admin/notification-settings UI shape lives there:
+ *
+ *   {
+ *     email: { orderConfirmation, orderUpdates, paymentReceived, dailySummary },
+ *     push:  { urgentAlerts, newOrders, staffUpdates, inventoryAlerts },
+ *     sms:   { criticalAlerts, paymentReminders },
+ *   }
+ *
+ * broadcastNotification fan-out reads each candidate recipient's
+ * preferences and skips those whose `push.<category>` is explicitly
+ * false. Missing rows = allow (default-on for legacy users).
+ *
+ * The mapping below is conservative: each notification_type maps to
+ * AT MOST ONE category. Types without a matching category bypass the
+ * filter (always sent). Priority=urgent OR urgent-class types route
+ * through push.urgentAlerts regardless of their content category.
+ *
+ * Categories that don't apply to in-app (email-only, sms-only) are
+ * out of scope here - broadcastNotification only produces in-app
+ * notifications.
+ */
+type PushCategory = "urgentAlerts" | "newOrders" | "staffUpdates" | "inventoryAlerts";
+
+function resolvePushCategory(
+  notificationType: string,
+  priority: string,
+): PushCategory | null {
+  // Priority gate: explicitly urgent always honours the urgent toggle.
+  if (priority === "urgent") return "urgentAlerts";
+
+  switch (notificationType) {
+    // New orders + claimable jobs
+    case "order_confirmed":
+    case "new_job_available":
+    case "order_ready":
+    case "out_for_delivery":
+    case "delivered":
+      return "newOrders";
+
+    // Staff lifecycle
+    case "driver_assigned":
+    case "driver_replacement_needed":
+    case "kitchen_clock_in":
+    case "kitchen_clock_out":
+    case "amendment_requested":
+    case "amendment_approved":
+    case "amendment_partial_approved":
+    case "amendment_rejected":
+    case "cancellation_requested":
+    case "cancellation_approved":
+    case "cancellation_rejected":
+    case "postponement_requested":
+    case "postponement_approved":
+    case "postponement_rejected":
+      return "staffUpdates";
+
+    // Inventory + shortages
+    case "stock_low":
+    case "equipment_shortage":
+      return "inventoryAlerts";
+
+    // Payments are surfaced via email category, not push. Don't filter
+    // them here - default allow.
+    default:
+      return null;
+  }
+}
+
 const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "order_confirmed", "order_ready", "driver_assigned", "out_for_delivery",
   "delivered", "payment_received", "payment_reminder",
@@ -507,7 +578,7 @@ export const notificationService = {
       ]);
       const regionScope = params.regionId ?? null;
 
-      const notifications = profiles
+      const roleAndRegionFiltered = profiles
         .filter(profile => {
           if (!params.targetRoles || params.targetRoles.length === 0) {
             // No role restriction; still apply region scoping below.
@@ -524,8 +595,49 @@ export const notificationService = {
           // behaviour (treat as cross-branch) so legacy users don't
           // silently miss notifications.
           return true;
-        })
-        .map(profile => {
+        });
+
+      // Phase 4/6 follow-up: per-user push category preferences. Resolve
+      // the category once for this broadcast; then look up each
+      // candidate's preferences.push.<category> and skip recipients
+      // whose toggle is explicitly false. Missing rows = allow (so
+      // legacy users who never visited /admin/notification-settings
+      // keep getting everything).
+      const pushCategory = resolvePushCategory(
+        String(params.type || ""),
+        String(params.priority || "normal"),
+      );
+      let recipientFilteredProfiles = roleAndRegionFiltered;
+      if (pushCategory) {
+        try {
+          const candidateIds = roleAndRegionFiltered.map((p: any) => p.id);
+          if (candidateIds.length > 0) {
+            const { data: prefRows } = await sb
+              .from("email_notification_preferences")
+              .select("user_id, preferences")
+              .in("user_id", candidateIds);
+            // Map userId -> push.<category> bool, only when explicitly set.
+            const disabledFor = new Set<string>();
+            for (const row of (prefRows || []) as Array<any>) {
+              const prefs = row?.preferences;
+              const value = prefs?.push?.[pushCategory];
+              if (value === false) disabledFor.add(row.user_id);
+            }
+            if (disabledFor.size > 0) {
+              recipientFilteredProfiles = roleAndRegionFiltered.filter(
+                (p: any) => !disabledFor.has(p.id),
+              );
+            }
+          }
+        } catch (prefErr) {
+          // Probe failure should never block a broadcast - prefer
+          // false-positive notifications over silent drop. Log once.
+          console.warn("[broadcastNotification] preference lookup failed; sending unfiltered:", prefErr);
+        }
+      }
+
+      const notifications = recipientFilteredProfiles
+        .map((profile: any) => {
           const row: Record<string, any> = {
             company_id: params.companyId,
             recipient_id: profile.id,
