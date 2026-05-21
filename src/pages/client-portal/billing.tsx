@@ -90,6 +90,43 @@ export default function ClientBillingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, company?.id, clientIdsLoading, hookClientIds.length]);
 
+  // Client persona follow-up (client.md 5.5): realtime listeners
+  // on invoices + payments so the billing page reflects new
+  // statuses (admin captured a payment, gateway IPN landed) without
+  // a manual refresh. Per-tenant channel name + company_id filter
+  // matches the docs/perf-and-ops.md realtime pattern.
+  useEffect(() => {
+    if (!user || !company?.id) return;
+    const tenantCompanyId = company.id;
+    const channel = supabase
+      .channel(`client-billing-${user.id}-${tenantCompanyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "invoices",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => { loadInvoices(); },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => { loadInvoices(); },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, company?.id]);
+
   // Status filter + sort happen first; the fuzzy hook ranks the rest.
   const statusSortedInvoices = useMemo(() => {
     const filtered = statusFilter === "all"

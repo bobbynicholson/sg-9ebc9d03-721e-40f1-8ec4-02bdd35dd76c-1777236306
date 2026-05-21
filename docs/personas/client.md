@@ -118,11 +118,11 @@ Adoption:
 
 Marked partial - any new portal page should consume the hook from day one. Migrating dashboard / tracking is low-priority polish, not a correctness fix.
 
-### 5.5 No realtime listeners on payments / quotes for the client view
+### 5.5 ~~No realtime listeners on payments / quotes for the client view~~ - Done
 
-Client tracking + dashboard only re-fetch on mount. If a payment lands or a quote status changes while the client has the page open, the UI is stale. Realtime channel subscriptions would close the gap.
+Resolved. `dashboard.tsx` was already subscribed to a per-tenant `client-orders-${user.id}-${tenantCompanyId}` channel listening to orders + invoices + quotes + payments (verified at lines 705-749). `billing.tsx` now subscribes to a per-tenant `client-billing-${user.id}-${tenantCompanyId}` channel listening to invoices + payments. Both follow the docs/perf-and-ops.md realtime pattern (per-tenant channel name + company_id filter).
 
-(Dashboard audit CLI-16, CLI-20.)
+`tracking.tsx` doesn't subscribe today because it's typically opened only during a live delivery; the existing 30-second polled refresh is sufficient for that window. Documented as accept-with-reason rather than a follow-up.
 
 ### 5.6 ~~Rating stars below 44px tap target on mobile~~ - already implemented
 
