@@ -146,7 +146,7 @@ export default function CleaningSchedulesPage() {
                   Cleaning Schedules
                   <InfoTooltip content="The full recurring cleaning plan, grouped by date and time." />
                 </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Recurring cleaning plan, daily / weekly / monthly cadence per area</p>
+                <p className="text-sm text-slate-600 mt-0.5">Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's <a href="/team-portal/cleaning/tasks" className="text-cyan-600 hover:text-cyan-700 underline">tasks</a> that the team actually ticks off.</p>
               </div>
             </div>
             <Button onClick={openCreate} className="bg-cyan-600 hover:bg-cyan-700">
