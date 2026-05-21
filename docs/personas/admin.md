@@ -153,6 +153,8 @@ The pattern: ops pages (orders, leads, contacts) are well-covered. Money pages (
 
 **Follow-up scoped to a separate PR**: harden the loading/empty/error states on `dashboard`, `tracking`, `financial-dashboard`, `cashflow-dashboard`. Single shared error boundary for widget failures; "no data yet" copy with CTA-to-set-up for first-tenant cases.
 
+Post-audit progress: `cashflow-dashboard` got both treatments in a follow-up PR. (a) Load-failure recovery card replaces the wall of zeros when the data fetch errors AND there are no cached metrics. (b) "No cashflow activity yet" empty state replaces the chart + KPI tiles when the tenant has zero orders + zero inflows + zero outflows + zero costs. CTAs link to `/admin/quotes/new` and `/admin/payables`. Pattern documented for the other three to follow.
+
 ---
 
 ## 6. Mobile audit - assessment
