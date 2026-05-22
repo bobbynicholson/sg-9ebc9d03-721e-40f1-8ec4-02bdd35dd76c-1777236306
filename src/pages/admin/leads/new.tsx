@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { leadService } from "@/services/leadService";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { useToast } from "@/hooks/use-toast";
@@ -165,9 +166,24 @@ export default function NewLead() {
         .filter(Boolean)
         .join("\n\n");
 
+      // leads.region_id is NOT NULL since migration 20260521110000.
+      // If the operator didn't pick a region-backed kitchen, fall
+      // back to the tenant's default region (oldest active) so the
+      // insert satisfies the constraint instead of throwing.
+      const regionIdForInsert = resolvedRegionId
+        ?? (await resolveDefaultRegionId(user.company_id));
+      if (!regionIdForInsert) {
+        toast({
+          title: "No region configured",
+          description: "Set up at least one region in Settings -> Regions before creating leads. New tenants get a default Main region; this looks like a legacy account.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await leadService.createLead({
         company_id: user.company_id,
-        region_id: resolvedRegionId,
+        region_id: regionIdForInsert,
         contact_name: values.name,
         company_name: values.company || null,
         client_name: values.name,

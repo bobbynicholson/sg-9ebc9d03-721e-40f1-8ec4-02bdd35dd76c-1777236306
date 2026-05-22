@@ -78,6 +78,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitchens";
 import { dispatchService } from "@/services/dispatchService";
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
@@ -1134,6 +1135,24 @@ function NewQuotePage() {
       const payload = buildPayload();
       // Status overrides: caller tells us when this is a Send.
       Object.assign(payload, override);
+      // quotes.region_id is NOT NULL since migration 20260521110000.
+      // When the operator didn't pick a region-backed kitchen
+      // (e.g. selectedKitchen.source === 'hq'), buildPayload leaves
+      // region_id null. Fall back to the tenant's default region
+      // here so the insert satisfies the constraint. Same fallback
+      // is reused for the auto-linked lead row below.
+      if (!payload.region_id) {
+        payload.region_id = await resolveDefaultRegionId(companyId);
+      }
+      if (!payload.region_id) {
+        toast({
+          title: "No region configured",
+          description: "Set up at least one region in Settings -> Regions before creating quotes.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return null;
+      }
       // DB constraint quote_has_lead_or_client requires lead_id OR
       // client_id to be set. The fromQuoteId duplicate flow can land
       // here with both null when the source quote was a legacy row
@@ -1163,7 +1182,10 @@ function NewQuotePage() {
               .from("leads")
               .insert({
                 company_id: companyId,
-                region_id: payload.region_id ?? null,
+                // Guaranteed set above - payload.region_id passes the
+                // resolveDefaultRegionId fallback so it's never null
+                // by the time we reach this auto-link branch.
+                region_id: payload.region_id,
                 contact_name: clientName,
                 client_name: clientName,
                 email,

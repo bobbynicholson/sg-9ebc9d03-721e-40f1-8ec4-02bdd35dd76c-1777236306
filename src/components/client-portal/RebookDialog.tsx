@@ -60,6 +60,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO } from "@/lib/localDate";
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -375,8 +376,20 @@ export function RebookDialog({
       // so the funnel counts it as a closed-loop conversion and not as
       // an unanswered enquiry.
       try {
+        // leads.region_id is NOT NULL since migration 20260521110000.
+        // Use the source order's region when rebooking (preserves the
+        // branch association) or fall back to the tenant's default
+        // region. Skipping the lead insert entirely is preferable to
+        // throwing - this is a non-blocking analytics row.
+        const regionId = (sourceOrder as any)?.region_id
+          ?? await resolveDefaultRegionId(companyId);
+        if (!regionId) {
+          console.warn("[RebookDialog] no region available, skipping lead insert");
+          throw new Error("no_region");
+        }
         const leadPayload: any = {
           company_id: companyId,
+          region_id: regionId,
           email: user.email || "",
           client_email: user.email || "",
           contact_name: profileFullName || user.email || "Client portal",

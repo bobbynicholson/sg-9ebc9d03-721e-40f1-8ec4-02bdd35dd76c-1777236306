@@ -203,14 +203,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     mapped.contact_name || mapped.client_name || "Embedded form enquiry";
   const contactEmail = submittedEmail;
 
+  // leads.region_id is NOT NULL since migration 20260521110000. The
+  // form may be branch-scoped via embed_form_configs.region_id; if
+  // not, fall back to the company's oldest active region so the
+  // insert satisfies the constraint. The form designer comment that
+  // said "Null is fine for single-branch tenants" was written
+  // pre-NOT-NULL and is no longer accurate.
+  let resolvedFormRegionId: string | null = (form.region_id as string | null) ?? null;
+  if (!resolvedFormRegionId) {
+    const { data: defaultRegion } = await (supabase as any)
+      .from("regions")
+      .select("id")
+      .eq("company_id", company.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    resolvedFormRegionId = (defaultRegion as { id?: string } | null)?.id ?? null;
+  }
+  if (!resolvedFormRegionId) {
+    // Hard-fail with a clear message rather than a NOT NULL error.
+    // A tenant with zero regions is a legacy / mis-onboarded account
+    // and the operator needs to fix it in Settings -> Regions before
+    // public lead capture can land.
+    console.error("[embed/submit] no region available for company", company.id);
+    return res.status(503).json({
+      ok: false,
+      message: "Form is not currently accepting submissions. Please contact us directly.",
+    });
+  }
+
   const leadInsert: Record<string, any> = {
     company_id: company.id,
     user_id: company.owner_id || null,
-    // region_id propagation: the form may be branch-scoped on
-    // embed_form_configs.region_id. Carry it onto the lead so the
-    // multi-branch routing + region-manager notification chain fires
-    // correctly. Null is fine for single-branch tenants.
-    region_id: form.region_id || null,
+    region_id: resolvedFormRegionId,
     contact_name: contactName,
     email: contactEmail,
     client_name: mapped.client_name || mapped.contact_name || null,
