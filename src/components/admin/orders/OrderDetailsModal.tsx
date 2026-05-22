@@ -250,7 +250,7 @@ const reloadEquipment = async () => {
   // below.
   const { data, error } = await supabase
     .from("equipment_bookings")
-    .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
+    .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price)")
     .eq("order_id", selectedOrder.id);
   if (error) {
     console.error("[admin/orders] equipment_bookings reload failed:", error);
@@ -430,9 +430,19 @@ useEffect(() => {
   let cancelled = false;
   (async () => {
     try {
+      // Pull the order_items + the linked menu_item's category. The
+      // category column on menu_items is the source of truth - the
+      // description column on order_items was historically populated
+      // from a tighter enum that collapsed 'salad' / 'starter' into
+      // 'appetizer' (Wave 30.3 bug). Render below prefers the joined
+      // menu_items.category when present, falling back to description
+      // for free-text rows that aren't linked to a menu item.
       const { data, error } = await supabase
         .from("order_items")
-        .select("id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at")
+        .select(`
+          id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at,
+          menu_item:menu_items!order_items_menu_item_id_fkey(category)
+        `)
         .eq("order_id", selectedOrder.id)
         .order("created_at", { ascending: true });
       if (error) {
@@ -461,7 +471,7 @@ useEffect(() => {
     try {
       const { data, error } = await supabase
         .from("equipment_bookings")
-        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, rental_price)")
+        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price)")
         .eq("order_id", selectedOrder.id);
       if (error) {
         console.error("[admin/orders] equipment_bookings fetch failed:", error);
@@ -1517,12 +1527,24 @@ return (
                     </tr>
                   </thead>
                   <tbody>
-                    {orderItemsRaw.map((it: any) => (
+                    {orderItemsRaw.map((it: any) => {
+                      // Prefer the live menu_items.category (source
+                      // of truth) over the stored description column.
+                      // Pre-Wave-30.3 quote lines collapsed 'salad'
+                      // and 'starter' into 'appetizer' and persisted
+                      // that to order_items.description; using the
+                      // joined category corrects the display without
+                      // a data backfill.
+                      const liveCategory = it.menu_item?.category
+                        ? String(it.menu_item.category).toLowerCase()
+                        : null;
+                      const categoryLabel = liveCategory || it.description || null;
+                      return (
                       <tr key={it.id} className="border-t border-slate-100">
                         <td className="px-3 py-2">
                           <div className="font-medium text-slate-900">{it.item_name || "(unnamed)"}</div>
-                          {it.description && (
-                            <div className="text-xs text-slate-500 mt-0.5">{it.description}</div>
+                          {categoryLabel && (
+                            <div className="text-xs text-slate-500 mt-0.5">{categoryLabel}</div>
                           )}
                           {it.special_instructions && (
                             <div className="text-xs text-amber-700 mt-0.5">Note: {it.special_instructions}</div>
@@ -1550,7 +1572,8 @@ return (
                           </td>
                         )}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
