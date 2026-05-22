@@ -20,6 +20,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { logPiiAccess } from "@/services/piiAccessLogService";
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -810,12 +811,18 @@ function ClientsCRM() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            {/* flex-1 + min-w-0 lets the title block claim the leftover
+                space once the action toolbar on the right is laid out.
+                Without flex-1, min-w-0 alone allowed the description
+                column to shrink to its longest word's width - which on
+                ~1100px viewports rendered the paragraph as one word
+                per line. */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
                 <Users className="w-6 h-6 text-white" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Contacts
                 </h1>
@@ -824,7 +831,7 @@ function ClientsCRM() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -1969,7 +1976,21 @@ function ClientFormDialog({
     if (editing?.clientId) {
       ({ error } = await supabase.from("clients").update(payload).eq("id", editing.clientId).eq("company_id", companyId));
     } else {
-      ({ error } = await supabase.from("clients").insert({ ...payload, is_active: true }));
+      // clients.region_id is NOT NULL since migration 20260521110000.
+      // Resolve the tenant's default region (oldest active) so the
+      // insert satisfies the constraint. Update path doesn't need it -
+      // the row already carries the region from when it was created.
+      const regionId = await resolveDefaultRegionId(companyId);
+      if (!regionId) {
+        toast({
+          title: "No region configured",
+          description: "Create a region in Settings -> Regions before adding clients. New tenants get a default Main region automatically; this looks like a legacy account.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+      ({ error } = await supabase.from("clients").insert({ ...payload, region_id: regionId, is_active: true }));
     }
     setSaving(false);
     if (error) {
@@ -1986,7 +2007,12 @@ function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      {/* max-h + overflow-y-auto matches the rest of the codebase's
+          long-form dialogs (see AddEditCompanyDialog, ShortagesPanel,
+          ImportRecordsModal). Without it, expanding "More details"
+          pushes the dialog past the viewport and the bottom (Cancel /
+          Add client buttons + notes / tags) becomes unreachable. */}
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editing?.clientId ? "Edit client" : promoting ? "Save as client" : "Add a client"}
