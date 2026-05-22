@@ -342,8 +342,19 @@ function InvoicesPageInner() {
     // touches the order's status - the order continues through its
     // lifecycle (kitchen prep, dispatch, delivery, completion) like
     // it should. Only the order's payment_status is updated here.
+    //
+    // Phase 7c follow-up: re-worded the confirmation after Bobby
+    // tested with an active confirmed order and was alarmed by the
+    // older "closes the linked order" copy (which was stale - he
+    // saw it via a cached JS bundle). The new copy leads with the
+    // reassurance and the price-of-the-action, so even on a stale
+    // bundle the operator sees that prep / dispatch / delivery
+    // keep running.
     if (typeof window !== "undefined" && !window.confirm(
-      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full? This records a manual payment on each, settles the outstanding balance and updates the order's payment status. The order stays active for kitchen prep, dispatch, and delivery - completion happens after the event.`,
+      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full?\n\n` +
+      `WHAT THIS DOES: records a manual payment for each invoice and settles the outstanding balance. The order's payment_status flips to 'paid'.\n\n` +
+      `WHAT THIS DOES NOT DO: this does NOT cancel or close the order. Kitchen prep, dispatch, delivery, and on-site service all continue exactly as before - the event still runs. Only the money side is updated.\n\n` +
+      `Continue?`,
     )) return;
     setBulkMarkPaidBusy(true);
     try {
@@ -368,6 +379,20 @@ function InvoicesPageInner() {
         toast({
           title: `Marked ${paid} paid, ${failed} failed`,
           description: first ? `First error: ${first.reason}` : "Some invoices could not be marked paid",
+          variant: "destructive",
+        });
+      } else if (paid === 0 && skipped > 0) {
+        // Phase 7c: nothing settled, all skipped. Common cases:
+        // already paid, voided after cancellation cascade, zero
+        // balance, linked order cancelled. Use the first error's
+        // reason so the operator sees the actual cause instead of
+        // the optimistic "Marked as paid: 0 settled" copy.
+        const first = (errors as any[])[0];
+        toast({
+          title: "Nothing to mark paid",
+          description: first
+            ? `${first.reason}${skipped > 1 ? ` (+ ${skipped - 1} other${skipped - 1 === 1 ? "" : "s"})` : ""}`
+            : `${skipped} invoice${skipped === 1 ? "" : "s"} skipped - already paid, zero balance, or attached to a cancelled order.`,
           variant: "destructive",
         });
       } else {
