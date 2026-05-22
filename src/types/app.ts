@@ -252,6 +252,13 @@ export interface Payment {
 
 export enum UserRole {
   SUPER_ADMIN = "super_admin",
+  // OWNER scaffolded ahead of the owner-specific dashboard build.
+  // Treated as company_admin for every permission check until the
+  // dedicated UI ships (gating sweep deferred per project memory).
+  // Adding the enum value early so new RLS policies + role-allowlists
+  // include 'owner' from the start - avoids a later backfill across
+  // every gate.
+  OWNER = "owner",
   COMPANY_ADMIN = "company_admin",
   // Multi-branch admin variants. region_admin is scoped to one or
   // more branches via profiles.regions_covered; sales_admin is

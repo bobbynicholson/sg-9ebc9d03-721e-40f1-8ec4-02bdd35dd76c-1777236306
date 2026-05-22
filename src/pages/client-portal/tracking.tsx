@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
 import Head from "next/head";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
@@ -62,6 +63,14 @@ export default function ClientTracking() {
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [loading, setLoading] = useState(true);
+  // Client persona follow-up: mirror the admin money-page pattern
+  // (admin.md section 5). Track a load error so we can render a
+  // retry card instead of the empty-state card when the load
+  // actually failed (network / RLS / supabase outage). The two
+  // failure modes look identical without this split: "no live
+  // deliveries" silently substituted for "we couldn't reach the
+  // server" was confusing customers.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
@@ -101,6 +110,7 @@ export default function ClientTracking() {
 
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
+    if (!silent) setLoadError(null);
     try {
       // Tenant scope: only this catering company's orders.
       const tenantCompanyId: string | null = company?.id ?? null;
@@ -160,8 +170,12 @@ export default function ClientTracking() {
       }
       
       setLastRefresh(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading orders:", error);
+      // Only surface the load error to the UI on non-silent (i.e.
+      // user-visible) attempts. The 30s background refresh failing
+      // shouldn't replace a working page with a retry card.
+      if (!silent) setLoadError(error?.message || "Couldn't load your deliveries. Try again.");
     } finally {
       setLoading(false);
     }
@@ -327,6 +341,36 @@ export default function ClientTracking() {
     );
   }
 
+  // Load-failure recovery branch. Distinguishes "couldn't reach the
+  // server" from "nothing scheduled" so customers don't see a
+  // friendly "no deliveries" message when the page is actually
+  // broken. Matches the cashflow / financial recovery pattern.
+  if (loadError && orders.length === 0) {
+    return (
+      <>
+        <Head><title>Tracking - CateringMS</title></Head>
+        <NoIndexMeta />
+        <ClientNav />
+        <div className={layoutShell}>
+          <ClientPageHeader title="Live tracking" subtitle="Watch your driver as they roll out." />
+          <div className={`${innerPadding} py-8`}>
+            <Card className="border border-rose-200 shadow-sm">
+              <CardContent className="py-10 text-center">
+                <RefreshCw className="w-12 h-12 text-rose-400 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-rose-900 mb-2">Couldn't load your deliveries</h3>
+                <p className="text-sm text-slate-600 max-w-md mx-auto mb-4">{loadError}</p>
+                <Button onClick={() => loadOrders()} className="bg-emerald-600 hover:bg-emerald-700">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Try again
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <ChatBot userRole="client" />
+      </>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <>
@@ -347,10 +391,18 @@ export default function ClientTracking() {
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No live deliveries right now</h3>
-                <p className="text-slate-600 max-w-md mx-auto">
+                <p className="text-slate-600 max-w-md mx-auto mb-4">
                   Live tracking opens up once your next event is being prepared.
                   Until then you can see all your bookings under &ldquo;My Orders&rdquo;.
                 </p>
+                <div className="inline-flex gap-2">
+                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                    <Link href="/client-portal/my-orders">View my orders</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/client-portal/dashboard">Back to dashboard</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

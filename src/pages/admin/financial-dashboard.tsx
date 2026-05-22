@@ -80,6 +80,10 @@ function FinancialDashboardInner() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
+  // Admin persona follow-up (admin.md section 5): mirror the
+  // cashflow-dashboard pattern. Track load errors so we can show
+  // a recovery card instead of a wall of zeros that looks broken.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Bumped when the metrics finish loading so the Cashflow Forecast
   // Card refetches its cash_on_hand value alongside the page refresh.
   const [loadedAt, setLoadedAt] = useState<number>(0);
@@ -104,6 +108,7 @@ function FinancialDashboardInner() {
     if (!user) return;
     try {
       setLoading(true);
+      setLoadError(null);
 
       // Load all financial data
       const ordersData = await orderService.getAllOrders(user.company_id);
@@ -216,8 +221,9 @@ function FinancialDashboardInner() {
       // Celebration disabled: the old gate (healthScore >= 85) fired
       // off a hardcoded 35% profit margin and rewarded every paid
       // tenant with confetti. Honest signal requires real COGS first.
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading financial data:", error);
+      setLoadError(error?.message || "Couldn't load the financial figures. Try again.");
     } finally {
       setLoading(false);
     }
@@ -361,6 +367,40 @@ function FinancialDashboardInner() {
     );
   }
 
+  // Admin persona follow-up (admin.md section 5): load-failure
+  // recovery card. When the load threw and no cached metrics exist,
+  // show a rose-tinted "couldn't load" panel + retry button instead
+  // of the page's normal R0 wall (which previously couldn't be told
+  // apart from a fresh tenant with no data).
+  if (loadError && !metrics) {
+    return (
+      <>
+        <Head><title>Financial Dashboard - CateringMS</title></Head>
+        <NoIndexMeta />
+        <AdminNav />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:ml-64 xl:ml-72">
+          <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load financial data</h2>
+            <p className="text-sm text-slate-600 mb-4">{loadError}</p>
+            <Button onClick={loadFinancialData} className="bg-emerald-600 hover:bg-emerald-700">
+              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Zero-data empty state. When the load succeeded but the tenant
+  // has no orders + zero cash received + zero projected + zero pending,
+  // render a "no financial activity yet" card explaining what'll
+  // populate the page. Matches the cashflow-dashboard pattern.
+  const isFinancialZero = !loadError
+    && orders.length === 0
+    && (metrics?.cashReceived || 0) === 0
+    && (metrics?.projectedRevenue30Days || 0) === 0
+    && (metrics?.pendingPayments || 0) === 0;
+
   return (
     <>
       <Head>
@@ -467,6 +507,31 @@ function FinancialDashboardInner() {
                 </Card>
               </div>
             </div>
+
+            {/* Admin persona follow-up (admin.md section 5):
+                zero-data empty state. Slot a "no financial activity
+                yet" card under the header when the load succeeded
+                but the tenant has no orders, no cash, no projected
+                revenue, no pending payments. Stops the page reading
+                as a wall of R0 that looks broken. */}
+            {isFinancialZero && (
+              <div className="mb-6 rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-sm">
+                <DollarSign className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+                <h2 className="text-lg font-bold text-slate-900 mb-2">No financial activity yet</h2>
+                <p className="text-sm text-slate-600 max-w-md mx-auto">
+                  Once you confirm your first order or take your first deposit, this page will start
+                  showing revenue, profit margin, and the next 30 / 90 days of projected income.
+                </p>
+                <div className="mt-4 inline-flex gap-2">
+                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                    <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={withSlug("/admin/orders")}>View orders</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Celebration Message */}
             {showCelebration && (
