@@ -32,7 +32,6 @@ import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget"
 import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
 import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
 import { CancelledOrdersWidget } from "@/components/admin/CancelledOrdersWidget";
-import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { NewLeadsTodayWidget } from "@/components/admin/NewLeadsTodayWidget";
 import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
 import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
@@ -41,7 +40,6 @@ import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidge
 import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
 import { RecentInventoryAdjustsWidget } from "@/components/admin/RecentInventoryAdjustsWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
-import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
 import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWidget";
 import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
@@ -981,18 +979,20 @@ function AdminDashboardPage() {
               are no failures. */}
           <WidgetErrorBoundary label="Email failures"><EmailFailuresWidget companyId={companyId} /></WidgetErrorBoundary>
 
-          {/* Phase 11 #4: menu top-sellers. Shows the 5 dishes
-              moving most across confirmed orders in the last 30
-              days so the kitchen lead + sales lead see what's
-              actually pulling. Self-hides on a fresh tenant. */}
-          <WidgetErrorBoundary label="Menu top sellers"><MenuTopSellersWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 21 #6: top clients by spend over the last 30
-              days. Retention surface for thank-yous, loyalty
-              perks and follow-up. Groups orders by client_name
-              and ranks the top 5 by total booked value. Self-
-              hides on a tenant with no qualifying orders. */}
-          <WidgetErrorBoundary label="Top clients"><TopClientsWidget companyId={companyId} /></WidgetErrorBoundary>
+          {/* Wave 70.57 (owner brief 2026-05-22): MenuTopSellersWidget
+              and TopClientsWidget removed from the dashboard - not
+              top-of-mind signals for the owner viewing the daily
+              read. Both relocated to surfaces where the question
+              actually lives:
+                - Top sellers -> /admin/menu (kitchen + sales lead
+                  reviewing the catalogue see what's actually
+                  pulling, right above the items table).
+                - Top clients -> /admin/contacts (retention surface
+                  in the CRM inbox - thank-yous, loyalty perks,
+                  follow-up live here already, the widget belongs
+                  with them).
+              Imports kept on the page until I verify both new
+              mount sites build cleanly. */}
 
           {/* Phase 11 #10: quote response time. Median sent->view
               and sent->accept across the last 90 days. Helps the
