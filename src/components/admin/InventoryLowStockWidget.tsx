@@ -34,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertTriangle, ArrowRight, ChevronDown, ChevronRight, Package, ShoppingCart, CalendarDays, Info,
+  AlertTriangle, ArrowRight, ChevronDown, ChevronRight, Package, ShoppingCart, CalendarDays, Info, ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 
@@ -397,28 +397,45 @@ export function InventoryLowStockWidget({ companyId }: Props) {
                           <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
                             Orders that need this ({drill.length})
                           </p>
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {drill.map((d) => (
-                              <li key={d.order_id} className="flex items-center justify-between gap-2 text-xs">
-                                <Link
-                                  href={withSlug(`/admin/orders/${d.order_id}`)}
-                                  className="flex-1 min-w-0 hover:bg-slate-50 rounded px-1 py-1 flex items-center gap-2"
-                                >
-                                  <CalendarDays className="w-3 h-3 text-slate-400 shrink-0" />
-                                  <span className="font-mono text-[10px] text-slate-500">{d.order_number}</span>
-                                  <span className="truncate text-slate-800">
-                                    {d.event_name || "(no event name)"}
-                                  </span>
-                                  <span className="text-slate-400 text-[10px] shrink-0">
+                              // Canonical drill route is /admin/orders?orderId={id}
+                              // which opens the orders list with the order's
+                              // detail drawer auto-popped. The earlier
+                              // /admin/orders/{id} path 404'd because there's
+                              // no dedicated detail page at that route.
+                              <li
+                                key={d.order_id}
+                                className="flex items-center gap-2 text-xs rounded-md border border-slate-200 bg-white px-2 py-1.5 hover:border-slate-300 hover:shadow-sm transition"
+                              >
+                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-mono text-[10px] text-slate-500">{d.order_number}</span>
+                                    <span className="truncate text-slate-900 font-medium">
+                                      {d.event_name || "(no event name)"}
+                                    </span>
+                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wide">
+                                      {d.order_status}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 mt-0.5">
                                     {formatEventDate(d.event_date)}
-                                  </span>
+                                    <span className="text-slate-400"> · needs </span>
+                                    <span className="tabular-nums text-slate-700 font-medium">
+                                      {formatQty(d.quantity_required, d.unit || unit)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Link href={withSlug(`/admin/orders?orderId=${d.order_id}`)} className="shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px] gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
+                                  >
+                                    View order <ExternalLink className="w-3 h-3" />
+                                  </Button>
                                 </Link>
-                                <span className="tabular-nums text-slate-700 font-medium shrink-0">
-                                  {formatQty(d.quantity_required, d.unit || unit)}
-                                </span>
-                                <Badge variant="outline" className="text-[9px] uppercase tracking-wide">
-                                  {d.order_status}
-                                </Badge>
                               </li>
                             ))}
                           </ul>
