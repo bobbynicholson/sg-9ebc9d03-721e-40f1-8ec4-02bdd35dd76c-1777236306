@@ -29,6 +29,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
+import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -884,6 +886,18 @@ function MenuPage() {
               </Button>
             </div>
           </div>
+
+          {/* Wave 70.57: top sellers relocated here from /admin/dashboard
+              per owner brief 2026-05-22. Belongs with the catalogue -
+              the question "what's actually pulling on my menu?" lands
+              right where the kitchen/sales lead is reviewing items.
+              Self-hides on a tenant with no confirmed orders in the
+              last 30 days. */}
+          {companyId ? (
+            <WidgetErrorBoundary label="Menu top sellers">
+              <MenuTopSellersWidget companyId={companyId} />
+            </WidgetErrorBoundary>
+          ) : null}
 
           {/* Stat strip */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">

@@ -41,6 +41,8 @@ import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -953,6 +955,18 @@ function ClientsCRM() {
               </Button>
             </div>
           </div>
+
+          {/* Wave 70.57: top clients by spend relocated here from
+              /admin/dashboard per owner brief 2026-05-22. Retention
+              surface (thank-yous, loyalty perks, follow-up) lives
+              in the CRM inbox so the widget sits next to the contact
+              records it points to. Self-hides on a tenant with no
+              qualifying orders in the last 30 days. */}
+          {companyId ? (
+            <WidgetErrorBoundary label="Top clients">
+              <TopClientsWidget companyId={companyId} />
+            </WidgetErrorBoundary>
+          ) : null}
 
           {/* Phase 9 #7: lead source breakdown. Compact horizontal
               bar showing the top 6 lead sources in the book + the
