@@ -23,12 +23,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Link2, Copy, Check, Plus, Trash2, ShieldCheck, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  generateClientToken, buildClientLink, defaultExpiry,
-} from "@/lib/clientAccessTokens";
 
 interface TokenRow {
   id: string;
@@ -48,8 +44,11 @@ interface Props {
   onGenerated?: (rawLink: string) => void;
 }
 
-export function ClientLinkButton({ orderId, companyId, compact, onGenerated }: Props) {
-  const { user } = useAuth() as any;
+export function ClientLinkButton({ orderId, compact, onGenerated }: Props) {
+  // companyId prop kept on the interface for forward-compat with
+  // callers (Kanban card, OrderDetailsModal) but no longer used:
+  // generate() now routes through /api/orders/[id]/preview-as-client
+  // which derives company_id from the order row server-side.
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -80,22 +79,29 @@ export function ClientLinkButton({ orderId, companyId, compact, onGenerated }: P
   const generate = async () => {
     setBusy(true);
     try {
-      const { rawToken, tokenHash, tokenPrefix } = await generateClientToken(orderId);
-      const expiresAt = defaultExpiry();
-      const insert: any = {
-        company_id: companyId,
-        order_id: orderId,
-        token_hash: tokenHash,
-        token_prefix: tokenPrefix,
-        scope: "order",
-        expires_at: expiresAt,
-        created_by: user?.id,
-      };
-      const { error } = await supabase.from("client_access_tokens").insert(insert);
-      if (error) throw error;
-
+      // Route through the server-side preview-as-client endpoint
+      // (which calls mint_client_order_token SECURITY DEFINER RPC).
+      // The previous browser-side INSERT into client_access_tokens
+      // was failing intermittently for owners on /admin/orders -
+      // the generated link looked fine in the dialog but validation
+      // on /c/order/[id] returned invalid_token because the row
+      // never landed (RLS edge case under certain session shapes).
+      // The server path uses elevated privileges, guarantees insert,
+      // and matches the same path the OrderDetailsModal "Copy link"
+      // button already uses.
+      const resp = await fetch(`/api/orders/${orderId}/preview-as-client`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data?.url) {
+        throw new Error(data?.error || "Token mint failed");
+      }
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const link = buildClientLink(origin, orderId, rawToken);
+      const path = String(data.url);
+      // data.url is the relative path /c/order/{id}?t={raw}. Build the
+      // full URL so the operator pastes a complete shareable link.
+      const link = path.startsWith("http") ? path : `${origin.replace(/\/$/, "")}${path}`;
       setFreshLink(link);
       try {
         await navigator.clipboard.writeText(link);
