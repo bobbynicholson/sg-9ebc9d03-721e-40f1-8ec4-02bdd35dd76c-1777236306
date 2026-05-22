@@ -61,9 +61,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Tenant-scoped read. RLS would already block cross-tenant writes,
     // but we double-check here so we can tell the operator *why* a
     // given id was skipped instead of swallowing it inside the RPC.
+    // Pull order_id + linked order.status so we can refuse to settle
+    // invoices attached to cancelled orders (real-world: the invoice
+    // becomes voided by the cancellation cascade, but a stale tab
+    // can still try to mark it paid which used to surface as a
+    // confusing generic RPC error).
     const { data: rows, error: readErr } = await ssr
       .from("invoices")
-      .select("id, company_id, client_id, total_amount, balance_due, status, currency")
+      .select("id, company_id, client_id, total_amount, balance_due, status, currency, order_id, order:orders!invoices_order_id_fkey(status)")
       .eq("company_id", companyId)
       .in("id", invoiceIds);
     if (readErr) {
@@ -116,13 +121,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         skipped += 1;
         continue;
       }
+      // Voided / written-off invoices are terminal - the payment
+      // ledger should never gain rows against them. The cancellation
+      // cascade voids the invoice + zeroes the balance when the linked
+      // order is cancelled. If a stale browser tab still has the
+      // pre-cancel invoice selected, surface why instead of letting
+      // the RPC fire and produce a misleading "Marked as paid" toast.
+      if (inv.status === "voided" || inv.status === "written_off") {
+        skipped += 1;
+        errors.push({
+          invoiceId: id,
+          reason: `Invoice is ${inv.status} - the linked order was cancelled or the invoice was written off. Refresh the page to see the latest state.`,
+        });
+        continue;
+      }
+      // Block mark-paid on invoices attached to cancelled orders. The
+      // cascade should have voided the invoice already, but if it
+      // didn't (e.g. legacy data) we refuse here so the operator
+      // doesn't add ledger entries against a dead order.
+      const linkedOrderStatus = (inv.order as { status?: string } | { status?: string }[] | null);
+      const orderStatus = Array.isArray(linkedOrderStatus)
+        ? linkedOrderStatus[0]?.status
+        : linkedOrderStatus?.status;
+      if (orderStatus === "cancelled") {
+        skipped += 1;
+        errors.push({
+          invoiceId: id,
+          reason: "Linked order is cancelled. Restore the order first or write the invoice off.",
+        });
+        continue;
+      }
       // Settle the outstanding balance, not the full total. If a
       // partial payment already exists, paying total_amount on top
       // would record a double-charge in the ledger.
       const amount = Number(inv.balance_due ?? inv.total_amount ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) {
         skipped += 1;
-        errors.push({ invoiceId: id, reason: "Zero or invalid balance" });
+        errors.push({ invoiceId: id, reason: "Zero or invalid balance - nothing to settle" });
         continue;
       }
       const currency = (inv.currency as string) || companyCurrency;
