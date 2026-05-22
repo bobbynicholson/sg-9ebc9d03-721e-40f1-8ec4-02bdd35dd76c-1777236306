@@ -40,7 +40,6 @@ import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
 import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
 import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
 import { RecentInventoryAdjustsWidget } from "@/components/admin/RecentInventoryAdjustsWidget";
-import { RecentlyViewedWidget } from "@/components/admin/RecentlyViewedWidget";
 import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
@@ -781,11 +780,16 @@ function AdminDashboardPage() {
             </WidgetErrorBoundary>
           ) : null}
 
-          {/* Phase 17 #8: recently-viewed shortcut. Tracks the last
-              5 entities the operator opened across orders / quotes /
-              contacts in localStorage so jumping back is one click.
-              Self-hides until at least one entity is tracked. */}
-          <WidgetErrorBoundary label="Recently viewed"><RecentlyViewedWidget /></WidgetErrorBoundary>
+          {/* Phase 17 #8: recently-viewed shortcut was here. Removed
+              from the dashboard 2026-05-22 per owner brief - the strip
+              was sitting between Cashflow Snapshot and the Stock
+              widget, breaking the financial-then-operational reading
+              flow on the main dashboard. The CommandPalette (Ctrl-K)
+              already covers the same jump-back use case from any page,
+              and AdminNav surfaces the last-visited orders shortcut
+              when relevant. The widget component itself stays in
+              src/components/admin/RecentlyViewedWidget.tsx so it can
+              be re-mounted elsewhere if needed. */}
 
           {/* Phase 9 #10: quotes-to-chase widget. Surfaces the 5
               oldest in-play quotes sent more than 3 days ago without
