@@ -70,6 +70,22 @@ interface Stats {
    *  Bobby cares about: "how much money is sitting in conversion limbo". */
   quotesInCirculationValue: number;
   lowStockItems: number;
+  /** Wave 70.56: split breakdown of pendingQuotes so the Priority
+   *  Actions row can say "X drafts to finish + Y awaiting client" -
+   *  the original "1 pending quote / Require immediate attention"
+   *  copy was misleading on a quote that was sent and waiting on
+   *  the client (admin can't action it from the dashboard). */
+  pendingQuoteDrafts: number;
+  pendingQuoteSent: number;
+  /** Wave 70.56: items in 'shortfall' status from the demand
+   *  outlook view - confirmed/preparing/ready orders in the next 7
+   *  days need more than we have. Drives the new top Priority
+   *  Actions row (highest-urgency signal on the dashboard). */
+  shortfallItems: number;
+  /** Wave 70.56: ISO date of the earliest upcoming event so the
+   *  Priority Actions row can say "Next: Sat 23 May" instead of
+   *  conflating with activeOrders. */
+  nextEventDate: string | null;
   activeUsers: number;
   cancelledOrdersInRange: number;
   refundsOutstandingCount: number;
@@ -90,7 +106,10 @@ const EMPTY: Stats = {
   upcomingEvents: 0, totalOrdersInRange: 0, completedOrdersInRange: 0,
   averageOrderValue: 0, completionRate: 0,
   pendingQuotes: 0, quotesInCirculationCount: 0, quotesInCirculationValue: 0,
-  lowStockItems: 0, activeUsers: 0,
+  lowStockItems: 0,
+  pendingQuoteDrafts: 0, pendingQuoteSent: 0,
+  shortfallItems: 0, nextEventDate: null,
+  activeUsers: 0,
   cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
   refundsOutstandingValue: 0, topCancelReason: "-",
   vatCollected: 0,
@@ -190,7 +209,7 @@ function AdminDashboardPage() {
       // can compute accepted / (accepted + rejected + expired).
       // Drafts are excluded - they were never sent so their
       // outcome is undecided, not a 'loss'.
-      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes] = await Promise.all([
+      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes, draftsRes, shortfallRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
@@ -248,6 +267,24 @@ function AdminDashboardPage() {
           .in("status", ["accepted", "rejected", "expired"])
           .gte("updated_at", `${fromISO}T00:00:00`)
           .lte("updated_at", `${toISO}T23:59:59`),
+        // Wave 70.56: split drafts from sent in the pending pool so
+        // the Priority Actions row can say the right thing for each
+        // ("drafts to finish" vs "sent, awaiting client").
+        supabase
+          .from("quotes")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .eq("status", "draft"),
+        // Wave 70.56: count items in 'shortfall' status from the
+        // demand-outlook view (confirmed orders in next 7 days
+        // need more than we have). RLS on the underlying tables
+        // scopes the view to this tenant.
+        (supabase as any)
+          .from("inventory_demand_outlook")
+          .select("inventory_item_id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("status", "shortfall"),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -265,6 +302,8 @@ function AdminDashboardPage() {
         ["users", usersRes],
         ["inventory", invRes],
         ["closedQuotes", conversionRes],
+        ["draftQuotes", draftsRes],
+        ["shortfall", shortfallRes],
       ].forEach(([label, res]: any) => {
         if (res?.error) console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
       });
@@ -341,10 +380,20 @@ function AdminDashboardPage() {
         ACTIVE_STATUSES.includes(String(o.status || "").toLowerCase()),
       ).length;
 
-      const upcomingEvents = orders.filter((o: any) => {
+      // Wave 70.56: also compute the earliest-event date so the
+      // Priority Actions row can say "Next: Sat 23 May" instead of
+      // the misleading "X currently active in range" sub it had
+      // before (which conflated upcoming with activeOrders).
+      const upcomingOrders = orders.filter((o: any) => {
         const status = String(o.status || "").toLowerCase();
         return o.event_date >= todayISO && status !== "cancelled" && status !== "completed";
-      }).length;
+      });
+      const upcomingEvents = upcomingOrders.length;
+      const nextEventDate = upcomingOrders.length === 0
+        ? null
+        : upcomingOrders
+          .map((o: any) => String(o.event_date))
+          .sort()[0];
 
       const completedOrdersInRange = orders.filter((o: any) =>
         String(o.status || "").toLowerCase() === "completed",
@@ -359,8 +408,17 @@ function AdminDashboardPage() {
         ? (completedOrdersInRange / totalOrdersInRange) * 100
         : 0;
 
+      // Wave 70.56: low-stock count now matches the smart widget's
+      // definition - an item only counts as "low" if a minimum_stock
+      // threshold has actually been configured (> 0) AND current is at
+      // or below it. Previously the filter was current <= min with no
+      // min > 0 guard, so a freshly-imported item with stock=0 and no
+      // threshold (the bulk of a new tenant's catalogue) counted as
+      // low - the Priority Actions row read "38 Low Stock Items" for
+      // Spit Braai when the real count was 19.
       const lowStockItems = (invRes.data || []).filter(
-        (r: any) => Number(r.current_stock || 0) <= Number(r.minimum_stock || 0),
+        (r: any) => Number(r.minimum_stock || 0) > 0
+          && Number(r.current_stock || 0) <= Number(r.minimum_stock || 0),
       ).length;
 
       // Phase 12 #6: quote conversion. Accepted ÷ (accepted + rejected
@@ -413,6 +471,10 @@ function AdminDashboardPage() {
         0,
       );
 
+      const pendingQuoteDrafts = draftsRes?.count ?? 0;
+      const pendingQuoteSent = quotesInCirculationCount; // already filters status='sent'
+      const shortfallItems = shortfallRes?.count ?? 0;
+
       setStats({
         bookedRevenue, collectedRevenue, outstandingRevenue,
         bookedOrders, collectedOrders,
@@ -424,6 +486,8 @@ function AdminDashboardPage() {
         quotesInCirculationValue,
         activeUsers: usersRes.count ?? 0,
         lowStockItems,
+        pendingQuoteDrafts, pendingQuoteSent,
+        shortfallItems, nextEventDate,
         cancelledOrdersInRange, refundsOutstandingCount,
         refundsOutstandingValue, topCancelReason,
         vatCollected,
@@ -974,8 +1038,31 @@ function AdminDashboardPage() {
             </WidgetErrorBoundary>
           ) : null}
 
-          {/* Priority Actions, not date-bound, always-on attention items */}
-          {(stats.pendingQuotes > 0 || stats.lowStockItems > 0 || stats.upcomingEvents > 0) && (
+          {/* Priority Actions, not date-bound, always-on attention
+              items. Wave 70.56 audit (Bobby brief 2026-05-22):
+                - Re-ordered by actionability: shortfall first (real
+                  money risk on confirmed events), then sent quotes
+                  awaiting client, then drafts waiting on the admin,
+                  then low stock at the floor with no demand, then
+                  upcoming events.
+                - Shortfall row added - the single most-actionable
+                  signal on the page (consumes the same demand
+                  outlook the smart low-stock widget uses).
+                - Pending Quote row split into "sent / awaiting
+                  client" + "drafts to finish" so the sub copy
+                  reads accurately for each (sent = client's court,
+                  draft = admin's court).
+                - Low Stock count now matches the smart widget
+                  (only counts items where a min threshold is
+                  configured AND current_stock is at or below it).
+                - Upcoming Events sub now reads "Next: {date}"
+                  instead of the misleading "X currently active in
+                  range" which conflated two different measures. */}
+          {(stats.shortfallItems > 0
+            || stats.pendingQuoteSent > 0
+            || stats.pendingQuoteDrafts > 0
+            || stats.lowStockItems > 0
+            || stats.upcomingEvents > 0) && (
             <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-amber-50 to-orange-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -985,29 +1072,63 @@ function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 sm:space-y-3">
-                  {stats.pendingQuotes > 0 && (
+                  {/* 1. SHORTFALL - confirmed orders in next 7 days
+                       need more stock than we have. Top of the
+                       list, red accent, drills to /admin/shopping
+                       (the actionable surface, not /admin/inventory
+                       which is the catalogue). */}
+                  {stats.shortfallItems > 0 && (
                     <PriorityRow
                       icon={AlertCircle} accent="border-red-500" iconColor="text-red-600"
-                      title={`${stats.pendingQuotes} Pending Quote${stats.pendingQuotes !== 1 ? "s" : ""}`}
-                      sub="Require immediate attention"
-                      // Wave 70.52a - withSlug() applied. Was passing raw
-                      // /admin/quotes which 404s in multi-tenant routing.
-                      cta={{ href: withSlug("/admin/quotes"), label: "Review", variant: "default" }}
+                      title={`${stats.shortfallItems} Stock Shortfall${stats.shortfallItems !== 1 ? "s" : ""}`}
+                      sub="Confirmed orders in the next 7 days need more than you have on hand"
+                      cta={{ href: withSlug("/admin/shopping"), label: "Shop now", variant: "default" }}
                     />
                   )}
-                  {stats.lowStockItems > 0 && (
+
+                  {/* 2. SENT quotes awaiting the client. Amber -
+                       admin can't force a reply but should chase. */}
+                  {stats.pendingQuoteSent > 0 && (
+                    <PriorityRow
+                      icon={AlertCircle} accent="border-amber-500" iconColor="text-amber-600"
+                      title={`${stats.pendingQuoteSent} Quote${stats.pendingQuoteSent !== 1 ? "s" : ""} Awaiting Client`}
+                      sub="Sent and waiting for the client to accept or decline - chase the old ones"
+                      cta={{ href: withSlug("/admin/quotes"), label: "Chase", variant: "default" }}
+                    />
+                  )}
+
+                  {/* 3. DRAFT quotes - admin's court, finish + send. */}
+                  {stats.pendingQuoteDrafts > 0 && (
+                    <PriorityRow
+                      icon={AlertCircle} accent="border-amber-500" iconColor="text-amber-600"
+                      title={`${stats.pendingQuoteDrafts} Quote Draft${stats.pendingQuoteDrafts !== 1 ? "s" : ""}`}
+                      sub="Started but not yet sent - finish and email to the client"
+                      cta={{ href: withSlug("/admin/quotes"), label: "Finish", variant: "outline" }}
+                    />
+                  )}
+
+                  {/* 4. LOW STOCK (at the floor, no immediate
+                       demand) - operational, not urgent. Hidden
+                       when shortfall already covers it. */}
+                  {stats.lowStockItems > 0 && stats.shortfallItems === 0 && (
                     <PriorityRow
                       icon={Package} accent="border-orange-500" iconColor="text-orange-600"
                       title={`${stats.lowStockItems} Low Stock Item${stats.lowStockItems !== 1 ? "s" : ""}`}
-                      sub="Need restocking"
-                      cta={{ href: withSlug("/admin/inventory"), label: "View", variant: "outline" }}
+                      sub="At or below the configured reorder level - top up at the usual cadence"
+                      cta={{ href: withSlug("/admin/shopping"), label: "View", variant: "outline" }}
                     />
                   )}
+
+                  {/* 5. UPCOMING EVENTS - what's coming next. Sub
+                       shows the earliest date, not a conflated
+                       active count. */}
                   {stats.upcomingEvents > 0 && (
                     <PriorityRow
                       icon={Calendar} accent="border-green-500" iconColor="text-green-600"
                       title={`${stats.upcomingEvents} Upcoming Event${stats.upcomingEvents !== 1 ? "s" : ""}`}
-                      sub={`${stats.activeOrders} currently active in range`}
+                      sub={stats.nextEventDate
+                        ? `Next: ${new Date(`${stats.nextEventDate}T12:00:00`).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
+                        : "On the calendar from today onwards"}
                       cta={{ href: withSlug("/admin/calendar"), label: "Calendar", variant: "outline" }}
                     />
                   )}
