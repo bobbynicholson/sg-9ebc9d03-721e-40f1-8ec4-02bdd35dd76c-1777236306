@@ -21,7 +21,14 @@
  * links don't invalidate when cron secrets rotate.
  */
 
-import crypto from "node:crypto";
+// Bare "crypto" (no `node:` prefix) - the prefixed form trips webpack
+// when this module gets pulled into a client-eligible bundle chain via
+// emailService.ts -> invoiceGenerationService.ts -> client components.
+// Without the prefix, webpack resolves to Node's built-in on the
+// server and to an empty stub on the client. The functions below are
+// only ever invoked from server-side paths (api routes, cron jobs,
+// the send-email handler), so the client-side stub is never executed.
+import crypto from "crypto";
 
 function getSecret(): string {
   return (
