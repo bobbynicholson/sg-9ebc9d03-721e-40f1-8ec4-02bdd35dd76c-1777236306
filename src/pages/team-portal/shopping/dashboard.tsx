@@ -203,6 +203,22 @@ function ShoppingDashboardInner() {
     await activeList.flagOutOfStock(itemId, supplierName);
   };
 
+  // Shopping persona 5.4: per-line claim handler. Stops propagation
+  // so the row's toggle-purchased click handler doesn't also fire.
+  const handleClaim = async (
+    e: React.MouseEvent | React.KeyboardEvent,
+    itemId: string,
+    claim: boolean,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await activeList.claimItem(itemId, claim);
+  };
+
+  // Resolve the current user's id once. Used by the claim chips to
+  // decide between "Claim", "You" (release), and "Claimed by X" labels.
+  const currentUserId = (user as { id?: string } | null)?.id ?? null;
+
   const handleCompleteOpen = () => {
     setActualTotalInput("");
     setCompleteOpen(true);
@@ -589,6 +605,48 @@ function ShoppingDashboardInner() {
                                       pending but gets a chip + survives
                                       to the next supplier in the run.
                                       Hidden once purchased. */}
+                                  {/* Shopping persona 5.4: per-line
+                                      claim chip. Three states:
+                                      unclaimed -> "Claim", claimed by
+                                      you -> "You" (releases on tap),
+                                      claimed by teammate -> "@Name"
+                                      (read-only chip). Hidden once
+                                      the row is purchased. */}
+                                  {!item.purchased && (
+                                    (() => {
+                                      const aId = item.assigned_shopper_id;
+                                      const aName = item.assigned_shopper_name;
+                                      if (!aId) {
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleClaim(e, item.id, true)}
+                                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200"
+                                            title="Claim this line - shows your teammates you're on it"
+                                          >Claim</button>
+                                        );
+                                      }
+                                      if (aId === currentUserId) {
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleClaim(e, item.id, false)}
+                                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                            title="You claimed this. Tap to release."
+                                          >You</button>
+                                        );
+                                      }
+                                      return (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 flex-shrink-0"
+                                          title={`Claimed by ${aName ?? "teammate"}`}
+                                        >{aName ?? "Teammate"}</Badge>
+                                      );
+                                    })()
+                                  )}
                                   {!item.purchased && (
                                     <button
                                       type="button"
@@ -665,6 +723,43 @@ function ShoppingDashboardInner() {
                               ) : null;
                             })()}
                           </div>
+                          {/* Shopping 5.4: claim chip - same shape
+                              as the grouped path above. */}
+                          {!item.purchased && (
+                            (() => {
+                              const aId = item.assigned_shopper_id;
+                              const aName = item.assigned_shopper_name;
+                              if (!aId) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleClaim(e, item.id, true)}
+                                    onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200"
+                                    title="Claim this line - shows your teammates you're on it"
+                                  >Claim</button>
+                                );
+                              }
+                              if (aId === currentUserId) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleClaim(e, item.id, false)}
+                                    onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                    title="You claimed this. Tap to release."
+                                  >You</button>
+                                );
+                              }
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 flex-shrink-0"
+                                  title={`Claimed by ${aName ?? "teammate"}`}
+                                >{aName ?? "Teammate"}</Badge>
+                              );
+                            })()
+                          )}
                           {!item.purchased && (
                             <button
                               type="button"

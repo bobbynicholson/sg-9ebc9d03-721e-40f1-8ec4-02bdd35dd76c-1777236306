@@ -39,6 +39,14 @@ export interface ActiveListItem {
   // linked inventory item has no preferred supplier.
   supplier_id: string | null;
   supplier_name: string | null;
+  // Shopping persona follow-up 5.4: per-line claim. Lets two shoppers
+  // split a list by section without duplicate purchases. NULL = nobody
+  // has claimed the line (default for legacy + new lines).
+  assigned_shopper_id: string | null;
+  /** Display name resolved from the profiles join. NULL when nobody
+   *  has claimed the line, or when the assigned profile was deleted
+   *  (FK ON DELETE SET NULL). */
+  assigned_shopper_name: string | null;
 }
 
 export interface ActiveList {
@@ -97,6 +105,9 @@ export interface UseActiveShoppingList {
   tickByInventoryItemId: (
     inventoryItemId: string,
   ) => Promise<{ found: boolean; alreadyPurchased: boolean; itemName: string | null }>;
+  /** Shopping 5.4: claim a line for the current user. Pass `null` to
+   *  release the claim. Optimistic update, rolls back on failure. */
+  claimItem: (itemId: string, claim: boolean) => Promise<void>;
 }
 
 const ACTIVE_STATUSES = ["draft", "pending", "in_progress", "shopping", "open"];
@@ -190,7 +201,8 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           inventory_items:item_id (
             preferred_supplier_id,
             suppliers:preferred_supplier_id ( supplier_name )
-          )
+          ),
+          assigned_profile:assigned_shopper_id ( id, full_name )
         `)
         .eq("shopping_list_id", row.id)
         // SHP2-D (SHP2-15): same soft-delete guard on items.
@@ -208,6 +220,8 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           ...r,
           supplier_id: r.inventory_items?.preferred_supplier_id ?? null,
           supplier_name: r.inventory_items?.suppliers?.supplier_name ?? null,
+          assigned_shopper_id: r.assigned_shopper_id ?? null,
+          assigned_shopper_name: r.assigned_profile?.full_name ?? null,
         })) as ActiveListItem[];
         setItems(flat);
         setError(null);
@@ -533,6 +547,49 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     return { found: true, alreadyPurchased: false, itemName: target.name };
   }, [items, togglePurchased]);
 
+  // Shopping persona 5.4: claim a line for the current user (or
+  // release the claim). Two-shopper days previously had no signal
+  // for who was on which row, leading to duplicate purchases at the
+  // checkout. Schema landed in 20260521130000; this is the UI write
+  // path. Optimistic, rolls back on failure. Setting `claim=false`
+  // on a row claimed by someone else does nothing (the UI shouldn't
+  // surface the option, but we guard server-side too via RLS).
+  const claimItem = useCallback(async (
+    itemId: string,
+    claim: boolean,
+  ): Promise<void> => {
+    if (!userId) return;
+    const target = items.find((i) => i.id === itemId);
+    if (!target) return;
+    const nextShopperId = claim ? userId : null;
+    const nextShopperName = claim
+      ? ((user as { full_name?: string; name?: string } | null)?.full_name
+          ?? (user as { full_name?: string; name?: string } | null)?.name
+          ?? "You")
+      : null;
+    // Optimistic update.
+    setItems((prev) => prev.map((i) =>
+      i.id === itemId
+        ? { ...i, assigned_shopper_id: nextShopperId, assigned_shopper_name: nextShopperName }
+        : i,
+    ));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { error: updErr } = await sb
+      .from("shopping_list_items")
+      .update({ assigned_shopper_id: nextShopperId })
+      .eq("id", itemId);
+    if (updErr) {
+      // Rollback on failure.
+      setItems((prev) => prev.map((i) =>
+        i.id === itemId
+          ? { ...i, assigned_shopper_id: target.assigned_shopper_id, assigned_shopper_name: target.assigned_shopper_name }
+          : i,
+      ));
+      setError(updErr.message || "Could not save claim");
+    }
+  }, [items, userId, user]);
+
   return {
     list,
     items,
@@ -545,5 +602,6 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     completeList,
     flagOutOfStock,
     tickByInventoryItemId,
+    claimItem,
   };
 }

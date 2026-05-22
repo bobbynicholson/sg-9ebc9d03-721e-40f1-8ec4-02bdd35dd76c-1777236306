@@ -82,11 +82,9 @@ Fix shape: "Accept all lines" button when the scanner has high confidence on eve
 
 Resolved in post-audit follow-up. `receiveStock()` now auto-creates a `supplier_payables` row when the receipt has a known supplier + at least one priced line. Total = sum of `qty * unitCost` across lines (rounded to cents). Due date = `receivedDate + suppliers.payment_terms` days (defaults to 30). Idempotent: a dedup probe on `(company_id, supplier_id, invoice_ref)` prevents double-billing if the same receipt is committed twice. Non-fatal: payables insert failure logs but doesn't roll back the stock receive - the stock IS in the building, AP can catch up via `/admin/payables` manual entry.
 
-### 5.4 ~~No shopper-handoff visibility on the buy list~~ - schema landed, UI deferred
+### 5.4 ~~No shopper-handoff visibility on the buy list~~ - Done
 
-Schema landed in migration `20260521130000_shopping_list_items_assigned_shopper`. The column is in place + indexed when non-NULL + properly typed (FK to `profiles(id)` ON DELETE SET NULL). Legacy and unclaimed lines stay NULL.
-
-Deferred to a follow-up UI PR: the "claim this line" button + badge on `dashboard.tsx` / `buy-list.tsx`. Bigger because it interacts with the active-list state model in `useActiveShoppingList`. The schema is ready so the UI PR doesn't need a migration.
+Resolved in post-audit follow-up. `useActiveShoppingList` now selects `assigned_shopper_id` + the joined profile's `full_name` and exposes a `claimItem(itemId, claim)` mutator (optimistic update with rollback). `team-portal/shopping/dashboard.tsx` renders a three-state chip per row in both grouped + ungrouped views: unclaimed shows "Claim", claimed by you shows "You" (tap to release), claimed by a teammate shows their name as a read-only amber badge. Hidden once the row is purchased. Schema migration `20260521130000_shopping_list_items_assigned_shopper` is the source for the column.
 
 ### 5.5 ~~Suppliers list stale (no realtime)~~ - Done
 
@@ -103,7 +101,7 @@ Useful for flagging late deliveries vs the supplier's promised lead time. Defer 
 1. `buy-list.tsx` realtime refresh on demand changes (5.1).
 2. Atomic receipt reconciliation + localStorage draft (5.2).
 3. Auto-create `supplier_payables` from successful `receiveStock` (5.3).
-4. `shopping_list_items.assigned_shopper_id` schema + badge (5.4).
+4. ~~`shopping_list_items.assigned_shopper_id` schema + badge (5.4).~~ Done.
 5. `suppliers.tsx` realtime refresh (5.5).
 6. Delete `alerts.tsx` redirect stub after 60 days of zero bookmark traffic (4.1).
 7. ~~Supplier detail page should show related orders pulling from this supplier (admin audit gap).~~ Done. `/admin/suppliers/[id]` now shows "Events during this period" - orders whose event_date falls inside the selected date range. 25-row cap with a "narrow the window" hint. Pragmatic - it gives admin the temporal context for the spend without the 6-join recipe-chain query the strict "ordersconsumed this supplier's items" linkage would need.
