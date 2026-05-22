@@ -9928,6 +9928,8 @@ export type Database = {
         | "client"
         | "region_admin"
         | "sales_admin"
+        | "outsource"
+        | "owner"
       vehicle_owner_kind: "company" | "driver"
     }
     CompositeTypes: {
