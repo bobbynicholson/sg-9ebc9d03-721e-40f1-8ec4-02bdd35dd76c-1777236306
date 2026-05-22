@@ -86,27 +86,13 @@ interface Props {
   canShowCloseOut?: boolean;
 }
 
-const AUTOHEAL_SESSION_KEY = "orderReadinessChip:autoHealAttempted";
-
-function wasAutoHealAttempted(orderId: string): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const raw = sessionStorage.getItem(AUTOHEAL_SESSION_KEY);
-    if (!raw) return false;
-    const set = new Set(JSON.parse(raw) as string[]);
-    return set.has(orderId);
-  } catch { return false; }
-}
-
-function markAutoHealAttempted(orderId: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = sessionStorage.getItem(AUTOHEAL_SESSION_KEY);
-    const arr = raw ? (JSON.parse(raw) as string[]) : [];
-    if (!arr.includes(orderId)) arr.push(orderId);
-    sessionStorage.setItem(AUTOHEAL_SESSION_KEY, JSON.stringify(arr.slice(-200)));
-  } catch { /* ignore */ }
-}
+// Wave 70.58 - the session-once sessionStorage gate was removed.
+// It trapped orders into permanent failure when the first auto-heal
+// attempt ran before the operator had pickup_time set or had
+// finished adding items; the gate marked the order "attempted" and
+// the silent retry path was killed. Replaced with a per-mount ref
+// gate at the call-site so we still don't fire on every render of
+// the same mount, but each fresh modal open gets a clean retry.
 
 export function OrderReadinessChip({
   readiness,
@@ -124,7 +110,7 @@ export function OrderReadinessChip({
   const tone = TONE[readiness.chip];
   const Icon = tone.Icon;
   const failingCount = readiness.failingHigh.length + readiness.failingMedium.length;
-  const autoHealFiredRef = useRef(false);
+  const autoHealFiredRef = useRef<string | null>(null);
   const [closingOut, setClosingOut] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(false);
 
@@ -181,33 +167,45 @@ export function OrderReadinessChip({
     }
   };
 
-  // Wave 70.16 - silent auto-heal of missing prep tasks. When the
+  // Wave 70.58 - silent auto-heal of missing prep tasks. When the
   // chip detects the kitchen_prep_tasks_present signal failing AND
-  // the order event is in the future (today or later), silently
-  // fire the regen endpoint exactly ONCE per orderId per session.
-  // The operator never has to click Generate now on a fresh order
-  // - the chip recovers it itself. Past events still require
-  // explicit manual override (a Generate now click) because the
-  // operator should consciously decide to backfill history.
+  // the order event is today or later, silently fire the regen
+  // endpoint. The API is idempotent (returns "already_has_pending_
+  // tasks" no-op when tasks exist, "no_menu_items_or_no_pickup_time"
+  // when the planner has no work to do) so calling on every chip
+  // render is cheap.
+  //
+  // Pre-Wave-70.58 the heal was gated by a sessionStorage "attempted
+  // once per orderId per browser session" flag. That gate was
+  // designed to prevent loops but ended up trapping orders into
+  // permanent failure - if the first attempt ran while the operator
+  // hadn't yet set pickup_time or added items, the order was marked
+  // attempted and the chip's "Generate prep tasks" button was the
+  // only recovery surface. Per owner brief 2026-05-22: no manual
+  // buttons; everything automatic. Gate removed.
+  //
+  // Per-mount ref prevents a render storm within the same modal
+  // session from re-firing - we re-fire once per orderId per mount
+  // cycle, not once per session.
   useEffect(() => {
     if (!orderId) return;
-    if (autoHealFiredRef.current) return;
-    if (wasAutoHealAttempted(orderId)) return;
+    if (autoHealFiredRef.current === orderId) return;
 
     const prepSignal = readiness.failingHigh.find((s) => s.key === "kitchen_prep_tasks_present");
-    if (!prepSignal || prepSignal.actionType !== "regenerate_prep_tasks") return;
+    if (!prepSignal) return;
 
-    // Gate: only auto-heal future events. Past events stay manual.
+    // Gate: only auto-heal future events. Past events would need a
+    // force=true override that's never operator-friendly to surface
+    // automatically (we don't know if the operator wants paperwork
+    // backfilled or whether the order is just stale).
     if (eventDate) {
       const todayIso = new Date().toISOString().slice(0, 10);
       if (String(eventDate).slice(0, 10) < todayIso) return;
     } else {
-      // No eventDate passed -> safer to not auto-fire.
       return;
     }
 
-    autoHealFiredRef.current = true;
-    markAutoHealAttempted(orderId);
+    autoHealFiredRef.current = orderId;
 
     void (async () => {
       try {
@@ -221,10 +219,8 @@ export function OrderReadinessChip({
         if (r.ok && data?.created > 0) {
           onActionComplete?.();
         }
-        // Silent on failure - the manual Generate now button stays
-        // visible inside the expanded chip as the fallback path.
       } catch {
-        /* silent - manual button remains as fallback */
+        /* silent - the next modal open will retry */
       }
     })();
   }, [orderId, eventDate, readiness.failingHigh, onActionComplete]);
@@ -319,54 +315,34 @@ function SignalRow({
   signal,
   withSlug,
   orderId,
-  onActionComplete,
 }: {
   signal: ReadinessSignal;
   withSlug: (href: string) => string;
   orderId?: string;
+  /** Wave 70.58: prop retained on the parent's call site for the
+   *  general SignalRow shape, but with regenerate_prep_tasks now
+   *  auto-healing silently there's no longer an action that fires
+   *  this from a child row. Future button-based actionTypes can
+   *  thread it back in. */
   onActionComplete?: () => void;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const dotTone = signal.severity === "high" ? "bg-rose-500" : "bg-amber-500";
 
-  // Wave 70.9 - inline action handler for regenerate-prep-tasks.
-  // Other action types can land here later.
+  // Wave 70.58: the regenerate_prep_tasks actionType no longer
+  // surfaces a manual button. The parent chip's auto-heal effect
+  // fires the same API silently on every mount for future-dated
+  // orders, so a visible "Generate prep tasks" trigger was just
+  // adding a failure surface (operators clicked it before the
+  // order had pickup_time set and got a confusing error). Other
+  // actionTypes can still land here as buttons.
   const runAction = async () => {
     if (!orderId || !signal.actionType) return;
     setBusy(true);
     try {
-      if (signal.actionType === "regenerate_prep_tasks") {
-        // Wave 70.15 - omit force so the API's default-true for
-        // manual triggers kicks in. Previously sent force=false
-        // which the API correctly honoured -> past-date guard
-        // wasn't bypassed -> "Event is in the past" message on
-        // any historical order (seed data, late paperwork).
-        // Manual operator-initiated regen should always force.
-        const r = await fetch("/api/orders/regenerate-prep-tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ order_id: orderId, force: true }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-          toast({ title: "Couldn't generate prep tasks", description: data.error || "Server error", variant: "destructive" });
-          return;
-        }
-        toast({
-          title: data.created > 0 ? "Prep tasks generated" : "No tasks generated",
-          description: data.message,
-        });
-        // Wave 70.40: only emit when something actually changed --
-        // a no-op regen (e.g. tasks already present, no menu items)
-        // shouldn't ping listeners since nothing on screen needs to
-        // refresh. created > 0 means we wrote rows.
-        if (data.created > 0) {
-          emitOrderUpdated(orderId, "readiness-chip:regenerate-prep-tasks", ["prep"]);
-        }
-        onActionComplete?.();
-      }
+      // Reserved for future actionTypes. regenerate_prep_tasks now
+      // auto-heals silently from the parent useEffect.
     } catch (e: any) {
       toast({ title: "Action failed", description: e?.message, variant: "destructive" });
     } finally {
@@ -375,28 +351,27 @@ function SignalRow({
   };
 
   const label = signal.actionLabel || "Fix it";
-
-  // Wave 70.37 - per-action hover tooltip so the operator
-  // understands WHAT the button does before they tap it.
-  // Previously "Generate now" gave zero context and the only way
-  // to find out was to click and read the resulting toast.
-  const actionTooltip = (() => {
-    if (signal.actionType === "regenerate_prep_tasks") {
-      return "Auto-creates the chef's prep checklist from this order's menu items. Reads recipes, scales by guest count, and schedules each task to finish before pickup time. Safe to re-run - it wipes pending tasks first.";
-    }
-    return undefined;
-  })();
+  const isAutoHealing = signal.actionType === "regenerate_prep_tasks";
 
   return (
     <li className="flex items-start gap-2 text-xs">
       <span className={`mt-1 inline-block w-1.5 h-1.5 rounded-full shrink-0 ${dotTone}`} aria-hidden="true" />
       <span className="flex-1 text-slate-800">{signal.message}</span>
-      {signal.actionType ? (
+      {isAutoHealing ? (
+        // Passive indicator - the auto-heal effect on the parent
+        // is running this in the background. No click needed.
+        <span
+          className="text-[11px] text-slate-500 inline-flex items-center gap-1 shrink-0"
+          title="Prep tasks generate automatically once the order has menu items + a pickup time. Re-opens of this modal will retry."
+        >
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Auto-generating
+        </span>
+      ) : signal.actionType ? (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); void runAction(); }}
           disabled={busy}
-          title={actionTooltip}
           className="text-xs font-semibold text-orange-700 hover:text-orange-900 inline-flex items-center gap-1 shrink-0 disabled:opacity-50"
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
