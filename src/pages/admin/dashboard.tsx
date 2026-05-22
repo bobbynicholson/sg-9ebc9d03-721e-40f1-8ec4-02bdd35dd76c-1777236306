@@ -219,10 +219,20 @@ function AdminDashboardPage() {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["sent"]),
+        // Team Members tile: count only profiles that are actually
+        // on the team right now. Previously this counted every row
+        // attached to the company including soft-deleted (deleted_at
+        // set) and explicitly deactivated (is_active=false) members,
+        // so an offboarded driver kept inflating the headline. Filter
+        // is "active or unset, and not soft-deleted" - `is_active`
+        // is nullable on legacy rows, so `.or(...)` keeps those
+        // visible while excluding rows explicitly marked inactive.
         supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .or("is_active.is.null,is_active.eq.true"),
         supabase
           .from("inventory_items")
           .select("current_stock, minimum_stock")
@@ -566,6 +576,201 @@ function AdminDashboardPage() {
               every 60 seconds so the tab stays current. */}
           <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} /></WidgetErrorBoundary>
 
+          {/* === KPI HEADLINES (Wave 70.53) ====================================
+              Moved here from below Quick Actions. Owner brief 2026-05-22:
+              "this is obviously the main section where the user can see
+              how many quotes they've sent out, how many they've closed,
+              how many everything." Now lives directly under Today's Pulse
+              and immediately above the Cashflow Snapshot so the headline
+              numbers are the second thing the operator reads on the page.
+
+              Audit pass at the same time:
+                - Booked / Collected / Outstanding maths verified against
+                  live tenant data (Spit Braai 2026-05).
+                - Team Members tile now filters deleted_at + is_active
+                  (see loadMetrics() above).
+                - Tooltip copy refreshed: the cards now sit above the
+                  widget stack, so any "see the widget above" pointers
+                  were rewritten.
+              ================================================================ */}
+
+          {/* Key revenue metrics, all bound to the date range */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+            {/* Wave 70.52a - every MetricCard now carries an href so
+                clicking drills to the dedicated surface for that
+                number. Previously hover:shadow-xl made tiles look
+                clickable while doing nothing. */}
+            <MetricCard
+              label="Booked Revenue"
+              value={fmt.format(stats.bookedRevenue)}
+              hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
+              tooltip={`Total value of orders the client has confirmed for ${range.label.toLowerCase()}, either by paying a deposit or by being manually marked as confirmed by your team. Also includes orders with any payment recorded.\n\nPending, draft, and cancelled orders are excluded.`}
+              icon={DollarSign}
+              iconColor="text-green-600"
+              badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
+              loading={loading}
+              href={withSlug("/admin/orders?status=confirmed")}
+            />
+            <MetricCard
+              label="Collected"
+              value={fmt.format(stats.collectedRevenue)}
+              hint={`Money received in ${range.label}`}
+              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. Cancelled-with-deposit cash stays counted here until a refund payment is recorded (Wave 70.52a).\n\nPulled from recorded payments on each order."}
+              icon={CheckCircle}
+              iconColor="text-emerald-600"
+              badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
+              loading={loading}
+              href={withSlug("/admin/financial-dashboard")}
+            />
+            <MetricCard
+              label="Outstanding"
+              value={fmt.format(stats.outstandingRevenue)}
+              hint="Booked minus collected"
+              tooltip={"What clients still owe you on confirmed bookings in this period. This is booked revenue less what you have already collected.\n\nUnpaid balances and partial deposits land here."}
+              icon={TrendingUp}
+              iconColor="text-blue-600"
+              badge={{ text: "Owed", tone: "blue" }}
+              loading={loading}
+              href={withSlug("/admin/invoices")}
+            />
+            <MetricCard
+              label="Active Orders"
+              value={stats.activeOrders}
+              hint="Currently in progress"
+              tooltip={"Orders the kitchen and drivers are working on right now. Anything confirmed, in prep, ready, or out for delivery in this period."}
+              icon={ShoppingCart}
+              iconColor="text-purple-600"
+              badge={{ text: "In progress", tone: "purple" }}
+              loading={loading}
+              href={withSlug("/admin/orders")}
+            />
+          </div>
+
+          {/* Phase 11 #7 + Phase 12 #6: secondary stat row - VAT
+              and quote conversion. Each tile self-hides when its
+              underlying sample is empty so a fresh tenant doesn't
+              see meaningless zeros. Renders the row only if at
+              least one tile has data. */}
+          {(stats.vatCollected > 0 || stats.quoteConversionSample > 0) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+              {stats.vatCollected > 0 && (
+                <MetricCard
+                  label="VAT in range"
+                  value={fmt.format(stats.vatCollected)}
+                  hint="Tax on booked orders"
+                  tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
+                  icon={DollarSign}
+                  iconColor="text-amber-600"
+                  badge={{ text: "Period", tone: "amber" }}
+                  loading={loading}
+                  href={withSlug("/admin/financial-dashboard")}
+                />
+              )}
+              {stats.quoteConversionSample > 0 && (
+                <MetricCard
+                  label="Quote conversion"
+                  value={`${stats.quoteConversionRate.toFixed(0)}%`}
+                  hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
+                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
+                  icon={CheckCircle}
+                  iconColor="text-emerald-600"
+                  badge={stats.quoteConversionSample < 5
+                    ? { text: "Low n", tone: "amber" }
+                    : { text: "Closed", tone: "green" }}
+                  loading={loading}
+                  href={withSlug("/admin/quotes")}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Pipeline tile - quotes that have been sent but not yet
+              accepted or rejected. Both the count and the rand value
+              matter: count tells the team how many follow-ups are due,
+              value tells the owner how much pipeline is sitting in
+              conversion limbo. Date-range independent (rolls all
+              outstanding quotes, regardless of when they were sent). */}
+          <div className="grid grid-cols-1 mb-6">
+            <MetricCard
+              label="Quotes in circulation"
+              value={fmt.format(stats.quotesInCirculationValue)}
+              hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
+              tooltip={"Total rand value of quotes sent to clients but not yet accepted or declined. Filters on the 'sent' status (Wave 70.52a fix - previously also queried for 'viewed' and 'revised' which don't exist in the quote_status enum; PostgREST silently rejected the filter and the tile read R0 forever).\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
+              icon={FileText}
+              iconColor="text-amber-600"
+              badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
+              loading={loading}
+              href={withSlug("/admin/quotes")}
+            />
+          </div>
+
+          {/* Performance metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+            <MetricCard
+              label="Avg Order Value"
+              value={fmt.format(stats.averageOrderValue)}
+              hint="Mean per booked order"
+              tooltip={"Mean value per booked order in this period (cancelled orders excluded from both numerator and denominator). A higher number means bigger events or a richer mix."}
+              icon={TrendingUp}
+              iconColor="text-emerald-600"
+              loading={loading}
+              href={withSlug("/admin/financial-dashboard")}
+            />
+            <MetricCard
+              label="Completion Rate"
+              value={`${stats.completionRate.toFixed(1)}%`}
+              hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
+              tooltip={"Share of orders in this period that finished as completed. Note: events in the future count against the denominator until they happen, so a normal Monday may show a low number even when nothing is wrong. Anything below 95% on already-happened events is worth a closer look."}
+              icon={CheckCircle}
+              iconColor="text-green-600"
+              loading={loading}
+              href={withSlug("/admin/orders")}
+            />
+            <MetricCard
+              label="Upcoming Events"
+              value={stats.upcomingEvents}
+              hint="Today or later, not cancelled"
+              tooltip={"Events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next.\n\nDifferent from Active Orders: Upcoming includes pending orders; Active counts only confirmed/preparing/ready/in_transit."}
+              icon={Calendar}
+              iconColor="text-indigo-600"
+              loading={loading}
+              href={withSlug("/admin/calendar")}
+            />
+            <MetricCard
+              label="Team Members"
+              value={stats.activeUsers}
+              hint="Active users"
+              tooltip={"Everyone currently on your team. Excludes soft-deleted profiles (deleted_at) and explicitly deactivated accounts (is_active=false), so an offboarded driver no longer inflates the headline. Not affected by the date filter."}
+              icon={Users}
+              iconColor="text-cyan-600"
+              loading={loading}
+              href={withSlug("/admin/users")}
+            />
+          </div>
+
+          {/* AD-4 (admin-dashboard audit): de-duplicated. Was three
+              tiles + PendingRefundsWidget + CancelledOrdersWidget = 5
+              surfaces for 2 themes. Kept the single Cancellations
+              tile that combines count + top reason (the lossy
+              summary signal); the widgets below carry the full
+              detail. Refunds tile dropped entirely - PendingRefundsWidget
+              already shows count + total + row-level rows. */}
+          {stats.cancelledOrdersInRange > 0 && (
+            <div className="grid grid-cols-1 mb-6">
+              <MetricCard
+                label="Cancellations"
+                value={stats.cancelledOrdersInRange}
+                hint={`In ${range.label.toLowerCase()} - top reason: ${stats.topCancelReason}`}
+                tooltip={`Orders that ended up cancelled in ${range.label.toLowerCase()}. The full row list is in the Cancelled Orders widget further down the page.`}
+                icon={Calendar}
+                iconColor="text-rose-600"
+                loading={loading}
+                href={withSlug("/admin/orders?status=cancelled")}
+              />
+            </div>
+          )}
+          {/* === end KPI HEADLINES =========================================== */}
+
           {/* AD-6: Cashflow Snapshot. The forward-looking cash
               question owners ask first ("can I make payroll Friday?")
               lives here, immediately under TodaysPulse. Role-gated;
@@ -805,182 +1010,6 @@ function AdminDashboardPage() {
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Key revenue metrics, all bound to the date range */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
-            {/* Wave 70.52a - every MetricCard now carries an href so
-                clicking drills to the dedicated surface for that
-                number. Previously hover:shadow-xl made tiles look
-                clickable while doing nothing. */}
-            <MetricCard
-              label="Booked Revenue"
-              value={fmt.format(stats.bookedRevenue)}
-              hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
-              tooltip={`Total value of orders the client has confirmed for ${range.label.toLowerCase()}, either by paying a deposit or by being manually marked as confirmed by your team. Also includes orders with any payment recorded.\n\nPending, draft, and cancelled orders are excluded.`}
-              icon={DollarSign}
-              iconColor="text-green-600"
-              badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
-              loading={loading}
-              href={withSlug("/admin/orders?status=confirmed")}
-            />
-            <MetricCard
-              label="Collected"
-              value={fmt.format(stats.collectedRevenue)}
-              hint={`Money received in ${range.label}`}
-              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. Cancelled-with-deposit cash stays counted here until a refund payment is recorded (Wave 70.52a).\n\nPulled from recorded payments on each order."}
-              icon={CheckCircle}
-              iconColor="text-emerald-600"
-              badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
-              loading={loading}
-              href={withSlug("/admin/financial-dashboard")}
-            />
-            <MetricCard
-              label="Outstanding"
-              value={fmt.format(stats.outstandingRevenue)}
-              hint="Booked minus collected"
-              tooltip={"What clients still owe you on confirmed bookings in this period. This is booked revenue less what you have already collected.\n\nUnpaid balances and partial deposits land here."}
-              icon={TrendingUp}
-              iconColor="text-blue-600"
-              badge={{ text: "Owed", tone: "blue" }}
-              loading={loading}
-              href={withSlug("/admin/invoices")}
-            />
-            <MetricCard
-              label="Active Orders"
-              value={stats.activeOrders}
-              hint="Currently in progress"
-              tooltip={"Orders the kitchen and drivers are working on right now. Anything confirmed, in prep, ready, or out for delivery in this period."}
-              icon={ShoppingCart}
-              iconColor="text-purple-600"
-              badge={{ text: "In progress", tone: "purple" }}
-              loading={loading}
-              href={withSlug("/admin/orders")}
-            />
-          </div>
-
-          {/* Phase 11 #7 + Phase 12 #6: secondary stat row - VAT
-              and quote conversion. Each tile self-hides when its
-              underlying sample is empty so a fresh tenant doesn't
-              see meaningless zeros. Renders the row only if at
-              least one tile has data. */}
-          {(stats.vatCollected > 0 || stats.quoteConversionSample > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
-              {stats.vatCollected > 0 && (
-                <MetricCard
-                  label="VAT in range"
-                  value={fmt.format(stats.vatCollected)}
-                  hint="Tax on booked orders"
-                  tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
-                  icon={DollarSign}
-                  iconColor="text-amber-600"
-                  badge={{ text: "Period", tone: "amber" }}
-                  loading={loading}
-                  href={withSlug("/admin/financial-dashboard")}
-                />
-              )}
-              {stats.quoteConversionSample > 0 && (
-                <MetricCard
-                  label="Quote conversion"
-                  value={`${stats.quoteConversionRate.toFixed(0)}%`}
-                  hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
-                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
-                  icon={CheckCircle}
-                  iconColor="text-emerald-600"
-                  badge={stats.quoteConversionSample < 5
-                    ? { text: "Low n", tone: "amber" }
-                    : { text: "Closed", tone: "green" }}
-                  loading={loading}
-                  href={withSlug("/admin/quotes")}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Pipeline tile - quotes that have been sent but not yet
-              accepted or rejected. Both the count and the rand value
-              matter: count tells the team how many follow-ups are due,
-              value tells the owner how much pipeline is sitting in
-              conversion limbo. Date-range independent (rolls all
-              outstanding quotes, regardless of when they were sent). */}
-          <div className="grid grid-cols-1 mb-6">
-            <MetricCard
-              label="Quotes in circulation"
-              value={fmt.format(stats.quotesInCirculationValue)}
-              hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
-              tooltip={"Total rand value of quotes sent to clients but not yet accepted or declined. Filters on the 'sent' status (Wave 70.52a fix - previously also queried for 'viewed' and 'revised' which don't exist in the quote_status enum; PostgREST silently rejected the filter and the tile read R0 forever).\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
-              icon={FileText}
-              iconColor="text-amber-600"
-              badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
-              loading={loading}
-              href={withSlug("/admin/quotes")}
-            />
-          </div>
-
-          {/* Performance metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
-            <MetricCard
-              label="Avg Order Value"
-              value={fmt.format(stats.averageOrderValue)}
-              hint="Mean per booked order"
-              tooltip={"Mean value per booked order in this period (cancelled orders excluded from both numerator and denominator). A higher number means bigger events or a richer mix."}
-              icon={TrendingUp}
-              iconColor="text-emerald-600"
-              loading={loading}
-              href={withSlug("/admin/financial-dashboard")}
-            />
-            <MetricCard
-              label="Completion Rate"
-              value={`${stats.completionRate.toFixed(1)}%`}
-              hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
-              tooltip={"Share of orders in this period that finished as completed. Note: events in the future count against the denominator until they happen, so a normal Monday may show a low number even when nothing is wrong. Anything below 95% on already-happened events is worth a closer look."}
-              icon={CheckCircle}
-              iconColor="text-green-600"
-              loading={loading}
-              href={withSlug("/admin/orders")}
-            />
-            <MetricCard
-              label="Upcoming Events"
-              value={stats.upcomingEvents}
-              hint="Today or later, not cancelled"
-              tooltip={"Events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next.\n\nDifferent from Active Orders: Upcoming includes pending orders; Active counts only confirmed/preparing/ready/in_transit."}
-              icon={Calendar}
-              iconColor="text-indigo-600"
-              loading={loading}
-              href={withSlug("/admin/calendar")}
-            />
-            <MetricCard
-              label="Team Members"
-              value={stats.activeUsers}
-              hint="Active users"
-              tooltip={"Everyone attached to your company right now. This is your current team size and is not affected by the date filter."}
-              icon={Users}
-              iconColor="text-cyan-600"
-              loading={loading}
-              href={withSlug("/admin/users")}
-            />
-          </div>
-
-          {/* AD-4 (admin-dashboard audit): de-duplicated. Was three
-              tiles + PendingRefundsWidget + CancelledOrdersWidget = 5
-              surfaces for 2 themes. Kept the single Cancellations
-              tile that combines count + top reason (the lossy
-              summary signal); the widgets below carry the full
-              detail. Refunds tile dropped entirely - PendingRefundsWidget
-              already shows count + total + row-level rows. */}
-          {stats.cancelledOrdersInRange > 0 && (
-            <div className="grid grid-cols-1 mb-6">
-              <MetricCard
-                label="Cancellations"
-                value={stats.cancelledOrdersInRange}
-                hint={`In ${range.label.toLowerCase()} - top reason: ${stats.topCancelReason}`}
-                tooltip={`Orders that ended up cancelled in ${range.label.toLowerCase()}. The full row list is in the Cancelled Orders widget above.`}
-                icon={Calendar}
-                iconColor="text-rose-600"
-                loading={loading}
-                href={withSlug("/admin/orders?status=cancelled")}
-              />
-            </div>
           )}
 
           {/* Quick Actions */}
