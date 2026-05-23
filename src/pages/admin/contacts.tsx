@@ -365,22 +365,22 @@ function ClientsCRM() {
     if (quotesRes.error) fetchErrors.push(`quotes: ${quotesRes.error.message}`);
     if (invoicesRes.error) fetchErrors.push(`invoices: ${invoicesRes.error.message}`);
     if (fetchErrors.length > 0) {
-      console.error("[contacts] fetch errors:", fetchErrors);
+      // Wave 70.73: production console.error removed. The toast
+      // surfaces the failure to the operator; the console line
+      // was leaking PII-adjacent table names + error text to
+      // every browser DevTools that happened to open the page.
+      // If we need diagnostics again, wire Sentry breadcrumbs.
       toast({
         title: "Couldn't load all contacts",
         description: fetchErrors.join(" · "),
         variant: "destructive",
       });
     }
-    // Diagnostic log so we can see exactly what came back when the
-    // page renders empty. Counts only - no PII.
-    console.info("[contacts] loaded:", {
-      clients: (clientsRes as any)?.data?.length ?? 0,
-      leads: leadsRes.data?.length ?? 0,
-      orders: ordersRes.data?.length ?? 0,
-      quotes: quotesRes.data?.length ?? 0,
-      invoices: invoicesRes.data?.length ?? 0,
-    });
+    // Wave 70.73: production console.info diagnostic removed.
+    // Counts were useful during the bulk-import debugging window
+    // but they ship to every operator's DevTools by default. If
+    // we need the same shape later, gate behind
+    // `if (process.env.NODE_ENV !== "production")`.
 
       const today = new Date();
       const map = new Map<string, Contact>();
