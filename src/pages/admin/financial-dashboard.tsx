@@ -6,8 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
-import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { fixedCostsService } from "@/services/fixedCostsService";
@@ -30,6 +28,8 @@ import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
+import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
+import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
@@ -84,17 +84,16 @@ function FinancialDashboardInner() {
   // filter so a multi-region tenant can scope KPIs to a single branch.
   // Pre-FIN-C the page aggregated company-wide with no way to focus.
   const { regionFilterId } = useRegionFilter();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showCelebration] = useState(false);
   // FIN-C: bulk-remind dialog state. Confirmation gate before the
-  // page fires POST /api/admin/invoices/bulk-remind.
+  // page fires POST /api/admin/invoices/bulk-remind. CASH-D extracted
+  // the dialog into a shared component so the cashflow-dashboard
+  // can fire the same flow.
   const [remindDialogOpen, setRemindDialogOpen] = useState(false);
-  const [remindScope, setRemindScope] = useState<"outstanding" | "overdue">("overdue");
-  const [reminding, setReminding] = useState(false);
   // Admin persona follow-up (admin.md section 5): mirror the
   // cashflow-dashboard pattern. Track load errors so we can show
   // a recovery card instead of a wall of zeros that looks broken.
@@ -345,42 +344,6 @@ function FinancialDashboardInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  // FIN-C: handler for the bulk payment-reminder action. Calls the
-  // already-shipped /api/admin/invoices/bulk-remind endpoint with the
-  // operator-chosen scope (outstanding | overdue). Pre-FIN-C the
-  // "Send Payment Reminders" button on this page just deep-linked to
-  // /admin/invoices?status=unpaid - the copy implied a one-click send
-  // but nothing was actually sent.
-  const handleSendReminders = useCallback(async () => {
-    setReminding(true);
-    try {
-      const r = await fetch("/api/admin/invoices/bulk-remind", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope: remindScope }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Failed to send reminders");
-      const sent = Number(data?.sent ?? 0);
-      const skipped = Number(data?.skipped ?? 0);
-      const failed = Number(data?.failed ?? 0);
-      toast({
-        title: failed > 0 ? "Reminders partly sent" : "Reminders sent",
-        description: `${sent} sent, ${skipped} skipped${failed > 0 ? `, ${failed} failed` : ""}. Scope: ${remindScope}.`,
-        variant: failed > 0 ? "destructive" : "default",
-      });
-      setRemindDialogOpen(false);
-    } catch (e) {
-      toast({
-        title: "Couldn't send reminders",
-        description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
-      });
-    } finally {
-      setReminding(false);
-    }
-  }, [remindScope, toast]);
-
   // FIN-C: per-order revenue / paid / outstanding breakdown for the
   // Order Analysis tab. Pre-FIN-C this tab was a 5-row "Order Revenue"
   // list that duplicated /admin/orders without surfacing finance
@@ -617,6 +580,7 @@ function FinancialDashboardInner() {
       <AdminNav />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:ml-64 xl:ml-72">
         <div className="max-w-full">
+          <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
@@ -1149,7 +1113,7 @@ function FinancialDashboardInner() {
                     <Button
                       className="w-full justify-start"
                       variant="outline"
-                      onClick={() => { setRemindScope("overdue"); setRemindDialogOpen(true); }}
+                      onClick={() => { setRemindDialogOpen(true); }}
                       title="Pick a scope and fire branded reminder emails to every client with an outstanding or overdue invoice."
                     >
                       <CreditCard className="w-4 h-4 mr-2" />
@@ -1527,57 +1491,9 @@ function FinancialDashboardInner() {
         </div>
       </div>
 
-      {/* FIN-C (financial dashboard follow-ups): bulk-remind dialog. */}
-      <Dialog open={remindDialogOpen} onOpenChange={setRemindDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send payment reminders</DialogTitle>
-            <DialogDescription>
-              Fires a per-tenant branded email to every client with an
-              invoice in the chosen scope. Each send is logged in the
-              email automation log and respects the suppression list.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setRemindScope("overdue")}
-              className={`w-full text-left rounded-md border p-3 transition ${
-                remindScope === "overdue"
-                  ? "border-purple-500 bg-purple-50"
-                  : "border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <p className="font-medium text-slate-900">Overdue only</p>
-              <p className="text-xs text-slate-500">
-                Invoices past their due date. Safer default - only chases clients who&apos;ve actually missed the deadline.
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRemindScope("outstanding")}
-              className={`w-full text-left rounded-md border p-3 transition ${
-                remindScope === "outstanding"
-                  ? "border-purple-500 bg-purple-50"
-                  : "border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <p className="font-medium text-slate-900">All outstanding</p>
-              <p className="text-xs text-slate-500">
-                Every sent / partially-paid / overdue invoice. Use when chasing the whole AR book.
-              </p>
-            </button>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRemindDialogOpen(false)} disabled={reminding}>
-              Cancel
-            </Button>
-            <Button onClick={handleSendReminders} disabled={reminding}>
-              {reminding ? "Sending..." : `Send ${remindScope} reminders`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* FIN-C / CASH-D: bulk-remind dialog. Extracted into a shared
+          component so the cashflow-dashboard can fire the same flow. */}
+      <BulkRemindDialog open={remindDialogOpen} onOpenChange={setRemindDialogOpen} />
     </>
   );
 }

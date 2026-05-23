@@ -30,6 +30,7 @@ import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload } from "lucide-react"
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
@@ -349,6 +350,7 @@ function PayablesPage() {
           under the sidebar and the cards sit behind the menu. */}
       <div className="min-h-screen bg-slate-50 lg:ml-64 xl:ml-72">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+          <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
           <div className="flex items-start justify-between mb-6 gap-3">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Payables</h1>
