@@ -114,11 +114,20 @@ interface LeadLinks {
   /** Most recent quote id for this lead - used for the "View quote" chip. */
   latestQuoteId: string | null;
   latestQuoteStatus: string | null;
-  /** Order id if any quote off this lead converted into an order. */
+  /** Wave 70.82: every linked order id, across every quote attached
+   *  to this lead. Pre-fix the page only tracked ONE orderId (the
+   *  first converted-to-order seen) - so a client with both
+   *  cancelled + live orders had their lead bucket flip to
+   *  "archived" if the first walked quote happened to be the
+   *  cancelled one. orderId below is the BEST (most-live) order id;
+   *  orderStatus mirrors that one. */
+  orderIds: string[];
+  /** Best-live order id chosen from orderIds. Used by the chip
+   *  math and the resolved view. */
   orderId: string | null;
-  /** Wave 70.32 - the linked order's status (pending / confirmed /
-   *  preparing / etc). Lets the UI show the real state instead of
-   *  saying a blanket "booked" when the order is still pending. */
+  /** Status of the best-live order (or 'cancelled' if every linked
+   *  order is cancelled). Was previously the first-walked order's
+   *  status which lied on multi-order leads. */
   orderStatus: string | null;
   clientId: string | null;
   /**
@@ -201,6 +210,19 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   }
   if (status === "qualified") {
     return { tone: "urgent", label: "Send a quote", reason: "Lead qualified, no quote yet", kind: "send_quote" };
+  }
+  // Wave 70.82: contacted bucket. Pre-fix contacted leads fell into
+  // the default "Reply ASAP - New enquiry waiting" branch even
+  // though the operator had already replied (which is what flipped
+  // the status to contacted in the first place). The right next
+  // move on a contacted lead is to qualify them - learn the guest
+  // count / event date / budget so the quote-builder can do its
+  // job - not pretend the enquiry is new.
+  if (status === "contacted") {
+    if (ageDays >= 7) {
+      return { tone: "urgent", label: "Qualify - they've gone quiet", reason: `${ageDays}d since first reply`, kind: "follow_up" };
+    }
+    return { tone: "warm", label: "Qualify the brief", reason: "Already replied - now gather event details", kind: "touch_base" };
   }
   if (ageDays >= 7) {
     return { tone: "urgent", label: `Follow up, ${ageDays}d quiet`, reason: "Lead is going cold", kind: "follow_up" };
@@ -592,6 +614,7 @@ function AdminLeadsInner() {
           quotes: [],
           latestQuoteId: null,
           latestQuoteStatus: null,
+          orderIds: [],
           orderId: null,
           orderStatus: null,
           clientId: l.converted_to_client_id ?? null,
@@ -670,8 +693,11 @@ function AdminLeadsInner() {
             cur.latestQuoteId = q.id;
             cur.latestQuoteStatus = q.status;
           }
-          if (q.converted_to_order_id && !cur.orderId) {
-            cur.orderId = q.converted_to_order_id;
+          // Wave 70.82: collect every linked order across all
+          // attached quotes. The best-live one is picked once we
+          // know each order's status (later in this load).
+          if (q.converted_to_order_id && !cur.orderIds.includes(q.converted_to_order_id)) {
+            cur.orderIds.push(q.converted_to_order_id);
           }
         };
 
@@ -717,12 +743,20 @@ function AdminLeadsInner() {
         //    and numbers, not event_date / guest_count, so we need a
         //    second select. We fetch all matching quote rows (cheap)
         //    and pick the right one per lead from the latestQuoteId.
-        const orderIds: string[] = [];
+        // Wave 70.82: union every linked order across every lead
+        // (was just the first orderId per lead). After we have each
+        // order's status we'll pick the best-live one back into
+        // cur.orderId / cur.orderStatus.
+        const allOrderIds = new Set<string>();
         const latestQuoteIds: string[] = [];
         for (const cur of map.values()) {
-          if (cur.orderId) orderIds.push(cur.orderId);
-          else if (cur.latestQuoteId) latestQuoteIds.push(cur.latestQuoteId);
+          if (cur.orderIds.length > 0) {
+            for (const id of cur.orderIds) allOrderIds.add(id);
+          } else if (cur.latestQuoteId) {
+            latestQuoteIds.push(cur.latestQuoteId);
+          }
         }
+        const orderIds = Array.from(allOrderIds);
 
         const [{ data: orderRows }, { data: quoteDetailRows }] = await Promise.all([
           orderIds.length > 0
@@ -747,6 +781,36 @@ function AdminLeadsInner() {
         for (const o of orderRows || []) ordersById.set(o.id, o);
         const quotesById = new Map<string, any>();
         for (const q of quoteDetailRows || []) quotesById.set(q.id, q);
+
+        // Wave 70.82: pick the best-live order per lead. Priority
+        // tracks the order lifecycle: a confirmed / preparing /
+        // ready / in_transit / delivered / completed order outranks
+        // a pending one; pending outranks cancelled. The chip math
+        // below then reads cur.orderStatus and only archives the
+        // lead if there's no live order at all - so a multi-order
+        // client with cancelled history + a live booking stays in
+        // the "quoted" / "won" bucket where they belong.
+        const STATUS_PRIORITY: Record<string, number> = {
+          confirmed: 100, preparing: 95, ready: 90,
+          in_transit: 85, delivered: 80, completed: 75,
+          pending: 50, draft: 40,
+          cancelled: 0, rejected: 0,
+        };
+        for (const cur of map.values()) {
+          if (cur.orderIds.length === 0) continue;
+          let bestId: string | null = null;
+          let bestPriority = -1;
+          for (const id of cur.orderIds) {
+            const o = ordersById.get(id);
+            const s = (o?.status || "").toLowerCase();
+            const p = STATUS_PRIORITY[s] ?? 30;
+            if (p > bestPriority) {
+              bestPriority = p;
+              bestId = id;
+            }
+          }
+          cur.orderId = bestId;
+        }
 
         for (const [leadId, cur] of map.entries()) {
           const lead = data.find((l: any) => l.id === leadId);
@@ -1030,13 +1094,21 @@ function AdminLeadsInner() {
             </div>
           )}
 
+          {/* Wave 70.82: KPI tiles now read from the SAME source the
+              chip strip uses (regionFilteredLeads + statusCounts) so
+              a branch-scoped operator no longer sees mismatched
+              numbers between the tiles and chips. New/Qualified/
+              Quoted apply the same cancelled-order exclusion the
+              chip math does (a lead whose ONLY linked order is
+              cancelled is archived). Total Leads also respects
+              the region filter. */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content={"Every lead on file for your company, across every status."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">{leads.length}</p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content={"Every lead on file for your company (or this branch if you've filtered), across every status."} /></p>
+                    <p className="text-2xl font-bold text-slate-900">{statusCounts.all}</p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
                     <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -1049,9 +1121,9 @@ function AdminLeadsInner() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content={"Fresh leads that have just come in and have not been worked yet."} /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content={"Fresh leads that have just come in and have not been worked yet. Leads whose only linked order was cancelled are excluded - those land in Lost (archive)."} /></p>
                     <p className="text-2xl font-bold text-blue-600">
-                      {leads.filter(l => l.status === "new").length}
+                      {statusCounts.new}
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -1067,7 +1139,7 @@ function AdminLeadsInner() {
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">Qualified <InfoTooltip content={"Real opportunities that have been worked but not yet quoted."} /></p>
                     <p className="text-2xl font-bold text-purple-600">
-                      {leads.filter(l => l.status === "qualified").length}
+                      {statusCounts.qualified}
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -1083,7 +1155,7 @@ function AdminLeadsInner() {
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">Won / Converted <InfoTooltip content={"Leads that turned into a confirmed booking."} /></p>
                     <p className="text-2xl font-bold text-green-600">
-                      {leads.filter(l => l.status === "won" || l.status === "converted").length}
+                      {statusCounts.won}
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -1186,6 +1258,7 @@ function AdminLeadsInner() {
                       quotes: [],
                       latestQuoteId: null,
                       latestQuoteStatus: null,
+                      orderIds: [],
                       orderId: null,
                       orderStatus: null,
                       clientId: lead.converted_to_client_id ?? null,
