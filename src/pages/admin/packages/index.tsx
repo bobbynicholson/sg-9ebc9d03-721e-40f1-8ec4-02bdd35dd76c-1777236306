@@ -14,7 +14,7 @@
  *   4. "Cancel package" cascades cancelOrder to every linked order.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -32,6 +32,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDate } from "@/lib/formatters";
 import { Calendar as CalendarIcon, Layers, MapPin, Plus, ArrowRight, ChefHat } from "lucide-react";
 
@@ -71,6 +73,7 @@ function PackagesPage() {
   const router = useRouter();
   const { withSlug: tenantHref } = useTenantHref();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [packages, setPackages] = useState<BookingPackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,10 @@ function PackagesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", venue_summary: "", starts_at: "", ends_at: "", notes: "" });
+  // PKG-B (packages audit, PKG-4): one-shot guard so the smart default-
+  // tab logic only fires on the first successful load. After that the
+  // operator's manual tab choice is sacred.
+  const tabAutoSetRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -95,6 +102,28 @@ function PackagesPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // PKG-B (packages audit, PKG-8): realtime channel on booking_packages
+  // scoped to the caller's company. Pre-PKG-B the list never refreshed
+  // automatically, so two admins working in parallel couldn't see each
+  // other's new packages without a hard refresh. Matches the pattern
+  // already shipped on /admin/orders, /admin/leads, /admin/quotes.
+  useEffect(() => {
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-packages-realtime:${companyId}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "booking_packages", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+  }, [(user as any)?.company_id]);
+
   const filtered = useMemo(() => {
     if (tab === "all") return packages;
     return packages.filter((p) => p.status === tab);
@@ -105,6 +134,25 @@ function PackagesPage() {
     packages.forEach((p) => { c[p.status] = (c[p.status] || 0) + 1; });
     return c;
   }, [packages]);
+
+  // PKG-B (packages audit, PKG-4): smart default tab. Pre-PKG-B the page
+  // hardcoded `active` on first mount, so a tenant whose only package is
+  // a draft landed on an empty Card with the existing record one click
+  // away on the Draft tab. Now: on first load with data, pick the first
+  // non-empty tab in priority order (active beats draft beats completed
+  // beats cancelled beats all). The ref above keeps subsequent loads
+  // (e.g. realtime refetches) from clobbering the operator's tab choice.
+  useEffect(() => {
+    if (loading) return;
+    if (tabAutoSetRef.current) return;
+    if (packages.length === 0) return;
+    tabAutoSetRef.current = true;
+    const order: Array<"active" | "draft" | "completed" | "cancelled"> = ["active", "draft", "completed", "cancelled"];
+    const firstNonEmpty = order.find((t) => (counts[t] || 0) > 0);
+    if (firstNonEmpty && firstNonEmpty !== tab) {
+      setTab(firstNonEmpty);
+    }
+  }, [loading, packages.length, counts, tab]);
 
   const submitCreate = async () => {
     const name = form.name.trim();
@@ -152,10 +200,18 @@ function PackagesPage() {
                 <Layers className="w-5 h-5 text-slate-500" />
                 Booking packages
               </h1>
+              {/* PKG-B (packages audit, PKG-1): honest copy. Pre-PKG-B
+                  the subhead claimed the calendar, finance and comms
+                  all consolidated packaged orders. They don't - there
+                  is no package_id wiring outside this page. The new
+                  copy describes what actually works today: group
+                  orders for joint reporting + a single cascade-cancel
+                  action. The calendar / finance / comms consolidation
+                  is on the roadmap and lives behind its own PRs. */}
               <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-                Group multi-day events into one logical booking. Each
-                package can hold many orders - the calendar, finance and
-                client comms all see them as a single event.
+                Group multi-day events into one logical booking. Track
+                every order against the parent record and cancel them
+                in one action when the booking falls through.
               </p>
             </div>
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -257,6 +313,20 @@ function PackagesPage() {
                     days or multiple orders - weddings, conferences,
                     multi-stop catering runs.
                   </p>
+                )}
+                {/* PKG-B (packages audit, PKG-5): empty-state CTA.
+                    Pre-PKG-B the operator landing on a tenant with no
+                    packages had to scroll their eyes to the top-right
+                    "New package" button. Standard empty-state pattern
+                    across the rest of the admin pages puts the create
+                    action inline. */}
+                {tab !== "cancelled" && tab !== "completed" && (
+                  <div className="mt-4">
+                    <Button onClick={() => setCreateOpen(true)} size="sm">
+                      <Plus className="w-4 h-4 mr-1.5" />
+                      Create your first package
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
