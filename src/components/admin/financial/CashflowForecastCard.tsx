@@ -33,6 +33,7 @@ import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight, Download } from
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
+import { toLocalISO } from "@/lib/localDate";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
@@ -96,6 +97,10 @@ export function CashflowForecastCard({
   const [horizonDays, setHorizonDays] = useState<number>(30);
   const [cashOnHand, setCashOnHand] = useState<number>(0);
   const [cashUpdatedAt, setCashUpdatedAt] = useState<string | null>(null);
+  // CASH-B (cashflow follow-ups): per-tenant override for the Stale
+  // badge threshold. NULL = use the 72h default the card was hardcoded
+  // to in CASH-A.
+  const [staleAfterHours, setStaleAfterHours] = useState<number>(72);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -127,25 +132,43 @@ export function CashflowForecastCard({
   const [scheduledCosts, setScheduledCosts] = useState<ScheduledCost[]>([]);
 
   // Phase 3: load + persist the probable-spend override under a
-  // per-company localStorage key. Survives reload, lives client-side
-  // only (it's a personal scratchpad number, not something the team
-  // needs to share or audit).
+  // per-user (NOT per-company) localStorage key. The tooltip below
+  // promises "Saved per-user in your browser" - pre-CASH-B the key
+  // was actually per-company so two operators sharing a device
+  // overwrote each other's number. CASH-B (cashflow follow-ups)
+  // makes the storage match the documentation: each operator gets
+  // their own scratchpad number.
+  //
+  // Migration: read the legacy per-company key once on mount when
+  // the per-user key is empty, so an operator who had a number
+  // saved before this fix doesn't lose it. The legacy key isn't
+  // deleted - other operators on the same device may still need
+  // their own copy of it for the same migration window.
+  const contingencyKey = userId
+    ? `cateringms.cashflow.probableSpend.${companyId}.${userId}`
+    : `cateringms.cashflow.probableSpend.${companyId}`;
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem(`cateringms.cashflow.probableSpend.${companyId}`);
-      if (raw) setProbableSpend(Number(raw) || 0);
+      const raw = window.localStorage.getItem(contingencyKey);
+      if (raw) {
+        setProbableSpend(Number(raw) || 0);
+        return;
+      }
+      // CASH-B migration: read the legacy per-company key once if
+      // the per-user key hasn't been written yet.
+      if (userId) {
+        const legacy = window.localStorage.getItem(`cateringms.cashflow.probableSpend.${companyId}`);
+        if (legacy) setProbableSpend(Number(legacy) || 0);
+      }
     } catch { /* storage blocked */ }
-  }, [companyId]);
+  }, [companyId, userId, contingencyKey]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(
-        `cateringms.cashflow.probableSpend.${companyId}`,
-        String(probableSpend),
-      );
+      window.localStorage.setItem(contingencyKey, String(probableSpend));
     } catch { /* storage blocked */ }
-  }, [companyId, probableSpend]);
+  }, [contingencyKey, probableSpend]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,11 +177,15 @@ export function CashflowForecastCard({
       // Pull cash_on_hand + the five scheduled-cost feeds in parallel.
       // PR-E (cashflow cost mapping): payables + fixed_costs + COGS
       // join the existing equipment_hire + shopping feeds.
-      const todayIso = new Date().toISOString().slice(0, 10);
+      // CASH-B: use toLocalISO so the day-boundary respects the
+      // tenant timezone. Pre-CASH-B `.toISOString().slice(0,10)` was
+      // UTC-based and a late-night Cape Town session would push
+      // equipment hire / shopping items into "tomorrow" too early.
+      const todayIso = toLocalISO(new Date());
       const [companyRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
         (supabase as any)
           .from("companies")
-          .select("cash_on_hand_cents, cash_on_hand_updated_at")
+          .select("cash_on_hand_cents, cash_on_hand_updated_at, cash_on_hand_stale_after_hours")
           .eq("id", companyId)
           .single(),
         (supabase as any)
@@ -206,6 +233,12 @@ export function CashflowForecastCard({
         const value = Number((data as any).cash_on_hand_cents || 0) / 100;
         setCashOnHand(value);
         setCashUpdatedAt((data as any).cash_on_hand_updated_at || null);
+        // CASH-B: pick up the tenant override if set, otherwise stay
+        // on the 72h default.
+        const tenantStale = (data as any).cash_on_hand_stale_after_hours;
+        if (typeof tenantStale === "number" && tenantStale > 0) {
+          setStaleAfterHours(tenantStale);
+        }
       }
 
       // Build the unified scheduled-cost list.
@@ -448,15 +481,13 @@ export function CashflowForecastCard({
   const updatedAgeHours = cashUpdatedAt
     ? (Date.now() - new Date(cashUpdatedAt).getTime()) / (60 * 60 * 1000)
     : Infinity;
-  // CASH-A (cashflow dashboard audit): stale threshold widened from 24h
-  // to 72h. The bookkeeper visit cadence at most SMB caterers is
-  // weekly, not daily; 24h fired the "Stale" badge any time the
-  // operator refreshed the page more than a day after entering the
-  // bank balance even when nothing material had happened. 72h matches
-  // a typical Mon/Wed/Fri reconciliation rhythm and stops the badge
-  // crying wolf. A per-tenant configurable threshold sits on the
-  // follow-up list.
-  const isStale = updatedAgeHours > 72;
+  // CASH-A (cashflow dashboard audit) + CASH-B (follow-ups):
+  // staleAfterHours starts at the 72h default and lifts to the
+  // tenant override stored in companies.cash_on_hand_stale_after_
+  // hours when set on /admin/company-profile. A daily-reconciliation
+  // kitchen sets 36; a weekly back-office sets 144. Pre-CASH-B
+  // every tenant got the same 72h.
+  const isStale = updatedAgeHours > staleAfterHours;
 
   const handleSave = async () => {
     const parsed = Number(draft.replace(/[^0-9.-]/g, ""));
@@ -777,7 +808,7 @@ export function CashflowForecastCard({
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-[11px]"
-                onClick={() => downloadCsv(series, currency)}
+                onClick={() => downloadCsv(series, currency, cashOnHand, staffPaymentsOwed, probableSpend || 0)}
                 title="Export the day-by-day forecast as a CSV for your bookkeeper"
               >
                 <Download className="w-3 h-3 mr-1" />
@@ -893,7 +924,44 @@ export function CashflowForecastCard({
                     )}
                   </div>
 
-                  {point.orders.length === 0 && point.costs.length === 0 ? (
+                  {/* CASH-B (cashflow follow-ups): day-0 opening lines.
+                      Pre-CASH-B the drawer only showed scheduled orders +
+                      bucketed costs, but day-0 (today) carries two extra
+                      subtractions baked into the opening balance: wages
+                      owed and the operator's contingency. Operators tap-
+                      ing on Today saw a balance that didn't reconcile to
+                      the per-row breakdown. Surface both lines explicitly
+                      when the drawer is open on day 0. */}
+                  {drillDay === 0 && (staffPaymentsOwed > 0 || (probableSpend || 0) > 0) && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-slate-600">Baked into today&apos;s opening balance</div>
+                      {staffPaymentsOwed > 0 && (
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                          <span className="text-sm text-slate-900 flex-1">
+                            Wages owed
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">staff</span>
+                          </span>
+                          <span className="ml-3 tabular-nums text-sm text-red-700">
+                            -{fmt(staffPaymentsOwed, currency)}
+                          </span>
+                        </div>
+                      )}
+                      {(probableSpend || 0) > 0 && (
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                          <span className="text-sm text-slate-900 flex-1">
+                            Contingency
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">your buffer</span>
+                          </span>
+                          <span className="ml-3 tabular-nums text-sm text-red-700">
+                            -{fmt(probableSpend || 0, currency)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {point.orders.length === 0 && point.costs.length === 0
+                    && !(drillDay === 0 && (staffPaymentsOwed > 0 || (probableSpend || 0) > 0)) ? (
                     <p className="text-xs text-slate-400 py-6 text-center">
                       Nothing firing on this day.
                     </p>
@@ -1040,10 +1108,16 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
  * the day-by-day projected balance into their working sheet
  * without having to screenshot the chart.
  *
- * Columns: date, day_offset, balance, income, costs_hire,
- * costs_shopping. No PII (no client names) so the file is safe
- * to email or share. UTF-8 BOM at the head so Excel on Windows
- * opens it without mangling currency symbols.
+ * CASH-B widening: the original CSV omitted opening_balance,
+ * wages_day0 and contingency_day0 - all three are baked into the
+ * first balance row but the bookkeeper couldn't reconcile to the
+ * chart without seeing the inputs. Three new columns added on
+ * every row (constant across the series) so the working sheet
+ * can show the breakdown alongside each day's running balance.
+ *
+ * No PII (no client names) so the file is safe to email or share.
+ * UTF-8 BOM at the head so Excel on Windows opens it without
+ * mangling currency symbols.
  */
 function downloadCsv(
   series: Array<{
@@ -1058,11 +1132,15 @@ function downloadCsv(
     costsCogs: number;
   }>,
   currency: string,
+  cashOnHand: number,
+  staffPaymentsOwed: number,
+  contingency: number,
 ) {
   const header = [
     "date", "day_offset", "balance", "income",
     "costs_hire", "costs_shopping", "costs_payable",
     "costs_fixed", "costs_cogs",
+    "opening_balance", "wages_owed_day0", "contingency_day0",
   ];
   const rows = series.map((p) => [
     p.date,
@@ -1074,12 +1152,16 @@ function downloadCsv(
     Math.round(p.costsPayable),
     Math.round(p.costsFixed),
     Math.round(p.costsCogs),
+    Math.round(cashOnHand),
+    Math.round(staffPaymentsOwed),
+    Math.round(contingency),
   ]);
   const csv = "﻿" + [header, ...rows].map((r) => r.join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const today = new Date().toISOString().slice(0, 10);
+  // CASH-B: same toLocalISO consistency as the load path.
+  const today = toLocalISO(new Date());
   link.href = url;
   link.download = `cashflow-forecast-${today}-${currency}.csv`;
   link.click();
