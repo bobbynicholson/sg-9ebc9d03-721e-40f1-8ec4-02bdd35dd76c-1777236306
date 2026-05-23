@@ -401,34 +401,60 @@ function ClientsCRM() {
       }
       return { data: out, error: null };
     };
+    // Wave 70.80: paginate every supplementary read the same way
+    // clients does. Pre-fix leads / orders / quotes / invoices ran
+    // as a single .select() with no .range() - PostgREST silently
+    // caps such queries at 1000 rows, so on a tenant with > 1000
+    // orders the aggregation silently dropped every order past
+    // row 1000. No warning - the page just lied about order
+    // counts, total spent, last event date etc.
+    //
+    // Correctness fix, not perf - more round-trips for big
+    // tenants. The proper perf step is a Postgres aggregation
+    // view that pre-computes per (company_id, lower(email)) so
+    // the merge becomes a single keyed lookup. Phase II.
+    const fetchAllPaged = async (
+      table: "leads" | "orders" | "quotes" | "invoices",
+      select: string,
+      orderClause?: { column: string; ascending: boolean },
+    ): Promise<{ data: any[]; error: any | null }> => {
+      const PAGE = 1000;
+      const HARD_CAP = 50000;
+      const out: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const to = from + PAGE - 1;
+        let q: any = (supabase as any)
+          .from(table)
+          .select(select)
+          .eq("company_id", companyId)
+          .is("deleted_at", null);
+        if (orderClause) q = q.order(orderClause.column, { ascending: orderClause.ascending });
+        q = q.range(from, to);
+        const { data, error } = await q;
+        if (error) return { data: out, error };
+        const rows = (data || []);
+        out.push(...rows);
+        if (rows.length < PAGE) break;
+        if (out.length >= HARD_CAP) break;
+      }
+      return { data: out, error: null };
+    };
     const [clientsRes, leadsRes, ordersRes, quotesRes, invoicesRes] = await Promise.all([
       fetchAllClients(),
-      supabase
-        .from("leads")
-        .select("id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename")
-        .eq("company_id", companyId)
-        .is("deleted_at", null),
-      supabase
-        .from("orders")
-        .select("id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null),
-      supabase
-        .from("quotes")
-        // Wave 70.72: order by created_at desc so quoteIds[0]
-        // is the LATEST quote, not whatever order PostgREST
-        // returns. The row's "Open quote" / "New quote" CTAs
-        // read [0] and were drilling to the oldest quote for
-        // multi-quote contacts.
-        .select("id, client_name, client_email, client_id, lead_id, created_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("invoices")
-        .select("id, client_id, order_id")
-        .eq("company_id", companyId)
-        .is("deleted_at", null),
+      fetchAllPaged(
+        "leads",
+        "id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename",
+      ),
+      fetchAllPaged(
+        "orders",
+        "id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at",
+      ),
+      fetchAllPaged(
+        "quotes",
+        "id, client_name, client_email, client_id, lead_id, created_at",
+        { column: "created_at", ascending: false },
+      ),
+      fetchAllPaged("invoices", "id, client_id, order_id"),
     ]);
 
     // Surface fetch errors loudly. The aggregator below treats null
