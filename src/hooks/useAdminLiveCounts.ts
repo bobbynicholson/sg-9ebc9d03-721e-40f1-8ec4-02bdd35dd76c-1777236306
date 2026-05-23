@@ -126,7 +126,11 @@ export function useAdminLiveCounts(): AdminLiveCounts {
         .from("quotes")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .in("status", ["sent", "viewed", "revised"])
+        // ENUM-T (enum-drift triage): "viewed" + "revised" aren't in
+        // the quote_status enum. Filter to the real "sent but not
+        // resolved" state - draft hasn't gone out yet so it doesn't
+        // count as overdue.
+        .in("status", ["sent"])
         .lt("sent_at", overdueCutoff);
       if (regionFilterId) quotesOverdueQ.eq("region_id", regionFilterId);
 
@@ -179,7 +183,11 @@ export function useAdminLiveCounts(): AdminLiveCounts {
               .select("total_amount")
               .eq("company_id", companyId)
               .eq("event_date", todayIso)
-              .in("status", ["delivered", "completed", "paid", "in_transit", "ready"]);
+              // ENUM-T (enum-drift triage): "paid" isn't in order_status
+              // (the payment-state lives in payment_status). Keep the
+              // workflow-progress values that genuinely indicate the
+              // event is happening or already done.
+              .in("status", ["ready", "in_transit", "delivered", "completed"]);
             if (regionFilterId) q.eq("region_id", regionFilterId);
             return q;
           })()

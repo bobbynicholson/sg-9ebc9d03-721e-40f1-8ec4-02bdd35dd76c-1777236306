@@ -57,7 +57,13 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
           .select("id, quote_number, client_name, client_email, total, event_date, sent_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          .in("status", ["sent", "viewed", "revised"])
+          // ENUM-T (enum-drift triage): "viewed" + "revised" aren't in
+          // the quote_status enum. The client-opened state lives in
+          // viewed_at timestamp instead. Filter on the real terminal-
+          // non-terminal split (draft is in-flight too, but a draft
+          // hasn't gone out the door yet so the follow-up widget
+          // shouldn't surface it).
+          .in("status", ["sent"])
           .not("sent_at", "is", null)
           .lte("sent_at", threeDaysAgo)
           .order("sent_at", { ascending: true })

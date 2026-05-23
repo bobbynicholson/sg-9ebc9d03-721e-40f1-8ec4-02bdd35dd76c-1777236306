@@ -85,46 +85,14 @@ const STATUS_VOCAB = {
 // candidate but lives outside this PR's blast radius (money-flow
 // paths, payment verification, client portal). Tracked as follow-up
 // tasks - DO NOT extend this list; new violations must be fixed.
-const REG_E_BASELINE = new Set([
-  // quotes.status .in literals
-  "src/components/admin/QuoteFollowupWidget.tsx::quotes::revised::.in",
-  "src/components/admin/QuoteFollowupWidget.tsx::quotes::viewed::.in",
-  "src/hooks/useAdminLiveCounts.ts::quotes::viewed::.in",
-  "src/hooks/useAdminLiveCounts.ts::quotes::revised::.in",
-  "src/hooks/useAdminPortalMode.ts::quotes::viewed::.in",
-  "src/hooks/useAdminPortalMode.ts::quotes::revised::.in",
-  "src/pages/api/public/quotes/[token]/accept.ts::quotes::viewed::.in",
-  "src/services/quote/markQuoteAsLost.ts::quotes::viewed::.in",
-  "src/services/quote/markQuoteAsLost.ts::quotes::revised::.in",
-  // orders.status literals (money-flow paths - real bugs)
-  "src/hooks/useAdminLiveCounts.ts::orders::paid::.in",
-  "src/pages/api/orders/cancellation-review.ts::orders::refunded::.update/.insert/.upsert payload",
-  "src/pages/api/orders/[id]/cancel.ts::orders::refunded::.update/.insert/.upsert payload",
-  "src/pages/api/payments/verify-claim.ts::orders::paid::.update/.insert/.upsert payload",
-  // invoices.status literals
-  "src/hooks/useAdminLiveCounts.ts::invoices::partially_paid::.in",
-  "src/pages/api/accounting/xero/void-invoices.ts::invoices::voided::.eq",
-  "src/pages/api/admin/invoices/bulk-remind.ts::invoices::partially_paid::.in",
-  "src/pages/client-portal/billing.tsx::invoices::written_off::.not(\"status\",\"in\",\"(...)\")",
-  "src/pages/client-portal/dashboard.tsx::invoices::pending::.in",
-  "src/services/invoiceGenerationService.ts::invoices::partially_paid::.in",
-  "src/services/invoiceGenerationService.ts::invoices::written_off::.update/.insert/.upsert payload",
-  "src/services/order/releaseResources.ts::invoices::partially_paid::.in",
-  "src/services/order/releaseResources.ts::invoices::voided::.update/.insert/.upsert payload",
-  // OverdueInvoicesWidget filters out `cancelled` against invoice_status
-  // (which has no such value). The filter is harmless cosmetically
-  // because the query still runs against the real values, but the
-  // `cancelled` member of the not-in tuple is dead.
-  "src/components/admin/OverdueInvoicesWidget.tsx::invoices::cancelled::.not(\"status\",\"in\",\"(...)\")",
-  // LeadAgingWidget escapes its .not("status","in",...) values with
-  // backslashed quotes. The regex picks the values up as literal
-  // strings prefixed with the escape sequence. Real values are won /
-  // lost / closed - won + lost are valid lead_status; closed is not.
-  // Real bug to triage in a follow-up.
-  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"won\\::.not("status","in","(...)")',
-  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"lost\\::.not("status","in","(...)")',
-  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"closed\\::.not("status","in","(...)")',
-]);
+// REG-E + ENUM-T (enum-drift triage): post-triage there are no
+// baselined drift entries. Each previously-baselined hit was either
+// fixed for real in this branch or confirmed to be a false positive
+// caused by an over-greedy regex (payment_status matching the
+// status: pattern; valid invoice_status members the pre-update
+// vocab didn't know about). Re-introducing a baseline entry should
+// require a comment explaining why the bug can't be fixed inline.
+const REG_E_BASELINE = new Set([]);
 
 // `companies.subscription_status` is the enum-typed column we
 // already trimmed to ['trial','active','past_due','cancelled',
@@ -356,7 +324,14 @@ function checkFile(path, src) {
   // not the .not("col","in","(...)") variant.
   for (const m of src.matchAll(/\.not\(\s*["'`]status["'`]\s*,\s*["'`]in["'`]\s*,\s*["'`]\(([^)]+)\)["'`]\s*\)/g)) {
     const arr = m[1];
-    const literals = arr.split(",").map((l) => l.trim().replace(/^["'`]|["'`]$/g, ""));
+    // ENUM-T (enum-drift triage): the LeadAgingWidget escapes its
+    // values with backslashed quotes inside the PostgREST tuple
+    // string ("(\"won\",\"lost\")"). Strip backslash-quotes AND plain
+    // quotes before comparing, otherwise the parser sees \"won\ and
+    // misses the membership check entirely.
+    const literals = arr
+      .split(",")
+      .map((l) => l.trim().replace(/^[\\"'`]+|[\\"'`]+$/g, ""));
     const table = findTableBefore(src, m.index);
     if (!table || !STATUS_VOCAB[table]) continue;
     for (const literal of literals) {
@@ -380,7 +355,15 @@ function checkFile(path, src) {
   // Walk every `status: "X"` occurrence and check the preceding
   // ~300 chars for a .update / .insert / .upsert opener AND the
   // preceding ~800 chars for the .from("TABLE") call.
-  for (const m of src.matchAll(/status\s*:\s*["'`]([a-z_]+)["'`]/g)) {
+  //
+  // The leading lookbehind (?<![A-Za-z0-9_]) excludes payload keys
+  // that just happen to END in `status` - the obvious one is
+  // `payment_status: "paid"` which is a completely different column
+  // and lives in payment_status enum, not order_status. Without the
+  // lookbehind every order.update({status: 'completed', payment_
+  // status: 'paid'}) call lit up Pattern 3 for a bogus order.status
+  // = 'paid' write.
+  for (const m of src.matchAll(/(?<![A-Za-z0-9_])status\s*:\s*["'`]([a-z_]+)["'`]/g)) {
     const literal = m[1];
     const lookback300 = src.slice(Math.max(0, m.index - 300), m.index);
     if (!/\.(?:update|insert|upsert)\s*\(/.test(lookback300)) continue;

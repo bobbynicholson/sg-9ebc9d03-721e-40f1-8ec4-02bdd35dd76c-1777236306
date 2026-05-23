@@ -55,7 +55,13 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .is("converted_at", null)
-          .not("status", "in", "(\"won\",\"lost\",\"closed\")")
+          // ENUM-T (enum-drift triage): "closed" isn't in
+          // lead_status. The real terminal states are won + lost.
+          // Pre-ENUM-T the bogus literal was a dead branch of the
+          // .not() tuple; the filter still worked, but a future
+          // refactor reading "closed" as a meaningful state would
+          // silently produce wrong results.
+          .not("status", "in", "(\"won\",\"lost\")")
           .lte("created_at", cutoff)
           .order("created_at", { ascending: true })
           .limit(5);

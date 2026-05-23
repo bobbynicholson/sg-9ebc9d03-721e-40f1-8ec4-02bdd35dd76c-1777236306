@@ -157,7 +157,10 @@ export function useAdminPortalMode(): AdminPortalModeState {
         .from("quotes")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .in("status", ["sent", "viewed", "revised"])
+        // ENUM-T (enum-drift triage): "viewed" + "revised" aren't in
+        // the quote_status enum (the viewed state lives in viewed_at).
+        // Filter to the real "sent but not resolved" state.
+        .in("status", ["sent"])
         .lt("sent_at", overdueCutoff);
       if (regionFilterId) quotesQ.eq("region_id", regionFilterId);
 

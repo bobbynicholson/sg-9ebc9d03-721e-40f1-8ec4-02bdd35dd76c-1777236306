@@ -580,7 +580,13 @@ function ClientPortalDashboardInner() {
             .from("invoices")
             .select("id, status, balance_due, total_amount, due_date")
             .eq("company_id", tenantCompanyId)
-            .in("status", ["pending", "overdue"]);
+            // ENUM-T (enum-drift triage): "pending" isn't in
+            // invoice_status. The real "client owes something" set is
+            // sent (unpaid), partially_paid (some paid, balance owed),
+            // and overdue (past due_date). Without this fix the
+            // outstanding-invoices tile under-counted every sent-and-
+            // not-yet-overdue invoice.
+            .in("status", ["sent", "partially_paid", "overdue"]);
           let invoicesQuery = baseInvoices;
           if (clientIds.length > 0 && user.email) {
             invoicesQuery = invoicesQuery.or(
