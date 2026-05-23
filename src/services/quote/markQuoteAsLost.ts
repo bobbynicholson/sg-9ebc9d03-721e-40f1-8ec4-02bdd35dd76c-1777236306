@@ -134,7 +134,11 @@ export async function markQuoteAsLost(opts: MarkQuoteAsLostOpts): Promise<MarkQu
       updated_at: nowIso,
     })
     .is("deleted_at", null)
-    .in("status", ["draft", "sent", "viewed", "revised", "accepted"]);
+    // ENUM-T (enum-drift triage): "viewed" + "revised" were never in
+    // the quote_status enum. The gate just needs to block flipping a
+    // quote that's already in a terminal state (rejected, expired),
+    // so allow only the non-terminal members.
+    .in("status", ["draft", "sent", "accepted"]);
   if (opts.match.kind === "id") {
     updateQuery = updateQuery.eq("id", opts.match.quote_id);
   } else {

@@ -63,7 +63,13 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
             orders ( order_number, client_name )
           `)
           .eq("company_id", companyId)
-          .not("status", "in", '("paid","cancelled")')
+          // ENUM-T (enum-drift triage): "cancelled" isn't in
+          // invoice_status. The real terminal states are paid,
+          // written_off and voided - all three should be excluded
+          // from the overdue widget. Pre-ENUM-T `cancelled` was
+          // dead-but-harmless, and voided/written_off invoices
+          // were still surfacing as "overdue" which they aren't.
+          .not("status", "in", '("paid","voided","written_off")')
           .lt("due_date", today)
           .order("due_date", { ascending: true })
           .limit(5);
