@@ -84,6 +84,13 @@ interface Props {
    *  button on past-event non-terminal orders that fires the
    *  force-close API. Page-level role gate (admin / owner). */
   canShowCloseOut?: boolean;
+  /** Wave 70.93 - opt OUT of the silent auto-heal effect. Default
+   *  false (= heal on every mount). The admin orders list page
+   *  renders this chip per row, so the default behaviour fired N
+   *  parallel /api/orders/regenerate-prep-tasks POSTs per page
+   *  load. Setting this true on the list path keeps the auto-heal
+   *  exclusive to the order modal context. */
+  disableAutoHeal?: boolean;
 }
 
 // Wave 70.58 - the session-once sessionStorage gate was removed.
@@ -102,6 +109,7 @@ export function OrderReadinessChip({
   eventDate,
   eventTime,
   status,
+  disableAutoHeal,
   canShowCloseOut,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -189,6 +197,16 @@ export function OrderReadinessChip({
   // cycle, not once per session.
   useEffect(() => {
     if (!orderId) return;
+    // Wave 70.93: opt-out gate for list contexts. The orders list
+    // renders this chip per row, so without the gate each row's
+    // effect fires a POST to /api/orders/regenerate-prep-tasks
+    // on mount - up to N parallel POSTs per page load on a busy
+    // tenant. Pages that render the chip in a list pass
+    // disableAutoHeal so heal stays exclusive to the modal
+    // context (where the operator just opened a specific order
+    // and a missing-prep state is genuinely actionable in
+    // foreground).
+    if (disableAutoHeal) return;
     if (autoHealFiredRef.current === orderId) return;
 
     const prepSignal = readiness.failingHigh.find((s) => s.key === "kitchen_prep_tasks_present");
@@ -223,7 +241,7 @@ export function OrderReadinessChip({
         /* silent - the next modal open will retry */
       }
     })();
-  }, [orderId, eventDate, readiness.failingHigh, onActionComplete]);
+  }, [orderId, eventDate, readiness.failingHigh, onActionComplete, disableAutoHeal]);
 
   // Wave 57 - shared focus-visible utility for the raw <button>
   // elements inside the chip. Pre-Wave-57 keyboard users got

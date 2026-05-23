@@ -146,7 +146,11 @@ function OrderProcessDashboard() {
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        router.push(withSlug("/admin/order-assignments"));
+        // Wave 70.94 - new orders originate from accepted quotes;
+        // /admin/order-assignments is the dispatch queue, not a new-
+        // order form. Route to the quote builder instead so the
+        // shortcut matches the button label.
+        router.push(withSlug("/admin/quotes/new"));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -490,6 +494,34 @@ function OrderProcessDashboard() {
           loadOrders();
         },
       )
+      // Wave 70.94 - the OrderReadinessChip signals depend on rows
+      // outside the orders + payments tables. Pre-Wave-70.94 an invoice
+      // marked paid in /admin/invoices, a driver assigned in /admin/
+      // order-assignments, a prep task ticked off in /kitchen, or a
+      // delivery shift slotted in /admin/kitchen-schedule all required
+      // a manual refresh before the chip + timeline reflected the
+      // change. Subscribe to each so the list stays accurate without
+      // operator effort.
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
+        () => { loadOrders(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` },
+        () => { loadOrders(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `company_id=eq.${companyId}` },
+        () => { loadOrders(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` },
+        () => { loadOrders(); },
+      )
       .subscribe();
     return () => {
       (supabase as any).removeChannel(channel);
@@ -744,7 +776,14 @@ function OrderProcessDashboard() {
               .select("id, order_id, provider_id, status, quoted_cost, provider:provider_id(provider_name)")
               .in("order_id", orderIds)
               .is("deleted_at", null),
-            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds),
+            // Wave 70.94 - include due_date in the batch. Without it the
+            // OrderReadinessChip's balance_not_overdue signal couldn't
+            // see the invoice-level due date and fell back to
+            // orders.balance_due_date, which drifts apart from the
+            // invoice (e.g. ORD-003831 shows orders.balance_due_date =
+            // 2026-05-16 but invoices.due_date = 2026-05-30, producing
+            // a phantom "was due 16 May" banner on a not-yet-due order).
+            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date, due_date").in("order_id", orderIds),
             supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
             (supabase as any)
               .from("kitchen_shifts")
@@ -1467,8 +1506,14 @@ function OrderProcessDashboard() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {/* Primary CTA - always last so the right edge stays
-                    consistent. */}
-                <Link href={withSlug("/admin/order-assignments")}>
+                    consistent. Wave 70.94 - points to /admin/quotes/new
+                    (the quote builder, which becomes an order on
+                    accept). Pre-fix this routed to /admin/order-
+                    assignments (the dispatch queue) which shared a
+                    destination with the "no driver assigned" Fix-it
+                    link on the readiness chip - two different CTAs
+                    going to the same page made both feel broken. */}
+                <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"

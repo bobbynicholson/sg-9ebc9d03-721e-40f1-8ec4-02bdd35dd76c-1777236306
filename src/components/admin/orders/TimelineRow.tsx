@@ -256,6 +256,11 @@ export function TimelineRow({
                 status={(order as any).status || null}
                 canShowCloseOut={true}
                 onActionComplete={() => { void loadOrders(); }}
+                // Wave 70.93: list context - disable per-row auto-
+                // heal POST. The order modal still renders this chip
+                // WITHOUT the disable flag, so heal still fires when
+                // the operator actually opens an order.
+                disableAutoHeal
               />
             );
           })()}
