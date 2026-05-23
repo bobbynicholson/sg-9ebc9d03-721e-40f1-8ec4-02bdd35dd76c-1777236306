@@ -112,7 +112,25 @@ export const routeOptimizationService = {
     const optimizedStops: DeliveryStop[] = [];
     let totalDistance = 0;
     let totalDuration = 0;
-    let currentTime = new Date();
+    // RP-B (route-planning audit, RP-2): anchor the cursor at the
+    // earliest stop deadline minus a 90-minute lead, not the wall
+    // clock. Pre-RP-B `new Date()` produced bogus slack: a tomorrow-
+    // for-tomorrow plan run at 14:00 today predicted arrivals
+    // starting 14:00 today against deadlines 28 hours later, so 2-opt
+    // saw zero infeasibility incentive and optimised on raw distance.
+    // Now slack is meaningful relative to each stop's deadline, and
+    // the 2-opt penalty kicks in for risky orderings.
+    const ROUTE_START_LEAD_MINUTES = 90;
+    const _routeStartFromStops = (xs: DeliveryStop[]): Date => {
+      let earliest = Number.POSITIVE_INFINITY;
+      for (const s of xs) {
+        const d = new Date(s.delivery_time).getTime();
+        if (!isNaN(d) && d < earliest) earliest = d;
+      }
+      if (!isFinite(earliest)) return new Date();
+      return new Date(earliest - ROUTE_START_LEAD_MINUTES * 60_000);
+    };
+    let currentTime = _routeStartFromStops(stops);
 
     // Nearest Neighbor algorithm with priority weighting
     while (unvisited.length > 0) {
@@ -218,7 +236,9 @@ export const routeOptimizationService = {
     // sequence so the response numbers match the actual stop order.
     let recomputedDistance = 0;
     let recomputedDuration = 0;
-    let cursorTime = new Date();
+    // RP-B (RP-2): mirror the anchor used by the nearest-neighbour
+    // pass so the recompute pass produces consistent timestamps.
+    let cursorTime = _routeStartFromStops(bestStops);
     let cursorLat = startLat ?? bestStops[0].venue_lat;
     let cursorLng = startLng ?? bestStops[0].venue_lng;
     let recomputedInfeasible = 0;
@@ -279,12 +299,28 @@ export const routeOptimizationService = {
     const INFEASIBILITY_PENALTY = 10_000;
     const SERVICE_MIN = 15;
 
+    // RP-B (RP-2): anchor the 2-opt cost cursor at the earliest
+    // deadline in the route minus a 90-minute lead, so swapping in a
+    // later-deadline stop earlier in the sequence registers as a
+    // breach in the cost function. Pre-RP-B `new Date()` made every
+    // realistic tomorrow-route show zero breaches and 2-opt only
+    // minimised raw distance.
+    const _twoOptStartFromSeq = (xs: DeliveryStop[]): Date => {
+      let earliest = Number.POSITIVE_INFINITY;
+      for (const s of xs) {
+        const d = new Date(s.delivery_time).getTime();
+        if (!isNaN(d) && d < earliest) earliest = d;
+      }
+      if (!isFinite(earliest)) return new Date();
+      return new Date(earliest - 90 * 60_000);
+    };
+
     const routeCost = (seq: DeliveryStop[]): number => {
       let dist = 0;
       let breaches = 0;
       let lat = startLat;
       let lng = startLng;
-      let cursor = new Date();
+      let cursor = _twoOptStartFromSeq(seq);
       for (const s of seq) {
         const leg = this.calculateDistance(lat, lng, s.venue_lat, s.venue_lng);
         dist += leg;
@@ -437,19 +473,52 @@ export const routeOptimizationService = {
   /**
    * Optimize routes for all available drivers
    * Distributes orders evenly and optimizes each driver's route
+   *
+   * RP-B (route-planning audit, RP-1): pre-RP-B this queried
+   * `profiles.available` + `profiles.current_lat/current_lng` which do
+   * not exist on the table. The select silently errored, the catch
+   * block toasted "No available drivers found", and the page's primary
+   * CTA ("Optimise routes") was DOA - it had never produced output.
+   * Now: GPS is sourced from `driver_locations` (the canonical single-
+   * row-per-driver table dispatchService.ts already uses), driver-
+   * activity is gated on `profiles.is_active`, and missing GPS is
+   * tolerated (drivers without a recent ping are still included; the
+   * optimiser falls back to the first stop's location as the anchor).
    */
   async optimizeAllDriverRoutes(companyId: string): Promise<OptimizedRoute[]> {
-    // Get all available drivers
-    const { data: drivers, error: driverError } = await (supabase as any)
+    // Active drivers on the company. is_active is the live flag;
+    // missing values are treated as active to match the page's own
+    // loadDispatchData filter.
+    const { data: driverRows, error: driverError } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name, current_lat, current_lng")
+      .select("id, full_name, is_active")
       .eq("company_id", companyId)
       .eq("role", "driver")
-      .eq("available", true);
+      .is("deleted_at", null);
 
-    if (driverError || !drivers || drivers.length === 0) {
-      console.error("No available drivers found");
+    if (driverError || !driverRows || driverRows.length === 0) {
+      console.error("[routeOptimizationService] no drivers found:", driverError);
       return [];
+    }
+
+    const drivers = (driverRows as any[]).filter(
+      (d) => d.is_active === null || d.is_active === undefined || d.is_active === true,
+    );
+    if (drivers.length === 0) return [];
+
+    // Current GPS coordinates from the canonical driver_locations
+    // table. Drivers without a ping fall back to the first stop's
+    // location at optimiseRoute time, so they still get routed.
+    const driverIds = drivers.map((d) => d.id);
+    const { data: gpsRows } = await (supabase as any)
+      .from("driver_locations")
+      .select("driver_id, latitude, longitude")
+      .in("driver_id", driverIds);
+    const gpsByDriver: Record<string, { lat: number; lng: number }> = {};
+    for (const row of ((gpsRows as any[]) || [])) {
+      if (typeof row.latitude === "number" && typeof row.longitude === "number") {
+        gpsByDriver[row.driver_id] = { lat: row.latitude, lng: row.longitude };
+      }
     }
 
     // Get all orders that need delivery
@@ -461,26 +530,35 @@ export const routeOptimizationService = {
       driverOrders.set(driver.id, []);
     });
 
-    // Simple distribution: assign orders to nearest driver
+    // Simple distribution: assign orders to nearest driver with a
+    // known GPS ping; drivers without a ping share the remainder
+    // round-robin so they aren't starved of work.
+    let roundRobinCursor = 0;
     orders.forEach((order) => {
       let nearestDriver = drivers[0];
       let nearestDistance = Infinity;
+      let foundGpsMatch = false;
 
       drivers.forEach((driver) => {
-        if (driver.current_lat && driver.current_lng) {
-          const distance = this.calculateDistance(
-            driver.current_lat,
-            driver.current_lng,
-            order.venue_lat,
-            order.venue_lng
-          );
-
-          if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestDriver = driver;
-          }
+        const gps = gpsByDriver[driver.id];
+        if (!gps) return;
+        const distance = this.calculateDistance(
+          gps.lat,
+          gps.lng,
+          order.venue_lat,
+          order.venue_lng,
+        );
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestDriver = driver;
+          foundGpsMatch = true;
         }
       });
+
+      if (!foundGpsMatch) {
+        nearestDriver = drivers[roundRobinCursor % drivers.length];
+        roundRobinCursor += 1;
+      }
 
       driverOrders.get(nearestDriver.id)?.push(order);
     });
@@ -490,11 +568,12 @@ export const routeOptimizationService = {
     for (const driver of drivers) {
       const stops = driverOrders.get(driver.id) || [];
       if (stops.length > 0) {
+        const gps = gpsByDriver[driver.id];
         const route = await this.optimizeRoute(
           driver.id,
           stops,
-          driver.current_lat,
-          driver.current_lng
+          gps?.lat,
+          gps?.lng,
         );
         if (route) {
           optimizedRoutes.push(route);
@@ -567,19 +646,23 @@ export const routeOptimizationService = {
       return null;
     }
 
-    // Get driver's current location
-    const { data: driver, error: driverErr } = await (supabase as any)
-      .from("profiles")
-      .select("current_lat, current_lng")
-      .eq("id", driverId)
-      .single();
-    if (driverErr) console.error("[routeOptimizationService] driver profile lookup failed:", driverErr);
+    // RP-B (route-planning audit, RP-1): GPS coordinates come from
+    // driver_locations (single-row-per-driver table) not profiles.
+    // Pre-RP-B this selected `current_lat/current_lng` from profiles,
+    // which don't exist - the query errored, the catch logged it, and
+    // every per-driver route fell back to "start at first stop".
+    const { data: gpsRow, error: driverErr } = await (supabase as any)
+      .from("driver_locations")
+      .select("latitude, longitude")
+      .eq("driver_id", driverId)
+      .maybeSingle();
+    if (driverErr) console.error("[routeOptimizationService] driver_locations lookup failed:", driverErr);
 
     return this.optimizeRoute(
       driverId,
       stops,
-      driver?.current_lat,
-      driver?.current_lng
+      gpsRow?.latitude,
+      gpsRow?.longitude
     );
   },
 

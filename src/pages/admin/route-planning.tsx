@@ -32,6 +32,7 @@ import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/servic
 import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
 import { dispatchService, formatMinutesAsCountdown, minutesUntilSlaBreach } from "@/services/dispatchService";
+import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Download } from "lucide-react";
 
 const RouteMap = dynamic(
@@ -42,9 +43,11 @@ const RouteMap = dynamic(
 interface DriverProfile {
   id: string;
   full_name: string;
-  current_lat?: number | null;
-  current_lng?: number | null;
-  available?: boolean;
+  // RP-B (route-planning audit, RP-1): driver GPS coordinates live in
+  // driver_locations now, not on profiles. The legacy current_lat /
+  // current_lng / available columns were never created on profiles -
+  // queries against them silently errored. Optional flags kept for
+  // any consumer still reading them.
   is_active?: boolean;
 }
 
@@ -179,6 +182,37 @@ function RoutePlanningInner() {
   useEffect(() => {
     loadDispatchData();
   }, [loadDispatchData]);
+
+  // RP-B (route-planning audit, RP-5): realtime channel scoped to the
+  // caller's company so two ops admins planning routes in parallel
+  // see each other's assignments without a manual Refresh. Without
+  // this the unassigned queue could include orders another admin had
+  // already taken, leading to "no eligible driver" toasts when the
+  // gated assign attempt collided with the optimistic-lock check in
+  // dispatchService. Subscribes to orders (assignment changes) and
+  // driver_assignments (the audit row insert that lands when an
+  // assignment lands through the gated path).
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-route-planning-realtime:${companyId}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => { loadDispatchData(); loadBatchPairs(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` },
+        () => { loadDispatchData(); loadBatchPairs(); },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+  }, [user?.company_id, loadDispatchData, loadBatchPairs]);
 
   /**
    * Auto-assign drivers to every unassigned order. For each order, runs the
@@ -347,8 +381,22 @@ function RoutePlanningInner() {
                   <Route className="inline-block mr-3 text-blue-600" />
                   Route Planning
                 </h1>
+                {/* RP-B (route-planning audit, RP-3): honest copy. Pre-
+                    RP-B this claimed "for tomorrow" but no date filter
+                    was applied anywhere - the queue surfaces every
+                    unassigned confirmed order regardless of date. And
+                    "Capacity, time-conflict, and vehicle gates run
+                    before any assignment lands" is only true for the
+                    Auto-assign + Batch paths (both go through
+                    dispatchService.assignDriverWithGate). The Apply
+                    path on optimised routes still bypasses every
+                    gate; that refactor is its own PR. New copy
+                    describes what's actually true today. */}
                 <p className="text-slate-600">
-                  Auto-assign drivers and optimise routes for tomorrow before dispatch goes live. Capacity, time-conflict, and vehicle gates run before any assignment lands.
+                  Auto-assign drivers and optimise routes for upcoming
+                  unassigned orders. Capacity, time-conflict and
+                  vehicle gates run on the Auto-assign and Batch
+                  buttons before any assignment lands.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -420,7 +468,7 @@ function RoutePlanningInner() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Drivers <InfoTooltip content={"Drivers with role=driver and is_active=true on your team."} /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Drivers <InfoTooltip content={"Drivers with role=driver on your team. Drivers without an explicit is_active flag count as active."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{drivers.length}</p>
                   </div>
                   <Truck className="h-8 w-8 text-emerald-500" />
@@ -559,7 +607,11 @@ function RoutePlanningInner() {
                             esc(o.status || ""),
                           ].join(","));
                         }
-                        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                        // RP-B (route-planning audit, RP-4): leading
+                        // BOM so Excel-ZA renders ZAR + accented
+                        // venue names correctly. Same fix shipped on
+                        // /admin/calendar (task #116).
+                        const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
                         a.href = url;
