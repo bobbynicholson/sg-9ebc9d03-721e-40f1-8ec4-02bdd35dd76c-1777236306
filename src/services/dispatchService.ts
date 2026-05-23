@@ -936,7 +936,7 @@ export const dispatchService = {
    * Top-line dispatch KPIs for the queue header. Cheap to compute - a few
    * COUNT queries plus one analytics rollup.
    */
-  async getDispatchKpis(companyId: string): Promise<{
+  async getDispatchKpis(companyId: string, daysAhead = 30): Promise<{
     unassignedAtRisk: number;
     unassignedTotal: number;
     medianTimeToAssignMinutes: number | null;
@@ -944,8 +944,25 @@ export const dispatchService = {
   }> {
     const settings = await this.getDispatchSettings(companyId);
     const todayISO = toLocalISO(new Date());
+    // Wave 70.59: KPI horizon now matches the dispatch queue page's
+    // selectable window (default 30d). Pre-fix the KPI tile counted
+    // every future unassigned order with no upper bound while the
+    // table was windowed by daysAhead - so a tenant with a wedding
+    // booked 6 months out saw "1 No driver" in the tile but an
+    // empty table at the default 30d window. Confusing for the
+    // operator and arithmetically wrong.
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + daysAhead);
+    const horizonISO = toLocalISO(horizon);
 
-    // Unassigned + future
+    // Unassigned + future + within horizon.
+    // Wave 70.59: status set aligned with the queue table. Dropped
+    // 'in_transit' - an in-transit order MUST already have a driver
+    // (the truck is rolling); if it's unassigned + in_transit
+    // that's a data inconsistency that belongs on a fix-it report,
+    // not on the dispatch tile. confirmed / preparing / ready are
+    // the three pre-dispatch states that legitimately need a
+    // driver assigned.
     const { data: unassigned } = await supabase
       .from("orders")
       .select("id, event_date, event_time")
@@ -953,15 +970,24 @@ export const dispatchService = {
       .is("assigned_driver_id", null)
       .is("deleted_at", null)
       .gte("event_date", todayISO)
+      .lte("event_date", horizonISO)
       .in("status", ["confirmed", "preparing", "ready"]);
 
     const slaCutoffMs = settings.slaAssignMinutes * 60_000;
+    const now = Date.now();
     let atRisk = 0;
     for (const o of unassigned || []) {
       const dt = (o as any).event_time
         ? new Date(`${(o as any).event_date}T${(o as any).event_time}`)
         : new Date(`${(o as any).event_date}T12:00`);
-      if (!isNaN(dt.getTime()) && dt.getTime() - Date.now() <= slaCutoffMs) atRisk += 1;
+      if (isNaN(dt.getTime())) continue;
+      const diff = dt.getTime() - now;
+      // Wave 70.59: at-risk now excludes past events. Previously
+      // `diff <= slaCutoffMs` matched negative diffs too, so a
+      // stale unassigned confirmed-but-cancelled-after-event order
+      // would falsely register as "at risk" forever. New gate:
+      // future event AND within the SLA cutoff window.
+      if (diff > 0 && diff <= slaCutoffMs) atRisk += 1;
     }
 
     // Median time-to-assign over last 14 days, in minutes.
@@ -1032,11 +1058,18 @@ export const dispatchService = {
    * Audit trail for a single order. Drives the "Assignment history" section
    * of the order drawer.
    */
-  async getAssignmentAudit(orderId: string): Promise<any[]> {
-    const { data, error } = await supabase
+  async getAssignmentAudit(orderId: string, companyId?: string): Promise<any[]> {
+    // Wave 70.59: optional companyId belt-and-braces filter so the
+    // read doesn't rely solely on RLS to scope. RLS on
+    // order_assignment_audit already filters by company, but a
+    // defensive .eq() means a busted policy (or a service-role
+    // client passed by mistake) can't leak cross-tenant audit rows.
+    let q = supabase
       .from("order_assignment_audit")
       .select("id, from_driver_id, to_driver_id, performed_by, reason, score, created_at, from_driver:from_driver_id(full_name), to_driver:to_driver_id(full_name), actor:performed_by(full_name)")
-      .eq("order_id", orderId)
+      .eq("order_id", orderId);
+    if (companyId) q = q.eq("company_id", companyId);
+    const { data, error } = await q
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) {
