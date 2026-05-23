@@ -190,7 +190,7 @@ const KNOWN_TABLES = new Set([
   "companies","company_number_settings","company_number_settings_audit","complaints",
   "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
   "delivery_route_stops","delivery_routes","dispatch_messages","driver_assignments",
-  "driver_confirmations","driver_locations","driver_rest_logs","driver_shifts",
+  "driver_confirmations","driver_locations","driver_payouts","driver_rest_logs","driver_shifts",
   "email_automation_log","email_notification_preferences","email_provider_settings",
   "email_settings","email_templates","embed_form_configs","embed_form_submissions",
   "embed_rate_limits","equipment","equipment_bookings","equipment_damages",

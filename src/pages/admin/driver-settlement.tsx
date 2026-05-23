@@ -16,6 +16,7 @@
  * this view via the same path (multiplier already in the calc).
  */
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -28,20 +29,27 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Loader2, Download, Clock, Route, MapPin, ChevronDown, ChevronRight, RefreshCw,
-  Pencil, Trash2, Check, X,
+  Pencil, Trash2, Check, CircleCheck, CircleDashed, BadgeCheck,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
 import {
   driverPayService,
   type DriverPaySummary,
 } from "@/services/driverPayService";
+import {
+  driverPayoutService,
+  type DriverPayoutRow,
+  type DriverPayoutMethod,
+} from "@/services/driverPayoutService";
 
 const formatR = (n: number) =>
   new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -99,6 +107,13 @@ export default function ProtectedDriverSettlementPage() {
 function DriverSettlementPage() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  const router = useRouter();
+  // DRV-B: scope drivers by the global region filter when active.
+  // profiles.region_id has been backfilled and NOT NULL since
+  // 20260523150000_profiles_region_id_backfill_and_default - so we
+  // can rely on it being present. Pass NULL through too so a driver
+  // who hasn't been region-tagged still surfaces.
+  const { regionFilterId } = useRegionFilter();
 
   const [preset, setPreset] = useState<Preset>("last_30");
   const [from, setFrom] = useState(daysAgoIso(30));
@@ -119,6 +134,30 @@ function DriverSettlementPage() {
   const [driverSort, setDriverSort] = useState<"total_desc" | "hours_desc" | "name_asc">(
     "total_desc",
   );
+
+  // DRV-B: settlement state machine. listForPeriod returns the live
+  // payout row per driver overlapping the window; the chip on each
+  // row reads from this map. Map is keyed by driver_id.
+  const [payoutsByDriver, setPayoutsByDriver] = useState<Map<string, DriverPayoutRow>>(
+    new Map(),
+  );
+  const [settledFilter, setSettledFilter] = useState<"all" | "unsettled" | "settled">("all");
+  const [payoutDialog, setPayoutDialog] = useState<null | {
+    driverId: string;
+    driverName: string;
+    totals: {
+      hours_total: number;
+      hourly_pay: number;
+      distance_total_km: number;
+      distance_pay: number;
+      callout_pay: number;
+      grand_total: number;
+    };
+    method: DriverPayoutMethod;
+    reference: string;
+    notes: string;
+    busy: boolean;
+  }>(null);
 
   // Phase 4 #7: pull the company name once so per-driver payslips
   // have the right header. Cheap; one row, runs on mount.
@@ -154,11 +193,18 @@ function DriverSettlementPage() {
     (async () => {
       setLoadingDrivers(true);
       try {
-        const { data, error } = await (supabase as any)
+        let q = (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, is_active, deleted_at")
+          .select("id, full_name, email, is_active, deleted_at, region_id")
           .eq("company_id", user.company_id)
           .eq("role", "driver");
+        // DRV-B region filter: when the global filter is set, match
+        // the driver's region_id OR include driver rows with no
+        // region tag (NULL = cross-region driver, visible everywhere).
+        if (regionFilterId) {
+          q = q.or(`region_id.eq.${regionFilterId},region_id.is.null`);
+        }
+        const { data, error } = await q;
         if (error) throw error;
         const drivers: DriverRow[] = (data || []).map((d: any) => ({
           id: d.id,
@@ -171,36 +217,74 @@ function DriverSettlementPage() {
           setRows(drivers.map((d) => ({ driver: d, summary: null, loading: true })));
         }
       } catch (e) {
-        console.error(e);
+        captureException(e, {
+          tags: { route: "/admin/driver-settlement", step: "load-drivers", companyId: user?.company_id },
+        });
         toast({ title: "Could not load drivers", variant: "destructive" });
       } finally {
         if (!cancelled) setLoadingDrivers(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.company_id, toast]);
+  }, [user?.company_id, regionFilterId, toast]);
 
-  // Recompute pay summaries when range or drivers change.
+  // DRV-B: recompute pay summaries via the bulk helper. The N+1
+  // pattern (1 getPaySummary call per driver, each fanning out 5
+  // round trips) used to be 25 round trips for a 5-driver tenant
+  // on every range change. getBulkPayTotals does 5 parallel
+  // fetches total, regardless of driver count.
+  //
+  // Per-shift / per-delivery detail is loaded lazily when the row
+  // is expanded - via the original getPaySummary path - so the
+  // initial render stays cheap while drilldowns still get the full
+  // breakdown.
   useEffect(() => {
     if (!user?.company_id || rows.length === 0) return;
     let cancelled = false;
+    const driverIds = rows.map((r) => r.driver.id);
     (async () => {
-      // Mark all rows as loading.
-      setRows((prev) => prev.map((r) => ({ ...r, loading: true, summary: null })));
-      // Fetch in parallel; partial failures fall back to null per-row.
-      const results = await Promise.all(rows.map(async (r) => {
-        try {
-          const summary = await driverPayService.getPaySummary({
-            companyId: user.company_id,
-            driverId: r.driver.id,
-            range: { from, to },
+      setRows((prev) => prev.map((r) => ({ ...r, loading: true })));
+      try {
+        const totalsByDriver = await driverPayService.getBulkPayTotals({
+          companyId: user.company_id,
+          driverIds,
+          range: { from, to },
+        });
+        if (cancelled) return;
+        // Synthesise a thin DriverPaySummary so the existing table
+        // can render off the .totals path. Per-shift / per-delivery
+        // arrays are filled in by the expand handler.
+        setRows((prev) => prev.map((r) => {
+          const t = totalsByDriver.get(r.driver.id);
+          if (!t) return { ...r, summary: null, loading: false };
+          const thin: DriverPaySummary = {
+            rates: t.rates,
+            shifts: [],
+            deliveries: [],
+            totals: {
+              hours_total: t.hours_total,
+              hourly_pay: t.hourly_pay,
+              distance_total_km: t.distance_total_km,
+              distance_pay: t.distance_pay,
+              callout_pay: t.callout_pay,
+              grand_total: t.grand_total,
+            },
+          };
+          return { ...r, summary: thin, loading: false };
+        }));
+      } catch (e) {
+        captureException(e, {
+          tags: { route: "/admin/driver-settlement", step: "bulk-pay-totals", companyId: user?.company_id },
+        });
+        if (!cancelled) {
+          setRows((prev) => prev.map((r) => ({ ...r, summary: null, loading: false })));
+          toast({
+            title: "Could not load driver pay",
+            description: "Totals failed to refresh. Try Refresh.",
+            variant: "destructive",
           });
-          return { ...r, summary, loading: false };
-        } catch {
-          return { ...r, summary: null, loading: false };
         }
-      }));
-      if (!cancelled) setRows(results);
+      }
     })();
     return () => { cancelled = true; };
     // We deliberately depend on rows.length (not rows itself) so the
@@ -209,12 +293,84 @@ function DriverSettlementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, from, to, rows.length, refreshTick]);
 
+  // DRV-B: payouts overlapping the window. Refreshed alongside pay
+  // totals so the "Paid" chip on each row stays in sync after a
+  // mark-as-paid action elsewhere in the tenant.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await driverPayoutService.listForPeriod({
+          companyId: user.company_id,
+          periodFrom: from,
+          periodTo: to,
+        });
+        if (!cancelled) setPayoutsByDriver(map);
+      } catch (e) {
+        captureException(e, {
+          tags: { route: "/admin/driver-settlement", step: "load-payouts", companyId: user?.company_id },
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id, from, to, refreshTick]);
+
+  // DRV-B: realtime subscription. A live driver clock-out (auto or
+  // manual) or a payout recorded elsewhere should refresh the page
+  // without a manual Refresh tap. Debounced because clock events
+  // often arrive in clusters at shift boundaries.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRefreshTick((n) => n + 1), 500);
+    };
+    const channel = supabase
+      .channel(`driver-settlement:${user.company_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${user.company_id}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_payouts", filter: `company_id=eq.${user.company_id}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.company_id]);
+
+  // DRV-B: deep-link support. /admin/driver-settlement?driver=<id>
+  // (used by the wages drivers tab) auto-expands the matching row
+  // and scrolls it into view once the driver list is loaded.
+  useEffect(() => {
+    const driverParam = router.query.driver;
+    const driverId = Array.isArray(driverParam) ? driverParam[0] : driverParam;
+    if (!driverId || rows.length === 0) return;
+    if (!rows.some((r) => r.driver.id === driverId)) return;
+    setExpanded((prev) => {
+      if (prev.has(driverId)) return prev;
+      const next = new Set(prev);
+      next.add(driverId);
+      return next;
+    });
+    // Scroll on next paint so the row actually exists.
+    setTimeout(() => {
+      const el = document.getElementById(`driver-row-${driverId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  }, [router.query.driver, rows]);
+
   const totals = useMemo(() => {
-    let hours = 0, hourlyPay = 0, distanceKm = 0, distancePay = 0, callout = 0, grand = 0, drivers = 0;
+    // DRV-B: drivers count == roster (number of fetched summaries),
+    // active == drivers with grand_total > 0. Pre-DRV-B "Drivers
+    // paid" tile read the roster which was misleading when only
+    // one driver had hours.
+    let hours = 0, hourlyPay = 0, distanceKm = 0, distancePay = 0, callout = 0, grand = 0;
+    let roster = 0, active = 0;
     for (const r of rows) {
       const s = r.summary?.totals;
       if (!s) continue;
-      drivers += 1;
+      roster += 1;
+      if (s.grand_total > 0) active += 1;
       hours += s.hours_total;
       hourlyPay += s.hourly_pay;
       distanceKm += s.distance_total_km;
@@ -222,17 +378,21 @@ function DriverSettlementPage() {
       callout += s.callout_pay;
       grand += s.grand_total;
     }
-    return { hours, hourlyPay, distanceKm, distancePay, callout, grand, drivers };
+    return { hours, hourlyPay, distanceKm, distancePay, callout, grand, roster, active };
   }, [rows]);
 
   const exportCsv = () => {
     const header = [
       "Driver", "Email", "Hours", "Hourly pay", "Distance (km)", "Distance pay", "Callouts", "Callout pay", "Grand total",
+      // DRV-B: settlement status + paid-at columns so finance can
+      // reconcile against the rand totals already in the export.
+      "Settlement status", "Paid at", "Paid method", "Paid reference",
     ];
     const lines = [header.join(",")];
     for (const r of rows) {
       const s = r.summary?.totals;
       if (!s) continue;
+      const payout = payoutsByDriver.get(r.driver.id);
       lines.push([
         `"${r.driver.full_name.replace(/"/g, '""')}"`,
         `"${r.driver.email.replace(/"/g, '""')}"`,
@@ -240,18 +400,131 @@ function DriverSettlementPage() {
         s.hourly_pay.toFixed(2),
         s.distance_total_km.toFixed(2),
         s.distance_pay.toFixed(2),
+        // Per-driver deliveries count is only known after the row
+        // is expanded (bulk path drops the per-delivery array to
+        // stay cheap). Use 0 as the conservative fallback.
         r.summary?.deliveries.length ?? 0,
         s.callout_pay.toFixed(2),
         s.grand_total.toFixed(2),
+        payout?.status ?? "unsettled",
+        payout?.paid_at ? `"${payout.paid_at}"` : "",
+        payout?.paid_method ?? "",
+        payout?.paid_reference ? `"${payout.paid_reference.replace(/"/g, '""')}"` : "",
       ].join(","));
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    // DRV-B: UTF-8 BOM so Excel-ZA renders ZAR + diacritics. Same
+    // pattern every other admin CSV uses since CAL-B (task #116).
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `driver-settlement_${from}_to_${to}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // DRV-B: open the mark-as-paid dialog with the current totals
+  // pre-loaded. Saves a click - the operator usually just confirms.
+  const openPayoutDialog = (driverId: string, driverName: string) => {
+    const r = rows.find((x) => x.driver.id === driverId);
+    const t = r?.summary?.totals;
+    if (!t) {
+      toast({ title: "No totals to settle yet", description: "Wait for the row to finish loading.", variant: "destructive" });
+      return;
+    }
+    setPayoutDialog({
+      driverId,
+      driverName,
+      totals: {
+        hours_total: t.hours_total,
+        hourly_pay: t.hourly_pay,
+        distance_total_km: t.distance_total_km,
+        distance_pay: t.distance_pay,
+        callout_pay: t.callout_pay,
+        grand_total: t.grand_total,
+      },
+      method: "eft",
+      reference: "",
+      notes: "",
+      busy: false,
+    });
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!payoutDialog || !user?.company_id) return;
+    setPayoutDialog((d) => (d ? { ...d, busy: true } : d));
+    try {
+      const draft = await driverPayoutService.ensureDraft({
+        companyId: user.company_id,
+        driverId: payoutDialog.driverId,
+        periodFrom: from,
+        periodTo: to,
+        totals: {
+          hours_total: payoutDialog.totals.hours_total,
+          hourly_pay: payoutDialog.totals.hourly_pay,
+          distance_total_km: payoutDialog.totals.distance_total_km,
+          distance_pay: payoutDialog.totals.distance_pay,
+          callout_pay: payoutDialog.totals.callout_pay,
+          gross_total: payoutDialog.totals.grand_total,
+        },
+        actorUserId: user?.id,
+      });
+      if (!draft.ok || !draft.payout) throw new Error(draft.error || "Could not create draft");
+      const paid = await driverPayoutService.markPaid({
+        payoutId: draft.payout.id,
+        paidMethod: payoutDialog.method,
+        paidReference: payoutDialog.reference.trim() || null,
+        paidNotes: payoutDialog.notes.trim() || null,
+        totals: {
+          hours_total: payoutDialog.totals.hours_total,
+          hourly_pay: payoutDialog.totals.hourly_pay,
+          distance_total_km: payoutDialog.totals.distance_total_km,
+          distance_pay: payoutDialog.totals.distance_pay,
+          callout_pay: payoutDialog.totals.callout_pay,
+          gross_total: payoutDialog.totals.grand_total,
+        },
+        actorUserId: user?.id,
+      });
+      if (!paid.ok || !paid.payout) throw new Error(paid.error || "Could not mark as paid");
+      toast({
+        title: "Payout recorded",
+        description: `${payoutDialog.driverName}: ${formatR(payoutDialog.totals.grand_total)} via ${payoutDialog.method}.`,
+      });
+      // Optimistic - the realtime channel will also fire but the
+      // local map gets the new row immediately.
+      setPayoutsByDriver((prev) => {
+        const next = new Map(prev);
+        next.set(paid.payout!.driver_id, paid.payout!);
+        return next;
+      });
+      setPayoutDialog(null);
+    } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/driver-settlement", step: "mark-paid", companyId: user?.company_id },
+      });
+      toast({ title: "Payout failed", description: e?.message || "Try again.", variant: "destructive" });
+      setPayoutDialog((d) => (d ? { ...d, busy: false } : d));
+    }
+  };
+
+  const reversePayout = async (payoutId: string, driverName: string) => {
+    if (!user?.company_id) return;
+    if (!window.confirm(`Reverse the payout for ${driverName}? The row stays in audit, but stops counting as settled.`)) return;
+    try {
+      const res = await driverPayoutService.reverse({
+        payoutId,
+        reason: "manager_reversal",
+        actorUserId: user?.id,
+      });
+      if (!res.ok) throw new Error(res.error || "Could not reverse");
+      toast({ title: "Payout reversed", description: `${driverName} is back to unsettled.` });
+      setRefreshTick((n) => n + 1);
+    } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/driver-settlement", step: "reverse-payout", companyId: user?.company_id },
+      });
+      toast({ title: "Reverse failed", description: e?.message || "Try again.", variant: "destructive" });
+    }
   };
 
   const toggleExpand = (id: string) => {
@@ -279,7 +552,7 @@ function DriverSettlementPage() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Driver Settlement</h1>
                 <p className="text-slate-600 mt-1">
-                  Per-driver pay summary. Hourly, distance per km, callout fees, and the total owed for the period. Review here before triggering payout.
+                  Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out.
                 </p>
               </div>
             </div>
@@ -322,6 +595,23 @@ function DriverSettlementPage() {
                   <option value="name_asc">Name (A to Z)</option>
                 </select>
               </div>
+              {/* DRV-B: settlement filter. Defaults to all so the
+                  table reads identically to pre-DRV-B. "Unsettled"
+                  hides anyone already marked paid for this window;
+                  "Settled" shows only paid drivers (useful for a
+                  pay-day reconciliation against the bank export). */}
+              <div>
+                <Label className="text-xs text-slate-500">Settlement</Label>
+                <select
+                  value={settledFilter}
+                  onChange={(e) => setSettledFilter(e.target.value as "all" | "unsettled" | "settled")}
+                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="all">All drivers</option>
+                  <option value="unsettled">Unsettled only</option>
+                  <option value="settled">Settled only</option>
+                </select>
+              </div>
               <div className="ml-auto flex gap-2">
                 {/* Phase 28 #9: manual refresh. Bumps refreshTick
                     which the inner per-driver compute effect
@@ -341,41 +631,70 @@ function DriverSettlementPage() {
             </CardContent>
           </Card>
 
-          {/* Period totals strip + Phase 12 #9 utilisation tile.
-              Utilisation = total team hours / (drivers * working
-              days * 8h). Working days = elapsed days in the
-              period, including weekends, because catering trades
-              7 days. Anything > ~70% on a Spit Braai-style team
-              means the operator is leaning hard on a small bench;
-              < 30% means the bench is over-provisioned. */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-            <TotalCard label="Drivers paid" value={String(totals.drivers)} />
-            <TotalCard label="Hours" value={`${totals.hours.toFixed(1)}h`} icon={Clock} accent="text-blue-600" />
-            {(() => {
-              const days = Math.max(
-                1,
-                Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1,
-              );
-              const capacity = totals.drivers * days * 8;
-              const pct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : 0;
-              const tone =
-                pct >= 70 ? "text-rose-600"
-                : pct >= 50 ? "text-amber-600"
-                : pct >= 25 ? "text-emerald-600"
-                : "text-slate-500";
-              return (
+          {/* DRV-B: KPI strip.
+              - "Active drivers" reads `active / roster` instead of
+                the misleading "DRIVERS PAID = roster" pre-DRV-B.
+              - Utilisation denominator is now `activeDrivers *
+                days * 8` so a 5-driver tenant with one active
+                driver doesn't drown the percentage to zero.
+              - "Settled" tile shows progress through the cycle:
+                drivers already marked paid this period vs. total
+                drivers with non-zero totals.
+              - Distance pay tile muted when zero so the eye stops
+                being drawn to a flat R 0 number. */}
+          {(() => {
+            const days = Math.max(
+              1,
+              Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1,
+            );
+            const capacity = totals.active * days * 8;
+            const pct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : 0;
+            const utilTone =
+              pct >= 70 ? "text-rose-600"
+              : pct >= 50 ? "text-amber-600"
+              : pct >= 25 ? "text-emerald-600"
+              : "text-slate-500";
+            const settledCount = rows.filter((r) => {
+              const t = r.summary?.totals;
+              if (!t || t.grand_total <= 0) return false;
+              return payoutsByDriver.get(r.driver.id)?.status === "paid";
+            }).length;
+            const distanceMuted = totals.distancePay === 0;
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
+                <TotalCard
+                  label="Active drivers"
+                  value={`${totals.active} / ${totals.roster}`}
+                />
+                <TotalCard label="Hours" value={`${totals.hours.toFixed(1)}h`} icon={Clock} accent="text-blue-600" />
                 <TotalCard
                   label="Utilisation"
-                  value={`${pct}%`}
+                  value={capacity > 0 ? `${pct}%` : "-"}
                   icon={Clock}
-                  accent={tone}
+                  accent={utilTone}
                 />
-              );
-            })()}
-            <TotalCard label="Hourly pay" value={formatR(totals.hourlyPay)} icon={Clock} accent="text-blue-600" />
-            <TotalCard label="Distance pay" value={formatR(totals.distancePay)} icon={Route} accent="text-amber-600" />
-            <TotalCard label="Grand total" value={formatR(totals.grand)} accent="text-emerald-700" emphasize />
-          </div>
+                <TotalCard label="Hourly pay" value={formatR(totals.hourlyPay)} icon={Clock} accent="text-blue-600" />
+                <TotalCard
+                  label="Distance pay"
+                  value={formatR(totals.distancePay)}
+                  icon={Route}
+                  accent={distanceMuted ? "text-slate-400" : "text-amber-600"}
+                />
+                <TotalCard
+                  label="Settled this period"
+                  value={`${settledCount} / ${totals.active}`}
+                  icon={BadgeCheck}
+                  accent={settledCount === totals.active && totals.active > 0 ? "text-emerald-700" : "text-slate-600"}
+                />
+                <TotalCard
+                  label="Grand total"
+                  value={formatR(totals.grand)}
+                  accent="text-emerald-700"
+                  emphasize
+                />
+              </div>
+            );
+          })()}
 
           {loadingDrivers ? (
             <Card className="border-0 shadow">
@@ -389,90 +708,227 @@ function DriverSettlementPage() {
                 No drivers configured yet. Add some on /admin/driver-management.
               </CardContent>
             </Card>
-          ) : (
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-orange-600" />
-                  Per-driver breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-500">
-                      <tr>
-                        <th className="text-left px-4 py-2 font-medium">Driver</th>
-                        <th className="text-right px-4 py-2 font-medium">Hours</th>
-                        <th className="text-right px-4 py-2 font-medium">Hourly pay</th>
-                        <th
-                          className="text-right px-4 py-2 font-medium"
-                          title="Round-trip kilometres (kitchen to venue and back). Matches the round-trip math used to bill the client for delivery."
-                        >
-                          Distance
-                        </th>
-                        <th className="text-right px-4 py-2 font-medium">Distance pay</th>
-                        <th className="text-right px-4 py-2 font-medium">Callouts</th>
-                        <th className="text-right px-4 py-2 font-medium">Callout pay</th>
-                        <th className="text-right px-4 py-2 font-medium">Total</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows
-                        // Hide removed drivers when they have nothing
-                        // to pay out in the selected period - noise
-                        // the operator doesn't need. Active drivers
-                        // always show even with zero totals so their
-                        // empty rows still surface.
-                        .filter((r) => {
-                          if (!r.driver.is_removed) return true;
-                          if (r.loading) return true;
-                          const t = r.summary?.totals;
-                          return !!t && t.grand_total > 0;
-                        })
-                        // Phase 19 #2: sort by what operators actually
-                        // triage on. Defaults to highest-owed first.
-                        .sort((a, b) => {
-                          const at = a.summary?.totals;
-                          const bt = b.summary?.totals;
-                          switch (driverSort) {
-                            case "hours_desc":
-                              return Number(bt?.hours_total || 0) - Number(at?.hours_total || 0);
-                            case "name_asc":
-                              return String((a.driver as any).full_name || "").localeCompare(
-                                String((b.driver as any).full_name || ""),
+          ) : (() => {
+            // DRV-B: shared filter + sort pipeline drives both the
+            // desktop table and the mobile card stack so they
+            // always agree on what's visible.
+            const visibleRows = rows
+              .filter((r) => {
+                // Hide removed drivers when they have nothing to pay
+                // out in the selected period (legacy behaviour kept).
+                if (r.driver.is_removed) {
+                  if (r.loading) return true;
+                  const t = r.summary?.totals;
+                  if (!t || t.grand_total <= 0) return false;
+                }
+                // DRV-B settlement filter.
+                if (settledFilter === "all") return true;
+                const payout = payoutsByDriver.get(r.driver.id);
+                const isPaid = payout?.status === "paid";
+                return settledFilter === "settled" ? isPaid : !isPaid;
+              })
+              .sort((a, b) => {
+                const at = a.summary?.totals;
+                const bt = b.summary?.totals;
+                switch (driverSort) {
+                  case "hours_desc":
+                    return Number(bt?.hours_total || 0) - Number(at?.hours_total || 0);
+                  case "name_asc":
+                    return String((a.driver as any).full_name || "").localeCompare(
+                      String((b.driver as any).full_name || ""),
+                    );
+                  case "total_desc":
+                  default:
+                    return Number(bt?.grand_total || 0) - Number(at?.grand_total || 0);
+                }
+              });
+            return (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-orange-600" />
+                    Per-driver breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* DRV-B: empty state when filters hide everything. */}
+                  {visibleRows.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-slate-500">
+                      {settledFilter === "settled"
+                        ? "No drivers have been marked as settled in this period yet."
+                        : settledFilter === "unsettled"
+                        ? "Every driver with hours has been settled for this period. Nice."
+                        : "No driver rows to show."}
+                    </div>
+                  ) : (
+                    <>
+                      {/* DRV-B desktop table (md+) */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 text-slate-500">
+                            <tr>
+                              <th className="text-left px-4 py-2 font-medium">Driver</th>
+                              <th className="text-right px-4 py-2 font-medium">Hours</th>
+                              <th className="text-right px-4 py-2 font-medium">Hourly pay</th>
+                              <th
+                                className="text-right px-4 py-2 font-medium"
+                                title="Round-trip kilometres (kitchen to venue and back). Matches the round-trip math used to bill the client for delivery."
+                              >
+                                Distance
+                              </th>
+                              <th className="text-right px-4 py-2 font-medium">Distance pay</th>
+                              <th className="text-right px-4 py-2 font-medium">Callouts</th>
+                              <th className="text-right px-4 py-2 font-medium">Callout pay</th>
+                              <th className="text-right px-4 py-2 font-medium">Total</th>
+                              <th className="text-center px-2 py-2 font-medium">Status</th>
+                              <th className="w-8"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {visibleRows.map((r) => {
+                              const t = r.summary?.totals;
+                              const isOpen = expanded.has(r.driver.id);
+                              return (
+                                <FragmentRows
+                                  key={r.driver.id}
+                                  row={r}
+                                  t={t}
+                                  isOpen={isOpen}
+                                  onToggle={() => toggleExpand(r.driver.id)}
+                                  periodFrom={from}
+                                  periodTo={to}
+                                  companyId={user?.company_id || ""}
+                                  companyName={companyName}
+                                  toast={toast}
+                                  actorUserId={user?.id}
+                                  onShiftChanged={() => setRefreshTick((n) => n + 1)}
+                                  payout={payoutsByDriver.get(r.driver.id) || null}
+                                  onMarkPaid={() => openPayoutDialog(r.driver.id, r.driver.full_name)}
+                                  onReverse={(payoutId) => reversePayout(payoutId, r.driver.full_name)}
+                                />
                               );
-                            case "total_desc":
-                            default:
-                              return Number(bt?.grand_total || 0) - Number(at?.grand_total || 0);
-                          }
-                        })
-                        .map((r) => {
-                          const t = r.summary?.totals;
-                          const isOpen = expanded.has(r.driver.id);
-                          return (
-                            <FragmentRows
-                              key={r.driver.id}
-                              row={r}
-                              t={t}
-                              isOpen={isOpen}
-                              onToggle={() => toggleExpand(r.driver.id)}
-                              periodFrom={from}
-                              periodTo={to}
-                              companyName={companyName}
-                              toast={toast}
-                              actorUserId={user?.id}
-                              onShiftChanged={() => setRefreshTick((n) => n + 1)}
-                            />
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* DRV-B mobile card stack (<md). The 10-column
+                          table is unusable on phones; the card view
+                          surfaces only the rand totals + status +
+                          actions, with everything else behind a
+                          tap-to-expand row that opens the desktop
+                          drilldown lazily. */}
+                      <div className="md:hidden space-y-3">
+                        {visibleRows.map((r) => (
+                          <DriverSettlementCard
+                            key={r.driver.id}
+                            row={r}
+                            payout={payoutsByDriver.get(r.driver.id) || null}
+                            onMarkPaid={() => openPayoutDialog(r.driver.id, r.driver.full_name)}
+                            onReverse={(payoutId) => reversePayout(payoutId, r.driver.full_name)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* DRV-B: mark-as-paid dialog. Pulls the row's current
+              totals at open time; the operator confirms the method
+              (eft / cash / mobile_money / other) + an optional
+              reference (e.g. EFT transaction id). markPaid writes
+              the audit_logs row. */}
+          <Dialog open={!!payoutDialog} onOpenChange={(o) => !o && setPayoutDialog(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Record payout</DialogTitle>
+                <DialogDescription>
+                  Lock in the settlement for {payoutDialog?.driverName}. The totals snapshot here so a future rate change won't rewrite history.
+                </DialogDescription>
+              </DialogHeader>
+              {payoutDialog && (
+                <div className="space-y-3 py-1">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-sm">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Hours</span>
+                      <span className="tabular-nums">{payoutDialog.totals.hours_total.toFixed(2)}h</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Hourly pay</span>
+                      <span className="tabular-nums">{formatR(payoutDialog.totals.hourly_pay)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Distance pay</span>
+                      <span className="tabular-nums">{formatR(payoutDialog.totals.distance_pay)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Callout pay</span>
+                      <span className="tabular-nums">{formatR(payoutDialog.totals.callout_pay)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700 font-semibold pt-1 border-t border-slate-200 mt-2">
+                      <span>Gross total</span>
+                      <span className="tabular-nums">{formatR(payoutDialog.totals.grand_total)}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="payout_method">Method</Label>
+                    <select
+                      id="payout_method"
+                      value={payoutDialog.method}
+                      onChange={(e) => setPayoutDialog({ ...payoutDialog, method: e.target.value as DriverPayoutMethod })}
+                      className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="eft">EFT / bank transfer</option>
+                      <option value="cash">Cash</option>
+                      <option value="mobile_money">Mobile money</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="payout_ref">Reference (optional)</Label>
+                    <Input
+                      id="payout_ref"
+                      value={payoutDialog.reference}
+                      onChange={(e) => setPayoutDialog({ ...payoutDialog, reference: e.target.value })}
+                      className="mt-1"
+                      placeholder="EFT transaction id, receipt number, etc."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="payout_notes">Notes (optional)</Label>
+                    <Input
+                      id="payout_notes"
+                      value={payoutDialog.notes}
+                      onChange={(e) => setPayoutDialog({ ...payoutDialog, notes: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+              <DialogFooter>
+                <button
+                  type="button"
+                  onClick={() => setPayoutDialog(null)}
+                  className="px-3 py-2 text-sm border border-slate-200 rounded-md hover:bg-slate-50"
+                  disabled={payoutDialog?.busy}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmMarkPaid}
+                  disabled={!payoutDialog || payoutDialog.busy}
+                  className="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {payoutDialog?.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
+                  Mark as paid
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         <Footer />
       </div>
@@ -481,7 +937,8 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyName, toast, actorUserId, onShiftChanged,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, toast, actorUserId, onShiftChanged,
+  payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
   t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
@@ -489,12 +946,49 @@ function FragmentRows({
   onToggle: () => void;
   periodFrom: string;
   periodTo: string;
+  companyId: string;
   companyName: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   toast: any;
   actorUserId?: string | null;
   onShiftChanged?: () => void;
+  payout: DriverPayoutRow | null;
+  onMarkPaid: () => void;
+  onReverse: (payoutId: string) => void;
 }) {
+  // DRV-B: lazy-load the per-shift / per-delivery detail only when
+  // the row is expanded. The bulk path that drives the totals
+  // drops the per-row arrays to stay cheap; the drilldown drawer
+  // fetches them on open so the page stays fast for tenants with
+  // 20+ drivers.
+  const [detail, setDetail] = useState<DriverPaySummary | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  useEffect(() => {
+    if (!isOpen || detail) return;
+    if (!row.driver.id || !companyId) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    (async () => {
+      try {
+        const summary = await driverPayService.getPaySummary({
+          companyId,
+          driverId: row.driver.id,
+          range: { from: periodFrom, to: periodTo },
+        });
+        if (!cancelled) setDetail(summary);
+      } catch {
+        if (!cancelled) setDetail(null);
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // We only want to re-trigger when the user opens the row, not
+    // on every period tweak.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, row.driver.id, companyId]);
+
+  const detailSummary = detail || row.summary;
   // Phase 8 #1: per-shift edit / delete state. Lives at the row
   // level so multiple rows can each have their own dialog open
   // without cross-talk.
@@ -569,7 +1063,11 @@ function FragmentRows({
   // the row above shows, so the operator can email or print one
   // per driver without re-keying anything.
   const handleDownload = async () => {
-    if (!row.summary) return;
+    // DRV-B: prefer the per-shift detail when loaded so the payslip
+    // PDF has the full breakdown; fall back to the thin bulk
+    // summary on a "PDF without expanding" tap.
+    const summaryForPdf = detail || row.summary;
+    if (!summaryForPdf) return;
     const { driverPayslipService } = await import("@/services/driverPayslipService");
     const blob = driverPayslipService.generatePayslipPdf(
       {
@@ -579,7 +1077,7 @@ function FragmentRows({
         periodFrom,
         periodTo,
       },
-      row.summary,
+      summaryForPdf,
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -594,7 +1092,8 @@ function FragmentRows({
   // base64-encoded as an attachment on the per-tenant emailService
   // send so it picks up the company's branded sender + audit logging.
   const handleEmail = async () => {
-    if (!row.summary || !row.driver.email) return;
+    const summaryForPdf = detail || row.summary;
+    if (!summaryForPdf || !row.driver.email) return;
     const { driverPayslipService } = await import("@/services/driverPayslipService");
     const blob = driverPayslipService.generatePayslipPdf(
       {
@@ -604,7 +1103,7 @@ function FragmentRows({
         periodFrom,
         periodTo,
       },
-      row.summary,
+      summaryForPdf,
     );
     // Resend / nodemailer attachment shape: filename + content (base64).
     const buf = await blob.arrayBuffer();
@@ -622,7 +1121,7 @@ function FragmentRows({
         driver_name: row.driver.full_name,
         period_from: periodFrom,
         period_to: periodTo,
-        grand_total: row.summary.totals.grand_total,
+        grand_total: summaryForPdf.totals.grand_total,
         attachment_filename: filename,
         attachment_base64: base64,
       }),
@@ -632,9 +1131,14 @@ function FragmentRows({
       throw new Error(json?.error || "Could not email payslip");
     }
   };
+  const hasPay = !!(row.summary && t && t.grand_total > 0);
+  // DRV-B: per-driver settlement chip. payout state comes from the
+  // parent map (already loaded once per period change). Reverse
+  // action only on the paid state.
+  const isPaid = payout?.status === "paid";
   return (
     <>
-      <tr className="border-t border-slate-100 hover:bg-slate-50">
+      <tr id={`driver-row-${row.driver.id}`} className="border-t border-slate-100 hover:bg-slate-50">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <button onClick={onToggle} className="text-slate-400 hover:text-slate-700">
@@ -665,65 +1169,102 @@ function FragmentRows({
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.hourly_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums">{t.distance_total_km.toFixed(1)} km</td>
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.distance_pay)}</td>
-            <td className="px-4 py-3 text-right tabular-nums">{row.summary?.deliveries.length ?? 0}</td>
+            <td className="px-4 py-3 text-right tabular-nums">{detailSummary?.deliveries.length ?? "-"}</td>
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.callout_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-700">{formatR(t.grand_total)}</td>
           </>
         )}
+        {/* DRV-B settlement status column. Paid = green chip with
+            paid_at; Reviewed = amber; otherwise an action button to
+            open the mark-as-paid dialog. Empty when there's nothing
+            to settle (zero total). */}
+        <td className="px-2 py-3 text-center">
+          {!hasPay ? (
+            <span className="text-[10px] text-slate-300">-</span>
+          ) : isPaid ? (
+            <button
+              type="button"
+              onClick={() => onReverse(payout!.id)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+              title={`Paid via ${payout!.paid_method || "-"}${payout!.paid_reference ? ` (${payout!.paid_reference})` : ""}. Click to reverse.`}
+            >
+              <BadgeCheck className="w-3 h-3" /> Paid
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onMarkPaid}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+              title="Record this payout"
+            >
+              <CircleDashed className="w-3 h-3" /> Mark paid
+            </button>
+          )}
+        </td>
         <td className="pr-2">
-          {row.summary && t && t.grand_total > 0 && (
-            <div className="flex items-center gap-1 justify-end">
+          {/* DRV-B: PDF + Email actions. Disabled (not hidden) when
+              there's nothing to pay this period - operators saw the
+              missing buttons as a bug pre-DRV-B. */}
+          <div className="flex items-center gap-1 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={handleDownload}
+              disabled={!hasPay}
+              title={hasPay ? "Download payslip PDF" : "No pay this period"}
+            >
+              <Download className="w-3 h-3" /> PDF
+            </Button>
+            {row.driver.email && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs gap-1"
-                onClick={handleDownload}
-                title="Download payslip PDF"
+                disabled={!hasPay}
+                onClick={async () => {
+                  try {
+                    await handleEmail();
+                    toast({
+                      title: "Payslip emailed",
+                      description: `Sent to ${row.driver.email}`,
+                    });
+                  } catch (e: any) {
+                    toast({
+                      title: "Could not email payslip",
+                      description: e?.message || "Try again",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                title={hasPay ? "Email this payslip to the driver" : "No pay this period"}
               >
-                <Download className="w-3 h-3" /> PDF
+                Email
               </Button>
-              {row.driver.email && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs gap-1"
-                  onClick={async () => {
-                    try {
-                      await handleEmail();
-                      toast({
-                        title: "Payslip emailed",
-                        description: `Sent to ${row.driver.email}`,
-                      });
-                    } catch (e: any) {
-                      toast({
-                        title: "Could not email payslip",
-                        description: e?.message || "Try again",
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                  title="Email this payslip to the driver"
-                >
-                  Email
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </td>
       </tr>
-      {isOpen && row.summary && (
+      {isOpen && (
         <tr className="bg-slate-50/50">
-          <td colSpan={9} className="px-4 py-3">
+          <td colSpan={10} className="px-4 py-3">
+            {detailLoading && !detail ? (
+              <div className="text-sm text-slate-500 flex items-center gap-2 py-4">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading shifts and deliveries...
+              </div>
+            ) : !detailSummary ? (
+              <div className="text-sm text-rose-500 py-4">Failed to load detail. Try Refresh.</div>
+            ) : (
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Shifts ({row.summary.shifts.length})
+                  <Clock className="w-3.5 h-3.5" /> Shifts ({detailSummary.shifts.length})
                 </p>
-                {row.summary.shifts.length === 0 ? (
+                {detailSummary.shifts.length === 0 ? (
                   <p className="text-sm text-slate-500">No shifts in this period.</p>
                 ) : (
                   <ul className="text-xs space-y-2">
-                    {row.summary.shifts.map((s) => {
+                    {detailSummary.shifts.map((s) => {
                       const buckets = (s as any).bcea_buckets as
                         | Array<{
                             date: string;
@@ -811,13 +1352,13 @@ function FragmentRows({
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> Deliveries ({row.summary.deliveries.length})
+                  <MapPin className="w-3.5 h-3.5" /> Deliveries ({detailSummary.deliveries.length})
                 </p>
-                {row.summary.deliveries.length === 0 ? (
+                {detailSummary.deliveries.length === 0 ? (
                   <p className="text-sm text-slate-500">No deliveries in this period.</p>
                 ) : (
                   <ul className="text-xs space-y-1">
-                    {row.summary.deliveries.map((d) => (
+                    {detailSummary.deliveries.map((d) => (
                       <li key={d.order_id} className="flex justify-between">
                         <span className="font-mono text-slate-500">{d.order_id.slice(0, 8)}...</span>
                         <span>{d.distance_km.toFixed(1)} km · {formatR(d.total)}</span>
@@ -827,6 +1368,7 @@ function FragmentRows({
                 )}
               </div>
             </div>
+            )}
           </td>
         </tr>
       )}
@@ -949,6 +1491,102 @@ function FragmentRows({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * DRV-B: per-driver mobile card. The desktop table is unusable on
+ * phones (10 columns); this card carries the same headline numbers
+ * + status + actions in a stacked layout. Per-shift / per-delivery
+ * drilldown intentionally lives on desktop only - on a phone the
+ * operator is looking at "who do I still owe?", not "audit this
+ * specific shift".
+ */
+function DriverSettlementCard({
+  row, payout, onMarkPaid, onReverse,
+}: {
+  row: SettlementRow;
+  payout: DriverPayoutRow | null;
+  onMarkPaid: () => void;
+  onReverse: (payoutId: string) => void;
+}) {
+  const t = row.summary?.totals;
+  const hasPay = !!(t && t.grand_total > 0);
+  const isPaid = payout?.status === "paid";
+  return (
+    <div
+      id={`driver-row-card-${row.driver.id}`}
+      className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-slate-900 truncate">{row.driver.full_name}</p>
+            {row.driver.is_removed ? (
+              <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                Removed
+              </Badge>
+            ) : !row.driver.is_active ? (
+              <Badge variant="outline" className="text-[10px]">Inactive</Badge>
+            ) : null}
+          </div>
+          {row.driver.email && (
+            <p className="text-[11px] text-slate-500 truncate">{row.driver.email}</p>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          {row.loading ? (
+            <span className="text-[11px] text-slate-400 italic">
+              <RefreshCw className="w-3 h-3 inline-block mr-1 animate-spin" /> ...
+            </span>
+          ) : !t ? (
+            <span className="text-[11px] text-rose-500 italic">Failed</span>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-emerald-700 tabular-nums">{formatR(t.grand_total)}</p>
+              <p className="text-[11px] text-slate-500 tabular-nums">{t.hours_total.toFixed(2)}h</p>
+            </>
+          )}
+        </div>
+      </div>
+      {t && (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-slate-600">
+          <div>
+            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Hourly</div>
+            <div className="tabular-nums">{formatR(t.hourly_pay)}</div>
+          </div>
+          <div>
+            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Distance</div>
+            <div className="tabular-nums">{formatR(t.distance_pay)}</div>
+          </div>
+          <div>
+            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Callouts</div>
+            <div className="tabular-nums">{formatR(t.callout_pay)}</div>
+          </div>
+        </div>
+      )}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {!hasPay ? (
+          <span className="text-[11px] text-slate-400">Nothing to settle</span>
+        ) : isPaid ? (
+          <button
+            type="button"
+            onClick={() => onReverse(payout!.id)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+          >
+            <BadgeCheck className="w-3 h-3" /> Paid - tap to reverse
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onMarkPaid}
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            <CircleDashed className="w-3 h-3" /> Mark as paid
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
