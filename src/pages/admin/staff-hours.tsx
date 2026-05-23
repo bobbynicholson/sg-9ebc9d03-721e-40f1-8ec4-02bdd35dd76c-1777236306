@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download, AlertTriangle, ExternalLink } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
@@ -54,6 +55,10 @@ interface StaffSession {
   total_hours: number | null;
   total_earnings: number | null;
   payment_status: "unpaid" | "paid" | "pending" | string;
+  // STH-C: true when this row was backfilled via the Add manual
+  // shift dialog. Renders a "Manual" chip on the row.
+  entered_manually?: boolean | null;
+  entry_reason?: string | null;
   staff?: { full_name: string | null; email: string | null; role: string | null } | null;
 }
 
@@ -103,28 +108,91 @@ function StaffHoursPage() {
   const [staffSort, setStaffSort] = useState<"unpaid_desc" | "hours_desc" | "earnings_desc" | "name_asc">(
     "unpaid_desc",
   );
+  // STH-C: custom date range. Pre-STH-C the page locked to 7 / 30
+  // days only; payroll runs the audit on arbitrary windows ("just
+  // the events on the 19th" / "the long weekend"). Picker mirrors
+  // /admin/wages.
+  const [rangeMode, setRangeMode] = useState<"week" | "month" | "custom">("week");
+  const todayIsoLocal = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  };
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>(todayIsoLocal());
+  // STH-C: reconciliation tile data. Pulled in parallel with the
+  // sessions / ledger load; null while loading or on error.
+  const [recon, setRecon] = useState<{
+    tablet_hours: number;
+    scheduled_hours: number;
+    tablet_session_count: number;
+    scheduled_shift_count: number;
+  } | null>(null);
+  // STH-C: manual-entry dialog state.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualDraft, setManualDraft] = useState<{
+    staffId: string;
+    clockIn: string;
+    clockOut: string;
+    reason: string;
+  }>({ staffId: "", clockIn: "", clockOut: "", reason: "" });
+  const [manualSaving, setManualSaving] = useState(false);
+  // Roster used by the manual-entry Select. Pulled once on mount
+  // via the same supabase client; we only need id + full_name for
+  // staff this company employs.
+  const [roster, setRoster] = useState<Array<{ id: string; full_name: string | null }>>([]);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("company_id", user.company_id)
+        .order("full_name", { ascending: true });
+      if (!cancelled) setRoster((data || []) as Array<{ id: string; full_name: string | null }>);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
 
   useEffect(() => {
     if (user) {
       loadData();
     }
-  }, [user, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, period, rangeMode, customFrom, customTo]);
+
+  // STH-C: resolve the active [startDate, endDate] from the
+  // current range mode. Defined as a function so loadData and the
+  // reconciliation fetch agree on the same window.
+  const resolveRange = (): { start: Date; end: Date } => {
+    const now = new Date();
+    if (rangeMode === "custom" && customFrom && customTo) {
+      const start = new Date(customFrom);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(customTo);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    const start = new Date();
+    if (rangeMode === "month") start.setMonth(now.getMonth() - 1);
+    else start.setDate(now.getDate() - 7);
+    return { start, end: now };
+  };
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const now = new Date();
-      const startDate = new Date();
-      
-      if (period === "week") {
-        startDate.setDate(now.getDate() - 7);
-      } else {
-        startDate.setMonth(now.getMonth() - 1);
-      }
+      const { start: startDate, end: now } = resolveRange();
 
-      const [sessionsData, ledgerData] = await Promise.all([
+      const [sessionsData, ledgerData, reconData] = await Promise.all([
         timeClockService.getAllStaffWorkSessions(startDate, now, user?.company_id),
         paymentLedgerService.getAllPayments(startDate, now, user?.company_id),
+        // STH-C: reconciliation tile data. Fetched in the same
+        // wave so the tile is always in sync with the period
+        // selector. Skipped on missing company_id.
+        user?.company_id
+          ? timeClockService.getReconciliation(user.company_id, startDate.toISOString(), now.toISOString())
+          : Promise.resolve(null),
       ]);
 
       // Cast through unknown because the supabase typegen widens
@@ -132,6 +200,7 @@ function StaffHoursPage() {
       // runtime shape matches StaffSession / StaffPayment.
       setSessions(sessionsData as unknown as StaffSession[]);
       setLedger(ledgerData as unknown as StaffPayment[]);
+      setRecon(reconData);
     } catch (error) {
       captureException(error, {
         level: "error",
@@ -408,15 +477,51 @@ function StaffHoursPage() {
 
           <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+              {/* STH-C: range mode now includes Custom. Pre-STH-C
+                  the period was locked to 7 or 30 days; payroll
+                  runs the audit on arbitrary windows. */}
+              <Select
+                value={rangeMode}
+                onValueChange={(v) => {
+                  const mode = v as "week" | "month" | "custom";
+                  setRangeMode(mode);
+                  // Keep `period` in sync for the tile copy that
+                  // reads "Active this week" / "Active this month".
+                  if (mode !== "custom") setPeriod(mode);
+                  if (mode === "custom" && !customFrom) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 7);
+                    setCustomFrom(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+                  }
+                }}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="week">Last 7 Days</SelectItem>
                   <SelectItem value="month">Last 30 Days</SelectItem>
+                  <SelectItem value="custom">Custom range</SelectItem>
                 </SelectContent>
               </Select>
+              {rangeMode === "custom" && (
+                <>
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="w-[150px]"
+                    aria-label="From date"
+                  />
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="w-[150px]"
+                    aria-label="To date"
+                  />
+                </>
+              )}
               {/* Phase 18 #7: order staff cards by what payroll
                   actually triages on. Default is highest-unpaid
                   first because that's the run-up-to-payday case. */}
@@ -433,10 +538,76 @@ function StaffHoursPage() {
               </Select>
             </div>
 
-            <Button onClick={loadData} disabled={loading}>
-              {loading ? "Loading..." : "Refresh"}
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* STH-C: manager backfill for a clock-in that
+                  never happened (tablet offline / forgot to
+                  clock in). Inserts a staff_work_sessions row
+                  with entered_manually=true so payroll can
+                  audit which sessions weren't real clock-ins. */}
+              <Button variant="outline" onClick={() => {
+                setManualDraft({ staffId: "", clockIn: "", clockOut: "", reason: "" });
+                setManualOpen(true);
+              }}>
+                + Add manual shift
+              </Button>
+              <Button onClick={loadData} disabled={loading}>
+                {loading ? "Loading..." : "Refresh"}
+              </Button>
+            </div>
           </div>
+
+          {/* STH-C: tablet-vs-scheduled reconciliation tile.
+              Surfaces the divergent-source-of-truth problem to the
+              operator: this page reads staff_work_sessions (tablet
+              clock-ins); /admin/wages reads kitchen_staff_shifts
+              (manager-entered). When the two numbers disagree
+              significantly the operator knows the wage roll-up
+              isn't seeing the same hours as the tablet audit.
+              Hidden when both are zero (nothing to reconcile) or
+              when reconciliation hasn't loaded yet. */}
+          {recon && (recon.tablet_hours > 0 || recon.scheduled_hours > 0) && (() => {
+            const gap = recon.scheduled_hours - recon.tablet_hours;
+            const gapPct = recon.scheduled_hours > 0
+              ? Math.abs(gap) / recon.scheduled_hours * 100
+              : 100;
+            const significant = gapPct >= 10;
+            return (
+              <Card className={`mb-6 ${significant ? "border-amber-300 bg-amber-50/60" : "border-slate-200"}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    {significant && <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-3 flex-wrap text-sm">
+                        <span className="font-semibold">
+                          Tablet vs scheduled
+                        </span>
+                        <span className="tabular-nums">
+                          <strong>{recon.tablet_hours.toFixed(1)}h</strong>
+                          {" on tablet "}
+                          <span className="text-slate-500">({recon.tablet_session_count} session{recon.tablet_session_count === 1 ? "" : "s"})</span>
+                        </span>
+                        <span className="tabular-nums">
+                          <strong>{recon.scheduled_hours.toFixed(1)}h</strong>
+                          {" scheduled "}
+                          <span className="text-slate-500">({recon.scheduled_shift_count} shift{recon.scheduled_shift_count === 1 ? "" : "s"})</span>
+                        </span>
+                        <span className={`tabular-nums ${significant ? "text-amber-800 font-semibold" : "text-slate-500"}`}>
+                          {gap === 0 ? "in sync" : `gap ${gap > 0 ? "+" : ""}${gap.toFixed(1)}h`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1">
+                        This page reads tablet clock-ins. The{" "}
+                        <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline">
+                          Wages dashboard
+                        </Link>
+                        {" "}reads manager-entered shifts. A large gap means one surface is missing data the other has.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           <Tabs defaultValue="hours" className="space-y-6">
             <TabsList>
@@ -588,9 +759,21 @@ function StaffHoursPage() {
                                 row. Real column is clock_in. */}
                             <span>{formatLocalDate(session.clock_in)}</span>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 flex-wrap justify-end">
                             <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
                             <span className="font-medium">{C} {Number(session.total_earnings || 0).toFixed(2)}</span>
+                            {/* STH-C: Manual chip when this row was
+                                backfilled. Title hovers the reason
+                                the manager gave. */}
+                            {session.entered_manually && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-amber-300 text-amber-800 bg-amber-50"
+                                title={session.entry_reason || "Manually backfilled"}
+                              >
+                                Manual
+                              </Badge>
+                            )}
                             <Badge variant={session.payment_status === "paid" ? "default" : "secondary"}>
                               {session.payment_status}
                             </Badge>
@@ -737,6 +920,119 @@ function StaffHoursPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* STH-C: manual-entry dialog. Manager backfill for a
+            tablet clock-in that never happened. Writes a
+            staff_work_sessions row with entered_manually=true so
+            payroll can audit which sessions weren't real clock-
+            ins. Earnings auto-computed off the same rate fallback
+            chain clockOut uses. */}
+        <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add manual shift</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">
+                Backfill a shift that didn&apos;t get logged on the tablet. The session is tagged &quot;Manual&quot; so payroll knows it wasn&apos;t a real clock-in. Hours and earnings are computed off the staff member&apos;s hourly rate.
+              </p>
+              <div className="space-y-1.5">
+                <Label>Staff member</Label>
+                <Select
+                  value={manualDraft.staffId}
+                  onValueChange={(v) => setManualDraft((d) => ({ ...d, staffId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roster.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.full_name || r.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Clock-in</Label>
+                  <Input
+                    type="datetime-local"
+                    value={manualDraft.clockIn}
+                    onChange={(e) => setManualDraft((d) => ({ ...d, clockIn: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Clock-out</Label>
+                  <Input
+                    type="datetime-local"
+                    value={manualDraft.clockOut}
+                    onChange={(e) => setManualDraft((d) => ({ ...d, clockOut: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Reason</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="e.g. tablet offline, forgot to clock out, double-shift"
+                  value={manualDraft.reason}
+                  onChange={(e) => setManualDraft((d) => ({ ...d, reason: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setManualOpen(false)} disabled={manualSaving}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!user?.id || !user?.company_id) return;
+                    if (!manualDraft.staffId) {
+                      toast({ title: "Pick a staff member", variant: "destructive" });
+                      return;
+                    }
+                    if (!manualDraft.clockIn || !manualDraft.clockOut) {
+                      toast({ title: "Set both timestamps", variant: "destructive" });
+                      return;
+                    }
+                    setManualSaving(true);
+                    try {
+                      await timeClockService.createManualSession({
+                        staffId: manualDraft.staffId,
+                        companyId: user.company_id,
+                        // datetime-local values are zone-naive but
+                        // local; convert to ISO via Date so they
+                        // store as UTC the same way tablet clock-ins
+                        // do.
+                        clockInIso: new Date(manualDraft.clockIn).toISOString(),
+                        clockOutIso: new Date(manualDraft.clockOut).toISOString(),
+                        entryReason: manualDraft.reason.trim(),
+                        enteredByUserId: user.id,
+                      });
+                      toast({ title: "Manual shift recorded" });
+                      setManualOpen(false);
+                      void loadData();
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : String(e);
+                      toast({
+                        title: "Couldn't record shift",
+                        description: msg,
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setManualSaving(false);
+                    }
+                  }}
+                  disabled={manualSaving}
+                >
+                  {manualSaving ? "Saving..." : "Save shift"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Footer />
       </div>
     </>
