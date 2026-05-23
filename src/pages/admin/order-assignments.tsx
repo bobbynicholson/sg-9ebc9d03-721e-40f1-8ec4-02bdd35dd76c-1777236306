@@ -109,6 +109,15 @@ function DispatchQueuePage() {
   } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
+  // Wave 70.60: debounced mirror of searchTerm. The filter useMemo
+  // reads from this so a fast typist doesn't re-run sortable +
+  // useMemo on every keystroke. 150ms covers human typing cadence
+  // without feeling laggy.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 150);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   // DI-E: server-side date window. Default 30 days ahead - covers
   // the dispatcher's planning horizon without dragging back hundreds
@@ -269,6 +278,53 @@ function DispatchQueuePage() {
     return () => { supabase.removeChannel(sub); };
   }, [companyId, loadAll]);
 
+  // Wave 70.60 - URL persistence for filter state. The dispatch
+  // lead refreshes this page constantly through the day; without
+  // URL state every refresh dropped them back on default (30d,
+  // All confirmed, empty search). Now: daysAhead -> ?days, status
+  // chip -> ?filter, search box -> ?q. State is hydrated once on
+  // mount (router.isReady), then synced back to the URL via
+  // shallow replace on every change. Shallow means no full page
+  // refetch from Next; the existing loadAll deps fire as before.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const q = router.query;
+    if (typeof q.days === "string") {
+      const n = Number(q.days);
+      if (n === 14 || n === 30 || n === 90) setDaysAhead(n);
+    }
+    if (typeof q.filter === "string") setStatusFilter(q.filter);
+    if (typeof q.q === "string") {
+      setSearchTerm(q.q);
+      setDebouncedSearch(q.q);
+    }
+  }, [router.isReady, router.query]);
+  useEffect(() => {
+    if (!router.isReady || !hydratedRef.current) return;
+    const next: Record<string, string> = {};
+    if (daysAhead !== 30) next.days = String(daysAhead);
+    if (statusFilter !== "all") next.filter = statusFilter;
+    if (debouncedSearch.trim()) next.q = debouncedSearch.trim();
+    // Preserve any other query keys (e.g. ?orderId deeplinks).
+    const preserved = ["orderId"];
+    for (const k of preserved) {
+      const v = router.query[k];
+      if (typeof v === "string") next[k] = v;
+    }
+    const currentQs = new URLSearchParams(window.location.search).toString();
+    const nextQs = new URLSearchParams(next).toString();
+    if (currentQs === nextQs) return;
+    router.replace(
+      { pathname: router.pathname, query: next },
+      undefined,
+      { shallow: true },
+    );
+  // router.replace identity changes on every render but is stable enough.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysAhead, statusFilter, debouncedSearch, router.isReady]);
+
   // Wave 66.3 - deeplink detection. When the URL carries
   // ?orderId=X (the readiness chip's "Pickup time missing - Fix
   // it" link points here when only pickup is missing), auto-expand
@@ -362,8 +418,8 @@ function DispatchQueuePage() {
         return minutesUntilSlaBreach(o.event_date, o.event_time, settings.slaAssignMinutes) <= 0;
       });
     }
-    if (searchTerm.trim()) {
-      const q = searchTerm.trim().toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
       list = list.filter(o =>
         o.client_name.toLowerCase().includes(q) ||
         o.id.toLowerCase().includes(q) ||
@@ -372,7 +428,7 @@ function DispatchQueuePage() {
       );
     }
     return list;
-  }, [orders, statusFilter, searchTerm, settings]);
+  }, [orders, statusFilter, debouncedSearch, settings]);
 
   // Click-to-sort on every queue column. Default to event date so the
   // soonest events bubble to the top when dispatch opens the page.
@@ -1137,15 +1193,34 @@ function DispatchQueuePage() {
                       </div>
                     </div>
 
-                    {/* Mobile compact card */}
+                    {/* Mobile compact card. Wave 70.60: now carries
+                        the bulk-select checkbox so the dispatch lead
+                        on a phone can multi-select + bulk-assign. The
+                        checkbox is the leading element, large enough
+                        for a thumb tap, and stops propagation so the
+                        whole card stays a tap-to-expand target. */}
                     <div
                       className={`md:hidden p-3 cursor-pointer ${
-                        isAtRisk ? "bg-red-50/40" : "hover:bg-slate-50"
+                        selected.has(order.id) ? "bg-orange-50" :
+                        isAtRisk ? "bg-red-50/40" :
+                        "hover:bg-slate-50"
                       }`}
                       onClick={() => toggleRow(order.id)}
                     >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="min-w-0">
+                      <div className="flex items-start gap-3 mb-2">
+                        <div
+                          className="pt-0.5 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${order.client_name}`}
+                            className="w-5 h-5 accent-orange-600 cursor-pointer"
+                            checked={selected.has(order.id)}
+                            onChange={() => toggleSelected(order.id)}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 truncate">{order.client_name}</p>
                           <p className="text-xs text-slate-500 truncate">{order.venue}</p>
                           <p className={`text-xs tabular-nums mt-0.5 ${countdownTone}`}>
@@ -1178,14 +1253,31 @@ function DispatchQueuePage() {
                           </Badge>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        className={`w-full gap-1.5 ${order.assigned_driver_id ? "bg-slate-700 hover:bg-slate-800" : "bg-orange-600 hover:bg-orange-700"} text-white`}
-                        onClick={(e) => { e.stopPropagation(); openAssign(order); }}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        {order.assigned_driver_id ? `Reassign · ${order.assigned_driver_name}` : "Assign driver"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className={`flex-1 gap-1.5 ${order.assigned_driver_id ? "bg-slate-700 hover:bg-slate-800" : "bg-orange-600 hover:bg-orange-700"} text-white`}
+                          onClick={(e) => { e.stopPropagation(); openAssign(order); }}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          {order.assigned_driver_id ? `Reassign · ${order.assigned_driver_name}` : "Assign driver"}
+                        </Button>
+                        {order.assigned_driver_id && (
+                          // Wave 70.60: unassign reachable on mobile.
+                          // Was desktop-only inside the Manage menu.
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); void handleUnassign(order); }}
+                            disabled={unassignBusy === order.id}
+                            aria-label="Unassign driver"
+                            title="Unassign driver"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Expanded drawer */}
