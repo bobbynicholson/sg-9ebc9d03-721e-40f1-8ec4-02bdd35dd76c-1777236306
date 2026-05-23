@@ -283,18 +283,16 @@ function AdminTrackingInner() {
   // Falls back to the existing auto-refresh poll for status changes.
   useEffect(() => {
     if (!user?.company_id) return;
-    // Wave 70.61: realtime channels were missing the postgres_changes
-    // `filter:` clause, so every tenant on the project received every
-    // other tenant's events. The handler-side driver_id check below
-    // dropped the payload by short-circuit but cross-tenant rows
-    // still rode the wire. orders.filter now scopes the binding;
-    // gps_tracking has no company_id column so it still relies on
-    // the driver_id-match short-circuit (follow-up: add company_id
-    // to gps_tracking so we can filter properly).
+    // Wave 70.62: gps_tracking now carries company_id (migration
+    // 20260523080000) populated by a BEFORE INSERT trigger from
+    // the driver's profile. The realtime binding can finally
+    // filter server-side instead of relying on the handler-side
+    // driver_id-match short-circuit, so cross-tenant pin payloads
+    // stop riding the wire altogether.
     const channel = supabase
       .channel(`tracking-realtime-${user.company_id}`)
       .on("postgres_changes",
-        { event: "INSERT", schema: "public", table: "gps_tracking" },
+        { event: "INSERT", schema: "public", table: "gps_tracking", filter: `company_id=eq.${user.company_id}` },
         (payload: any) => {
           const row = payload?.new;
           if (!row?.driver_id) return;
