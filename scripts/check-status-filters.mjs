@@ -170,7 +170,7 @@ const KNOWN_TABLES = new Set([
   "kitchen_shifts","kitchen_staff_members","kitchen_staff_shifts","kitchen_stations",
   "kitchen_task_completions","leads","lighting_tests","loadoff_verifications",
   "menu_items","notifications","onboarding_state","order_amendment_requests",
-  "order_assignment_audit","order_ingredient_demand","order_items","order_status_history",
+  "order_assignment_audit","order_ingredient_demand","order_items","orders_per_email_rollup","order_status_history",
   "order_chat_messages",
   "orders","outgoing_email_log","outgoing_email_queue","outsource_assignments",
   "outsource_providers","pat_testing","payment_gateway_credentials","payment_gateways",
