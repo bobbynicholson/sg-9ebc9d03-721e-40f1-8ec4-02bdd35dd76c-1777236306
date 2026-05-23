@@ -148,7 +148,7 @@ function RegionsPage() {
   const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
-  const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string }>>([]);
+  const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string; role: string; region_id: string | null }>>([]);
   // Phase 12 #10: company default tz + currency for the divergence
   // chip on each region card. A region with a different tz / code
   // gets a small 'differs from HQ' warning so an accidental misconfig
@@ -178,6 +178,13 @@ function RegionsPage() {
   const [editing, setEditing] = useState<Region | null>(null);
   const [form, setForm] = useState<RegionFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  // REG-C (branches staff-linkage): per-region staff assignment dialog.
+  // When non-null, opens a dialog where the operator can flip the
+  // region_id on each company staff profile. The dialog is the only
+  // operator-facing surface for multi-region tenants to spread staff
+  // across branches - the migration trigger only auto-assigns when
+  // there's exactly one region.
+  const [assignStaffRegion, setAssignStaffRegion] = useState<Region | null>(null);
 
   useEffect(() => {
     if (user?.company_id) {
@@ -290,9 +297,13 @@ function RegionsPage() {
 
   const loadStaff = async () => {
     if (!user?.company_id) return;
-    const { data } = await supabase
+    // REG-C (branches staff-linkage): widened the select so the
+    // assign-staff dialog can show role + current region per profile.
+    // The dialog filters clients out of the picker since they aren't
+    // staff.
+    const { data } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name, email, active_role")
+      .select("id, full_name, email, active_role, role, region_id")
       .eq("company_id", user.company_id)
       .order("full_name");
     setStaff((data || []) as any);
@@ -744,7 +755,18 @@ function RegionsPage() {
                         tooltip={"Sum of total_amount on this branch's orders with an event_date in the current calendar month. Cancelled and declined orders excluded."}
                       />
                       <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft, sent or revised state."} />
-                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch."} />
+                      {/* REG-C: clickable Staff tile that opens the
+                          per-region assignment dialog. Pre-REG-C this
+                          was a read-only number with no way to change
+                          it from this page - operators had to open
+                          /admin/users one profile at a time. */}
+                      <button
+                        type="button"
+                        onClick={() => setAssignStaffRegion(region)}
+                        className="text-left rounded-md transition hover:ring-2 hover:ring-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                      >
+                        <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch. Click to assign."} />
+                      </button>
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-slate-500">
                       <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
@@ -885,6 +907,24 @@ function RegionsPage() {
         </div>
         <Footer />
       </div>
+
+      {/* REG-C (branches staff-linkage): per-region staff assignment
+          dialog. Shows the full company staff roster, current
+          assignment per row, and lets the operator flip the
+          region_id on each profile. Pre-REG-C the operator had to
+          edit each profile via /admin/users one at a time; with the
+          dialog they can move ten drivers to a new branch in
+          seconds. */}
+      <AssignStaffDialog
+        region={assignStaffRegion}
+        allRegions={regions}
+        staff={staff}
+        onClose={() => setAssignStaffRegion(null)}
+        onSaved={() => {
+          void loadRegions();
+          void loadStaff();
+        }}
+      />
 
       <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setEditing(null); setForm(emptyForm()); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1192,5 +1232,159 @@ function MiniStat({ icon: Icon, label, value, tooltip }: { icon: any; label: str
       </div>
       <div className="font-semibold text-slate-900">{value}</div>
     </div>
+  );
+}
+
+// REG-C (branches staff-linkage): per-region staff assignment dialog.
+// Opens from the "Staff" mini-stat on each branch card. Lists every
+// company staff profile (clients excluded) with their current branch
+// and a per-row picker to move them. Bulk "Assign all unlinked" CTA
+// at the top - the most common single use case for a multi-region
+// tenant whose staff predate the multi-branch feature.
+function AssignStaffDialog({
+  region, allRegions, staff, onClose, onSaved,
+}: {
+  region: Region | null;
+  allRegions: Region[];
+  staff: Array<{ id: string; full_name: string; email: string; active_role: string; role: string; region_id: string | null }>;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  // Local working copy of staff -> region_id. Operators can flip many
+  // rows then hit Save once instead of triggering N writes per click.
+  const [pending, setPending] = useState<Record<string, string | null>>({});
+
+  // Reset working copy whenever the dialog opens.
+  useEffect(() => {
+    if (!region) { setPending({}); return; }
+    setPending({});
+  }, [region?.id]);
+
+  if (!region) return null;
+
+  const staffNoClient = staff.filter((s) => s.role !== "client" && s.role !== "super_admin");
+  const unlinkedCount = staffNoClient.filter((s) => (pending[s.id] ?? s.region_id) === null).length;
+  const dirtyCount = Object.keys(pending).filter((id) => {
+    const original = staffNoClient.find((s) => s.id === id)?.region_id ?? null;
+    return pending[id] !== original;
+  }).length;
+
+  const currentRegionFor = (s: typeof staffNoClient[number]) => pending[s.id] ?? s.region_id;
+  const setRegionFor = (id: string, next: string | null) => {
+    setPending((p) => ({ ...p, [id]: next }));
+  };
+  const assignAllUnlinked = () => {
+    const next: Record<string, string | null> = { ...pending };
+    for (const s of staffNoClient) {
+      if ((pending[s.id] ?? s.region_id) === null) next[s.id] = region.id;
+    }
+    setPending(next);
+  };
+
+  const handleSave = async () => {
+    if (dirtyCount === 0) { onClose(); return; }
+    setSaving(true);
+    try {
+      // Group dirty changes by target region for a small number of
+      // batched writes rather than one query per row.
+      const byTarget: Record<string, string[]> = { __null__: [] };
+      for (const [staffId, target] of Object.entries(pending)) {
+        const original = staffNoClient.find((s) => s.id === staffId)?.region_id ?? null;
+        if (target === original) continue;
+        const key = target ?? "__null__";
+        (byTarget[key] = byTarget[key] || []).push(staffId);
+      }
+      for (const [target, ids] of Object.entries(byTarget)) {
+        if (ids.length === 0) continue;
+        const value = target === "__null__" ? null : target;
+        const { error } = await (supabase as any)
+          .from("profiles")
+          .update({ region_id: value })
+          .in("id", ids);
+        if (error) throw error;
+      }
+      toast({ title: "Staff assignment updated", description: `${dirtyCount} profile${dirtyCount === 1 ? "" : "s"} updated.` });
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      toast({ title: "Couldn't save assignment", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!region} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-purple-600" />
+            Assign staff to {region.name}
+          </DialogTitle>
+          <DialogDescription>
+            Pick a branch for each staff profile. Clients are excluded
+            from the list; they don&apos;t belong to any branch.
+          </DialogDescription>
+        </DialogHeader>
+
+        {unlinkedCount > 0 && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-sm">
+            <span className="text-amber-900">
+              <strong>{unlinkedCount}</strong> staff member{unlinkedCount === 1 ? "" : "s"} not assigned to any branch.
+            </span>
+            <Button size="sm" variant="outline" onClick={assignAllUnlinked} className="border-amber-300 bg-white">
+              Assign all to {region.code || region.name}
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-1 max-h-[50vh] overflow-y-auto rounded-md border border-slate-200">
+          {staffNoClient.length === 0 ? (
+            <div className="text-center py-8 text-sm text-slate-500">
+              No staff profiles on this company yet. Add staff under /admin/users.
+            </div>
+          ) : staffNoClient.map((s) => {
+            const cur = currentRegionFor(s);
+            const isHere = cur === region.id;
+            return (
+              <div key={s.id} className={`flex items-center gap-3 px-3 py-2 border-b border-slate-100 last:border-0 ${isHere ? "bg-purple-50/40" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900 truncate">{s.full_name || s.email}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {s.email}
+                    {s.role && <> · <span className="capitalize">{s.role.replace(/_/g, " ")}</span></>}
+                  </p>
+                </div>
+                <select
+                  value={cur ?? "__none__"}
+                  onChange={(e) => setRegionFor(s.id, e.target.value === "__none__" ? null : e.target.value)}
+                  className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                  disabled={saving}
+                >
+                  <option value="__none__">Unassigned</option>
+                  {allRegions.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Close</Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || dirtyCount === 0}
+            className="bg-purple-600 hover:bg-purple-700 gap-2"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {dirtyCount === 0 ? "No changes" : `Save ${dirtyCount} change${dirtyCount === 1 ? "" : "s"}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
