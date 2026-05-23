@@ -39,7 +39,9 @@ import { UserRole } from "@/types/app";
 import {
   Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
   ExternalLink, User as UserIcon, Wallet, ArrowRightLeft,
+  AlertTriangle, TrendingUp, AlertCircle, Info,
 } from "lucide-react";
+import { captureException } from "@/lib/observability";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 
@@ -59,6 +61,9 @@ interface RefundRow {
   cancellation_request_id: string | null;
   // The refund row's own gateway - set to 'payfast' once auto-processed.
   refund_gateway: string | null;
+  // REF-A: gateway reference / bank reference, used by the CSV for
+  // bookkeeping match-back.
+  reference: string | null;
   // Joined order
   order_number?: string | null;
   client_name?: string | null;
@@ -96,8 +101,13 @@ const buildFmt = (code: string) => {
 };
 
 function ProtectedRefundsPage() {
+  // REF-A (refunds audit, 2026-05-23): OWNER added per the Skylight
+  // finance-visibility rule. Pre-REF-A owners couldn't see refunds
+  // even though the directors-folder rule says they MUST see finance.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER,
+    ]}>
       <RefundsPage />
     </ProtectedRoute>
   );
@@ -197,22 +207,26 @@ function RefundsPage() {
     filter: FilterKey;
   }
   const [savedRefundViews, setSavedRefundViews] = useState<SavedRefundView[]>([]);
+  // REF-A: per-user + per-company key so a multi-tenant operator
+  // logged into another company on the same browser doesn't pick up
+  // the wrong views. Same fix contacts shipped at task #126.
+  const savedViewsKey = `cateringms.adminRefunds.savedViews.v2.${companyId || "anon"}.${user?.id || "anon"}`;
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !companyId) return;
     try {
-      const raw = window.localStorage.getItem("cateringms.adminRefunds.savedViews.v1");
+      const raw = window.localStorage.getItem(savedViewsKey);
       if (raw) setSavedRefundViews(JSON.parse(raw) as SavedRefundView[]);
+      else setSavedRefundViews([]);
     } catch { /* ignore */ }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedViewsKey]);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !companyId) return;
     try {
-      window.localStorage.setItem(
-        "cateringms.adminRefunds.savedViews.v1",
-        JSON.stringify(savedRefundViews),
-      );
+      window.localStorage.setItem(savedViewsKey, JSON.stringify(savedRefundViews));
     } catch { /* storage blocked */ }
-  }, [savedRefundViews]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedRefundViews, savedViewsKey]);
   const saveCurrentRefundView = () => {
     if (typeof window === "undefined") return;
     const name = window.prompt("Name this view:", "");
@@ -239,7 +253,7 @@ function RefundsPage() {
       const { data: refundRows, error } = await supabase
         .from("payments")
         .select(
-          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, payment_type, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
+          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, payment_type, gateway_transaction_id, payment_reference, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
         )
         .eq("company_id", companyId)
         .in("payment_type", ["refund", "credit_issue", "credit_redeem"])
@@ -303,6 +317,7 @@ function RefundsPage() {
           order_id: r.order_id,
           cancellation_request_id: r.cancellation_request_id,
           refund_gateway: r.gateway || r.gateway_provider || null,
+          reference: r.gateway_transaction_id || r.payment_reference || null,
           order_number: r.order?.order_number || null,
           client_name: r.order?.client_name || null,
           client_id: r.order?.client_id || null,
@@ -318,7 +333,10 @@ function RefundsPage() {
 
       setRows(flat);
     } catch (e: any) {
-      console.error("[refunds] load failed", e);
+      captureException(e, {
+        level: "error",
+        tags: { companyId, route: "/admin/refunds", step: "load" },
+      });
     } finally {
       setLoading(false);
     }
@@ -328,6 +346,81 @@ function RefundsPage() {
     if (user) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // REF-A: realtime channel scoped to the tenant. A PayFast webhook
+  // flipping a refund from pending -> completed on the server now
+  // refreshes the list without the operator needing to hit Refresh.
+  // Debounced because cancellation flows write 2-3 rows in rapid
+  // succession (refund + credit_issue if the operator picks "issue
+  // credit on partial refund").
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`refunds:${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
+        () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { void load(); }, 400);
+        },
+      )
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // REF-A intel: orphan cancelled-orders cross-check. Cancellations
+  // SHOULD generate a refund or credit_issue payment row; if a
+  // cancelled order has neither, money is owed back and nobody on
+  // the page would know. Fires alongside the main load.
+  const [orphanCount, setOrphanCount] = useState<number>(0);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // Cancelled orders in the last 90 days that have NO refund or
+        // credit_issue payment row attached. 90-day window because
+        // anything older is unlikely to be actionable and the query
+        // would scan the full history.
+        const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: cancelledOrders, error: ordErr } = await supabase
+          .from("orders")
+          .select("id, amount_paid")
+          .eq("company_id", companyId)
+          .eq("status", "cancelled")
+          .gte("created_at", cutoff)
+          .gt("amount_paid", 0); // only orders where money actually changed hands
+        if (ordErr) throw ordErr;
+        const ids = ((cancelledOrders || []) as Array<{ id: string }>).map((o) => o.id);
+        if (ids.length === 0) {
+          if (!cancelled) setOrphanCount(0);
+          return;
+        }
+        const { data: settledPayments, error: payErr } = await supabase
+          .from("payments")
+          .select("order_id")
+          .in("order_id", ids)
+          .in("payment_type", ["refund", "credit_issue"]);
+        if (payErr) throw payErr;
+        const settledSet = new Set(((settledPayments || []) as Array<{ order_id: string }>).map((p) => p.order_id));
+        const orphans = ids.filter((id) => !settledSet.has(id));
+        if (!cancelled) setOrphanCount(orphans.length);
+      } catch (e) {
+        captureException(e, {
+          level: "warning",
+          tags: { companyId, route: "/admin/refunds", step: "orphan_check" },
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, rows.length]);
 
   const markPaid = async (r: RefundRow) => {
     setBusy(r.id);
@@ -458,6 +551,37 @@ function RefundsPage() {
     return { all: rows.length, auto, credits, pending, rejected };
   }, [rows]);
 
+  // REF-A intel: top summary tiles. Computed off the same `rows`
+  // array, so they cost nothing extra. Refund rate omitted (would
+  // need a second query against invoices for the denominator) -
+  // call that out as a follow-up if the operator asks.
+  const yearStart = useMemo(() => new Date(new Date().getFullYear(), 0, 1), []);
+  const intel = useMemo(() => {
+    const refundsCompletedYTD = rows.filter(
+      (r) => r.kind === "refund" && r.status === "completed" && new Date(r.created_at) >= yearStart,
+    );
+    const refundedYTD = refundsCompletedYTD.reduce((s, r) => s + Number(r.amount || 0), 0);
+    // Credit liability = issued minus redeemed across all time.
+    // Negative would mean we've applied more credit than we issued
+    // (impossible in steady state) - clamp at 0 for display.
+    const creditLiability = Math.max(
+      0,
+      rows.filter((r) => r.kind === "credit_issue").reduce((s, r) => s + Number(r.amount || 0), 0)
+      - rows.filter((r) => r.kind === "credit_redeem").reduce((s, r) => s + Number(r.amount || 0), 0),
+    );
+    // Avg time from raised -> processed for completed refunds in the
+    // last 90 days. Useful as a service-level signal - if it's
+    // creeping up, the manual-EFT queue is backing up.
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const recent = refundsCompletedYTD.filter(
+      (r) => r.processed_at && new Date(r.created_at).getTime() >= cutoff,
+    );
+    const avgMs = recent.length === 0 ? 0
+      : recent.reduce((s, r) => s + (new Date(r.processed_at!).getTime() - new Date(r.created_at).getTime()), 0) / recent.length;
+    const avgDays = avgMs / (1000 * 60 * 60 * 24);
+    return { refundedYTD, creditLiability, avgDays, hasRefundActivity: refundsCompletedYTD.length > 0 };
+  }, [rows, yearStart]);
+
   // Phase 19 #1: amount totals per filter so finance sees the
   // monetary exposure for each slice next to the row counts. Same
   // source array as counts so the two always agree.
@@ -490,7 +614,16 @@ function RefundsPage() {
   const Row = ({ r }: { r: RefundRow }) => {
     const isCompleted = r.status === "completed";
     const isRejected = r.status === "failed" || r.status === "rejected";
+    const isAutoFailed = r.status === "auto_failed";
+    const isProcessing = r.status === "processing";
     const parentIsPayFast = (r.parent_gateway || "").toLowerCase() === "payfast";
+    // REF-A: aging - flag pending refunds that have been sitting for
+    // >7 days. Manual EFT is meant to clear inside the working week;
+    // anything older is an operator-action gap.
+    const ageDays = r.kind === "refund" && !isCompleted && !isRejected
+      ? Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86_400_000)
+      : 0;
+    const isAgingPending = ageDays > 7;
     // Wave 29.3: refund-only actions. Credit rows auto-complete and
     // have nothing the operator needs to mark paid or retry.
     const isRefund = r.kind === "refund";
@@ -580,6 +713,29 @@ function RefundsPage() {
                 Applied to invoice
               </Badge>
             )}
+            {/* REF-A: auto_failed + processing chips. Pre-REF-A both
+                states rendered as the generic amber "pending" icon
+                with no clue why - auto_failed in particular means
+                PayFast bounced the refund and the operator needs to
+                retry or fall back to EFT. */}
+            {isAutoFailed && (
+              <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-800 bg-rose-50">
+                <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+                PayFast auto-failed
+              </Badge>
+            )}
+            {isProcessing && (
+              <Badge variant="outline" className="text-[10px] border-indigo-300 text-indigo-800 bg-indigo-50">
+                PayFast retry in flight
+              </Badge>
+            )}
+            {/* REF-A: pending-aging chip. Surfaces refunds we've
+                owed the client for more than a week. */}
+            {isAgingPending && (
+              <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-800 bg-amber-50 animate-pulse">
+                Pending {ageDays}d - chase
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
             Raised {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
@@ -646,16 +802,26 @@ function RefundsPage() {
     );
   };
 
-  const FilterChip = ({ k, label, count, total }: { k: FilterKey; label: string; count: number; total: number }) => (
+  const FilterChip = ({ k, label, count, total }: { k: FilterKey; label: string; count: number; total: number }) => {
+    // REF-A: tooltip copy reads "refund" everywhere pre-REF-A, even
+    // on the credits chip where the total is "outstanding credit
+    // owed across all clients". Branch per filter.
+    const tooltip = total > 0
+      ? (k === "credits"
+          ? `${count} credit movement${count === 1 ? "" : "s"}, net liability ${fmt.format(total)}`
+          : `${count} refund${count === 1 ? "" : "s"} totalling ${fmt.format(total)}`)
+      : undefined;
+    return (
     <button
       type="button"
       onClick={() => setFilter(k)}
+      aria-pressed={filter === k}
       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colours ${
         filter === k
           ? "bg-slate-900 text-white border-slate-900"
           : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
       }`}
-      title={total > 0 ? `${count} refund${count === 1 ? "" : "s"} totalling ${fmt.format(total)}` : undefined}
+      title={tooltip}
     >
       {label}
       <span className={`ml-2 ${filter === k ? "text-slate-300" : "text-slate-500"}`}>
@@ -667,7 +833,8 @@ function RefundsPage() {
         </span>
       )}
     </button>
-  );
+    );
+  };
 
   return (
     <>
@@ -700,12 +867,16 @@ function RefundsPage() {
                     toast({ title: "Nothing to export", description: "Adjust filters until at least one refund is visible." });
                     return;
                   }
-                  // Wave 29.3: 'Kind' column lets finance pivot the
-                  // exported sheet by refund / credit_issue /
-                  // credit_redeem when reconciling against the bank.
+                  // REF-A: accountant-friendly column order (Date,
+                  // Client, Order, Amount, Method, Status,
+                  // Reference, Reason). Bookkeepers scan left-to-
+                  // right and reconcile against the bank statement
+                  // by reference; surfacing gateway_transaction_id
+                  // / payment_reference as a top-level column makes
+                  // that match-back possible without joining sheets.
                   const headers = [
-                    "Created", "Processed", "Kind", "Order number", "Client", "Event date",
-                    "Amount", "Status", "Refund gateway", "Parent gateway", "Parent method", "Reason",
+                    "Date raised", "Date processed", "Client", "Order number", "Event date",
+                    "Kind", "Amount", "Method", "Status", "Reference", "Reason",
                   ];
                   const esc = (v: any) => {
                     if (v == null) return "";
@@ -714,16 +885,20 @@ function RefundsPage() {
                   };
                   const lines = [headers.join(",")];
                   for (const r of filtered) {
+                    const method = r.kind === "refund"
+                      ? methodLabel(r.parent_gateway, r.parent_method)
+                      : (r.kind === "credit_issue" ? "Store credit issued" : "Credit applied to invoice");
                     lines.push([
                       esc(r.created_at), esc(r.processed_at),
-                      esc(r.kind),
-                      esc(r.order_number), esc(r.client_name), esc(r.event_date),
-                      esc(r.amount), esc(r.status),
-                      esc(r.refund_gateway), esc(r.parent_gateway), esc(r.parent_method),
-                      esc(r.reason),
+                      esc(r.client_name), esc(r.order_number), esc(r.event_date),
+                      esc(r.kind), esc(r.amount), esc(method), esc(r.status),
+                      esc(r.reference), esc(r.reason),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // REF-A: UTF-8 BOM so Excel-ZA renders the R / £ /
+                  // € symbol correctly. Matches the calendar / leads
+                  // / contacts CSV exports.
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -744,11 +919,81 @@ function RefundsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* REF-A intel: orphan cancelled-orders banner. Pre-REF-A
+              the page had no way to surface cancellations that
+              should have refunded or credited but didn't. The
+              cross-check fires on every load. */}
+          {orphanCount > 0 && (
+            <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-rose-900">
+                  {orphanCount} cancelled order{orphanCount === 1 ? "" : "s"} with no refund or credit
+                </p>
+                <p className="text-xs text-rose-800/90 mt-0.5">
+                  These are cancellations from the last 90 days where the client paid something but no refund or store-credit row exists. Money may be owed back.
+                </p>
+                <Link
+                  href={withSlug("/admin/orders?status=cancelled")}
+                  className="text-xs font-medium text-rose-900 hover:underline mt-1.5 inline-block"
+                >
+                  Review cancelled orders -&gt;
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* REF-A intel: summary tile strip. Three numbers the
+              finance persona actually wants at a glance: YTD
+              refunded, outstanding credit liability, average time
+              to settle a refund. Hidden when there's no refund
+              activity at all - the empty-state block below explains
+              the page instead. */}
+          {intel.hasRefundActivity && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Card className="border-2">
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs font-medium text-slate-600">Refunded year to date</p>
+                  <p className="text-2xl font-bold tabular-nums text-rose-700 mt-1">
+                    {fmt.format(intel.refundedYTD)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Completed refunds since 1 Jan.</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2">
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs font-medium text-slate-600">Credit liability outstanding</p>
+                  <p className="text-2xl font-bold tabular-nums text-emerald-700 mt-1">
+                    {fmt.format(intel.creditLiability)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Issued minus redeemed across all time. Money you owe clients in unspent credit.</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2">
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Avg time to refund
+                  </p>
+                  <p className="text-2xl font-bold tabular-nums text-slate-900 mt-1">
+                    {intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">—</span>}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Raised to processed, rolling 90 days. Anything &gt; 5 days is a manual-EFT queue backlog.</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Refund filters">
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
             <FilterChip k="credits" label="Store credits" count={counts.credits} total={totals.credits} />
-            <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} total={totals.pending} />
+            {/* REF-A: pre-REF-A this label read "Pending (manual EFT)"
+                but the filter is `status not in (completed, failed,
+                rejected)` which ALSO catches PayFast auto_failed +
+                processing rows. The label promised a scope it didn't
+                deliver. Renamed to neutral "Pending refunds". */}
+            <FilterChip k="pending" label="Pending refunds" count={counts.pending} total={totals.pending} />
             <FilterChip k="rejected" label="Rejected" count={counts.rejected} total={totals.rejected} />
           </div>
 
@@ -803,7 +1048,47 @@ function RefundsPage() {
               {loading ? (
                 <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
               ) : filtered.length === 0 ? (
-                <div className="text-sm text-slate-500 text-center py-8">Nothing here.</div>
+                // REF-A: richer empty state. Pre-REF-A this was a
+                // four-word "Nothing here." Now: if the page genuinely
+                // has zero data, explain what triggers a row and link
+                // to the working surfaces. If the filter has hidden
+                // everything, prompt to clear it.
+                rows.length === 0 ? (
+                  <div className="py-8 px-4 text-center">
+                    <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-slate-700">No refunds or credits yet</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      Rows appear here when an order is cancelled with a refund or store-credit payout, or when a client redeems credit against an invoice. PayFast refunds auto-process; EFT and cash need a manual mark as paid.
+                    </p>
+                    <div className="flex justify-center gap-2 mt-3 flex-wrap">
+                      <Link
+                        href={withSlug("/admin/orders")}
+                        className="text-xs font-medium rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
+                      >
+                        Open orders
+                      </Link>
+                      <Link
+                        href={withSlug("/admin/cashflow-dashboard")}
+                        className="text-xs font-medium rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
+                      >
+                        Cashflow dashboard
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 px-4 text-center">
+                    <p className="text-sm text-slate-500">
+                      No rows in this filter. {counts.all} total in <strong>All</strong>.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("all")}
+                      className="text-xs font-medium text-blue-700 hover:underline mt-2"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )
               ) : (
                 filtered.map((r) => <Row key={r.id} r={r} />)
               )}
