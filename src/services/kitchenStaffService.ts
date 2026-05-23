@@ -91,6 +91,13 @@ export interface StaffWageSummary {
   staff_id: string;
   full_name: string;
   role_title: string | null;
+  // WAGE-A: departments[] now surfaces on the wage summary so the
+  // /admin/wages page can render a department badge alongside the
+  // role_title in the Top-5 list, by-person table, and CSV. Pre-
+  // WAGE-A the only label was role_title which is free-text - a
+  // tenant entering "Other" for everyone (a real data pattern)
+  // gave the owner no idea which team a wage line belonged to.
+  departments: string[];
   pay_type: StaffPayType;
   hourly_rate: number | null;
   overtime_rate: number | null;
@@ -584,6 +591,7 @@ export const kitchenStaffService = {
         staff_id: id,
         full_name: s?.full_name || "Unknown",
         role_title: s?.role_title || null,
+        departments: s?.departments || [],
         pay_type: (s?.pay_type as StaffPayType) || "hourly",
         hourly_rate: hourly,
         overtime_rate: s ? effectiveOvertimeRate(s) : null,

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/wages - payroll roll-up for the whole operation.
  *
@@ -26,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { DollarSign, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2 } from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -42,6 +41,8 @@ import { driverPayService, type DriverPayRates } from "@/services/driverPayServi
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { paymentLedgerService } from "@/services/paymentLedgerService";
+import { captureException } from "@/lib/observability";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -145,8 +146,21 @@ interface PublicHolidayLine {
 
 // ── Page ────────────────────────────────────────────────────────────
 
+// WAGE-A: friendly labels for the departments[] array on staff
+// rows. The DB stores lower-case slugs; we want title-case in chips.
+const DEPT_LABELS: Record<string, string> = {
+  kitchen: "Kitchen",
+  drivers: "Drivers",
+  shopping: "Shopping",
+  cleaning: "Cleaning",
+};
+function deptChipText(depts: string[]): string {
+  if (!depts || depts.length === 0) return "Unassigned";
+  return depts.map((d) => DEPT_LABELS[d] || d).join(" / ");
+}
+
 function WageDashboardPage() {
-  const { profile } = useAuth() as any;
+  const { profile } = useAuth();
   const { toast } = useToast();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -171,6 +185,17 @@ function WageDashboardPage() {
   // Drivers data.
   const [driverRows, setDriverRows] = useState<DriverPayRow[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
+
+  // WAGE-A intel: prior-period total for the trend-vs-last-period
+  // chip on the headline tile. Same query, same department, range
+  // shifted back by `windowDays`.
+  const [prevPeriodTotal, setPrevPeriodTotal] = useState<number | null>(null);
+  // WAGE-A intel: owed-to-staff. Same number the financial-dashboard
+  // shows as staffPaymentsOwed - the owner needs it here too so
+  // "we paid R 3500 this week" sits next to "we still owe R 1200".
+  const [owedToStaff, setOwedToStaff] = useState<number | null>(null);
+  // WAGE-A intel: event count in range for the cost-per-event tile.
+  const [eventCount, setEventCount] = useState<number | null>(null);
 
   const handlePresetChange = (p: Preset) => {
     setPreset(p);
@@ -214,7 +239,7 @@ function WageDashboardPage() {
             region_id: regionFilterId || null,
           }),
           kitchenStaffService.listShiftsInRange(companyId, range.fromISO, range.toISO, { department: dept }),
-          (supabase as any)
+          supabase
             .from("public_holidays")
             .select("date")
             .or(`company_id.is.null,company_id.eq.${companyId}`),
@@ -248,12 +273,23 @@ function WageDashboardPage() {
       setLoadingDrivers(true);
       try {
         // Pull drivers via the profiles table (matches driverService.getAllDrivers).
-        const { data: drivers } = await (supabase as any)
+        // WAGE-A: dropped the legacy `name` column (typed `as any`
+        // pre-WAGE-A to bypass schema mismatch; profiles only has
+        // full_name + display_name). The driverPayService just
+        // needs id, full_name, email for the fallback chain.
+        const { data: drivers } = await supabase
           .from("profiles")
-          .select("id, full_name, name, email, hourly_rate, distance_rate_per_km, base_callout_fee")
+          .select("id, full_name, email, hourly_rate, distance_rate_per_km, base_callout_fee")
           .eq("company_id", companyId)
           .eq("role", "driver");
-        const driverList = (drivers || []) as Array<any>;
+        const driverList = (drivers || []) as Array<{
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          hourly_rate: number | null;
+          distance_rate_per_km: number | null;
+          base_callout_fee: number | null;
+        }>;
         const fromDate = range.fromISO.slice(0, 10);
         const toDate = range.toISO.slice(0, 10);
         const rows = await Promise.all(driverList.map(async (d) => {
@@ -264,7 +300,7 @@ function WageDashboardPage() {
           });
           return {
             driver_id: d.id,
-            full_name: (d.full_name as string) || (d.name as string) || (d.email as string) || "Driver",
+            full_name: d.full_name || d.email || "Driver",
             hours: sum.totals.hours_total,
             hourly_pay: sum.totals.hourly_pay,
             distance_km: sum.totals.distance_total_km,
@@ -283,6 +319,109 @@ function WageDashboardPage() {
     })();
     return () => { cancelled = true; };
   }, [companyId, range.fromISO, range.toISO, department, toast]);
+
+  // WAGE-A intel: prior-period roll-up for the trend chip. Shift
+  // the range back by the same number of days and repeat the wage
+  // summary for the same department. Bails to null on error so the
+  // chip just hides rather than lying.
+  useEffect(() => {
+    if (!companyId || !range.fromISO || !range.toISO) return;
+    if (department === "drivers") {
+      setPrevPeriodTotal(null);
+      return;
+    }
+    const windowMs = new Date(range.toISO).getTime() - new Date(range.fromISO).getTime();
+    if (windowMs <= 0) return;
+    const prevFrom = new Date(new Date(range.fromISO).getTime() - windowMs).toISOString();
+    const prevTo = range.fromISO;
+    let cancelled = false;
+    (async () => {
+      try {
+        const summary = await kitchenStaffService.getWageSummary(companyId, prevFrom, prevTo, {
+          department: department === "all" ? undefined : department,
+          region_id: regionFilterId || null,
+        });
+        if (cancelled) return;
+        setPrevPeriodTotal(summary.reduce((s, r) => s + r.total_wage, 0));
+      } catch (e) {
+        captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "prev_period" } });
+        if (!cancelled) setPrevPeriodTotal(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, range.fromISO, range.toISO, department, regionFilterId]);
+
+  // WAGE-A intel: owed-to-staff total. Reuses the same source the
+  // financial-dashboard uses (paymentLedgerService.getTotalOwed), so
+  // the two surfaces never disagree.
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ledger = await paymentLedgerService.getPaymentLedger(companyId);
+        if (!cancelled) setOwedToStaff(ledger.totalOwed);
+      } catch (e) {
+        captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "owed_to_staff" } });
+        if (!cancelled) setOwedToStaff(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  // WAGE-A intel: event count in the window for the cost-per-event
+  // tile. Counts non-cancelled orders whose event_date falls inside
+  // the range.
+  useEffect(() => {
+    if (!companyId || !range.fromISO || !range.toISO) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const fromDate = range.fromISO.slice(0, 10);
+        const toDate = range.toISO.slice(0, 10);
+        const { count } = await supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("event_date", fromDate)
+          .lt("event_date", toDate)
+          .neq("status", "cancelled");
+        if (!cancelled) setEventCount(count || 0);
+      } catch (e) {
+        captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "event_count" } });
+        if (!cancelled) setEventCount(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, range.fromISO, range.toISO]);
+
+  // WAGE-A: realtime channel. Two surfaces this matters for: a
+  // staff clock-out mid-period (kitchen tablet) should refresh the
+  // owner's view; and a wage payment recorded elsewhere should
+  // refresh owedToStaff. Debounced because multiple clock events
+  // often arrive in rapid succession at the shift boundary.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Bump the range state by recreating it - the load effects
+        // re-fire when their dependencies change. Cheap, no extra
+        // refs needed.
+        setRange((r) => ({ ...r }));
+      }, 500);
+    };
+    const channel = supabase
+      .channel(`wages:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refetch)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   // ── Derived: kitchen-style headlines ───────────────────────────
   const kitchenTotals = useMemo(() => {
@@ -429,8 +568,11 @@ function WageDashboardPage() {
       return;
     }
     if (sortedByPerson.length === 0) return;
+    // WAGE-A: added Departments column so the bookkeeper can see
+    // which team a wage line belongs to. role_title is free-text
+    // ("Other" is common) and was the only label pre-WAGE-A.
     const header = [
-      "Staff", "Role", "Shifts",
+      "Staff", "Role", "Departments", "Shifts",
       "Standard hours", "Overtime hours", "Public-holiday hours",
       "Hourly rate (R)", "Effective rate (R)",
       "Standard wage (R)", "Overtime wage (R)", "Holiday wage (R)", "Total wage (R)",
@@ -442,6 +584,7 @@ function WageDashboardPage() {
       lines.push([
         `"${(r.full_name || "").replace(/"/g, '""')}"`,
         `"${(r.role_title || "").replace(/"/g, '""')}"`,
+        `"${deptChipText(r.departments).replace(/"/g, '""')}"`,
         r.shifts_count,
         (r.standard_min / 60).toFixed(2),
         (r.overtime_min / 60).toFixed(2),
@@ -458,7 +601,10 @@ function WageDashboardPage() {
   };
 
   const downloadCsv = (csv: string, filename: string) => {
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    // WAGE-A: UTF-8 BOM so Excel-ZA renders R / £ / € symbols and
+    // any non-ASCII names correctly. Matches the calendar /
+    // refunds CSV exports.
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -516,7 +662,12 @@ function WageDashboardPage() {
                   Filtered by region {activeRegion.name}
                 </span>
               )}
-              <Link href={withSlug("/admin/kitchen-staff")}>
+              {/* WAGE-A: dynamic destination. When the Drivers tab
+                  is active, Manage staff points at driver-management;
+                  every other tab manages kitchen-style staff. Pre-
+                  WAGE-A this always linked to /admin/kitchen-staff
+                  which is the wrong place when looking at drivers. */}
+              <Link href={withSlug(department === "drivers" ? "/admin/driver-management" : "/admin/kitchen-staff")}>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Users className="w-4 h-4" />Manage staff
                 </Button>
@@ -631,11 +782,28 @@ function WageDashboardPage() {
               </Card>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               <Card className="border-0 shadow-sm bg-emerald-50">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">Period total</div>
                   <div className="text-2xl sm:text-3xl font-bold text-emerald-700 tabular-nums">{fmtZAR(grandTotal)}</div>
+                  {/* WAGE-A intel: trend vs same-length previous
+                      period. Hidden while loading or when prev was
+                      0 (would divide by zero). */}
+                  {prevPeriodTotal != null && prevPeriodTotal > 0 && (() => {
+                    const diff = kitchenTotals.total_wage - prevPeriodTotal;
+                    const pct = Math.round((diff / prevPeriodTotal) * 100);
+                    if (Math.abs(pct) < 1) return (
+                      <div className="text-[10px] text-emerald-700 mt-1">Flat vs previous period</div>
+                    );
+                    const up = diff > 0;
+                    return (
+                      <div className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-emerald-800"}`}>
+                        {up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                        {Math.abs(pct)}% vs previous period
+                      </div>
+                    );
+                  })()}
                   <div className="text-[10px] text-emerald-700 mt-1">
                     {department === "all"
                       ? "Kitchen + drivers + shopping + cleaning"
@@ -665,6 +833,97 @@ function WageDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+              {/* WAGE-A intel: owed-to-staff tile. Same number the
+                  financial-dashboard surfaces as staffPaymentsOwed.
+                  Sits next to the period total so "we paid X" and
+                  "we owe Y" read as one picture. */}
+              <Card className="border-0 shadow-sm bg-amber-50/60">
+                <CardContent className="p-4">
+                  <div className="text-[10px] uppercase tracking-wider text-amber-800 mb-1 inline-flex items-center gap-1">
+                    <Wallet className="w-3 h-3" />Owed to staff
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">
+                    {owedToStaff == null ? <span className="text-slate-300">—</span> : fmtZAR(owedToStaff)}
+                  </div>
+                  <div className="text-[10px] text-amber-800/80 mt-1">
+                    Unpaid clock-in sessions across every department
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* WAGE-A intel: secondary insights row. Top earner +
+              cost-per-event tiles. Hidden when there's no wage
+              activity at all (matches the empty-state below). */}
+          {!isDriversTab && staffRows.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                    <Trophy className="w-3 h-3" />Top earner
+                  </div>
+                  {topFive[0] ? (
+                    <>
+                      <div className="text-base font-semibold text-slate-900 truncate">{topFive[0].full_name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {fmtZAR(topFive[0].total_wage)} . {deptChipText(topFive[0].departments)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-slate-400">—</div>
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                    <ClockIcon className="w-3 h-3" />Cost per event
+                  </div>
+                  {eventCount == null || eventCount === 0 ? (
+                    <div className="text-2xl font-bold text-slate-300 tabular-nums">—</div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                        {fmtZAR(grandTotal / eventCount)}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1">
+                        {eventCount} event{eventCount === 1 ? "" : "s"} in range
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              {/* WAGE-A intel: open-shift exception card. Surfaces
+                  any open shift older than 12h - probable forgot-
+                  to-clock-out. Pulled straight off the open_shift
+                  flag that's already on every StaffWageSummary. */}
+              <Card className={`border-0 shadow-sm ${staffRows.some((r) => r.open_shift) ? "bg-amber-50/60" : ""}`}>
+                <CardContent className="p-4">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />Open shifts
+                  </div>
+                  {(() => {
+                    const open = staffRows.filter((r) => r.open_shift);
+                    if (open.length === 0) {
+                      return (
+                        <>
+                          <div className="text-2xl font-bold text-slate-900 tabular-nums">0</div>
+                          <div className="text-[10px] text-slate-500 mt-1">All shifts closed out</div>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <div className="text-2xl font-bold text-amber-900 tabular-nums">{open.length}</div>
+                        <div className="text-[10px] text-amber-800/80 mt-1 truncate" title={open.map((r) => r.full_name).join(", ")}>
+                          Check: {open.slice(0, 2).map((r) => r.full_name).join(", ")}{open.length > 2 ? ` + ${open.length - 2}` : ""}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -692,6 +951,8 @@ function WageDashboardPage() {
                   chartData={chartData}
                   topFive={topFive}
                   publicHolidayLines={publicHolidayLines}
+                  staffRows={staffRows}
+                  totalWage={kitchenTotals.total_wage}
                 />
               )}
             </TabsContent>
@@ -748,18 +1009,46 @@ function KitchenSummaryView({
   chartData,
   topFive,
   publicHolidayLines,
+  staffRows,
+  totalWage,
 }: {
   chartData: DailyChartRow[];
   topFive: StaffWageSummary[];
   publicHolidayLines: PublicHolidayLine[];
+  staffRows: StaffWageSummary[];
+  totalWage: number;
 }) {
+  // WAGE-A: when the chart has nothing to plot but the period total
+  // is > 0, the page WAS lying with "No daily breakdown available."
+  // The real cause is salaried staff: getWageSummary prorates their
+  // monthly salary into the buckets but they don't generate shift
+  // rows, so the day-by-day chart sees zero shifts. Surface that
+  // explicitly instead of the misleading copy.
+  const salariedTotal = staffRows
+    .filter((r) => r.pay_type === "monthly")
+    .reduce((s, r) => s + r.total_wage, 0);
+  const salariedStaffCount = staffRows.filter((r) => r.pay_type === "monthly").length;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="border-0 shadow-sm lg:col-span-2">
         <CardContent className="p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Daily wage spend</div>
           {chartData.length === 0 ? (
-            <div className="py-12 text-center text-sm text-slate-500">No daily breakdown available.</div>
+            totalWage > 0 ? (
+              <div className="py-10 text-center text-sm text-slate-500">
+                <p>
+                  No hourly shifts in this range, but{" "}
+                  <strong className="text-slate-700">{fmtZAR(salariedTotal)}</strong>
+                  {" "}in monthly salaries was prorated across{" "}
+                  {salariedStaffCount} staff member{salariedStaffCount === 1 ? "" : "s"}.
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  Salary lines don&apos;t generate per-day breakdown - check By person for the totals.
+                </p>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-sm text-slate-500">No daily breakdown available.</div>
+            )
           ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -794,7 +1083,19 @@ function KitchenSummaryView({
                     </span>
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-slate-900 truncate">{r.full_name}</div>
-                      {r.role_title && <div className="text-[10px] text-slate-500 truncate">{r.role_title}</div>}
+                      {/* WAGE-A: department badge stacks above the
+                          role_title text. Pre-WAGE-A only role_title
+                          was shown - tenants entering "Other" for
+                          everyone gave the owner no idea which team
+                          a line belonged to. */}
+                      <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 flex-wrap">
+                        {r.departments && r.departments.length > 0 && (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[9px] px-1 py-0">
+                            {deptChipText(r.departments)}
+                          </Badge>
+                        )}
+                        {r.role_title && <span>{r.role_title}</span>}
+                      </div>
                     </div>
                   </div>
                   <div className="text-sm font-bold text-emerald-700 tabular-nums">{fmtZAR(r.total_wage)}</div>
@@ -933,6 +1234,15 @@ function KitchenByPersonTable({
                         <div className="min-w-0">
                           <div className="font-medium text-slate-900 truncate">{r.full_name}</div>
                           <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
+                            {/* WAGE-A: department badge so the
+                                bookkeeper can tell Kitchen from
+                                Drivers etc when role_title is
+                                generic. */}
+                            {r.departments && r.departments.length > 0 && (
+                              <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[9px] px-1 py-0">
+                                {deptChipText(r.departments)}
+                              </Badge>
+                            )}
                             {r.role_title && <span>{r.role_title}</span>}
                             {r.open_shift && (
                               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0">On shift now</Badge>
