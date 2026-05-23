@@ -253,6 +253,11 @@ function FinancialDashboardInner() {
         projectedRevenue30Days,
         pendingPayments,
         staffPaymentsOwed,
+        // FIN-F: pass the missing outflows so the score reads the
+        // real net, not the cash-minus-wages partial.
+        fixedCostsNext30,
+        supplierPayablesNext30,
+        inventoryCosts,
       });
 
       setMetrics({
@@ -529,10 +534,22 @@ function FinancialDashboardInner() {
     // Cash-flow-only health score (margin removed). Scoring caps at 80
     // until a real COGS pipeline lands; that signals to the owner the
     // score is partial.
+    //
+    // FIN-F (current cash flow tile audit): the "real net" expression
+    // matches the Net Cash Flow row on the Financial Summary card and
+    // the new Current Cash Flow tile - cashReceived less every known
+    // outflow. Pre-FIN-F the score read currentCashFlow > 0 (cash
+    // minus wages only), so Spit Braai with R7,989.82 received / R0
+    // wages / R8,600 fixed costs scored 80 ("Healthy" green) while
+    // the real net was -R610. Now the same signal everywhere.
+    const realNet = (data.currentCashFlow || 0)
+      - (data.fixedCostsNext30 || 0)
+      - (data.supplierPayablesNext30 || 0)
+      - (data.inventoryCosts || 0);
     let score = 40;
-    if (data.currentCashFlow > 0) score += 20;
+    if (realNet > 0) score += 20;
     if (data.projectedRevenue30Days > data.pendingPayments) score += 10;
-    if (data.currentCashFlow > data.staffPaymentsOwed * 2) score += 10;
+    if (realNet > data.staffPaymentsOwed * 2) score += 10;
     return Math.min(80, score);
   };
 
@@ -824,41 +841,83 @@ function FinancialDashboardInner() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Current Cash Flow
-                    <InfoTooltip content={"Cash already received on paid orders, less wages still owed to staff.\n\nA quick read on cash actually available right now. The two lines below show the breakdown."} />
+                    {/* FIN-F (current cash flow tile audit): pre-FIN-F
+                        the tile subtracted only wages owed and called
+                        the result "Healthy" any time it was positive.
+                        Bobby's screenshot showed +R7,989.82 received,
+                        R0 wages, "Healthy" - while the Financial
+                        Summary below correctly read -R610.18 net
+                        because R8,600 of fixed costs and the COGS
+                        already incurred weren't priced in. Now the
+                        tile shows every cost line that's already in
+                        metrics state (wages + fixed costs next 30d
+                        + supplier payables next 30d + inventory
+                        COGS 90d) and the status badge reads off the
+                        real net, not the cash-minus-wages partial. */}
+                    <InfoTooltip content={"Cash received less every known outflow in metrics state: wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, inventory COGS over the last 90 days.\n\nMatches the Net Cash Flow row on the Financial Summary card below. Status badge reads off this net, not the received-minus-wages partial."} />
                   </CardTitle>
                   <DollarSign className="w-5 h-5 text-green-600" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900">
-                  {formatCurrency(metrics?.currentCashFlow || 0)}
-                </div>
-                {/* Breakdown so the net number isn't a black box. */}
-                <div className="mt-2 space-y-0.5 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Received</span>
-                    <span className="tabular-nums text-green-700">+{formatCurrency(metrics?.cashReceived || 0)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Wages owed</span>
-                    <span className="tabular-nums text-red-700">-{formatCurrency(metrics?.staffPaymentsOwed || 0)}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 mt-2">
-                  {(metrics?.currentCashFlow || 0) > 0 ? (
+                {(() => {
+                  // FIN-F: real net cash flow. Same formula the
+                  // Financial Summary card uses for "Net Cash Flow
+                  // (30d)" so both surfaces agree.
+                  const received = metrics?.cashReceived || 0;
+                  const wages = metrics?.staffPaymentsOwed || 0;
+                  const fixed = metrics?.fixedCostsNext30 || 0;
+                  const payables = metrics?.supplierPayablesNext30 || 0;
+                  const inventory = metrics?.inventoryCosts || 0;
+                  const net = received - wages - fixed - payables - inventory;
+                  const noActivity = received === 0 && wages === 0 && fixed === 0 && payables === 0 && inventory === 0;
+                  return (
                     <>
-                      <ArrowUpRight className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-600">Healthy</span>
+                      <div className={`text-2xl font-bold ${net < 0 ? "text-red-700" : "text-slate-900"}`}>
+                        {formatCurrency(net)}
+                      </div>
+                      <div className="mt-2 space-y-0.5 text-xs">
+                        <div className="flex justify-between text-slate-600">
+                          <span>Received</span>
+                          <span className="tabular-nums text-green-700">+{formatCurrency(received)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Wages owed</span>
+                          <span className="tabular-nums text-red-700">-{formatCurrency(wages)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Fixed costs (30d)</span>
+                          <span className="tabular-nums text-red-700">-{formatCurrency(fixed)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Payables (30d)</span>
+                          <span className="tabular-nums text-red-700">-{formatCurrency(payables)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Inventory (90d COGS)</span>
+                          <span className="tabular-nums text-red-700">-{formatCurrency(inventory)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-2">
+                        {noActivity ? (
+                          <span className="text-sm text-slate-500">No activity yet</span>
+                        ) : net > 0 ? (
+                          <>
+                            <ArrowUpRight className="w-4 h-4 text-green-600" />
+                            <span className="text-sm text-green-600">Healthy</span>
+                          </>
+                        ) : net === 0 ? (
+                          <span className="text-sm text-slate-500">Break-even</span>
+                        ) : (
+                          <>
+                            <ArrowDownRight className="w-4 h-4 text-red-600" />
+                            <span className="text-sm text-red-600">Needs attention</span>
+                          </>
+                        )}
+                      </div>
                     </>
-                  ) : (metrics?.currentCashFlow || 0) === 0 ? (
-                    <span className="text-sm text-slate-500">No activity yet</span>
-                  ) : (
-                    <>
-                      <ArrowDownRight className="w-4 h-4 text-red-600" />
-                      <span className="text-sm text-red-600">Needs Attention</span>
-                    </>
-                  )}
-                </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
