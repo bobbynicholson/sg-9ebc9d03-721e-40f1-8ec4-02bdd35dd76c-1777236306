@@ -320,15 +320,15 @@ export const timeClockService = {
   },
 
   /**
-   * STH-C: backfill a tablet-clock-in that never happened. Manager
+   * STH-C: backfill a clock-in that never happened. Manager
    * supplies the staff, clock-in / clock-out timestamps, and an
    * entry reason; we compute hours + earnings off the same rate
    * fallback chain clockOut uses (profiles.hourly_rate first, then
    * kitchen_staff_members.hourly_rate via linked_profile_id, then 0).
    *
    * entered_manually = true so the row chips a "Manual" badge on
-   * /admin/staff-hours and the payroll audit can tell tablet-
-   * clocked rows from manager-backfilled ones.
+   * /admin/staff-hours and the payroll audit can tell live clock-
+   * in rows from manager-backfilled ones.
    */
   async createManualSession(args: {
     staffId: string;
@@ -395,19 +395,24 @@ export const timeClockService = {
   /**
    * STH-C: reconciliation against kitchen_staff_shifts over the
    * same window. The two tables track the same conceptual thing
-   * (worked hours) via different surfaces - tablet vs manager-
-   * entered. Returning both totals lets /admin/staff-hours show a
-   * "tablet vs scheduled" tile so the operator sees when the two
-   * sources diverge (which they usually do when a tenant doesn't
-   * use the tablet flow at all).
+   * (worked hours) via different surfaces: live clock-in
+   * (staff_work_sessions) vs manager-entered shift roster
+   * (kitchen_staff_shifts). Returning both totals lets
+   * /admin/staff-hours show a "Clocked vs scheduled" tile so the
+   * operator sees when the two sources diverge.
+   *
+   * STH-D (2026-05-23): renamed `tablet_*` fields to `clocked_*`.
+   * Kitchen runs on desktop for now and there's no dedicated
+   * tablet flow yet - the field names were leaking the planned
+   * tablet roadmap into a UI that has none of it.
    */
   async getReconciliation(companyId: string, startIso: string, endIso: string): Promise<{
-    tablet_hours: number;
+    clocked_hours: number;
     scheduled_hours: number;
-    tablet_session_count: number;
+    clocked_session_count: number;
     scheduled_shift_count: number;
   }> {
-    const [tabletRes, scheduledRes] = await Promise.all([
+    const [clockedRes, scheduledRes] = await Promise.all([
       supabase
         .from("staff_work_sessions")
         .select("total_hours")
@@ -422,21 +427,21 @@ export const timeClockService = {
         .gte("shift_start", startIso)
         .lte("shift_start", endIso),
     ]);
-    const tabletRows = (tabletRes.data || []) as Array<{ total_hours: number | null }>;
+    const clockedRows = (clockedRes.data || []) as Array<{ total_hours: number | null }>;
     const scheduledRows = (scheduledRes.data || []) as Array<{
       standard_min: number | null;
       overtime_min: number | null;
       sunday_holiday_min: number | null;
     }>;
-    const tablet_hours = tabletRows.reduce((s, r) => s + Number(r.total_hours || 0), 0);
+    const clocked_hours = clockedRows.reduce((s, r) => s + Number(r.total_hours || 0), 0);
     const scheduled_hours = scheduledRows.reduce(
       (s, r) => s + (Number(r.standard_min || 0) + Number(r.overtime_min || 0) + Number(r.sunday_holiday_min || 0)) / 60,
       0,
     );
     return {
-      tablet_hours: Math.round(tablet_hours * 10) / 10,
+      clocked_hours: Math.round(clocked_hours * 10) / 10,
       scheduled_hours: Math.round(scheduled_hours * 10) / 10,
-      tablet_session_count: tabletRows.length,
+      clocked_session_count: clockedRows.length,
       scheduled_shift_count: scheduledRows.length,
     };
   },

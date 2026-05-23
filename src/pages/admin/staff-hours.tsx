@@ -122,9 +122,9 @@ function StaffHoursPage() {
   // STH-C: reconciliation tile data. Pulled in parallel with the
   // sessions / ledger load; null while loading or on error.
   const [recon, setRecon] = useState<{
-    tablet_hours: number;
+    clocked_hours: number;
     scheduled_hours: number;
-    tablet_session_count: number;
+    clocked_session_count: number;
     scheduled_shift_count: number;
   } | null>(null);
   // STH-C: manual-entry dialog state.
@@ -321,16 +321,16 @@ function StaffHoursPage() {
         <div className="px-4 py-8 max-w-screen-2xl">
           <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
-              {/* STH-B: page reframed as the tablet-clock-in audit
-                  log. The wage roll-up (hours x rates with BCEA
-                  overtime / Sunday / public-holiday splits) lives
-                  on /admin/wages and reads kitchen_staff_shifts,
-                  not staff_work_sessions. This page only shows
-                  what the kitchen tablet has clocked + the
-                  payments processed through the dialog below. */}
+              {/* STH-D (2026-05-23): page covers the live clock-
+                  in log (staff_work_sessions). The wage roll-up
+                  (hours x rates with BCEA overtime / Sunday /
+                  public-holiday splits) lives on /admin/wages and
+                  reads kitchen_staff_shifts. Pre-STH-D the copy
+                  said "tablet clock-in" - kitchen actually runs on
+                  desktop for now, the tablet flow is deferred. */}
               <h1 className="text-3xl font-bold mb-2">Time Clock Log</h1>
               <p className="text-muted-foreground">
-                Tablet clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
+                Clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
                 <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
                   Wages dashboard <ExternalLink className="w-3 h-3" />
                 </Link>
@@ -402,7 +402,7 @@ function StaffHoursPage() {
               almost certainly a forgot-to-clock-out. Surfacing
               them here prevents the operator paying out a 16-hour
               "shift" that was actually a 7-hour shift + 9 hours
-              the tablet sat with the session unclosed. */}
+              the session was left open with nobody around to close it. */}
           {openShiftAnomalies.length > 0 && (
             <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
@@ -540,7 +540,7 @@ function StaffHoursPage() {
 
             <div className="flex items-center gap-2">
               {/* STH-C: manager backfill for a clock-in that
-                  never happened (tablet offline / forgot to
+                  never happened (clock-in missed / forgot to
                   clock in). Inserts a staff_work_sessions row
                   with entered_manually=true so payroll can
                   audit which sessions weren't real clock-ins. */}
@@ -556,17 +556,17 @@ function StaffHoursPage() {
             </div>
           </div>
 
-          {/* STH-C: tablet-vs-scheduled reconciliation tile.
+          {/* STH-C: clocked-vs-scheduled reconciliation tile.
               Surfaces the divergent-source-of-truth problem to the
-              operator: this page reads staff_work_sessions (tablet
+              operator: this page reads staff_work_sessions (live
               clock-ins); /admin/wages reads kitchen_staff_shifts
-              (manager-entered). When the two numbers disagree
-              significantly the operator knows the wage roll-up
-              isn't seeing the same hours as the tablet audit.
-              Hidden when both are zero (nothing to reconcile) or
-              when reconciliation hasn't loaded yet. */}
-          {recon && (recon.tablet_hours > 0 || recon.scheduled_hours > 0) && (() => {
-            const gap = recon.scheduled_hours - recon.tablet_hours;
+              (manager-entered shift roster). When the two numbers
+              disagree significantly the operator knows the wage
+              roll-up isn't seeing the same hours as the clock-in
+              audit. Hidden when both are zero (nothing to
+              reconcile) or when reconciliation hasn't loaded yet. */}
+          {recon && (recon.clocked_hours > 0 || recon.scheduled_hours > 0) && (() => {
+            const gap = recon.scheduled_hours - recon.clocked_hours;
             const gapPct = recon.scheduled_hours > 0
               ? Math.abs(gap) / recon.scheduled_hours * 100
               : 100;
@@ -579,12 +579,12 @@ function StaffHoursPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-3 flex-wrap text-sm">
                         <span className="font-semibold">
-                          Tablet vs scheduled
+                          Clocked vs scheduled
                         </span>
                         <span className="tabular-nums">
-                          <strong>{recon.tablet_hours.toFixed(1)}h</strong>
-                          {" on tablet "}
-                          <span className="text-slate-500">({recon.tablet_session_count} session{recon.tablet_session_count === 1 ? "" : "s"})</span>
+                          <strong>{recon.clocked_hours.toFixed(1)}h</strong>
+                          {" clocked-in "}
+                          <span className="text-slate-500">({recon.clocked_session_count} session{recon.clocked_session_count === 1 ? "" : "s"})</span>
                         </span>
                         <span className="tabular-nums">
                           <strong>{recon.scheduled_hours.toFixed(1)}h</strong>
@@ -596,11 +596,11 @@ function StaffHoursPage() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 mt-1">
-                        This page reads tablet clock-ins. The{" "}
+                        This page reads live clock-ins. The{" "}
                         <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline">
                           Wages dashboard
                         </Link>
-                        {" "}reads manager-entered shifts. A large gap means one surface is missing data the other has.
+                        {" "}reads the manager-entered shift roster. A large gap means one surface is missing data the other has.
                       </p>
                     </div>
                   </div>
@@ -625,13 +625,24 @@ function StaffHoursPage() {
                 <Card className="border-dashed border-2">
                   <CardContent className="py-10 text-center">
                     <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-slate-700">No tablet clock-ins in this period</p>
+                    <p className="text-sm font-medium text-slate-700">No clock-ins in this period</p>
                     <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      This page only shows sessions logged via the kitchen tablet (clock_in / clock_out flow). If your team uses manager-entered shifts instead, the wage report on{" "}
+                      This page only shows live clock-in / clock-out sessions. If your team works off manager-entered shifts on the roster instead, the wage report on{" "}
                       <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline">
                         /admin/wages
                       </Link>
-                      {" "}is the source of truth.
+                      {" "}is the source of truth. You can also{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualDraft({ staffId: "", clockIn: "", clockOut: "", reason: "" });
+                          setManualOpen(true);
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        add a manual shift
+                      </button>
+                      {" "}to backfill a missed clock-in.
                     </p>
                   </CardContent>
                 </Card>
@@ -893,7 +904,7 @@ function StaffHoursPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-slate-900">Where the rest lives</CardTitle>
               <CardDescription className="text-slate-600">
-                This page is the tablet clock-in audit. Pay rates, BCEA splits and the wage report are elsewhere.
+                This page is the live clock-in audit. Pay rates, BCEA splits and the wage report are elsewhere.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -922,7 +933,7 @@ function StaffHoursPage() {
         </div>
 
         {/* STH-C: manual-entry dialog. Manager backfill for a
-            tablet clock-in that never happened. Writes a
+            clock-in that never happened. Writes a
             staff_work_sessions row with entered_manually=true so
             payroll can audit which sessions weren't real clock-
             ins. Earnings auto-computed off the same rate fallback
@@ -934,7 +945,7 @@ function StaffHoursPage() {
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-xs text-slate-500">
-                Backfill a shift that didn&apos;t get logged on the tablet. The session is tagged &quot;Manual&quot; so payroll knows it wasn&apos;t a real clock-in. Hours and earnings are computed off the staff member&apos;s hourly rate.
+                Backfill a shift that didn&apos;t get logged at the time. The session is tagged &quot;Manual&quot; so payroll knows it wasn&apos;t a real clock-in. Hours and earnings are computed off the staff member&apos;s hourly rate.
               </p>
               <div className="space-y-1.5">
                 <Label>Staff member</Label>
@@ -976,7 +987,7 @@ function StaffHoursPage() {
                 <Label>Reason</Label>
                 <Textarea
                   rows={2}
-                  placeholder="e.g. tablet offline, forgot to clock out, double-shift"
+                  placeholder="e.g. forgot to clock out, machine offline, double-shift"
                   value={manualDraft.reason}
                   onChange={(e) => setManualDraft((d) => ({ ...d, reason: e.target.value }))}
                 />
@@ -1003,7 +1014,7 @@ function StaffHoursPage() {
                         companyId: user.company_id,
                         // datetime-local values are zone-naive but
                         // local; convert to ISO via Date so they
-                        // store as UTC the same way tablet clock-ins
+                        // store as UTC the same way live clock-ins
                         // do.
                         clockInIso: new Date(manualDraft.clockIn).toISOString(),
                         clockOutIso: new Date(manualDraft.clockOut).toISOString(),
