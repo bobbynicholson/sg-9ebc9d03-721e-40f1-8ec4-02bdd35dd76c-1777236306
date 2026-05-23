@@ -174,22 +174,66 @@ function ClientsCRM() {
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
-  // Phase 23 #7: seed the search box from ?q on mount so the
-  // dashboard's TopClients widget (and any future inbound link)
-  // can deep-link a pre-filtered contacts view. Runs once when
-  // router.isReady flips so SSR rehydration doesn't fight us.
+  // Wave 70.75: debounced mirror of search. The filter useMemo
+  // reads from this so a fast typist doesn't re-run the fuzzy
+  // search on every keystroke. 150ms covers human typing cadence
+  // without feeling laggy.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
-    if (!router.isReady) return;
-    const q = typeof router.query.q === "string" ? router.query.q : "";
-    if (q) setSearch(q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady]);
+    const t = setTimeout(() => setDebouncedSearch(search), 150);
+    return () => clearTimeout(t);
+  }, [search]);
   // Default to Hot leads instead of All so the first paint isn't
   // blocked rendering thousands of cold/lost rows the operator
   // rarely needs first thing. The All chip stays one click away.
   // ?clientId / ?q deep-links flip back to "all" inside their own
   // effects so a row jump still finds the target.
   const [filter, setFilter] = useState<"all" | ClientStatus>("hot_lead");
+  // Wave 70.75: full URL persistence. Pre-fix only ?q= was read
+  // on mount and never written back, so a refresh lost the
+  // search and filter chip every time. Now: ?q + ?filter hydrate
+  // on mount, sync via shallow router.replace on change.
+  // Defaults (hot_lead, empty search) are omitted to keep URL clean.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    if (q) {
+      setSearch(q);
+      setDebouncedSearch(q);
+    }
+    const f = typeof router.query.filter === "string" ? router.query.filter : "";
+    // Cheap validation: filter must match a known status or "all".
+    const ALLOWED: Array<"all" | ClientStatus> = [
+      "all", "hot_lead", "quoted", "won", "active", "returning",
+      "vip", "quiet", "cold", "imported", "lost",
+    ];
+    if (f && (ALLOWED as string[]).includes(f)) {
+      setFilter(f as "all" | ClientStatus);
+    }
+  }, [router.isReady, router.query]);
+  useEffect(() => {
+    if (!router.isReady || !hydratedRef.current) return;
+    const next: Record<string, string> = {};
+    if (debouncedSearch.trim()) next.q = debouncedSearch.trim();
+    if (filter !== "hot_lead") next.filter = filter;
+    // Preserve ?clientId deep-links from elsewhere.
+    const preserved = ["clientId"];
+    for (const k of preserved) {
+      const v = router.query[k];
+      if (typeof v === "string") next[k] = v;
+    }
+    const currentQs = new URLSearchParams(window.location.search).toString();
+    const nextQs = new URLSearchParams(next).toString();
+    if (currentQs === nextQs) return;
+    router.replace(
+      { pathname: router.pathname, query: next },
+      undefined,
+      { shallow: true },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filter, router.isReady]);
   // Phase 9 #4: tag filter. Multi-select set of tag strings; a
   // contact passes if it has at least one of the selected tags.
   // Empty set means no tag filter is active.
