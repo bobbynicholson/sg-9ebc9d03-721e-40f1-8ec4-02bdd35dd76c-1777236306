@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download } from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download, AlertTriangle, ExternalLink } from "lucide-react";
+import { captureException } from "@/lib/observability";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { timeClockService } from "@/services/timeClockService";
@@ -26,23 +29,65 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedStaffHoursPage() {
   return (
-    // STH-A (staff-hours audit, STH-3): dedupe COMPANY_ADMIN
-    // copy-paste typo. Same pattern as CS-1.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // STH-B (staff-hours audit, 2026-05-23): tightened to OWNER /
+    // COMPANY_ADMIN / SUPER_ADMIN per the directors-folder finance-
+    // visibility rule. Pre-STH-B ADMIN (region_admin + sales_admin)
+    // could read the unpaid R amounts here, which leaks pay rates
+    // and totals - same gate /admin/wages already uses.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
       <StaffHoursPage />
     </ProtectedRoute>
   );
 }
 
+// STH-B: narrow shape for a clocked session row. Pre-STH-B the page
+// typed sessions as any[] and the CSV referenced fields that don't
+// exist on the schema (staff_name, hours_worked, is_paid). Now we
+// match what timeClockService.getAllStaffWorkSessions actually
+// returns: clock_in, clock_out, total_hours, total_earnings,
+// payment_status, with the staff relation joined as `staff`.
+interface StaffSession {
+  id: string;
+  staff_id: string;
+  clock_in: string;
+  clock_out: string | null;
+  total_hours: number | null;
+  total_earnings: number | null;
+  payment_status: "unpaid" | "paid" | "pending" | string;
+  staff?: { full_name: string | null; email: string | null; role: string | null } | null;
+}
+
+interface StaffPayment {
+  id: string;
+  staff_id: string;
+  payment_period_start: string | null;
+  payment_period_end: string | null;
+  total_hours: number | null;
+  hourly_rate: number | null;
+  total_amount: number | null;
+  payment_method: string;
+  payment_date: string | null;
+  staff?: { full_name: string | null } | null;
+}
+
+interface StaffGroup {
+  staff: StaffSession["staff"];
+  sessions: StaffSession[];
+  totalHours: number;
+  totalEarnings: number;
+  unpaidSessions: StaffSession[];
+}
+
 function StaffHoursPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   // Phase 10 #2: tenant currency for the unpaid / paid totals +
   // per-session earnings + per-payment hourly rate strings.
-  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const C = tenantCurrency.symbol;
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [ledger, setLedger] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<StaffSession[]>([]);
+  const [ledger, setLedger] = useState<StaffPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
@@ -82,16 +127,27 @@ function StaffHoursPage() {
         paymentLedgerService.getAllPayments(startDate, now, user?.company_id),
       ]);
 
-      setSessions(sessionsData);
-      setLedger(ledgerData);
+      // Cast through unknown because the supabase typegen widens
+      // the joined `staff` relation to SelectQueryError; the
+      // runtime shape matches StaffSession / StaffPayment.
+      setSessions(sessionsData as unknown as StaffSession[]);
+      setLedger(ledgerData as unknown as StaffPayment[]);
     } catch (error) {
-      console.error("Error loading data:", error);
+      captureException(error, {
+        level: "error",
+        tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load" },
+      });
+      toast({
+        title: "Couldn't load time clock data",
+        description: error instanceof Error ? error.message : "Try again",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const groupedSessions = sessions.reduce((acc, session) => {
+  const groupedSessions = sessions.reduce<Record<string, StaffGroup>>((acc, session) => {
     const staffId = session.staff_id;
     if (!acc[staffId]) {
       acc[staffId] = {
@@ -109,7 +165,7 @@ function StaffHoursPage() {
       acc[staffId].unpaidSessions.push(session);
     }
     return acc;
-  }, {} as Record<string, any>);
+  }, {});
 
   const handleProcessPayment = async (staffId: string, sessionIds: string[]) => {
     setLoading(true);
@@ -125,9 +181,17 @@ function StaffHoursPage() {
       setPaymentDialog(false);
       setPaymentData({ method: "cash", reference: "", notes: "" });
       await loadData();
+      toast({ title: "Payment recorded" });
     } catch (error) {
-      console.error("Error processing payment:", error);
-      alert("Failed to process payment");
+      captureException(error, {
+        level: "error",
+        tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "process_payment" },
+      });
+      toast({
+        title: "Payment failed",
+        description: error instanceof Error ? error.message : "Try again",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -135,10 +199,10 @@ function StaffHoursPage() {
 
   // Phase 18 #7: build sorted entries once so the JSX stays simple
   // and the comparator only fires when the user picks a new sort.
-  const sortedStaffEntries = Object.entries(groupedSessions).sort(
-    ([, a]: [string, any], [, b]: [string, any]) => {
-      const unpaidOf = (x: any) =>
-        x.unpaidSessions.reduce((s: number, t: any) => s + Number(t.total_earnings || 0), 0);
+  const sortedStaffEntries: Array<[string, StaffGroup]> = Object.entries(groupedSessions).sort(
+    ([, a], [, b]) => {
+      const unpaidOf = (x: StaffGroup) =>
+        x.unpaidSessions.reduce((s, t) => s + Number(t.total_earnings || 0), 0);
       switch (staffSort) {
         case "hours_desc":
           return Number(b.totalHours || 0) - Number(a.totalHours || 0);
@@ -155,19 +219,31 @@ function StaffHoursPage() {
 
   const summary = {
     totalStaff: Object.keys(groupedSessions).length,
-    totalHours: Object.values(groupedSessions).reduce((sum: number, staff: any) => sum + staff.totalHours, 0),
-    totalUnpaid: Object.values(groupedSessions).reduce((sum: number, staff: any) => {
-      return sum + staff.unpaidSessions.reduce((s: number, session: any) => s + Number(session.total_earnings || 0), 0);
+    totalHours: Object.values(groupedSessions).reduce((sum, staff) => sum + staff.totalHours, 0),
+    totalUnpaid: Object.values(groupedSessions).reduce((sum, staff) => {
+      return sum + staff.unpaidSessions.reduce((s, session) => s + Number(session.total_earnings || 0), 0);
     }, 0),
     totalPaid: ledger.reduce((sum, payment) => sum + Number(payment.total_amount || 0), 0),
   };
+
+  // STH-B intel: open-shift anomalies. Any session with no
+  // clock_out that started more than 14 hours ago is almost
+  // certainly a forgot-to-clock-out, not a real ongoing shift.
+  // Surface as a banner so payroll doesn't accidentally pay for
+  // 16 hours of cooking that didn't happen.
+  const openShiftAnomalies = sessions.filter((s) => {
+    if (s.clock_out) return false;
+    const startMs = new Date(s.clock_in).getTime();
+    if (!Number.isFinite(startMs)) return false;
+    return Date.now() - startMs > 14 * 60 * 60 * 1000;
+  });
 
   return (
     <>
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Staff Hours Tracking | CateringMS Admin</title>
+        <title>Time Clock Log | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
@@ -176,9 +252,20 @@ function StaffHoursPage() {
         <div className="px-4 py-8 max-w-screen-2xl">
           <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Staff Hours</h1>
+              {/* STH-B: page reframed as the tablet-clock-in audit
+                  log. The wage roll-up (hours x rates with BCEA
+                  overtime / Sunday / public-holiday splits) lives
+                  on /admin/wages and reads kitchen_staff_shifts,
+                  not staff_work_sessions. This page only shows
+                  what the kitchen tablet has clocked + the
+                  payments processed through the dialog below. */}
+              <h1 className="text-3xl font-bold mb-2">Time Clock Log</h1>
               <p className="text-muted-foreground">
-                Working hours per staff member tracked against shifts and events. Drives the wages roll-up with overtime, Sunday, and public-holiday splits.
+                Tablet clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
+                <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                  Wages dashboard <ExternalLink className="w-3 h-3" />
+                </Link>
+                .
               </p>
             </div>
             {/* Phase 17 #10: CSV export. Payroll team needs an
@@ -195,29 +282,37 @@ function StaffHoursPage() {
                   toast({ title: "Nothing to export", description: "No sessions in this period." });
                   return;
                 }
+                // STH-B: CSV columns were referencing fields that
+                // don't exist on the actual schema (staff_name,
+                // hours_worked, is_paid). Real shape from
+                // timeClockService.getAllStaffWorkSessions:
+                // session.staff.{full_name,email}, clock_in,
+                // clock_out, total_hours, total_earnings,
+                // payment_status. Export was effectively dead.
                 const headers = [
                   "Staff name", "Email", "Clock in", "Clock out", "Hours",
-                  "Hourly rate", "Total earnings", "Paid",
+                  "Total earnings", "Payment status",
                 ];
-                const esc = (v: any) => {
+                const esc = (v: unknown) => {
                   if (v == null) return "";
                   const s = String(v).replace(/"/g, '""');
                   return /[",\n]/.test(s) ? `"${s}"` : s;
                 };
                 const lines = [headers.join(",")];
-                for (const s of sessions as any[]) {
+                for (const s of sessions) {
                   lines.push([
-                    esc(s.staff_name || s.profile?.full_name),
-                    esc(s.staff_email || s.profile?.email),
+                    esc(s.staff?.full_name || ""),
+                    esc(s.staff?.email || ""),
                     esc(s.clock_in),
                     esc(s.clock_out),
-                    esc(s.hours_worked),
-                    esc(s.hourly_rate),
-                    esc(s.total_earnings),
-                    esc(s.is_paid ? "yes" : "no"),
+                    esc(Number(s.total_hours || 0).toFixed(2)),
+                    esc(Number(s.total_earnings || 0).toFixed(2)),
+                    esc(s.payment_status),
                   ].join(","));
                 }
-                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                // STH-B: UTF-8 BOM for Excel-ZA, matches every
+                // other admin CSV export.
+                const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
@@ -232,6 +327,38 @@ function StaffHoursPage() {
               Export CSV
             </Button>
           </div>
+
+          {/* STH-B intel: open-shift anomaly banner. A session
+              still open more than 14 hours after clock-in is
+              almost certainly a forgot-to-clock-out. Surfacing
+              them here prevents the operator paying out a 16-hour
+              "shift" that was actually a 7-hour shift + 9 hours
+              the tablet sat with the session unclosed. */}
+          {openShiftAnomalies.length > 0 && (
+            <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-900">
+                  {openShiftAnomalies.length} clock-in{openShiftAnomalies.length === 1 ? "" : "s"} still open more than 14 hours
+                </p>
+                <p className="text-xs text-amber-800/90 mt-0.5">
+                  Probable forgot-to-clock-out events. Review and close them before processing payments so you don&apos;t pay for hours that weren&apos;t worked.
+                </p>
+                <ul className="mt-1.5 text-xs text-amber-800 space-y-0.5">
+                  {openShiftAnomalies.slice(0, 5).map((s) => (
+                    <li key={s.id}>
+                      <span className="font-medium">{s.staff?.full_name || "Unknown staff"}</span>
+                      {" - clocked in "}
+                      {formatLocalDate(s.clock_in)}
+                    </li>
+                  ))}
+                  {openShiftAnomalies.length > 5 && (
+                    <li className="italic">+ {openShiftAnomalies.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card>
@@ -318,7 +445,27 @@ function StaffHoursPage() {
             </TabsList>
 
             <TabsContent value="hours" className="space-y-4">
-              {sortedStaffEntries.map(([staffId, data]: [string, any]) => (
+              {/* STH-B: explicit empty state. Pre-STH-B if a
+                  tenant routes everything through the manager-
+                  entered shift flow on /admin/wages, this page
+                  showed zero rows under zero tiles with no
+                  explanation - looked like a broken surface. */}
+              {sortedStaffEntries.length === 0 && !loading && (
+                <Card className="border-dashed border-2">
+                  <CardContent className="py-10 text-center">
+                    <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-slate-700">No tablet clock-ins in this period</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      This page only shows sessions logged via the kitchen tablet (clock_in / clock_out flow). If your team uses manager-entered shifts instead, the wage report on{" "}
+                      <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline">
+                        /admin/wages
+                      </Link>
+                      {" "}is the source of truth.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              {sortedStaffEntries.map(([staffId, data]) => (
                 <Card key={staffId}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -431,11 +578,15 @@ function StaffHoursPage() {
 
                     <div className="space-y-2">
                       <div className="text-sm font-medium mb-2">Recent Sessions</div>
-                      {data.sessions.slice(0, 5).map((session: any) => (
+                      {data.sessions.slice(0, 5).map((session) => (
                         <div key={session.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{formatLocalDate(session.clock_in_time)}</span>
+                            {/* STH-B: was `session.clock_in_time`
+                                which doesn't exist on the schema -
+                                rendered "Invalid Date" on every
+                                row. Real column is clock_in. */}
+                            <span>{formatLocalDate(session.clock_in)}</span>
                           </div>
                           <div className="flex items-center gap-4">
                             <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
@@ -472,7 +623,7 @@ function StaffHoursPage() {
                     disabled={ledger.length === 0}
                     onClick={() => {
                       if (ledger.length === 0) return;
-                      const esc = (v: any) => {
+                      const esc = (v: unknown) => {
                         if (v == null) return "";
                         const s = String(v).replace(/"/g, '""');
                         return /[",\n]/.test(s) ? `"${s}"` : s;
@@ -482,7 +633,7 @@ function StaffHoursPage() {
                         "Total", "Method", "Paid on",
                       ];
                       const lines = [headers.join(",")];
-                      for (const p of ledger as any[]) {
+                      for (const p of ledger) {
                         lines.push([
                           esc(p.staff?.full_name || ""),
                           esc(p.payment_period_start || ""),
@@ -494,7 +645,8 @@ function StaffHoursPage() {
                           esc(p.payment_date || ""),
                         ].join(","));
                       }
-                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      // STH-B: UTF-8 BOM.
+                      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
@@ -527,7 +679,7 @@ function StaffHoursPage() {
                             {C} {Number(payment.total_amount).toFixed(2)}
                           </div>
                           <div className="text-sm text-muted-foreground capitalize">
-                            {payment.payment_method.replace("_", " ")}
+                            {(payment.payment_method || "").replace("_", " ")}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {formatLocalDate(payment.payment_date)}
@@ -547,21 +699,41 @@ function StaffHoursPage() {
             </TabsContent>
           </Tabs>
 
-          <Card className="mt-8 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle className="text-blue-900 dark:text-blue-100">
-                Looking for Full HR Management?
-              </CardTitle>
-              <CardDescription className="text-blue-700 dark:text-blue-300">
-                CateringMS is not an HR solution. For comprehensive HR management, check out these specialized tools:
+          {/* STH-B: replaced the dead /hr-solutions link with a
+              useful cross-link strip. The old card pointed to a
+              page that doesn't exist in the codebase, and the
+              "we're not an HR solution" framing told the operator
+              what the page WASN'T rather than what it was for.
+              Now: clear pointers to the two surfaces this page
+              hands off to. */}
+          <Card className="mt-8 border-slate-200 bg-slate-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-slate-900">Where the rest lives</CardTitle>
+              <CardDescription className="text-slate-600">
+                This page is the tablet clock-in audit. Pay rates, BCEA splits and the wage report are elsewhere.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" className="w-full sm:w-auto">
-                <a href="/hr-solutions" target="_blank">
-                  View HR Solutions →
-                </a>
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button asChild variant="outline">
+                  <Link href={withSlug("/admin/wages")} className="justify-start gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Wage report (BCEA)
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={withSlug("/admin/staff")} className="justify-start gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    Staff &amp; rates
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={withSlug("/admin/cashflow-dashboard")} className="justify-start gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    Cashflow forecast
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
