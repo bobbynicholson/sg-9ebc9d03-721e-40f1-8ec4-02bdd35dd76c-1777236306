@@ -156,20 +156,40 @@ function AdminCalendar() {
       const startISO = toLocalISO(windowStart);
       const endISO = toLocalISO(windowEnd);
 
+      // Wave 70.66: status whitelist. Pre-fix the query had no
+      // status filter, so the page header's "Every confirmed event"
+      // copy was a lie - drafts, leads-converted-to-pending, even
+      // cancelled rows came back. The grid filtered cancelled
+      // client-side but the "Next 5 events" sidebar surfaced any
+      // non-cancelled order including drafts, and the footer
+      // "Total events" counted every status.
+      //
+      // Whitelist matches the live operations + dispatch queue
+      // pages: confirmed and onwards through completion. Cancelled
+      // is excluded server-side. Pending / draft stays off the
+      // calendar entirely - those belong on /admin/quotes and
+      // /admin/orders, not the kitchen / dispatch surface.
+      const CALENDAR_STATUSES = [
+        "confirmed", "preparing", "ready",
+        "in_transit", "delivered", "completed",
+      ] as const;
+
       // Null event_dates can't render on a calendar grid - drop
       // them from the load. They're still visible on /admin/orders.
+      // order_items(*) was being pulled but is never read on this
+      // page - dropped to cut the per-row payload weight.
       const { data, error } = await supabase
         .from("orders")
         .select(`
           *,
           client:clients(*),
-          order_items(*),
           quote:quotes!orders_quote_id_fkey(public_token, quote_number),
           assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
           assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
         `)
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
+        .in("status", CALENDAR_STATUSES)
         .gte("event_date", startISO)
         .lte("event_date", endISO)
         .order("event_date", { ascending: true });
@@ -292,7 +312,12 @@ function AdminCalendar() {
       if (e.target instanceof HTMLTextAreaElement) return;
       if (!focusedISO) return;
 
-      const focused = new Date(focusedISO);
+      // Wave 70.66: parse the focused ISO date as local-noon so
+      // arithmetic doesn't drift across month boundaries in SAST
+      // (the bare `new Date("YYYY-MM-DD")` constructor reads UTC
+      // midnight, which lands at 02:00 SAST the next day - so
+      // `focused.getMonth()` could be wrong by one at the edges).
+      const focused = new Date(`${focusedISO}T12:00:00`);
       let next: Date | null = null;
       switch (e.key) {
         case "ArrowRight": next = new Date(focused.getTime() + 86400000); break;
@@ -582,7 +607,14 @@ function AdminCalendar() {
               >
                 <Download className="w-3.5 h-3.5" /> Export month
               </Button>
-              <Link href={withSlug("/admin/order-assignments")}>
+              {/* Wave 70.66: New Event used to drill to
+                  /admin/order-assignments (dispatch queue) which
+                  is not a creation flow - the operator landed on a
+                  read-only queue with no "create" affordance.
+                  /admin/orders is the right home: it carries its
+                  own "New Order" CTA in the header and shows the
+                  operator the surrounding bookings for context. */}
+              <Link href={withSlug("/admin/orders")}>
                 <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2">
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
@@ -782,7 +814,7 @@ function AdminCalendar() {
                       {upcoming.map((e: any) => (
                         <Link
                           key={e.id}
-                          href={withSlug(`/admin/orders?id=${e.id}`)}
+                          href={withSlug(`/admin/orders?orderId=${e.id}`)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex flex-col items-center justify-center flex-shrink-0">
@@ -819,22 +851,51 @@ function AdminCalendar() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
+                  {/* Wave 70.66: all four tiles measure DAYS in the
+                      next-30-day rolling horizon, not "events in
+                      May". The previous labels read like event counts
+                      ("Booked (30d) = 2" implied 2 events when it
+                      actually meant 2 days had ≥1 event). Each label
+                      now ends with "(next 30d)" or is paired with a
+                      tooltip so the operator reads it as days, not
+                      events. */}
                   <div className="px-4 pb-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-md bg-blue-50 border border-blue-200 px-2 py-1.5">
-                      <p className="text-blue-800 text-[10px] uppercase font-semibold">Booked (30d)</p>
+                      <p
+                        className="text-blue-800 text-[10px] uppercase font-semibold"
+                        title="Number of days in the next 30 with at least one confirmed event"
+                      >Booked days (30d)</p>
                       <p className="text-lg font-bold text-blue-900 tabular-nums">{horizonStats.booked}</p>
                     </div>
                     <div className="rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5">
-                      <p className="text-amber-800 text-[10px] uppercase font-semibold">Winnable</p>
+                      <p
+                        className="text-amber-800 text-[10px] uppercase font-semibold"
+                        title="Days in the next 30 with an open quote and no confirmed event yet - winnable diary"
+                      >Winnable</p>
                       <p className="text-lg font-bold text-amber-900 tabular-nums">{horizonStats.winnable}</p>
                     </div>
                     <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1.5">
-                      <p className="text-slate-700 text-[10px] uppercase font-semibold">Empty days</p>
+                      <p
+                        className="text-slate-700 text-[10px] uppercase font-semibold"
+                        title="Days in the next 30 with no event and no open quote"
+                      >Empty days</p>
                       <p className="text-lg font-bold text-slate-900 tabular-nums">{horizonStats.empty}</p>
                     </div>
+                    {/* Wave 70.66: "Conflicts" was misleading. The
+                        counter is days with > 1 open quote competing
+                        for the same empty slot, which is more of a
+                        sales-pipeline signal than an ops conflict
+                        (same driver / vehicle / kitchen double-
+                        booked). Renamed to "Competing quotes" so the
+                        operator reads it right. Real ops-conflict
+                        detection (driver + vehicle overlap) is a
+                        separate follow-up. */}
                     <div className="rounded-md bg-rose-50 border border-rose-200 px-2 py-1.5">
-                      <p className="text-rose-800 text-[10px] uppercase font-semibold">Conflicts</p>
-                      <p className="text-lg font-bold text-rose-900 tabular-nums" title="Days with multiple quotes competing for the same slot">{horizonStats.conflicts}</p>
+                      <p className="text-rose-800 text-[10px] uppercase font-semibold">Competing quotes</p>
+                      <p
+                        className="text-lg font-bold text-rose-900 tabular-nums"
+                        title="Days where more than one open quote targets the same empty slot - pick one to convert or chase both clients to a different date"
+                      >{horizonStats.conflicts}</p>
                     </div>
                   </div>
                   {horizonStats.winnableDays.length === 0 ? (
@@ -882,11 +943,11 @@ function AdminCalendar() {
               <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardContent className="pt-6 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content={"Every order on the books for your company, no matter the date or status."} /></span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content={"Every confirmed-and-onwards event in the loaded ±6-month window. Cancelled, pending and draft orders are excluded - they live on /admin/orders, not the calendar."} /></span>
                     <span className="text-2xl font-bold text-slate-900 tabular-nums">{orders.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content={"Orders with an event date in the month you are currently viewing."} /></span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content={"Confirmed-and-onwards events with an event date in the month you are currently viewing."} /></span>
                     <span className="text-2xl font-bold text-blue-900 tabular-nums">
                       {orders.filter((o: any) => {
                         const d = new Date(o.event_date);
@@ -1090,7 +1151,7 @@ function AdminCalendar() {
                     return (
                       <Link
                         key={e.id}
-                        href={withSlug(`/admin/orders?id=${e.id}`)}
+                        href={withSlug(`/admin/orders?orderId=${e.id}`)}
                         className="block"
                       >
                         <Card className={cn(
