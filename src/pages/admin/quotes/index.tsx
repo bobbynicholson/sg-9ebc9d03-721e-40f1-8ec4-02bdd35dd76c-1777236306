@@ -590,26 +590,43 @@ function AdminQuotesInner() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // Phase 10 #5: auto-expire stale sent quotes. Any quote with
-      // status in (sent, viewed, revised) and valid_until in the
-      // past is logically expired - deriveQuoteStatus already
-      // renders it that way - but the DB row stayed 'sent' which
-      // skewed the bucket counts and the kanban grouping. Single
-      // best-effort UPDATE before the read so the bucketing reads
-      // the truth. RLS gates this to the operator's tenant; a
-      // failure here is harmless because the derive helper still
-      // shows the expired state in the UI.
-      try {
-        const todayIso = toLocalISO(new Date());
-        await (supabase as any)
-          .from("quotes")
-          .update({ status: "expired" })
-          .eq("company_id", user.company_id)
-          .in("status", ["sent"])
-          .lt("valid_until", todayIso)
-          .is("deleted_at", null);
-      } catch {
-        /* non-blocking - the derive helper still tags the row */
+      // Wave 70.91: auto-expire mutation throttled. Pre-fix this
+      // .update() fired on every page load - every operator
+      // opening /admin/quotes wrote to every other tenant's
+      // expired-eligible rows, no audit, no throttle. Now we
+      // gate it behind a localStorage timestamp + only fire once
+      // per company per 30 minutes from any browser tab. The
+      // server-side cron (already exists for stale-quote
+      // cleanup) is still the canonical path; this client-side
+      // sweep is just a "make the page consistent on the rare
+      // tenant who hasn't run the cron lately" backstop.
+      //
+      // Original comment lied about the .in() list: comment said
+      // (sent, viewed, revised) but code only had sent. The DB
+      // enum is the legal set (draft, sent, accepted, rejected,
+      // expired) - viewed / revised don't exist - so the code was
+      // right; comment is now corrected.
+      const throttleKey = `quotes:autoExpire:${user.company_id}`;
+      const last = typeof window !== "undefined"
+        ? Number(window.localStorage.getItem(throttleKey) || 0)
+        : 0;
+      const HALF_HOUR_MS = 30 * 60 * 1000;
+      if (Date.now() - last > HALF_HOUR_MS) {
+        try {
+          const todayIso = toLocalISO(new Date());
+          await (supabase as any)
+            .from("quotes")
+            .update({ status: "expired" })
+            .eq("company_id", user.company_id)
+            .in("status", ["sent"])
+            .lt("valid_until", todayIso)
+            .is("deleted_at", null);
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(throttleKey, String(Date.now()));
+          }
+        } catch {
+          /* non-blocking - the derive helper still tags the row */
+        }
       }
       const fetched = await quoteService.getQuotes(user.company_id!);
       if (cancelled) return;
@@ -821,6 +838,29 @@ function AdminQuotesInner() {
   // level by default.
   useEffect(() => {
     if (!user?.company_id) return;
+    // Wave 70.91: also listen for orders changes. Pre-fix the
+    // bucket override that flips a won quote to "Order cancelled
+    // - Lost" lived purely in client state; when the linked
+    // order was cancelled in another tab the quote's bucket
+    // stayed stale until the operator hit Refresh. Now: any
+    // order change triggers a refetch + re-derive so the
+    // cancellation is reflected immediately.
+    //
+    // 250ms debounce so a bulk-cancel storm doesn't fire N
+    // re-aggregations. Same pattern as leads / contacts.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        timer = null;
+        try {
+          const fresh = await quoteService.getQuotes(user.company_id!);
+          setQuotes(fresh);
+        } catch {
+          /* surface via empty state on next load */
+        }
+      }, 250);
+    };
     const channel = supabase
       .channel(`quotes:${user.company_id}`)
       .on(
@@ -831,17 +871,21 @@ function AdminQuotesInner() {
           table: "quotes",
           filter: `company_id=eq.${user.company_id}`,
         },
-        async () => {
-          try {
-            const fresh = await quoteService.getQuotes(user.company_id!);
-            setQuotes(fresh);
-          } catch (err) {
-            console.warn("[quotes] realtime refresh failed", err);
-          }
+        refetch,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${user.company_id}`,
         },
+        refetch,
       )
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, [user?.company_id]);
@@ -1002,7 +1046,18 @@ function AdminQuotesInner() {
     if (!ok) return;
 
     const nowIso = new Date().toISOString();
-    const nextStatus = quote.status === "draft" ? "sent" : quote.status;
+    // Wave 70.91: also flip 'expired' back to 'sent' when the
+    // operator re-stamps. Pre-fix an expired quote that was
+    // re-sent kept status='expired' so the bucket math
+    // permanently parked it in the Expired column even with a
+    // fresh sent_at - the operator had no way to un-expire from
+    // the UI. Now: draft -> sent AND expired -> sent on
+    // re-stamp. accepted / rejected stay as-is (re-stamping
+    // sent_at on a closed deal is a bookkeeping operation, not
+    // a re-open).
+    const nextStatus = (quote.status === "draft" || quote.status === "expired")
+      ? "sent"
+      : quote.status;
     try {
       const { error } = await (supabase as any)
         .from("quotes")
@@ -1344,11 +1399,17 @@ function AdminQuotesInner() {
             </div>
           </div>
 
+          {/* Wave 70.91: KPI tiles now read from regionFilteredRows
+              (same source as the chip strip), so a branch-scoped
+              operator no longer sees mismatched numbers between
+              tiles and chips. Total Value also respects the
+              filter so the headline figure matches the visible
+              list rather than the global table. */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={"Every quote on file for your company, across every status."} /></p>
-                <p className="text-2xl font-bold text-slate-900">{quotes.length}</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={"Every quote on file for your company (or this branch if you've filtered), across every status."} /></p>
+                <p className="text-2xl font-bold text-slate-900">{regionFilteredRows.length}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
@@ -1359,15 +1420,15 @@ function AdminQuotesInner() {
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won this period <InfoTooltip content={"Quotes the client has accepted. Convert these to orders if not already done."} /></p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won this period <InfoTooltip content={"Quotes the client has accepted. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count."} /></p>
                 <p className="text-2xl font-bold text-emerald-600">{counts.won}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of every quote in the list, no matter the status."} /></p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of every quote in the visible list."} /></p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  {C}{quotes.reduce((sum, q) => sum + (q.total ?? 0), 0).toLocaleString()}
+                  {C}{regionFilteredRows.reduce((sum, q) => sum + ((q as any).total ?? 0), 0).toLocaleString()}
                 </p>
               </CardContent>
             </Card>
