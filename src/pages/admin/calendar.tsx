@@ -847,7 +847,108 @@ function AdminCalendar() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-7 gap-2">
+                  {/* Wave 70.71: mobile agenda fallback. The 7-col
+                      month grid stays cramped on phones (each cell
+                      ~50px wide at 360px viewport, event pills
+                      truncate aggressively). Below sm we switch to
+                      an agenda-style day list grouped by date,
+                      showing only days that have events or open
+                      quotes + today as an anchor. The grid stays
+                      for tablet / desktop. */}
+                  <div className="sm:hidden space-y-2">
+                    {(() => {
+                      const monthStart = new Date(year, month, 1);
+                      const monthEnd = new Date(year, month + 1, 0);
+                      const days: { iso: string; label: string; events: AppOrder[]; quotes: OpenQuote[] }[] = [];
+                      for (let d = new Date(monthStart); d.getTime() <= monthEnd.getTime(); d.setDate(d.getDate() + 1)) {
+                        const iso = toLocalISO(d);
+                        const ev = ordersByDay[iso] || [];
+                        const qu = quotesByDay[iso] || [];
+                        if (ev.length === 0 && qu.length === 0 && iso !== todayISO) continue;
+                        days.push({
+                          iso,
+                          label: d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" }),
+                          events: ev,
+                          quotes: qu,
+                        });
+                      }
+                      if (days.length === 0) {
+                        return (
+                          <p className="text-center text-sm text-slate-500 py-8">
+                            No events or open quotes in {monthNames[month]} {year}.
+                          </p>
+                        );
+                      }
+                      return days.map((d) => {
+                        const isToday = d.iso === todayISO;
+                        const opsReasons = opsConflictsByDay[d.iso];
+                        const hasConflict = !!opsReasons && opsReasons.length > 0;
+                        return (
+                          <div
+                            key={d.iso}
+                            className={cn(
+                              "rounded-lg border p-3",
+                              isToday ? "border-purple-400 bg-purple-50/60" :
+                              hasConflict ? "border-rose-300 bg-rose-50/30" :
+                              d.events.length > 0 ? "border-blue-200 bg-white" :
+                              "border-amber-200 bg-amber-50/30",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              className="w-full text-left"
+                              onClick={() => setSelectedDate(new Date(year, month, Number(d.iso.slice(8, 10))))}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className={cn(
+                                  "text-sm font-semibold",
+                                  isToday ? "text-purple-900" : "text-slate-900",
+                                )}>
+                                  {d.label}{isToday ? " · Today" : ""}
+                                </span>
+                                {hasConflict && (
+                                  <span className="text-[10px] font-semibold text-rose-800 inline-flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Conflict
+                                  </span>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                {d.events.map((e: any) => {
+                                  const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;
+                                  return (
+                                    <div
+                                      key={e.id}
+                                      className={cn(
+                                        "text-xs rounded px-2 py-1 border flex items-center gap-2",
+                                        tone,
+                                      )}
+                                    >
+                                      <span className="font-semibold tabular-nums">
+                                        {e.event_time?.slice(0, 5) || "TBC"}
+                                      </span>
+                                      <span className="flex-1 truncate">{e.client_name || "Event"}</span>
+                                      {e.guest_count != null && (
+                                        <span className="text-[10px] opacity-70 tabular-nums">{e.guest_count}g</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {d.quotes.length > 0 && (
+                                  <div className="text-[10px] text-amber-800 font-medium inline-flex items-center gap-1 pt-1">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                    {d.quotes.length} open quote{d.quotes.length === 1 ? "" : "s"}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+
+                  {/* Tablet + desktop: the full 7-col month grid. */}
+                  <div className="hidden sm:grid grid-cols-7 gap-2">
                     {dayNames.map((d) => (
                       <div key={d} className="text-center text-xs font-semibold text-slate-500 py-2">
                         {d}
