@@ -126,6 +126,12 @@ function DispatchQueuePage() {
   const [daysAhead, setDaysAhead] = useState<14 | 30 | 90>(30);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // Wave 70.65: total count of orders matching the current
+  // server-side filter (date window + status set). Used by the
+  // truncation banner when the cap (500) is reached so the
+  // dispatcher knows to narrow.
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_CAP = 500;
   // Wave 66.3 - inline pickup_time editor state. Per-row local draft
   // so multiple drawers can be open in series without state collision;
   // savingId is set while the supabase update is in-flight to dim
@@ -179,7 +185,7 @@ function DispatchQueuePage() {
       const horizon = new Date();
       horizon.setDate(horizon.getDate() + daysAhead);
       const horizonISO = toLocalISO(horizon);
-      const { data: rows, error } = await supabase
+      const { data: rows, error, count } = await supabase
         .from("orders")
         .select(`
           id, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
@@ -192,7 +198,7 @@ function DispatchQueuePage() {
           chef:assigned_chef_id(full_name),
           assigned_vehicle:assigned_vehicle_id(id, plate, refrigerated),
           secondary_vehicle:secondary_vehicle_id(id, plate)
-        `)
+        `, { count: "exact" })
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("event_date", todayISO)
@@ -206,11 +212,23 @@ function DispatchQueuePage() {
         // watch in-flight orders.
         .in("status", ["confirmed", "preparing", "ready"])
         .order("event_date", { ascending: true })
-        .order("event_time", { ascending: true, nullsFirst: false });
+        .order("event_time", { ascending: true, nullsFirst: false })
+        // Wave 70.65: server-side cap. The queue is a dispatcher
+        // working surface, not an archive - a tenant whose 90d
+        // horizon legitimately has 500+ confirmed events doesn't
+        // benefit from hauling all of them to the browser at once.
+        // Cap at 500 + count exact so we can surface a "showing
+        // first 500 of N - narrow the range or search" banner.
+        // Page-style pagination deferred until a tenant hits the
+        // cap (none yet). 500 covers ~17 events per day across the
+        // 30d default, ~6 per day across 90d - well above current
+        // tenants' volume.
+        .range(0, PAGE_CAP - 1);
 
       if (error) {
         console.error("Order load error:", error);
         setOrders([]);
+        setTotalCount(0);
         return;
       }
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
@@ -243,6 +261,11 @@ function DispatchQueuePage() {
         pickup_time: r.pickup_time ?? null,
       }));
       setOrders(mapped);
+      // Wave 70.65: total in the window from PostgREST's
+      // Content-Range header (count='exact' on select). Used by
+      // the truncation banner so the dispatcher can see when
+      // narrowing search or date range is recommended.
+      setTotalCount(typeof count === "number" ? count : mapped.length);
     } finally {
       setLoading(false);
     }
@@ -848,6 +871,23 @@ function DispatchQueuePage() {
               <p className="text-xs text-slate-500 mt-1">last hour</p>
             </div>
           </div>
+
+          {/* Wave 70.65: server-side cap notice. Renders only when the
+              date window legitimately exceeds the fetch cap (PAGE_CAP).
+              Tells the dispatcher exactly what they're missing and
+              the lever to narrow it. Self-hides on every working day
+              for current-volume tenants (none hit 500 yet). */}
+          {totalCount > orders.length && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+              <div>
+                <strong>Showing first {orders.length} of {totalCount}.</strong>{" "}
+                Narrow the date range or refine the search to surface
+                older / further-out orders. Per-page pagination is
+                planned once a tenant routinely hits the cap.
+              </div>
+            </div>
+          )}
 
           {/* Search + filters */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3">
