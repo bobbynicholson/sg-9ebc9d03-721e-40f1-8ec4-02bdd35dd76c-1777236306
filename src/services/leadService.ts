@@ -11,16 +11,36 @@ type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
 
 export const leadService = {
   async getLeads(companyId: string) {
-    const { data, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+    // Wave 70.90: chunked pagination. Pre-fix this query ran as
+    // a single .select() with no .range() - PostgREST silently
+    // caps such queries at 1000 rows, so on a lead-gen tenant
+    // with > 1000 historical leads the page silently dropped
+    // everything past the first 1000. The chip strip lied about
+    // counts; the search couldn't find rows that didn't make
+    // the cut. No warning - the page just had an invisible
+    // ceiling.
+    //
+    // Chunk size + hard cap mirror the contacts page pattern.
+    const PAGE = 1000;
+    const HARD_CAP = 50000;
+    const out: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const to = from + PAGE - 1;
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-    if (error) throw error;
-
-    return data || [];
+      if (error) throw error;
+      const rows = data || [];
+      out.push(...rows);
+      if (rows.length < PAGE) break;
+      if (out.length >= HARD_CAP) break;
+    }
+    return out;
   },
 
   async getLeadById(id: string) {

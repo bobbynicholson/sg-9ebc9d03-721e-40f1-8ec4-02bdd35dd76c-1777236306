@@ -631,14 +631,31 @@ function AdminLeadsInner() {
   useEffect(() => {
     const companyId = user?.company_id;
     if (!companyId) return;
-    const refetch = () => { loadLeads(); };
+    // Wave 70.90: debounce + v2 cleanup. The leads page re-runs
+    // leadService.getLeads + 4 follow-on queries on every realtime
+    // event. Pre-fix a bulk-import or a 50-order day's worth of
+    // status updates fired N full re-aggregations. 250ms debounce
+    // collapses bursts; supabase.removeChannel(v2) releases the
+    // channel object cleanly. Same pattern shipped on tracking +
+    // dispatch + contacts.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        loadLeads();
+      }, 250);
+    };
     const sub = supabase
       .channel(`leads-${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads",  filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, refetch)
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(sub);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
