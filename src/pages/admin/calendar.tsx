@@ -594,7 +594,16 @@ function AdminCalendar() {
                       esc(Number(oa.total_amount || 0).toFixed(2)),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // Wave 70.67: UTF-8 BOM prefix so Excel-ZA reads
+                  // the file with the right encoding. Without the
+                  // BOM, Excel defaults to Windows-1252 and mangles
+                  // non-ASCII client names (e.g. "Eugène", "O'Reilly"
+                  // with curly apostrophe) and the ZAR symbol "R"
+                  // adjacent to non-ASCII chars. Google Sheets +
+                  // LibreOffice already auto-detect UTF-8, so this
+                  // is a no-op for them.
+                  const BOM = "﻿";
+                  const blob = new Blob([BOM + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
