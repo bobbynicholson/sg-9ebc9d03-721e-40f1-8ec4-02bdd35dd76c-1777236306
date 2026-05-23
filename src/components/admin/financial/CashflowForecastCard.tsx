@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import {
   Area,
@@ -55,6 +54,77 @@ interface Props {
   /** When set, expand the card by default - lets the parent decide. */
   defaultOpen?: boolean;
 }
+
+// CASH-C: narrow row types for the supabase responses. The
+// generated types.ts is stale on cash_on_hand_*, supplier_payables
+// and equipment_hire_orders (the regen output exceeds the MCP tool
+// limit), so we type the slices we read here locally. That gets the
+// 19 `as any` casts off the file without committing a regenerated
+// 410KB types.ts that this PR shouldn't own. A separate types-regen
+// pass can drop these when it lands.
+interface CompanyCashRow {
+  cash_on_hand_cents: number | null;
+  cash_on_hand_updated_at: string | null;
+  cash_on_hand_stale_after_hours: number | null;
+}
+interface EquipmentHireRow {
+  id: string;
+  equipment_name: string | null;
+  total_cost: number | string | null;
+  expected_pickup_date: string | null;
+  status: string | null;
+}
+interface ShoppingListRow {
+  id: string;
+  title: string | null;
+  estimated_total: number | string | null;
+  list_date: string | null;
+  status: string | null;
+}
+interface SupplierPayableRow {
+  id: string;
+  amount_cents: number;
+  due_date: string;
+  invoice_ref: string | null;
+  supplier: { supplier_name: string | null } | null;
+}
+interface OrderItemRow {
+  menu_item_id: string | null;
+  quantity: number | null;
+  unit_cost: number | string | null;
+}
+interface OrderWithItemsRow {
+  id: string;
+  event_date: string | null;
+  client_name: string | null;
+  order_items: OrderItemRow[] | null;
+}
+
+// Shape of a supabase select() promise once awaited. We can't use
+// the supabase-js types here because the tables we hit (supplier_
+// payables, equipment_hire_orders) aren't in the generated types.ts
+// yet - so we narrow the response into the row types declared above.
+type ListResult<T> = { data: T[] | null; error: { message: string } | null };
+type RowResult<T> = { data: T | null; error: { message: string } | null };
+
+// Loose query builder for the schema-bypass calls below. Methods
+// return the builder so chaining stays fluent; awaiting the chain
+// resolves to whatever ListResult/RowResult the caller cast to.
+interface LooseQueryBuilder {
+  select: (cols: string) => LooseQueryBuilder;
+  insert: (payload: Record<string, unknown> | Record<string, unknown>[]) => LooseQueryBuilder;
+  update: (payload: Record<string, unknown>) => LooseQueryBuilder;
+  eq: (col: string, val: unknown) => LooseQueryBuilder;
+  neq: (col: string, val: unknown) => LooseQueryBuilder;
+  gte: (col: string, val: unknown) => LooseQueryBuilder;
+  not: (col: string, op: string, val: unknown) => LooseQueryBuilder;
+  is: (col: string, val: unknown) => LooseQueryBuilder;
+  single: () => LooseQueryBuilder;
+  then: <TResult1 = unknown>(
+    onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
+  ) => Promise<TResult1>;
+}
+type LooseSupabase = { from: (table: string) => LooseQueryBuilder };
 
 const HORIZON_OPTIONS: Array<{ label: string; days: number }> = [
   { label: "7 days", days: 7 },
@@ -182,60 +252,64 @@ export function CashflowForecastCard({
       // UTC-based and a late-night Cape Town session would push
       // equipment hire / shopping items into "tomorrow" too early.
       const todayIso = toLocalISO(new Date());
+      // One escape hatch at the boundary: supabase-js's typed .from()
+      // would error on supplier_payables / equipment_hire_orders
+      // because they're not in the generated types.ts yet. We cast
+      // supabase once here, then narrow each response into the row
+      // types declared at the top of the file.
+      const sb = supabase as unknown as LooseSupabase;
       const [companyRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
-        (supabase as any)
+        sb
           .from("companies")
           .select("cash_on_hand_cents, cash_on_hand_updated_at, cash_on_hand_stale_after_hours")
           .eq("id", companyId)
-          .single(),
-        (supabase as any)
+          .single() as unknown as Promise<RowResult<CompanyCashRow>>,
+        sb
           .from("equipment_hire_orders")
           .select("id, equipment_name, total_cost, expected_pickup_date, status")
           .eq("company_id", companyId)
           .not("expected_pickup_date", "is", null)
           .gte("expected_pickup_date", todayIso)
-          .not("status", "in", "(completed,cancelled,returned)"),
-        (supabase as any)
+          .not("status", "in", "(completed,cancelled,returned)") as unknown as Promise<ListResult<EquipmentHireRow>>,
+        sb
           .from("shopping_lists")
           .select("id, title, estimated_total, list_date, status")
           .eq("company_id", companyId)
           .not("list_date", "is", null)
           .gte("list_date", todayIso)
-          .not("status", "in", "(completed,cancelled)"),
+          .not("status", "in", "(completed,cancelled)") as unknown as Promise<ListResult<ShoppingListRow>>,
         // PR-C: pending supplier payables in window.
-        (supabase as any)
+        sb
           .from("supplier_payables")
           .select("id, amount_cents, due_date, invoice_ref, supplier:supplier_id(supplier_name)")
           .eq("company_id", companyId)
           .eq("status", "pending")
           .is("deleted_at", null)
-          .gte("due_date", todayIso),
+          .gte("due_date", todayIso) as unknown as Promise<ListResult<SupplierPayableRow>>,
         // PR-D: active fixed costs - all of them, the in-memory
         // walker will expand occurrences for the selected horizon.
         fixedCostsService.list(companyId, { activeOnly: true }),
         // PR-B: per-order COGS for upcoming events. Joins
         // order_items.unit_cost * quantity for orders with
         // event_date inside the longest forecast horizon.
-        (supabase as any)
+        sb
           .from("orders")
           .select("id, event_date, client_name, order_items(menu_item_id, quantity, unit_cost)")
           .eq("company_id", companyId)
           .gte("event_date", todayIso)
-          .neq("status", "cancelled"),
+          .neq("status", "cancelled") as unknown as Promise<ListResult<OrderWithItemsRow>>,
       ]);
       if (cancelled) return;
 
-      const error = (companyRes as any).error;
-      const data = (companyRes as any).data;
-      if (error) {
-        console.error("[CashflowForecastCard] load failed:", error);
-      } else if (data) {
-        const value = Number((data as any).cash_on_hand_cents || 0) / 100;
+      if (companyRes.error) {
+        console.error("[CashflowForecastCard] load failed:", companyRes.error);
+      } else if (companyRes.data) {
+        const value = Number(companyRes.data.cash_on_hand_cents || 0) / 100;
         setCashOnHand(value);
-        setCashUpdatedAt((data as any).cash_on_hand_updated_at || null);
+        setCashUpdatedAt(companyRes.data.cash_on_hand_updated_at || null);
         // CASH-B: pick up the tenant override if set, otherwise stay
         // on the 72h default.
-        const tenantStale = (data as any).cash_on_hand_stale_after_hours;
+        const tenantStale = companyRes.data.cash_on_hand_stale_after_hours;
         if (typeof tenantStale === "number" && tenantStale > 0) {
           setStaleAfterHours(tenantStale);
         }
@@ -243,7 +317,7 @@ export function CashflowForecastCard({
 
       // Build the unified scheduled-cost list.
       const costs: ScheduledCost[] = [];
-      for (const r of (hireRes as any)?.data || []) {
+      for (const r of hireRes.data || []) {
         const amount = Number(r.total_cost) || 0;
         if (amount <= 0 || !r.expected_pickup_date) continue;
         costs.push({
@@ -254,7 +328,7 @@ export function CashflowForecastCard({
           category: "equipment_hire",
         });
       }
-      for (const r of (shoppingRes as any)?.data || []) {
+      for (const r of shoppingRes.data || []) {
         const amount = Number(r.estimated_total) || 0;
         if (amount <= 0 || !r.list_date) continue;
         costs.push({
@@ -267,7 +341,7 @@ export function CashflowForecastCard({
       }
 
       // PR-C: supplier_payables
-      for (const r of (payablesRes as any)?.data || []) {
+      for (const r of payablesRes.data || []) {
         const amount = Number(r.amount_cents) / 100;
         if (amount <= 0 || !r.due_date) continue;
         const supplierName = r.supplier?.supplier_name || "Supplier";
@@ -304,9 +378,9 @@ export function CashflowForecastCard({
       // unit_cost) across order_items where unit_cost was snapshot
       // at quote-accept. Bucket onto the event_date - that's when
       // the food has to be bought / cooked.
-      for (const ord of (orderItemsRes as any)?.data || []) {
+      for (const ord of orderItemsRes.data || []) {
         if (!ord?.event_date) continue;
-        const orderItems = (ord.order_items as any[]) || [];
+        const orderItems = ord.order_items || [];
         let cogs = 0;
         for (const oi of orderItems) {
           const qty = Number(oi.quantity) || 0;
@@ -367,7 +441,7 @@ export function CashflowForecastCard({
 
     for (const o of orders || []) {
       if (!o.event_date) continue;
-      if ((o as any).status === "cancelled") continue;
+      if (o.status === "cancelled") continue;
       const eventDate = new Date(o.event_date);
       if (isNaN(eventDate.getTime())) continue;
       eventDate.setHours(0, 0, 0, 0);
@@ -377,7 +451,7 @@ export function CashflowForecastCard({
       bucketsByDay[dayOffset].income += amount;
       bucketsByDay[dayOffset].orders.push({
         id: o.id,
-        client: (o as any).client_name || "Unknown client",
+        client: o.client_name || "Unknown client",
         amount,
       });
     }
@@ -503,14 +577,19 @@ export function CashflowForecastCard({
     try {
       const nowIso = new Date().toISOString();
       const cents = Math.round(parsed * 100);
-      const { error: updErr } = await (supabase as any)
+      // Narrow cast at the boundary: the cash_on_hand_* columns
+      // aren't in types.ts yet (regen output exceeds tool limit) so
+      // the typed builder rejects the update payload. Same pattern
+      // as the load() above.
+      const sbUpdate = supabase as unknown as LooseSupabase;
+      const { error: updErr } = (await sbUpdate
         .from("companies")
         .update({
           cash_on_hand_cents: cents,
           cash_on_hand_updated_at: nowIso,
           cash_on_hand_updated_by: userId,
         })
-        .eq("id", companyId);
+        .eq("id", companyId)) as { error: { message: string } | null };
       if (updErr) {
         toast({
           title: "Couldn't save",
@@ -524,7 +603,7 @@ export function CashflowForecastCard({
       // Audit trail. Drives the future bookkeeper-export tile (see
       // running-todo card item 10).
       try {
-        await (supabase as any).from("audit_logs").insert({
+        await sbUpdate.from("audit_logs").insert({
           action: "financial.cash_on_hand.update",
           entity_type: "company",
           entity_id: companyId,
