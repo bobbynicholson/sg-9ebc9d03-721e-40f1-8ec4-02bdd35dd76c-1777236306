@@ -4,13 +4,43 @@
  * migration 20260518790000.
  *
  * Drives the cashflow forecast's recurring-costs bucket (PR-E) and
- * /admin/fixed-costs. A daily cron (out of scope for PR-D) advances
- * next_due_date once it crosses; the page surfaces a "Next due:
- * 2026-06-01" badge per row.
+ * /admin/fixed-costs. The daily cron at /api/cron/advance-fixed-
+ * cost-next-due (shipped FXC-B, 2026-05-23) walks any past
+ * next_due_date forward by cadence. The page also computes the
+ * next-future-occurrence client-side as a backstop so the operator
+ * never sees a stale date even if the cron misses a run.
  */
 import { supabase } from "@/integrations/supabase/client";
 
 export type Cadence = "weekly" | "monthly" | "quarterly" | "annual";
+
+// FXC-B: category enum is mirrored from the CHECK constraint in
+// migration 20260523180000_fixed_costs_category_audit. Adding a new
+// category means updating both spots.
+export type FixedCostCategory =
+  | "rent"
+  | "telecoms"
+  | "vehicle"
+  | "insurance"
+  | "software"
+  | "banking"
+  | "utilities"
+  | "payroll_software"
+  | "professional_services"
+  | "other";
+
+export const FIXED_COST_CATEGORIES: Array<{ value: FixedCostCategory; label: string }> = [
+  { value: "rent", label: "Rent / premises" },
+  { value: "telecoms", label: "Telecoms / internet" },
+  { value: "vehicle", label: "Vehicle (lease, fuel cards)" },
+  { value: "insurance", label: "Insurance" },
+  { value: "software", label: "Software subscriptions" },
+  { value: "banking", label: "Banking fees" },
+  { value: "utilities", label: "Utilities" },
+  { value: "payroll_software", label: "Payroll software" },
+  { value: "professional_services", label: "Professional services" },
+  { value: "other", label: "Other" },
+];
 
 export interface FixedCost {
   id: string;
@@ -21,6 +51,9 @@ export interface FixedCost {
   next_due_date: string;
   active: boolean;
   notes: string | null;
+  category: FixedCostCategory | null;
+  previous_amount_cents: number | null;
+  last_amount_change_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -34,6 +67,7 @@ export interface CreateFixedCostInput {
   cadence: Cadence;
   next_due_date: string;
   notes?: string | null;
+  category?: FixedCostCategory | null;
   created_by?: string | null;
 }
 
@@ -68,7 +102,7 @@ async function create(input: CreateFixedCostInput): Promise<FixedCost | null> {
 
 async function update(
   id: string,
-  patch: Partial<Pick<FixedCost, "label" | "amount_cents" | "cadence" | "next_due_date" | "active" | "notes">>,
+  patch: Partial<Pick<FixedCost, "label" | "amount_cents" | "cadence" | "next_due_date" | "active" | "notes" | "category">>,
 ): Promise<FixedCost | null> {
   const { data, error } = await (supabase as any)
     .from("fixed_costs")

@@ -126,6 +126,10 @@
     {
       "path": "/api/cron/prune-api-key-rate-limits",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/advance-fixed-cost-next-due",
+      "schedule": "0 2 * * *"
     }
   ]
 }
