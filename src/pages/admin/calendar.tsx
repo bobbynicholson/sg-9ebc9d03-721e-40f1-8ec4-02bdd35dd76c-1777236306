@@ -247,9 +247,27 @@ function AdminCalendar() {
     orders.forEach((o) => {
       // Skip cancelled orders so they don't visually fill the diary.
       if (String((o as any).status || "").toLowerCase() === "cancelled") return;
-      const k = (o.event_date as any)?.split?.("T")?.[0] || (o as any).event_date;
-      if (!k) return;
-      (map[k] = map[k] || []).push(o);
+      const startISO = (o.event_date as any)?.split?.("T")?.[0] || (o as any).event_date;
+      if (!startISO) return;
+      // Wave 70.70: multi-day events. event_end_date defaults to
+      // event_date via the orders trigger; for a single-day event
+      // start === end and the loop fires once. For a 3-day event
+      // the order lands in three day cells with the SAME row
+      // reference (so click-into-day, conflict detection and
+      // capacity counts all naturally include the day in
+      // question). Trigger guarantees end >= start, so the loop
+      // can't run forever even on bad data; we cap at 60 days
+      // defensively.
+      const endISO = ((o as any).event_end_date as string | undefined) || startISO;
+      const start = new Date(`${startISO}T12:00:00`);
+      const end = new Date(`${endISO}T12:00:00`);
+      const maxIters = 60;
+      let iters = 0;
+      for (let d = new Date(start); d.getTime() <= end.getTime() && iters < maxIters; d.setDate(d.getDate() + 1)) {
+        const k = toLocalISO(d);
+        (map[k] = map[k] || []).push(o);
+        iters += 1;
+      }
     });
     Object.values(map).forEach((arr) =>
       arr.sort((a: any, b: any) =>
@@ -911,21 +929,47 @@ function AdminCalendar() {
                             )}
                           </div>
 
-                          {/* Event pills, show up to 2 by name, then "+N" */}
+                          {/* Event pills, show up to 2 by name, then "+N".
+                              Wave 70.70: multi-day events show a
+                              "Day X/N" suffix on the pill so the
+                              operator knows the same booking spans
+                              other cells too. Single-day events are
+                              unchanged. */}
                           <div className="mt-1 space-y-1">
                             {events.slice(0, 2).map((e: any) => {
                               const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;
+                              const startIso = String(e.event_date || "").slice(0, 10);
+                              const endIso = String(e.event_end_date || startIso).slice(0, 10);
+                              let dayLabel = "";
+                              let isMultiDay = false;
+                              if (endIso && endIso !== startIso) {
+                                // Compute total span (inclusive) +
+                                // which day of the span this cell
+                                // represents.
+                                const start = new Date(`${startIso}T12:00:00`);
+                                const end = new Date(`${endIso}T12:00:00`);
+                                const cellDt = new Date(`${iso}T12:00:00`);
+                                const dayMs = 86400000;
+                                const totalSpan = Math.round((end.getTime() - start.getTime()) / dayMs) + 1;
+                                const dayIndex = Math.round((cellDt.getTime() - start.getTime()) / dayMs) + 1;
+                                if (totalSpan > 1 && dayIndex >= 1 && dayIndex <= totalSpan) {
+                                  dayLabel = ` · Day ${dayIndex}/${totalSpan}`;
+                                  isMultiDay = true;
+                                }
+                              }
                               return (
                                 <div
                                   key={e.id}
                                   className={cn(
                                     "text-[10px] leading-tight rounded px-1.5 py-0.5 truncate border",
                                     tone,
+                                    isMultiDay && "ring-1 ring-indigo-200/60",
                                   )}
-                                  title={`${e.client_name || "Event"} - ${e.event_time || ""}`}
+                                  title={`${e.client_name || "Event"} - ${e.event_time || ""}${dayLabel}`}
                                 >
                                   <span className="font-semibold">{e.event_time?.slice(0,5) || ""}</span>{" "}
                                   {e.client_name || "Event"}
+                                  {dayLabel && <span className="text-indigo-700">{dayLabel}</span>}
                                 </div>
                               );
                             })}
