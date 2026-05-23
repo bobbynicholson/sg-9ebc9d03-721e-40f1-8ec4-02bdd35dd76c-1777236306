@@ -175,9 +175,18 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   reason: string;
   kind: LeadActionKind;
 } {
-  const created = lead.created_at ? new Date(lead.created_at) : null;
-  const ageDays = created
-    ? Math.floor((Date.now() - created.getTime()) / 86_400_000)
+  // Wave 70.89: prefer last_contacted_at over created_at for the
+  // "X days quiet" math. If the operator emailed a follow-up
+  // yesterday, the lead isn't "23d quiet" today - it's "1d
+  // quiet". Pre-fix the column didn't exist and the suggestion
+  // would keep saying the lead was going cold forever even
+  // after replies. Falls back to created_at on legacy rows that
+  // haven't had a follow-up sent yet.
+  const lastTouch = lead.last_contacted_at
+    ? new Date(lead.last_contacted_at)
+    : (lead.created_at ? new Date(lead.created_at) : null);
+  const ageDays = lastTouch
+    ? Math.floor((Date.now() - lastTouch.getTime()) / 86_400_000)
     : 0;
   const status = (lead.status || "new") as string;
 
@@ -1827,20 +1836,31 @@ function AdminLeadsInner() {
             fromName={fromName}
             companyId={profile?.company_id ?? null}
             onSent={async () => {
-              // Mark the lead as 'contacted' if it was still 'new', so
-              // the suggestion strip flips to 'Touch base' next time
-              // and the team isn't nudged again on this lead.
+              // Wave 70.89: stamp last_contacted_at on every send,
+              // not just the "new -> contacted" transition. The
+              // suggestion engine reads this to compute "X days
+              // quiet" instead of the old "X days since created"
+              // (which kept claiming a freshly-contacted lead was
+              // going cold). Flip to 'contacted' only when the
+              // lead was still 'new'.
               try {
-                if ((composeLead.status || "new") === "new") {
-                  await leadService.updateLead(composeLead.id, { status: "contacted" } as any);
-                  setLeads((prev) => prev.map((l) =>
-                    l.id === composeLead.id ? { ...l, status: "contacted" } : l,
-                  ));
-                }
+                const patch: Record<string, any> = { last_contacted_at: new Date().toISOString() };
+                const wasNew = (composeLead.status || "new") === "new";
+                if (wasNew) patch.status = "contacted";
+                await leadService.updateLead(composeLead.id, patch as any);
+                setLeads((prev) => prev.map((l) =>
+                  l.id === composeLead.id
+                    ? {
+                        ...l,
+                        last_contacted_at: patch.last_contacted_at,
+                        status: wasNew ? "contacted" : l.status,
+                      }
+                    : l,
+                ));
               } catch {
                 // Non-fatal - the email's already on its way; the
-                // worst case is the status flip didn't land and the
-                // operator sees a stale "new" badge until next
+                // worst case is the stamp didn't land and the
+                // operator sees a stale "Xd quiet" until next
                 // refresh.
               }
             }}
