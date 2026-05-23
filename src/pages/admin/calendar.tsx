@@ -607,6 +607,117 @@ function AdminCalendar() {
               >
                 <Download className="w-3.5 h-3.5" /> Export month
               </Button>
+              {/* Wave 70.68: iCal export. Lets the operator pull
+                  the displayed month into Apple Calendar / Google
+                  Calendar / Outlook so they have the diary on
+                  their phone without logging back into the admin.
+                  Format: RFC 5545 .ics with one VEVENT per order.
+                  Date-only events (no event_time) are emitted as
+                  all-day VEVENTs with DTSTART/DTEND in VALUE=DATE
+                  form. Timed events use the tenant timezone if
+                  known; falls back to floating local time so the
+                  client app interprets in the user's calendar tz. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  const monthStart = new Date(year, month, 1);
+                  const monthEnd = new Date(year, month + 1, 0);
+                  const startIso = toLocalISO(monthStart);
+                  const endIso = toLocalISO(monthEnd);
+                  const monthOrders = orders.filter((o) => {
+                    const d = (o as any).event_date as string | null;
+                    return d && d >= startIso && d <= endIso;
+                  });
+                  if (monthOrders.length === 0) {
+                    toast({ title: "Nothing to export", description: `No events in ${monthNames[month]} ${year}.` });
+                    return;
+                  }
+                  // RFC 5545 line-folding (75-octet limit) + CRLF
+                  // line terminators. Escape commas / semicolons /
+                  // backslashes / newlines per spec.
+                  const escIcs = (v: any): string =>
+                    String(v ?? "")
+                      .replace(/\\/g, "\\\\")
+                      .replace(/\n/g, "\\n")
+                      .replace(/,/g, "\\,")
+                      .replace(/;/g, "\\;");
+                  const fmtDate = (iso: string) => iso.replace(/-/g, "");
+                  const fmtDateTime = (iso: string, time: string) => {
+                    const [hh, mm] = time.slice(0, 5).split(":");
+                    return `${fmtDate(iso)}T${hh}${mm}00`;
+                  };
+                  const nowStamp = (() => {
+                    const d = new Date();
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+                  })();
+                  const lines: string[] = [
+                    "BEGIN:VCALENDAR",
+                    "VERSION:2.0",
+                    "PRODID:-//CateringMS//Calendar Export//EN",
+                    "CALSCALE:GREGORIAN",
+                    "METHOD:PUBLISH",
+                  ];
+                  for (const o of monthOrders) {
+                    const oa = o as any;
+                    const eventDate = oa.event_date as string;
+                    const eventTime = (oa.event_time as string | null) || null;
+                    const uid = `${oa.id}@cateringms`;
+                    const summary = escIcs(o.client_name || oa.order_number || "Event");
+                    const locationParts = [oa.venue_name, oa.venue_address].filter(Boolean);
+                    const location = escIcs(locationParts.join(", "));
+                    const descParts: string[] = [];
+                    if (oa.order_number) descParts.push(`Order ${oa.order_number}`);
+                    if (oa.guest_count != null) descParts.push(`${oa.guest_count} guests`);
+                    if (oa.status) descParts.push(`Status: ${oa.status}`);
+                    const description = escIcs(descParts.join(" · "));
+                    lines.push("BEGIN:VEVENT");
+                    lines.push(`UID:${uid}`);
+                    lines.push(`DTSTAMP:${nowStamp}`);
+                    if (eventTime) {
+                      // Timed event - 2 hours default duration. The
+                      // pickup_time field on orders is when the
+                      // driver leaves the kitchen, not when the
+                      // event ends, so we don't use it as DTEND.
+                      const dtStart = fmtDateTime(eventDate, eventTime);
+                      const endDt = new Date(`${eventDate}T${eventTime.slice(0, 5)}`);
+                      endDt.setHours(endDt.getHours() + 2);
+                      const endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
+                      const endDateIso = toLocalISO(endDt);
+                      const dtEnd = fmtDateTime(endDateIso, endTime);
+                      lines.push(`DTSTART:${dtStart}`);
+                      lines.push(`DTEND:${dtEnd}`);
+                    } else {
+                      // All-day event. DTEND is exclusive in iCal
+                      // VALUE=DATE form, so it's eventDate+1.
+                      const endDt = new Date(`${eventDate}T12:00:00`);
+                      endDt.setDate(endDt.getDate() + 1);
+                      lines.push(`DTSTART;VALUE=DATE:${fmtDate(eventDate)}`);
+                      lines.push(`DTEND;VALUE=DATE:${fmtDate(toLocalISO(endDt))}`);
+                    }
+                    lines.push(`SUMMARY:${summary}`);
+                    if (location) lines.push(`LOCATION:${location}`);
+                    if (description) lines.push(`DESCRIPTION:${description}`);
+                    lines.push("END:VEVENT");
+                  }
+                  lines.push("END:VCALENDAR");
+                  // RFC 5545 says lines MUST be CRLF terminated.
+                  const ics = lines.join("\r\n") + "\r\n";
+                  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `calendar-${year}-${String(month + 1).padStart(2, "0")}.ics`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" /> Export iCal
+              </Button>
               {/* Wave 70.66: New Event used to drill to
                   /admin/order-assignments (dispatch queue) which
                   is not a creation flow - the operator landed on a
