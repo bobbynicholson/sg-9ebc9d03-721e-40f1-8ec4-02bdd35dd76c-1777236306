@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash } from "lucide-react";
+import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -109,6 +109,16 @@ interface CompanyRow {
   /** Phase 5 #3: Google Business Profile place_id. Drives the
    *  after-sales review email to a proper write-review deeplink. */
   google_place_id: string | null;
+  /** FIN-D (peak-season form integration, follow-up to PR #308):
+   *  inclusive months (1-12) that bound the tenant's peak booking
+   *  season. Drives the Peak Season banner on /admin/financial-
+   *  dashboard via aiFinancialService.generateCashFlowAlerts. NULL
+   *  on either side falls back to the SA wedding default May-
+   *  September. peak_season_end_month can be < peak_season_start_
+   *  month to wrap year-end (e.g. Nov-Jan = 11..1) for tenants whose
+   *  peak straddles December. */
+  peak_season_start_month: number | null;
+  peak_season_end_month: number | null;
 }
 
 function CompanyProfilePage() {
@@ -244,6 +254,11 @@ function CompanyProfilePage() {
         timezone: row.timezone || null,
         currency: row.currency || null,
         google_place_id: row.google_place_id?.trim() || null,
+        // FIN-D: peak-season months. Both stored as int 1-12 or NULL.
+        // Save coerces null when either side is unset since the
+        // service requires both to draw the banner.
+        peak_season_start_month: row.peak_season_start_month,
+        peak_season_end_month: row.peak_season_end_month,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -423,6 +438,82 @@ function CompanyProfilePage() {
                 </a>{" "}
                 - paste your business listing URL into the finder and copy the place_id. With this set, post-delivery review emails link directly to the 'leave a review' modal instead of a generic Google search.
               </p>
+            </CardContent>
+          </Card>
+
+          {/* FIN-D (peak-season form integration, follow-up to PR
+              #308): operator-facing surface for the
+              peak_season_start_month + peak_season_end_month columns.
+              Empty values fall back to the SA wedding default (May-
+              September) in aiFinancialService. End < start wraps
+              year-end so US Q4 caterers can set 11..1. */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-amber-600" />
+                Peak season
+                <InfoTooltip content={"Tells the financial dashboard which months count as your peak. The Peak Season banner uses these to surface a count-down 6 weeks before peak starts and a 'peak is here' pulse for the first two weeks of the window.\n\nLeave both blank to inherit the SA wedding default (May - September). End month can be before start month to wrap year-end - e.g. set 11 to 1 for a US holiday catering peak (Nov - Jan)."} />
+              </CardTitle>
+              <CardDescription>
+                Drives the Peak Season banner on the financial dashboard. Leave blank to use the South African wedding default (May - September).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field id="peak_season_start_month" label="Peak starts">
+                <select
+                  id="peak_season_start_month"
+                  value={row.peak_season_start_month ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? null : Number(e.target.value);
+                    setRow({ ...row, peak_season_start_month: v });
+                  }}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                >
+                  <option value="">— inherit default —</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {new Date(2000, m - 1, 1).toLocaleString("en-ZA", { month: "long" })}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field id="peak_season_end_month" label="Peak ends">
+                <select
+                  id="peak_season_end_month"
+                  value={row.peak_season_end_month ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? null : Number(e.target.value);
+                    setRow({ ...row, peak_season_end_month: v });
+                  }}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                >
+                  <option value="">— inherit default —</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {new Date(2000, m - 1, 1).toLocaleString("en-ZA", { month: "long" })}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {row.peak_season_start_month != null && row.peak_season_end_month != null && (
+                <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+                  Peak window:{" "}
+                  <strong>
+                    {new Date(2000, row.peak_season_start_month - 1, 1).toLocaleString("en-ZA", { month: "long" })}
+                    {" - "}
+                    {new Date(2000, row.peak_season_end_month - 1, 1).toLocaleString("en-ZA", { month: "long" })}
+                  </strong>
+                  {row.peak_season_end_month < row.peak_season_start_month && (
+                    <> (wraps over year-end)</>
+                  )}
+                  .
+                </p>
+              )}
+              {(row.peak_season_start_month == null) !== (row.peak_season_end_month == null) && (
+                <p className="md:col-span-2 text-xs text-amber-700 leading-relaxed">
+                  Set both start and end, or leave both blank. The banner ignores a half-configured window and falls back to the default.
+                </p>
+              )}
             </CardContent>
           </Card>
 
