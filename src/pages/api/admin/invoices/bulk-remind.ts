@@ -55,7 +55,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .in("status", ["sent", "partially_paid", "overdue"] as any)
       .order("due_date", { ascending: true });
     if (scope === "overdue") {
-      q = q.lte("due_date", todayIso);
+      // INV-A (invoices audit): an invoice due TODAY is not yet
+      // overdue - it becomes overdue tomorrow. Pre-INV-A this used
+      // `lte` and chased clients a day early; embarrassing on the
+      // day the deposit was actually due. Strict less-than now.
+      q = q.lt("due_date", todayIso);
     }
     const { data: invoices, error: invErr } = await q;
     if (invErr) {

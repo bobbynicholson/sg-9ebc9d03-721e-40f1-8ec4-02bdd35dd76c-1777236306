@@ -74,11 +74,16 @@ export function InvoiceAgingCard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     for (const inv of invoices) {
-      // Wave 64 - skip closed statuses. The exclusion set matches the
-      // canonical invoice_status enum (no dead "cancelled" / "void"
-      // literals from the pre-Wave-30 schema).
+      // INV-A (invoices audit): gate on a positive allowlist of LIVE
+      // statuses instead of a blocklist. Pre-INV-A the exclusion was
+      // paid + written_off only, which silently counted DRAFTS into
+      // the Pre-event bucket. A draft hasn't been issued so its
+      // due_date is meaningless; including it inflated the "R X
+      // across N invoices" header and made the bucket counts
+      // disagree with the Outstanding KPI tile below (which already
+      // gates on sent + partially_paid + overdue).
       const status = (inv.status || "").toLowerCase();
-      if (status === "paid" || status === "written_off") continue;
+      if (status !== "sent" && status !== "partially_paid" && status !== "overdue") continue;
       const balance = inv.balance_due != null
         ? Number(inv.balance_due)
         : Number(inv.total_amount || 0) - Number(inv.amount_paid || 0);
@@ -110,7 +115,14 @@ export function InvoiceAgingCard({
           </span>
         </h3>
         <span className="text-xs text-slate-500 tabular-nums">
-          {tenantCurrency.format(buckets.total, 0)} across {totalCount} invoice{totalCount === 1 ? "" : "s"}
+          {/* INV-A: header total at 2dp so it reconciles with the
+              Outstanding KPI tile below (which is also 2dp). Per-
+              bucket tiles below stay 0dp - those are coarse buckets,
+              the operator wants a quick visual scan there. Pre-INV-A
+              the header read "R 15313" while the tile read "R
+              15312.68", looking like a real mismatch when it was
+              just a rounding format. */}
+          {tenantCurrency.format(buckets.total, 2)} across {totalCount} invoice{totalCount === 1 ? "" : "s"}
         </span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
