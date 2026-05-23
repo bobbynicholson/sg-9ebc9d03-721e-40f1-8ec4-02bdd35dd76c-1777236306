@@ -3,6 +3,8 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
+import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
@@ -56,7 +58,27 @@ function InvoicesPageInner() {
   const { user, activeRole, loading: authLoading } = useAuth() as any;
   const { toast } = useToast();
   
-  const [invoices, setInvoices] = useState<any[]>([]);
+  // INV-B: raw fetched list (company-wide, RLS-scoped). Realtime
+  // mutations land here, then the regionScoped view below filters
+  // by the active region. Pre-INV-B a multi-branch tenant saw every
+  // region's invoices on one page even with a region selected -
+  // financial-dashboard, cashflow-dashboard and orders all respect
+  // the region; invoices was the odd one out.
+  const [allInvoices, setAllInvoices] = useState<any[]>([]);
+  const { regionFilterId } = useRegionFilter();
+  const invoices = useMemo(() => {
+    if (!regionFilterId) return allInvoices;
+    return allInvoices.filter((inv: any) => {
+      // Invoices don't carry region_id themselves - it lives on the
+      // parent order. Filter via the embedded orders.region_id. An
+      // invoice without an order (manual orderless invoice) carries
+      // no region context, so we keep it visible in every region
+      // rather than hiding it - safer default for AR-only rows.
+      const rid = inv?.orders?.region_id ?? null;
+      if (rid == null) return true;
+      return rid === regionFilterId;
+    });
+  }, [allInvoices, regionFilterId]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -446,6 +468,10 @@ function InvoicesPageInner() {
   // clearable pill. Lives alongside the existing ?invoiceId / ?claimId
   // consumers so deep links keep working.
   const [clientFilterId, setClientFilterId] = useState<string | null>(null);
+  // INV-B: BulkRemindDialog open state. Pre-INV-B "Send overdue
+  // reminders" fired window.confirm() with no recipient context;
+  // the operator saw counts only after-the-fact in the toast.
+  const [remindDialogOpen, setRemindDialogOpen] = useState(false);
   const [clientFilterName, setClientFilterName] = useState<string | null>(null);
   // Phase 6 #10: tenant currency. Drives the totals + balance
   // displays so a UK / US tenant sees £ / $ instead of R.
@@ -701,6 +727,7 @@ function InvoicesPageInner() {
             event_date,
             client_id,
             quote_id,
+            region_id,
             clients (
               client_name,
               email,
@@ -712,7 +739,7 @@ function InvoicesPageInner() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInvoices(data || []);
+      setAllInvoices(data || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1381,32 +1408,7 @@ function InvoicesPageInner() {
               who's still inside their payment terms. */}
           <Button
             variant="outline"
-            onClick={async () => {
-              if (!confirm("Send a payment reminder to every client whose invoice is overdue? This goes out immediately.")) return;
-              try {
-                const res = await fetch("/api/admin/invoices/bulk-remind", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ scope: "overdue" }),
-                });
-                const j = await res.json().catch(() => ({}));
-                if (!res.ok || !j.ok) {
-                  throw new Error(j?.error || "Bulk remind failed");
-                }
-                toast({
-                  title: "Reminders sent",
-                  description:
-                    `${j.sent} sent, ${j.failed} failed, ${j.skipped} skipped (no email on file). ${j.total} total.`,
-                });
-                loadInvoices();
-              } catch (e: any) {
-                toast({
-                  title: "Could not send reminders",
-                  description: e?.message || "Try again",
-                  variant: "destructive",
-                });
-              }
-            }}
+            onClick={() => setRemindDialogOpen(true)}
           >
             Send overdue reminders
           </Button>
@@ -1874,7 +1876,17 @@ function InvoicesPageInner() {
                     existing.total += Number(inv.total_amount || 0);
                     groups.set(cid, existing);
                   }
-                  const sorted = Array.from(groups.values()).sort((a, b) => b.outstanding - a.outstanding);
+                  // INV-B: stable tiebreaker. Two clients with the
+                  // same outstanding balance previously flickered
+                  // between renders because the underlying Map
+                  // iteration order isn't guaranteed across realtime
+                  // updates. Fall back to client name (case-
+                  // insensitive) so the order is stable.
+                  const sorted = Array.from(groups.values()).sort(
+                    (a, b) =>
+                      b.outstanding - a.outstanding
+                      || a.clientName.localeCompare(b.clientName, undefined, { sensitivity: "base" }),
+                  );
                   return sorted.map((g) => (
                     <div
                       key={g.clientId}
@@ -2451,6 +2463,16 @@ function InvoicesPageInner() {
           loadInvoices();
         }}
         formatMoney={tenantMoney.format}
+      />
+      {/* INV-B: bulk-remind dialog with recipient preview. Replaces
+          the window.confirm() one-liner the page used pre-INV-B. */}
+      <BulkRemindDialog
+        open={remindDialogOpen}
+        onOpenChange={(open) => {
+          setRemindDialogOpen(open);
+          if (!open) loadInvoices();
+        }}
+        initialScope="overdue"
       />
     </div>
   );

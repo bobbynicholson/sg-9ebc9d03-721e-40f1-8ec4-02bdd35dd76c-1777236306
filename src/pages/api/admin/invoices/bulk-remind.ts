@@ -10,9 +10,17 @@
  * Auth: admin/owner in the tenant.
  *
  * Body:
- *   { scope: 'outstanding' | 'overdue' }
+ *   { scope: 'outstanding' | 'overdue', dryRun?: boolean }
  *
- * Returns: { ok, sent, failed, skipped, total }
+ * Returns (send):    { ok, sent, failed, skipped, total }
+ * Returns (dryRun):  { ok, dryRun: true, total, withEmail, withoutEmail, preview: [{ clientName, balance, due_date }] }
+ *
+ * INV-B (invoices follow-ups): dryRun mode powers the recipient
+ * preview in BulkRemindDialog. Pre-INV-B operators clicked
+ * "Send overdue reminders", got a blunt confirm() with no context,
+ * then learned after-the-fact how many actually went and how many
+ * were skipped (no email). The dry-run lets the dialog tell them
+ * up-front.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -43,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!["outstanding", "overdue"].includes(scope)) {
       return res.status(400).json({ error: "scope must be 'outstanding' or 'overdue'" });
     }
+    const dryRun = (req.body || {}).dryRun === true;
 
     // Pull invoices in the right scope. We treat 'sent' + 'partial' +
     // 'outstanding' as outstanding (anything not paid + not draft +
@@ -69,6 +78,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const list = (invoices || []) as any[];
     if (list.length === 0) {
+      if (dryRun) {
+        return res.status(200).json({
+          ok: true,
+          dryRun: true,
+          total: 0,
+          withEmail: 0,
+          withoutEmail: 0,
+          preview: [],
+        });
+      }
       return res.status(200).json({ ok: true, total: 0, sent: 0, failed: 0, skipped: 0 });
     }
 
@@ -106,6 +125,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const c of (clientsRes.data || []) as any[]) clientById.set(c.id, c);
     const orderById = new Map<string, any>();
     for (const o of (ordersRes.data || []) as any[]) orderById.set(o.id, o);
+
+    if (dryRun) {
+      // INV-B: count + first-5-recipient preview for the dialog. We
+      // mirror the same email-resolution logic the send loop uses
+      // (client.email -> order.client_email) so the withEmail /
+      // withoutEmail counts the dialog shows match what actually
+      // happens on send.
+      let withEmail = 0;
+      let withoutEmail = 0;
+      const preview: Array<{ clientName: string; balance: number; due_date: string | null; hasEmail: boolean }> = [];
+      for (const inv of list) {
+        const client = inv.client_id ? clientById.get(inv.client_id) : null;
+        const order = inv.order_id ? orderById.get(inv.order_id) : null;
+        const to = (client?.email as string) || (order?.client_email as string) || null;
+        const name = (client?.client_name as string) || (order?.client_name as string) || "Unknown client";
+        if (to) withEmail += 1; else withoutEmail += 1;
+        if (preview.length < 5) {
+          preview.push({
+            clientName: name,
+            balance: Number(inv.balance_due || inv.total_amount || 0),
+            due_date: inv.due_date || null,
+            hasEmail: !!to,
+          });
+        }
+      }
+      return res.status(200).json({
+        ok: true,
+        dryRun: true,
+        total: list.length,
+        withEmail,
+        withoutEmail,
+        preview,
+      });
+    }
 
     let sent = 0;
     let failed = 0;
