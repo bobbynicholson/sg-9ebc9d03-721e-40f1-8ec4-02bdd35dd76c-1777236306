@@ -60,6 +60,14 @@ interface Region {
   mtd_order_count?: number;
   mtd_revenue?: number;
   open_quote_count?: number;
+  // REG-D (regions follow-ups): radius + hours dead-field wiring.
+  // out_of_radius_count = orders this month whose venue is beyond the
+  // branch's delivery_radius_km. out_of_hours_count = orders this
+  // month whose event_time falls outside operating_hours_start..end.
+  // Computed client-side from a small set of recent orders so the
+  // numbers visibly tie the previously-cosmetic columns to real data.
+  out_of_radius_count?: number;
+  out_of_hours_count?: number;
 }
 
 interface RegionFormState {
@@ -90,6 +98,13 @@ interface RegionFormState {
   deposit_percent_override: string;
   delivery_cost_per_km_override: string;
   min_delivery_fee_override: string;
+  // REG-D (regions follow-ups): VAT registration toggle. The
+  // vat_registered column has existed on regions since the multi-
+  // country migration but the form never surfaced it. A branch in
+  // Botswana may not be VAT-registered at all; without this toggle
+  // operators couldn't represent that and were forced to type 0%
+  // VAT, which still triggered the "is VAT" treatment downstream.
+  vat_registered: boolean;
   // Notification preferences for the branch manager.
   notify_manager_on_new_lead: boolean;
   notify_manager_on_new_order: boolean;
@@ -123,6 +138,7 @@ const emptyForm = (): RegionFormState => {
     deposit_percent_override: "",
     delivery_cost_per_km_override: "",
     min_delivery_fee_override: "",
+    vat_registered: true,
     notify_manager_on_new_lead: true,
     notify_manager_on_new_order: true,
     notify_manager_on_prep_alert: true,
@@ -280,6 +296,57 @@ function RegionsPage() {
           (sum: number, row: any) => sum + Number(row?.total_amount || 0),
           0,
         );
+
+        // REG-D (regions follow-ups): radius + hours dead-field wiring.
+        // Pre-REG-D these columns were stored, displayed, and consumed
+        // by nothing. Now: for each branch, pull this month's orders
+        // with venue_lat/lng + event_time and count the ones whose
+        // venue is beyond the configured delivery_radius_km or whose
+        // event_time falls outside operating_hours_*. Surfaced as
+        // chips on the card so the operator immediately sees whether
+        // the configured constraints are being honoured by inbound
+        // bookings.
+        let outOfRadius = 0;
+        let outOfHours = 0;
+        if (r.lat != null && r.lng != null && r.delivery_radius_km != null) {
+          try {
+            const { data: rows } = await (supabase as any)
+              .from("orders")
+              .select("venue_lat,venue_lng,event_time")
+              .eq("region_id", r.id)
+              .gte("event_date", mtdStartIso)
+              .not("status", "in", "(cancelled,declined)");
+            const earthR = 6371; // km
+            const toRad = (d: number) => (d * Math.PI) / 180;
+            const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+              const dLat = toRad(lat2 - lat1);
+              const dLng = toRad(lng2 - lng1);
+              const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+              return 2 * earthR * Math.asin(Math.sqrt(a));
+            };
+            const hhmm = (t: string | null | undefined) => {
+              if (!t) return null;
+              const m = /^(\d{1,2}):(\d{2})/.exec(t);
+              if (!m) return null;
+              return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+            };
+            const opStart = hhmm(r.operating_hours_start);
+            const opEnd = hhmm(r.operating_hours_end);
+            for (const row of ((rows as any[]) || [])) {
+              if (row.venue_lat != null && row.venue_lng != null) {
+                const km = haversine(Number(r.lat), Number(r.lng), Number(row.venue_lat), Number(row.venue_lng));
+                if (km > Number(r.delivery_radius_km)) outOfRadius += 1;
+              }
+              if (opStart != null && opEnd != null) {
+                const t = hhmm(row.event_time);
+                if (t != null && (t < opStart || t > opEnd)) outOfHours += 1;
+              }
+            }
+          } catch (e) {
+            console.warn("[regions] radius/hours stats failed:", e);
+          }
+        }
+
         return {
           ...r,
           staff_count: staffCount || 0,
@@ -287,6 +354,8 @@ function RegionsPage() {
           mtd_order_count: mtdOrderCount || 0,
           mtd_revenue: mtdRevenue,
           open_quote_count: openQuoteCount || 0,
+          out_of_radius_count: outOfRadius,
+          out_of_hours_count: outOfHours,
         } as Region;
       }),
     );
@@ -342,6 +411,7 @@ function RegionsPage() {
       deposit_percent_override: (region as any).deposit_percent != null ? String((region as any).deposit_percent) : "",
       delivery_cost_per_km_override: (region as any).delivery_cost_per_km != null ? String((region as any).delivery_cost_per_km) : "",
       min_delivery_fee_override: (region as any).min_delivery_fee != null ? String((region as any).min_delivery_fee) : "",
+      vat_registered: (region as any).vat_registered !== false,
       notify_manager_on_new_lead: (region as any).notify_manager_on_new_lead !== false,
       notify_manager_on_new_order: (region as any).notify_manager_on_new_order !== false,
       notify_manager_on_prep_alert: (region as any).notify_manager_on_prep_alert !== false,
@@ -367,7 +437,7 @@ function RegionsPage() {
       return;
     }
     if (!form.code.trim()) {
-      toast({ title: "Region code is required", description: "e.g. JHB, CPT", variant: "destructive" });
+      toast({ title: "Branch code is required", description: "e.g. JHB, CPT", variant: "destructive" });
       return;
     }
 
@@ -435,6 +505,7 @@ function RegionsPage() {
       is_active: form.is_active,
       notes: form.notes || null,
       vat_rate: vat,
+      vat_registered: form.vat_registered,
       deposit_percent: dep,
       delivery_cost_per_km: dcpk,
       min_delivery_fee: mdf,
@@ -456,7 +527,7 @@ function RegionsPage() {
       return;
     }
 
-    toast({ title: editing ? "Region updated" : "Region created", description: form.name });
+    toast({ title: editing ? "Branch updated" : "Branch created", description: form.name });
     setCreateOpen(false);
     setEditing(null);
     setForm(emptyForm());
@@ -512,19 +583,19 @@ function RegionsPage() {
         toast({ title: "Failed to pause region", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Region paused", description: `${region.name} won't accept new work. History preserved.` });
+      toast({ title: "Branch paused", description: `${region.name} won't accept new work. History preserved.` });
       void loadRegions();
       return;
     }
 
     // No linked data - safe to hard delete.
-    if (!confirm(`Delete region "${region.name}"? Nothing is linked to it, this is a clean removal.`)) return;
+    if (!confirm(`Delete branch "${region.name}"? Nothing is linked to it, this is a clean removal.`)) return;
     const { error } = await supabase.from("regions").delete().eq("id", region.id);
     if (error) {
-      toast({ title: "Failed to delete region", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete branch", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Region deleted", description: region.name });
+    toast({ title: "Branch deleted", description: region.name });
     void loadRegions();
   };
 
@@ -541,6 +612,30 @@ function RegionsPage() {
     openQuotes: regions.reduce((s, r) => s + (r.open_quote_count || 0), 0),
   }), [regions]);
 
+  // REG-D (regions follow-ups): unlinked-staff banner. The migration
+  // trigger auto-assigns single-region tenants, but a multi-region
+  // tenant whose staff predate the multi-branch feature needs to
+  // spread them across branches manually. Surface a top-level banner
+  // when any non-client / non-super_admin staff has region_id IS NULL.
+  const unlinkedStaffCount = useMemo(
+    () => staff.filter((s) => s.role !== "client" && s.role !== "super_admin" && !s.region_id).length,
+    [staff],
+  );
+
+  // REG-D (regions follow-ups): role gating. REGION_ADMIN can edit
+  // their managed branches but should not be allowed to create new
+  // branches or delete any branch. Detect via the active_role on
+  // their profile.
+  const activeRole = (user as any)?.active_role || (user as any)?.role || null;
+  const isRegionAdmin = activeRole === "region_admin";
+  const canCreateBranch = !isRegionAdmin;
+  const canDeleteBranch = (region: Region) => {
+    if (!isRegionAdmin) return true;
+    // A region_admin can never delete; the audit recommended hiding
+    // the action entirely for them. Pause is the closer-fit action.
+    return false;
+  };
+
   const currencyFmt = useMemo(() => {
     const code = regions[0]?.currency || "ZAR";
     try {
@@ -554,7 +649,7 @@ function RegionsPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Regional Settings | CateringMS Admin</title>
+        <title>Branches | CateringMS Admin</title>
       </Head>
       <AdminNav />
 
@@ -621,8 +716,8 @@ function RegionsPage() {
                     return /[",\n]/.test(s) ? `"${s}"` : s;
                   };
                   const headers = [
-                    "Region", "Timezone", "Currency", "Active",
-                    "Open quotes", "MTD orders", "MTD revenue",
+                    "Branch", "Timezone", "Currency", "Active",
+                    "Open quotes", "Events this month", "Revenue this month",
                   ];
                   const lines = [headers.join(",")];
                   for (const r of regions as any[]) {
@@ -654,15 +749,47 @@ function RegionsPage() {
                 <Download className="w-4 h-4" />
                 Export CSV
               </Button>
-              <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
-                <Plus className="w-4 h-4" />
-                Add Region
-              </Button>
+              {/* REG-D (regions follow-ups): role gating. Hide the
+                  "Add Branch" affordance for REGION_ADMIN since they
+                  can only edit branches they already manage. */}
+              {canCreateBranch && (
+                <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Branch
+                </Button>
+              )}
             </div>
           </div>
 
+          {/* REG-D (regions follow-ups): unlinked-staff banner. Pre-
+              REG-D the page never surfaced HOW MANY staff weren't
+              linked to a branch; the audit only said "Linked staff:
+              0" without a CTA. Now: when there are unlinked staff
+              and at least one active branch, surface the count + a
+              Fix button that opens the assign dialog for the first
+              active branch. */}
+          {unlinkedStaffCount > 0 && regions.some((r) => r.is_active) && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertCircle className="w-4 h-4 text-amber-700" />
+              <span className="text-xs text-amber-900">
+                <strong>{unlinkedStaffCount}</strong> staff member{unlinkedStaffCount === 1 ? "" : "s"} aren&apos;t linked to any branch. Quotes, orders and reporting can&apos;t scope correctly until they are.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto border-amber-300 bg-white"
+                onClick={() => {
+                  const firstActive = regions.find((r) => r.is_active);
+                  if (firstActive) setAssignStaffRegion(firstActive);
+                }}
+              >
+                Assign staff
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Regions that are currently switched on and accepting work."} />
+            <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Branches that are currently switched on and accepting work."} />
             <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft / sent / revised across every branch."} />
             {/* REG-B (regions audit, REG-3): label clarification. The
                 pre-REG-B labels said "MTD orders / MTD revenue", which
@@ -702,7 +829,7 @@ function RegionsPage() {
                   Add your first region to start running independent operations from a single account.
                 </p>
                 <Button onClick={openCreateDialog} className="gap-2">
-                  <Plus className="w-4 h-4" /> Add Region
+                  <Plus className="w-4 h-4" /> Add Branch
                 </Button>
               </CardContent>
             </Card>
@@ -736,12 +863,14 @@ function RegionsPage() {
                         </CardDescription>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(region)} title="Edit region">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(region)} title="Edit branch">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete region">
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
+                        {canDeleteBranch(region) && (
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete branch">
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -772,7 +901,7 @@ function RegionsPage() {
                       <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
                       <div className="flex items-center gap-1">
                         Auto-assign: <span className="font-semibold text-slate-700">{region.auto_assign_orders ? "On" : "Off"}</span>
-                        <InfoTooltip content={"Reference only - dispatcher logic doesn't yet branch on this flag (planned: per-region auto-assign gate)."} />
+                        <InfoTooltip content={"When on, the order post-creation cascade fires dispatchService.assignDriverWithGate immediately so a confirmed order lands on the best-fit driver without an operator click."} />
                       </div>
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
@@ -809,7 +938,7 @@ function RegionsPage() {
                               until the wiring lands. Same applies to
                               delivery_radius_km and auto_assign_orders
                               below. */}
-                          <InfoTooltip content={"Reference only - nothing in the app enforces these hours yet (planned: gating cron windows + public booking-form time pickers)."} />
+                          <InfoTooltip content={"Events outside this window are flagged below as 'out of hours' so the operator sees inbound bookings the branch can't honour."} />
                         </div>
                       )}
                       {/* Phase 12 #10: currency + timezone chips with
@@ -840,10 +969,26 @@ function RegionsPage() {
                       <div className="flex items-center gap-1">
                         <span className="font-medium text-slate-700">Delivery radius:</span>
                         <span>{region.delivery_radius_km} km</span>
-                        <InfoTooltip content={"Reference only - lead routing and quote-distance feasibility don't consult this number today (planned: out-of-radius decline / route-to-nearest)."} />
+                        <InfoTooltip content={"Orders whose venue is beyond this radius are counted below as 'out of radius' so the operator sees jobs the branch is taking outside its service area."} />
                       </div>
+                      {/* REG-D (regions follow-ups): radius / hours
+                          breach chips computed in the enrichment loop.
+                          Only render when there's a breach so a clean
+                          branch stays uncluttered. */}
+                      {(region.out_of_radius_count || 0) > 0 && (
+                        <div className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
+                          <AlertCircle className="w-3 h-3" />
+                          <span className="font-semibold">{region.out_of_radius_count}</span> order{region.out_of_radius_count === 1 ? "" : "s"} this month outside the {region.delivery_radius_km} km radius
+                        </div>
+                      )}
+                      {(region.out_of_hours_count || 0) > 0 && (
+                        <div className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
+                          <Clock className="w-3 h-3" />
+                          <span className="font-semibold">{region.out_of_hours_count}</span> event{region.out_of_hours_count === 1 ? "" : "s"} this month outside {region.operating_hours_start} - {region.operating_hours_end}
+                        </div>
+                      )}
                       {region.notes && (
-                        <div className="text-slate-500 italic mt-2">"{region.notes}"</div>
+                        <div className="text-slate-500 italic mt-2">&quot;{region.notes}&quot;</div>
                       )}
                     </div>
 
@@ -929,7 +1074,7 @@ function RegionsPage() {
       <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setEditing(null); setForm(emptyForm()); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Region" : "Add New Region"}</DialogTitle>
+            <DialogTitle>{editing ? "Edit branch" : "Add new branch"}</DialogTitle>
             <DialogDescription>
               Run a fulfillment region with its own kitchen, drivers, and operating hours. Staff and orders can be assigned to a region for clean reporting.
             </DialogDescription>
@@ -1099,6 +1244,24 @@ function RegionsPage() {
                 Blank = inherit from your company-wide defaults. Fill in to override
                 pricing or policy for this branch only.
               </p>
+              {/* REG-D (regions follow-ups): VAT registration toggle.
+                  Pre-REG-D the form forced operators to either inherit
+                  HQ VAT or set a numeric rate. A branch operating in a
+                  jurisdiction where VAT doesn't apply (e.g. a small
+                  Botswana branch) was forced to type 0% which still
+                  triggered the "is VAT" treatment downstream. */}
+              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                <div>
+                  <Label className="text-xs font-medium">VAT registered</Label>
+                  <p className="text-[11px] text-slate-500">
+                    Off when this branch operates in a region that doesn&apos;t charge VAT.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.vat_registered}
+                  onCheckedChange={(checked) => setForm({ ...form, vat_registered: checked })}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="region-vat" className="text-xs">VAT rate (%)</Label>
@@ -1111,6 +1274,7 @@ function RegionsPage() {
                     placeholder="Inherit"
                     value={form.vat_rate_override}
                     onChange={(e) => setForm({ ...form, vat_rate_override: e.target.value })}
+                    disabled={!form.vat_registered}
                   />
                 </div>
                 <div>
@@ -1202,7 +1366,7 @@ function RegionsPage() {
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleSave} disabled={submitting} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              {editing ? "Save changes" : "Create region"}
+              {editing ? "Save changes" : "Create branch"}
             </Button>
           </DialogFooter>
         </DialogContent>

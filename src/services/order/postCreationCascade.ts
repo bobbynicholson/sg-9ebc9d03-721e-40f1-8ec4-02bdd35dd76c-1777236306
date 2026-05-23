@@ -50,6 +50,10 @@ export interface PostOrderCascadeOpts {
   skipEquipment?: boolean;
   skipConflictCheck?: boolean;
   skipShoppingSuggestion?: boolean;
+  /** REG-D (regions follow-ups): opt out of the branch-driven driver
+   *  auto-assignment step. The smoke-test runner and manual operator
+   *  flows that want to pick a driver themselves should pass true. */
+  skipAutoAssign?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
@@ -63,6 +67,19 @@ export interface PostOrderCascadeReceipt {
   // Fires for every order_items line whose menu_item is fulfilment_type
   // 'outsourced' or 'hybrid' with a default_outsource_provider_id set.
   outsource?: { ok: boolean; assignmentsCreated?: number; reason?: string; skipped?: boolean };
+  // REG-D (regions follow-ups): branch-driven driver auto-assignment.
+  // Fires when the order's region has auto_assign_orders=true AND the
+  // order is at status='confirmed'. Delegates to
+  // dispatchService.assignDriverWithGate so every safety gate (capacity,
+  // time-conflict, cold-chain, vehicle availability) is honoured.
+  autoAssign?: {
+    ok: boolean;
+    driverId?: string | null;
+    driverName?: string | null;
+    score?: number;
+    skipped?: boolean;
+    reason?: string;
+  };
 }
 
 /**
@@ -872,6 +889,96 @@ export async function postOrderCreationCascade(
     } catch (alertErr) {
       console.warn("[postOrderCreationCascade] cascade-skipped alert crashed:", alertErr);
     }
+  }
+
+  // ── Step 7: branch-driven driver auto-assignment ─────────────────
+  // REG-D (regions follow-ups): when the order's region has
+  // auto_assign_orders=true AND the order is confirmed AND a driver
+  // isn't already assigned, fire dispatchService.assignDriverWithGate
+  // so every safety gate runs. Skipped silently for draft orders
+  // (the operator hasn't committed yet) and for regions with the
+  // flag off. Dynamic import to avoid circular dependency between
+  // postCreationCascade and dispatchService.
+  if (!opts.skipAutoAssign) {
+    try {
+      const { data: orderRow } = await (client as any)
+        .from("orders")
+        .select("id, status, region_id, assigned_driver_id, driver_id")
+        .eq("id", orderId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      const ord = orderRow as any;
+      if (!ord) {
+        receipt.autoAssign = { ok: false, skipped: true, reason: "order_not_found" };
+      } else if (ord.status !== "confirmed") {
+        receipt.autoAssign = { ok: false, skipped: true, reason: "order_not_confirmed" };
+      } else if (ord.assigned_driver_id || ord.driver_id) {
+        receipt.autoAssign = { ok: false, skipped: true, reason: "driver_already_assigned" };
+      } else if (!ord.region_id) {
+        receipt.autoAssign = { ok: false, skipped: true, reason: "no_region_on_order" };
+      } else {
+        const { data: regionRow } = await (client as any)
+          .from("regions")
+          .select("auto_assign_orders, is_active")
+          .eq("id", ord.region_id)
+          .maybeSingle();
+        const reg = regionRow as any;
+        if (!reg || reg.is_active === false) {
+          receipt.autoAssign = { ok: false, skipped: true, reason: "region_paused_or_missing" };
+        } else if (reg.auto_assign_orders !== true) {
+          receipt.autoAssign = { ok: false, skipped: true, reason: "branch_auto_assign_off" };
+        } else {
+          // Fetch the order detail the suggester needs.
+          const { data: orderDetail } = await (client as any)
+            .from("orders")
+            .select("id, event_date, event_time, venue_lat, venue_lng, region_id")
+            .eq("id", orderId)
+            .maybeSingle();
+          const od = orderDetail as any;
+          if (!od?.event_date) {
+            receipt.autoAssign = { ok: false, skipped: true, reason: "missing_event_date" };
+          } else {
+            const { dispatchService } = await import("@/services/dispatchService");
+            const suggestions = await dispatchService.suggestDriversForOrder(companyId, {
+              id: orderId,
+              event_date: od.event_date,
+              event_time: od.event_time,
+              venue_lat: od.venue_lat ?? null,
+              venue_lng: od.venue_lng ?? null,
+              region_id: od.region_id ?? null,
+            }, 1);
+            const top = suggestions.find((s: any) => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
+            if (!top) {
+              receipt.autoAssign = { ok: false, skipped: true, reason: "no_eligible_driver" };
+            } else {
+              const r = await dispatchService.assignDriverWithGate({
+                companyId,
+                orderId,
+                driverId: top.driver.id,
+                performedBy: actorUserId || top.driver.id,
+                score: top.score.total,
+                reason: "Branch auto-assign (regions.auto_assign_orders=true)",
+              });
+              if (r.ok) {
+                receipt.autoAssign = {
+                  ok: true,
+                  driverId: top.driver.id,
+                  driverName: top.driver.full_name,
+                  score: top.score.total,
+                };
+              } else {
+                receipt.autoAssign = { ok: false, reason: r.reason || "assign_gate_refused" };
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn("[postOrderCreationCascade] autoAssign step crashed:", { orderId, error: e?.message });
+      receipt.autoAssign = { ok: false, reason: e?.message || "autoAssign step crashed" };
+    }
+  } else {
+    receipt.autoAssign = { ok: true, skipped: true, reason: "skipped_by_caller" };
   }
 
   return receipt;
