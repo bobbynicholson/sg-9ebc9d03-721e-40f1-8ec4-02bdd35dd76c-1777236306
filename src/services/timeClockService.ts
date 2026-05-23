@@ -318,4 +318,126 @@ export const timeClockService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * STH-C: backfill a tablet-clock-in that never happened. Manager
+   * supplies the staff, clock-in / clock-out timestamps, and an
+   * entry reason; we compute hours + earnings off the same rate
+   * fallback chain clockOut uses (profiles.hourly_rate first, then
+   * kitchen_staff_members.hourly_rate via linked_profile_id, then 0).
+   *
+   * entered_manually = true so the row chips a "Manual" badge on
+   * /admin/staff-hours and the payroll audit can tell tablet-
+   * clocked rows from manager-backfilled ones.
+   */
+  async createManualSession(args: {
+    staffId: string;
+    companyId: string;
+    clockInIso: string;
+    clockOutIso: string;
+    entryReason: string;
+    enteredByUserId: string;
+  }) {
+    const inMs = new Date(args.clockInIso).getTime();
+    const outMs = new Date(args.clockOutIso).getTime();
+    if (!Number.isFinite(inMs) || !Number.isFinite(outMs)) {
+      throw new Error("Invalid clock-in / clock-out timestamps");
+    }
+    if (outMs <= inMs) {
+      throw new Error("Clock-out must be after clock-in");
+    }
+    const totalHours = (outMs - inMs) / (1000 * 60 * 60);
+    if (totalHours > 24) {
+      throw new Error("Session is longer than 24 hours - split into two shifts.");
+    }
+
+    // Same rate resolution clockOut uses, factored down to the
+    // minimum for the manual path. Drivers fall through to rate 0
+    // and the manager sees that on save - intentional, matches the
+    // honest "set a rate" behaviour the wage dashboard relies on.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("hourly_rate")
+      .eq("id", args.staffId)
+      .maybeSingle();
+    let hourlyRate = Number((profile as { hourly_rate?: number | null } | null)?.hourly_rate) || 0;
+    if (hourlyRate <= 0) {
+      const { data: ks } = await supabase
+        .from("kitchen_staff_members")
+        .select("hourly_rate")
+        .eq("linked_profile_id", args.staffId)
+        .maybeSingle();
+      const ksRate = Number((ks as { hourly_rate?: number | null } | null)?.hourly_rate) || 0;
+      if (ksRate > 0) hourlyRate = ksRate;
+    }
+    const totalEarnings = totalHours * hourlyRate;
+
+    const { data, error } = await supabase
+      .from("staff_work_sessions")
+      .insert({
+        staff_id: args.staffId,
+        company_id: args.companyId,
+        clock_in: args.clockInIso,
+        clock_out: args.clockOutIso,
+        total_hours: totalHours,
+        total_earnings: totalEarnings,
+        payment_status: "unpaid",
+        entered_manually: true,
+        entered_by_user_id: args.enteredByUserId,
+        entry_reason: args.entryReason || null,
+      } as any)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * STH-C: reconciliation against kitchen_staff_shifts over the
+   * same window. The two tables track the same conceptual thing
+   * (worked hours) via different surfaces - tablet vs manager-
+   * entered. Returning both totals lets /admin/staff-hours show a
+   * "tablet vs scheduled" tile so the operator sees when the two
+   * sources diverge (which they usually do when a tenant doesn't
+   * use the tablet flow at all).
+   */
+  async getReconciliation(companyId: string, startIso: string, endIso: string): Promise<{
+    tablet_hours: number;
+    scheduled_hours: number;
+    tablet_session_count: number;
+    scheduled_shift_count: number;
+  }> {
+    const [tabletRes, scheduledRes] = await Promise.all([
+      supabase
+        .from("staff_work_sessions")
+        .select("total_hours")
+        .eq("company_id", companyId)
+        .gte("clock_in", startIso)
+        .lte("clock_in", endIso),
+      supabase
+        .from("kitchen_staff_shifts")
+        .select("standard_min, overtime_min, sunday_holiday_min")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("shift_start", startIso)
+        .lte("shift_start", endIso),
+    ]);
+    const tabletRows = (tabletRes.data || []) as Array<{ total_hours: number | null }>;
+    const scheduledRows = (scheduledRes.data || []) as Array<{
+      standard_min: number | null;
+      overtime_min: number | null;
+      sunday_holiday_min: number | null;
+    }>;
+    const tablet_hours = tabletRows.reduce((s, r) => s + Number(r.total_hours || 0), 0);
+    const scheduled_hours = scheduledRows.reduce(
+      (s, r) => s + (Number(r.standard_min || 0) + Number(r.overtime_min || 0) + Number(r.sunday_holiday_min || 0)) / 60,
+      0,
+    );
+    return {
+      tablet_hours: Math.round(tablet_hours * 10) / 10,
+      scheduled_hours: Math.round(scheduled_hours * 10) / 10,
+      tablet_session_count: tabletRows.length,
+      scheduled_shift_count: scheduledRows.length,
+    };
+  },
 };
