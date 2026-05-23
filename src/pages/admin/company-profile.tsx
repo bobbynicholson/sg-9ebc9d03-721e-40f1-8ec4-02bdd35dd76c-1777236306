@@ -119,6 +119,11 @@ interface CompanyRow {
    *  peak straddles December. */
   peak_season_start_month: number | null;
   peak_season_end_month: number | null;
+  /** CASH-B (cashflow follow-ups): per-tenant override for the
+   *  CashflowForecastCard Stale badge threshold. NULL = use the 72h
+   *  default. Capped at 720h (30 days). A daily-reconciliation
+   *  kitchen sets ~36; a once-a-week back-office sets ~144. */
+  cash_on_hand_stale_after_hours: number | null;
 }
 
 function CompanyProfilePage() {
@@ -259,6 +264,9 @@ function CompanyProfilePage() {
         // service requires both to draw the banner.
         peak_season_start_month: row.peak_season_start_month,
         peak_season_end_month: row.peak_season_end_month,
+        // CASH-B: per-tenant stale threshold for the cashflow
+        // dashboard's Cash on hand badge.
+        cash_on_hand_stale_after_hours: row.cash_on_hand_stale_after_hours,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -512,6 +520,55 @@ function CompanyProfilePage() {
               {(row.peak_season_start_month == null) !== (row.peak_season_end_month == null) && (
                 <p className="md:col-span-2 text-xs text-amber-700 leading-relaxed">
                   Set both start and end, or leave both blank. The banner ignores a half-configured window and falls back to the default.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* CASH-B (cashflow dashboard follow-ups): per-tenant
+              override for the Cash on hand "Stale" badge on the
+              cashflow dashboard. NULL falls back to the 72h default
+              the card was hardcoded to in CASH-A. A kitchen that
+              reconciles daily sets ~36; a once-a-week back office
+              sets ~144. Capped at 30 days (720h) so the badge can
+              never be permanently suppressed. */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-amber-600" />
+                Cash on hand staleness
+                <InfoTooltip content={"How long the cashflow dashboard waits after you last updated the Cash on hand value before it warns you the number is going stale.\n\nThe forecast is only as accurate as that bank-balance entry; the badge tells the bookkeeper when it's time to refresh.\n\nLeave blank to inherit the 72h default (matches a typical Mon/Wed/Fri reconciliation rhythm)."} />
+              </CardTitle>
+              <CardDescription>
+                Hours since the last Cash on hand entry before the dashboard badge warns it&apos;s stale. Leave blank for the 72h default.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field id="cash_on_hand_stale_after_hours" label="Stale after (hours)">
+                <Input
+                  id="cash_on_hand_stale_after_hours"
+                  type="number"
+                  min={1}
+                  max={720}
+                  step={1}
+                  placeholder="72 (default)"
+                  value={row.cash_on_hand_stale_after_hours == null ? "" : String(row.cash_on_hand_stale_after_hours)}
+                  onChange={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === "") {
+                      setRow({ ...row, cash_on_hand_stale_after_hours: null });
+                      return;
+                    }
+                    const n = Number(raw);
+                    if (!Number.isFinite(n)) return;
+                    setRow({ ...row, cash_on_hand_stale_after_hours: Math.max(1, Math.min(720, Math.round(n))) });
+                  }}
+                />
+              </Field>
+              {row.cash_on_hand_stale_after_hours != null && (
+                <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+                  Stale after <strong>{row.cash_on_hand_stale_after_hours}h</strong>
+                  {" "}({(row.cash_on_hand_stale_after_hours / 24).toFixed(1)} days).
                 </p>
               )}
             </CardContent>

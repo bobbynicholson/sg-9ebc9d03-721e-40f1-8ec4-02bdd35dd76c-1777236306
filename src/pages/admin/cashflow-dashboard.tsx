@@ -50,6 +50,14 @@ interface CashflowMetrics {
   supplierPayablesNext30: number;
   /** Pending invoice balances - paid surface for follow-ups. */
   pendingPayments: number;
+  // CASH-B (cashflow follow-ups): row counts on the cost feeds the
+  // CashflowForecastCard renders separately. Used only by the page-
+  // level empty-state guard so a tenant with no orders but 8 draft
+  // equipment hire rows doesn't see the "No cashflow activity yet"
+  // card while the chart below correctly shows the R518.75 of
+  // upcoming hire costs.
+  equipmentHireUpcomingCount: number;
+  shoppingUpcomingCount: number;
 }
 
 interface CashFlowAlert {
@@ -182,6 +190,42 @@ function CashflowDashboardInner() {
         });
       }
 
+      // CASH-B: feed the empty-state guard. Without these counts the
+      // page rendered "No cashflow activity yet" for any tenant whose
+      // only signal was upcoming equipment hire or a buy-list - while
+      // the CashflowForecastCard below correctly drew those costs into
+      // the chart. The two surfaces disagreed.
+      let equipmentHireUpcomingCount = 0;
+      let shoppingUpcomingCount = 0;
+      try {
+        const { count: hireCount } = await (supabase as any)
+          .from("equipment_hire_orders")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("expected_pickup_date", todayIso)
+          .not("status", "in", "(completed,cancelled,returned)");
+        equipmentHireUpcomingCount = hireCount || 0;
+      } catch (hireErr) {
+        captureException(hireErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "equipment_hire_count" },
+        });
+      }
+      try {
+        const { count: shopCount } = await (supabase as any)
+          .from("shopping_lists")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("list_date", todayIso)
+          .not("status", "in", "(completed,cancelled)");
+        shoppingUpcomingCount = shopCount || 0;
+      } catch (shopErr) {
+        captureException(shopErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "shopping_count" },
+        });
+      }
+
       // CASH-A: pending payments = outstanding balance, not gross
       // total. Pre-CASH-A this summed total_amount on every pending+
       // partial order, so a R10,587 order with a R5,350 deposit
@@ -202,6 +246,8 @@ function CashflowDashboardInner() {
         fixedCostsNext30,
         supplierPayablesNext30,
         pendingPayments,
+        equipmentHireUpcomingCount,
+        shoppingUpcomingCount,
       });
       setLoadedAt(Date.now());
 
@@ -351,11 +397,17 @@ function CashflowDashboardInner() {
               card when the tenant has no orders + no inflows + no
               outflows. Otherwise the page renders a wall of R0
               that looks broken. */}
+          {/* CASH-B: also check equipment hire + shopping counts so a
+              tenant with no orders but upcoming hire or a buy-list
+              doesn't see the empty-state while the chart below
+              renders real costs. */}
           {orders.length === 0
             && (metrics?.cashReceived || 0) === 0
             && (metrics?.pendingPayments || 0) === 0
             && (metrics?.fixedCostsNext30 || 0) === 0
-            && (metrics?.supplierPayablesNext30 || 0) === 0 ? (
+            && (metrics?.supplierPayablesNext30 || 0) === 0
+            && (metrics?.equipmentHireUpcomingCount || 0) === 0
+            && (metrics?.shoppingUpcomingCount || 0) === 0 ? (
             <div className="mb-6 rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-sm">
               <TrendingUp className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
               <h2 className="text-lg font-bold text-slate-900 mb-2">No cashflow activity yet</h2>
