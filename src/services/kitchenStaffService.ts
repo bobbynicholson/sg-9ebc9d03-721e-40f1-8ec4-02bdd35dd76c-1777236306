@@ -50,6 +50,11 @@ export interface KitchenStaffMember {
   is_active: boolean;
   linked_profile_id: string | null;
   notes: string | null;
+  // STA-C: per-branch staff scoping. Nullable so staff who work
+  // across branches (or single-branch tenants) stay visible
+  // everywhere. The /admin/staff list filters by this when a
+  // region is active.
+  region_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -216,7 +221,10 @@ export const kitchenStaffService = {
    * narrows to staff who can work that department (e.g. cleaning duty
    * board only shows people whose departments[] contains 'cleaning').
    */
-  async listStaffWithRates(companyId: string, opts: { includeArchived?: boolean; department?: string } = {}): Promise<KitchenStaffMember[]> {
+  async listStaffWithRates(
+    companyId: string,
+    opts: { includeArchived?: boolean; department?: string; region_id?: string | null } = {},
+  ): Promise<KitchenStaffMember[]> {
     let q = supabase
       .from("kitchen_staff_members")
       .select("*")
@@ -225,12 +233,135 @@ export const kitchenStaffService = {
       .order("full_name", { ascending: true });
     if (!opts.includeArchived) q = q.eq("is_active", true);
     if (opts.department) q = q.contains("departments", [opts.department]);
+    // STA-C (staff deferred, 2026-05-23): region scoping. The
+    // kitchen_staff_members.region_id column has been on the schema
+    // since the earliest migrations but the service ignored it. Now
+    // we honour it when the caller passes one. Staff with
+    // region_id IS NULL stay visible in every region (safer default
+    // for tenants who don't tag every row).
+    if (opts.region_id) {
+      q = q.or(`region_id.eq.${opts.region_id},region_id.is.null`);
+    }
     const { data, error } = await q;
     if (error) {
       console.error("listStaffWithRates failed:", error);
       return [];
     }
     return (data || []) as KitchenStaffMember[];
+  },
+
+  /**
+   * STA-C: per-staff activity rollup for the /admin/staff list.
+   * Returns a Map keyed by kitchen_staff_members.id with last
+   * clocked-in date, hours worked this calendar month, and the
+   * count of unpaid work sessions (the latter sourced from
+   * staff_work_sessions via linked_profile_id since
+   * staff_work_sessions joins to profiles, not kitchen_staff_members).
+   *
+   * Two parallel queries, both narrow:
+   *   - kitchen_staff_shifts: last shift_start + sum of standard +
+   *     overtime + sunday/holiday minutes for the current month
+   *   - staff_work_sessions: count of payment_status='unpaid' rows
+   *     grouped by staff_id (= profiles.id)
+   */
+  async getStaffActivityRollup(companyId: string): Promise<Map<string, {
+    last_clocked_at: string | null;
+    hours_this_month_min: number;
+    unpaid_session_count: number;
+  }>> {
+    const out = new Map<string, {
+      last_clocked_at: string | null;
+      hours_this_month_min: number;
+      unpaid_session_count: number;
+    }>();
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    // First, the staff_member_id -> linked_profile_id map so we can
+    // join the staff_work_sessions data back. Lazy: only kitchen_
+    // staff_members with a login show unpaid sessions, since manager-
+    // clocked-only staff don't have a profile row to attach to.
+    type StaffLink = { id: string; linked_profile_id: string | null };
+    const [shiftsRes, staffLinkRes] = await Promise.all([
+      supabase
+        .from("kitchen_staff_shifts")
+        .select("staff_member_id, shift_start, shift_end, standard_min, overtime_min, sunday_holiday_min")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("shift_start", monthStart),
+      supabase
+        .from("kitchen_staff_members")
+        .select("id, linked_profile_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
+    ]);
+
+    const links = ((staffLinkRes.data || []) as StaffLink[])
+      .filter((s) => !!s.linked_profile_id);
+    const profileToStaff = new Map<string, string>();
+    for (const s of links) profileToStaff.set(s.linked_profile_id as string, s.id);
+
+    // Also pull the absolute-last clock-in across history (not just
+    // this month) so a quiet staff member's last-clocked date is
+    // honest. Cheap: one row per staff_member_id via max().
+    const { data: lastClockedRows } = await supabase
+      .from("kitchen_staff_shifts")
+      .select("staff_member_id, shift_start")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("shift_start", { ascending: false });
+    const lastClockedByStaff = new Map<string, string>();
+    for (const r of (lastClockedRows || []) as Array<{ staff_member_id: string; shift_start: string }>) {
+      if (!lastClockedByStaff.has(r.staff_member_id)) {
+        lastClockedByStaff.set(r.staff_member_id, r.shift_start);
+      }
+    }
+
+    // Hours this month: sum standard + overtime + sunday/holiday.
+    const hoursByStaff = new Map<string, number>();
+    for (const r of (shiftsRes.data || []) as Array<{
+      staff_member_id: string;
+      standard_min: number | null;
+      overtime_min: number | null;
+      sunday_holiday_min: number | null;
+    }>) {
+      const m = (r.standard_min || 0) + (r.overtime_min || 0) + (r.sunday_holiday_min || 0);
+      hoursByStaff.set(r.staff_member_id, (hoursByStaff.get(r.staff_member_id) || 0) + m);
+    }
+
+    // Unpaid session counts keyed by profile id, then mapped back to
+    // staff_member_id via the link table.
+    const profileIds = links.map((s) => s.linked_profile_id as string);
+    const unpaidByStaffId = new Map<string, number>();
+    if (profileIds.length > 0) {
+      const { data: unpaidRows } = await supabase
+        .from("staff_work_sessions")
+        .select("staff_id")
+        .eq("company_id", companyId)
+        .eq("payment_status", "unpaid")
+        .in("staff_id", profileIds);
+      for (const r of (unpaidRows || []) as Array<{ staff_id: string }>) {
+        const staffMemberId = profileToStaff.get(r.staff_id);
+        if (!staffMemberId) continue;
+        unpaidByStaffId.set(staffMemberId, (unpaidByStaffId.get(staffMemberId) || 0) + 1);
+      }
+    }
+
+    // Union of every staff_member_id that has any activity.
+    const allIds = new Set<string>([
+      ...lastClockedByStaff.keys(),
+      ...hoursByStaff.keys(),
+      ...unpaidByStaffId.keys(),
+    ]);
+    for (const id of allIds) {
+      out.set(id, {
+        last_clocked_at: lastClockedByStaff.get(id) || null,
+        hours_this_month_min: hoursByStaff.get(id) || 0,
+        unpaid_session_count: unpaidByStaffId.get(id) || 0,
+      });
+    }
+    return out;
   },
 
   /**

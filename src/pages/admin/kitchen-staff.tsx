@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
@@ -34,7 +33,9 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";import { useTenantHref } from "@/lib/tenantUrl";
+import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import {
   kitchenStaffService,
   effectiveOvertimeRate,
@@ -68,6 +69,9 @@ interface DraftStaff {
   emergency_contact_name: string;
   emergency_contact_phone: string;
   notes: string;
+  // STA-C: per-branch region. Empty string = unscoped (visible
+  // everywhere); a uuid scopes the staff member to that region.
+  region_id: string;
 }
 
 const EMPTY_DRAFT: DraftStaff = {
@@ -87,7 +91,15 @@ const EMPTY_DRAFT: DraftStaff = {
   emergency_contact_name: "",
   emergency_contact_phone: "",
   notes: "",
+  region_id: "",
 };
+
+// STA-C: shape of the activity rollup the page renders per row.
+interface StaffActivity {
+  last_clocked_at: string | null;
+  hours_this_month_min: number;
+  unpaid_session_count: number;
+}
 
 function KitchenStaffPage() {
   const { user, profile } = useAuth();
@@ -151,22 +163,35 @@ function KitchenStaffPage() {
   const [bulkRates, setBulkRates] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
 
-  const companyId = (profile as any)?.company_id as string | undefined;
+  const companyId = profile?.company_id;
+  // STA-C: region scope from the global filter. When active we
+  // narrow listStaffWithRates by region; the option list also
+  // powers the per-staff Region select in the dialog.
+  const { regionFilterId, options: regionOptions } = useRegionFilter();
+  const [activity, setActivity] = useState<Map<string, StaffActivity>>(new Map());
 
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const list = await kitchenStaffService.listStaffWithRates(companyId, { includeArchived: true });
+      const [list, rollup] = await Promise.all([
+        kitchenStaffService.listStaffWithRates(companyId, {
+          includeArchived: true,
+          region_id: regionFilterId || null,
+        }),
+        kitchenStaffService.getStaffActivityRollup(companyId),
+      ]);
       setStaff(list);
-    } catch (e: any) {
-      toast({ title: "Could not load staff", description: e?.message, variant: "destructive" });
+      setActivity(rollup);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "Could not load staff", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, regionFilterId]);
 
   // STA-B: realtime subscription. Pre-STA-B the list only refreshed
   // on mount or a manual Refresh click. A manager archiving someone
@@ -223,8 +248,7 @@ function KitchenStaffPage() {
     for (const [staffId, raw] of entries) {
       const s = staff.find(x => x.id === staffId);
       if (!s) { failed += 1; continue; }
-      const sa = s as unknown as { pay_type?: string };
-      const pt = sa.pay_type || "hourly";
+      const pt = s.pay_type || "hourly";
       const n = Number(raw);
       // Write the value into the right column for this person's
       // pay type. Monthly staff get monthly_salary, per-shift get
@@ -262,7 +286,7 @@ function KitchenStaffPage() {
       .filter(s => showArchived ? true : s.is_active && !s.deleted_at)
       .filter(s => filterDept === "all"
         ? true
-        : Array.isArray((s as any).departments) && (s as any).departments.includes(filterDept))
+        : Array.isArray(s.departments) && s.departments.includes(filterDept))
       .filter(s => !term
         || s.full_name.toLowerCase().includes(term)
         || (s.role_title || "").toLowerCase().includes(term)
@@ -289,11 +313,10 @@ function KitchenStaffPage() {
   // monthly-salaried staff (who legitimately have no hourly rate)
   // as "missing", inflating the count and making the warning meaningless.
   const isStaffRateless = (s: KitchenStaffMember): boolean => {
-    const sa = s as unknown as { pay_type?: string; monthly_salary?: number | null; shift_rate?: number | null };
-    const pt = sa.pay_type || "hourly";
+    const pt = s.pay_type || "hourly";
     if (pt === "hourly") return s.hourly_rate == null;
-    if (pt === "monthly") return sa.monthly_salary == null;
-    if (pt === "shift") return sa.shift_rate == null;
+    if (pt === "monthly") return s.monthly_salary == null;
+    if (pt === "shift") return s.shift_rate == null;
     return s.hourly_rate == null;
   };
   const stats = useMemo(() => {
@@ -319,24 +342,24 @@ function KitchenStaffPage() {
 
   const openEdit = (s: KitchenStaffMember) => {
     setEditTarget(s);
-    const sa = s as any;
     setDraft({
       full_name: s.full_name || "",
       role_title: s.role_title || "Chef",
       phone: s.phone || "",
       email: s.email || "",
-      pay_type: (sa.pay_type as "hourly" | "monthly" | "shift") || "hourly",
+      pay_type: s.pay_type || "hourly",
       hourly_rate: s.hourly_rate != null ? String(s.hourly_rate) : "",
       overtime_rate: s.overtime_rate != null ? String(s.overtime_rate) : "",
-      monthly_salary: sa.monthly_salary != null ? String(sa.monthly_salary) : "",
-      shift_rate: sa.shift_rate != null ? String(sa.shift_rate) : "",
+      monthly_salary: s.monthly_salary != null ? String(s.monthly_salary) : "",
+      shift_rate: s.shift_rate != null ? String(s.shift_rate) : "",
       standard_hours_per_day: String(s.standard_hours_per_day ?? 9),
-      departments: Array.isArray(sa.departments) && sa.departments.length > 0 ? sa.departments : ["kitchen"],
-      id_number: sa.id_number || "",
-      start_date: sa.start_date || "",
-      emergency_contact_name: sa.emergency_contact_name || "",
-      emergency_contact_phone: sa.emergency_contact_phone || "",
+      departments: Array.isArray(s.departments) && s.departments.length > 0 ? s.departments : ["kitchen"],
+      id_number: s.id_number || "",
+      start_date: s.start_date || "",
+      emergency_contact_name: s.emergency_contact_name || "",
+      emergency_contact_phone: s.emergency_contact_phone || "",
       notes: s.notes || "",
+      region_id: s.region_id || "",
     });
     setError("");
     setDialogOpen(true);
@@ -397,7 +420,7 @@ function KitchenStaffPage() {
 
     setSaving(true);
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         company_id: companyId,
         full_name: draft.full_name.trim(),
         role_title: draft.role_title || null,
@@ -416,18 +439,23 @@ function KitchenStaffPage() {
         emergency_contact_phone: draft.emergency_contact_phone.trim() || null,
         notes: draft.notes.trim() || null,
         is_active: true,
+        // STA-C: region scope. Empty string = unscoped (visible
+        // across regions); a uuid pins the staff member to one
+        // branch.
+        region_id: draft.region_id || null,
       };
       if (editTarget) payload.id = editTarget.id;
 
-      await kitchenStaffService.upsertStaff(payload);
+      await kitchenStaffService.upsertStaff(payload as Parameters<typeof kitchenStaffService.upsertStaff>[0]);
       toast({
         title: editTarget ? "Staff updated" : "Staff added",
         description: draft.full_name,
       });
       setDialogOpen(false);
       load();
-    } catch (e: any) {
-      setError(e?.message || "Could not save, check your inputs.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Could not save, check your inputs.");
     } finally {
       setSaving(false);
     }
@@ -449,7 +477,7 @@ function KitchenStaffPage() {
           company_id: editTarget.company_id,
           full_name: editTarget.full_name,
           email: draft.email.trim(),
-        } as any);
+        } as Parameters<typeof kitchenStaffService.upsertStaff>[0]);
       }
       const res = await fetch(`/api/staff/${editTarget.id}/invite-login`, {
         method: "POST",
@@ -467,8 +495,9 @@ function KitchenStaffPage() {
       });
       setDialogOpen(false);
       load();
-    } catch (e: any) {
-      setError(e?.message || "Could not send invite");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Could not send invite");
     } finally {
       setInviting(false);
     }
@@ -482,8 +511,9 @@ function KitchenStaffPage() {
       toast({ title: "Staff archived", description: archiveTarget.full_name });
       setArchiveTarget(null);
       load();
-    } catch (e: any) {
-      toast({ title: "Could not archive", description: e?.message, variant: "destructive" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "Could not archive", description: msg, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -498,11 +528,12 @@ function KitchenStaffPage() {
         full_name: s.full_name,
         is_active: true,
         deleted_at: null,
-      } as any);
+      } as Parameters<typeof kitchenStaffService.upsertStaff>[0]);
       toast({ title: "Restored", description: s.full_name });
       load();
-    } catch (e: any) {
-      toast({ title: "Could not restore", description: e?.message, variant: "destructive" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: "Could not restore", description: msg, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -576,7 +607,7 @@ function KitchenStaffPage() {
                     "Std hours/day", "Departments", "Active", "Start date",
                   ];
                   const lines = [headers.join(",")];
-                  for (const s of visible as any[]) {
+                  for (const s of visible) {
                     lines.push([
                       esc(s.full_name || ""),
                       esc(s.role_title || ""),
@@ -702,8 +733,8 @@ function KitchenStaffPage() {
                 ? staff.filter((s) => s.is_active && !s.deleted_at).length
                 : staff.filter((s) =>
                     s.is_active && !s.deleted_at &&
-                    Array.isArray((s as any).departments) &&
-                    (s as any).departments.includes(d.id),
+                    Array.isArray(s.departments) &&
+                    s.departments.includes(d.id),
                   ).length;
               return (
                 <button
@@ -800,25 +831,23 @@ function KitchenStaffPage() {
                     const archived = !s.is_active || !!s.deleted_at;
                     // STA-B intel: per-row chips and per-row signals
                     // computed once.
-                    const sa = s as unknown as {
-                      pay_type?: string; monthly_salary?: number | null; shift_rate?: number | null;
-                      departments?: string[]; id_number?: string | null;
-                      emergency_contact_phone?: string | null;
-                    };
-                    const payType = (sa.pay_type as "hourly" | "monthly" | "shift" | undefined) || "hourly";
+                    const payType = s.pay_type || "hourly";
                     const isRateless = isStaffRateless(s);
-                    const depts = Array.isArray(sa.departments) ? sa.departments : [];
+                    const depts = Array.isArray(s.departments) ? s.departments : [];
                     // Onboarding completeness: rate + phone + email +
                     // ID + emergency contact + departments. Out of 6.
                     const completeness = [
                       !isRateless,
                       !!s.phone,
                       !!s.email,
-                      !!sa.id_number,
-                      !!sa.emergency_contact_phone,
+                      !!s.id_number,
+                      !!s.emergency_contact_phone,
                       depts.length > 0,
                     ].filter(Boolean).length;
                     const completePct = Math.round((completeness / 6) * 100);
+                    // STA-C intel: per-row activity rollup. Last
+                    // clocked + hours this month + unpaid sessions.
+                    const act = activity.get(s.id);
                     return (
                       <li key={s.id} className={`p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${archived ? "opacity-60" : ""}`}>
                         <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
@@ -880,8 +909,8 @@ function KitchenStaffPage() {
                                   isRateless ? "rate" : null,
                                   !s.phone ? "phone" : null,
                                   !s.email ? "email" : null,
-                                  !sa.id_number ? "ID number" : null,
-                                  !sa.emergency_contact_phone ? "emergency contact" : null,
+                                  !s.id_number ? "ID number" : null,
+                                  !s.emergency_contact_phone ? "emergency contact" : null,
                                   depts.length === 0 ? "department" : null,
                                 ].filter(Boolean).join(", ") || "nothing"}.`}
                               >
@@ -972,6 +1001,47 @@ function KitchenStaffPage() {
                               </a>
                             )}
                           </div>
+                          {/* STA-C: activity rollup strip. Last
+                              clocked + hours this month + unpaid
+                              session count. Hidden when the staff
+                              member has no recorded activity, so a
+                              brand-new staff member doesn't show
+                              "0h this month, never clocked" noise. */}
+                          {!archived && act && (act.last_clocked_at || act.hours_this_month_min > 0 || act.unpaid_session_count > 0) && (
+                            <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                              {act.last_clocked_at ? (
+                                (() => {
+                                  const daysSince = Math.floor((Date.now() - new Date(act.last_clocked_at).getTime()) / 86_400_000);
+                                  const stale = daysSince >= 60;
+                                  return (
+                                    <span
+                                      className={stale ? "text-amber-700" : ""}
+                                      title={`Last clocked ${new Date(act.last_clocked_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`}
+                                    >
+                                      <Clock className="w-3 h-3 inline mr-0.5" />
+                                      Last clocked {daysSince === 0 ? "today" : daysSince === 1 ? "yesterday" : `${daysSince}d ago`}
+                                      {stale ? " - ghost?" : ""}
+                                    </span>
+                                  );
+                                })()
+                              ) : null}
+                              {act.hours_this_month_min > 0 && (
+                                <span title="Total clocked time this calendar month">
+                                  {(act.hours_this_month_min / 60).toFixed(1)}h this month
+                                </span>
+                              )}
+                              {act.unpaid_session_count > 0 && (
+                                <Link
+                                  href={withSlug(`/admin/wages?staffId=${s.id}`)}
+                                  className="text-rose-700 hover:underline inline-flex items-center gap-0.5"
+                                  title="Open the wage dashboard scoped to this person to process their unpaid sessions."
+                                >
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {act.unpaid_session_count} unpaid session{act.unpaid_session_count === 1 ? "" : "s"}
+                                </Link>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs">
                           {/* STA-B: pay-type-aware column block.
@@ -1006,7 +1076,7 @@ function KitchenStaffPage() {
                             <div className="text-right">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500">Monthly salary</div>
                               <div className="font-semibold text-slate-900 tabular-nums">
-                                {sa.monthly_salary != null ? `R ${Number(sa.monthly_salary).toLocaleString("en-ZA")}` : <span className="text-rose-600">Not set</span>}
+                                {s.monthly_salary != null ? `R ${Number(s.monthly_salary).toLocaleString("en-ZA")}` : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}
@@ -1014,7 +1084,7 @@ function KitchenStaffPage() {
                             <div className="text-right">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500">Per shift</div>
                               <div className="font-semibold text-slate-900 tabular-nums">
-                                {sa.shift_rate != null ? `R ${Number(sa.shift_rate).toFixed(2)}` : <span className="text-rose-600">Not set</span>}
+                                {s.shift_rate != null ? `R ${Number(s.shift_rate).toFixed(2)}` : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}
@@ -1107,6 +1177,30 @@ function KitchenStaffPage() {
                 placeholder="staff@example.com"
               />
             </div>
+
+            {/* STA-C: per-branch region select. Hidden when the
+                tenant only has one branch (no point picking from a
+                list of one). NULL means "visible in every region",
+                which is the default for single-branch tenants and
+                the safe fallback for unscoped staff. */}
+            {regionOptions.length > 1 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="flex items-center gap-1">
+                  Branch / region
+                  <InfoTooltip content="Pin this staff member to one branch so a manager viewing another branch doesn't see them. Leave on 'Visible everywhere' if they work across branches." />
+                </Label>
+                <select
+                  value={draft.region_id}
+                  onChange={(e) => setDraft({ ...draft, region_id: e.target.value })}
+                  className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                >
+                  <option value="">Visible everywhere</option>
+                  {regionOptions.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="flex items-center gap-1">
@@ -1359,8 +1453,7 @@ function KitchenStaffPage() {
               Object.keys(bulkRates).map((staffId) => {
                 const s = staff.find((x) => x.id === staffId);
                 if (!s) return null;
-                const sa = s as unknown as { pay_type?: string; departments?: string[] };
-                const payType = sa.pay_type || "hourly";
+                const payType = s.pay_type || "hourly";
                 return (
                   <div key={staffId} className="flex items-center gap-2 p-2 rounded-md border border-slate-200">
                     <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
@@ -1375,9 +1468,9 @@ function KitchenStaffPage() {
                             {payType === "monthly" ? "Monthly" : "Per shift"}
                           </Badge>
                         )}
-                        {Array.isArray(sa.departments) && sa.departments.length > 0 && (
+                        {Array.isArray(s.departments) && s.departments.length > 0 && (
                           <span className="text-slate-400">
-                            {sa.departments.slice(0, 2).map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(" / ")}
+                            {s.departments.slice(0, 2).map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(" / ")}
                           </span>
                         )}
                       </div>
