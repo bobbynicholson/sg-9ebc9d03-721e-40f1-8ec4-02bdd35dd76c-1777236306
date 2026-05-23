@@ -125,10 +125,21 @@ function FinancialDashboardInner() {
       // Load all financial data
       const ordersData = await orderService.getAllOrders(user.company_id);
 
-      const [ledgerData, aiPredictions] = await Promise.all([
-        paymentLedgerService.getPaymentLedger(user.company_id),
-        aiFinancialService.getPredictiveAnalytics(ordersData),
-      ]);
+      // FIN-E (financial dashboard tabs audit): dropped the
+      // aiFinancialService.getPredictiveAnalytics call entirely.
+      // PR #308 replaced the Projections tab's AI Prediction
+      // paragraph with the inline Cashflow read-out that reads
+      // straight off metrics.*, so the returned `aiPredictions`
+      // value was unused. The call also had two production
+      // hazards: (1) when orders=[] it fell back to a cross-tenant
+      // `from('orders').select('*').limit(100)` with no company_id
+      // filter, leaning on RLS to scope - belt-and-braces
+      // missing; (2) it upserted 90 rows into financial_predictions
+      // per page load using a hardcoded 65% expense ratio and a
+      // hardcoded seasonal curve that ignored the per-tenant peak-
+      // season columns we just shipped in PR #309. The table is
+      // not surfaced anywhere; the rows were write-only garbage.
+      const ledgerData = await paymentLedgerService.getPaymentLedger(user.company_id);
 
       // FIN-C: scope to the active region when set. Metrics are
       // computed client-side, so we filter the orders array once here
@@ -929,9 +940,21 @@ function FinancialDashboardInner() {
                       No data yet
                     </div>
                     <p className="text-sm text-slate-500 mt-2">
+                      {/* FIN-E (financial dashboard tabs audit):
+                          widened the empty-state branching. Pre-FIN-E
+                          a tenant whose orders were all in `confirmed`
+                          / `ready` (no delivered or completed rows
+                          yet) saw the "no paid delivered orders" copy
+                          which is technically true but useless - the
+                          actionable next step is filling in
+                          cost_per_unit so margin can be measured ONCE
+                          the orders deliver. The new branching covers
+                          three states. */}
                       {(metrics?.ordersMissingCost || 0) > 0
-                        ? `${metrics?.ordersMissingCost} paid orders in the last 90 days but none have menu costs set. Open /admin/menu to fill in cost_per_unit per item.`
-                        : "No paid delivered orders in the last 90 days yet."}
+                        ? `${metrics?.ordersMissingCost} delivered orders in the last 90 days are missing cost data. Open /admin/menu to fill in cost_per_unit per item.`
+                        : (orders.length > 0
+                          ? "No delivered orders in the last 90 days yet. Margin will start showing once an order is marked delivered or completed AND its menu items have cost_per_unit filled in (set this on /admin/menu)."
+                          : "Once you confirm and deliver your first order, profit margin will appear here.")}
                     </p>
                   </>
                 )}
@@ -956,12 +979,20 @@ function FinancialDashboardInner() {
                     <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content={"Quick snapshot of money in, money out, and what is still owed.\n\nPulled together from your orders and staff wage ledger."} /></CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* FIN-E (financial dashboard tabs audit): the
+                        pre-FIN-E row computed its OWN sum by filtering
+                        payment_status === "paid" and summing
+                        total_amount. Every catering tenant whose
+                        orders sit in `partial` (deposit paid, balance
+                        outstanding) saw R0 here while Current Cash
+                        Flow above correctly showed the real money in.
+                        Reads the canonical metrics.cashReceived now -
+                        same source as the KPI tile. Label renamed to
+                        match the new semantics (it's cash actually
+                        received, not "total paid orders revenue"). */}
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Total Revenue (Paid) <InfoTooltip content={"Total money received across every order marked as paid in full."} /></span>
-                      <span className="font-semibold">{formatCurrency(
-                        orders.filter(o => o.payment_status === "paid")
-                          .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0)
-                      )}</span>
+                      <span className="text-slate-600 flex items-center gap-1">Cash Received <InfoTooltip content={"Sum of amount_paid across every non-cancelled order. Matches the Current Cash Flow tile up top."} /></span>
+                      <span className="font-semibold">{formatCurrency(metrics?.cashReceived || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 flex items-center gap-1">Pending Payments <InfoTooltip content={"Balance still owed on orders that are pending or only partly paid."} /></span>
@@ -1187,9 +1218,56 @@ function FinancialDashboardInner() {
                       )}
                     </div>
 
-                    <Button className="w-full">
-                      View Detailed Expense Report
-                    </Button>
+                    {/* FIN-E (financial dashboard tabs audit): added
+                        Fixed Costs + Supplier Payables rows. Pre-
+                        FIN-E the Expenses tab only listed staff +
+                        inventory while the Overview tab's Financial
+                        Summary card already had the other two. The
+                        Expenses tab is the natural home for them -
+                        moving them here doesn't remove them from
+                        Overview (the operator gets the full picture
+                        on both surfaces). */}
+                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
+                      <div>
+                        <h4 className="font-semibold">Fixed Costs (next 30 days)</h4>
+                        <p className="text-sm text-slate-600">
+                          Recurring rent / software / vehicle costs expanded from the Fixed Costs page.
+                        </p>
+                      </div>
+                      <span className="font-bold text-lg">
+                        {formatCurrency(metrics?.fixedCostsNext30 || 0)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
+                      <div>
+                        <h4 className="font-semibold">Supplier Payables (next 30 days)</h4>
+                        <p className="text-sm text-slate-600">
+                          Unpaid supplier invoices due in the window. From /admin/payables.
+                        </p>
+                      </div>
+                      <span className="font-bold text-lg">
+                        {formatCurrency(metrics?.supplierPayablesNext30 || 0)}
+                      </span>
+                    </div>
+
+                    {/* FIN-E: replaced the dead "View Detailed Expense
+                        Report" button (no onClick, no Link, no asChild
+                        - pure decoration since at least the May 2026
+                        audit) with two deep-links to the actual
+                        sources. */}
+                    <div className="flex gap-2">
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={withSlug("/admin/fixed-costs")}>
+                          Open Fixed Costs
+                        </Link>
+                      </Button>
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={withSlug("/admin/payables")}>
+                          Open Payables
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1291,7 +1369,17 @@ function FinancialDashboardInner() {
                           branch?.address ?? null,
                         );
                         const total = Number(o.total_amount || 0);
-                        const paid = o.payment_status === "paid" ? total : Number(o.amount_paid || 0);
+                        // FIN-E: same enum-drift class as the
+                        // Financial Summary row. amount_paid is the
+                        // single source of truth for cash received;
+                        // the payment_status ternary above pre-FIN-E
+                        // collapsed every paid order to its full
+                        // total even when the deposit hadn't been
+                        // banked yet (and vice-versa for partial
+                        // orders that genuinely held cash). Just
+                        // sum amount_paid - it's been the column of
+                        // record since FIN-B landed.
+                        const paid = Number(o.amount_paid || 0);
                         bucket.revenue += total;
                         bucket.paid += paid;
                         bucket.outstanding += Math.max(total - paid, 0);
