@@ -706,6 +706,186 @@ export const driverPayService = {
   },
 
   /**
+   * WAGE-B (wages deferred, 2026-05-23): one-shot pay totals for
+   * many drivers in a single fetch wave. Replaces the N+1 pattern
+   * the /admin/wages page used (1 round trip per driver via
+   * getPaySummary). For a 20-driver tenant that's 20+ round trips
+   * vs 5 with the bulk call.
+   *
+   * Returns the same totals shape getPaySummary surfaces, keyed by
+   * driver_id. Per-shift / per-delivery breakdowns are NOT computed
+   * here - the wages dashboard only consumes the totals. Callers
+   * that need per-shift detail (the driver-detail drawer) keep
+   * using getPaySummary.
+   */
+  async getBulkPayTotals(
+    opts: { companyId: string; driverIds: string[]; range: DateRange },
+    client: Sb = defaultClient,
+  ): Promise<Map<string, {
+    rates: ReturnType<typeof resolveEffectiveRates>;
+    hours_total: number;
+    hourly_pay: number;
+    distance_total_km: number;
+    distance_pay: number;
+    callout_pay: number;
+    grand_total: number;
+  }>> {
+    const out = new Map<string, {
+      rates: ReturnType<typeof resolveEffectiveRates>;
+      hours_total: number;
+      hourly_pay: number;
+      distance_total_km: number;
+      distance_pay: number;
+      callout_pay: number;
+      grand_total: number;
+    }>();
+    if (opts.driverIds.length === 0) return out;
+
+    // Five parallel fetches, regardless of driver count.
+    const [defaults, profileRows, shiftRows, orderRows, holidayRows] = await Promise.all([
+      this.getCompanyDefaults(opts.companyId, client),
+      (client as any)
+        .from("profiles")
+        .select("id, hourly_rate, distance_rate_per_km, base_callout_fee")
+        .in("id", opts.driverIds)
+        .then((r: any) => (r.data || []) as Array<{
+          id: string;
+          hourly_rate: number | null;
+          distance_rate_per_km: number | null;
+          base_callout_fee: number | null;
+        }>),
+      (client as any)
+        .from("driver_shifts")
+        .select("*")
+        .eq("company_id", opts.companyId)
+        .in("driver_id", opts.driverIds)
+        .is("deleted_at", null)
+        .gte("shift_date", opts.range.from)
+        .lte("shift_date", opts.range.to)
+        .then((r: any) => (r.data || []) as DriverShift[]),
+      (client as any)
+        .from("orders")
+        .select("id, assigned_driver_id, delivery_distance_km")
+        .eq("company_id", opts.companyId)
+        .in("assigned_driver_id", opts.driverIds)
+        .is("deleted_at", null)
+        .eq("status", "delivered")
+        .gte("event_date", opts.range.from)
+        .lte("event_date", opts.range.to)
+        .then((r: any) => (r.data || []) as Array<{
+          id: string;
+          assigned_driver_id: string;
+          delivery_distance_km: number | null;
+        }>),
+      (client as any)
+        .from("public_holidays")
+        .select("date, is_recurring")
+        .eq("company_id", opts.companyId)
+        .then((r: any) => (r.data || []) as Array<{ date: string; is_recurring: boolean }>),
+    ]);
+
+    // Holiday sets (shared across every driver in the batch).
+    const oneOffSet = new Set<string>();
+    const recurringMDSet = new Set<string>();
+    for (const h of holidayRows) {
+      if (!h.date) continue;
+      if (h.is_recurring) recurringMDSet.add(h.date.slice(5));
+      else oneOffSet.add(h.date);
+    }
+
+    const profileById = new Map(profileRows.map((p) => [p.id, p] as const));
+
+    // One bulk fetch for the locked-rate snapshots across every
+    // order the batch hit. Without this we'd otherwise pay per-
+    // driver again to resolve assignments.
+    const orderIds = orderRows.map((o) => o.id);
+    type AssignmentRow = { order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null; total_earnings: number | null };
+    let assignmentRows: AssignmentRow[] = [];
+    if (orderIds.length > 0) {
+      const { data } = await (client as any)
+        .from("driver_assignments")
+        .select("order_id, driver_id, base_fee, distance_fee, total_earnings")
+        .in("driver_id", opts.driverIds)
+        .in("order_id", orderIds)
+        .eq("assignment_type", "delivery");
+      assignmentRows = ((data || []) as AssignmentRow[]);
+    }
+    const assignmentByKey = new Map<string, AssignmentRow>();
+    for (const a of assignmentRows) {
+      assignmentByKey.set(`${a.driver_id}::${a.order_id}`, a);
+    }
+
+    // Group rows by driver_id then run the same calc the per-
+    // driver path uses.
+    const shiftsByDriver = new Map<string, DriverShift[]>();
+    for (const s of shiftRows) {
+      const list = shiftsByDriver.get(s.driver_id) || [];
+      list.push(s);
+      shiftsByDriver.set(s.driver_id, list);
+    }
+    const ordersByDriver = new Map<string, Array<{ id: string; delivery_distance_km: number | null }>>();
+    for (const o of orderRows) {
+      const list = ordersByDriver.get(o.assigned_driver_id) || [];
+      list.push({ id: o.id, delivery_distance_km: o.delivery_distance_km });
+      ordersByDriver.set(o.assigned_driver_id, list);
+    }
+
+    for (const driverId of opts.driverIds) {
+      const profile = profileById.get(driverId) || null;
+      const rates = resolveEffectiveRates(profile, defaults);
+      const shifts = (shiftsByDriver.get(driverId) || []).filter(
+        (s) => s.status === "completed" && s.hours_worked != null,
+      );
+      const shiftLines = shifts.map((s) => {
+        const base = calculateShiftPay(s, rates);
+        if (s.actual_start && s.actual_end) {
+          try {
+            calculateBceaShiftPay(s.actual_start, s.actual_end, rates.hourly_rate, {
+              oneOff: oneOffSet, recurringMD: recurringMDSet,
+            });
+          } catch { /* fall through, base only */ }
+        }
+        return base;
+      });
+      const deliveries = ordersByDriver.get(driverId) || [];
+      const deliveryLines = deliveries.map((o) => {
+        const snap = assignmentByKey.get(`${driverId}::${o.id}`);
+        if (snap && snap.total_earnings != null) {
+          return {
+            order_id: o.id,
+            distance_km: Number(o.delivery_distance_km || 0),
+            distance_rate: o.delivery_distance_km && snap.distance_fee != null && Number(o.delivery_distance_km) > 0
+              ? +(Number(snap.distance_fee) / Number(o.delivery_distance_km)).toFixed(2)
+              : rates.distance_rate_per_km,
+            distance_pay: +Number(snap.distance_fee || 0).toFixed(2),
+            callout_fee: +Number(snap.base_fee || 0).toFixed(2),
+            total: +Number(snap.total_earnings || 0).toFixed(2),
+          };
+        }
+        return calculateDeliveryPay(o, rates);
+      });
+
+      const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
+      const hourlyPay = +shiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
+      const distanceTotalKm = +deliveryLines.reduce((sum, d) => sum + d.distance_km, 0).toFixed(2);
+      const distancePay = +deliveryLines.reduce((sum, d) => sum + d.distance_pay, 0).toFixed(2);
+      const calloutPay = +deliveryLines.reduce((sum, d) => sum + d.callout_fee, 0).toFixed(2);
+
+      out.set(driverId, {
+        rates,
+        hours_total: hoursTotal,
+        hourly_pay: hourlyPay,
+        distance_total_km: distanceTotalKm,
+        distance_pay: distancePay,
+        callout_pay: calloutPay,
+        grand_total: +(hourlyPay + distancePay + calloutPay).toFixed(2),
+      });
+    }
+
+    return out;
+  },
+
+  /**
    * Auto clock-in - called from the dispatch flow when a driver
    * marks an order as picked up. Idempotent: if an open shift
    * already exists for this driver + order, do nothing.
