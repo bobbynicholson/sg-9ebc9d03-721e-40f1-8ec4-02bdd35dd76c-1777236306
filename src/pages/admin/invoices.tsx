@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
@@ -296,7 +297,15 @@ function InvoicesPageInner() {
         .eq("id", cid)
         .maybeSingle();
       if (error) {
-        console.error("[admin/invoices] companies.timezone fetch failed:", error);
+        // INV-A: silent timezone-fetch failure was previously a
+        // console.error only - operator never saw it, the page
+        // quietly fell back to UTC and "today" drifted on after-
+        // hours sessions. Route through observability so Sentry
+        // surfaces it.
+        captureException(error, {
+          level: "warning",
+          tags: { companyId: cid, route: "/admin/invoices", step: "companies_timezone" },
+        });
       }
       if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
     })();
@@ -1499,12 +1508,25 @@ function InvoicesPageInner() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total invoiced <InfoTooltip content={"Total value across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid. See the Collected tile for paid value."} />
+                Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {tenantMoney.format(invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
+                {/* INV-A: drafts + written-off no longer inflate the
+                    headline. A draft has not been issued; a write-off
+                    is closed out. Pre-INV-A a tenant with R10k of
+                    drafts saw their "Total invoiced" tile read R10k
+                    higher than reality, and the gap between Total /
+                    Collected / Outstanding was unexplainable. */}
+                {tenantMoney.format(
+                  invoices
+                    .filter((inv) => {
+                      const s = (inv.status || "").toLowerCase();
+                      return s !== "draft" && s !== "written_off";
+                    })
+                    .reduce((sum, inv) => sum + (inv.total_amount || 0), 0),
+                )}
               </div>
               {/* Wave 67 - VAT collected line. SARS-aware. Sums
                   tax_amount across PAID invoices only - that's
@@ -1753,7 +1775,7 @@ function InvoicesPageInner() {
         {/* Invoices List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-1.5">Invoice History <InfoTooltip content={"Every invoice for your company, newest first, narrowed by your search and status filters."} /></CardTitle>
+            <CardTitle className="flex items-center gap-1.5">Invoices <InfoTooltip content={"Every invoice for your company, newest first, narrowed by your search and status filters."} /></CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -1916,6 +1938,30 @@ function InvoicesPageInner() {
                     } else if (diffDays >= -3) {
                       isDueSoon = true;
                       daysToDue = -diffDays;
+                    }
+                  }
+                  // INV-A (invoices audit): event-today escalation. An
+                  // unpaid balance on the day of the event is the
+                  // single highest-priority chase target - the food
+                  // is being cooked / out the door right now and the
+                  // operator is about to deliver to a client who hasn't
+                  // paid. The overdue / due-soon chip catches due_date
+                  // logic but the SAME invoice can have a deposit
+                  // due_date next week with event TODAY, which slips
+                  // through every existing visual signal. Render the
+                  // chip alongside the badge.
+                  let eventIsToday = false;
+                  if (balanceOpen && liveStatus) {
+                    const evtRaw = (invoice as any).orders?.event_date;
+                    if (evtRaw) {
+                      const evt = new Date(evtRaw);
+                      if (!isNaN(evt.getTime())) {
+                        const evtMid = new Date(evt);
+                        evtMid.setHours(0, 0, 0, 0);
+                        const todayMid = new Date();
+                        todayMid.setHours(0, 0, 0, 0);
+                        eventIsToday = evtMid.getTime() === todayMid.getTime();
+                      }
                     }
                   }
                   const overdueBorder = isOverdue
@@ -2198,6 +2244,19 @@ function InvoicesPageInner() {
                           </span>
                         ) : (
                           getStatusBadge(invoice.status)
+                        )}
+                        {/* INV-A: event-today escalation chip. Stacks
+                            below the primary badge. The kitchen is
+                            cooking, the driver is loading - the
+                            operator has hours, not days, to chase
+                            this. Pulses to draw the eye. */}
+                        {eventIsToday && (
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-300 animate-pulse"
+                            title="The event is today and the balance is still outstanding. Highest-priority chase target."
+                          >
+                            Event today, unpaid
+                          </span>
                         )}
                         {invoice.due_date && (isOverdue || isDueSoon) && (
                           <div className="text-[10px] text-slate-500 tabular-nums">
