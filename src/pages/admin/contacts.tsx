@@ -100,6 +100,12 @@ interface Contact {
   // Lead-side
   leadStatus: string | null;
   leadSource: string | null;
+  // Wave 70.77: aggregated distinct sources across all matched
+  // lead rows. leadSource (above) stays as the first source for
+  // CSV export / single-row display; leadSources is the full set
+  // for the marketing-channel breakdown so a multi-source contact
+  // contributes to every channel it touched.
+  leadSources: string[];
   // Derived
   daysSinceLastTouch: number | null;
   status: ClientStatus;
@@ -502,7 +508,7 @@ function ClientsCRM() {
           orderCount: 0, totalSpent: 0,
           lastEventDate: null, nextEventDate: null,
           outstandingBalance: Number(c.outstanding_balance || 0),
-          leadStatus: null, leadSource: null,
+          leadStatus: null, leadSource: null, leadSources: [],
           daysSinceLastTouch: null,
           status: "won",
           suggestion: { tone: "neutral", label: "Stay in touch", reason: "Existing client" },
@@ -518,7 +524,16 @@ function ClientsCRM() {
         const existing = map.get(k);
         if (existing) {
           existing.leadStatus = l.status;
-          existing.leadSource = l.source;
+          // Wave 70.77: append to the leadSources set; keep
+          // leadSource as the FIRST source seen (was overwriting
+          // with each iteration before).
+          if (l.source) {
+            const norm = String(l.source).trim();
+            if (norm && !existing.leadSources.includes(norm)) {
+              existing.leadSources.push(norm);
+            }
+            if (!existing.leadSource) existing.leadSource = norm;
+          }
           existing.leadIds.push(l.id);
           if (!existing.phone && l.phone) existing.phone = l.phone;
           if (!existing.email && l.email) existing.email = l.email;
@@ -545,6 +560,7 @@ function ClientsCRM() {
             outstandingBalance: 0,
             leadStatus: l.status,
             leadSource: l.source,
+            leadSources: l.source ? [String(l.source).trim()] : [],
             daysSinceLastTouch: null,
             status: "hot_lead",
             suggestion: { tone: "urgent", label: "Reply within 24h", reason: "Lead waiting" },
@@ -582,7 +598,7 @@ function ClientsCRM() {
             orderCount: 0, totalSpent: 0,
             lastEventDate: null, nextEventDate: null,
             outstandingBalance: 0,
-            leadStatus: null, leadSource: null,
+            leadStatus: null, leadSource: null, leadSources: [],
             daysSinceLastTouch: null,
             status: "won",
             suggestion: { tone: "neutral", label: "Stay in touch", reason: "Past customer" },
@@ -884,13 +900,29 @@ function ClientsCRM() {
   // are actually pulling. Only counts contacts where leadSource
   // is set (i.e. contacts that came in as a lead at some point).
   const sourceBreakdown = useMemo(() => {
+    // Wave 70.77: iterate leadSources (distinct across all
+    // matched lead rows) instead of the single leadSource. A
+    // contact that came in via Instagram and Referral was
+    // previously attributed to only the first source seen during
+    // the merge - the marketing channel breakdown now reflects
+    // every channel each contact touched.
     const counts: Record<string, number> = {};
     let withSource = 0;
     for (const c of contacts) {
-      const s = (c.leadSource || "").trim().toLowerCase();
-      if (!s) continue;
-      counts[s] = (counts[s] || 0) + 1;
+      const sources = c.leadSources && c.leadSources.length > 0
+        ? c.leadSources
+        : c.leadSource ? [c.leadSource] : [];
+      if (sources.length === 0) continue;
+      // Each source contributes one tick to its bucket. A
+      // multi-source contact is counted once per channel.
+      // `withSource` counts CONTACTS not channels, so it only
+      // increments once per contact regardless of source count.
       withSource++;
+      for (const raw of sources) {
+        const s = String(raw).trim().toLowerCase();
+        if (!s) continue;
+        counts[s] = (counts[s] || 0) + 1;
+      }
     }
     const ranked = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
