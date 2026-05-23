@@ -25,7 +25,9 @@ import {
 import {
   ChefHat, UserPlus, Pencil, Archive, ArchiveRestore, Search, Phone, Mail,
   DollarSign, Clock, AlertTriangle, ExternalLink, Download, X, RefreshCw,
+  Users, Tag, MessageCircle, CheckCircle2,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -141,6 +143,13 @@ function KitchenStaffPage() {
   const [archiveTarget, setArchiveTarget] = useState<KitchenStaffMember | null>(null);
   const [inviteRole, setInviteRole] = useState<string>("kitchen_staff");
   const [inviting, setInviting] = useState(false);
+  // STA-B intel: bulk-set-rates dialog. When the page loads with N
+  // staff missing rates, the red banner offers a one-click "Bulk
+  // set rates" flow - this dialog lists each rateless staff with
+  // an inline hourly rate input and one Save fires them all.
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRates, setBulkRates] = useState<Record<string, string>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const companyId = (profile as any)?.company_id as string | undefined;
 
@@ -158,6 +167,93 @@ function KitchenStaffPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+
+  // STA-B: realtime subscription. Pre-STA-B the list only refreshed
+  // on mount or a manual Refresh click. A manager archiving someone
+  // on the tablet would leave this surface stale. Debounced to
+  // absorb the burst that follows a bulk-rate-save.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`kitchen-staff:${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` },
+        () => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { void load(); }, 800);
+        },
+      )
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // STA-B: bulk-rate handlers. Seed the input grid from current
+  // rate values (which will be blank for rateless staff) so the
+  // dialog opens with one input per row already focusable.
+  const openBulkRates = () => {
+    const active = staff.filter(s => s.is_active && !s.deleted_at && isStaffRateless(s));
+    const seed: Record<string, string> = {};
+    for (const s of active) seed[s.id] = "";
+    setBulkRates(seed);
+    setBulkOpen(true);
+  };
+  const handleBulkSave = async () => {
+    const entries = Object.entries(bulkRates).filter(([, v]) => v.trim() !== "");
+    if (entries.length === 0) {
+      toast({ title: "Nothing to save", description: "Enter at least one rate first.", variant: "destructive" });
+      return;
+    }
+    // Validate before firing - one bad input shouldn't save the rest.
+    for (const [, raw] of entries) {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        toast({ title: "Bad rate", description: `"${raw}" is not a positive number`, variant: "destructive" });
+        return;
+      }
+    }
+    setBulkSaving(true);
+    let ok = 0;
+    let failed = 0;
+    for (const [staffId, raw] of entries) {
+      const s = staff.find(x => x.id === staffId);
+      if (!s) { failed += 1; continue; }
+      const sa = s as unknown as { pay_type?: string };
+      const pt = sa.pay_type || "hourly";
+      const n = Number(raw);
+      // Write the value into the right column for this person's
+      // pay type. Monthly staff get monthly_salary, per-shift get
+      // shift_rate, hourly get hourly_rate. The bulk dialog only
+      // shows rateless rows so we never overwrite an existing rate.
+      const payload: Record<string, unknown> = {
+        id: staffId,
+        company_id: s.company_id,
+        full_name: s.full_name,
+      };
+      if (pt === "monthly") payload.monthly_salary = n;
+      else if (pt === "shift") payload.shift_rate = n;
+      else payload.hourly_rate = n;
+      try {
+        await kitchenStaffService.upsertStaff(payload as Parameters<typeof kitchenStaffService.upsertStaff>[0]);
+        ok += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setBulkSaving(false);
+    toast({
+      title: `${ok} rate${ok === 1 ? "" : "s"} saved${failed > 0 ? `, ${failed} failed` : ""}`,
+      description: "Wage dashboard picks them up on next refresh.",
+      variant: failed > 0 ? "destructive" : "default",
+    });
+    setBulkOpen(false);
+    void load();
+  };
 
   // Filtered view - search + archived toggle + department filter
   const visibleRaw = useMemo(() => {
@@ -187,12 +283,30 @@ function KitchenStaffPage() {
 
   // Headline stats: how many on the books, how many missing rates (a real
   // gap because the wage dashboard can't compute earnings without them).
+  //
+  // STA-B (staff audit, 2026-05-23): the missingRate count is now
+  // pay-type aware. Pre-STA-B `s.hourly_rate == null` flagged
+  // monthly-salaried staff (who legitimately have no hourly rate)
+  // as "missing", inflating the count and making the warning meaningless.
+  const isStaffRateless = (s: KitchenStaffMember): boolean => {
+    const sa = s as unknown as { pay_type?: string; monthly_salary?: number | null; shift_rate?: number | null };
+    const pt = sa.pay_type || "hourly";
+    if (pt === "hourly") return s.hourly_rate == null;
+    if (pt === "monthly") return sa.monthly_salary == null;
+    if (pt === "shift") return sa.shift_rate == null;
+    return s.hourly_rate == null;
+  };
   const stats = useMemo(() => {
     const active = staff.filter(s => s.is_active && !s.deleted_at);
-    const missingRate = active.filter(s => s.hourly_rate == null).length;
+    const missingRate = active.filter(isStaffRateless).length;
+    const archived = staff.filter(s => !s.is_active || !!s.deleted_at).length;
+    const ratelessNames = active.filter(isStaffRateless).map(s => s.full_name).slice(0, 5);
     return {
       total: active.length,
       missingRate,
+      archived,
+      ratelessNames,
+      ratelessMore: Math.max(0, active.filter(isStaffRateless).length - 5),
     };
   }, [staff]);
 
@@ -267,6 +381,16 @@ function KitchenStaffPage() {
     }
     if (draft.pay_type === "shift" && shiftRate == null) {
       setError("Per-shift rate is required when pay type is 'shift'");
+      return;
+    }
+    // STA-B: pre-STA-B the hourly path silently allowed saving with
+    // a blank rate, which is why every new tenant ended up with
+    // every staff row showing "Not set" and the wage dashboard
+    // reading R0 for everyone. Require it now. If the operator
+    // genuinely doesn't have a number yet they can pick Monthly or
+    // Per shift with a placeholder, or leave the row archived.
+    if (draft.pay_type === "hourly" && rate == null) {
+      setError("Hourly rate is required when pay type is 'hourly'. Wage dashboard skips staff without a rate.");
       return;
     }
     const departments = draft.departments.length > 0 ? draft.departments : ["kitchen"];
@@ -389,7 +513,7 @@ function KitchenStaffPage() {
     // consistency. COMPANY_ADMIN was missing - same pattern as
     // ORD-6 / LDS-10 pre-fix.
     <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
-      <Head><title>Kitchen Staff, CateringMS</title></Head>
+      <Head><title>Staff & rates, CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -399,15 +523,19 @@ function KitchenStaffPage() {
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <ChefHat className="w-6 h-6 text-white" />
+                <Users className="w-6 h-6 text-white" />
               </div>
               <div>
+                {/* STA-B: hero rebranded "Staff & rates" - the page
+                    covers Kitchen / Cleaning / Shopping / Service /
+                    Office, not just the kitchen. The Users icon
+                    replaces ChefHat for the same reason. */}
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Kitchen Staff
-                  <InfoTooltip content="Add the people working in your kitchen, set their rates and standard daily hours.\n\nThe kitchen tablet board shows their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The kitchen surface never sees them." />
+                  Staff &amp; rates
+                  <InfoTooltip content="Add the people working across kitchen, cleaning, shopping, service and office, set their rates and standard daily hours.\n\nThe department tablet boards show their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The team surfaces never see them." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
-                  Kitchen, cleaning, and shopping team roster. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager.
+                  Team roster across every department. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager.
                 </p>
               </div>
             </div>
@@ -465,7 +593,9 @@ function KitchenStaffPage() {
                       esc(s.start_date || ""),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // STA-B: UTF-8 BOM so Excel-ZA renders the R
+                  // symbol + non-ASCII names correctly.
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -485,6 +615,48 @@ function KitchenStaffPage() {
               </Button>
             </div>
           </div>
+
+          {/* STA-B: missing-rate banner. Pre-STA-B this was an amber
+              tile that looked like every other stat; operators
+              missed it and never realised the wage dashboard was
+              reading R0 across the board. Now: a red banner that
+              names names and offers a one-click bulk-set flow.
+              Collapses to the secondary tile once < half are
+              missing - by then it's a polish nag, not a page-
+              defining bug. */}
+          {stats.missingRate > 0 && stats.missingRate >= Math.ceil(stats.total / 2) && (
+            <Alert variant="destructive" className="mb-5 border-rose-300 bg-rose-50">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-semibold text-rose-900">
+                  {stats.missingRate} of {stats.total} active staff have no rate set.
+                </div>
+                <p className="text-xs text-rose-800 mt-1">
+                  The wage dashboard is calculating R0 for these people. Set rates so payroll, the cashflow forecast and the wage report all line up.
+                </p>
+                {stats.ratelessNames.length > 0 && (
+                  <p className="text-xs text-rose-700 mt-1">
+                    Missing: {stats.ratelessNames.join(", ")}
+                    {stats.ratelessMore > 0 ? ` and ${stats.ratelessMore} more` : ""}.
+                  </p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                    onClick={openBulkRates}
+                  >
+                    Bulk-set rates
+                  </Button>
+                  <Link href={withSlug("/admin/wages")}>
+                    <Button size="sm" variant="outline" className="border-rose-300 text-rose-800">
+                      Open wage dashboard
+                    </Button>
+                  </Link>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Stat strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
@@ -579,7 +751,12 @@ function KitchenStaffPage() {
             </div>
             <div className="flex items-center gap-2 px-3 rounded-md border border-slate-200 bg-white">
               <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
-              <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">Show archived</Label>
+              <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">
+                Show archived
+                {stats.archived > 0 && (
+                  <span className="ml-1.5 text-xs text-slate-500">({stats.archived})</span>
+                )}
+              </Label>
             </div>
             <SortMenu
               activeKey={staffSort.sortKey}
@@ -621,6 +798,27 @@ function KitchenStaffPage() {
                   {visible.map((s) => {
                     const otRate = effectiveOvertimeRate(s);
                     const archived = !s.is_active || !!s.deleted_at;
+                    // STA-B intel: per-row chips and per-row signals
+                    // computed once.
+                    const sa = s as unknown as {
+                      pay_type?: string; monthly_salary?: number | null; shift_rate?: number | null;
+                      departments?: string[]; id_number?: string | null;
+                      emergency_contact_phone?: string | null;
+                    };
+                    const payType = (sa.pay_type as "hourly" | "monthly" | "shift" | undefined) || "hourly";
+                    const isRateless = isStaffRateless(s);
+                    const depts = Array.isArray(sa.departments) ? sa.departments : [];
+                    // Onboarding completeness: rate + phone + email +
+                    // ID + emergency contact + departments. Out of 6.
+                    const completeness = [
+                      !isRateless,
+                      !!s.phone,
+                      !!s.email,
+                      !!sa.id_number,
+                      !!sa.emergency_contact_phone,
+                      depts.length > 0,
+                    ].filter(Boolean).length;
+                    const completePct = Math.round((completeness / 6) * 100);
                     return (
                       <li key={s.id} className={`p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${archived ? "opacity-60" : ""}`}>
                         <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
@@ -630,8 +828,67 @@ function KitchenStaffPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-slate-900 truncate">{s.full_name}</span>
                             {s.role_title && <Badge variant="outline" className="text-[10px]">{s.role_title}</Badge>}
+                            {/* STA-B: pay-type chip - "Monthly" or
+                                "Per shift" instead of leaving the
+                                row to silently render the wrong
+                                columns. Hourly stays unbadged (the
+                                default + the columns are visible). */}
+                            {payType === "monthly" && (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Monthly</Badge>
+                            )}
+                            {payType === "shift" && (
+                              <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">Per shift</Badge>
+                            )}
+                            {/* STA-B: department badges so the All
+                                view tells the operator which team
+                                each row belongs to. */}
+                            {depts.length > 0 && (
+                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 inline-flex items-center gap-0.5">
+                                <Tag className="w-2.5 h-2.5" />
+                                {depts.slice(0, 2).map((d) => (ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d)).join(" / ")}
+                                {depts.length > 2 ? ` +${depts.length - 2}` : ""}
+                              </Badge>
+                            )}
                             {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
-                            {s.linked_profile_id && <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Logs in</Badge>}
+                            {s.linked_profile_id ? (
+                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Logs in</Badge>
+                            ) : (
+                              // STA-B: inverse signal. Pre-STA-B
+                              // the "Logs in" pill only fired on
+                              // staff with a portal login; staff
+                              // without were unbadged, leaving the
+                              // operator to guess the split. Now
+                              // every row carries one or the other.
+                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">Clock-in only</Badge>
+                            )}
+                            {/* STA-B: rate-missing chip on the row
+                                so the operator can fix it without
+                                opening the dialog. */}
+                            {!archived && isRateless && (
+                              <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 inline-flex items-center gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                Rate missing
+                              </Badge>
+                            )}
+                            {/* STA-B: onboarding completeness chip.
+                                Hidden once 100% so it doesn't add
+                                noise. */}
+                            {!archived && completePct < 100 && (
+                              <span
+                                className="text-[10px] text-slate-500 inline-flex items-center gap-0.5"
+                                title={`Onboarding ${completePct}% complete. Missing: ${[
+                                  isRateless ? "rate" : null,
+                                  !s.phone ? "phone" : null,
+                                  !s.email ? "email" : null,
+                                  !sa.id_number ? "ID number" : null,
+                                  !sa.emergency_contact_phone ? "emergency contact" : null,
+                                  depts.length === 0 ? "department" : null,
+                                ].filter(Boolean).join(", ") || "nothing"}.`}
+                              >
+                                <CheckCircle2 className="w-2.5 h-2.5" />
+                                {completePct}%
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                             {/* Phase 21 #9: click-to-copy phone +
@@ -675,25 +932,92 @@ function KitchenStaffPage() {
                                 <Mail className="w-3 h-3" />{s.email}
                               </button>
                             )}
+                            {/* STA-B: deep-link quick actions next
+                                to the click-to-copy buttons above.
+                                Same pattern contacts page uses for
+                                client rows. */}
+                            {s.phone && (
+                              <a
+                                href={`tel:${String(s.phone).replace(/[^+\d]/g, "")}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-slate-500 hover:text-slate-800"
+                                title={`Call ${s.phone}`}
+                                aria-label={`Call ${s.full_name}`}
+                              >
+                                <Phone className="w-3 h-3" />
+                              </a>
+                            )}
+                            {s.phone && (
+                              <a
+                                href={`https://wa.me/${String(s.phone).replace(/[^\d]/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-green-700 hover:text-green-900"
+                                title={`WhatsApp ${s.full_name}`}
+                                aria-label={`WhatsApp ${s.full_name}`}
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                              </a>
+                            )}
+                            {s.email && (
+                              <a
+                                href={`mailto:${s.email}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-slate-500 hover:text-slate-800"
+                                title={`Email ${s.email}`}
+                                aria-label={`Email ${s.full_name}`}
+                              >
+                                <Mail className="w-3 h-3" />
+                              </a>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
-                          <div className="text-right">
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Standard</div>
-                            <div className="font-semibold text-slate-900 tabular-nums">
-                              {s.hourly_rate != null ? `R ${Number(s.hourly_rate).toFixed(2)}/h` : <span className="text-amber-600">Not set</span>}
+                          {/* STA-B: pay-type-aware column block.
+                              Pre-STA-B every row rendered the
+                              hourly Standard/Overtime/Std-day
+                              columns, so monthly + per-shift staff
+                              showed "Not set" forever. */}
+                          {payType === "hourly" && (
+                            <>
+                              <div className="text-right">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Standard</div>
+                                <div className="font-semibold text-slate-900 tabular-nums">
+                                  {s.hourly_rate != null ? `R ${Number(s.hourly_rate).toFixed(2)}/h` : <span className="text-rose-600">Not set</span>}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Overtime</div>
+                                <div className="font-semibold text-slate-900 tabular-nums">
+                                  {otRate != null ? `R ${otRate.toFixed(2)}/h` : "--"}
+                                </div>
+                              </div>
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-0.5">
+                                  Std day
+                                  <InfoTooltip content="Anything above this in a single day flips to overtime. SA BCEA default is 9h." />
+                                </div>
+                                <div className="font-semibold text-slate-900 tabular-nums">{s.standard_hours_per_day}h</div>
+                              </div>
+                            </>
+                          )}
+                          {payType === "monthly" && (
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase tracking-wider text-slate-500">Monthly salary</div>
+                              <div className="font-semibold text-slate-900 tabular-nums">
+                                {sa.monthly_salary != null ? `R ${Number(sa.monthly_salary).toLocaleString("en-ZA")}` : <span className="text-rose-600">Not set</span>}
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Overtime</div>
-                            <div className="font-semibold text-slate-900 tabular-nums">
-                              {otRate != null ? `R ${otRate.toFixed(2)}/h` : "--"}
+                          )}
+                          {payType === "shift" && (
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase tracking-wider text-slate-500">Per shift</div>
+                              <div className="font-semibold text-slate-900 tabular-nums">
+                                {sa.shift_rate != null ? `R ${Number(sa.shift_rate).toFixed(2)}` : <span className="text-rose-600">Not set</span>}
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right hidden sm:block">
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Std day</div>
-                            <div className="font-semibold text-slate-900 tabular-nums">{s.standard_hours_per_day}h</div>
-                          </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEdit(s)}>
@@ -1009,6 +1333,79 @@ function KitchenStaffPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add staff"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* STA-B: bulk-set rates dialog. Triggered by the red banner.
+          Lists every rateless active staff member with an inline
+          rate input; one Save fires every non-empty row through
+          upsertStaff. The pay-type chip + role badge tell the
+          operator who they're looking at so the same rate doesn't
+          get pasted on a monthly-salaried row by accident. */}
+      <Dialog open={bulkOpen} onOpenChange={(open) => { setBulkOpen(open); if (!open) setBulkRates({}); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bulk-set hourly rates</DialogTitle>
+            <DialogDescription>
+              One input per rateless staff member. Leave any row blank to skip it. Save fires them all in one go and the wage dashboard picks them up on next refresh.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-y-auto -mx-1 px-1 space-y-2">
+            {Object.keys(bulkRates).length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-6">No rateless staff. You&apos;re done.</p>
+            ) : (
+              Object.keys(bulkRates).map((staffId) => {
+                const s = staff.find((x) => x.id === staffId);
+                if (!s) return null;
+                const sa = s as unknown as { pay_type?: string; departments?: string[] };
+                const payType = sa.pay_type || "hourly";
+                return (
+                  <div key={staffId} className="flex items-center gap-2 p-2 rounded-md border border-slate-200">
+                    <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                      <ChefHat className="w-3.5 h-3.5 text-orange-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">{s.full_name}</div>
+                      <div className="text-[10px] text-slate-500 inline-flex items-center gap-1 flex-wrap">
+                        {s.role_title && <span>{s.role_title}</span>}
+                        {payType !== "hourly" && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0">
+                            {payType === "monthly" ? "Monthly" : "Per shift"}
+                          </Badge>
+                        )}
+                        {Array.isArray(sa.departments) && sa.departments.length > 0 && (
+                          <span className="text-slate-400">
+                            {sa.departments.slice(0, 2).map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(" / ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={bulkRates[staffId] || ""}
+                        onChange={(e) => setBulkRates((prev) => ({ ...prev, [staffId]: e.target.value }))}
+                        placeholder={payType === "hourly" ? "R/h" : payType === "monthly" ? "R/mo" : "R/shift"}
+                        className="w-24 h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkSaving}>Cancel</Button>
+            <Button
+              onClick={handleBulkSave}
+              disabled={bulkSaving || Object.values(bulkRates).every((v) => !v.trim())}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {bulkSaving ? "Saving..." : "Save rates"}
             </Button>
           </DialogFooter>
         </DialogContent>
