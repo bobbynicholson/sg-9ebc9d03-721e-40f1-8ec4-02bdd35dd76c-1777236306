@@ -59,6 +59,21 @@ const VEHICLE_TYPES = [
   { id: "other",        label: "Other" },
 ];
 
+// VEH-B (vehicles audit, VEH-1): legacy values produced by earlier seed
+// + edit paths that wrote `car` even though the dropdown only ever
+// offered `sedan`. The 20260523140000 migration backfills the column
+// to `sedan` on every existing row, but a stale tab or cached payload
+// could still surface the old label; resolve both to the same display
+// string so the row subtitle never falls through to the raw column
+// value.
+const VEHICLE_TYPE_ALIASES: Record<string, string> = { car: "sedan" };
+const resolveVehicleTypeLabel = (raw: string | null | undefined): string | null => {
+  if (!raw) return null;
+  const canonical = VEHICLE_TYPE_ALIASES[raw] || raw;
+  const match = VEHICLE_TYPES.find((t) => t.id === canonical);
+  return match ? match.label : raw;
+};
+
 interface UtilisationRow {
   vehicle: Vehicle;
   runs: number;
@@ -242,6 +257,31 @@ function VehiclesPage() {
     refrigerated: vehicles.filter(v => v.refrigerated).length,
   }), [vehicles]);
 
+  // VEH-B (vehicles audit, VEH-5): cold-chain coverage gap warning.
+  // The hero copy promises that refrigerated vehicles "unlock cold-
+  // chain orders for assignment". If the fleet has zero refrigerated
+  // vehicles AND any non-cancelled order on the books needs
+  // refrigeration, dispatchService.findAvailableVehicles will silently
+  // return [] for those orders and the dispatcher has no signal until
+  // the assignment fails. Soft warning surfaced inline.
+  const [coldChainPending, setColdChainPending] = useState<number>(0);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { count } = await (supabase as any)
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("requires_refrigeration", true)
+        .not("status", "in", "(cancelled,completed)")
+        .gte("event_date", today);
+      if (!cancelled) setColdChainPending(count || 0);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, vehicles.length]);
+
   // Phase 19 #5: maintenance rollup, same shape as the equipment
   // page's banner. The cron broadcasts daily but the fleet list
   // itself never surfaced 'how many vehicles are overdue right now'
@@ -298,7 +338,10 @@ function VehiclesPage() {
       make: v.make || "",
       model: v.model || "",
       year: v.year != null ? String(v.year) : "",
-      vehicle_type: v.vehicle_type || "bakkie",
+      // VEH-B (VEH-1): map legacy `car` -> `sedan` so the dropdown
+      // lands on the right option when editing a pre-backfill row
+      // that's still in a stale client cache.
+      vehicle_type: VEHICLE_TYPE_ALIASES[v.vehicle_type || ""] || v.vehicle_type || "bakkie",
       owner_kind: v.owner_kind || "company",
       driver_owner_id: v.driver_owner_id || "",
       primary_driver_id: v.primary_driver_id || "",
@@ -319,21 +362,59 @@ function VehiclesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.plate.trim()) { setError("Number plate is required."); return; }
+    const trimmedPlate = form.plate.trim().toUpperCase();
+    if (!trimmedPlate) { setError("Number plate is required."); return; }
     if (!companyId) { setError("No company on your profile."); return; }
     if (form.owner_kind === "driver" && !form.driver_owner_id) {
       setError("Pick which driver owns this vehicle.");
       return;
     }
+    // VEH-B (vehicles audit, VEH-2): client-side duplicate-plate
+    // preflight. The 20260523140000 migration enforces uniqueness at
+    // the DB level with a partial unique index, but the index error
+    // bubbles up as an opaque Postgres message; this guard gives a
+    // clean toast pointing at the conflicting row instead.
+    try {
+      const { data: dup } = await (supabase as any)
+        .from("vehicles")
+        .select("id, plate, nickname")
+        .eq("company_id", companyId)
+        .eq("plate", trimmedPlate)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (dup && (!editTarget || dup.id !== editTarget.id)) {
+        setError(
+          `Plate ${trimmedPlate} is already on ${dup.nickname || "another vehicle"}. Plates must be unique per company.`,
+        );
+        return;
+      }
+    } catch {
+      // The dup-check is opportunistic; the DB constraint still
+      // catches it if the lookup fails for any reason.
+    }
+    // VEH-B (vehicles audit, VEH-3): NaN guard on year. Pre-VEH-B
+    // typing letters into the year input produced Number("abc")=NaN
+    // which Postgres rejected with a 22P02 invalid-input error rather
+    // than the friendly "Year doesn't look right" UX a number field
+    // implies.
+    let parsedYear: number | null = null;
+    if (form.year !== "") {
+      const yr = Number(form.year);
+      if (!Number.isFinite(yr) || yr < 1900 || yr > 2100) {
+        setError("Year must be a number between 1900 and 2100.");
+        return;
+      }
+      parsedYear = yr;
+    }
     setSaving(true);
     setError("");
     try {
       const payload = {
-        plate: form.plate.trim(),
+        plate: trimmedPlate,
         nickname: form.nickname.trim() || null,
         make: form.make.trim() || null,
         model: form.model.trim() || null,
-        year: form.year ? Number(form.year) : null,
+        year: parsedYear,
         vehicle_type: form.vehicle_type || null,
         owner_kind: form.owner_kind,
         driver_owner_id: form.owner_kind === "driver" ? (form.driver_owner_id || null) : null,
@@ -356,11 +437,11 @@ function VehiclesPage() {
       };
       if (editTarget) {
         await vehicleService.updateVehicle(editTarget.id, payload as any);
-        toast({ title: "Vehicle updated", description: form.plate.trim() });
+        toast({ title: "Vehicle updated", description: trimmedPlate });
       } else {
         await vehicleService.createVehicle({
           companyId,
-          plate: form.plate.trim(),
+          plate: trimmedPlate,
           nickname: payload.nickname,
           make: form.make.trim(),
           model: form.model.trim(),
@@ -377,7 +458,7 @@ function VehiclesPage() {
           requiresTwoPeople: form.requires_two_people,
           notes: form.notes.trim(),
         });
-        toast({ title: "Vehicle added", description: form.plate.trim() });
+        toast({ title: "Vehicle added", description: trimmedPlate });
       }
       setEditTarget(null);
       setShowNew(false);
@@ -493,6 +574,20 @@ function VehiclesPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* VEH-B (vehicles audit, VEH-5): cold-chain coverage gap.
+              Pre-VEH-B a tenant with cold-chain orders queued + zero
+              refrigerated vehicles got no signal until the dispatch
+              suggester silently returned an empty list. */}
+          {stats.refrigerated === 0 && coldChainPending > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+              <Snowflake className="w-4 h-4 text-blue-700" />
+              <span className="text-xs font-medium text-blue-900">Cold-chain gap:</span>
+              <span className="text-xs text-blue-900">
+                {coldChainPending} upcoming order{coldChainPending === 1 ? "" : "s"} need{coldChainPending === 1 ? "s" : ""} refrigerated transport but no vehicle on your fleet is marked refrigerated. Dispatch can&apos;t suggest a vehicle for {coldChainPending === 1 ? "it" : "them"} until you add or flag one.
+              </span>
+            </div>
+          )}
 
           {/* Phase 19 #5: service-due rollup. Renders only when at
               least one vehicle is overdue or due within 7 days. Same
@@ -673,7 +768,7 @@ function VehiclesPage() {
                         </div>
                         <p className="text-xs text-slate-500 truncate">
                           {[v.make, v.model, v.year ? `${v.year}` : null].filter(Boolean).join(" ")}
-                          {v.vehicle_type && <> · {VEHICLE_TYPES.find(t => t.id === v.vehicle_type)?.label || v.vehicle_type}</>}
+                          {v.vehicle_type && <> · {resolveVehicleTypeLabel(v.vehicle_type)}</>}
                           {v.capacity_kg != null && <> · {v.capacity_kg}kg</>}
                           {v.max_pax_served != null && <> · serves {v.max_pax_served}</>}
                           {v.cargo_volume_litres != null && <> · {v.cargo_volume_litres}L</>}
@@ -805,8 +900,18 @@ function VehiclesPage() {
                         <option key={d.id} value={d.id}>{d.full_name || d.email}</option>
                       ))}
                     </select>
+                    {/* VEH-B (vehicles audit, VEH-4): honest copy. The
+                        pre-VEH-B promise ("dispatch will suggest this
+                        driver first whenever this vehicle is on the
+                        run") is not implemented anywhere -
+                        findAvailableVehicles in vehicleService.ts
+                        never reads primary_driver_id. Until that's
+                        wired into the dispatch ranking heuristic the
+                        field is metadata only. */}
                     <p className="text-[11px] text-slate-500 mt-1">
-                      When set, dispatch will suggest this driver first whenever this vehicle is on the run.
+                      Default driver for this vehicle. Recorded for
+                      reference; dispatch ranking does not yet bias
+                      toward this driver.
                     </p>
                   </div>
                 )}
