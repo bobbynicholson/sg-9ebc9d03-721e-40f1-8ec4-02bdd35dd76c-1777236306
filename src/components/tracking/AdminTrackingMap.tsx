@@ -161,7 +161,15 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       .channel(`driver-locations-${companyId || "global"}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "gps_tracking" },
+        // Wave 70.62: gps_tracking now carries company_id (migration
+        // 20260523080000) populated by a BEFORE INSERT trigger, so
+        // the binding can finally filter server-side. The previous
+        // handler-side defence (drop unknown driver_id when companyId
+        // set) stays as belt-and-braces in case a row predates the
+        // backfill.
+        companyId
+          ? { event: "INSERT", schema: "public", table: "gps_tracking", filter: `company_id=eq.${companyId}` }
+          : { event: "INSERT", schema: "public", table: "gps_tracking" },
         (payload: any) => {
           const row = payload?.new;
           if (!row?.driver_id) return;
@@ -170,10 +178,11 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
           setLiveDriverLocations((prev) => {
-            // Tenant scope. We don't get company_id on gps_tracking
-            // rows, so we accept the update only if we already know
-            // this driver (i.e. they appeared in pullInitial for this
-            // tenant). Drivers from other tenants are silently ignored.
+            // Belt-and-braces: even with the server-side filter
+            // above, drop a payload that doesn't match a known
+            // driver we already pulled for this tenant. A legacy
+            // gps_tracking row with company_id=NULL would skip the
+            // filter but we still want to ignore it here.
             const existing = prev.findIndex((d) => d.id === row.driver_id);
             if (existing === -1 && companyId) return prev;
 
