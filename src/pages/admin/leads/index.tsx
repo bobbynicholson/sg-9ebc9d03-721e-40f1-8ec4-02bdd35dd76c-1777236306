@@ -514,6 +514,27 @@ function AdminLeadsInner() {
 
   const fromName = profile?.full_name || profile?.company_name || "the team";
 
+  // Wave 70.88: flip a lead to "quoted" when the operator starts
+  // building a quote from it. Only flips upstream statuses (new /
+  // contacted / qualified) - never downgrades a lead that's
+  // already in negotiating / won / converted / lost. Updates the
+  // local state optimistically so the row's chip reflects the
+  // new status before the page refetches.
+  const flipLeadToQuoted = async (lead: any) => {
+    const current = String(lead.status || "new").toLowerCase();
+    const upstream = new Set(["new", "contacted", "qualified"]);
+    if (!upstream.has(current)) return;
+    try {
+      await leadService.updateLead(lead.id, { status: "quoted" } as any);
+      setLeads((prev) => prev.map((l) =>
+        l.id === lead.id ? { ...l, status: "quoted" } : l,
+      ));
+    } catch {
+      // Non-fatal - operator is already navigating to the quote
+      // builder; next page reload will re-read the real status.
+    }
+  };
+
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
     if (kind === "view_order" && links.orderId) {
       router.push(withSlug(`/admin/orders?orderId=${links.orderId}`));
@@ -535,6 +556,14 @@ function AdminLeadsInner() {
       return;
     }
     if (kind === "send_quote") {
+      // Wave 70.88: flip the lead status to "quoted" before
+      // navigating. Pre-fix the lead stayed in its current
+      // bucket forever (new / qualified / contacted) even
+      // after the operator started building a quote, so the
+      // funnel KPIs lied. We DO NOT downgrade leads that are
+      // already past quoted (negotiating / won / converted)
+      // since those are progressed states.
+      void flipLeadToQuoted(lead);
       router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
       return;
     }
@@ -1551,7 +1580,14 @@ function AdminLeadsInner() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
+                                    // Wave 70.88: flip the lead to
+                                    // quoted before navigating, same
+                                    // as the suggestion CTA's
+                                    // send_quote path.
+                                    onClick={() => {
+                                      void flipLeadToQuoted(lead);
+                                      router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
+                                    }}
                                     className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
                                     title={`Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`}
                                   >
