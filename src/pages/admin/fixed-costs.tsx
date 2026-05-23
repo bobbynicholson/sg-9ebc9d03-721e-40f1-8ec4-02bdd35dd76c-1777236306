@@ -40,7 +40,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, TrendingUp, Calendar } from "lucide-react";
+import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, TrendingUp, Calendar, Upload, Tag, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -49,7 +49,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import {
-  fixedCostsService, type FixedCost, type Cadence,
+  fixedCostsService, type FixedCost, type Cadence, type FixedCostCategory,
+  FIXED_COST_CATEGORIES,
 } from "@/services/fixedCostsService";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -112,6 +113,7 @@ interface DraftState {
   cadence: Cadence;
   next_due_date: string;
   notes: string;
+  category: FixedCostCategory | "";
 }
 
 const EMPTY_DRAFT: DraftState = {
@@ -120,7 +122,110 @@ const EMPTY_DRAFT: DraftState = {
   cadence: "monthly",
   next_due_date: "",
   notes: "",
+  category: "",
 };
+
+// FXC-B: bulk CSV import row shape - same shape Payables uses so
+// the parser logic mirrors that one. Required: label, amount,
+// cadence, next_due_date. Optional: category, notes.
+interface BulkRow {
+  line: number;
+  label: string;
+  amount_cents: number;
+  cadence: Cadence;
+  next_due_date: string;
+  category: FixedCostCategory | null;
+  notes: string | null;
+  error: string | null;
+}
+
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+function parseAmount(raw: string): number {
+  const cleaned = raw.replace(/[R$£€\s]/g, "").replace(/,(?=\d{3}(\D|$))/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n > 0 ? n : NaN;
+}
+
+function parseDate(raw: string): string | null {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const slash = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
+  if (slash) {
+    const [, a, b, c] = slash;
+    if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
+    if (c.length === 4) return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
+  }
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+const VALID_CADENCES: Cadence[] = ["weekly", "monthly", "quarterly", "annual"];
+const VALID_CATEGORIES = new Set(FIXED_COST_CATEGORIES.map((c) => c.value));
+
+function parseBulkCsv(csv: string): BulkRow[] {
+  const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const out: BulkRow[] = [];
+  const startsWithHeader = /label|amount/i.test(lines[0]);
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0 && startsWithHeader) continue;
+    const cols = splitCsvLine(lines[i]);
+    const label = cols[0] || "";
+    const amountRaw = cols[1] || "";
+    const cadenceRaw = (cols[2] || "monthly").toLowerCase().trim();
+    const dueRaw = cols[3] || "";
+    const categoryRaw = (cols[4] || "").toLowerCase().trim();
+    const notes = (cols[5] || "").trim() || null;
+    const errs: string[] = [];
+    if (!label) errs.push("label missing");
+    const amt = parseAmount(amountRaw);
+    if (!Number.isFinite(amt)) errs.push(`bad amount "${amountRaw}"`);
+    const cadence = VALID_CADENCES.includes(cadenceRaw as Cadence) ? (cadenceRaw as Cadence) : null;
+    if (!cadence) errs.push(`bad cadence "${cadenceRaw}" (expected weekly / monthly / quarterly / annual)`);
+    const due = parseDate(dueRaw);
+    if (!due) errs.push(`bad date "${dueRaw}"`);
+    const category = categoryRaw && VALID_CATEGORIES.has(categoryRaw as FixedCostCategory)
+      ? (categoryRaw as FixedCostCategory)
+      : null;
+    if (categoryRaw && !category) errs.push(`unknown category "${categoryRaw}"`);
+    out.push({
+      line: i + 1,
+      label,
+      amount_cents: Number.isFinite(amt) ? Math.round(amt * 100) : 0,
+      cadence: cadence || "monthly",
+      next_due_date: due || "",
+      category,
+      notes,
+      error: errs.length ? errs.join("; ") : null,
+    });
+  }
+  return out;
+}
+
+function categoryLabel(c: FixedCostCategory | null): string {
+  if (!c) return "Uncategorised";
+  return FIXED_COST_CATEGORIES.find((x) => x.value === c)?.label || c;
+}
 
 function FixedCostsPage() {
   const { user, profile } = useAuth();
@@ -138,6 +243,18 @@ function FixedCostsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [pausedExpanded, setPausedExpanded] = useState(false);
+  // FXC-B: group-by-category view (off by default - flat list is
+  // the long-standing shape; toggle on when the cost set is large
+  // enough to want grouping).
+  const [groupByCategory, setGroupByCategory] = useState(false);
+  // FXC-B: bulk CSV import dialog state. Mirrors the payables
+  // pattern (PR-95) - paste / type CSV, hit Preview, see per-row
+  // validation, then Import.
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCsv, setBulkCsv] = useState("");
+  const [bulkPreview, setBulkPreview] = useState<BulkRow[] | null>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ ok: number; failed: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!companyId) return;
@@ -189,6 +306,7 @@ function FixedCostsPage() {
       cadence: row.cadence,
       next_due_date: row.next_due_date,
       notes: row.notes || "",
+      category: row.category || "",
     });
     setDialogOpen(true);
   };
@@ -214,6 +332,7 @@ function FixedCostsPage() {
           cadence: draft.cadence,
           next_due_date: draft.next_due_date,
           notes: draft.notes || null,
+          category: draft.category || null,
         });
         if (row) {
           toast({ title: "Fixed cost updated" });
@@ -230,6 +349,7 @@ function FixedCostsPage() {
           cadence: draft.cadence,
           next_due_date: draft.next_due_date,
           notes: draft.notes || null,
+          category: draft.category || null,
           created_by: userId,
         });
         if (row) {
@@ -252,6 +372,55 @@ function FixedCostsPage() {
   const handleToggleActive = async (id: string, active: boolean) => {
     const row = await fixedCostsService.update(id, { active });
     if (row) void load();
+  };
+
+  // FXC-B: bulk CSV import handlers, mirroring payables.
+  const openBulk = () => {
+    setBulkCsv("");
+    setBulkPreview(null);
+    setBulkResult(null);
+    setBulkOpen(true);
+  };
+
+  const handleBulkPreview = () => {
+    setBulkPreview(parseBulkCsv(bulkCsv));
+    setBulkResult(null);
+  };
+
+  const handleBulkImport = async () => {
+    if (!companyId || !bulkPreview) return;
+    const valid = bulkPreview.filter((r) => !r.error);
+    if (valid.length === 0) {
+      toast({ title: "Nothing to import", description: "All rows have errors. Fix them first.", variant: "destructive" });
+      return;
+    }
+    setBulkImporting(true);
+    let ok = 0;
+    let failed = 0;
+    for (const r of valid) {
+      const row = await fixedCostsService.create({
+        company_id: companyId,
+        label: r.label,
+        amount_cents: r.amount_cents,
+        cadence: r.cadence,
+        next_due_date: r.next_due_date,
+        notes: r.notes,
+        category: r.category,
+        created_by: userId,
+      });
+      if (row) ok++; else failed++;
+    }
+    setBulkImporting(false);
+    setBulkResult({ ok, failed });
+    if (ok > 0) {
+      toast({
+        title: `Imported ${ok} fixed cost${ok === 1 ? "" : "s"}`,
+        description: failed > 0 ? `${failed} failed - check the report below.` : "Cashflow forecast picks them up on next load.",
+      });
+      void load();
+    } else {
+      toast({ title: "Import failed", description: "No rows saved.", variant: "destructive" });
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -303,6 +472,22 @@ function FixedCostsPage() {
     return { d30: b.d30 / 100, d60: b.d60 / 100, d90: b.d90 / 100 };
   }, [activeRows]);
 
+  // FXC-B intel: group active rows by category for the toggle view.
+  // Categories with NULL fall under "Uncategorised". Sorts groups
+  // by total monthly spend desc so the biggest cost buckets are
+  // top of the list.
+  const groupedByCategory = useMemo(() => {
+    const groups = new Map<string, { category: FixedCostCategory | null; rows: FixedCost[]; monthlyCents: number }>();
+    for (const r of activeRows) {
+      const key = r.category || "__none__";
+      const existing = groups.get(key) || { category: r.category, rows: [], monthlyCents: 0 };
+      existing.rows.push(r);
+      existing.monthlyCents += toMonthlyCents(r.amount_cents, r.cadence);
+      groups.set(key, existing);
+    }
+    return Array.from(groups.values()).sort((a, b) => b.monthlyCents - a.monthlyCents);
+  }, [activeRows]);
+
   // FXC-A intel: largest single line (more than 40% of monthly burn)
   // gets a "Largest line" chip so the operator knows where
   // renegotiation has the most leverage.
@@ -345,10 +530,16 @@ function FixedCostsPage() {
                 .
               </p>
             </div>
-            <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Add fixed cost
-            </Button>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={openBulk} variant="outline">
+                <Upload className="w-4 h-4 mr-1.5" />
+                Bulk import
+              </Button>
+              <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add fixed cost
+              </Button>
+            </div>
           </div>
 
           {/* FXC-A: three summary tiles. Active + Monthly were the
@@ -448,6 +639,23 @@ function FixedCostsPage() {
             </div>
           )}
 
+          {/* FXC-B: group-by-category toggle. Off by default - flat
+              list is the long-standing shape. Toggle on when the
+              cost set has enough variety to want grouping. */}
+          {activeRows.length > 1 && (
+            <div className="mb-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setGroupByCategory((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900"
+                title="Group active rows by category"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                {groupByCategory ? "Flat list" : "Group by category"}
+              </button>
+            </div>
+          )}
+
           <Card>
             <CardContent className="p-0">
               {loading ? (
@@ -455,6 +663,35 @@ function FixedCostsPage() {
               ) : rows.length === 0 ? (
                 <div className="p-12 text-center text-slate-400">
                   No fixed costs yet. Add rent, software subscriptions, or vehicles.
+                </div>
+              ) : groupByCategory && activeRows.length > 0 ? (
+                <div className="divide-y divide-slate-200">
+                  {groupedByCategory.map((g) => (
+                    <div key={g.category || "__none__"}>
+                      <div className="px-4 py-2 bg-slate-50 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                          {categoryLabel(g.category)}
+                        </span>
+                        <span className="text-xs tabular-nums text-slate-600">
+                          {fmt(g.monthlyCents / 100, currency)} / mo . {g.rows.length} line{g.rows.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {g.rows.map((r) => (
+                          <CostRow
+                            key={r.id}
+                            row={r}
+                            currency={currency}
+                            fmt={fmt}
+                            isLargest={r.id === largestLineId}
+                            onEdit={() => openEdit(r)}
+                            onToggle={(v) => handleToggleActive(r.id, v)}
+                            onDelete={() => setDeleteId(r.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -574,6 +811,21 @@ function FixedCostsPage() {
               />
             </div>
             <div className="space-y-1.5">
+              <Label>Category (optional)</Label>
+              <Select
+                value={draft.category || "__none__"}
+                onValueChange={(v) => setDraft({ ...draft, category: v === "__none__" ? "" : (v as FixedCostCategory) })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Uncategorised</SelectItem>
+                  {FIXED_COST_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Notes (optional)</Label>
               <Textarea
                 rows={2}
@@ -607,6 +859,90 @@ function FixedCostsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* FXC-B: bulk CSV import dialog. Same paste-CSV +
+          preview + import pattern Payables uses. CSV columns:
+          label, amount, cadence, next_due_date, category, notes.
+          Header row auto-detected. */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Bulk import fixed costs</DialogTitle>
+            <DialogDescription>
+              Paste a CSV with these columns: <code className="text-xs">label, amount, cadence, next_due_date, category (optional), notes (optional)</code>.
+              Cadence is one of: weekly / monthly / quarterly / annual.
+              Dates accept YYYY-MM-DD or DD/MM/YYYY.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>CSV</Label>
+              <Textarea
+                rows={6}
+                value={bulkCsv}
+                onChange={(e) => setBulkCsv(e.target.value)}
+                placeholder={"label,amount,cadence,next_due_date,category,notes\nOffice rent,12000,monthly,2026-07-01,rent,Main premises\nVodacom,1800,monthly,2026-07-01,telecoms,3 x cell contracts"}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleBulkPreview} disabled={!bulkCsv.trim() || bulkImporting}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Preview
+              </Button>
+              {bulkPreview && bulkPreview.some((r) => !r.error) && (
+                <Button onClick={handleBulkImport} disabled={bulkImporting} className="bg-emerald-600 hover:bg-emerald-700">
+                  {bulkImporting ? "Importing..." : `Import ${bulkPreview.filter((r) => !r.error).length} row${bulkPreview.filter((r) => !r.error).length === 1 ? "" : "s"}`}
+                </Button>
+              )}
+            </div>
+            {bulkPreview && (
+              <div className="border rounded-md overflow-hidden text-xs">
+                <div className="bg-slate-50 px-3 py-2 grid grid-cols-12 gap-2 font-semibold text-slate-700">
+                  <div className="col-span-1">#</div>
+                  <div className="col-span-3">Label</div>
+                  <div className="col-span-2">Amount</div>
+                  <div className="col-span-2">Cadence</div>
+                  <div className="col-span-2">Next due</div>
+                  <div className="col-span-2">Category</div>
+                </div>
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                  {bulkPreview.map((r) => (
+                    <div
+                      key={r.line}
+                      className={`px-3 py-2 grid grid-cols-12 gap-2 ${r.error ? "bg-rose-50" : "bg-white"}`}
+                    >
+                      <div className="col-span-1 text-slate-500">{r.line}</div>
+                      <div className="col-span-3 truncate" title={r.label}>{r.label || <span className="text-slate-400">—</span>}</div>
+                      <div className="col-span-2 tabular-nums">{r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-slate-400">—</span>}</div>
+                      <div className="col-span-2">{r.cadence}</div>
+                      <div className="col-span-2 tabular-nums">{r.next_due_date || <span className="text-slate-400">—</span>}</div>
+                      <div className="col-span-2 text-slate-600">{r.category ? categoryLabel(r.category) : <span className="text-slate-400">—</span>}</div>
+                      {r.error && (
+                        <div className="col-span-12 text-rose-700 mt-1">
+                          <AlertCircle className="w-3 h-3 inline mr-1" />
+                          {r.error}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {bulkResult && (
+              <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs">
+                <span className="font-semibold text-emerald-700">{bulkResult.ok} imported</span>
+                {bulkResult.failed > 0 && (
+                  <span className="ml-3 text-rose-700">{bulkResult.failed} failed</span>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)} disabled={bulkImporting}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -640,6 +976,27 @@ function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: 
   // FXC-A intel: annual cadence + due in <=14d = big lumpy hit
   // incoming. Worth a chip so the operator can pre-fund.
   const isAnnualSoon = row.cadence === "annual" && row.active && daysToNext != null && daysToNext <= 14 && daysToNext >= 0;
+  // FXC-B intel: renegotiation chip. The amount-change trigger in
+  // migration 20260523180000 stamps last_amount_change_at on every
+  // amount edit. NULL last_amount_change_at means "never edited" -
+  // we use created_at as the proxy in that case so an ancient row
+  // that was right the first time still flags. >= 365 days at the
+  // same amount earns the chip.
+  const lastChange = row.last_amount_change_at
+    ? new Date(row.last_amount_change_at)
+    : (row.created_at ? new Date(row.created_at) : null);
+  const monthsAtAmount = lastChange && !isNaN(lastChange.getTime())
+    ? Math.floor((today.getTime() - lastChange.getTime()) / (1000 * 60 * 60 * 24 * 30))
+    : 0;
+  const isStaleAmount = row.active && monthsAtAmount >= 12;
+  // FXC-B: previous_amount_cents is stamped by the same trigger so
+  // we can render "was R 1,500" under the current amount. Only show
+  // when the change happened in the last 18 months - older context
+  // is noise.
+  const showPreviousAmount = row.previous_amount_cents != null
+    && row.last_amount_change_at
+    && monthsAtAmount <= 18
+    && row.previous_amount_cents !== row.amount_cents;
 
   return (
     <div className="flex items-center gap-4 p-4 hover:bg-slate-50">
@@ -674,10 +1031,25 @@ function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: 
             <Badge
               variant="outline"
               className="text-[10px] border-amber-300 text-amber-800 bg-amber-50"
-              title="The stored next_due_date is in the past. The forecast walks forward client-side, but a daily cron should be advancing this. Edit the row to update."
+              title="The stored next_due_date is in the past. The forecast walks forward client-side, and the nightly cron should be catching up. Edit the row to set a fresh date if this persists."
             >
               <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
               Date drifted
+            </Badge>
+          )}
+          {isStaleAmount && (
+            <Badge
+              variant="outline"
+              className="text-[10px] border-blue-300 text-blue-800 bg-blue-50"
+              title={`Same amount for ${monthsAtAmount} months. Most fixed costs renegotiate annually - worth a check.`}
+            >
+              Renegotiate? {monthsAtAmount}mo unchanged
+            </Badge>
+          )}
+          {row.category && (
+            <Badge variant="outline" className="text-[10px] text-slate-600 border-slate-200">
+              <Tag className="w-2.5 h-2.5 mr-0.5" />
+              {categoryLabel(row.category)}
             </Badge>
           )}
         </div>
@@ -696,6 +1068,16 @@ function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: 
         <div className={`font-semibold tabular-nums ${row.active ? "text-slate-900" : "text-slate-400"}`}>
           {fmt(row.amount_cents / 100, currency)}
         </div>
+        {/* FXC-B: previous amount annotation. Stamped by the
+            amount-change trigger so we can show "was R X, N mo ago"
+            without an audit_logs query. Helps the operator place
+            the most recent renegotiation. */}
+        {showPreviousAmount && row.previous_amount_cents != null && (
+          <div className="text-[10px] text-slate-500 tabular-nums">
+            was {fmt(row.previous_amount_cents / 100, currency)}
+            {monthsAtAmount > 0 ? `, ${monthsAtAmount}mo ago` : ""}
+          </div>
+        )}
         {/* FXC-A: per-row annualised hint. R1,800/mo = R21,600/yr.
             Makes the renegotiation conversation concrete. */}
         <div className="text-[10px] text-slate-400 tabular-nums">
