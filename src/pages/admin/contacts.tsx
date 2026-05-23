@@ -1878,71 +1878,39 @@ function ClientsCRM() {
                     disabled={deleting || !typedOk}
                     onClick={async () => {
                       setDeleting(true);
-                      const stamp = new Date().toISOString();
-                      const errors: string[] = [];
-                      if (c.clientId) {
-                        const { error } = await supabase
-                          .from("clients")
-                          .update({ deleted_at: stamp })
-                          .eq("id", c.clientId)
-                          .eq("company_id", companyId);
-                        if (error) errors.push(`client: ${error.message}`);
-                      }
-                      if (c.leadIds.length > 0) {
-                        const { error } = await supabase
-                          .from("leads")
-                          .update({ deleted_at: stamp })
-                          .in("id", c.leadIds)
-                          .eq("company_id", companyId);
-                        if (error) errors.push(`leads: ${error.message}`);
-                      }
-                      if (c.quoteIds.length > 0) {
-                        const { error } = await supabase
-                          .from("quotes")
-                          .update({ deleted_at: stamp })
-                          .in("id", c.quoteIds)
-                          .eq("company_id", companyId);
-                        if (error) errors.push(`quotes: ${error.message}`);
-                      }
-                      if (c.orderIds.length > 0) {
-                        const { error } = await supabase
-                          .from("orders")
-                          .update({ deleted_at: stamp })
-                          .in("id", c.orderIds)
-                          .eq("company_id", companyId);
-                        if (error) errors.push(`orders: ${error.message}`);
-                      }
-                      if (c.invoiceIds.length > 0) {
-                        const { error } = await supabase
-                          .from("invoices")
-                          .update({ deleted_at: stamp })
-                          .in("id", c.invoiceIds)
-                          .eq("company_id", companyId);
-                        if (error) errors.push(`invoices: ${error.message}`);
-                      }
-                      if (deleteBlockToo && c.email) {
-                        const { error } = await supabase
-                          .from("blocked_contacts")
-                          .insert({
-                            company_id: companyId,
-                            email_lower: c.email.toLowerCase().trim(),
-                            phone: c.phone || null,
-                            reason: `Deleted via Contacts on ${new Date().toLocaleDateString("en-ZA")}`,
-                          });
-                        // Conflict on existing block is fine - means
-                        // we already had them blocked, no toast.
-                        if (error && !String(error.message).match(/duplicate|unique/i)) {
-                          errors.push(`block: ${error.message}`);
-                        }
-                      }
+                      // Wave 70.79: transactional soft-delete via
+                      // soft_delete_contact_cascade RPC. Pre-fix
+                      // this was five sequential UPDATEs + a sixth
+                      // INSERT to blocked_contacts; if call #3
+                      // failed, #1 and #2 had already committed and
+                      // the operator was left with a half-deleted
+                      // graph. The RPC wraps the whole thing in a
+                      // single transaction - any failure rolls
+                      // back, no half-states.
+                      const { error: rpcErr } = await (supabase as any).rpc(
+                        "soft_delete_contact_cascade",
+                        {
+                          p_company_id: companyId,
+                          p_client_id: c.clientId,
+                          p_lead_ids: c.leadIds,
+                          p_quote_ids: c.quoteIds,
+                          p_order_ids: c.orderIds,
+                          p_invoice_ids: c.invoiceIds,
+                          p_block_email: deleteBlockToo && c.email ? c.email : null,
+                          p_block_phone: deleteBlockToo && c.email ? (c.phone || null) : null,
+                          p_block_reason: deleteBlockToo
+                            ? `Deleted via Contacts on ${new Date().toLocaleDateString("en-ZA")}`
+                            : null,
+                        },
+                      );
                       setDeleting(false);
                       setConfirmDelete(null);
                       setDeleteBlockToo(false);
                       setConfirmText("");
-                      if (errors.length > 0) {
+                      if (rpcErr) {
                         toast({
-                          title: "Partly failed",
-                          description: errors.join("; "),
+                          title: "Delete failed",
+                          description: rpcErr.message || "Nothing was changed - rolled back.",
                           variant: "destructive",
                         });
                       } else {
