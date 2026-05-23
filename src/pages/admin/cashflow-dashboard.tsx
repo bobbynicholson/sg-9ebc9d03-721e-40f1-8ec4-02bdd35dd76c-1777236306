@@ -21,7 +21,9 @@ import {
   FileText, Wallet, Receipt, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 import { toLocalISO } from "@/lib/localDate";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
@@ -64,6 +66,11 @@ export default function ProtectedCashflowDashboardPage() {
         UserRole.SUPER_ADMIN,
         UserRole.COMPANY_ADMIN,
         UserRole.ADMIN,
+        // CASH-A (cashflow dashboard audit): the OWNER role landed in
+        // task #104 but never picked up this gate. Owners are the
+        // single most likely persona to want a "can I pay this week?"
+        // forecast yet were locked out of the page.
+        UserRole.OWNER,
       ]}
     >
       <CashflowDashboardInner />
@@ -74,6 +81,11 @@ export default function ProtectedCashflowDashboardPage() {
 function CashflowDashboardInner() {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
+  // CASH-A: region scoping. Without this, a multi-branch tenant sees
+  // the company-wide forecast even when the global region filter is
+  // set; the financial-dashboard page already respects this filter
+  // (FIN-C) so the two pages disagreed on what "Net 30d" means.
+  const { regionFilterId } = useRegionFilter();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CashflowMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
@@ -96,13 +108,41 @@ function CashflowDashboardInner() {
 
       const companyId = user.company_id;
       const ordersData = await orderService.getAllOrders(companyId);
-      setOrders(ordersData);
+      // CASH-A: filter the orders array by the active region filter
+      // BEFORE every downstream calc. Staff / fixed costs / supplier
+      // payables totals stay company-wide because none of those tables
+      // carry region_id - same trade-off as the financial-dashboard
+      // FIN-C scoping.
+      const scopedOrders = regionFilterId
+        ? ordersData.filter((o) => (o as { region_id?: string | null }).region_id === regionFilterId)
+        : ordersData;
+      setOrders(scopedOrders);
 
       const ledger = await paymentLedgerService.getPaymentLedger(companyId);
-      const cashReceived = ordersData
-        .filter((o) => o.payment_status === "paid")
-        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      // CASH-A: same enum-drift fix the financial dashboard got in
+      // FIN-B. payment_status="paid" misses every deposit-paid order
+      // (which is most catering orders); amount_paid on non-cancelled
+      // rows is the source of truth for cash actually received.
+      const cashReceived = scopedOrders
+        .filter((o) => o.status !== "cancelled")
+        .reduce((sum, o) => sum + (Number((o as { amount_paid?: number | string | null }).amount_paid) || 0), 0);
       const staffPaymentsOwed = ledger.totalOwed || 0;
+      // CASH-A: projected revenue feeds the AI alert engine. Pre-CASH-A
+      // this passed 0, which made cashFlowRatio = 0 / upcomingExpenses
+      // = 0 in aiFinancialService.generateCashFlowAlerts:88, tripping
+      // the "Tight Cash Flow Expected" warning on every page load
+      // regardless of actual inflow. Real projection is the sum of
+      // non-cancelled orders with event_date in [today, today+30].
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const horizon = new Date(today.getTime() + 30 * 86_400_000);
+      const projectedRevenue30Days = scopedOrders
+        .filter((o) => {
+          if (!o.event_date || o.status === "cancelled") return false;
+          const d = new Date(o.event_date);
+          return !isNaN(d.getTime()) && d >= today && d <= horizon;
+        })
+        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
       // Mirror the CashflowForecastCard cost feeds so the summary
       // and chart move in sync. Best-effort: a missing table / RLS
@@ -119,7 +159,10 @@ function CashflowDashboardInner() {
           0,
         );
       } catch (fcErr) {
-        console.warn("[cashflow-dashboard] fixed_costs load failed:", fcErr);
+        captureException(fcErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "fixed_costs" },
+        });
       }
       try {
         const { data: payables } = await (supabase as any)
@@ -133,12 +176,25 @@ function CashflowDashboardInner() {
         supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
           .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
       } catch (spErr) {
-        console.warn("[cashflow-dashboard] supplier_payables load failed:", spErr);
+        captureException(spErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "supplier_payables" },
+        });
       }
 
-      const pendingPayments = ordersData
-        .filter((o) => ["pending", "partially_paid"].includes(o.payment_status || ""))
-        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      // CASH-A: pending payments = outstanding balance, not gross
+      // total. Pre-CASH-A this summed total_amount on every pending+
+      // partial order, so a R10,587 order with a R5,350 deposit
+      // showed up as R10,587 "outstanding" instead of R5,237. Same
+      // mismatch the financial-dashboard had at FIN-B.
+      const pendingPayments = scopedOrders
+        .filter((o) => o.status !== "cancelled"
+          && (o.payment_status === "pending" || o.payment_status === "partial"))
+        .reduce((sum, o) => {
+          const total = Number(o.total_amount) || 0;
+          const paid = Number((o as { amount_paid?: number | string | null }).amount_paid) || 0;
+          return sum + Math.max(0, total - paid);
+        }, 0);
 
       setMetrics({
         cashReceived,
@@ -151,25 +207,68 @@ function CashflowDashboardInner() {
 
       // AI alerts use the same payload as the financial dashboard
       // so the narrative reads consistently across both pages.
-      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(ordersData, {
+      // CASH-A: projectedRevenue30Days is now a real number (was 0
+      // pre-CASH-A, which made the "Tight Cash Flow Expected" branch
+      // always trip).
+      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(scopedOrders, {
         currentCashFlow: cashReceived - staffPaymentsOwed,
-        projectedRevenue30Days: 0,
+        projectedRevenue30Days,
         upcomingExpenses: staffPaymentsOwed + fixedCostsNext30 + supplierPayablesNext30,
       });
       setAlerts(generatedAlerts);
     } catch (e: any) {
-      console.error("[cashflow-dashboard] load failed:", e);
+      captureException(e, {
+        level: "error",
+        tags: { companyId: user?.company_id, route: "/admin/cashflow-dashboard", step: "load" },
+      });
       setLoadError(e?.message || "Couldn't load the cashflow figures. Try again.");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, regionFilterId]);
 
   useEffect(() => {
     if (user) {
       void load();
     }
   }, [user, load]);
+
+  // CASH-A: realtime channel scoped to the caller's company so the
+  // forecast updates when orders / payments / fixed_costs / supplier_
+  // payables / equipment_hire_orders mutate in another tab. Pre-CASH-A
+  // the operator had to hit Refresh manually.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-cashflow-dashboard:${companyId}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "fixed_costs", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "supplier_payables", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   const net30 = (metrics?.cashReceived || 0)
     - (metrics?.staffPaymentsOwed || 0)

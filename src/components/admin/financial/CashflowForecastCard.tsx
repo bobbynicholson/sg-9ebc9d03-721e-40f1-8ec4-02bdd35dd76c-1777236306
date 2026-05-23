@@ -31,6 +31,7 @@ import {
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -447,7 +448,15 @@ export function CashflowForecastCard({
   const updatedAgeHours = cashUpdatedAt
     ? (Date.now() - new Date(cashUpdatedAt).getTime()) / (60 * 60 * 1000)
     : Infinity;
-  const isStale = updatedAgeHours > 24;
+  // CASH-A (cashflow dashboard audit): stale threshold widened from 24h
+  // to 72h. The bookkeeper visit cadence at most SMB caterers is
+  // weekly, not daily; 24h fired the "Stale" badge any time the
+  // operator refreshed the page more than a day after entering the
+  // bank balance even when nothing material had happened. 72h matches
+  // a typical Mon/Wed/Fri reconciliation rhythm and stops the badge
+  // crying wolf. A per-tenant configurable threshold sits on the
+  // follow-up list.
+  const isStale = updatedAgeHours > 72;
 
   const handleSave = async () => {
     const parsed = Number(draft.replace(/[^0-9.-]/g, ""));
@@ -497,7 +506,27 @@ export function CashflowForecastCard({
           },
         });
       } catch (auditErr) {
-        console.warn("[CashflowForecastCard] audit log insert failed:", auditErr);
+        // CASH-A (cashflow dashboard audit): pre-CASH-A this swallowed
+        // the audit failure with a console.warn that nobody saw, so
+        // the operator got a confident "Cash on hand updated" toast
+        // even when the audit row never landed. Route through Sentry
+        // (carries tenant tags via observability.ts) AND surface a
+        // soft toast so the bookkeeper-export trail can be inspected.
+        captureException(auditErr, {
+          level: "warning",
+          tags: {
+            companyId,
+            userId: userId ?? null,
+            route: "/admin/cashflow-dashboard",
+            step: "audit_logs.insert",
+            action: "financial.cash_on_hand.update",
+          },
+        });
+        toast({
+          title: "Cash on hand saved, audit log skipped",
+          description: "The bank balance updated but the audit trail row didn't land. Sentry has the event.",
+          variant: "destructive",
+        });
       }
 
       setCashOnHand(parsed);
@@ -641,7 +670,18 @@ export function CashflowForecastCard({
             {/* Breakdown so the forecast number isn't a black box. */}
             <div className="mt-2 space-y-0.5 text-xs">
               <div className="flex justify-between text-slate-600">
-                <span>Income in window</span>
+                {/* CASH-A (cashflow dashboard audit): label clarity.
+                    Pre-CASH-A this said "Income in window" - the
+                    operator reasonably read it as cash arriving. But
+                    the chart subtracts per-order COGS from each day,
+                    so the bottom-line forecast is income LESS the
+                    cost-to-make. Either rename the line or surface
+                    the COGS deduction below; cleaner to acknowledge
+                    the gross/net split in the label. */}
+                <span>
+                  Order revenue (gross)
+                  <InfoTooltip content={"Sum of total_amount on non-cancelled orders with an event_date inside the forecast window. The chart subtracts per-order COGS from each day, so the bottom-line forecast is net of the cost to make. The Inventory (90d COGS) line on the Current Cash Flow tile and the Net Cash Flow row on the financial dashboard report the historical version."} />
+                </span>
                 <span className="tabular-nums text-green-700">
                   +{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedRevenueForWindow, currency)}
                 </span>
@@ -743,8 +783,14 @@ export function CashflowForecastCard({
                 <Download className="w-3 h-3 mr-1" />
                 CSV
               </Button>
+              {/* CASH-A: pre-CASH-A the label rendered "{series.length}
+                  days" which produced "31 DAYS" for the "30 days"
+                  dropdown because the bucket loop is d <= horizonDays
+                  (day 0 = today, day 30 = +30d, 31 points total).
+                  Confusing vs the dropdown. New copy is honest about
+                  the inclusive window. */}
               <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                {series.length} days
+                Today + {horizonDays}d
               </span>
             </div>
           </div>
