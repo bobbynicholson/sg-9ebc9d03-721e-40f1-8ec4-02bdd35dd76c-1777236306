@@ -1346,7 +1346,70 @@ function ClientsCRM() {
                   }
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  {/* Wave 70.78: mobile card fallback. The 7-column
+                      table forced a horizontal scroll on phone; the
+                      operator had to drag sideways to read more than
+                      the first 2 columns. Below sm we render the
+                      same rows as stacked cards. */}
+                  <div className="sm:hidden divide-y divide-slate-100">
+                    {visible.map((c) => {
+                      const meta = STATUS_META[c.status];
+                      const Icon = meta.icon;
+                      const lastContacted = contactedKeys[c.key];
+                      const ltv = c.totalSpent + (c.historicalLifetimeSpend ?? 0);
+                      return (
+                        <button
+                          key={`m-${c.key}`}
+                          type="button"
+                          id={`contact-row-mobile-${c.key}`}
+                          className={`w-full text-left p-3 hover:bg-slate-50 transition-colors ${focusedContactKey === c.key ? "bg-amber-50/40 ring-2 ring-amber-300" : ""}`}
+                          onClick={() => { setEditing(c); setFormOpen(true); }}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
+                              <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "—"}</p>
+                            </div>
+                            <Badge className={`${meta.tone} text-[10px] gap-1 shrink-0`}>
+                              <Icon className="w-3 h-3" />
+                              {meta.label}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
+                            <span className="tabular-nums">
+                              {c.orderCount + (c.historicalTotalEvents ?? 0)} order{(c.orderCount + (c.historicalTotalEvents ?? 0)) === 1 ? "" : "s"}
+                            </span>
+                            {ltv > 0 && (
+                              <span className="tabular-nums">{fmtMoney.format(ltv)} LTV</span>
+                            )}
+                            {c.outstandingBalance > 0 && (
+                              <span className="tabular-nums text-rose-700 font-medium">
+                                {fmtMoney.format(c.outstandingBalance)} owed
+                              </span>
+                            )}
+                            {c.daysSinceLastTouch != null && (
+                              <span>{c.daysSinceLastTouch}d quiet</span>
+                            )}
+                            {lastContacted && (
+                              <span className="text-emerald-700">✓ contacted</span>
+                            )}
+                          </div>
+                          {c.suggestion?.label && (
+                            <div className={`mt-1.5 text-[11px] ${
+                              c.suggestion.tone === "urgent" ? "text-rose-700 font-medium" :
+                              c.suggestion.tone === "warm" ? "text-amber-700" :
+                              "text-slate-500"
+                            }`}>
+                              {c.suggestion.label}{c.suggestion.reason ? ` - ${c.suggestion.reason}` : ""}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Tablet + desktop: full 7-col table. */}
+                  <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
@@ -1656,7 +1719,8 @@ function ClientsCRM() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
