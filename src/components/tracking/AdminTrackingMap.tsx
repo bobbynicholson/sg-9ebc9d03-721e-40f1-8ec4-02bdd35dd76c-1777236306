@@ -64,35 +64,67 @@ const venueIcon = new L.DivIcon({
   iconAnchor: [15, 40],
 });
 
-// Map updater component to handle center changes
-function MapUpdater({ center }: { center: [number, number] }) {
+// Wave 70.63: MapUpdater now fits to bounds ONCE on mount instead
+// of re-panning + re-zooming on every center change. Pre-fix every
+// driver ping triggered setMapCenter via the average-of-points
+// effect below, which triggered MapUpdater's setView, which yanked
+// the user's map back to a recomputed centre mid-pan. With dozens
+// of pins ticking the page felt unusable.
+//
+// New behaviour:
+//   - Fit to the bounding box of all venue + driver points on the
+//     first paint that has at least one valid coord.
+//   - On subsequent renders, leave the user's map alone - they can
+//     pan / zoom freely and the pins move under them.
+//   - A "Recentre" button in the toolbar (rendered by the parent)
+//     can call back into this via the `recentreSignal` prop to
+//     manually re-fit. Not added yet; signal hook exposed for later.
+function MapUpdater({
+  points,
+  recentreSignal,
+}: {
+  points: Array<{ lat: number; lng: number }>;
+  recentreSignal: number;
+}) {
   const map = useMap();
+  const didInitialFitRef = useRef(false);
+  const lastSignalRef = useRef(0);
   useEffect(() => {
-    if (center[0] !== 0 && center[1] !== 0) {
-      map.setView(center, 12);
+    const valid = points.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && !(p.lat === 0 && p.lng === 0),
+    );
+    if (valid.length === 0) return;
+    const wantsFit = !didInitialFitRef.current || recentreSignal !== lastSignalRef.current;
+    if (!wantsFit) return;
+    if (valid.length === 1) {
+      map.setView([valid[0].lat, valid[0].lng], 13);
+    } else {
+      const bounds = L.latLngBounds(valid.map((p) => [p.lat, p.lng] as [number, number]));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
     }
-  }, [center, map]);
+    didInitialFitRef.current = true;
+    lastSignalRef.current = recentreSignal;
+  }, [points, recentreSignal, map]);
   return null;
 }
 
 export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpdate, companyId }: AdminTrackingMapProps) {
   const [liveDriverLocations, setLiveDriverLocations] = useState<DriverLocation[]>(driverLocations);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
+  // Wave 70.63: initial map center retained for the MapContainer
+  // mount (Leaflet needs an initial value), but the actual bounds
+  // fit is driven by MapUpdater consuming points + recentreSignal.
+  // setMapCenter no longer fires on every driver ping - the
+  // average-of-points effect was driving the auto-pan jank.
+  const [mapCenter] = useState<[number, number]>([-29.8587, 31.0218]); // ZA-ish fallback
   const subscriptionRef = useRef<any>(null);
-
-  // Calculate map center
-  useEffect(() => {
-    const allLocations = [
-      ...orders.map(o => ({ lat: o.venue_lat, lng: o.venue_lng })),
-      ...liveDriverLocations.map(d => ({ lat: d.current_lat, lng: d.current_lng }))
-    ].filter(loc => loc.lat && loc.lng);
-
-    if (allLocations.length > 0) {
-      const avgLat = allLocations.reduce((sum, loc) => sum + loc.lat, 0) / allLocations.length;
-      const avgLng = allLocations.reduce((sum, loc) => sum + loc.lng, 0) / allLocations.length;
-      setMapCenter([avgLat, avgLng]);
-    }
-  }, [orders, liveDriverLocations]);
+  // Bumped to trigger a re-fit. Wired to the "Recentre" button later.
+  const recentreSignal = 0;
+  // Build the points the fit-to-bounds effect needs. Cheap recompute
+  // because the parent re-renders on every realtime patch anyway.
+  const mapPoints = [
+    ...orders.map((o) => ({ lat: Number(o.venue_lat), lng: Number(o.venue_lng) })),
+    ...liveDriverLocations.map((d) => ({ lat: Number(d.current_lat), lng: Number(d.current_lng) })),
+  ];
 
   // Phase 2 #1: read pins from driver_locations + gps_tracking, not
   // the legacy profiles.current_lat / current_lng columns. The
@@ -249,7 +281,13 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
     return () => clearInterval(interval);
   }, [onDriverLocationUpdate, companyId]);
 
-  if (mapCenter[0] === 0 && mapCenter[1] === 0) {
+  // Wave 70.63: empty-state gate now checks the actual points list
+  // rather than the (0,0) sentinel. (0,0) used to be both "no data"
+  // and "geocoded to Gulf of Guinea" - conflated until now.
+  const hasMappable =
+    orders.some((o) => Number.isFinite(Number(o.venue_lat)) && Number.isFinite(Number(o.venue_lng)) && !(Number(o.venue_lat) === 0 && Number(o.venue_lng) === 0))
+    || liveDriverLocations.some((d) => Number.isFinite(d.current_lat) && Number.isFinite(d.current_lng) && !(d.current_lat === 0 && d.current_lng === 0));
+  if (!hasMappable) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
         <p className="text-slate-500">No locations available to display</p>
@@ -298,7 +336,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapUpdater center={mapCenter} />
+      <MapUpdater points={mapPoints} recentreSignal={recentreSignal} />
 
       {/* Venue markers (orders) - only ones with valid coords. Orders
           without a geocoded venue will appear in the side list but not
