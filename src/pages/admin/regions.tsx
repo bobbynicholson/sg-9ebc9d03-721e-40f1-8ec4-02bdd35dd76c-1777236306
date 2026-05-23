@@ -274,23 +274,38 @@ function RegionsPage() {
           // this was wrong ("Cancelled orders are excluded only if you've
           // removed them; this counts every booked order"). Now the
           // server-side filter does the work.
+          // REG-E (regions enum-drift fix): the original REG-B filter
+          // tried to exclude both `cancelled` and a bogus `declined`
+          // value via .not on the status column - but order_status has
+          // no `declined` member (that label lives on quote_status /
+          // lead_status). Postgres rejected the cast with 22P02
+          // invalid_input and supabase-js silently returned count=null,
+          // so every branch card showed 0 events / R0 revenue for
+          // tenants whose orders weren't all cancelled. Switched to
+          // .neq("status","cancelled") which is what we wanted on the
+          // orders table.
           (supabase as any)
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
             .gte("event_date", mtdStartIso)
-            .not("status", "in", "(cancelled,declined)"),
+            .neq("status", "cancelled"),
           (supabase as any)
             .from("orders")
             .select("total_amount")
             .eq("region_id", r.id)
             .gte("event_date", mtdStartIso)
-            .not("status", "in", "(cancelled,declined)"),
-          supabase
+            .neq("status", "cancelled"),
+          // REG-E: same silent-failure pattern - "revised" is NOT in
+          // the quote_status enum (draft / sent / accepted / rejected
+          // / expired). The .in() with the bogus literal made Postgres
+          // refuse the whole query, the client read count=null, and
+          // every branch's Open quotes KPI displayed 0.
+          (supabase as any)
             .from("quotes")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
-            .in("status", ["draft", "sent", "revised"] as any[]),
+            .in("status", ["draft", "sent"]),
         ]);
         const mtdRevenue = (mtdRevenueRes?.data || []).reduce(
           (sum: number, row: any) => sum + Number(row?.total_amount || 0),
@@ -315,7 +330,7 @@ function RegionsPage() {
               .select("venue_lat,venue_lng,event_time")
               .eq("region_id", r.id)
               .gte("event_date", mtdStartIso)
-              .not("status", "in", "(cancelled,declined)");
+              .neq("status", "cancelled");
             const earthR = 6371; // km
             const toRad = (d: number) => (d * Math.PI) / 180;
             const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -790,7 +805,7 @@ function RegionsPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Branches that are currently switched on and accepting work."} />
-            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft / sent / revised across every branch."} />
+            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft or sent state across every branch."} />
             {/* REG-B (regions audit, REG-3): label clarification. The
                 pre-REG-B labels said "MTD orders / MTD revenue", which
                 operators read as "booked this month". The underlying
@@ -799,12 +814,12 @@ function RegionsPage() {
                 for an events caterer who books months ahead. Renamed
                 to match the query so the financial dashboard and this
                 page can both be right at the same time. */}
-            <StatTile label="Events this month" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders with an event_date in the current calendar month, summed across branches. Cancelled and declined orders excluded."} />
+            <StatTile label="Events this month" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders with an event_date in the current calendar month, summed across branches. Cancelled orders excluded."} />
             <StatTile
               label="Revenue this month"
               value={currencyFmt.format(stats.mtdRevenue)}
               accent="text-amber-600"
-              tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled and declined orders excluded. For 'booked this month' see /admin/financial."}
+              tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled orders excluded. For 'booked this month' see /admin/financial."}
             />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -876,14 +891,14 @@ function RegionsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                      <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled and declined excluded."} />
+                      <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled excluded."} />
                       <MiniStat
                         icon={Users}
                         label="Revenue this month"
                         value={currencyFmt.format(region.mtd_revenue || 0)}
-                        tooltip={"Sum of total_amount on this branch's orders with an event_date in the current calendar month. Cancelled and declined orders excluded."}
+                        tooltip={"Sum of total_amount on this branch's orders with an event_date in the current calendar month. Cancelled orders excluded."}
                       />
-                      <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft, sent or revised state."} />
+                      <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft or sent state."} />
                       {/* REG-C: clickable Staff tile that opens the
                           per-region assignment dialog. Pre-REG-C this
                           was a read-only number with no way to change

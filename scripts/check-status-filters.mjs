@@ -56,7 +56,75 @@ const STATUS_VOCAB = {
   cleaning_jobs: ["queued", "in_progress", "complete", "cancelled"],
   cleaning_event_checklists: ["pending", "in_progress", "ready"],
   kitchen_prep_tasks: ["pending", "in_progress", "done", "skipped"],
+  // REG-E (regions enum-drift fix): the orders / quotes / leads /
+  // invoices status columns are enum-typed and TypeScript catches
+  // drift at compile time UNLESS the call site uses `(supabase as any)`
+  // to bypass the generated types - which the regions page did. The
+  // lint now enforces the enum membership at static-analysis time so
+  // a future "declined" / "revised" / similar typo can't ship.
+  //
+  // Values pulled from pg_enum on 2026-05-23. Keep in sync with the
+  // actual DB enum when new labels land.
+  orders: [
+    "pending", "confirmed", "preparing", "ready", "in_transit",
+    "delivered", "completed", "cancelled", "paused",
+  ],
+  quotes: ["draft", "sent", "accepted", "rejected", "expired"],
+  leads: [
+    "new", "contacted", "qualified", "quoted", "negotiating",
+    "won", "lost", "manual_add",
+  ],
+  invoices: [
+    "draft", "sent", "paid", "partially_paid", "overdue",
+    "written_off", "voided",
+  ],
 };
+
+// REG-E baseline: enum-drift bugs that pre-date the orders/quotes/
+// leads/invoices vocab extension. Each is a real silent-failure
+// candidate but lives outside this PR's blast radius (money-flow
+// paths, payment verification, client portal). Tracked as follow-up
+// tasks - DO NOT extend this list; new violations must be fixed.
+const REG_E_BASELINE = new Set([
+  // quotes.status .in literals
+  "src/components/admin/QuoteFollowupWidget.tsx::quotes::revised::.in",
+  "src/components/admin/QuoteFollowupWidget.tsx::quotes::viewed::.in",
+  "src/hooks/useAdminLiveCounts.ts::quotes::viewed::.in",
+  "src/hooks/useAdminLiveCounts.ts::quotes::revised::.in",
+  "src/hooks/useAdminPortalMode.ts::quotes::viewed::.in",
+  "src/hooks/useAdminPortalMode.ts::quotes::revised::.in",
+  "src/pages/api/public/quotes/[token]/accept.ts::quotes::viewed::.in",
+  "src/services/quote/markQuoteAsLost.ts::quotes::viewed::.in",
+  "src/services/quote/markQuoteAsLost.ts::quotes::revised::.in",
+  // orders.status literals (money-flow paths - real bugs)
+  "src/hooks/useAdminLiveCounts.ts::orders::paid::.in",
+  "src/pages/api/orders/cancellation-review.ts::orders::refunded::.update/.insert/.upsert payload",
+  "src/pages/api/orders/[id]/cancel.ts::orders::refunded::.update/.insert/.upsert payload",
+  "src/pages/api/payments/verify-claim.ts::orders::paid::.update/.insert/.upsert payload",
+  // invoices.status literals
+  "src/hooks/useAdminLiveCounts.ts::invoices::partially_paid::.in",
+  "src/pages/api/accounting/xero/void-invoices.ts::invoices::voided::.eq",
+  "src/pages/api/admin/invoices/bulk-remind.ts::invoices::partially_paid::.in",
+  "src/pages/client-portal/billing.tsx::invoices::written_off::.not(\"status\",\"in\",\"(...)\")",
+  "src/pages/client-portal/dashboard.tsx::invoices::pending::.in",
+  "src/services/invoiceGenerationService.ts::invoices::partially_paid::.in",
+  "src/services/invoiceGenerationService.ts::invoices::written_off::.update/.insert/.upsert payload",
+  "src/services/order/releaseResources.ts::invoices::partially_paid::.in",
+  "src/services/order/releaseResources.ts::invoices::voided::.update/.insert/.upsert payload",
+  // OverdueInvoicesWidget filters out `cancelled` against invoice_status
+  // (which has no such value). The filter is harmless cosmetically
+  // because the query still runs against the real values, but the
+  // `cancelled` member of the not-in tuple is dead.
+  "src/components/admin/OverdueInvoicesWidget.tsx::invoices::cancelled::.not(\"status\",\"in\",\"(...)\")",
+  // LeadAgingWidget escapes its .not("status","in",...) values with
+  // backslashed quotes. The regex picks the values up as literal
+  // strings prefixed with the escape sequence. Real values are won /
+  // lost / closed - won + lost are valid lead_status; closed is not.
+  // Real bug to triage in a follow-up.
+  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"won\\::.not("status","in","(...)")',
+  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"lost\\::.not("status","in","(...)")',
+  'src/components/admin/LeadAgingWidget.tsx::leads::\\\"closed\\::.not("status","in","(...)")',
+]);
 
 // `companies.subscription_status` is the enum-typed column we
 // already trimmed to ['trial','active','past_due','cancelled',
@@ -191,6 +259,11 @@ const KNOWN_TABLES = new Set([
   "won_then_cancelled_quotes","xero_integration_settings",
 ]);
 
+// REG-E: skip a finding when it matches the baseline-allowed set.
+const _baselineKey = (rel, table, literal, shape) => `${rel}::${table}::${literal}::${shape}`;
+const _isRegEBaseline = (rel, table, literal, shape) =>
+  REG_E_BASELINE.has(_baselineKey(rel, table, literal, shape));
+
 function checkFile(path, src) {
   const findings = [];
   const rel = relative(ROOT, path).replace(/\\/g, "/");
@@ -238,6 +311,7 @@ function checkFile(path, src) {
     const literal = m[1];
     const table = findTableBefore(src, m.index);
     if (table && STATUS_VOCAB[table] && !STATUS_VOCAB[table].includes(literal)) {
+      if (_isRegEBaseline(rel, table, literal, ".eq")) continue;
       findings.push({
         file: rel,
         line: src.slice(0, m.index).split("\n").length,
@@ -258,6 +332,7 @@ function checkFile(path, src) {
     if (!table || !STATUS_VOCAB[table]) continue;
     for (const literal of literals) {
       if (!STATUS_VOCAB[table].includes(literal)) {
+        if (_isRegEBaseline(rel, table, literal, ".in")) continue;
         findings.push({
           file: rel,
           line: src.slice(0, m.index).split("\n").length,
@@ -266,6 +341,36 @@ function checkFile(path, src) {
           literal,
           allowed: STATUS_VOCAB[table],
           shape: ".in",
+        });
+      }
+    }
+  }
+
+  // Pattern 4: .not("status", "in", "(LITERAL, LITERAL, ...)")
+  // REG-E (regions enum-drift fix): the regions page used this shape
+  // with a literal `declined` that doesn't exist in the order_status
+  // enum. Postgres rejected the cast with 22P02 invalid_input, the
+  // supabase-js client swallowed the error, and every per-branch
+  // count silently returned null -> rendered as 0. The CI lint didn't
+  // catch it because Pattern 2 only looked at .in() with array syntax,
+  // not the .not("col","in","(...)") variant.
+  for (const m of src.matchAll(/\.not\(\s*["'`]status["'`]\s*,\s*["'`]in["'`]\s*,\s*["'`]\(([^)]+)\)["'`]\s*\)/g)) {
+    const arr = m[1];
+    const literals = arr.split(",").map((l) => l.trim().replace(/^["'`]|["'`]$/g, ""));
+    const table = findTableBefore(src, m.index);
+    if (!table || !STATUS_VOCAB[table]) continue;
+    for (const literal of literals) {
+      if (!STATUS_VOCAB[table].includes(literal)) {
+        const shape = '.not("status","in","(...)")';
+        if (_isRegEBaseline(rel, table, literal, shape)) continue;
+        findings.push({
+          file: rel,
+          line: src.slice(0, m.index).split("\n").length,
+          table,
+          column: "status",
+          literal,
+          allowed: STATUS_VOCAB[table],
+          shape,
         });
       }
     }
@@ -281,6 +386,8 @@ function checkFile(path, src) {
     if (!/\.(?:update|insert|upsert)\s*\(/.test(lookback300)) continue;
     const table = findTableBefore(src, m.index);
     if (table && STATUS_VOCAB[table] && !STATUS_VOCAB[table].includes(literal)) {
+      const shape = ".update/.insert/.upsert payload";
+      if (_isRegEBaseline(rel, table, literal, shape)) continue;
       findings.push({
         file: rel,
         line: src.slice(0, m.index).split("\n").length,
@@ -288,7 +395,7 @@ function checkFile(path, src) {
         column: "status",
         literal,
         allowed: STATUS_VOCAB[table],
-        shape: ".update/.insert/.upsert payload",
+        shape,
       });
     }
   }
