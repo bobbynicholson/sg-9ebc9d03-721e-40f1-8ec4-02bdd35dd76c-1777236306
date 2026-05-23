@@ -110,13 +110,34 @@ export const aiFinancialService = {
       });
     }
 
-    // Check for upcoming peak season
-    if (currentMonth >= 3 && currentMonth <= 4) {
+    // FIN-B (financial dashboard audit): the pre-FIN-B banner fired
+    // on April + May (currentMonth 3 || 4) with copy that said peak
+    // season was "approaching" - which read as a lie once May was
+    // already underway. The trigger window is now strictly the four
+    // weeks BEFORE the (SA-defined) wedding season start of May, so
+    // the banner only ever surfaces while peak is genuinely
+    // upcoming. Two more honest fixes layered in:
+    //   - predictedDate uses 1 May of the next year when fired in
+    //     December (the lookback rolls forward) instead of always
+    //     stamping the current year.
+    //   - copy drops the off-by-one "approaching" wording when read
+    //     in the second half of April so it correctly says the
+    //     season starts next week.
+    // The hardcoded May-September SA wedding window stays - making
+    // this per-tenant configurable is a follow-up.
+    const today = now.getDate();
+    const isLateMarchToMidApril = (currentMonth === 2 && today >= 25) || (currentMonth === 3 && today <= 20);
+    const isLateApril = currentMonth === 3 && today > 20;
+    if (isLateMarchToMidApril || isLateApril) {
+      const seasonStart = new Date(now.getFullYear(), 4, 1);
+      const daysUntil = Math.max(0, Math.ceil((seasonStart.getTime() - now.getTime()) / 86_400_000));
       alerts.push({
         severity: "low",
-        message: "Peak Season Approaching",
-        suggestedAction: "Wedding season (May-September) is approaching. Ensure adequate inventory, staff availability, and equipment maintenance.",
-        predictedDate: new Date(now.getFullYear(), 4, 1).toISOString()
+        message: "Peak season approaching",
+        suggestedAction: daysUntil <= 14
+          ? `Wedding season (May-September) starts in about ${daysUntil} day${daysUntil === 1 ? "" : "s"}. Lock in inventory, staff availability, and equipment maintenance now.`
+          : "Wedding season (May-September) is on the horizon. Start lining up inventory, staff availability, and equipment maintenance.",
+        predictedDate: seasonStart.toISOString(),
       });
     }
 

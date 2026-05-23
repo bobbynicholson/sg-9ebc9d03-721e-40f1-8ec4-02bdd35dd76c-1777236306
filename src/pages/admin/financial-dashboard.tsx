@@ -235,10 +235,53 @@ function FinancialDashboardInner() {
     }
   }, [user, loadFinancialData]);
 
+  // FIN-B (financial dashboard audit): realtime channel scoped to the
+  // caller's company so a payment captured in /admin/invoices or an
+  // order confirmed in /admin/quotes lands here without a manual
+  // Refresh. Subscribes to orders + payments + invoices since each
+  // mutates one of the visible KPIs. Pattern mirrors the rest of the
+  // admin pages (orders, leads, quotes, packages, regions, vehicles).
+  useEffect(() => {
+    const companyId = (user as any)?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-financial-dashboard:${companyId}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => { loadFinancialData(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
+        () => { loadFinancialData(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
+        () => { loadFinancialData(); },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(user as any)?.company_id]);
+
+  // FIN-B (financial dashboard audit): cash received now sums the real
+  // amount_paid column across non-cancelled orders. Pre-FIN-B this
+  // filtered on payment_status === "paid" and summed total_amount,
+  // which excluded every deposit-paid order (every Spit Braai order
+  // sits in `partial` state - deposit received, balance outstanding)
+  // and double-counted the unpaid balance as cash received on fully-
+  // paid orders. The result was the Current Cash Flow + Total Revenue
+  // tiles always reading R0.00 for any tenant that takes deposits
+  // (i.e. every catering tenant).
   const calculateCashReceived = (orders: Order[]) => {
     return orders
-      .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      .filter((o) => o.status !== "cancelled")
+      .reduce((sum, o) => sum + (Number((o as any).amount_paid) || 0), 0);
   };
 
   const calculateProjectedRevenue = (orders: Order[], days: number) => {
@@ -258,10 +301,20 @@ function FinancialDashboardInner() {
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
 
+  // FIN-B: pending payments = actual outstanding balance, not gross.
+  // Pre-FIN-B summed total_amount on every pending+partial order, so
+  // a R10,587 order with R5,350 deposit received showed up as R10,587
+  // "pending" instead of the R5,237 actually outstanding. The tile is
+  // labelled "Outstanding from clients" - it should match.
   const calculatePendingPayments = (orders: Order[]) => {
     return orders
-      .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
-      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      .filter((o) => o.status !== "cancelled"
+        && (o.payment_status === "pending" || o.payment_status === "partial"))
+      .reduce((sum, o) => {
+        const total = Number(o.total_amount) || 0;
+        const paid = Number((o as any).amount_paid) || 0;
+        return sum + Math.max(0, total - paid);
+      }, 0);
   };
 
   // Audit (May 2026, Wave 9 Item 3): real COGS pipeline. The deduction
@@ -290,11 +343,22 @@ function FinancialDashboardInner() {
     sinceIso: string,
   ): Promise<{ revenue: number; cogs: number; ordersCounted: number; ordersMissingCost: number } | null> => {
     if (!companyId) return null;
+    // FIN-B (financial dashboard audit): include partial-paid orders
+    // in the margin sample. Pre-FIN-B this filtered .eq("payment_
+    // status","paid") which excluded every deposit-paid order (the
+    // majority of catering orders). Status gate stays delivered/
+    // completed so we only measure margin on revenue actually
+    // realised - amount_paid > 0 ensures we don't include free
+    // orders. The full enum is pending / processing / completed /
+    // failed / refunded / partially_refunded / disputed / partial /
+    // paid; "paid" + "partial" are the two states where money
+    // actually came in.
     const { data, error } = await (supabase as any)
       .from("orders")
-      .select("id, total_amount, payment_status, status, order_items(quantity, unit_cost, line_total)")
+      .select("id, total_amount, amount_paid, payment_status, status, order_items(quantity, unit_cost, line_total)")
       .eq("company_id", companyId)
-      .eq("payment_status", "paid")
+      .in("payment_status", ["paid", "partial"])
+      .gt("amount_paid", 0)
       .in("status", ["delivered", "completed"])
       .gte("created_at", sinceIso);
     if (error || !data) return null;
@@ -419,7 +483,13 @@ function FinancialDashboardInner() {
                   Financial Dashboard
                 </h1>
                 <p className="text-slate-600">
-                  Revenue, profitability, and cashflow at a glance. Daily, weekly, and monthly views with profit margin and outstanding balances per period.
+                  {/* FIN-B: honest hero copy. The page is a rolling
+                      90-day snapshot, not a configurable daily /
+                      weekly / monthly view - that affordance is the
+                      Cashflow Dashboard (linked below). */}
+                  Revenue, profitability and cashflow at a glance.
+                  Rolling 90-day view with profit margin and
+                  outstanding balances.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {/* Phase 27 #4: manual refresh. The page only
@@ -465,7 +535,11 @@ function FinancialDashboardInner() {
                         ["Profit margin", metrics.profitMargin != null ? `${metrics.profitMargin.toFixed(1)}%` : "not connected"],
                       ];
                       const lines = rows.map((r) => r.map(esc).join(","));
-                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      // FIN-B: UTF-8 BOM so Excel-ZA opens this as
+                      // UTF-8 instead of Latin-1 (which mangles the
+                      // Rand symbol if a tenant ever adds it to a
+                      // metric label). Same fix as calendar / regions.
+                      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
@@ -483,14 +557,23 @@ function FinancialDashboardInner() {
                 </div>
               </div>
               <div className="mt-4 md:mt-0">
+                {/* FIN-B (financial dashboard audit): retuned the
+                    threshold cutoffs to match the score function's
+                    actual range. calculateHealthScore caps at 80
+                    (margin signal is disabled until a real COGS
+                    pipeline lands) - the previous 85/70 cutoffs
+                    meant the card could never go green and the green
+                    branch was structurally unreachable. Retune to
+                    70/55 so the score's 0-80 range produces the full
+                    red/yellow/green spectrum honestly. */}
                 <Card className={`border-2 ${
-                  (metrics?.healthScore || 0) >= 85 ? "border-green-500 bg-green-50" :
-                  (metrics?.healthScore || 0) >= 70 ? "border-yellow-500 bg-yellow-50" :
+                  (metrics?.healthScore || 0) >= 70 ? "border-green-500 bg-green-50" :
+                  (metrics?.healthScore || 0) >= 55 ? "border-yellow-500 bg-yellow-50" :
                   "border-red-500 bg-red-50"
                 }`}>
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center gap-2 justify-center mb-1">
-                      {(metrics?.healthScore || 0) >= 85 ? (
+                      {(metrics?.healthScore || 0) >= 70 ? (
                         <Trophy className="w-5 h-5 text-green-600" />
                       ) : (
                         <Sparkles className="w-5 h-5 text-yellow-600" />
@@ -670,7 +753,13 @@ function FinancialDashboardInner() {
                   {formatCurrency(metrics?.projectedRevenue30Days || 0)}
                 </div>
                 <p className="text-sm text-slate-600 mt-2">
-                  Expected revenue next month
+                  {/* FIN-B: label honesty. calculateProjectedRevenue is
+                      called with days=30 and filters event_date in
+                      [today, today+30). That's a 30-day rolling
+                      window, NOT "next month" - a quote booked today
+                      for an event in 21 days counts, but one for 35
+                      days does not. */}
+                  Expected revenue, next 30 days
                 </p>
               </CardContent>
             </Card>
