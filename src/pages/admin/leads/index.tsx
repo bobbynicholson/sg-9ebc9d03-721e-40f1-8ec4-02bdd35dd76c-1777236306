@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -396,6 +396,17 @@ function AdminLeadsInner() {
   // up-front on /admin/leads so the operator notices BEFORE the
   // first lead lands in their funnel.
   const [emailSettingsEnabled, setEmailSettingsEnabled] = useState<boolean | null>(null);
+  // Wave 70.84: extracted into a stable callback so the Refresh
+  // button can re-run it. Pre-fix the banner state only loaded
+  // once on mount, so an operator who set up the provider in
+  // another tab couldn't dismiss the banner without a full
+  // page reload.
+  const refreshEmailProviderStatus = useCallback(async () => {
+    if (!user?.company_id) return;
+    const { getEmailProviderStatus } = await import("@/lib/email/providerStatus");
+    const status = await getEmailProviderStatus(supabase as any, user.company_id);
+    setEmailSettingsEnabled(status.configured);
+  }, [user?.company_id]);
   useEffect(() => {
     if (!user?.company_id) return;
     let cancelled = false;
@@ -1056,7 +1067,15 @@ function AdminLeadsInner() {
                   leads without hard-reloading. */}
               <Button
                 variant="outline"
-                onClick={loadLeads}
+                onClick={() => {
+                  // Wave 70.84: refresh button re-runs both the
+                  // leads fetch AND the email-provider banner
+                  // check. Previously the banner state was stuck
+                  // from mount, so configuring a provider in
+                  // another tab needed a full reload to clear.
+                  loadLeads();
+                  void refreshEmailProviderStatus();
+                }}
                 disabled={loading}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
