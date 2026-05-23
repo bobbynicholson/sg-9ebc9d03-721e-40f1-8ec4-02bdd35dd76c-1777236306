@@ -6,7 +6,7 @@
  * link/unlink orders, cancel package).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -79,7 +79,19 @@ function PackageDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [linkOrderInput, setLinkOrderInput] = useState("");
+  // PKG-B (packages audit, PKG-2): searchable order picker replaces
+  // the UUID paste field. State: free-text query, fetched results,
+  // loading flag, the picked order (id only - the API row provides
+  // the labels for the confirm row).
+  const [linkQuery, setLinkQuery] = useState("");
+  const [linkResults, setLinkResults] = useState<Array<{
+    id: string; order_number: string | null; client_name: string | null;
+    event_name: string | null; event_date: string | null; event_time: string | null;
+    guest_count: number | null; total_amount: number | null; status: string | null;
+  }>>([]);
+  const [linkResultsLoading, setLinkResultsLoading] = useState(false);
+  const [pickedOrderId, setPickedOrderId] = useState<string | null>(null);
+  const linkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [linking, setLinking] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -161,11 +173,49 @@ function PackageDetailPage() {
     }
   };
 
+  // PKG-B (packages audit, PKG-2): debounced fetch of available orders
+  // when the dialog is open. Runs on dialog open with empty q so the
+  // operator sees recent unlinked orders immediately, then re-fires
+  // 200ms after each keystroke. Cancelled / soft-deleted / already-
+  // packaged orders are excluded server-side.
+  useEffect(() => {
+    if (!linkDialogOpen) return;
+    if (linkDebounceRef.current) clearTimeout(linkDebounceRef.current);
+    linkDebounceRef.current = setTimeout(async () => {
+      setLinkResultsLoading(true);
+      try {
+        const url = `/api/booking-packages/available-orders?limit=20${linkQuery.trim() ? `&q=${encodeURIComponent(linkQuery.trim())}` : ""}`;
+        const r = await fetch(url);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Search failed");
+        setLinkResults(data.orders || []);
+      } catch (err: any) {
+        toast({ title: "Couldn't search orders", description: err?.message || "Unknown error", variant: "destructive" });
+        setLinkResults([]);
+      } finally {
+        setLinkResultsLoading(false);
+      }
+    }, 200);
+    return () => {
+      if (linkDebounceRef.current) clearTimeout(linkDebounceRef.current);
+    };
+  }, [linkDialogOpen, linkQuery, toast]);
+
+  // Reset picker state every time the dialog closes so reopening it
+  // doesn't surface a stale picked row.
+  useEffect(() => {
+    if (!linkDialogOpen) {
+      setLinkQuery("");
+      setLinkResults([]);
+      setPickedOrderId(null);
+    }
+  }, [linkDialogOpen]);
+
   const linkOrder = async () => {
     if (!pkg) return;
-    const orderId = linkOrderInput.trim();
+    const orderId = pickedOrderId;
     if (!orderId) {
-      toast({ title: "Order id required", variant: "destructive" });
+      toast({ title: "Pick an order first", variant: "destructive" });
       return;
     }
     setLinking(true);
@@ -179,7 +229,6 @@ function PackageDetailPage() {
       if (!r.ok) throw new Error(data.error || "Link failed");
       setPkg(data.package);
       setLinkDialogOpen(false);
-      setLinkOrderInput("");
       toast({ title: "Order linked" });
     } catch (err: any) {
       toast({ title: "Couldn't link order", description: err?.message || "Unknown error", variant: "destructive" });
@@ -364,27 +413,71 @@ function PackageDetailPage() {
                             <LinkIcon className="w-3.5 h-3.5 mr-1.5" /> Link order
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-lg">
                           <DialogHeader>
                             <DialogTitle>Link an order to this package</DialogTitle>
                             <DialogDescription>
-                              Paste the order ID. The order must belong
-                              to the same company.
+                              Search by order number, client name or
+                              event name. Already-packaged and cancelled
+                              orders are hidden.
                             </DialogDescription>
                           </DialogHeader>
-                          <div>
-                            <Label htmlFor="link-id">Order ID</Label>
+                          <div className="space-y-2">
                             <Input
-                              id="link-id"
-                              placeholder="uuid"
-                              value={linkOrderInput}
-                              onChange={(e) => setLinkOrderInput(e.target.value)}
+                              placeholder="Search orders..."
+                              value={linkQuery}
+                              onChange={(e) => { setLinkQuery(e.target.value); setPickedOrderId(null); }}
                               autoFocus
                             />
+                            <div className="max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white">
+                              {linkResultsLoading ? (
+                                <div className="py-6 text-center text-xs text-slate-500">Searching...</div>
+                              ) : linkResults.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-slate-500">
+                                  {linkQuery.trim()
+                                    ? `No unlinked orders match "${linkQuery.trim()}".`
+                                    : "No unlinked orders found. Every order is already in a package or cancelled."}
+                                </div>
+                              ) : (
+                                <ul className="divide-y divide-slate-100">
+                                  {linkResults.map((o) => {
+                                    const picked = pickedOrderId === o.id;
+                                    return (
+                                      <li key={o.id}>
+                                        <button
+                                          type="button"
+                                          onClick={() => setPickedOrderId(o.id)}
+                                          className={`w-full text-left px-3 py-2 hover:bg-slate-50 transition ${picked ? "bg-blue-50 ring-1 ring-blue-200" : ""}`}
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="font-medium text-sm text-slate-900 truncate">
+                                              {o.event_name || o.client_name || "Untitled event"}
+                                            </span>
+                                            {o.order_number && (
+                                              <span className="font-mono text-[10px] text-slate-500 tabular-nums flex-shrink-0">
+                                                #{o.order_number}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 mt-0.5">
+                                            {o.client_name && o.event_name && <span>{o.client_name}</span>}
+                                            {o.event_date && <span>{formatDate(o.event_date)}{o.event_time ? ` · ${o.event_time.slice(0, 5)}` : ""}</span>}
+                                            {o.guest_count != null && o.guest_count > 0 && <span>{o.guest_count} guests</span>}
+                                            {o.status && <span className="capitalize">{o.status.replace(/_/g, " ")}</span>}
+                                          </div>
+                                        </button>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
                           </div>
                           <DialogFooter>
                             <Button variant="outline" onClick={() => setLinkDialogOpen(false)} disabled={linking}>Cancel</Button>
-                            <Button onClick={linkOrder} disabled={linking}>{linking ? "Linking..." : "Link"}</Button>
+                            <Button onClick={linkOrder} disabled={linking || !pickedOrderId}>
+                              {linking ? "Linking..." : "Link order"}
+                            </Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -439,7 +532,7 @@ function PackageDetailPage() {
                     <DialogDescription>
                       This cancels the package <strong>and every linked
                       order</strong> ({pkg.orders.length} order{pkg.orders.length === 1 ? "" : "s"}). Each
-                      order's normal cancellation cascade fires --
+                      order's normal cancellation cascade fires -
                       refunds, equipment release, comms stop.
                     </DialogDescription>
                   </DialogHeader>
