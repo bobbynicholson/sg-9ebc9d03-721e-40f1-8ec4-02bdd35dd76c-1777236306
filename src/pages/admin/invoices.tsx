@@ -3,6 +3,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1214,6 +1215,7 @@ function InvoicesPageInner() {
       <AdminNav />
 
       <div className="py-8 px-4 max-w-full">
+        <CashflowContextBanner message="Filtered to unpaid invoices. Send bulk reminders from the forecast page, or pick a row below to chase individually." />
         {/* Wave 66 - accounting reconnect banner. Surfaces when an
             integration is marked active but its OAuth refresh has
             died (60-day Xero idle, manual revoke). Pre-Wave-66 the

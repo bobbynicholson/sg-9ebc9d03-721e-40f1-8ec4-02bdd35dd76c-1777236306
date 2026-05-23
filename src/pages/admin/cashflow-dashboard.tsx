@@ -37,6 +37,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
+import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
@@ -105,6 +106,20 @@ function CashflowDashboardInner() {
   // load-error so the page can show "couldn't load - retry" instead
   // of pretending everything's R0.
   const [loadError, setLoadError] = useState<string | null>(null);
+  // CASH-D: Quick Action "Chase unpaid invoices" now opens the same
+  // bulk-remind dialog the financial-dashboard uses. Pre-CASH-D the
+  // button label was a verb ("Chase") but the action was just a
+  // deep-link to /admin/invoices?status=unpaid - the operator had to
+  // click again on the destination to actually send anything.
+  const [remindDialogOpen, setRemindDialogOpen] = useState(false);
+  // CASH-D: invoice-derived outstanding total. The Quick Action
+  // subtitle has to match what bulk-remind will actually act on, and
+  // bulk-remind operates on the `invoices` table - not on orders.
+  // Pre-CASH-D this read `metrics.pendingPayments` which is computed
+  // from orders.total_amount - amount_paid; the two can drift on
+  // write-offs / deposit-only orders without a matching invoice row,
+  // making the subtitle promise a number the action couldn't deliver.
+  const [invoicesOutstanding, setInvoicesOutstanding] = useState<number | null>(null);
 
   const currency = (user as any)?.currency || "ZAR";
   const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
@@ -250,6 +265,32 @@ function CashflowDashboardInner() {
         equipmentHireUpcomingCount,
         shoppingUpcomingCount,
       });
+
+      // CASH-D: invoice-derived "outstanding from clients" total.
+      // Same filter as /api/admin/invoices/bulk-remind (sent +
+      // partially_paid + overdue with balance > 0) so the Quick
+      // Action subtitle promises exactly what the action will chase.
+      // Region scoping is NOT applied: invoices don't carry region_id
+      // (the underlying order does), matching the /admin/invoices
+      // tile behaviour.
+      try {
+        const { data: invRows, error: invErr } = await (supabase as any)
+          .from("invoices")
+          .select("balance_due, status")
+          .eq("company_id", companyId)
+          .in("status", ["sent", "partially_paid", "overdue"]);
+        if (invErr) throw invErr;
+        const total = ((invRows as Array<{ balance_due: number | string | null }>) || [])
+          .reduce((sum, r) => sum + Math.max(0, Number(r.balance_due ?? 0)), 0);
+        setInvoicesOutstanding(total);
+      } catch (invErr) {
+        captureException(invErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "invoices_outstanding" },
+        });
+        setInvoicesOutstanding(null);
+      }
+
       setLoadedAt(Date.now());
 
       // AI alerts use the same payload as the financial dashboard
@@ -520,23 +561,62 @@ function CashflowDashboardInner() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <NavLink href={withSlug("/admin/payables")} icon={FileText} label="Manage payables" desc="Supplier invoices you owe" />
-                <NavLink href={withSlug("/admin/fixed-costs")} icon={Wallet} label="Manage fixed costs" desc="Rent, software, recurring lines" />
-                <NavLink href={withSlug("/admin/invoices?status=unpaid")} icon={Receipt} label="Chase unpaid invoices" desc={`${fmt(metrics?.pendingPayments || 0, currency)} outstanding from clients`} />
-                <NavLink href={withSlug("/admin/financial-dashboard")} icon={DollarSign} label="Financial dashboard" desc="Margin, health score, order analysis" />
+                {/* CASH-D: live subtitles + ?from=cashflow on every
+                    href so the destination page can show a contextual
+                    banner explaining why the operator landed there. */}
+                <NavLink
+                  href={withSlug("/admin/payables?from=cashflow")}
+                  icon={FileText}
+                  label="Manage payables"
+                  desc={
+                    (metrics?.supplierPayablesNext30 || 0) > 0
+                      ? `${fmt(metrics?.supplierPayablesNext30 || 0, currency)} due in 30d`
+                      : "Supplier invoices you owe"
+                  }
+                />
+                <NavLink
+                  href={withSlug("/admin/fixed-costs?from=cashflow")}
+                  icon={Wallet}
+                  label="Manage fixed costs"
+                  desc={
+                    (metrics?.fixedCostsNext30 || 0) > 0
+                      ? `${fmt(metrics?.fixedCostsNext30 || 0, currency)} recurring in 30d`
+                      : "Rent, software, recurring lines"
+                  }
+                />
+                {/* CASH-D: "Chase unpaid invoices" now opens the
+                    bulk-remind dialog instead of deep-linking to a
+                    filtered list. Subtitle uses the invoice-derived
+                    outstanding total so the figure matches what the
+                    action will actually chase. Shows "..." while the
+                    invoice fetch is in flight rather than lying with
+                    a zero. */}
+                <ActionLink
+                  icon={Receipt}
+                  label="Chase unpaid invoices"
+                  desc={
+                    invoicesOutstanding == null
+                      ? "Loading outstanding total..."
+                      : invoicesOutstanding > 0
+                        ? `${fmt(invoicesOutstanding, currency)} outstanding from clients`
+                        : "No unpaid invoices right now"
+                  }
+                  onClick={() => setRemindDialogOpen(true)}
+                  disabled={invoicesOutstanding != null && invoicesOutstanding <= 0}
+                />
+                <NavLink
+                  href={withSlug("/admin/financial-dashboard?from=cashflow")}
+                  icon={DollarSign}
+                  label="Financial dashboard"
+                  desc="Margin, health score, order analysis"
+                />
               </CardContent>
             </Card>
           </div>
-
-          <p className="text-xs text-slate-500 text-center mt-8">
-            Looking for revenue / profit margin / order analysis? Those live on the{" "}
-            <Link href={withSlug("/admin/financial-dashboard")} className="text-emerald-700 underline">
-              Financial dashboard
-            </Link>
-            .
-          </p>
         </div>
       </div>
+
+      <BulkRemindDialog open={remindDialogOpen} onOpenChange={setRemindDialogOpen} />
     </>
   );
 }
@@ -578,5 +658,43 @@ function NavLink({
         <ChevronRight className="w-4 h-4 text-slate-400" />
       </div>
     </Link>
+  );
+}
+
+// CASH-D: button variant of NavLink for Quick Actions that fire an
+// action (e.g. open a dialog) instead of navigating. Same visual
+// shape so the card reads as one consistent stack.
+function ActionLink({
+  icon: Icon,
+  label,
+  desc,
+  onClick,
+  disabled,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any;
+  label: string;
+  desc: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="block w-full text-left disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-emerald-300 transition-colors">
+        <div className="w-9 h-9 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900">{label}</p>
+          <p className="text-xs text-slate-500 truncate">{desc}</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-slate-400" />
+      </div>
+    </button>
   );
 }

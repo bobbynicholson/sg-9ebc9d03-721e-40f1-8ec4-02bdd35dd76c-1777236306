@@ -26,6 +26,7 @@ import { Plus, Trash2, Repeat } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
@@ -147,6 +148,7 @@ function FixedCostsPage() {
           at lg+). Without lg:ml-64 xl:ml-72 the cards sit behind it. */}
       <div className="min-h-screen bg-slate-50 lg:ml-64 xl:ml-72">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+          <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
           <div className="flex items-start justify-between mb-6 gap-3">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Fixed costs</h1>
