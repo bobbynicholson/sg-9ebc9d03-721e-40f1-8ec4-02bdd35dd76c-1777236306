@@ -9,6 +9,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
@@ -170,7 +171,14 @@ function FinancialDashboardInner() {
             0,
           );
         } catch (fcErr) {
-          console.warn("[financial-dashboard] fixed_costs load failed:", fcErr);
+          // FIN-D (console cleanup): route through the observability
+          // helper so Sentry (when wired) gets a tagged event. Locally
+          // this is still console.error under the hood; the tags +
+          // company_id are what matter once the DSN lands.
+          captureException(fcErr, {
+            level: "warning",
+            tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "fixed_costs" },
+          });
         }
         try {
           const { data: payables } = await (supabase as any)
@@ -184,7 +192,10 @@ function FinancialDashboardInner() {
           supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
             .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
         } catch (spErr) {
-          console.warn("[financial-dashboard] supplier_payables load failed:", spErr);
+          captureException(spErr, {
+            level: "warning",
+            tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "supplier_payables" },
+          });
         }
       }
 
@@ -202,7 +213,10 @@ function FinancialDashboardInner() {
           peakSeasonStartMonth = (companyRow as any)?.peak_season_start_month ?? null;
           peakSeasonEndMonth = (companyRow as any)?.peak_season_end_month ?? null;
         } catch (peakErr) {
-          console.warn("[financial-dashboard] peak_season config load failed:", peakErr);
+          captureException(peakErr, {
+            level: "warning",
+            tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "peak_season" },
+          });
         }
       }
 
@@ -264,7 +278,10 @@ function FinancialDashboardInner() {
       // off a hardcoded 35% profit margin and rewarded every paid
       // tenant with confetti. Honest signal requires real COGS first.
     } catch (error: any) {
-      console.error("Error loading financial data:", error);
+      captureException(error, {
+        level: "error",
+        tags: { companyId: user?.company_id, route: "/admin/financial-dashboard", step: "loadFinancialData" },
+      });
       setLoadError(error?.message || "Couldn't load the financial figures. Try again.");
     } finally {
       setLoading(false);
