@@ -58,6 +58,13 @@ export const aiFinancialService = {
       currentCashFlow: number;
       projectedRevenue30Days: number;
       upcomingExpenses: number;
+      // FIN-C (financial dashboard follow-ups): per-tenant peak-season
+      // window (1-12, inclusive). When both are set the banner uses
+      // them; when either is NULL the SA wedding-default May-September
+      // applies. peakSeasonEndMonth < peakSeasonStartMonth means the
+      // window wraps year-end (e.g. Nov-Jan = 11..1).
+      peakSeasonStartMonth?: number | null;
+      peakSeasonEndMonth?: number | null;
     }
   ) {
     const alerts: Array<{
@@ -110,35 +117,73 @@ export const aiFinancialService = {
       });
     }
 
-    // FIN-B (financial dashboard audit): the pre-FIN-B banner fired
-    // on April + May (currentMonth 3 || 4) with copy that said peak
-    // season was "approaching" - which read as a lie once May was
-    // already underway. The trigger window is now strictly the four
-    // weeks BEFORE the (SA-defined) wedding season start of May, so
-    // the banner only ever surfaces while peak is genuinely
-    // upcoming. Two more honest fixes layered in:
-    //   - predictedDate uses 1 May of the next year when fired in
-    //     December (the lookback rolls forward) instead of always
-    //     stamping the current year.
-    //   - copy drops the off-by-one "approaching" wording when read
-    //     in the second half of April so it correctly says the
-    //     season starts next week.
-    // The hardcoded May-September SA wedding window stays - making
-    // this per-tenant configurable is a follow-up.
-    const today = now.getDate();
-    const isLateMarchToMidApril = (currentMonth === 2 && today >= 25) || (currentMonth === 3 && today <= 20);
-    const isLateApril = currentMonth === 3 && today > 20;
-    if (isLateMarchToMidApril || isLateApril) {
-      const seasonStart = new Date(now.getFullYear(), 4, 1);
-      const daysUntil = Math.max(0, Math.ceil((seasonStart.getTime() - now.getTime()) / 86_400_000));
+    // FIN-C (financial dashboard follow-ups): per-tenant peak-season
+    // window. Pre-FIN-C this hardcoded May-September. Now the start +
+    // end months read off the companies row (1-indexed). NULL on
+    // either side falls back to the SA wedding-default. End < start
+    // wraps year-end (Nov-Jan = 11..1) for tenants whose peak runs
+    // across December.
+    const peakStartMonth1Based = (data.peakSeasonStartMonth ?? 5); // SA wedding default May
+    const peakEndMonth1Based = (data.peakSeasonEndMonth ?? 9);     // ... through September
+    const peakStartMonth = ((peakStartMonth1Based - 1) % 12 + 12) % 12; // -> 0-indexed
+    const peakEndMonth = ((peakEndMonth1Based - 1) % 12 + 12) % 12;
+
+    // Today's date. We pull peak-start of "this season" - if peak has
+    // already started or ended this year, roll forward to next year so
+    // daysUntil is positive.
+    const todayDate = now.getDate();
+    let seasonStart = new Date(now.getFullYear(), peakStartMonth, 1);
+    // "Inside the window" check handles both same-year (start <= now <=
+    // end) and wrap-year (now >= start || now <= end).
+    const inWindow = peakStartMonth <= peakEndMonth
+      ? (currentMonth >= peakStartMonth && currentMonth <= peakEndMonth)
+      : (currentMonth >= peakStartMonth || currentMonth <= peakEndMonth);
+    if (!inWindow && seasonStart.getTime() < now.getTime()) {
+      seasonStart = new Date(now.getFullYear() + 1, peakStartMonth, 1);
+    }
+    // Months as labels for the copy. Intl handles localisation if a
+    // future tenant wants the banner in their locale; en-ZA stays the
+    // default for now.
+    const monthLabel = (m: number) =>
+      new Date(2000, m, 1).toLocaleString("en-ZA", { month: "long" });
+    const windowLabel = `${monthLabel(peakStartMonth)} - ${monthLabel(peakEndMonth)}`;
+    const msUntil = seasonStart.getTime() - now.getTime();
+    const daysUntil = Math.max(0, Math.ceil(msUntil / 86_400_000));
+    // Trigger window: the 6 weeks before peak starts. Operators get the
+    // banner with enough runway to stock inventory + roster staff but
+    // don't get nagged in the off-season.
+    if (!inWindow && daysUntil > 0 && daysUntil <= 42) {
       alerts.push({
         severity: "low",
         message: "Peak season approaching",
         suggestedAction: daysUntil <= 14
-          ? `Wedding season (May-September) starts in about ${daysUntil} day${daysUntil === 1 ? "" : "s"}. Lock in inventory, staff availability, and equipment maintenance now.`
-          : "Wedding season (May-September) is on the horizon. Start lining up inventory, staff availability, and equipment maintenance.",
+          ? `Peak season (${windowLabel}) starts in about ${daysUntil} day${daysUntil === 1 ? "" : "s"}. Lock in inventory, staff availability and equipment maintenance now.`
+          : `Peak season (${windowLabel}) is on the horizon (${daysUntil} days). Start lining up inventory, staff availability and equipment maintenance.`,
         predictedDate: seasonStart.toISOString(),
       });
+    }
+    // Also surface a brief "peak season active" pulse for the first
+    // two weeks of the configured window so the operator gets a
+    // visible cue when high-volume mode kicks in. Pre-FIN-C this
+    // wasn't represented at all.
+    if (inWindow) {
+      const fromStart = (() => {
+        if (peakStartMonth <= peakEndMonth) {
+          return Math.floor((now.getTime() - new Date(now.getFullYear(), peakStartMonth, 1).getTime()) / 86_400_000);
+        }
+        // Wrap case - if we're in the second half of the wrap (Jan
+        // when peak runs Nov-Jan), the start was last year.
+        const startYear = currentMonth >= peakStartMonth ? now.getFullYear() : now.getFullYear() - 1;
+        return Math.floor((now.getTime() - new Date(startYear, peakStartMonth, 1).getTime()) / 86_400_000);
+      })();
+      if (fromStart >= 0 && fromStart <= 14) {
+        alerts.push({
+          severity: "low",
+          message: "Peak season is here",
+          suggestedAction: `${windowLabel} peak window is underway. Watch inventory levels and confirm staff availability for the next 4 weeks.`,
+          predictedDate: now.toISOString(),
+        });
+      }
     }
 
     // Good financial health

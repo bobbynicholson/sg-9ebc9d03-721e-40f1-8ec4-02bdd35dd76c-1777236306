@@ -1,10 +1,13 @@
-﻿import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
@@ -75,11 +78,21 @@ function FinancialDashboardInner() {
   const { user } = useAuth();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
+  // FIN-C (financial dashboard follow-ups): respect the global region
+  // filter so a multi-region tenant can scope KPIs to a single branch.
+  // Pre-FIN-C the page aggregated company-wide with no way to focus.
+  const { regionFilterId } = useRegionFilter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [showCelebration] = useState(false);
+  // FIN-C: bulk-remind dialog state. Confirmation gate before the
+  // page fires POST /api/admin/invoices/bulk-remind.
+  const [remindDialogOpen, setRemindDialogOpen] = useState(false);
+  const [remindScope, setRemindScope] = useState<"outstanding" | "overdue">("overdue");
+  const [reminding, setReminding] = useState(false);
   // Admin persona follow-up (admin.md section 5): mirror the
   // cashflow-dashboard pattern. Track load errors so we can show
   // a recovery card instead of a wall of zeros that looks broken.
@@ -91,9 +104,7 @@ function FinancialDashboardInner() {
   // Cashflow Forecast Card is gated to operator / director roles per
   // the finance-visibility rule. Read off the auth user's active
   // role; super_admin always sees the card (cross-tenant support).
-  const role = String(
-    (user as any)?.active_role || (user as any)?.role || "",
-  ).toLowerCase();
+  const role = String(user?.active_role || user?.role || "").toLowerCase();
   const canSeeFinanceForecast =
     role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
 
@@ -118,14 +129,22 @@ function FinancialDashboardInner() {
         aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
 
-      setOrders(ordersData);
+      // FIN-C: scope to the active region when set. Metrics are
+      // computed client-side, so we filter the orders array once here
+      // and every downstream calc reflects the same scope. Staff /
+      // fixed-cost / supplier-payable totals stay company-wide
+      // because they aren't region-tagged.
+      const scopedOrders = regionFilterId
+        ? ordersData.filter((o) => (o as { region_id?: string | null }).region_id === regionFilterId)
+        : ordersData;
+      setOrders(scopedOrders);
 
       // Calculate metrics
-      const cashReceived = calculateCashReceived(ordersData);
+      const cashReceived = calculateCashReceived(scopedOrders);
       const staffPaymentsOwed = ledgerData.totalOwed || 0;
-      const projectedRevenue30Days = calculateProjectedRevenue(ordersData, 30);
-      const projectedRevenue90Days = calculateProjectedRevenue(ordersData, 90);
-      const pendingPayments = calculatePendingPayments(ordersData);
+      const projectedRevenue30Days = calculateProjectedRevenue(scopedOrders, 30);
+      const projectedRevenue90Days = calculateProjectedRevenue(scopedOrders, 90);
+      const pendingPayments = calculatePendingPayments(scopedOrders);
       const unpaidSessionsCount = (ledgerData.unpaidSessions || []).length;
       const unpaidStaffCount = ledgerData.staffCount || 0;
 
@@ -139,32 +158,52 @@ function FinancialDashboardInner() {
       const thirtyIso = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       let fixedCostsNext30 = 0;
       let supplierPayablesNext30 = 0;
-      try {
-        const fixedRows = await fixedCostsService.list(
-          (user as any).company_id,
-          { activeOnly: true },
-        );
-        const expanded = fixedCostsService.expandOccurrences(fixedRows, 30);
-        fixedCostsNext30 = expanded.reduce(
-          (sum, o) => sum + o.amount_cents / 100,
-          0,
-        );
-      } catch (fcErr) {
-        console.warn("[financial-dashboard] fixed_costs load failed:", fcErr);
+      if (user.company_id) {
+        try {
+          const fixedRows = await fixedCostsService.list(
+            user.company_id,
+            { activeOnly: true },
+          );
+          const expanded = fixedCostsService.expandOccurrences(fixedRows, 30);
+          fixedCostsNext30 = expanded.reduce(
+            (sum, o) => sum + o.amount_cents / 100,
+            0,
+          );
+        } catch (fcErr) {
+          console.warn("[financial-dashboard] fixed_costs load failed:", fcErr);
+        }
+        try {
+          const { data: payables } = await (supabase as any)
+            .from("supplier_payables")
+            .select("amount_cents, due_date")
+            .eq("company_id", user.company_id)
+            .eq("status", "pending")
+            .is("deleted_at", null)
+            .gte("due_date", todayIso)
+            .lte("due_date", thirtyIso);
+          supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
+            .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
+        } catch (spErr) {
+          console.warn("[financial-dashboard] supplier_payables load failed:", spErr);
+        }
       }
-      try {
-        const { data: payables } = await (supabase as any)
-          .from("supplier_payables")
-          .select("amount_cents, due_date")
-          .eq("company_id", (user as any).company_id)
-          .eq("status", "pending")
-          .is("deleted_at", null)
-          .gte("due_date", todayIso)
-          .lte("due_date", thirtyIso);
-        supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
-          .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
-      } catch (spErr) {
-        console.warn("[financial-dashboard] supplier_payables load failed:", spErr);
+
+      // FIN-C: pull the tenant's peak-season config (NULL = SA wedding
+      // default). Drives the Peak Season banner copy + trigger window.
+      let peakSeasonStartMonth: number | null = null;
+      let peakSeasonEndMonth: number | null = null;
+      if (user.company_id) {
+        try {
+          const { data: companyRow } = await (supabase as any)
+            .from("companies")
+            .select("peak_season_start_month, peak_season_end_month")
+            .eq("id", user.company_id)
+            .maybeSingle();
+          peakSeasonStartMonth = (companyRow as any)?.peak_season_start_month ?? null;
+          peakSeasonEndMonth = (companyRow as any)?.peak_season_end_month ?? null;
+        } catch (peakErr) {
+          console.warn("[financial-dashboard] peak_season config load failed:", peakErr);
+        }
       }
 
       // The 4-tile strip above keeps its simpler currentCashFlow
@@ -179,8 +218,8 @@ function FinancialDashboardInner() {
       // revenue horizon below.
       const cogsSince = new Date();
       cogsSince.setDate(cogsSince.getDate() - 90);
-      const cogsData = (user as any)?.company_id
-        ? await fetchRealCogs((user as any).company_id as string, cogsSince.toISOString())
+      const cogsData = user.company_id
+        ? await fetchRealCogs(user.company_id, cogsSince.toISOString())
         : null;
       const inventoryCosts = cogsData ? cogsData.cogs : null;
       const profitMargin = calculateProfitMargin(ordersData, cogsData);
@@ -210,11 +249,14 @@ function FinancialDashboardInner() {
       });
       setLoadedAt(Date.now());
 
-      // Generate AI-powered alerts
-      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(ordersData, {
+      // Generate AI-powered alerts. FIN-C threads peak-season config
+      // through so the seasonal banner respects tenant configuration.
+      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(scopedOrders, {
         currentCashFlow,
         projectedRevenue30Days,
         upcomingExpenses: staffPaymentsOwed + (inventoryCosts ?? 0),
+        peakSeasonStartMonth,
+        peakSeasonEndMonth,
       });
       setAlerts(generatedAlerts);
 
@@ -227,7 +269,7 @@ function FinancialDashboardInner() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, regionFilterId]);
 
   useEffect(() => {
     if (user) {
@@ -242,7 +284,7 @@ function FinancialDashboardInner() {
   // mutates one of the visible KPIs. Pattern mirrors the rest of the
   // admin pages (orders, leads, quotes, packages, regions, vehicles).
   useEffect(() => {
-    const companyId = (user as any)?.company_id;
+    const companyId = user?.company_id;
     if (!companyId) return;
     const channelKey = `admin-financial-dashboard:${companyId}`;
     const channel = (supabase as any)
@@ -267,7 +309,61 @@ function FinancialDashboardInner() {
       (supabase as any).removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(user as any)?.company_id]);
+  }, [user?.company_id]);
+
+  // FIN-C: handler for the bulk payment-reminder action. Calls the
+  // already-shipped /api/admin/invoices/bulk-remind endpoint with the
+  // operator-chosen scope (outstanding | overdue). Pre-FIN-C the
+  // "Send Payment Reminders" button on this page just deep-linked to
+  // /admin/invoices?status=unpaid - the copy implied a one-click send
+  // but nothing was actually sent.
+  const handleSendReminders = useCallback(async () => {
+    setReminding(true);
+    try {
+      const r = await fetch("/api/admin/invoices/bulk-remind", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: remindScope }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || "Failed to send reminders");
+      const sent = Number(data?.sent ?? 0);
+      const skipped = Number(data?.skipped ?? 0);
+      const failed = Number(data?.failed ?? 0);
+      toast({
+        title: failed > 0 ? "Reminders partly sent" : "Reminders sent",
+        description: `${sent} sent, ${skipped} skipped${failed > 0 ? `, ${failed} failed` : ""}. Scope: ${remindScope}.`,
+        variant: failed > 0 ? "destructive" : "default",
+      });
+      setRemindDialogOpen(false);
+    } catch (e) {
+      toast({
+        title: "Couldn't send reminders",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setReminding(false);
+    }
+  }, [remindScope, toast]);
+
+  // FIN-C: per-order revenue / paid / outstanding breakdown for the
+  // Order Analysis tab. Pre-FIN-C this tab was a 5-row "Order Revenue"
+  // list that duplicated /admin/orders without surfacing finance
+  // specifics. New shape sorts by largest outstanding so the operator
+  // sees the biggest cash-to-collect at the top, and shows the paid
+  // / outstanding split per order alongside the gross revenue.
+  const ordersByOutstanding = useMemo(() => {
+    return orders
+      .filter((o) => o.status !== "cancelled")
+      .map((o) => {
+        const total = Number(o.total_amount) || 0;
+        const paid = Number((o as { amount_paid?: number | string | null }).amount_paid) || 0;
+        return { order: o, total, paid, outstanding: Math.max(0, total - paid) };
+      })
+      .sort((a, b) => b.outstanding - a.outstanding || b.total - a.total)
+      .slice(0, 12);
+  }, [orders]);
 
   // FIN-B (financial dashboard audit): cash received now sums the real
   // amount_paid column across non-cancelled orders. Pre-FIN-B this
@@ -919,12 +1015,23 @@ function FinancialDashboardInner() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Link href={withSlug("/admin/invoices?status=unpaid")} className="block">
-                      <Button className="w-full justify-start" variant="outline" title="Open the invoices page filtered to unpaid, where you can resend reminders to clients with overdue balances.">
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Send Payment Reminders
-                      </Button>
-                    </Link>
+                    {/* FIN-C (financial dashboard follow-ups): Send
+                        Payment Reminders is now a real action. Pre-
+                        FIN-C the button deep-linked to /admin/invoices
+                        and pretended that opening the list was the
+                        same as sending. Now it opens a scope picker
+                        (outstanding vs overdue) and POSTs to
+                        /api/admin/invoices/bulk-remind which actually
+                        sends per-tenant branded reminder emails. */}
+                    <Button
+                      className="w-full justify-start"
+                      variant="outline"
+                      onClick={() => { setRemindScope("overdue"); setRemindDialogOpen(true); }}
+                      title="Pick a scope and fire branded reminder emails to every client with an outstanding or overdue invoice."
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Send Payment Reminders
+                    </Button>
                     <Link href={withSlug("/admin/wages")} className="block">
                       <Button className="w-full justify-start" variant="outline" title="Open the wages page to review staff hours and process the next pay run.">
                         <Users className="w-4 h-4 mr-2" />
@@ -987,16 +1094,38 @@ function FinancialDashboardInner() {
                       </div>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-slate-900 mb-2">
-                        AI Prediction
-                      </h4>
-                      <p className="text-sm text-slate-700">
-                        Based on your current booking rate and seasonal trends, you're on track to 
-                        exceed your quarterly target by approximately 15%. Consider investing in 
-                        additional inventory and staff to meet demand.
-                      </p>
-                    </div>
+                    {/* FIN-C (financial dashboard follow-ups): replace
+                        the hard-coded "on track to exceed quarterly
+                        target by ~15%" paragraph with a real summary
+                        computed from the actual numbers on this page.
+                        Pre-FIN-C the AI Prediction was identical for
+                        every tenant on every visit, which made the
+                        page feel decorative. */}
+                    {(() => {
+                      const p30 = metrics?.projectedRevenue30Days || 0;
+                      const p90 = metrics?.projectedRevenue90Days || 0;
+                      const pending = metrics?.pendingPayments || 0;
+                      const cash = metrics?.cashReceived || 0;
+                      const wages = metrics?.staffPaymentsOwed || 0;
+                      const runway90 = p90 + cash - wages
+                        - (metrics?.fixedCostsNext30 || 0)
+                        - (metrics?.supplierPayablesNext30 || 0);
+                      const note = p30 <= 0
+                        ? "No future events are on the books in the next 30 days yet. Get a quote out the door to build the pipeline."
+                        : pending > p30
+                          ? `Outstanding from clients (${formatCurrency(pending)}) exceeds next-30-day projected revenue (${formatCurrency(p30)}). Chase collections first - the bulk-remind action above is the fastest path.`
+                          : runway90 < 0
+                            ? `90-day net (received + projected - wages - fixed costs - supplier payables) is ${formatCurrency(runway90)}. Tighten outgoing spend or accelerate collections.`
+                            : `Next 30 days project ${formatCurrency(p30)} in event revenue against ${formatCurrency(pending)} outstanding from existing clients. 90-day net runway sits at ${formatCurrency(runway90)}.`;
+                      return (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-slate-900 mb-2">
+                            Cashflow read-out
+                          </h4>
+                          <p className="text-sm text-slate-700">{note}</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -1052,32 +1181,54 @@ function FinancialDashboardInner() {
             <TabsContent value="orders">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Order Revenue <InfoTooltip content={"Revenue per recent order. Profit margin column removed in the May 2026 audit - it was driven by a flat 65% cost assumption, not real costs."} /></CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Outstanding by order
+                    <InfoTooltip content={"Top non-cancelled orders by outstanding balance. Sorted to put the biggest cash-to-collect at the top so finance knows who to chase first.\n\nThe Profit Margin column lives on the KPI tile above; this tab is the collections view, not a duplicate of /admin/orders."} />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {orders.slice(0, 5).map((order) => {
-                      const revenue = Number(order.total_amount) || 0;
-                      return (
-                        <div key={order.id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="font-semibold">{order.client_name}</h4>
-                              <p className="text-sm text-slate-600">
+                  {ordersByOutstanding.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-8 text-center">
+                      Nothing outstanding. Every non-cancelled order has been paid in full.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {ordersByOutstanding.map(({ order, total, paid, outstanding }) => {
+                        const orderNumber = (order as { order_number?: string }).order_number;
+                        const status = order.status || "pending";
+                        return (
+                          <div key={order.id} className="border rounded-lg p-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-slate-900 truncate">
+                                  {order.client_name || "Unknown client"}
+                                </p>
+                                {orderNumber && (
+                                  <span className="font-mono text-[10px] text-slate-500 tabular-nums">
+                                    #{orderNumber}
+                                  </span>
+                                )}
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {String(status).replace(/_/g, " ")}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 {formatLocalDate(order.event_date)}
                               </p>
                             </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-amber-700 tabular-nums">
+                                {formatCurrency(outstanding)}
+                              </p>
+                              <p className="text-[10px] text-slate-500 tabular-nums">
+                                {formatCurrency(paid)} paid of {formatCurrency(total)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-sm">
-                            <span className="text-slate-600">Revenue:</span>
-                            <span className="font-semibold ml-2">
-                              {formatCurrency(revenue)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1195,6 +1346,58 @@ function FinancialDashboardInner() {
           </Tabs>
         </div>
       </div>
+
+      {/* FIN-C (financial dashboard follow-ups): bulk-remind dialog. */}
+      <Dialog open={remindDialogOpen} onOpenChange={setRemindDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send payment reminders</DialogTitle>
+            <DialogDescription>
+              Fires a per-tenant branded email to every client with an
+              invoice in the chosen scope. Each send is logged in the
+              email automation log and respects the suppression list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setRemindScope("overdue")}
+              className={`w-full text-left rounded-md border p-3 transition ${
+                remindScope === "overdue"
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <p className="font-medium text-slate-900">Overdue only</p>
+              <p className="text-xs text-slate-500">
+                Invoices past their due date. Safer default - only chases clients who&apos;ve actually missed the deadline.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRemindScope("outstanding")}
+              className={`w-full text-left rounded-md border p-3 transition ${
+                remindScope === "outstanding"
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <p className="font-medium text-slate-900">All outstanding</p>
+              <p className="text-xs text-slate-500">
+                Every sent / partially-paid / overdue invoice. Use when chasing the whole AR book.
+              </p>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemindDialogOpen(false)} disabled={reminding}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendReminders} disabled={reminding}>
+              {reminding ? "Sending..." : `Send ${remindScope} reminders`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
