@@ -1491,7 +1491,16 @@ function AdminLeadsInner() {
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 min-w-[180px]">
+                        {/* Wave 70.87: action column min-width is now
+                            responsive. Pre-fix the fixed min-w-[180px]
+                            forced a vertical split with long client
+                            names on phones (~360px width = 180px
+                            action col + 180px detail col, but a name
+                            like "Khanyi Mbatha + family" wraps). At
+                            < sm the column drops the min-width and
+                            stretches full width below the detail
+                            block. */}
+                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 w-full sm:w-auto sm:min-w-[180px]">
                           {/* Primary CTA, always the suggested next step.
                               Uses the shared RowPrimaryAction so the colour
                               scheme matches Contacts and Quotes. */}
