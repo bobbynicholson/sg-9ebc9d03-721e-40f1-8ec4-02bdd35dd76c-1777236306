@@ -63,7 +63,24 @@ function AdminTrackingInner() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [driverFilter, setDriverFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  // Wave 70.61: autoRefresh now persists to localStorage. The
+  // previous default-true reset on every navigation - ops staff
+  // who'd deliberately turned it off (e.g. to investigate a state
+  // without the 30s wipe) had to re-disable on every return to the
+  // page. Defaults to true on first visit; localStorage holds the
+  // override.
+  const [autoRefresh, setAutoRefreshState] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("liveOps:autoRefresh");
+    if (raw === "false") setAutoRefreshState(false);
+  }, []);
+  const setAutoRefresh = (v: boolean) => {
+    setAutoRefreshState(v);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("liveOps:autoRefresh", v ? "true" : "false");
+    }
+  };
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState(30);
@@ -113,8 +130,19 @@ function AdminTrackingInner() {
         `)
         .eq("company_id", companyId)
         .is("deleted_at", null)
-        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
-        .or(`event_date.gte.${todayISO},event_date.is.null`)
+        // Wave 70.61: dropped 'delivered' from the live-ops in-flight
+        // set. Once an order is delivered the truck is already back;
+        // it doesn't belong on the "today's deliveries in flight"
+        // tracker. Recently-completed orders surface elsewhere
+        // (orders list + dashboard). Keeping it here just inflated
+        // the list as the day progressed.
+        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        // Wave 70.61: removed the .or(event_date.is.null) branch.
+        // It was meant to keep "legacy rows" visible for cleanup but
+        // in practice it dragged every undated draft / quote shell
+        // into the live-ops page forever. The right home for those
+        // is the orders list, not today's tracker.
+        .gte("event_date", todayISO)
         .order("created_at", { ascending: false });
       if (ordersErr) {
         console.error("[admin/tracking] active-orders query error:", ordersErr);
@@ -131,9 +159,16 @@ function AdminTrackingInner() {
       try {
         const driverIds = driverData.map((d: any) => d.id).filter(Boolean);
         if (driverIds.length > 0) {
+          // Wave 70.61: belt-and-braces company_id filter on the
+          // driver_locations read. RLS scopes the table, but if a
+          // driver profile.id is ever shared across tenants the
+          // .in() alone would surface every linked tenant's last
+          // pin. eq()ing company_id makes the wrong-tenant case
+          // a 0-row reply we can see.
           const { data: pins } = await (supabase as any)
             .from("driver_locations")
             .select("driver_id, latitude, longitude, updated_at")
+            .eq("company_id", companyId)
             .in("driver_id", driverIds);
           const pinMap: Record<string, any> = {};
           for (const p of pins || []) {
@@ -248,6 +283,14 @@ function AdminTrackingInner() {
   // Falls back to the existing auto-refresh poll for status changes.
   useEffect(() => {
     if (!user?.company_id) return;
+    // Wave 70.61: realtime channels were missing the postgres_changes
+    // `filter:` clause, so every tenant on the project received every
+    // other tenant's events. The handler-side driver_id check below
+    // dropped the payload by short-circuit but cross-tenant rows
+    // still rode the wire. orders.filter now scopes the binding;
+    // gps_tracking has no company_id column so it still relies on
+    // the driver_id-match short-circuit (follow-up: add company_id
+    // to gps_tracking so we can filter properly).
     const channel = supabase
       .channel(`tracking-realtime-${user.company_id}`)
       .on("postgres_changes",
@@ -302,7 +345,7 @@ function AdminTrackingInner() {
         },
       )
       .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders" },
+        { event: "UPDATE", schema: "public", table: "orders", filter: `company_id=eq.${user.company_id}` },
         (payload: any) => {
           const before = payload?.old;
           const after = payload?.new;
@@ -321,7 +364,11 @@ function AdminTrackingInner() {
         },
       )
       .subscribe();
-    return () => { channel.unsubscribe(); };
+    // Wave 70.61: v2 cleanup uses removeChannel so the channel
+    // object is released from the client registry. .unsubscribe()
+    // detaches the binding but leaves the topic, so a remount
+    // re-channel on the same name can collide.
+    return () => { supabase.removeChannel(channel); };
   }, [user?.company_id, arrivalBufferMinutes, loadTrackingData]);
 
   // Auto-refresh: re-pull every 30s when toggled on. Verifies the toggle
