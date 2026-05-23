@@ -251,22 +251,49 @@ function ClientsCRM() {
     tags: string[];
   }
   const [savedContactViews, setSavedContactViews] = useState<SavedContactView[]>([]);
+  // Wave 70.76: saved-views localStorage key now scopes by
+  // user_id + company_id. Pre-fix the key was a single global
+  // "cateringms.adminContacts.savedViews.v1", so two reps signing
+  // into the same browser shared each other's views, and switching
+  // tenants surfaced the wrong views. Per-user + per-company means
+  // each (operator, tenant) pair gets their own segmented set.
+  //
+  // One-time migration: on first mount under the new key shape,
+  // if the new key is empty AND the legacy global key exists,
+  // copy the legacy data forward and delete the global key. Keeps
+  // existing reps from losing their views in the upgrade.
+  const savedViewsKey = useMemo(() => {
+    const uid = user?.id || "anon";
+    const cid = (user as any)?.company_id || "no-company";
+    return `cateringms.adminContacts.savedViews.v2.${cid}.${uid}`;
+  }, [user]);
+  const legacySavedViewsKey = "cateringms.adminContacts.savedViews.v1";
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !user?.id) return;
     try {
-      const raw = window.localStorage.getItem("cateringms.adminContacts.savedViews.v1");
-      if (raw) setSavedContactViews(JSON.parse(raw) as SavedContactView[]);
+      const raw = window.localStorage.getItem(savedViewsKey);
+      if (raw) {
+        setSavedContactViews(JSON.parse(raw) as SavedContactView[]);
+        return;
+      }
+      // Migration from legacy global key. Read, write under new
+      // key, delete the old key. Only fires once per operator per
+      // tenant because after the write the early-return above
+      // catches it on next mount.
+      const legacy = window.localStorage.getItem(legacySavedViewsKey);
+      if (legacy) {
+        setSavedContactViews(JSON.parse(legacy) as SavedContactView[]);
+        window.localStorage.setItem(savedViewsKey, legacy);
+        window.localStorage.removeItem(legacySavedViewsKey);
+      }
     } catch { /* ignore */ }
-  }, []);
+  }, [savedViewsKey, user?.id]);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !user?.id) return;
     try {
-      window.localStorage.setItem(
-        "cateringms.adminContacts.savedViews.v1",
-        JSON.stringify(savedContactViews),
-      );
+      window.localStorage.setItem(savedViewsKey, JSON.stringify(savedContactViews));
     } catch { /* storage blocked */ }
-  }, [savedContactViews]);
+  }, [savedContactViews, savedViewsKey, user?.id]);
   const saveCurrentContactView = () => {
     if (typeof window === "undefined") return;
     const name = window.prompt("Name this view:", "");
