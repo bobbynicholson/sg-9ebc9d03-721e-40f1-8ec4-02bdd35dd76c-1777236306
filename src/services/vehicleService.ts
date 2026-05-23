@@ -51,6 +51,15 @@ export interface Vehicle {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  // VEH-C (vehicles follow-ups): widened to include the maintenance
+  // columns that already exist on the table but were only accessed
+  // via `as any` casts in vehicles.tsx. Region scope for the multi-
+  // region tenant filter is also a real column on this table.
+  next_service_due: string | null;
+  service_interval_days: number | null;
+  last_serviced_at: string | null;
+  current_odometer_km: number | null;
+  region_id: string | null;
 }
 
 export interface VehicleBooking {
@@ -185,7 +194,11 @@ export interface AvailabilityResult {
 
 export const vehicleService = {
   async getVehiclesForCompany(companyId: string): Promise<Vehicle[]> {
-    const { data, error } = await supabase
+    // Cast at the boundary: select("*") returns every column, but the
+    // generated supabase types lag the maintenance + region_id additions.
+    // VEH-C widens the Vehicle interface; this assertion bridges the gap
+    // until database.types.ts is regenerated.
+    const { data, error } = await (supabase as any)
       .from("vehicles")
       .select("*")
       .eq("company_id", companyId)
@@ -195,7 +208,7 @@ export const vehicleService = {
       console.error("Error fetching vehicles:", error);
       return [];
     }
-    return data || [];
+    return (data || []) as Vehicle[];
   },
 
   /**
@@ -219,7 +232,7 @@ export const vehicleService = {
    * to the driver's own vehicle.
    */
   async getVehiclesOwnedByDriver(companyId: string, driverId: string): Promise<Vehicle[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("vehicles")
       .select("*")
       .eq("company_id", companyId)
@@ -230,7 +243,7 @@ export const vehicleService = {
       console.error("Error fetching driver vehicles:", error);
       return [];
     }
-    return data || [];
+    return (data || []) as Vehicle[];
   },
 
   async createVehicle(payload: {
@@ -252,7 +265,7 @@ export const vehicleService = {
     requiresTwoPeople?: boolean;
     notes?: string;
   }): Promise<Vehicle | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("vehicles")
       .insert([{
         company_id: payload.companyId,
@@ -276,21 +289,99 @@ export const vehicleService = {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Vehicle;
   },
 
   async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<Vehicle | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("vehicles")
       .update(updates)
       .eq("id", id)
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return data as Vehicle;
   },
 
-  async deleteVehicle(id: string): Promise<boolean> {
+  /**
+   * Inspect the impact of soft-deleting a vehicle BEFORE the delete
+   * lands. Returns the count of active future bookings + orders that
+   * still reference this vehicle. The page uses this to surface a
+   * confirmation dialog with the real impact so an operator doesn't
+   * accidentally orphan a future run.
+   *
+   * VEH-C (vehicles follow-ups): pre-VEH-C deleteVehicle just flipped
+   * deleted_at without touching anything else. Active vehicle_bookings
+   * stayed planned (showing up as "booked" on dispatch availability
+   * queries), and orders.assigned_vehicle_id kept pointing at a row
+   * the operator thought was gone.
+   */
+  async getVehicleDeletionImpact(
+    id: string,
+  ): Promise<{ activeBookings: number; activeOrders: number }> {
+    const nowIso = new Date().toISOString();
+    const todayDate = nowIso.slice(0, 10);
+    const [bookings, orders] = await Promise.all([
+      supabase
+        .from("vehicle_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("vehicle_id", id)
+        .in("status", ["planned", "on_route"])
+        .gte("booked_until", nowIso),
+      (supabase as any)
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .or(`assigned_vehicle_id.eq.${id},secondary_vehicle_id.eq.${id}`)
+        .is("deleted_at", null)
+        .not("status", "in", "(cancelled,completed)")
+        .gte("event_date", todayDate),
+    ]);
+    return {
+      activeBookings: bookings.count || 0,
+      activeOrders: orders.count || 0,
+    };
+  },
+
+  async deleteVehicle(
+    id: string,
+    opts?: { cascadeDetach?: boolean },
+  ): Promise<boolean> {
+    // VEH-C (vehicles follow-ups): cascade detach before flipping
+    // deleted_at. Without this, vehicle_bookings stays planned and
+    // future-event orders keep their assigned_vehicle_id pointing at
+    // a row the operator just removed. The caller passes
+    // `cascadeDetach: true` only after confirming the deletion impact
+    // dialog so we never silently mutate downstream tables.
+    if (opts?.cascadeDetach) {
+      const nowIso = new Date().toISOString();
+      const todayDate = nowIso.slice(0, 10);
+
+      // Cancel any still-planned booking on this vehicle. Anything
+      // already on_route or completed is history - leave it alone.
+      await supabase
+        .from("vehicle_bookings")
+        .update({ status: "cancelled", updated_at: nowIso })
+        .eq("vehicle_id", id)
+        .eq("status", "planned");
+
+      // Null out future-event order FKs. Past orders keep the FK so
+      // the run history shows which vehicle was used.
+      await (supabase as any)
+        .from("orders")
+        .update({ assigned_vehicle_id: null })
+        .eq("assigned_vehicle_id", id)
+        .is("deleted_at", null)
+        .not("status", "in", "(cancelled,completed)")
+        .gte("event_date", todayDate);
+      await (supabase as any)
+        .from("orders")
+        .update({ secondary_vehicle_id: null })
+        .eq("secondary_vehicle_id", id)
+        .is("deleted_at", null)
+        .not("status", "in", "(cancelled,completed)")
+        .gte("event_date", todayDate);
+    }
+
     const { error } = await supabase
       .from("vehicles")
       .update({ deleted_at: new Date().toISOString() })

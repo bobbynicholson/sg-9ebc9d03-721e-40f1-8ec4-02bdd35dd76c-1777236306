@@ -126,6 +126,12 @@ function VehiclesPage() {
   const [filter, setFilter] = useState<"all" | "company" | "driver" | "fridge" | "warmer">("all");
   const [editTarget, setEditTarget] = useState<Vehicle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
+  // VEH-C (vehicles follow-ups): pre-fetched impact of the pending
+  // soft-delete so the confirmation dialog can warn about active
+  // bookings / future orders that still point at this vehicle. null
+  // = still loading; populated = "show the numbers + arm cascade".
+  const [deleteImpact, setDeleteImpact] = useState<{ activeBookings: number; activeOrders: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     plate: "",
@@ -194,6 +200,38 @@ function VehiclesPage() {
     })();
   }, [companyId]);
 
+  // VEH-C (vehicles follow-ups): widen the owner-name resolver beyond
+  // the role-filtered drivers dropdown. The picker only loads
+  // driver/admin/company_admin profiles, so a vehicle owned by e.g. a
+  // super_admin or a sales_admin renders as the generic "Driver-owned"
+  // chip with no name. Fetch the missing owner profiles by ID set so
+  // every chip carries the human name.
+  const [extraOwnerNames, setExtraOwnerNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!companyId || vehicles.length === 0) return;
+    const knownIds = new Set(drivers.map((d) => d.id));
+    const missingIds = Array.from(new Set(
+      vehicles
+        .map((v) => v.driver_owner_id)
+        .filter((id): id is string => !!id && !knownIds.has(id)),
+    ));
+    if (missingIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", missingIds);
+      if (cancelled) return;
+      const m: Record<string, string> = {};
+      for (const p of (data || []) as Array<{ id: string; full_name: string | null; email: string | null }>) {
+        m[p.id] = p.full_name || p.email || "(unnamed)";
+      }
+      setExtraOwnerNames(m);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, vehicles, drivers]);
+
   useEffect(() => { load(); }, [load]);
 
   // VEH-B (vehicles audit, VEH-3): supabase realtime sub on the
@@ -227,10 +265,10 @@ function VehiclesPage() {
   }, [tab, companyId, utilFromDays]);
 
   const driverNameById = useMemo(() => {
-    const m: Record<string, string> = {};
+    const m: Record<string, string> = { ...extraOwnerNames };
     for (const d of drivers) m[d.id] = d.full_name || d.email || "(unnamed)";
     return m;
-  }, [drivers]);
+  }, [drivers, extraOwnerNames]);
 
   const filtered = useMemo(() => {
     let list = vehicles;
@@ -291,7 +329,7 @@ function VehiclesPage() {
     const now = Date.now();
     let overdue = 0;
     let dueSoon = 0;
-    for (const v of vehicles as any[]) {
+    for (const v of vehicles) {
       const t = v.next_service_due ? new Date(v.next_service_due).getTime() : null;
       if (!t) continue;
       if (t < now) overdue += 1;
@@ -353,10 +391,10 @@ function VehiclesPage() {
       requires_two_people: !!v.requires_two_people,
       notes: v.notes || "",
       service_interval_days:
-        (v as any).service_interval_days != null
-          ? String((v as any).service_interval_days)
+        v.service_interval_days != null
+          ? String(v.service_interval_days)
           : "",
-      next_service_due: (v as any).next_service_due || "",
+      next_service_due: v.next_service_due || "",
     });
     setError("");
   };
@@ -471,15 +509,42 @@ function VehiclesPage() {
     }
   };
 
+  // VEH-C (vehicles follow-ups): pre-flight the deletion impact when
+  // the operator opens the confirm dialog so we can show a concrete
+  // count rather than a generic "are you sure". Reruns whenever the
+  // delete target changes.
+  useEffect(() => {
+    if (!deleteTarget) { setDeleteImpact(null); return; }
+    let cancelled = false;
+    vehicleService.getVehicleDeletionImpact(deleteTarget.id)
+      .then((impact) => { if (!cancelled) setDeleteImpact(impact); })
+      .catch(() => { if (!cancelled) setDeleteImpact({ activeBookings: 0, activeOrders: 0 }); });
+    return () => { cancelled = true; };
+  }, [deleteTarget]);
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await vehicleService.deleteVehicle(deleteTarget.id);
-      toast({ title: "Vehicle removed", description: deleteTarget.plate || "" });
+      const hasImpact = !!deleteImpact
+        && (deleteImpact.activeBookings > 0 || deleteImpact.activeOrders > 0);
+      // VEH-C: cascade only when the operator has seen the impact
+      // count. If the pre-flight failed (deleteImpact === null) we
+      // still soft-delete; the cascade is a best-effort cleanup, not
+      // a gate.
+      await vehicleService.deleteVehicle(deleteTarget.id, { cascadeDetach: hasImpact });
+      toast({
+        title: "Vehicle removed",
+        description: hasImpact
+          ? `${deleteTarget.plate} - ${deleteImpact!.activeBookings} bookings cancelled, ${deleteImpact!.activeOrders} future orders detached.`
+          : (deleteTarget.plate || ""),
+      });
       setDeleteTarget(null);
       load();
     } catch (e: any) {
       toast({ title: "Could not delete", description: e?.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1030,14 +1095,14 @@ function VehiclesPage() {
                       onChange={e => setForm({ ...form, next_service_due: e.target.value })}
                       className="mt-1"
                     />
-                    {(editTarget as any).last_serviced_at && (
+                    {editTarget.last_serviced_at && (
                       <p className="text-[11px] text-slate-500 mt-1">
                         Last serviced{" "}
-                        {new Date((editTarget as any).last_serviced_at).toLocaleDateString("en-ZA", {
+                        {new Date(editTarget.last_serviced_at).toLocaleDateString("en-ZA", {
                           day: "numeric", month: "short", year: "numeric",
                         })}
-                        {(editTarget as any).current_odometer_km && (
-                          <> at {(editTarget as any).current_odometer_km} km</>
+                        {editTarget.current_odometer_km && (
+                          <> at {editTarget.current_odometer_km} km</>
                         )}
                       </p>
                     )}
@@ -1191,20 +1256,52 @@ function VehiclesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
+      {/* Delete confirm - VEH-C (vehicles follow-ups): now shows the
+          real cascade impact (active bookings + future-event orders)
+          and on confirm cancels the bookings + nulls the order FKs.
+          Pre-VEH-C the dialog promised history-preservation but in
+          practice left dangling references that dispatch availability
+          treated as still-blocked. */}
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-700">Remove {deleteTarget?.plate}?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-700">
-            The vehicle is removed from the roster. Open bookings against it stay on the orders so the run history is preserved.
-          </p>
+          <div className="text-sm text-slate-700 space-y-2">
+            <p>
+              The vehicle is soft-deleted from the roster. Past runs keep their record so reporting stays accurate.
+            </p>
+            {deleteImpact === null ? (
+              <p className="text-xs text-slate-500">Checking impact...</p>
+            ) : deleteImpact.activeBookings === 0 && deleteImpact.activeOrders === 0 ? (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+                No active bookings or future orders reference this vehicle. Clean removal.
+              </p>
+            ) : (
+              <div className="text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                <p className="font-medium text-amber-900 mb-0.5 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Cascade impact
+                </p>
+                <p className="text-amber-800">
+                  {deleteImpact.activeBookings > 0 && (
+                    <>{deleteImpact.activeBookings} planned booking{deleteImpact.activeBookings === 1 ? "" : "s"} will be cancelled. </>
+                  )}
+                  {deleteImpact.activeOrders > 0 && (
+                    <>{deleteImpact.activeOrders} future order{deleteImpact.activeOrders === 1 ? "" : "s"} will lose their vehicle assignment.</>
+                  )}
+                </p>
+                <p className="text-amber-700 mt-1">Reassign a vehicle on those orders before the run day.</p>
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline" disabled={deleting}>Cancel</Button>
             </DialogClose>
-            <Button variant="destructive" onClick={handleDelete}>Remove</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting || deleteImpact === null}>
+              {deleting ? "Removing..." : "Remove"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
