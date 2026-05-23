@@ -697,7 +697,21 @@ function ClientsCRM() {
   // CAL-2 calendar pattern.
   useEffect(() => {
     if (!companyId) return;
-    const refetch = () => { loadContacts(); };
+    // Wave 70.74: debounced refetch. The CRM aggregates 5 tables
+    // client-side and re-runs the full pipeline on every event.
+    // Without a debounce a bulk import of 7,495 rows fires 7,495
+    // realtime payloads -> 7,495 full re-aggregations, each
+    // running 5 round-trips. 250ms collapses a burst into one
+    // refetch while staying fresh enough for normal "one edit
+    // in another tab" UX.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        loadContacts();
+      }, 250);
+    };
     const sub = supabase
       .channel(`contacts-${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders",   filter: `company_id=eq.${companyId}` }, refetch)
@@ -705,7 +719,13 @@ function ClientsCRM() {
       .on("postgres_changes", { event: "*", schema: "public", table: "leads",    filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` }, refetch)
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    return () => {
+      if (timer) clearTimeout(timer);
+      // Wave 70.74: removeChannel (v2) instead of channel.unsubscribe()
+      // (v1) so the channel object is released from the client
+      // registry. Same pattern we shipped on tracking + dispatch.
+      supabase.removeChannel(sub);
+    };
   }, [companyId, loadContacts]);
 
   // Deep-link handler - when /admin/contacts?clientId=<uuid> is in
