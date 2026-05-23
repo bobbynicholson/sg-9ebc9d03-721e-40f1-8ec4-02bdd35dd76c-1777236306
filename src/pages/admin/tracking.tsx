@@ -37,6 +37,28 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 const AVG_SPEED_KMH = 35;
 
+// Wave 70.64: ETA / margin maths runs both client-side (browser
+// local TZ) and during the realtime patch. The naked
+// `new Date("YYYY-MM-DDTHH:MM")` constructor parses as local time
+// when there's no Z / offset, which is what we want for an
+// operator viewing in their own timezone, but it broke quietly if
+// event_time ever arrived padded with seconds-precision-Z (e.g.
+// from a serialized ISO timestamp): the parser would then read it
+// as UTC and the ETA could be off by hours.
+//
+// Strategy: normalise to `<date>T<time-truncated-to-mm:ss>` with
+// no trailing Z, so the constructor consistently picks the
+// browser's local timezone. event_time is stored as a TIME
+// (postgres) and PostgREST returns 'HH:MM:SS' - we slice it
+// defensively in case of legacy formats.
+function parseEventDateTime(eventDate: string, eventTime: string): Date | null {
+  if (!eventDate || !eventTime) return null;
+  const time = String(eventTime).slice(0, 8); // HH:MM:SS or HH:MM
+  const dt = new Date(`${eventDate}T${time}`);
+  if (isNaN(dt.getTime())) return null;
+  return dt;
+}
+
 // Dynamically import the map component with SSR disabled
 const AdminTrackingMap = dynamic(
   () => import("@/components/tracking/AdminTrackingMap").then((mod) => mod.AdminTrackingMap),
@@ -212,13 +234,12 @@ function AdminTrackingInner() {
         // Negative means we're going to be late.
         let marginMinutes: number | null = null;
         if (order.event_date && order.event_time && etaMinutes != null) {
-          const eventDt = new Date(`${order.event_date}T${order.event_time}`);
-          if (!isNaN(eventDt.getTime())) {
+          const eventDt = parseEventDateTime(order.event_date, order.event_time);
+          if (eventDt && !isNaN(eventDt.getTime())) {
             const minutesUntilEvent = (eventDt.getTime() - Date.now()) / 60_000;
             marginMinutes = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
           }
         }
-        const isAtRisk = marginMinutes != null && marginMinutes < 0;
 
         // Phase 4: composite risk score
         const lastPingAge = driver?.location_updated_at
@@ -231,6 +252,14 @@ function AdminTrackingInner() {
           hasDriverPin: driver?.current_lat != null && driver?.current_lng != null,
           status: order.status ?? null,
         });
+        // Wave 70.64: is_at_risk now mirrors the KPI tile's definition
+        // (risk_tier === high|critical). Pre-fix this was the cruder
+        // `marginMinutes < 0` binary, so the row badges + the row's
+        // is_at_risk flag disagreed with the at-risk tile - the tile
+        // counted 1 but the matching row had no badge, or vice versa.
+        // Composite tier is the right signal (covers GPS staleness +
+        // missing pin in-motion as well as a late margin).
+        const isAtRisk = risk.tier === "high" || risk.tier === "critical";
 
         return {
           ...order,
@@ -313,8 +342,8 @@ function AdminTrackingInner() {
             }
             let marginMinutes: number | null = null;
             if (o.event_date && o.event_time && etaMinutes != null) {
-              const eventDt = new Date(`${o.event_date}T${o.event_time}`);
-              if (!isNaN(eventDt.getTime())) {
+              const eventDt = parseEventDateTime(o.event_date, o.event_time);
+              if (eventDt && !isNaN(eventDt.getTime())) {
                 const minutesUntilEvent = (eventDt.getTime() - Date.now()) / 60_000;
                 marginMinutes = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
               }
@@ -334,7 +363,10 @@ function AdminTrackingInner() {
               eta_minutes: etaMinutes,
               distance_km: distanceKm,
               margin_minutes: marginMinutes,
-              is_at_risk: marginMinutes != null && marginMinutes < 0,
+              // Wave 70.64: align is_at_risk with the KPI tile (tier
+              // === high|critical). See loadTrackingData branch for
+              // the longer explanation.
+              is_at_risk: risk.tier === "high" || risk.tier === "critical",
               risk_score: risk.score,
               risk_tier: risk.tier,
               risk_reasons: risk.reasons,
@@ -369,8 +401,26 @@ function AdminTrackingInner() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.company_id, arrivalBufferMinutes, loadTrackingData]);
 
-  // Auto-refresh: re-pull every 30s when toggled on. Verifies the toggle
-  // actually does something - previous build had the state but no timer.
+  // Wave 70.64: auto-refresh is now a safety-net poll, not the
+  // primary live update path. Realtime (gps_tracking INSERT +
+  // orders UPDATE) patches state inline; the polling timer only
+  // re-pulls when the tab is visible AND it's been a long enough
+  // window that we'd expect a state we haven't seen patched (e.g.
+  // a row added to the queue while a different filter was on).
+  //
+  // Pre-fix the timer fired every 30s regardless, while realtime
+  // ALSO triggered a full loadTrackingData() on every orders UPDATE
+  // - so a tenant editing a far-future order paid for two
+  // simultaneous selects, with the polling refresh also racing the
+  // realtime patch and clobbering it.
+  //
+  // New strategy:
+  //   - Drop the 30s cadence to 2 minutes. Realtime carries the
+  //     fast path; the timer is a backstop.
+  //   - Pause the timer when document.hidden (cron / overnight
+  //     tabs no longer burn quota).
+  //   - The toggle still flips the timer off entirely - some ops
+  //     staff disable to investigate a frozen state.
   useEffect(() => {
     if (refreshTimerRef.current) {
       clearInterval(refreshTimerRef.current);
@@ -378,8 +428,9 @@ function AdminTrackingInner() {
     }
     if (autoRefresh) {
       refreshTimerRef.current = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return;
         loadTrackingData();
-      }, 30000);
+      }, 120000); // 2 min safety-net poll, realtime is the fast path
     }
     return () => {
       if (refreshTimerRef.current) {
