@@ -445,10 +445,24 @@ function ClientsCRM() {
         "leads",
         "id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename",
       ),
-      fetchAllPaged(
-        "orders",
-        "id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at",
-      ),
+      // Wave 70.81: server-side aggregation. Pre-fix the contacts
+      // page pulled every order row (paginated 1000 at a time, up
+      // to 50k) and walked each one in a per-order loop to compute
+      // order_count / total_spent / last_event_date / next_event_date
+      // per contact. On a tenant with 7,495 imported contacts and
+      // hundreds of orders first paint sat at 8s+.
+      //
+      // Now: read from orders_per_email_rollup (migration
+      // 20260523120000) which pre-aggregates the same per
+      // (company_id, lower(trim(client_email))) at the DB. The
+      // merge below stops looping orders entirely - one rollup
+      // row per email_key carries every field the merge used to
+      // recompute, plus the order_ids array we need for the
+      // invoice -> contact mapping.
+      (supabase as any)
+        .from("orders_per_email_rollup")
+        .select("email_key, order_count, total_spent, last_event_date, next_event_date, order_ids, sample_client_name, sample_client_phone, last_order_created_at")
+        .eq("company_id", companyId),
       fetchAllPaged(
         "quotes",
         "id, client_name, client_email, client_id, lead_id, created_at",
@@ -597,24 +611,39 @@ function ClientsCRM() {
         }
       });
 
-      // Aggregate orders into whichever contact they match
-      const todayISO = toLocalISO(today);
-      (ordersRes.data || []).forEach((o: any) => {
-        if (!o.client_email && !o.client_name) return;
-        const k = keyOf(o.client_email, o.client_name);
-        let c = map.get(k);
+      // Wave 70.81: merge from orders_per_email_rollup.
+      //
+      // The DB has already done the heavy work - per email_key the
+      // view returns order_count, total_spent, last/next event_date
+      // (with cancelled excluded and today vs future split), the
+      // order_ids array (latest first), and a sample client name +
+      // phone for order-only contacts.
+      //
+      // For each rollup row:
+      //   - Look up the contact by email_key. If it exists
+      //     (created by the clients or leads merge), stamp the
+      //     pre-aggregated fields directly.
+      //   - If no contact yet, mint an "order_only" contact using
+      //     the sample_client_name / sample_client_phone the
+      //     rollup carries.
+      //   - Map every order_id to this email_key so the invoices
+      //     merge can still resolve invoice.order_id -> contact.
+      (ordersRes.data || []).forEach((r: any) => {
+        const emailKey = String(r.email_key || "").trim();
+        if (!emailKey) return;
+        let c = map.get(emailKey);
         if (!c) {
           c = {
-            key: k,
+            key: emailKey,
             source: "order_only",
             clientId: null,
             leadIds: [],
             orderIds: [],
             quoteIds: [],
             invoiceIds: [],
-            name: o.client_name || "Unnamed",
-            email: o.client_email,
-            phone: o.client_phone,
+            name: r.sample_client_name || "Unnamed",
+            email: emailKey,
+            phone: r.sample_client_phone,
             mobile_number: null,
             landline_number: null,
             historicalTotalEvents: null,
@@ -628,25 +657,28 @@ function ClientsCRM() {
             daysSinceLastTouch: null,
             status: "won",
             suggestion: { tone: "neutral", label: "Stay in touch", reason: "Past customer" },
-            createdAt: o.created_at,
+            createdAt: r.last_order_created_at,
             tags: [],
             clientType: null,
           };
-          map.set(k, c);
+          map.set(emailKey, c);
         }
-        c.orderIds.push(o.id);
-        // We index orderId -> contact key here so the invoices merge
-        // below can resolve invoice.order_id back to the right person
-        // even when the invoice has no client_id (legacy orders).
-        orderIdToKey.set(o.id, k);
-        const status = String(o.status || "").toLowerCase();
-        if (status !== "cancelled") {
-          c.orderCount += 1;
-          c.totalSpent += Number(o.total_amount || 0);
-          if (o.event_date <= todayISO) {
-            if (!c.lastEventDate || o.event_date > c.lastEventDate) c.lastEventDate = o.event_date;
-          } else {
-            if (!c.nextEventDate || o.event_date < c.nextEventDate) c.nextEventDate = o.event_date;
+        // order_ids comes back DESC from the view; push as-is.
+        const ids: string[] = Array.isArray(r.order_ids) ? r.order_ids : [];
+        for (const id of ids) {
+          c.orderIds.push(id);
+          orderIdToKey.set(id, emailKey);
+        }
+        c.orderCount += Number(r.order_count || 0);
+        c.totalSpent += Number(r.total_spent || 0);
+        if (r.last_event_date) {
+          if (!c.lastEventDate || r.last_event_date > c.lastEventDate) {
+            c.lastEventDate = r.last_event_date;
+          }
+        }
+        if (r.next_event_date) {
+          if (!c.nextEventDate || r.next_event_date < c.nextEventDate) {
+            c.nextEventDate = r.next_event_date;
           }
         }
       });
