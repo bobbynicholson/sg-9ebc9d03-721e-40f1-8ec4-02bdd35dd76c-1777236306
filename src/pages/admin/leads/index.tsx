@@ -22,7 +22,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { composeEmail } from "@/lib/composeEmail";
 import { formatLocalDate } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
@@ -557,7 +556,8 @@ function AdminLeadsInner() {
       });
       setDeleteTarget(null);
     } catch (err: any) {
-      console.error("Delete lead failed:", err);
+      // Wave 70.83: dropped production console.error - the toast
+      // below already surfaces the failure to the operator.
       toast({
         title: "Delete failed",
         description: err?.message || "Could not delete this lead.",
@@ -853,8 +853,9 @@ function AdminLeadsInner() {
         }
       }
       setLinksByLeadId(map);
-    } catch (error) {
-      console.error("Error loading leads:", error);
+    } catch {
+      // Wave 70.83: dropped production console.error. Failures
+      // bubble through the empty-state / toast paths below.
     } finally {
       setLoading(false);
     }
@@ -1726,9 +1727,11 @@ function AdminLeadsInner() {
                     l.id === composeLead.id ? { ...l, status: "contacted" } : l,
                   ));
                 }
-              } catch (err) {
-                // Non-fatal - the email's already on its way.
-                console.warn("[leads] auto status flip failed", err);
+              } catch {
+                // Non-fatal - the email's already on its way; the
+                // worst case is the status flip didn't land and the
+                // operator sees a stale "new" badge until next
+                // refresh.
               }
             }}
             onClose={() => setComposeLead(null)}
