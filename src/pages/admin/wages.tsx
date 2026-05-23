@@ -196,6 +196,19 @@ function WageDashboardPage() {
   const [owedToStaff, setOwedToStaff] = useState<number | null>(null);
   // WAGE-A intel: event count in range for the cost-per-event tile.
   const [eventCount, setEventCount] = useState<number | null>(null);
+  // WAGE-B intel: revenue in range (sum of orders.total_amount on
+  // non-cancelled orders whose event_date falls in the window). Pairs
+  // with the period wage total to compute the wage-to-revenue ratio
+  // - catering benchmark is roughly 25-35%. Null while loading or
+  // when the fetch failed.
+  const [revenueInRange, setRevenueInRange] = useState<number | null>(null);
+  // WAGE-B intel: 4-week weekly-wage buckets per staff member for
+  // the by-person table sparkline. Map of staff_id -> [w-3, w-2,
+  // w-1, this-week] minute totals. Independent of the page range
+  // selector - always shows the latest 4 ISO weeks ending today,
+  // so the sparkline is a stable trend signal even when the
+  // operator flips to "this month" on the headline.
+  const [weeklyByStaff, setWeeklyByStaff] = useState<Map<string, number[]>>(new Map());
 
   const handlePresetChange = (p: Preset) => {
     setPreset(p);
@@ -292,24 +305,27 @@ function WageDashboardPage() {
         }>;
         const fromDate = range.fromISO.slice(0, 10);
         const toDate = range.toISO.slice(0, 10);
-        const rows = await Promise.all(driverList.map(async (d) => {
-          const sum = await driverPayService.getPaySummary({
-            companyId,
-            driverId: d.id,
-            range: { from: fromDate, to: toDate },
-          });
+        // WAGE-B: bulk fetch replaces the per-driver N+1. On a
+        // 20-driver tenant this drops ~100 round trips to ~5.
+        const bulk = await driverPayService.getBulkPayTotals({
+          companyId,
+          driverIds: driverList.map((d) => d.id),
+          range: { from: fromDate, to: toDate },
+        });
+        const rows: DriverPayRow[] = driverList.map((d) => {
+          const t = bulk.get(d.id);
           return {
             driver_id: d.id,
             full_name: d.full_name || d.email || "Driver",
-            hours: sum.totals.hours_total,
-            hourly_pay: sum.totals.hourly_pay,
-            distance_km: sum.totals.distance_total_km,
-            distance_pay: sum.totals.distance_pay,
-            callout_pay: sum.totals.callout_pay,
-            total: sum.totals.grand_total,
-            rates: sum.rates,
-          } as DriverPayRow;
-        }));
+            hours: t?.hours_total || 0,
+            hourly_pay: t?.hourly_pay || 0,
+            distance_km: t?.distance_total_km || 0,
+            distance_pay: t?.distance_pay || 0,
+            callout_pay: t?.callout_pay || 0,
+            total: t?.grand_total || 0,
+            rates: t?.rates || { hourly_rate: 0, distance_rate_per_km: 0, base_callout_fee: 0 },
+          };
+        });
         if (!cancelled) setDriverRows(rows.sort((a, b) => b.total - a.total));
       } catch (e: any) {
         if (!cancelled) toast({ title: "Could not load driver pay", description: e?.message ?? "", variant: "destructive" });
@@ -370,8 +386,9 @@ function WageDashboardPage() {
   }, [companyId]);
 
   // WAGE-A intel: event count in the window for the cost-per-event
-  // tile. Counts non-cancelled orders whose event_date falls inside
-  // the range.
+  // tile. WAGE-B extends this to also sum total_amount for the
+  // wage % of revenue tile. Both numbers come from the same query
+  // so cost is unchanged.
   useEffect(() => {
     if (!companyId || !range.fromISO || !range.toISO) return;
     let cancelled = false;
@@ -379,21 +396,81 @@ function WageDashboardPage() {
       try {
         const fromDate = range.fromISO.slice(0, 10);
         const toDate = range.toISO.slice(0, 10);
-        const { count } = await supabase
+        const { data, error } = await supabase
           .from("orders")
-          .select("id", { count: "exact", head: true })
+          .select("total_amount")
           .eq("company_id", companyId)
           .gte("event_date", fromDate)
           .lt("event_date", toDate)
           .neq("status", "cancelled");
-        if (!cancelled) setEventCount(count || 0);
+        if (error) throw error;
+        const rows = (data || []) as Array<{ total_amount: number | string | null }>;
+        if (!cancelled) {
+          setEventCount(rows.length);
+          setRevenueInRange(rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0));
+        }
       } catch (e) {
         captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "event_count" } });
-        if (!cancelled) setEventCount(null);
+        if (!cancelled) {
+          setEventCount(null);
+          setRevenueInRange(null);
+        }
       }
     })();
     return () => { cancelled = true; };
   }, [companyId, range.fromISO, range.toISO]);
+
+  // WAGE-B intel: 4-week weekly-wage roll-up per staff. One bulk
+  // query over kitchen_shifts in the trailing 28 days, then bucket
+  // in memory into 4 weekly buckets (oldest -> newest). Independent
+  // of the page range so the sparkline is a stable trend signal.
+  useEffect(() => {
+    if (!companyId) return;
+    if (department === "drivers") {
+      setWeeklyByStaff(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        // 28 days window ending end-of-today, broken into 4 buckets
+        // of 7 days each: bucket 0 = 28..21d ago, bucket 3 = 7..0d
+        // ago (this week).
+        const now = new Date();
+        now.setHours(23, 59, 59, 999);
+        const fromMs = now.getTime() - 28 * 86_400_000;
+        const fromIso = new Date(fromMs).toISOString();
+        const toIso = now.toISOString();
+        const dept = department === "all" ? undefined : department;
+        const shifts = await kitchenStaffService.listShiftsInRange(companyId, fromIso, toIso, { department: dept });
+        if (cancelled) return;
+        const map = new Map<string, number[]>();
+        for (const sh of shifts) {
+          // Total minutes on this shift = standard + overtime +
+          // sunday/holiday. Open shifts contribute 0 minutes (their
+          // splits stay null until clock-out), which matches the
+          // headline tile behaviour.
+          const mins = (sh.standard_min || 0)
+            + (sh.overtime_min || 0)
+            + ((sh as { sunday_holiday_min?: number }).sunday_holiday_min || 0);
+          if (mins <= 0) continue;
+          const shiftMs = new Date(sh.shift_start).getTime();
+          const daysAgo = Math.floor((now.getTime() - shiftMs) / 86_400_000);
+          if (daysAgo < 0 || daysAgo > 28) continue;
+          // Buckets: 0 = oldest (21-28d ago), 3 = this week (0-7d).
+          const bucket = Math.min(3, 3 - Math.floor(daysAgo / 7));
+          const arr = map.get(sh.staff_member_id) || [0, 0, 0, 0];
+          arr[bucket] += mins;
+          map.set(sh.staff_member_id, arr);
+        }
+        setWeeklyByStaff(map);
+      } catch (e) {
+        captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "weekly_sparkline" } });
+        if (!cancelled) setWeeklyByStaff(new Map());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, department]);
 
   // WAGE-A: realtime channel. Two surfaces this matters for: a
   // staff clock-out mid-period (kitchen tablet) should refresh the
@@ -854,10 +931,11 @@ function WageDashboardPage() {
           )}
 
           {/* WAGE-A intel: secondary insights row. Top earner +
-              cost-per-event tiles. Hidden when there's no wage
-              activity at all (matches the empty-state below). */}
+              cost-per-event + wage-% + open shifts. Hidden when
+              there's no wage activity at all (matches the empty-
+              state below). */}
           {!isDriversTab && staffRows.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
@@ -894,6 +972,47 @@ function WageDashboardPage() {
                   )}
                 </CardContent>
               </Card>
+              {/* WAGE-B intel: wage-as-percent-of-revenue. The
+                  catering industry benchmark sits between 25% and
+                  35%; below that is great, above is a flag. We
+                  tone the tile green (<= 35%), amber (36-45%), or
+                  rose (> 45%) so the operator's eye lands on it
+                  when things are off. Hidden when there's zero
+                  revenue in the window. */}
+              {(() => {
+                const wagePct = (revenueInRange != null && revenueInRange > 0)
+                  ? (grandTotal / revenueInRange) * 100
+                  : null;
+                let tone = "bg-white";
+                let valueTone = "text-slate-900";
+                if (wagePct != null) {
+                  if (wagePct <= 35) { tone = "bg-emerald-50/60"; valueTone = "text-emerald-700"; }
+                  else if (wagePct <= 45) { tone = "bg-amber-50/60"; valueTone = "text-amber-700"; }
+                  else { tone = "bg-rose-50/60"; valueTone = "text-rose-700"; }
+                }
+                return (
+                  <Card className={`border-0 shadow-sm ${tone}`}>
+                    <CardContent className="p-4">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />Wage % of revenue
+                      </div>
+                      {wagePct == null ? (
+                        <>
+                          <div className="text-2xl font-bold text-slate-300 tabular-nums">—</div>
+                          <div className="text-[10px] text-slate-500 mt-1">No invoiced events in range</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className={`text-2xl font-bold tabular-nums ${valueTone}`}>{wagePct.toFixed(1)}%</div>
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            {fmtZAR(grandTotal)} on {fmtZAR(revenueInRange || 0)}. Benchmark 25-35%.
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
               {/* WAGE-A intel: open-shift exception card. Surfaces
                   any open shift older than 12h - probable forgot-
                   to-clock-out. Pulled straight off the open_shift
@@ -970,7 +1089,7 @@ function WageDashboardPage() {
               ) : isDriversTab ? (
                 <DriverByPersonTable rows={driverRows} />
               ) : (
-                <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} />
+                <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} />
               )}
             </TabsContent>
           </Tabs>
@@ -1195,12 +1314,41 @@ function DriverSummaryView({ rows, totals }: { rows: DriverPayRow[]; totals: { h
   );
 }
 
+// WAGE-B: tiny bar sparkline. 4 weekly hour totals -> 4 vertical
+// bars. Renders inline next to a by-person row so the operator
+// can see whether a staff member's hours are creeping up or down
+// over the last month. SVG sized to fit a narrow table column.
+function HoursSparkline({ values, title }: { values: number[]; title: string }) {
+  if (!values || values.length === 0 || values.every((v) => v === 0)) {
+    return <span className="text-slate-300 text-[10px]">—</span>;
+  }
+  const max = Math.max(1, ...values);
+  const width = 56;
+  const height = 18;
+  const barW = (width - 3 * 2) / values.length;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+      <title>{title}</title>
+      {values.map((v, i) => {
+        const h = max > 0 ? Math.max(1, (v / max) * (height - 2)) : 1;
+        const x = i * (barW + 2);
+        const y = height - h;
+        // Latest bar = darker so the eye lands there.
+        const fill = i === values.length - 1 ? "#0f766e" : "#94a3b8";
+        return <rect key={i} x={x} y={y} width={barW} height={h} rx={1} fill={fill} />;
+      })}
+    </svg>
+  );
+}
+
 function KitchenByPersonTable({
   rows,
   totals,
+  weeklyByStaff,
 }: {
   rows: StaffWageSummary[];
   totals: { standard_min: number; overtime_min: number; sunday_holiday_min: number; total_wage: number; total_min: number };
+  weeklyByStaff: Map<string, number[]>;
 }) {
   if (rows.length === 0) {
     return <EmptyState department={"all"} />;
@@ -1216,6 +1364,7 @@ function KitchenByPersonTable({
                 <th className="px-2 py-2.5 font-medium text-right">Shifts</th>
                 <th className="px-2 py-2.5 font-medium text-right">Standard h</th>
                 <th className="px-2 py-2.5 font-medium text-right">OT h</th>
+                <th className="px-2 py-2.5 font-medium text-center">Last 4w</th>
                 <th className="px-2 py-2.5 font-medium text-right">Effective rate</th>
                 <th className="px-3 py-2.5 font-medium text-right">Wage R</th>
               </tr>
@@ -1256,6 +1405,21 @@ function KitchenByPersonTable({
                     <td className={`px-2 py-2.5 text-right tabular-nums font-medium ${r.overtime_min > 0 ? "text-amber-700" : "text-slate-500"}`}>
                       {(r.overtime_min / 60).toFixed(1)}h
                     </td>
+                    <td className="px-2 py-2.5 text-center">
+                      {(() => {
+                        const mins = weeklyByStaff.get(r.staff_id) || [0, 0, 0, 0];
+                        const hrs = mins.map((m) => +(m / 60).toFixed(1));
+                        const total = hrs.reduce((s, h) => s + h, 0);
+                        const title = total === 0
+                          ? "No hours in the trailing 4 weeks"
+                          : `Hours by week (oldest -> newest): ${hrs.map((h) => `${h.toFixed(1)}h`).join(" / ")}`;
+                        return (
+                          <div className="inline-flex items-center justify-center" title={title}>
+                            <HoursSparkline values={mins} title={title} />
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-2 py-2.5 text-right tabular-nums text-slate-700">
                       {effectiveRate > 0 ? fmtZARDetailed(effectiveRate) : <span className="text-amber-600 text-xs">not set</span>}
                     </td>
@@ -1274,6 +1438,7 @@ function KitchenByPersonTable({
                 <td className={`px-2 py-3 text-right tabular-nums ${totals.overtime_min > 0 ? "text-amber-700" : ""}`}>
                   {(totals.overtime_min / 60).toFixed(1)}h
                 </td>
+                <td className="px-2 py-3"></td>
                 <td className="px-2 py-3"></td>
                 <td className="px-3 py-3 text-right text-emerald-700 tabular-nums">{fmtZAR(totals.total_wage)}</td>
               </tr>
