@@ -1314,6 +1314,24 @@ function AdminLeadsInner() {
                             <Badge className={getStatusColor(lead.status || "new")}>
                               {lead.status || "new"}
                             </Badge>
+                            {/* Wave 70.85: unreachable-lead guard. A
+                                lead with no email AND no phone can't
+                                be contacted from the system at all -
+                                the operator wastes a click on the
+                                red Send-follow-up CTA, gets a toast
+                                saying "no email", and learns the
+                                hard way. Amber chip surfaces the
+                                problem on the row so the next move
+                                is obvious. */}
+                            {!lead.client_email && !lead.client_phone && (
+                              <Badge
+                                className="bg-amber-100 text-amber-800 border-amber-200 gap-1"
+                                title="No email or phone on this lead - the operator can't contact them from inside the system. Open Details to add a channel."
+                              >
+                                <MailQuestion className="w-3 h-3" />
+                                Unreachable
+                              </Badge>
+                            )}
                             {/* Provenance / conversion pills.
                                 Single quote -> direct link.
                                 Multiple quotes -> dropdown picker so the
