@@ -63,6 +63,7 @@ import { quoteService } from "@/services/quoteService";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { DashboardDateRange, resolvePreset, type DateRange } from "@/components/dashboard/DashboardDateRange";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -535,7 +536,37 @@ function AdminQuotesInner() {
     return base;
   }, [rowStates, regionFilterId, myQuotesOnly, (user as any)?.id]);
 
+  // Wave 70.92: date-range filter for the headline KPI tiles.
+  // Bobby asked - "Won THIS PERIOD - what period is that?".
+  // Pre-fix the tiles read all-time, so the operator couldn't
+  // tell whether a week was strong or weak. Default to
+  // "this_month" because that's the sales cadence catering
+  // teams plan around; the picker offers today / this_week /
+  // last_30 / last_90 / ytd / all_time / custom.
+  //
+  // Tiles filter on created_at. accepted_at would be more
+  // honest for "Won this period" but accepted_at isn't always
+  // populated on legacy rows; created_at is the safe universal
+  // anchor and the period framing ("this month's pipeline")
+  // matches operator intuition.
+  //
+  // Chip strip + list stay on regionFilteredRows (no date
+  // filter) - the working surface should keep ALL quotes
+  // visible while the tiles answer "this period" specifically.
+  const [tileRange, setTileRange] = useState<DateRange>(() => resolvePreset("this_month"));
+  const tileRows = useMemo(() => {
+    const from = tileRange.from.getTime();
+    const to = tileRange.to.getTime() + 86_400_000 - 1; // inclusive end-of-day
+    return regionFilteredRows.filter((r) => {
+      const created = (r.quote as any).created_at;
+      if (!created) return false;
+      const t = new Date(created).getTime();
+      return t >= from && t <= to;
+    });
+  }, [regionFilteredRows, tileRange]);
+
   const counts = useMemo(() => countByBucket(regionFilteredRows), [regionFilteredRows]);
+  const tileCounts = useMemo(() => countByBucket(tileRows), [tileRows]);
   // Phase 18 #8: revenue-by-bucket chip. Sales asks "how much do we
   // have stuck in stale" and "what's the in-play pipeline worth";
   // counts alone don't answer that. Same regionFilteredRows source as
@@ -1399,37 +1430,51 @@ function AdminQuotesInner() {
             </div>
           </div>
 
-          {/* Wave 70.91: KPI tiles now read from regionFilteredRows
-              (same source as the chip strip), so a branch-scoped
-              operator no longer sees mismatched numbers between
-              tiles and chips. Total Value also respects the
-              filter so the headline figure matches the visible
-              list rather than the global table. */}
+          {/* Wave 70.92: date range selector that scopes the KPI
+              tiles. Bobby asked "Won THIS PERIOD - which period?"
+              Default = this month. Chip strip + list below stay
+              all-time so the working surface keeps every quote
+              visible while the tiles answer the "period" question
+              specifically. */}
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="font-medium text-slate-700">Headline KPIs for</span>
+              <DashboardDateRange range={tileRange} onChange={setTileRange} />
+            </div>
+            <p className="text-xs text-slate-500">
+              Pipeline below is all-time. Picker only scopes the 4 tiles.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={"Every quote on file for your company (or this branch if you've filtered), across every status."} /></p>
-                <p className="text-2xl font-bold text-slate-900">{regionFilteredRows.length}</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={`Every quote created within the selected range (${tileRange.label}). Branch + mine-only filters still apply.`} /></p>
+                <p className="text-2xl font-bold text-slate-900">{tileRows.length}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Action needed <InfoTooltip content={"Drafts to price and send (including new client portal requests), and quotes whose validity is running out."} /></p>
-                <p className="text-2xl font-bold text-rose-600">{counts.action_needed}</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Action needed <InfoTooltip content={"Drafts to price and send (including new client portal requests), and quotes whose validity is running out. Scoped to the selected range."} /></p>
+                <p className="text-2xl font-bold text-rose-600">{tileCounts.action_needed}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won this period <InfoTooltip content={"Quotes the client has accepted. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count."} /></p>
-                <p className="text-2xl font-bold text-emerald-600">{counts.won}</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won {tileRange.label.toLowerCase()} <InfoTooltip content={`Quotes the client has accepted within ${tileRange.label}. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count.`} /></p>
+                <p className="text-2xl font-bold text-emerald-600">{tileCounts.won}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of every quote in the visible list."} /></p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={`Sum of quote totals created within ${tileRange.label}.`} /></p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  {C}{regionFilteredRows.reduce((sum, q) => sum + ((q as any).total ?? 0), 0).toLocaleString()}
+                  {C}{tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0).toLocaleString()}
                 </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
           </div>
