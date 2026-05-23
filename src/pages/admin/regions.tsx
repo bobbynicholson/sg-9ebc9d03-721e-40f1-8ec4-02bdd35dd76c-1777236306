@@ -186,6 +186,29 @@ function RegionsPage() {
     }
   }, [user?.company_id]);
 
+  // REG-B (regions audit, REG-7): realtime channel on regions scoped
+  // to company_id so two ops admins editing branches in parallel see
+  // each other's work without a manual Refresh. Mirrors the pattern
+  // shipped on /admin/orders, /admin/leads, /admin/quotes,
+  // /admin/packages, /admin/route-planning, /admin/vehicles.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channelKey = `admin-regions-realtime:${companyId}`;
+    const channel = (supabase as any)
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "regions", filter: `company_id=eq.${companyId}` },
+        () => { void loadRegions(); },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
   const loadRegions = async () => {
     if (!user?.company_id) return;
     setLoading(true);
@@ -223,16 +246,23 @@ function RegionsPage() {
         ] = await Promise.all([
           supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id),
           supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id),
-          supabase
+          // REG-B (regions audit, REG-2): exclude cancelled orders from
+          // the MTD counts + revenue. The pre-REG-B tooltip even admitted
+          // this was wrong ("Cancelled orders are excluded only if you've
+          // removed them; this counts every booked order"). Now the
+          // server-side filter does the work.
+          (supabase as any)
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
-            .gte("event_date", mtdStartIso),
-          supabase
+            .gte("event_date", mtdStartIso)
+            .not("status", "in", "(cancelled,declined)"),
+          (supabase as any)
             .from("orders")
             .select("total_amount")
             .eq("region_id", r.id)
-            .gte("event_date", mtdStartIso),
+            .gte("event_date", mtdStartIso)
+            .not("status", "in", "(cancelled,declined)"),
           supabase
             .from("quotes")
             .select("id", { count: "exact", head: true })
@@ -422,8 +452,62 @@ function RegionsPage() {
     void loadRegions();
   };
 
+  // REG-B (regions audit, REG-1): the previous handleDelete called
+  // supabase.from("regions").delete() and promised "Staff and orders
+  // linked to it will be unassigned." Both claims were wrong:
+  // - orders/quotes/leads/clients all carry region_id as NOT NULL with
+  //   ON DELETE SET NULL. The DB will REFUSE the delete with a foreign-
+  //   key violation, not null-and-orphan.
+  // - profiles.region_id IS nullable but the page never told the
+  //   operator how many staff were about to be unassigned.
+  // New behaviour: pre-flight the linked data, refuse hard delete when
+  // anything is linked, and offer a soft "pause" via is_active=false
+  // instead. Only an empty region can be hard-deleted.
   const handleDelete = async (region: Region) => {
-    if (!confirm(`Delete region "${region.name}"? Staff and orders linked to it will be unassigned.`)) return;
+    // Pre-flight: how much data is linked to this region?
+    const [
+      { count: orderCount },
+      { count: quoteCount },
+      { count: leadCount },
+      { count: clientCount },
+      { count: staffCount },
+    ] = await Promise.all([
+      (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("region_id", region.id),
+      (supabase as any).from("quotes").select("id", { count: "exact", head: true }).eq("region_id", region.id),
+      (supabase as any).from("leads").select("id", { count: "exact", head: true }).eq("region_id", region.id),
+      (supabase as any).from("clients").select("id", { count: "exact", head: true }).eq("region_id", region.id),
+      (supabase as any).from("profiles").select("id", { count: "exact", head: true }).eq("region_id", region.id),
+    ]);
+    const linked = (orderCount || 0) + (quoteCount || 0) + (leadCount || 0) + (clientCount || 0);
+    if (linked > 0) {
+      const parts: string[] = [];
+      if (orderCount) parts.push(`${orderCount} order${orderCount === 1 ? "" : "s"}`);
+      if (quoteCount) parts.push(`${quoteCount} quote${quoteCount === 1 ? "" : "s"}`);
+      if (leadCount) parts.push(`${leadCount} lead${leadCount === 1 ? "" : "s"}`);
+      if (clientCount) parts.push(`${clientCount} client${clientCount === 1 ? "" : "s"}`);
+      if (staffCount) parts.push(`${staffCount} staff member${staffCount === 1 ? "" : "s"}`);
+      const detail = parts.join(", ");
+      const proceed = confirm(
+        `${region.name} has ${detail} linked to it.\n\n` +
+        `Hard delete would fail (the data carries NOT NULL region_id).\n\n` +
+        `Press OK to PAUSE this branch instead (no new work routes to it, history stays intact). Press Cancel to abort.`,
+      );
+      if (!proceed) return;
+      const { error } = await supabase
+        .from("regions")
+        .update({ is_active: false } as any)
+        .eq("id", region.id);
+      if (error) {
+        toast({ title: "Failed to pause region", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Region paused", description: `${region.name} won't accept new work. History preserved.` });
+      void loadRegions();
+      return;
+    }
+
+    // No linked data - safe to hard delete.
+    if (!confirm(`Delete region "${region.name}"? Nothing is linked to it, this is a clean removal.`)) return;
     const { error } = await supabase.from("regions").delete().eq("id", region.id);
     if (error) {
       toast({ title: "Failed to delete region", description: error.message, variant: "destructive" });
@@ -541,7 +625,10 @@ function RegionsPage() {
                       esc(Number(r.mtd_revenue || 0).toFixed(2)),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // REG-B (regions audit, REG-4): UTF-8 BOM so Excel-ZA
+                  // opens the file as UTF-8 (not Latin-1). Same fix
+                  // shipped on /admin/calendar (task #116).
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -566,12 +653,20 @@ function RegionsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Regions that are currently switched on and accepting work."} />
             <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft / sent / revised across every branch."} />
-            <StatTile label="MTD orders" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders booked since the 1st of this month, summed across branches."} />
+            {/* REG-B (regions audit, REG-3): label clarification. The
+                pre-REG-B labels said "MTD orders / MTD revenue", which
+                operators read as "booked this month". The underlying
+                query is `event_date >= 1st of this month`, so the
+                values are events HAPPENING this month - very different
+                for an events caterer who books months ahead. Renamed
+                to match the query so the financial dashboard and this
+                page can both be right at the same time. */}
+            <StatTile label="Events this month" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders with an event_date in the current calendar month, summed across branches. Cancelled and declined orders excluded."} />
             <StatTile
-              label="MTD revenue"
+              label="Revenue this month"
               value={currencyFmt.format(stats.mtdRevenue)}
               accent="text-amber-600"
-              tooltip={"Total order value this month across every branch. Excludes quotes that haven't been accepted yet."}
+              tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled and declined orders excluded. For 'booked this month' see /admin/financial."}
             />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -641,26 +736,59 @@ function RegionsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                      <MiniStat icon={Truck} label="MTD orders" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event date in the current calendar month."} />
+                      <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled and declined excluded."} />
                       <MiniStat
                         icon={Users}
-                        label="MTD revenue"
+                        label="Revenue this month"
                         value={currencyFmt.format(region.mtd_revenue || 0)}
-                        tooltip={"Sum of total_amount on this branch's orders for the current month. Cancelled orders are excluded only if you've removed them; this counts every booked order."}
+                        tooltip={"Sum of total_amount on this branch's orders with an event_date in the current calendar month. Cancelled and declined orders excluded."}
                       />
                       <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft, sent or revised state."} />
                       <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch."} />
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-slate-500">
                       <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
-                      <div>Auto-assign: <span className="font-semibold text-slate-700">{region.auto_assign_orders ? "On" : "Off"}</span></div>
+                      <div className="flex items-center gap-1">
+                        Auto-assign: <span className="font-semibold text-slate-700">{region.auto_assign_orders ? "On" : "Off"}</span>
+                        <InfoTooltip content={"Reference only - dispatcher logic doesn't yet branch on this flag (planned: per-region auto-assign gate)."} />
+                      </div>
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
-                      {region.manager?.full_name && (
+                      {region.manager?.full_name ? (
                         <div><span className="font-medium text-slate-700">Manager:</span> {region.manager.full_name} ({region.manager.email})</div>
+                      ) : (
+                        // REG-B (regions audit, REG-5): pre-REG-B a region
+                        // whose manager profile was deleted just stopped
+                        // rendering the manager line silently. Operators
+                        // had no signal that lead/order notifications had
+                        // nobody to land on. Now we shout about it.
+                        <div className="flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                          <span>No manager assigned. Lead and order notifications won&apos;t reach anyone for this branch.</span>
+                          <button
+                            type="button"
+                            onClick={() => openEditDialog(region)}
+                            className="ml-auto text-amber-900 underline font-medium"
+                          >
+                            Pick one
+                          </button>
+                        </div>
                       )}
                       {(region.operating_hours_start || region.operating_hours_end) && (
-                        <div><span className="font-medium text-slate-700">Hours:</span> {region.operating_hours_start}, {region.operating_hours_end}</div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-slate-700">Hours:</span>
+                          <span>{region.operating_hours_start}, {region.operating_hours_end}</span>
+                          {/* REG-B (regions audit, REG-6): mark advisory
+                              fields. The operating_hours columns are
+                              stored + displayed but no downstream code
+                              consumes them today - they don't gate cron
+                              windows, kitchen prep scheduling, or the
+                              public booking form. Surface that honestly
+                              until the wiring lands. Same applies to
+                              delivery_radius_km and auto_assign_orders
+                              below. */}
+                          <InfoTooltip content={"Reference only - nothing in the app enforces these hours yet (planned: gating cron windows + public booking-form time pickers)."} />
+                        </div>
                       )}
                       {/* Phase 12 #10: currency + timezone chips with
                           a 'differs from HQ' warning when either
@@ -687,7 +815,11 @@ function RegionsPage() {
                           );
                         })()}
                       </div>
-                      <div><span className="font-medium text-slate-700">Delivery radius:</span> {region.delivery_radius_km} km</div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-slate-700">Delivery radius:</span>
+                        <span>{region.delivery_radius_km} km</span>
+                        <InfoTooltip content={"Reference only - lead routing and quote-distance feasibility don't consult this number today (planned: out-of-radius decline / route-to-nearest)."} />
+                      </div>
                       {region.notes && (
                         <div className="text-slate-500 italic mt-2">"{region.notes}"</div>
                       )}
