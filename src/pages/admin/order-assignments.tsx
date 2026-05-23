@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, Filter, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer } from "lucide-react";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -153,7 +153,9 @@ function DispatchQueuePage() {
     try {
       const [s, k] = await Promise.all([
         dispatchService.getDispatchSettings(companyId),
-        dispatchService.getDispatchKpis(companyId),
+        // Wave 70.59: thread the same horizon through to the KPI
+        // tile so "No driver" doesn't disagree with the table.
+        dispatchService.getDispatchKpis(companyId, daysAhead),
       ]);
       setSettings(s);
       setKpis(k);
@@ -186,7 +188,14 @@ function DispatchQueuePage() {
         .is("deleted_at", null)
         .gte("event_date", todayISO)
         .lte("event_date", horizonISO)
-        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        // Wave 70.59: dropped 'in_transit' to match the KPI set.
+        // An in-transit order MUST already have a driver (the
+        // truck's rolling). Keeping it in the queue was confusing
+        // operators - the page reads as "waiting on a driver" but
+        // an in_transit order is past that phase. The live-ops
+        // surface (/admin/live-operations) is the right place to
+        // watch in-flight orders.
+        .in("status", ["confirmed", "preparing", "ready"])
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true, nullsFirst: false });
 
@@ -253,7 +262,11 @@ function DispatchQueuePage() {
         () => loadAll(),
       )
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    // Wave 70.59: removeChannel is the supabase-js v2-recommended
+    // teardown path. sub.unsubscribe() detaches the binding but
+    // leaves the channel object in the client's registry, so a
+    // remount that re-channels on the same name can collide.
+    return () => { supabase.removeChannel(sub); };
   }, [companyId, loadAll]);
 
   // Wave 66.3 - deeplink detection. When the URL carries
@@ -287,10 +300,15 @@ function DispatchQueuePage() {
     const next = draft.trim() || null;
     setPickupSavingId(orderId);
     try {
+      // Wave 70.59: tenant-scope guard. RLS would already block a
+      // cross-tenant write, but the explicit company_id eq turns
+      // the wrong-tenant case into a clear "0 rows updated" we can
+      // surface rather than a silent success.
       const { error } = await supabase
         .from("orders")
         .update({ pickup_time: next })
-        .eq("id", orderId);
+        .eq("id", orderId)
+        .eq("company_id", companyId);
       if (error) {
         toast({ title: "Could not save", description: error.message, variant: "destructive" });
         return;
@@ -556,7 +574,9 @@ function DispatchQueuePage() {
     if (expandedRowId === orderId) { setExpandedRowId(null); return; }
     setExpandedRowId(orderId);
     if (!auditByOrder[orderId]) {
-      const audit = await dispatchService.getAssignmentAudit(orderId);
+      // Wave 70.59: thread companyId so the audit fetch carries
+      // belt-and-braces tenant scoping in addition to RLS.
+      const audit = await dispatchService.getAssignmentAudit(orderId, companyId);
       setAuditByOrder(a => ({ ...a, [orderId]: audit }));
     }
   };
@@ -748,7 +768,13 @@ function DispatchQueuePage() {
               </div>
               <p className="text-2xl font-semibold text-slate-900">
                 {kpis?.medianTimeToAssignMinutes != null
-                  ? formatMinutesAsCountdown(kpis.medianTimeToAssignMinutes).replace("-", "")
+                  // Wave 70.59: clamp to 0 instead of strip-sign.
+                  // The math in dispatchService already filters
+                  // a >= c, so negative deltas shouldn't reach
+                  // here, but if they do .replace("-", "") was
+                  // silently turning -5m into 5m. Math.max keeps
+                  // the formatter honest.
+                  ? formatMinutesAsCountdown(Math.max(0, kpis.medianTimeToAssignMinutes))
                   : "—"}
               </p>
               <p className="text-xs text-slate-500 mt-1">last 14 days</p>
@@ -758,7 +784,7 @@ function DispatchQueuePage() {
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                   Drivers on shift
-                  <InfoTooltip content={"Drivers with a GPS ping in the last hour. Best signal we have for live availability without a real shift table."} />
+                  <InfoTooltip content={"Drivers actively on a scheduled shift right now. Falls back to drivers with a GPS ping in the last hour on tenants who haven't set up shift schedules yet."} />
                 </p>
                 <Users className="w-4 h-4 text-emerald-500" />
               </div>
@@ -782,10 +808,12 @@ function DispatchQueuePage() {
                 />
                 <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">/</kbd>
               </div>
-              <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
-                <Filter className="w-4 h-4" />
-                Filters
-              </Button>
+              {/* Wave 70.59: removed the "Filters" button. It was
+                  rendered with disabled+"Coming soon" placeholder
+                  copy and never wired up. The status chip strip
+                  below already covers the filter surface the
+                  dispatch lead actually uses; the disabled button
+                  just signalled "broken" to the operator. */}
             </div>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {STATUSES.map(s => (
@@ -923,12 +951,26 @@ function DispatchQueuePage() {
                   <div key={order.id} id={`dispatch-row-${order.id}`} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
                     {/* Desktop row */}
                     <div
-                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer ${
+                      // Wave 70.59: row is now keyboard-activable
+                      // and exposes aria-expanded so screen-readers
+                      // announce the disclosure state. The whole
+                      // row remains a click target.
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-controls={`dispatch-row-${order.id}-detail`}
+                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1 ${
                         selected.has(order.id) ? "bg-orange-50 hover:bg-orange-100" :
                         isAtRisk ? "hover:bg-red-50/40" :
                         "hover:bg-slate-50"
                       }`}
                       onClick={() => toggleRow(order.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleRow(order.id);
+                        }
+                      }}
                     >
                       <div className="flex justify-center" onClick={e => e.stopPropagation()}>
                         <input
@@ -1148,7 +1190,10 @@ function DispatchQueuePage() {
 
                     {/* Expanded drawer */}
                     {isExpanded && (
-                      <div className="bg-slate-50 border-t border-slate-200 px-4 py-4 space-y-4">
+                      <div
+                        id={`dispatch-row-${order.id}-detail`}
+                        className="bg-slate-50 border-t border-slate-200 px-4 py-4 space-y-4"
+                      >
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
                           <div>
                             <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Event</p>
