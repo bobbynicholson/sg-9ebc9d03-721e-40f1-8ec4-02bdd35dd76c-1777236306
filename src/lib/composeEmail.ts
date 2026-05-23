@@ -82,10 +82,16 @@ export const composeEmail = {
   },
 };
 
-/** Suggested email templates keyed off the recommended action. */
+/** Suggested email templates keyed off the recommended action.
+ *  Wave 70.72: added "imported" - bulk-imported contacts who've
+ *  never interacted with the system. Previously they fell through
+ *  to "cold" which lumped them with real cold contacts (people
+ *  the tenant USED to talk to, then went quiet). They're not the
+ *  same audience - imported contacts have never said yes.
+ *  Template registry uses the cold template as fallback for now. */
 export type ClientStatus =
   | "hot_lead" | "quoted" | "won" | "active" | "returning"
-  | "vip" | "quiet" | "cold" | "lost";
+  | "vip" | "quiet" | "cold" | "lost" | "imported";
 
 export interface TemplateContext {
   contactName: string;

@@ -125,6 +125,10 @@ const STATUS_META: Record<ClientStatus, {
   quiet:     { label: "Quiet",        tone: "bg-amber-100 text-amber-700 border-amber-200",   icon: Clock },
   cold:      { label: "Cold",         tone: "bg-slate-100 text-slate-600 border-slate-200",   icon: Snowflake },
   lost:      { label: "Lost",         tone: "bg-rose-100 text-rose-700 border-rose-200",      icon: AlertTriangle },
+  // Wave 70.72: imported. Bulk-CSV contacts that have never
+  // interacted - distinct from "cold" (used to be active, now
+  // quiet). Violet so it doesn't look like an action state.
+  imported:  { label: "Imported",     tone: "bg-violet-100 text-violet-700 border-violet-200", icon: Mail },
 };
 
 // Every status in STATUS_META gets a pill so the segment counts add up to the
@@ -142,6 +146,7 @@ const FILTERS: Array<{ id: "all" | ClientStatus; label: string }> = [
   { id: "vip",       label: "VIP" },
   { id: "quiet",     label: "Quiet" },
   { id: "cold",      label: "Cold" },
+  { id: "imported",  label: "Imported" },
   { id: "lost",      label: "Lost" },
 ];
 
@@ -333,9 +338,15 @@ function ClientsCRM() {
         .is("deleted_at", null),
       supabase
         .from("quotes")
-        .select("id, client_name, client_email, client_id, lead_id")
+        // Wave 70.72: order by created_at desc so quoteIds[0]
+        // is the LATEST quote, not whatever order PostgREST
+        // returns. The row's "Open quote" / "New quote" CTAs
+        // read [0] and were drilling to the oldest quote for
+        // multi-quote contacts.
+        .select("id, client_name, client_email, client_id, lead_id, created_at")
         .eq("company_id", companyId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
       supabase
         .from("invoices")
         .select("id, client_id, order_id")
@@ -381,8 +392,20 @@ function ClientsCRM() {
       // Same purpose for quote.client_id and invoice.client_id.
       const clientIdToKey = new Map<string, string>();
 
-      const keyOf = (email: string | null, name: string | null) =>
-        (email || name || "").toLowerCase().trim() || `unknown-${Math.random()}`;
+      // Wave 70.72: stable dedup key. Previous fallback used
+      // Math.random() so an emailless/nameless contact got a
+      // different key on every re-render, breaking React
+      // reconciliation and the contactedKeys Set lookup.
+      // Counter is monotonic per loadContacts() call so the same
+      // null-row gets the same key on every render until the
+      // underlying source changes.
+      let unknownCounter = 0;
+      const keyOf = (email: string | null, name: string | null) => {
+        const stable = (email || name || "").toLowerCase().trim();
+        if (stable) return stable;
+        unknownCounter += 1;
+        return `unknown-${unknownCounter}`;
+      };
 
       // Seed from clients
       (clientsRes.data || []).forEach((c: any) => {
@@ -551,8 +574,33 @@ function ClientsCRM() {
         const next = c.nextEventDate ? new Date(c.nextEventDate) : null;
         c.daysSinceLastTouch = last ? daysBetween(last, today) : null;
 
-        // Status logic
-        if (c.totalSpent >= 75000 || c.outstandingBalance > 0) {
+        // Wave 70.72: status taxonomy fixes from the audit.
+        //
+        // 1. VIP no longer triggers on outstanding balance alone.
+        //    An aged unpaid invoice on a cold client was promoting
+        //    them to VIP - misleading. VIP is now spend-only
+        //    (>= R75k lifetime); outstanding balance is surfaced
+        //    separately on the row (the existing outstanding chip
+        //    next to the name).
+        //
+        // 2. Won-lead branch added. lifecycleService.ensureLeadForClient
+        //    stamps backfilled leads with status="won" but the
+        //    cascade only matched lost / quoted / qualified, so
+        //    won leads fell through to "hot_lead".
+        //
+        // 3. Imported-no-interaction. Contacts that came from a
+        //    bulk CSV import (importedFilename / historicalTotalEvents
+        //    set) and have no in-system orders, quotes or active
+        //    leads now bucket to "imported" instead of "cold".
+        //    Real cold = "you used to work with this person; they've
+        //    gone quiet". Imported = "you've never said hello yet".
+        //    Different audience, different message.
+        const hasImportSignal =
+          !!c.importedFilename
+          || (c.historicalTotalEvents !== null && c.historicalTotalEvents > 0)
+          || (c.historicalLifetimeSpend !== null && c.historicalLifetimeSpend > 0);
+
+        if (c.totalSpent >= 75000) {
           c.status = "vip";
         } else if (next) {
           // Has upcoming event - active
@@ -567,16 +615,15 @@ function ClientsCRM() {
           c.status = "cold";
         } else if (c.leadStatus === "lost") {
           c.status = "lost";
+        } else if (c.leadStatus === "won") {
+          c.status = "won";
         } else if (c.leadStatus === "quoted" || c.leadStatus === "qualified") {
           c.status = "quoted";
         } else if (c.leadStatus) {
           c.status = "hot_lead";
+        } else if (hasImportSignal) {
+          c.status = "imported";
         } else {
-          // Fallthrough: imported contacts with no orders, no quotes, no
-          // leads. Previously fell to "won" which was wrong (a contact
-          // that's never bought anything isn't a won deal) and meant
-          // bulk-imported lists landed under a pill that wasn't even
-          // rendered. "cold" is the honest label.
           c.status = "cold";
         }
 
@@ -609,6 +656,20 @@ function ClientsCRM() {
             break;
           case "cold":
             c.suggestion = { tone: "warm", label: "Win-back nudge", reason: `${c.daysSinceLastTouch}d quiet` };
+            break;
+          case "imported":
+            // Wave 70.72: bulk-imported, never touched. The right
+            // first move is a friendly introduction, not a "we
+            // miss you" win-back. Carry the historical event count
+            // forward into the reason line so the operator knows
+            // who this person actually IS.
+            c.suggestion = {
+              tone: "warm",
+              label: "Introduce yourself",
+              reason: c.historicalTotalEvents
+                ? `${c.historicalTotalEvents} past events on import`
+                : "From imported list - never contacted",
+            };
             break;
           case "lost":
             c.suggestion = { tone: "neutral", label: "Door open", reason: "Lead was lost" };
