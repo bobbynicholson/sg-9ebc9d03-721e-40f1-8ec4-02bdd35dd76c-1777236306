@@ -1332,6 +1332,34 @@ function AdminLeadsInner() {
                                 Unreachable
                               </Badge>
                             )}
+                            {/* Wave 70.86: past event_date warning. A
+                                lead with an event date in the past
+                                is either already played out (move to
+                                Won / Lost) or stale (archive). Either
+                                way the row shouldn't read as a fresh
+                                opportunity. Rose chip surfaces the
+                                stale-date so the operator re-qualifies
+                                or archives. Hidden once the lead is
+                                won / lost / converted (the archive
+                                bucket already covers it). */}
+                            {(() => {
+                              const eventDate = links.resolved.eventDate || lead.event_date;
+                              if (!eventDate) return null;
+                              const status = (lead.status || "new").toLowerCase();
+                              if (status === "won" || status === "converted" || status === "lost") return null;
+                              const todayIso = toLocalISO(new Date());
+                              const ed = String(eventDate).slice(0, 10);
+                              if (ed >= todayIso) return null;
+                              return (
+                                <Badge
+                                  className="bg-rose-50 text-rose-800 border-rose-200 gap-1"
+                                  title={`Event date ${ed} has already passed. Re-qualify the lead with a new date or mark Lost / Won.`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  Event date passed
+                                </Badge>
+                              );
+                            })()}
                             {/* Provenance / conversion pills.
                                 Single quote -> direct link.
                                 Multiple quotes -> dropdown picker so the
