@@ -372,6 +372,50 @@ function AdminCalendar() {
   [orders, todayISO]);
   const upcoming = useMemo(() => upcomingAll.slice(0, 5), [upcomingAll]);
 
+  /** Wave 70.69: real operational conflicts. For every day, detect
+   *  events that share a driver / vehicle / chef. That's a hard
+   *  double-book - the same person/vehicle can't be in two places
+   *  at once, regardless of event time. Two events at 10:00 and
+   *  17:00 on the same day with the same driver assigned would
+   *  technically be physically possible but the operator should
+   *  know - so we flag any same-day same-resource overlap and let
+   *  dispatch decide.
+   *
+   *  Returned shape: per-ISO map -> reasons array, plus the count
+   *  surfaced on the gap-finder tile. */
+  const opsConflictsByDay = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const [iso, dayEvents] of Object.entries(ordersByDay)) {
+      const reasons: string[] = [];
+      const seenDriver = new Map<string, string>(); // id -> first client name
+      const seenVehicle = new Map<string, string>();
+      const seenChef = new Map<string, string>();
+      for (const o of dayEvents as any[]) {
+        const driver = o.assigned_driver_id as string | null;
+        const vehicle = o.assigned_vehicle_id as string | null;
+        const chef = o.assigned_chef_id as string | null;
+        const label = o.client_name || o.order_number || "Event";
+        if (driver) {
+          const prev = seenDriver.get(driver);
+          if (prev) reasons.push(`Driver double-booked: ${prev} + ${label}`);
+          else seenDriver.set(driver, label);
+        }
+        if (vehicle) {
+          const prev = seenVehicle.get(vehicle);
+          if (prev) reasons.push(`Vehicle double-booked: ${prev} + ${label}`);
+          else seenVehicle.set(vehicle, label);
+        }
+        if (chef) {
+          const prev = seenChef.get(chef);
+          if (prev) reasons.push(`Chef double-booked: ${prev} + ${label}`);
+          else seenChef.set(chef, label);
+        }
+      }
+      if (reasons.length > 0) map[iso] = reasons;
+    }
+    return map;
+  }, [ordersByDay]);
+
   /** Next-30-day diary stats. Drives the gap-finder strip + sidebar:
    *  the operator sees at a glance how many days are booked, how many
    *  have floating quotes that could fill them, and how many days are
@@ -382,8 +426,10 @@ function AdminCalendar() {
     let booked = 0;
     let winnable = 0;
     let empty = 0;
-    let conflicts = 0;
+    let competingQuotes = 0;
+    let opsConflicts = 0;
     const winnableDays: Array<{ iso: string; quotes: OpenQuote[] }> = [];
+    const opsConflictDays: Array<{ iso: string; reasons: string[] }> = [];
     for (let i = 0; i < horizon; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
@@ -393,11 +439,24 @@ function AdminCalendar() {
       if (ev.length > 0) booked += 1;
       else if (qu.length > 0) winnable += 1;
       else empty += 1;
-      if (qu.length > 1 && ev.length === 0) conflicts += 1; // multiple quotes for same empty day
+      if (qu.length > 1 && ev.length === 0) competingQuotes += 1;
       if (qu.length > 0 && ev.length === 0) winnableDays.push({ iso, quotes: qu });
+      const opsReasons = opsConflictsByDay[iso];
+      if (opsReasons && opsReasons.length > 0) {
+        opsConflicts += 1;
+        opsConflictDays.push({ iso, reasons: opsReasons });
+      }
     }
-    return { booked, winnable, empty, conflicts, winnableDays };
-  }, [ordersByDay, quotesByDay, todayISO]);
+    // 'conflicts' kept under the old name for the existing tile that
+    // surfaces "competing quotes" - same renaming we did in 70.66.
+    return {
+      booked, winnable, empty,
+      conflicts: competingQuotes,
+      opsConflicts,
+      winnableDays,
+      opsConflictDays,
+    };
+  }, [ordersByDay, quotesByDay, opsConflictsByDay, todayISO]);
 
   const dayEvents = selectedDate
     ? ordersByDay[toLocalISO(selectedDate)] || []
@@ -679,6 +738,9 @@ function AdminCalendar() {
                         (s: number, e: any) => s + Number(e.total_amount || 0),
                         0,
                       );
+                      // Wave 70.69: per-cell ops conflict badge.
+                      const opsConflictReasons = opsConflictsByDay[iso];
+                      const hasOpsConflict = !!opsConflictReasons && opsConflictReasons.length > 0;
                       // Diary state - drives the cell border colour. Past
                       // days are excluded from the gap-finder logic; they
                       // can't be filled retroactively.
@@ -775,6 +837,19 @@ function AdminCalendar() {
                             {atCapacity && (
                               <div className="text-[10px] font-semibold text-rose-700">
                                 Full ({events.length} of {maxConcurrent})
+                              </div>
+                            )}
+                            {hasOpsConflict && (
+                              // Wave 70.69: red ops-conflict badge.
+                              // Same driver / vehicle / chef on >1
+                              // event for this day. Tooltip shows
+                              // the specific reason on hover.
+                              <div
+                                className="text-[10px] font-semibold text-rose-800 flex items-center gap-1"
+                                title={opsConflictReasons!.join(" \n")}
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                Conflict
                               </div>
                             )}
                           </div>
@@ -890,21 +965,56 @@ function AdminCalendar() {
                       >Empty days</p>
                       <p className="text-lg font-bold text-slate-900 tabular-nums">{horizonStats.empty}</p>
                     </div>
-                    {/* Wave 70.66: "Conflicts" was misleading. The
-                        counter is days with > 1 open quote competing
-                        for the same empty slot, which is more of a
-                        sales-pipeline signal than an ops conflict
-                        (same driver / vehicle / kitchen double-
-                        booked). Renamed to "Competing quotes" so the
-                        operator reads it right. Real ops-conflict
-                        detection (driver + vehicle overlap) is a
-                        separate follow-up. */}
+                    {/* Wave 70.66 -> 70.69: rename + split. The
+                        original "Conflicts" tile counted
+                        competing-quote days (sales pipeline). The
+                        new Ops conflicts tile counts real ops
+                        double-bookings (driver / vehicle / chef
+                        assigned to >1 event the same day). Both
+                        live in the gap finder so the operator
+                        sees pipeline pressure + assignment risk
+                        at one glance. */}
                     <div className="rounded-md bg-rose-50 border border-rose-200 px-2 py-1.5">
                       <p className="text-rose-800 text-[10px] uppercase font-semibold">Competing quotes</p>
                       <p
                         className="text-lg font-bold text-rose-900 tabular-nums"
                         title="Days where more than one open quote targets the same empty slot - pick one to convert or chase both clients to a different date"
                       >{horizonStats.conflicts}</p>
+                    </div>
+                    <div className={`rounded-md ${horizonStats.opsConflicts > 0 ? "bg-rose-100 border-rose-300" : "bg-slate-50 border-slate-200"} border px-2 py-1.5 col-span-2`}>
+                      <p className={`${horizonStats.opsConflicts > 0 ? "text-rose-900" : "text-slate-700"} text-[10px] uppercase font-semibold`}>Ops conflicts (next 30d)</p>
+                      <p
+                        className={`text-lg font-bold ${horizonStats.opsConflicts > 0 ? "text-rose-900" : "text-slate-900"} tabular-nums`}
+                        title="Days where the same driver, vehicle or chef is assigned to more than one event - hard double-book that needs reassignment"
+                      >
+                        {horizonStats.opsConflicts}
+                        {horizonStats.opsConflicts > 0 && (
+                          <span className="text-[11px] font-normal ml-2 text-rose-800">- driver / vehicle / chef double-booked</span>
+                        )}
+                      </p>
+                      {horizonStats.opsConflicts > 0 && (
+                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-rose-900">
+                          {horizonStats.opsConflictDays.slice(0, 3).map((d) => {
+                            const dt = new Date(`${d.iso}T12:00:00`);
+                            const niceDate = dt.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
+                            return (
+                              <li key={d.iso}>
+                                <button
+                                  type="button"
+                                  className="font-semibold underline-offset-2 hover:underline text-left"
+                                  onClick={() => { setSelectedDate(dt); setFocusedISO(d.iso); }}
+                                >
+                                  {niceDate}
+                                </button>
+                                <span className="ml-1">- {d.reasons[0]}{d.reasons.length > 1 ? ` (+${d.reasons.length - 1} more)` : ""}</span>
+                              </li>
+                            );
+                          })}
+                          {horizonStats.opsConflictDays.length > 3 && (
+                            <li className="text-rose-700/80">+{horizonStats.opsConflictDays.length - 3} more days</li>
+                          )}
+                        </ul>
+                      )}
                     </div>
                   </div>
                   {horizonStats.winnableDays.length === 0 ? (
