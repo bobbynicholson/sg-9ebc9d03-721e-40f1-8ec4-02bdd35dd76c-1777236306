@@ -25,6 +25,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { toLocalISO } from "@/lib/localDate";
+import { computeCurrentCashPosition } from "@/lib/cashflowMath";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
@@ -316,10 +317,21 @@ function CashflowDashboardInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  const net30 = (metrics?.cashReceived || 0)
-    - (metrics?.staffPaymentsOwed || 0)
-    - (metrics?.fixedCostsNext30 || 0)
-    - (metrics?.supplierPayablesNext30 || 0);
+  // CASH-C: canonical Net-30 via the shared helper. inventoryCosts
+  // is null here because this page doesn't fetch 90d COGS; the
+  // helper treats null as "unknown" and omits it from the
+  // subtraction, which is the honest thing to do. The financial
+  // dashboard knows COGS and passes the real number, so its net
+  // will be lower by the inventory amount. That asymmetry is real
+  // (different surfaces have different data) and intentional, not a
+  // formula drift.
+  const net30 = computeCurrentCashPosition({
+    cashReceived: metrics?.cashReceived || 0,
+    wages: metrics?.staffPaymentsOwed || 0,
+    fixedCostsNext30: metrics?.fixedCostsNext30 || 0,
+    supplierPayablesNext30: metrics?.supplierPayablesNext30 || 0,
+    inventoryCosts: null,
+  }).net;
 
   if (loading && !metrics) {
     return (

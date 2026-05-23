@@ -18,6 +18,7 @@ import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { formatLocalDate } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
+import { computeCurrentCashPosition } from "@/lib/cashflowMath";
 import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import Link from "next/link";
@@ -861,16 +862,26 @@ function FinancialDashboardInner() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // FIN-F: real net cash flow. Same formula the
-                  // Financial Summary card uses for "Net Cash Flow
-                  // (30d)" so both surfaces agree.
-                  const received = metrics?.cashReceived || 0;
-                  const wages = metrics?.staffPaymentsOwed || 0;
-                  const fixed = metrics?.fixedCostsNext30 || 0;
-                  const payables = metrics?.supplierPayablesNext30 || 0;
-                  const inventory = metrics?.inventoryCosts || 0;
-                  const net = received - wages - fixed - payables - inventory;
-                  const noActivity = received === 0 && wages === 0 && fixed === 0 && payables === 0 && inventory === 0;
+                  // FIN-F: real net cash flow. CASH-C: now routes
+                  // through the canonical computeCurrentCashPosition
+                  // helper so this tile, the Financial Summary "Net
+                  // Cash Flow (30d)" row, and the cashflow-dashboard
+                  // page all return the same number for the same
+                  // inputs.
+                  const position = computeCurrentCashPosition({
+                    cashReceived: metrics?.cashReceived || 0,
+                    wages: metrics?.staffPaymentsOwed || 0,
+                    fixedCostsNext30: metrics?.fixedCostsNext30 || 0,
+                    supplierPayablesNext30: metrics?.supplierPayablesNext30 || 0,
+                    inventoryCosts: metrics?.inventoryCosts ?? null,
+                  });
+                  const received = position.cashReceived;
+                  const wages = position.wages;
+                  const fixed = position.fixedCostsNext30;
+                  const payables = position.supplierPayablesNext30;
+                  const inventory = position.inventoryCosts ?? 0;
+                  const net = position.net;
+                  const noActivity = position.noActivity;
                   return (
                     <>
                       <div className={`text-2xl font-bold ${net < 0 ? "text-red-700" : "text-slate-900"}`}>
@@ -1094,17 +1105,22 @@ function FinancialDashboardInner() {
                       )}
                     </div>
                     {(() => {
-                      // Net Cash Flow now matches the CashflowForecastCard:
-                      // cashReceived - wages - fixed costs - supplier payables.
-                      // currentCashFlow alone (the 4-tile breakdown above)
-                      // does not include the recurring outflows the
-                      // forecast already prices in.
-                      const net = (metrics?.currentCashFlow || 0)
-                        - (metrics?.fixedCostsNext30 || 0)
-                        - (metrics?.supplierPayablesNext30 || 0);
+                      // CASH-C: canonical Net-30. Same helper the
+                      // Current Cash Flow tile above uses, so the
+                      // two surfaces always agree. Inventory now
+                      // counted here too (previously omitted), which
+                      // matches what the tile and operator's mental
+                      // model both expect.
+                      const net = computeCurrentCashPosition({
+                        cashReceived: metrics?.cashReceived || 0,
+                        wages: metrics?.staffPaymentsOwed || 0,
+                        fixedCostsNext30: metrics?.fixedCostsNext30 || 0,
+                        supplierPayablesNext30: metrics?.supplierPayablesNext30 || 0,
+                        inventoryCosts: metrics?.inventoryCosts ?? null,
+                      }).net;
                       return (
                         <div className="border-t pt-4 flex justify-between items-center">
-                          <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs and supplier payables due in the next 30 days.\n\nMatches the projected balance trend shown in the chart above."} /></span>
+                          <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
                           <span className={`font-bold text-lg ${net > 0 ? "text-green-600" : "text-red-600"}`}>
                             {formatCurrency(net)}
                           </span>
