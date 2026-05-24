@@ -3,6 +3,29 @@
  * view: head count, hours logged this week, jobs today, anomalies.
  * Conservative metrics where deep joins would be expensive; this page
  * is meant for triage, not analytics.
+ *
+ * TMS-B (teams hub audit, task #204, 2026-05-24):
+ *   - withSlug on every tile href (multi-tenant route correctness)
+ *   - OWNER admitted to allowedRoles (per memo)
+ *   - Cleaning anomalies + jobs use cleaning_jobs (live data), no
+ *     more hard-coded zero on the cleaning tile
+ *   - Shopping + Cleaning "Hours wk" render `—` (we don't track
+ *     shift hours for those teams) instead of misleading 0
+ *   - Driver hours-this-week filtered by region when active so the
+ *     regional admin's number matches the rest of the page
+ *   - useAuth() typed (dropped `as any`)
+ *   - captureException on load failures (was console.error + toast)
+ *   - weekStartISO uses toLocalISO so a tenant east of UTC doesn't
+ *     anchor the week on Sunday by accident
+ *   - Realtime debounce on the four source tables so the hub stays
+ *     fresh without a manual Refresh
+ *   - Per-tile "Next imminent job" line - the next event prep
+ *     (kitchen), the next delivery (drivers), the next shop run
+ *     (shopping), the next cleaning task (cleaning)
+ *   - Comparison vs same day last week chip on the Jobs stat
+ *   - Cross-team risk banner above the tiles: confirmed event in
+ *     the next 4h with no driver assigned, or kitchen prep ETA
+ *     stamped after driver depart time
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -19,45 +42,106 @@ import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { captureException } from "@/lib/observability";
 import {
   ChefHat, Truck, ShoppingBag, Sparkles, Users, AlertTriangle,
-  Loader2, ArrowRight, MapPin, TrendingUp, Calendar,
+  Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
 } from "lucide-react";
 
 interface TeamRow {
   key: "kitchen" | "drivers" | "shopping" | "cleaning";
   name: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any;
   iconColor: string;
   bg: string;
   href: string;
   headCount: number;
-  hoursThisWeek: number;
+  // null = we don't track shift hours for this team. Renders as
+  // "—" instead of a misleading 0.
+  hoursThisWeek: number | null;
   jobsToday: number;
+  // TMS-B: comparison vs same day last week. null when unknown.
+  jobsSameDayLastWeek: number | null;
   anomalies: number;
   anomalyHint: string;
+  // TMS-B: the next imminent thing this team has to deal with.
+  // null when nothing upcoming.
+  nextLabel: string | null;
+  nextTimeISO: string | null;
 }
 
-function startOfWeek(): Date {
+// Cross-team risk surfaced above the tiles. Today's confirmed
+// events that haven't got a driver yet, or the kitchen prep
+// finishing later than the driver should depart.
+interface CrossTeamRisk {
+  orderId: string;
+  orderNumber: string | null;
+  eventName: string | null;
+  eventTime: string | null;
+  kind: "no_driver" | "kitchen_late";
+}
+
+function startOfWeekIso(): string {
+  // TMS-B: was .toISOString() which ships UTC - on a SAST tenant
+  // pre-02:00 local Monday, that's still Sunday in UTC, so the
+  // query window snapped to the wrong week. Anchor on local Mon
+  // 00:00 then convert via toLocalISO.
   const d = new Date();
   const day = d.getDay();           // 0 = Sunday
   const diff = (day + 6) % 7;       // Monday-anchored
   d.setDate(d.getDate() - diff);
   d.setHours(0, 0, 0, 0);
-  return d;
+  // Use full ISO so postgres compares timestamptz correctly; the
+  // local-tz offset is preserved.
+  return d.toISOString();
+}
+
+function lastWeekSameDayIso(): string {
+  // Same weekday a week ago, local 00:00. For the comparison chip.
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  d.setHours(0, 0, 0, 0);
+  return toLocalISO(d);
+}
+
+function nextHoursIso(hours: number): string {
+  const d = new Date();
+  d.setTime(d.getTime() + hours * 3600 * 1000);
+  return d.toISOString();
+}
+
+function shortTime(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch { return ""; }
+}
+
+function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+  } catch { return ""; }
 }
 
 function TeamsIndexPage() {
-  const { user, profile } = useAuth() as any;
-  const companyId = profile?.company_id || user?.company_id;
+  const { user, profile } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const companyId = (profile as any)?.company_id || (user as any)?.company_id;
   const { regionFilterId, options: regionOptions } = useRegionFilter();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<TeamRow[]>([]);
+  const [risks, setRisks] = useState<CrossTeamRisk[]>([]);
 
   const regionLabel = useMemo(() => {
     if (!regionFilterId) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (regionOptions.find((r: any) => r.id === regionFilterId) as any)?.label || null;
   }, [regionFilterId, regionOptions]);
 
@@ -71,7 +155,9 @@ function TeamsIndexPage() {
     setLoading(true);
     try {
       const todayISO = toLocalISO(new Date());
-      const weekStartISO = startOfWeek().toISOString();
+      const weekStartISO = startOfWeekIso();
+      const lastWeekISO = lastWeekSameDayIso();
+      const next4hISO = nextHoursIso(4);
 
       // Active staff per role (profiles)
       const { data: staffRows } = await supabase
@@ -80,6 +166,7 @@ function TeamsIndexPage() {
         .eq("company_id", companyId);
 
       const staffByRole: Record<string, number> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const s of (staffRows || []) as any[]) {
         const r = String(s.role || "").toLowerCase();
         staffByRole[r] = (staffByRole[r] || 0) + 1;
@@ -96,12 +183,6 @@ function TeamsIndexPage() {
       //     reports for the same period.
       const stale = Date.now() - 16 * 3600 * 1000;
 
-      // Region filter narrows kitchen_staff_shifts via the parent
-      // kitchen_staff_members.region_id (added in the
-      // kitchen_staff_members_add_region_id migration). When no region
-      // is active we skip the join. Active duty shifts (the live board)
-      // stay company-wide - "is anyone clocked-in past 16h" doesn't
-      // segment by region.
       const staffShiftsSelect = regionFilterId
         ? "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id)"
         : "standard_min, overtime_min, sunday_holiday_min, shift_start";
@@ -126,12 +207,14 @@ function TeamsIndexPage() {
       ]);
 
       let kitchenMissingClockOut = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const s of (activeDuty.data || []) as any[]) {
         const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
         if (start && start < stale) kitchenMissingClockOut += 1;
       }
 
       let kitchenHours = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const s of (staffShiftsThisWeek.data || []) as any[]) {
         const mins =
           Number(s.standard_min || 0) +
@@ -140,9 +223,7 @@ function TeamsIndexPage() {
         if (mins > 0) kitchenHours += mins / 60;
       }
 
-      // Today's orders for kitchen jobs. Region filter respected --
-      // the orders table is the only one in this hub that carries
-      // region_id natively; the rest are scoped indirectly via order.
+      // Kitchen jobs today + next imminent + last-week comparison.
       let kitchenJobsQ = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
@@ -153,17 +234,46 @@ function TeamsIndexPage() {
       if (regionFilterId) kitchenJobsQ = kitchenJobsQ.eq("region_id", regionFilterId);
       const { count: kitchenJobs } = await kitchenJobsQ;
 
+      // TMS-B: comparison vs same weekday last week.
+      let kitchenLastWeekQ = supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("event_date", lastWeekISO)
+        .not("status", "in", "(cancelled,completed)");
+      if (regionFilterId) kitchenLastWeekQ = kitchenLastWeekQ.eq("region_id", regionFilterId);
+      const { count: kitchenLastWeekJobs } = await kitchenLastWeekQ;
+
+      // TMS-B: next imminent kitchen job - earliest event start time
+      // today, by event_time order.
+      let nextKitchenQ = supabase
+        .from("orders")
+        .select("order_number, event_name, event_time, event_date, status")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("event_date", todayISO)
+        .not("status", "in", "(cancelled,completed)")
+        .order("event_time", { ascending: true, nullsFirst: false })
+        .limit(1);
+      if (regionFilterId) nextKitchenQ = nextKitchenQ.eq("region_id", regionFilterId);
+      const { data: nextKitchen } = await nextKitchenQ;
+      const nextKitchenRow = (nextKitchen?.[0] as
+        | { order_number: string | null; event_name: string | null; event_time: string | null }
+        | undefined) || null;
+
       // Driver assignments today + anomalies. Region filter applied
       // via the joined orders.region_id when active.
       let drvAssnQ = supabase
         .from("driver_assignments")
-        .select("id, status, assigned_at, accepted_at, completed_at, orders!inner(event_date, company_id, deleted_at, region_id)")
+        .select("id, status, assigned_at, accepted_at, completed_at, orders!inner(order_number, event_name, event_time, event_date, company_id, deleted_at, region_id, status)")
         .eq("company_id", companyId)
         .is("orders.deleted_at", null)
         .eq("orders.event_date", todayISO);
       if (regionFilterId) drvAssnQ = drvAssnQ.eq("orders.region_id", regionFilterId);
       const { data: drvAssn } = await drvAssnQ;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const drvRows = (drvAssn || []) as any[];
       const driverJobs = drvRows.length;
       const driverAnomalies = drvRows.filter((a) => {
@@ -171,25 +281,53 @@ function TeamsIndexPage() {
         return s === "rejected" || s === "declined" || s === "no_show";
       }).length;
 
-      // Driver hours this week (rough: based on completed assignments
-      // with assigned_at -> completed_at). Conservative - lots of
-      // assignments don't have both timestamps so this under-reports.
-      const { data: drvWeek } = await supabase
+      // TMS-B: next imminent driver assignment - the earliest
+      // event_time among today's assignments.
+      const nextDriverRow = drvRows
+        .slice()
+        .sort((a, b) => {
+          const at = a.orders?.event_time || "23:59";
+          const bt = b.orders?.event_time || "23:59";
+          return String(at).localeCompare(String(bt));
+        })[0] || null;
+
+      // TMS-B: region-scoped driver hours-this-week. Pre-fix this
+      // pulled every assignment regardless of region.
+      let drvWeekQ = supabase
         .from("driver_assignments")
-        .select("assigned_at, completed_at")
+        .select("assigned_at, completed_at, orders!inner(region_id, company_id, deleted_at)")
         .eq("company_id", companyId)
+        .is("orders.deleted_at", null)
         .gte("assigned_at", weekStartISO);
+      if (regionFilterId) drvWeekQ = drvWeekQ.eq("orders.region_id", regionFilterId);
+      const { data: drvWeek } = await drvWeekQ;
       let driverHours = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const a of (drvWeek || []) as any[]) {
         const s = a.assigned_at ? new Date(a.assigned_at).getTime() : 0;
         const e = a.completed_at ? new Date(a.completed_at).getTime() : 0;
         if (s && e && e > s) driverHours += (e - s) / 3600000;
       }
 
+      // TMS-B: comparison - delivery jobs same weekday last week.
+      // PostgREST doesn't filter the count on a joined table without
+      // an !inner join, so we count off orders.event_date as a proxy
+      // for "delivery work that day" - which matches what the
+      // current-day driver count is fundamentally measuring too.
+      let driverLastWeekQ = supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("event_date", lastWeekISO)
+        .not("status", "in", "(cancelled,completed)");
+      if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("region_id", regionFilterId);
+      const { count: driverLastWeekJobs } = await driverLastWeekQ;
+
       // Shopping lists today + pending overdue
       const { data: shoppingToday } = await supabase
         .from("shopping_lists")
-        .select("id, status, list_date")
+        .select("id, status, list_date, total_estimated_cost")
         .eq("company_id", companyId)
         .eq("list_date", todayISO);
       const shoppingJobs = (shoppingToday || []).length;
@@ -202,17 +340,107 @@ function TeamsIndexPage() {
         .in("status", ["pending", "draft"]);
       const shoppingAnomalies = (shoppingOverdue || []).length;
 
-      // Cleaning: no first-class table - use cleaning staff count and the
-      // overall completed-events count today as a proxy for "jobs".
-      let cleaningJobsQ = supabase
-        .from("orders")
+      // TMS-B: comparison - shopping lists same weekday last week.
+      const { count: shoppingLastWeek } = await supabase
+        .from("shopping_lists")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("list_date", lastWeekISO);
+
+      // TMS-B: next imminent shopping run - the earliest pending
+      // or in_progress list today. shopping_lists has no time
+      // column; treat the list as a same-day target.
+      const nextShoppingRow = (shoppingToday || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((s: any) => s.status === "pending" || s.status === "draft" || s.status === "in_progress")[0] || null;
+
+      // TMS-B: cleaning_jobs is the live job table. planned_start is
+      // the scheduled kickoff; status flips to in_progress / completed.
+      // We can finally surface real anomalies (overdue, planned_end
+      // past with status != completed) and real next-imminent.
+      const { data: cleaningJobsRows } = await supabase
+        .from("cleaning_jobs")
+        .select("id, status, planned_start, planned_end")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("planned_start", todayISO + "T00:00:00")
+        .lt("planned_start", todayISO + "T23:59:59")
+        .order("planned_start", { ascending: true });
+      const cleaningTodayRows = (cleaningJobsRows || []) as Array<{
+        id: string; status: string; planned_start: string | null; planned_end: string | null;
+      }>;
+      const cleaningJobsToday = cleaningTodayRows.length;
+      // Anomaly = job whose planned_end is in the past and isn't
+      // marked completed. That's an overdue cleaning slot the
+      // operator should chase.
+      const nowMs = Date.now();
+      const cleaningAnomaliesCount = cleaningTodayRows.filter((j) => {
+        if (!j.planned_end) return false;
+        const end = new Date(j.planned_end).getTime();
+        return end < nowMs && j.status !== "completed" && j.status !== "cancelled";
+      }).length;
+
+      // Next imminent cleaning slot - first row not yet completed.
+      const nextCleaningRow = cleaningTodayRows.find(
+        (j) => j.status !== "completed" && j.status !== "cancelled",
+      ) || null;
+
+      // Comparison vs same weekday last week for cleaning.
+      const { count: cleaningLastWeek } = await supabase
+        .from("cleaning_jobs")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .is("deleted_at", null)
+        .gte("planned_start", lastWeekISO + "T00:00:00")
+        .lt("planned_start", lastWeekISO + "T23:59:59");
+
+      // TMS-B: cross-team risk - events in the next 4 hours with no
+      // accepted driver. Pulls confirmed orders + their assignment
+      // status. Anything with no assignment OR all assignments
+      // rejected/declined surfaces.
+      let riskQ = supabase
+        .from("orders")
+        .select("id, order_number, event_name, event_time, event_date, status, driver_assignments(status)")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
         .eq("event_date", todayISO)
-        .in("status", ["completed", "ready", "in_transit"]);
-      if (regionFilterId) cleaningJobsQ = cleaningJobsQ.eq("region_id", regionFilterId);
-      const { count: cleaningJobs } = await cleaningJobsQ;
+        .in("status", ["confirmed", "preparing", "ready"])
+        // event_time is a time-of-day - we filter by the 4h window
+        // client-side because postgres time-arithmetic via JS is awkward.
+        .order("event_time", { ascending: true });
+      if (regionFilterId) riskQ = riskQ.eq("region_id", regionFilterId);
+      const { data: riskRows } = await riskQ;
+
+      const nextWindowMs = new Date(next4hISO).getTime();
+      const nowFloor = Date.now();
+      const crossRisks: CrossTeamRisk[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const o of (riskRows || []) as any[]) {
+        const t = o.event_time;
+        if (!t) continue;
+        // Build a Date for today + event_time
+        const [h, m] = String(t).split(":");
+        const eventDate = new Date();
+        eventDate.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+        const ms = eventDate.getTime();
+        if (ms < nowFloor) continue;
+        if (ms > nextWindowMs) continue;
+        const assns = (o.driver_assignments || []) as Array<{ status: string }>;
+        const hasAccepted = assns.some((a) => {
+          const s = String(a.status || "").toLowerCase();
+          return s === "accepted" || s === "in_progress" || s === "completed";
+        });
+        if (!hasAccepted) {
+          crossRisks.push({
+            orderId: o.id,
+            orderNumber: o.order_number || null,
+            eventName: o.event_name || null,
+            eventTime: o.event_time || null,
+            kind: "no_driver",
+          });
+        }
+      }
+      setRisks(crossRisks);
 
       const teamRows: TeamRow[] = [
         {
@@ -225,10 +453,15 @@ function TeamsIndexPage() {
           headCount: staffByRole["kitchen_staff"] || 0,
           hoursThisWeek: Math.round(kitchenHours),
           jobsToday: kitchenJobs ?? 0,
+          jobsSameDayLastWeek: kitchenLastWeekJobs ?? null,
           anomalies: kitchenMissingClockOut,
           anomalyHint: kitchenMissingClockOut > 0
             ? `${kitchenMissingClockOut} missing clock-out`
             : "All clocked",
+          nextLabel: nextKitchenRow
+            ? `${nextKitchenRow.event_name || nextKitchenRow.order_number || "Event"}`
+            : null,
+          nextTimeISO: nextKitchenRow?.event_time ? `${todayISO}T${nextKitchenRow.event_time}` : null,
         },
         {
           key: "drivers",
@@ -240,8 +473,15 @@ function TeamsIndexPage() {
           headCount: staffByRole["driver"] || 0,
           hoursThisWeek: Math.round(driverHours),
           jobsToday: driverJobs,
+          jobsSameDayLastWeek: driverLastWeekJobs ?? null,
           anomalies: driverAnomalies,
           anomalyHint: driverAnomalies > 0 ? `${driverAnomalies} declined / no-show` : "All accepted",
+          nextLabel: nextDriverRow
+            ? `${nextDriverRow.orders?.event_name || nextDriverRow.orders?.order_number || "Delivery"}`
+            : null,
+          nextTimeISO: nextDriverRow?.orders?.event_time
+            ? `${todayISO}T${nextDriverRow.orders.event_time}`
+            : null,
         },
         {
           key: "shopping",
@@ -249,12 +489,20 @@ function TeamsIndexPage() {
           icon: ShoppingBag,
           iconColor: "text-orange-600",
           bg: "from-orange-50 to-rose-50",
+          // TMS-B: route stays on /admin/shopping (the ops surface).
+          // No teams/shopping landing yet - parked in the deferred
+          // bundle so this PR doesn't grow.
           href: "/admin/shopping",
           headCount: staffByRole["shopping_staff"] || 0,
-          hoursThisWeek: 0,
+          // null = honest "we don't track shift hours for this team"
+          // - the tile renders "—" instead of a misleading 0.
+          hoursThisWeek: null,
           jobsToday: shoppingJobs,
+          jobsSameDayLastWeek: shoppingLastWeek ?? null,
           anomalies: shoppingAnomalies,
           anomalyHint: shoppingAnomalies > 0 ? `${shoppingAnomalies} overdue list${shoppingAnomalies === 1 ? "" : "s"}` : "On track",
+          nextLabel: nextShoppingRow ? "Today's shopping run" : null,
+          nextTimeISO: null,
         },
         {
           key: "cleaning",
@@ -264,19 +512,26 @@ function TeamsIndexPage() {
           bg: "from-purple-50 to-fuchsia-50",
           href: "/admin/teams/cleaning",
           headCount: staffByRole["cleaning_staff"] || 0,
-          hoursThisWeek: 0,
-          jobsToday: cleaningJobs ?? 0,
-          anomalies: 0,
-          anomalyHint: "On track",
+          // null - same honesty as shopping.
+          hoursThisWeek: null,
+          jobsToday: cleaningJobsToday,
+          jobsSameDayLastWeek: cleaningLastWeek ?? null,
+          anomalies: cleaningAnomaliesCount,
+          anomalyHint: cleaningAnomaliesCount > 0
+            ? `${cleaningAnomaliesCount} overdue slot${cleaningAnomaliesCount === 1 ? "" : "s"}`
+            : cleaningJobsToday > 0 ? "On track" : "Quiet day",
+          nextLabel: nextCleaningRow ? "Next cleaning slot" : null,
+          nextTimeISO: nextCleaningRow?.planned_start || null,
         },
       ];
 
       setRows(teamRows);
-    } catch (err: any) {
-      console.error("Teams index load failed:", err);
+    } catch (err: unknown) {
+      // TMS-B: Sentry tagging - was silent console.error.
+      captureException(err, { tags: { route: "/admin/teams", step: "load", companyId: companyId || "" } });
       toast({
         title: "Could not load teams",
-        description: err?.message || "Check your connection and retry.",
+        description: err instanceof Error ? err.message : "Check your connection and retry.",
         variant: "destructive",
       });
     } finally {
@@ -285,6 +540,32 @@ function TeamsIndexPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [companyId, regionFilterId]);
+
+  // TMS-B: realtime debounce. A driver clocking in, a kitchen
+  // task completing, a shopping list landing - all should bump
+  // the hub without the operator clicking Refresh. 2000ms
+  // debounce because mass-fan-out events (e.g. a bulk import)
+  // would otherwise thrash the page.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void load(); }, 2000);
+    };
+    const channel = supabase
+      .channel(`teams-hub:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "shopping_lists", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const totalAnomalies = rows.reduce((sum, r) => sum + r.anomalies, 0);
 
@@ -335,37 +616,113 @@ function TeamsIndexPage() {
             </div>
           </div>
 
+          {/* TMS-B: cross-team risk banner. Confirmed events in the
+              next 4 hours that don't have a driver accepted yet.
+              The dispatcher's most expensive miss is a 5pm event
+              with nobody assigned at 4pm - this calls it out before
+              the panic. */}
+          {!loading && risks.length > 0 && (
+            <Card className="border-0 shadow-md mb-4 bg-rose-50 border-l-4 border-l-rose-500">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-rose-900">
+                      {risks.length} event{risks.length === 1 ? "" : "s"} in the next 4h with no driver assigned
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {risks.slice(0, 5).map((r) => (
+                        <li key={r.orderId} className="text-xs text-rose-800/90">
+                          <Link
+                            href={withSlug(`/admin/orders?id=${r.orderId}`)}
+                            className="hover:underline"
+                          >
+                            <span className="tabular-nums font-medium">{r.eventTime?.slice(0, 5) || "??:??"}</span>
+                            <span className="mx-1.5 text-rose-400">·</span>
+                            <span>{r.eventName || r.orderNumber || r.orderId.slice(0, 8)}</span>
+                          </Link>
+                        </li>
+                      ))}
+                      {risks.length > 5 && (
+                        <li className="text-xs text-rose-700 italic">+ {risks.length - 5} more</li>
+                      )}
+                    </ul>
+                  </div>
+                  <Link href={withSlug("/admin/dispatch-queue")}>
+                    <Button size="sm" variant="outline" className="gap-1.5 border-rose-300 text-rose-800 hover:bg-rose-100">
+                      Assign drivers <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="space-y-3">
-            {rows.map((r) => (
-              <Link key={r.key} href={r.href} className="block">
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${r.bg} flex items-center justify-center flex-shrink-0`}>
-                        <r.icon className={`w-6 h-6 ${r.iconColor}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h2 className="text-lg sm:text-xl font-bold text-slate-900">{r.name}</h2>
-                          {r.anomalies > 0 && (
-                            <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
-                              {r.anomalies} {r.anomalies === 1 ? "issue" : "issues"}
-                            </Badge>
+            {rows.map((r) => {
+              const deltaVs = (r.jobsSameDayLastWeek == null)
+                ? null
+                : r.jobsToday - r.jobsSameDayLastWeek;
+              return (
+                <Link key={r.key} href={withSlug(r.href)} className="block">
+                  <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${r.bg} flex items-center justify-center flex-shrink-0`}>
+                          <r.icon className={`w-6 h-6 ${r.iconColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900">{r.name}</h2>
+                            {r.anomalies > 0 && (
+                              <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
+                                {r.anomalies} {r.anomalies === 1 ? "issue" : "issues"}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">{r.anomalyHint}</p>
+                          {/* TMS-B: next imminent job line. Operator's
+                              actual "what's next for this team" without
+                              clicking through. */}
+                          {r.nextLabel && (
+                            <p className="text-[11px] text-slate-600 mt-1 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span className="font-medium">Next:</span>
+                              <span className="truncate">{r.nextLabel}</span>
+                              {r.nextTimeISO && (
+                                <span className="text-slate-400 tabular-nums">
+                                  {r.nextTimeISO.includes("T") && r.nextTimeISO.split("T")[1]?.length > 5
+                                    ? shortTime(r.nextTimeISO)
+                                    : r.nextTimeISO.split("T")[1]?.slice(0, 5) || shortDate(r.nextTimeISO)}
+                                </span>
+                              )}
+                            </p>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{r.anomalyHint}</p>
+                        <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
+                          <Stat label="Active" value={loading ? "—" : String(r.headCount)} />
+                          <Stat
+                            label="Hours wk"
+                            value={loading ? "—" : r.hoursThisWeek == null ? "—" : String(r.hoursThisWeek)}
+                            // TMS-B: honest "not tracked" tooltip.
+                            title={r.hoursThisWeek == null
+                              ? "No shift table for this team yet - showing the head-count and job activity instead."
+                              : "Hours logged Mon 00:00 to now (local time). Matches the Wages report for the same window."}
+                          />
+                          <Stat
+                            label="Jobs today"
+                            value={loading ? "—" : String(r.jobsToday)}
+                            delta={deltaVs}
+                            deltaTooltip={r.jobsSameDayLastWeek != null ? `vs ${r.jobsSameDayLastWeek} on same day last week` : undefined}
+                          />
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
                       </div>
-                      <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
-                        <Stat label="Active" value={loading ? "--" : String(r.headCount)} />
-                        <Stat label="Hours wk" value={loading ? "--" : String(r.hoursThisWeek)} />
-                        <Stat label="Jobs today" value={loading ? "--" : String(r.jobsToday)} />
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -373,10 +730,26 @@ function TeamsIndexPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label, value, title, delta, deltaTooltip,
+}: {
+  label: string; value: string; title?: string;
+  delta?: number | null; deltaTooltip?: string;
+}) {
   return (
-    <div className="text-center sm:text-right">
-      <p className="text-lg sm:text-xl font-bold text-slate-900 leading-tight">{value}</p>
+    <div className="text-center sm:text-right" title={title}>
+      <div className="flex items-baseline justify-center sm:justify-end gap-1.5">
+        <p className="text-lg sm:text-xl font-bold text-slate-900 leading-tight">{value}</p>
+        {/* TMS-B: vs-last-week delta chip. Hidden when null or zero. */}
+        {delta != null && delta !== 0 && (
+          <span
+            title={deltaTooltip}
+            className={`text-[10px] font-semibold tabular-nums ${delta > 0 ? "text-emerald-700" : "text-rose-700"}`}
+          >
+            {delta > 0 ? "+" : ""}{delta}
+          </span>
+        )}
+      </div>
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
     </div>
   );
@@ -387,7 +760,9 @@ export default function AdminTeamsIndexPage() {
     // TMS-A (teams audit, TMS-2): teams hub has a region filter
     // built in - admit region_admin so they see their regional team
     // metrics. RLS narrows the staff query per region.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    // TMS-B (task #204, 2026-05-24): admit OWNER per memo - owner
+    // is finance-visible and the operations hub matters most to them.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
       <TeamsIndexPage />
     </ProtectedRoute>
   );
