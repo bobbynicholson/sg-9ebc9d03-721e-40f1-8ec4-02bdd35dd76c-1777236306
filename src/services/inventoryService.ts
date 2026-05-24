@@ -788,13 +788,22 @@ export const inventoryService = {
 
   /**
    * Bulk soft-delete. Returns counts so the UI can toast a single summary.
+   *
+   * INV-C (task #188 must-fix, 2026-05-24): companyId is now required
+   * and added as a belt-and-braces .eq("company_id", ...) filter. Pre-
+   * fix the bulk operations only relied on RLS - a forged itemIds
+   * array (or a future RLS regression on a multi-tenant role) could
+   * touch foreign-tenant rows. The four bulk helpers below share the
+   * pattern.
    */
-  async bulkDelete(itemIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+  async bulkDelete(itemIds: string[], companyId: string): Promise<{ deleted: number; errors: string[] }> {
     if (itemIds.length === 0) return { deleted: 0, errors: [] };
+    if (!companyId) return { deleted: 0, errors: ["companyId is required"] };
     const { error, count } = await supabase
       .from("inventory_items")
       .update({ deleted_at: new Date().toISOString() }, { count: "exact" })
-      .in("id", itemIds);
+      .in("id", itemIds)
+      .eq("company_id", companyId);
     if (error) {
       console.error("Bulk delete error:", error);
       return { deleted: 0, errors: [error.message] };
@@ -805,12 +814,14 @@ export const inventoryService = {
   /**
    * Bulk reassign preferred supplier across many items at once.
    */
-  async bulkReassignSupplier(itemIds: string[], supplierId: string | null): Promise<{ updated: number; errors: string[] }> {
+  async bulkReassignSupplier(itemIds: string[], supplierId: string | null, companyId: string): Promise<{ updated: number; errors: string[] }> {
     if (itemIds.length === 0) return { updated: 0, errors: [] };
+    if (!companyId) return { updated: 0, errors: ["companyId is required"] };
     const { error, count } = await supabase
       .from("inventory_items")
       .update({ preferred_supplier_id: supplierId, updated_at: new Date().toISOString() }, { count: "exact" })
-      .in("id", itemIds);
+      .in("id", itemIds)
+      .eq("company_id", companyId);
     if (error) {
       console.error("Bulk reassign supplier error:", error);
       return { updated: 0, errors: [error.message] };
@@ -821,12 +832,14 @@ export const inventoryService = {
   /**
    * Bulk recategorise items.
    */
-  async bulkReassignCategory(itemIds: string[], category: string): Promise<{ updated: number; errors: string[] }> {
+  async bulkReassignCategory(itemIds: string[], category: string, companyId: string): Promise<{ updated: number; errors: string[] }> {
     if (itemIds.length === 0) return { updated: 0, errors: [] };
+    if (!companyId) return { updated: 0, errors: ["companyId is required"] };
     const { error, count } = await supabase
       .from("inventory_items")
       .update({ category, updated_at: new Date().toISOString() }, { count: "exact" })
-      .in("id", itemIds);
+      .in("id", itemIds)
+      .eq("company_id", companyId);
     if (error) {
       console.error("Bulk reassign category error:", error);
       return { updated: 0, errors: [error.message] };
@@ -840,12 +853,14 @@ export const inventoryService = {
    * Bulk mark a set of items as perishable (or not). Same shape as
    * the other bulk helpers - returns counts for a single toast.
    */
-  async bulkMarkPerishable(itemIds: string[], isPerishable: boolean): Promise<{ updated: number; errors: string[] }> {
+  async bulkMarkPerishable(itemIds: string[], isPerishable: boolean, companyId: string): Promise<{ updated: number; errors: string[] }> {
     if (itemIds.length === 0) return { updated: 0, errors: [] };
+    if (!companyId) return { updated: 0, errors: ["companyId is required"] };
     const { error, count } = await supabase
       .from("inventory_items")
       .update({ is_perishable: isPerishable, updated_at: new Date().toISOString() }, { count: "exact" })
-      .in("id", itemIds);
+      .in("id", itemIds)
+      .eq("company_id", companyId);
     if (error) {
       console.error("Bulk mark perishable error:", error);
       return { updated: 0, errors: [error.message] };
