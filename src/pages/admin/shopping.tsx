@@ -45,6 +45,8 @@ import { composeEmail } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { inventoryService } from "@/services/inventoryService";
+import { captureException } from "@/lib/observability";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -105,6 +107,14 @@ function SmartShoppingPage() {
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
+  // SHOP-B: finance-vis gate. SHOPPING_STAFF needs unit cost per row
+  // to know what to buy, but doesn't need the aggregate Estimated PO
+  // total (that's planning-side finance). Hide the aggregate from
+  // shoppers; keep per-row cost.
+  const financeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canSeeFinanceAggregate =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
   const { toast } = useToast();
   const router = useRouter();
   // Honour ?tab= so the "Manage receipts" CTA on /admin/tax-purchases
@@ -300,24 +310,77 @@ function SmartShoppingPage() {
     window.open(composeEmail.gmailUrl({ to: group.supplier.email, subject, body }), "_blank", "noopener");
   };
 
-  // Mark items in the cart as purchased - bumps current_stock by reorderQty
+  // SHOP-B (audit fix, 2026-05-24): the previous implementation
+  // UPDATEd inventory_items.current_stock directly with no
+  // inventory_transactions row and no batch. The stock ledger silently
+  // diverged from the cart action - every "Mark purchased" click
+  // bumped stock without an audit trail, missed the FIFO batch layer,
+  // and never linked to a supplier. Now routes through
+  // inventoryService.receiveStock which writes (inventory_items.
+  // current_stock += qty) + (inventory_transactions insert) +
+  // (inventory_batches insert) atomically per line.
   const markPurchased = async () => {
     const ids = Object.keys(picked).filter((k) => picked[k]);
     if (ids.length === 0) return;
-    if (!confirm(`Mark ${ids.length} item${ids.length === 1 ? "" : "s"} as purchased? This will bump their current_stock by the reorder quantity.`)) return;
+    if (!companyId || !user?.id) return;
+    if (!confirm(`Mark ${ids.length} item${ids.length === 1 ? "" : "s"} as purchased? Writes a stock-in transaction per line.`)) return;
 
-    let updated = 0;
+    // Group picked rows by preferred supplier so the receiveStock call
+    // can stamp the right supplier_id on each transaction. Rows
+    // without a preferred supplier go through the "no supplier" group.
+    const groups = new Map<string | null, Array<{ itemId: string; qty: number; unitCost?: number | null }>>();
     for (const id of ids) {
       const row = enriched.find((r) => r.inventory_item_id === id);
       if (!row) continue;
-      const newStock = Number(row.current_stock) + row.reorderQty;
-      const { error } = await supabase
-        .from("inventory_items")
-        .update({ current_stock: newStock, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (!error) updated += 1;
+      const supplierId = row.preferred_supplier_id || null;
+      const list = groups.get(supplierId) || [];
+      list.push({
+        itemId: id,
+        qty: row.reorderQty,
+        unitCost: row.cost_per_unit > 0 ? row.cost_per_unit : null,
+      });
+      groups.set(supplierId, list);
     }
-    toast({ title: "Stock updated", description: `${updated} item${updated === 1 ? "" : "s"} bumped.` });
+
+    let received = 0;
+    const allErrors: string[] = [];
+    const today = toLocalISO(new Date());
+    try {
+      for (const [supplierId, lines] of groups.entries()) {
+        const result = await inventoryService.receiveStock({
+          companyId,
+          supplierId,
+          invoiceNumber: `SHOP-${today}-${supplierId?.slice(0, 6) || "no-sup"}`,
+          receivedDate: today,
+          performedBy: user.id,
+          notes: "Marked purchased from /admin/shopping cart",
+          lines,
+        });
+        received += result.received;
+        allErrors.push(...result.errors);
+      }
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "mark-purchased", tenant: companyId } });
+      toast({
+        title: "Mark purchased failed",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (allErrors.length > 0) {
+      toast({
+        title: `Received ${received}, ${allErrors.length} error${allErrors.length === 1 ? "" : "s"}`,
+        description: allErrors.slice(0, 2).join(" · "),
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Stock received",
+        description: `${received} line${received === 1 ? "" : "s"} written to the ledger.`,
+      });
+    }
     setPicked({});
     // refresh outlook
     const { data } = await supabase
@@ -395,7 +458,9 @@ function SmartShoppingPage() {
                       esc(r.isUrgent ? "yes" : "no"),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // SHOP-B: UTF-8 BOM for Excel-ZA parity with calendar /
+                  // contacts CSV exports.
+                  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -436,7 +501,10 @@ function SmartShoppingPage() {
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   <div>
                     <p className="text-xs text-emerald-700">In your PO list</p>
-                    <p className="font-bold text-slate-900">{pickedCount} items - {fmtMoney.format(pickedTotal)}</p>
+                    <p className="font-bold text-slate-900">
+                      {pickedCount} item{pickedCount === 1 ? "" : "s"}
+                      {canSeeFinanceAggregate ? ` - ${fmtMoney.format(pickedTotal)}` : ""}
+                    </p>
                   </div>
                   <Button size="sm" onClick={markPurchased} className="ml-2 gap-1">
                     <Truck className="w-3.5 h-3.5" /> Mark purchased
@@ -472,15 +540,26 @@ function SmartShoppingPage() {
               hint="Perishables expiring soon"
               tooltip={"Perishables you need to buy in the next two days, taking shelf life into account."}
             />
-            <SummaryTile
-              label="Estimated PO total"
-              value={fmtMoney.format(buyNow.reduce((s, r) => s + r.cost, 0))}
-              accent="text-emerald-600"
-              icon={Receipt}
-              hint="Buy-now items at supplier prices"
-              isMoney
-              tooltip={"What you'll spend if you place a purchase order for everything currently flagged as short or below par.\n\nUses your supplier pricing and reorder quantities."}
-            />
+            {canSeeFinanceAggregate ? (
+              <SummaryTile
+                label="Estimated PO total"
+                value={fmtMoney.format(buyNow.reduce((s, r) => s + r.cost, 0))}
+                accent="text-emerald-600"
+                icon={Receipt}
+                hint="Buy-now items at supplier prices"
+                isMoney
+                tooltip={"What you'll spend if you place a purchase order for everything currently flagged as short or below par.\n\nUses your supplier pricing and reorder quantities."}
+              />
+            ) : (
+              <SummaryTile
+                label="Items to buy"
+                value={String(buyNow.length)}
+                accent="text-emerald-600"
+                icon={Receipt}
+                hint="Total lines on the buy-now list"
+                tooltip={"How many distinct items need topping up. Rand total is gated to owner / admin."}
+              />
+            )}
           </div>
 
           {/* Slip scanner - shared with /admin/tax-purchases. Snap a
