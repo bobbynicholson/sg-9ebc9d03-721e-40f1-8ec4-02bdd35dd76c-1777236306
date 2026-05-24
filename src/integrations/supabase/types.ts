@@ -4705,11 +4705,15 @@ export type Database = {
           item_name: string
           maximum_stock: number | null
           minimum_stock: number | null
+          ordered_at: string | null
+          ordered_qty: number | null
+          ordered_until: string | null
           preferred_supplier_id: string | null
           region_id: string | null
           reorder_quantity: number | null
           shelf_life_days: number | null
           sku: string | null
+          snooze_until: string | null
           storage_instructions: string | null
           storage_location: string | null
           unit_of_measure: string
@@ -4731,11 +4735,15 @@ export type Database = {
           item_name: string
           maximum_stock?: number | null
           minimum_stock?: number | null
+          ordered_at?: string | null
+          ordered_qty?: number | null
+          ordered_until?: string | null
           preferred_supplier_id?: string | null
           region_id?: string | null
           reorder_quantity?: number | null
           shelf_life_days?: number | null
           sku?: string | null
+          snooze_until?: string | null
           storage_instructions?: string | null
           storage_location?: string | null
           unit_of_measure: string
@@ -4757,11 +4765,15 @@ export type Database = {
           item_name?: string
           maximum_stock?: number | null
           minimum_stock?: number | null
+          ordered_at?: string | null
+          ordered_qty?: number | null
+          ordered_until?: string | null
           preferred_supplier_id?: string | null
           region_id?: string | null
           reorder_quantity?: number | null
           shelf_life_days?: number | null
           sku?: string | null
+          snooze_until?: string | null
           storage_instructions?: string | null
           storage_location?: string | null
           unit_of_measure?: string

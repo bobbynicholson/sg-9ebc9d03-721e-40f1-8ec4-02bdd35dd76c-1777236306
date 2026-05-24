@@ -71,6 +71,27 @@ interface InvDetail {
   shelf_life_days: number | null;
   cost_per_unit: number;
   preferred_supplier_id: string | null;
+  // SHOP-C: snooze + ordered state.
+  snooze_until: string | null;
+  ordered_qty: number | null;
+  ordered_at: string | null;
+  ordered_until: string | null;
+}
+
+// SHOP-C: per-item multi-supplier links for swap suggestions.
+interface ItemSupplierLink {
+  supplier_id: string;
+  unit_price: number | null;
+  pack_size: string | null;
+  is_preferred: boolean;
+}
+
+// SHOP-C: per-supplier price-creep summary from the RPC shipped in
+// the suppliers audit (supplier_price_creep_summary).
+interface CreepRow {
+  supplier_id: string;
+  items_compared: number;
+  median_pct_change: number | null;
 }
 
 interface DemandLine {
@@ -132,6 +153,12 @@ function SmartShoppingPage() {
   const [openSupplier, setOpenSupplier] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  // SHOP-C: multi-supplier links + per-supplier price-creep
+  // signals from the data shipped in SUP-C / SUP-D.
+  const [supplierLinks, setSupplierLinks] = useState<Record<string, ItemSupplierLink[]>>({});
+  const [creep, setCreep] = useState<Record<string, CreepRow>>({});
+  // Snooze + ordered busy flags so a click can't double-fire.
+  const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!companyId) return;
@@ -139,14 +166,14 @@ function SmartShoppingPage() {
     (async () => {
       setLoading(true);
       const todayISO = toLocalISO(new Date());
-      const [outlookRes, invRes, demandRes, supRes] = await Promise.all([
+      const [outlookRes, invRes, demandRes, supRes, linksRes, creepRes] = await Promise.all([
         supabase
           .from("inventory_demand_outlook")
           .select("*")
           .eq("company_id", companyId),
         supabase
           .from("inventory_items")
-          .select("id, is_perishable, shelf_life_days, cost_per_unit, preferred_supplier_id")
+          .select("id, is_perishable, shelf_life_days, cost_per_unit, preferred_supplier_id, snooze_until, ordered_qty, ordered_at, ordered_until")
           .eq("company_id", companyId)
           .is("deleted_at", null),
         supabase
@@ -160,6 +187,17 @@ function SmartShoppingPage() {
           .select("id, supplier_name, email, phone, contact_person")
           .eq("company_id", companyId)
           .is("deleted_at", null),
+        // SHOP-C: multi-supplier links for swap suggestions.
+        (supabase as any)
+          .from("inventory_item_suppliers")
+          .select("inventory_item_id, supplier_id, unit_price, pack_size, is_preferred")
+          .eq("company_id", companyId),
+        // SHOP-C: per-supplier price-creep summary (shipped in SUP-D).
+        // Tolerant if the RPC is missing on older project clones.
+        supabase.rpc("supplier_price_creep_summary", { p_company_id: companyId }).then(
+          (r) => r,
+          () => ({ data: [], error: null } as { data: CreepRow[]; error: null }),
+        ),
       ]);
       if (cancelled) return;
       setOutlook((outlookRes.data || []) as OutlookRow[]);
@@ -170,6 +208,20 @@ function SmartShoppingPage() {
       const sMap: Record<string, Supplier> = {};
       (supRes.data || []).forEach((s: any) => { sMap[s.id] = s as Supplier; });
       setSuppliers(sMap);
+      const linkMap: Record<string, ItemSupplierLink[]> = {};
+      ((linksRes.data || []) as Array<{ inventory_item_id: string; supplier_id: string; unit_price: number | null; pack_size: string | null; is_preferred: boolean }>).forEach((l) => {
+        if (!linkMap[l.inventory_item_id]) linkMap[l.inventory_item_id] = [];
+        linkMap[l.inventory_item_id].push({
+          supplier_id: l.supplier_id,
+          unit_price: l.unit_price,
+          pack_size: l.pack_size,
+          is_preferred: l.is_preferred,
+        });
+      });
+      setSupplierLinks(linkMap);
+      const creepMap: Record<string, CreepRow> = {};
+      ((creepRes.data || []) as CreepRow[]).forEach((r) => { creepMap[r.supplier_id] = r; });
+      setCreep(creepMap);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -212,6 +264,12 @@ function SmartShoppingPage() {
       const cost = Number(det?.cost_per_unit ?? 0) * reorderQty;
       const supplier = det?.preferred_supplier_id ? suppliers[det.preferred_supplier_id] : null;
       const isUrgent = buyByDays !== null && buyByDays <= 2;
+      // SHOP-C: snooze + ordered state. Both suppress the Buy-now
+      // flag when the date is in the future. Cheap inline check.
+      const isSnoozed = det?.snooze_until ? new Date(det.snooze_until + "T00:00:00") >= today : false;
+      const orderedActive =
+        (det?.ordered_qty ?? 0) > 0 &&
+        (det?.ordered_until ? new Date(det.ordered_until + "T00:00:00") >= today : true);
       return {
         ...r,
         is_perishable: !!det?.is_perishable,
@@ -225,14 +283,23 @@ function SmartShoppingPage() {
         reorderQty,
         cost,
         isUrgent,
+        // SHOP-C state passthrough
+        snooze_until: det?.snooze_until ?? null,
+        ordered_qty: det?.ordered_qty ?? null,
+        ordered_at: det?.ordered_at ?? null,
+        ordered_until: det?.ordered_until ?? null,
+        isSnoozed,
+        orderedActive,
       };
     });
   }, [outlook, details, suppliers, earliestEvent, today]);
 
   // - Buy-now list: shortfalls + below_minimum, urgency-sorted ---------
+  // SHOP-C: filter out snoozed + ordered items so they stop firing as
+  // shortfall the operator already actioned.
   const buyNow = useMemo(() => {
     return enriched
-      .filter((r) => r.status === "shortfall" || r.status === "below_minimum")
+      .filter((r) => (r.status === "shortfall" || r.status === "below_minimum") && !r.isSnoozed && !r.orderedActive)
       .sort((a, b) => {
         if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
         const sa = STATUS_META[a.status]?.rank ?? 9;
@@ -310,6 +377,89 @@ function SmartShoppingPage() {
     window.open(composeEmail.gmailUrl({ to: group.supplier.email, subject, body }), "_blank", "noopener");
   };
 
+  // SHOP-C: snooze an item from the Buy-now flag until a chosen
+  // date. Operator picks "Til Mon" / "Til next week". Cheap server
+  // write; row disappears from Buy-now on next render.
+  const snoozeItem = async (itemId: string, daysFromNow: number) => {
+    if (!companyId) return;
+    setRowBusy((m) => ({ ...m, [itemId]: true }));
+    const until = new Date();
+    until.setDate(until.getDate() + daysFromNow);
+    try {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ snooze_until: toLocalISO(until), updated_at: new Date().toISOString() })
+        .eq("id", itemId);
+      if (error) throw error;
+      setDetails((m) => ({ ...m, [itemId]: { ...m[itemId], snooze_until: toLocalISO(until) } }));
+      toast({ title: "Snoozed", description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}.` });
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "snooze", tenant: companyId } });
+      toast({ title: "Could not snooze", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setRowBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  };
+
+  const clearSnooze = async (itemId: string) => {
+    if (!companyId) return;
+    setRowBusy((m) => ({ ...m, [itemId]: true }));
+    try {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ snooze_until: null, updated_at: new Date().toISOString() })
+        .eq("id", itemId);
+      if (error) throw error;
+      setDetails((m) => ({ ...m, [itemId]: { ...m[itemId], snooze_until: null } }));
+      toast({ title: "Snooze cleared" });
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "unsnooze", tenant: companyId } });
+    } finally {
+      setRowBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  };
+
+  // SHOP-C: mark an item as ordered (PO sent to supplier, not yet
+  // physically received). Suppresses the Buy-now flag for an ETA
+  // window. Mark purchased remains the real receive path; it clears
+  // ordered_* + writes inventory_transactions via receiveStock.
+  const markOrdered = async (itemId: string, qty: number, etaDaysFromNow: number) => {
+    if (!companyId) return;
+    setRowBusy((m) => ({ ...m, [itemId]: true }));
+    const until = new Date();
+    until.setDate(until.getDate() + etaDaysFromNow);
+    try {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({
+          ordered_qty: qty,
+          ordered_at: new Date().toISOString(),
+          ordered_until: toLocalISO(until),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", itemId);
+      if (error) throw error;
+      setDetails((m) => ({
+        ...m,
+        [itemId]: {
+          ...m[itemId],
+          ordered_qty: qty,
+          ordered_at: new Date().toISOString(),
+          ordered_until: toLocalISO(until),
+        },
+      }));
+      toast({
+        title: "Marked as ordered",
+        description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}. Click Mark purchased once it arrives.`,
+      });
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "mark-ordered", tenant: companyId } });
+      toast({ title: "Could not mark ordered", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setRowBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  };
+
   // SHOP-B (audit fix, 2026-05-24): the previous implementation
   // UPDATEd inventory_items.current_stock directly with no
   // inventory_transactions row and no batch. The stock ledger silently
@@ -379,6 +529,23 @@ function SmartShoppingPage() {
       toast({
         title: "Stock received",
         description: `${received} line${received === 1 ? "" : "s"} written to the ledger.`,
+      });
+    }
+    // SHOP-C: clear ordered_* state for any picked rows that had it.
+    // The receive event completes the order, so the in-flight flag
+    // should drop. Best-effort - any failure stays silent.
+    const orderedIds = ids.filter((id) => (enriched.find((r) => r.inventory_item_id === id)?.orderedActive));
+    if (orderedIds.length > 0) {
+      await supabase
+        .from("inventory_items")
+        .update({ ordered_qty: null, ordered_at: null, ordered_until: null })
+        .in("id", orderedIds);
+      setDetails((m) => {
+        const next = { ...m };
+        orderedIds.forEach((id) => {
+          if (next[id]) next[id] = { ...next[id], ordered_qty: null, ordered_at: null, ordered_until: null };
+        });
+        return next;
       });
     }
     setPicked({});
@@ -645,6 +812,66 @@ function SmartShoppingPage() {
 
               {/* BUY NOW */}
               <TabsContent value="buy_now">
+                {/* SHOP-C: snoozed + ordered side panel. Surfaces
+                    rows that the operator already actioned so they
+                    can clear the state if circumstances change. */}
+                {(() => {
+                  const snoozedRows = enriched.filter((r) => r.isSnoozed);
+                  const orderedRows = enriched.filter((r) => r.orderedActive);
+                  if (snoozedRows.length === 0 && orderedRows.length === 0) return null;
+                  return (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                      {snoozedRows.length > 0 && (
+                        <details className="rounded-md border border-slate-200 bg-white px-2 py-1">
+                          <summary className="cursor-pointer">
+                            {snoozedRows.length} snoozed
+                          </summary>
+                          <ul className="mt-1.5 space-y-1 pl-1">
+                            {snoozedRows.map((r) => (
+                              <li key={r.inventory_item_id} className="flex items-center justify-between gap-2">
+                                <span>
+                                  <strong>{r.item_name}</strong>
+                                  <span className="text-slate-400 ml-1">
+                                    til {r.snooze_until ? new Date(r.snooze_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}
+                                  </span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => clearSnooze(r.inventory_item_id)}
+                                  disabled={!!rowBusy[r.inventory_item_id]}
+                                  className="text-[10px] text-blue-700 hover:underline disabled:opacity-50"
+                                >
+                                  unsnooze
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                      {orderedRows.length > 0 && (
+                        <details className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1">
+                          <summary className="cursor-pointer text-blue-900">
+                            {orderedRows.length} ordered (awaiting delivery)
+                          </summary>
+                          <ul className="mt-1.5 space-y-1 pl-1">
+                            {orderedRows.map((r) => (
+                              <li key={r.inventory_item_id} className="text-slate-700">
+                                <strong>{r.item_name}</strong>
+                                <span className="text-slate-500 ml-1">
+                                  {r.ordered_qty != null ? `${r.ordered_qty} ${r.unit_of_measure} ordered` : "ordered"}
+                                  {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="mt-1 text-[10px] text-blue-700">
+                            Click Mark purchased on the cart pill once goods are in hand to clear the flag.
+                          </p>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Card className="border-0 shadow-lg">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
@@ -669,6 +896,14 @@ function SmartShoppingPage() {
                         expandedItem={expandedItem} setExpandedItem={setExpandedItem}
                         demand={demand}
                         showBuyBy
+                        supplierLinks={supplierLinks}
+                        creep={creep}
+                        suppliersById={suppliers}
+                        onSnooze={snoozeItem}
+                        onMarkOrdered={markOrdered}
+                        rowBusy={rowBusy}
+                        canSeeFinance={canSeeFinanceAggregate}
+                        withSlug={withSlug}
                       />
                     )}
                   </CardContent>
@@ -701,6 +936,13 @@ function SmartShoppingPage() {
                         demand={demand}
                         showBuyBy
                         showShelfLife
+                        supplierLinks={supplierLinks}
+                        creep={creep}
+                        suppliersById={suppliers}
+                        onSnooze={snoozeItem}
+                        rowBusy={rowBusy}
+                        canSeeFinance={canSeeFinanceAggregate}
+                        withSlug={withSlug}
                       />
                     )}
                   </CardContent>
@@ -889,6 +1131,12 @@ function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney, tooltip 
 function ItemTable({
   rows, picked, togglePick, expandedItem, setExpandedItem, demand,
   hideSupplier, showBuyBy, showShelfLife,
+  // SHOP-C: intel + action handlers passed in from the Buy-now /
+  // Plan-ahead use. supplierLinks + creep drive the chips. onSnooze
+  // + onMarkOrdered drive the per-row buttons. Optional - older
+  // call sites (Receipts tab etc.) just don't render the bits.
+  supplierLinks, creep, suppliersById, onSnooze, onMarkOrdered, rowBusy,
+  canSeeFinance, withSlug,
 }: any) {
   return (
     <div className="overflow-x-auto">
@@ -928,10 +1176,50 @@ function ItemTable({
                   </td>
                   <td className="py-3 pr-3">
                     <div className="flex items-start gap-2">
-                      <div>
-                        <div className="font-medium text-slate-900 flex items-center gap-1.5">
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900 flex items-center gap-1.5 flex-wrap">
                           {r.item_name}
                           {r.is_perishable && <span title="Perishable"><Snowflake className="w-3 h-3 text-cyan-500" /></span>}
+                          {/* SHOP-C: price-creep chip. Spar prices on
+                              Green Pepper rose 8% in 90d - flag it
+                              before the operator places the PO. */}
+                          {canSeeFinance && r.preferred_supplier_id && creep?.[r.preferred_supplier_id]?.median_pct_change != null && Math.abs(creep[r.preferred_supplier_id].median_pct_change) >= 5 && creep[r.preferred_supplier_id].items_compared >= 2 && (() => {
+                            const pct = creep[r.preferred_supplier_id].median_pct_change as number;
+                            const up = pct > 0;
+                            return (
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${up ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+                                title={`Median per-item price change for ${r.supplier?.supplier_name || "this supplier"} vs 60-120d ago`}
+                              >
+                                {up ? "+" : ""}{pct.toFixed(0)}% supplier
+                              </Badge>
+                            );
+                          })()}
+                          {/* SHOP-C: cheaper-alternative chip. When
+                              another linked supplier offers the same
+                              item at a lower unit_price, surface it
+                              so the operator can swap before buying. */}
+                          {(() => {
+                            const links = supplierLinks?.[r.inventory_item_id] || [];
+                            const myUnit = Number(r.cost_per_unit || 0);
+                            if (myUnit <= 0 || links.length < 2) return null;
+                            const cheaper = links
+                              .filter((l: ItemSupplierLink) => l.supplier_id !== r.preferred_supplier_id && l.unit_price != null && l.unit_price > 0 && l.unit_price < myUnit)
+                              .sort((a: ItemSupplierLink, b: ItemSupplierLink) => Number(a.unit_price) - Number(b.unit_price))[0];
+                            if (!cheaper) return null;
+                            const pct = Math.round((1 - Number(cheaper.unit_price) / myUnit) * 100);
+                            const cheaperName = suppliersById?.[cheaper.supplier_id]?.supplier_name || "Another supplier";
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                                title={`${cheaperName} ${canSeeFinance ? `: ${fmtMoney.format(Number(cheaper.unit_price))} per unit` : ""} - ${pct}% cheaper`}
+                              >
+                                {cheaperName} -{pct}%
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <div className="text-xs text-slate-500">
                           {r.category || "Uncategorised"}{showShelfLife && r.shelf_life_days ? ` - ${r.shelf_life_days}d shelf life` : ""}
@@ -980,15 +1268,43 @@ function ItemTable({
                     <Badge variant="outline" className={`${meta.tone} border`}>{meta.label}</Badge>
                   </td>
                   <td className="py-3 pr-3">
-                    {lines.length > 0 && (
-                      <button
-                        onClick={() => setExpandedItem(isOpen ? null : r.inventory_item_id)}
-                        className="text-slate-400 hover:text-slate-700"
-                        title={`${lines.length} order${lines.length === 1 ? "" : "s"} pulling on this`}
-                      >
-                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 justify-end">
+                      {/* SHOP-C: Mark-as-ordered + Snooze. Both are
+                          guarded by onMarkOrdered / onSnooze so call
+                          sites that don't pass them (Plan ahead /
+                          Receipts) just don't render. */}
+                      {onMarkOrdered && (
+                        <button
+                          type="button"
+                          onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
+                          disabled={!!rowBusy?.[r.inventory_item_id]}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                          title="Mark as ordered - hides this item from Buy-now for 7 days"
+                        >
+                          PO sent
+                        </button>
+                      )}
+                      {onSnooze && (
+                        <button
+                          type="button"
+                          onClick={() => onSnooze(r.inventory_item_id, 7)}
+                          disabled={!!rowBusy?.[r.inventory_item_id]}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          title="Snooze - hides this item from Buy-now for 7 days"
+                        >
+                          Snooze 7d
+                        </button>
+                      )}
+                      {lines.length > 0 && (
+                        <button
+                          onClick={() => setExpandedItem(isOpen ? null : r.inventory_item_id)}
+                          className="text-slate-400 hover:text-slate-700"
+                          title={`${lines.length} order${lines.length === 1 ? "" : "s"} pulling on this`}
+                        >
+                          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
                 {isOpen && lines.length > 0 && (
@@ -1001,7 +1317,17 @@ function ItemTable({
                         {lines.map((l: any, i: number) => (
                           <div key={`${l.order_number}-${i}`} className="flex items-center justify-between text-xs py-1">
                             <div className="flex items-center gap-3 min-w-0">
-                              <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
+                              {/* SHOP-C: deep-link to the order. Lets
+                                  the shopper jump straight to the
+                                  wedding/event that's pulling on the
+                                  item rather than searching for it. */}
+                              {withSlug ? (
+                                <Link href={withSlug(`/admin/orders?q=${encodeURIComponent(l.order_number)}`)} className="hover:underline">
+                                  <Badge variant="outline" className="text-[10px] hover:bg-slate-100">{l.order_number}</Badge>
+                                </Link>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
+                              )}
                               <span className="text-slate-700 truncate">{l.event_name}</span>
                               <span className="text-slate-500 hidden sm:inline">via {l.menu_item_name}</span>
                             </div>
