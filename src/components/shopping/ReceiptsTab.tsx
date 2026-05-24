@@ -14,6 +14,7 @@
  * through the same service, just without the editing affordances.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,13 +71,38 @@ interface Props {
 
 export function ReceiptsTab({ companyId, userId }: Props) {
   const { toast } = useToast();
+  // TAX-B (tax-purchases deferred, 2026-05-24): honour ?receipt=<id>
+  // from /admin/tax-purchases's "Fix on Shopping" deep-link. We
+  // auto-expand the matching row once it's loaded, and widen the
+  // window to "all time" if the slip isn't in the default this-month
+  // pull so it shows up.
+  const router = useRouter();
+  const targetReceiptId = typeof router.query.receipt === "string" ? router.query.receipt : null;
 
   const [receipts, setReceipts] = useState<ReceiptWithItems[]>([]);
   const [loading, setLoading] = useState(true);
-  const [windowKind, setWindowKind] = useState<WindowKind>("this_month");
+  // When the deep-link arrives, default to all-time so a slip from
+  // an older period can be found. The operator can narrow after.
+  const [windowKind, setWindowKind] = useState<WindowKind>(targetReceiptId ? "all" : "this_month");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [rescanningId, setRescanningId] = useState<string | null>(null);
   const [rescanResult, setRescanResult] = useState<{ receiptId: string; mappedData: any } | null>(null);
+
+  // TAX-B: auto-expand + scroll on deep-link.
+  useEffect(() => {
+    if (!targetReceiptId || receipts.length === 0) return;
+    if (!receipts.some((r) => r.id === targetReceiptId)) return;
+    setExpanded((prev) => {
+      if (prev.has(targetReceiptId)) return prev;
+      const next = new Set(prev);
+      next.add(targetReceiptId);
+      return next;
+    });
+    setTimeout(() => {
+      const el = document.getElementById(`receipt-row-${targetReceiptId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+  }, [targetReceiptId, receipts]);
 
   const handleRescan = async (receiptId: string) => {
     setRescanningId(receiptId);
@@ -489,7 +515,9 @@ function ReceiptRow({
     !driftBig ? null : itemsTotal > slipTotal ? "over" : "under";
 
   return (
-    <Card className="border-0 shadow-sm">
+    // TAX-B: id anchor so /admin/tax-purchases's "Fix on Shopping"
+    // deep-link can scrollIntoView.
+    <Card id={`receipt-row-${receipt.id}`} className="border-0 shadow-sm">
       <CardContent className="py-3 px-4">
         <button
           type="button"
