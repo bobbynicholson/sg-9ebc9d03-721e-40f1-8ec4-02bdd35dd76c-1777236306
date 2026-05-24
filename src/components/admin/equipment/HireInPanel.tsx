@@ -334,7 +334,7 @@ export function HireInPanel() {
           supplier_id: r.supplier_id,
           amount_cents: Math.round(Number(r.total_cost) * 100),
           due_date: dueIso,
-          status: "unpaid",
+          status: "pending",
           invoice_ref: `Hire ${r.id.slice(0, 8)}`,
           notes: `Auto-generated from equipment hire-in: ${r.quantity} x ${r.equipment_name || "equipment"}`,
         })
