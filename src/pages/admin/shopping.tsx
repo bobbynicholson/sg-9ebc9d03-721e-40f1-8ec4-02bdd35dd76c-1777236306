@@ -659,6 +659,65 @@ function SmartShoppingPage() {
     }
   };
 
+  // SHOP-I: single-item Mark received. The cart pill's Mark purchased
+  // path requires ticking rows first, which works when the operator
+  // is consciously building a PO list. The mistake-click path from
+  // Mark ordered hides the row from Buy-now, so the operator can't
+  // tick it to receive it later - they were stuck. This is the
+  // direct path: click "Mark received" inline on the ordered side
+  // panel, goods land in stock with a proper inventory_transactions
+  // row + batch, ordered_* clears.
+  const markReceivedSingle = async (itemId: string) => {
+    if (!companyId || !user?.id) return;
+    const row = enriched.find((r) => r.inventory_item_id === itemId);
+    if (!row) return;
+    const qty = Number(row.ordered_qty || row.reorderQty || 0);
+    if (qty <= 0) {
+      toast({ title: "Nothing to receive", description: "Ordered quantity is zero.", variant: "destructive" });
+      return;
+    }
+    setRowBusy((m) => ({ ...m, [itemId]: true }));
+    try {
+      const today = toLocalISO(new Date());
+      const supplierId = row.preferred_supplier_id || null;
+      const result = await inventoryService.receiveStock({
+        companyId,
+        supplierId,
+        invoiceNumber: `SHOP-RCV-${today}-${itemId.slice(0, 6)}`,
+        receivedDate: today,
+        performedBy: user.id,
+        notes: "Received via /admin/shopping ordered panel",
+        lines: [{
+          itemId,
+          qty,
+          unitCost: row.cost_per_unit > 0 ? row.cost_per_unit : null,
+        }],
+      });
+      if (result.errors.length > 0) {
+        captureException(new Error(result.errors[0]), { tags: { surface: "admin/shopping", area: "mark-received-single", tenant: companyId } });
+        toast({ title: "Could not receive", description: result.errors[0], variant: "destructive" });
+        return;
+      }
+      // Clear ordered_* silently - we already toast about the receive.
+      await clearOrdered(itemId, { silent: true });
+      toast({
+        title: "Received",
+        description: `${qty} ${row.unit_of_measure || ""} ${row.item_name} added to stock.`,
+      });
+      // Refresh outlook so the row's new stock is reflected.
+      const { data } = await supabase
+        .from("inventory_demand_outlook")
+        .select("*")
+        .eq("company_id", companyId);
+      setOutlook((data || []) as OutlookRow[]);
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "mark-received-single", tenant: companyId } });
+      toast({ title: "Could not receive", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally {
+      setRowBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  };
+
   const markOrdered = async (itemId: string, qty: number, etaDaysFromNow: number) => {
     if (!companyId) return;
     setRowBusy((m) => ({ ...m, [itemId]: true }));
@@ -684,12 +743,18 @@ function SmartShoppingPage() {
           ordered_until: toLocalISO(until),
         },
       }));
-      // SHOP-H: undo action on the toast. Clicking by mistake stops
-      // being a 7-day mystery - the operator gets a one-tap reversal
-      // right next to the confirmation.
+      // SHOP-H + SHOP-I: undo on the toast PLUS guide the operator
+      // to the inline panel that survives the toast dismiss. The
+      // previous "Click Mark purchased once it arrives" hint was
+      // misleading - Mark purchased is the cart-pill action that
+      // only appears when items are TICKED, but a mistake-clicked
+      // Mark ordered doesn't tick anything. The fix: the toast
+      // points to the always-visible "awaiting delivery" panel
+      // below Buy-now, which has both Undo and Mark received
+      // inline on every row.
       toast({
         title: "Marked as ordered",
-        description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}. Click Mark purchased once it arrives.`,
+        description: `Hidden from Buy-now until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}. Find it in the "Awaiting delivery" panel below to Mark received or Undo.`,
         action: (
           <ToastAction altText="Undo mark as ordered" onClick={() => clearOrdered(itemId)}>
             Undo
@@ -1056,76 +1121,103 @@ function SmartShoppingPage() {
 
               {/* BUY NOW */}
               <TabsContent value="buy_now">
-                {/* SHOP-C: snoozed + ordered side panel. Surfaces
-                    rows that the operator already actioned so they
-                    can clear the state if circumstances change. */}
+                {/* SHOP-I: expanded "Awaiting delivery" + "Snoozed"
+                    panels. Audit caught the previous <details>
+                    collapse hid the mistake-clicked rows behind a
+                    chip the operator didn't know to expand, with a
+                    toast hint that pointed at Mark purchased (cart
+                    pill) which isn't visible when nothing's ticked.
+                    Now: rows always visible when present, each
+                    carries Undo + Mark received inline so the
+                    operator can act without hunting. */}
                 {(() => {
                   const snoozedRows = enriched.filter((r) => r.isSnoozed);
                   const orderedRows = enriched.filter((r) => r.orderedActive);
                   if (snoozedRows.length === 0 && orderedRows.length === 0) return null;
                   return (
-                    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                      {snoozedRows.length > 0 && (
-                        <details className="rounded-md border border-slate-200 bg-white px-2 py-1">
-                          <summary className="cursor-pointer">
-                            {snoozedRows.length} snoozed
-                          </summary>
-                          <ul className="mt-1.5 space-y-1 pl-1">
-                            {snoozedRows.map((r) => (
-                              <li key={r.inventory_item_id} className="flex items-center justify-between gap-2">
-                                <span>
-                                  <strong>{r.item_name}</strong>
-                                  <span className="text-slate-400 ml-1">
-                                    til {r.snooze_until ? new Date(r.snooze_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}
-                                  </span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => clearSnooze(r.inventory_item_id)}
-                                  disabled={!!rowBusy[r.inventory_item_id]}
-                                  className="text-[10px] text-blue-700 hover:underline disabled:opacity-50"
-                                >
-                                  unsnooze
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
+                    <div className="mb-4 space-y-3">
                       {orderedRows.length > 0 && (
-                        <details className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1">
-                          <summary className="cursor-pointer text-blue-900">
-                            {orderedRows.length} ordered (awaiting delivery)
-                          </summary>
-                          <ul className="mt-1.5 space-y-1 pl-1">
-                            {orderedRows.map((r) => (
-                              <li key={r.inventory_item_id} className="flex items-center justify-between gap-2">
-                                <span className="text-slate-700">
-                                  <strong>{r.item_name}</strong>
-                                  <span className="text-slate-500 ml-1">
-                                    {r.ordered_qty != null ? `${r.ordered_qty} ${r.unit_of_measure} ordered` : "ordered"}
-                                    {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
-                                  </span>
-                                </span>
-                                {/* SHOP-H: inline undo so an accidental
-                                    Mark ordered can be cleared anytime
-                                    from the side panel, not just from
-                                    the toast that may have dismissed. */}
-                                <button
-                                  type="button"
-                                  onClick={() => clearOrdered(r.inventory_item_id)}
-                                  disabled={!!rowBusy[r.inventory_item_id]}
-                                  className="text-[10px] text-blue-700 hover:underline disabled:opacity-50"
+                        <Card className="border-0 shadow-sm bg-blue-50">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Truck className="w-4 h-4 text-blue-700" />
+                              <p className="text-xs font-semibold text-blue-900">
+                                Awaiting delivery ({orderedRows.length})
+                              </p>
+                            </div>
+                            <ul className="space-y-1.5">
+                              {orderedRows.map((r) => (
+                                <li
+                                  key={r.inventory_item_id}
+                                  className="flex items-center gap-2 flex-wrap text-xs bg-white border border-blue-100 rounded-md px-2 py-1.5"
                                 >
-                                  undo
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                          <p className="mt-1 text-[10px] text-blue-700">
-                            Click Mark purchased on the cart pill once goods are in hand to clear the flag.
-                          </p>
-                        </details>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                                    <span className="text-slate-500 ml-1">
+                                      {r.ordered_qty != null ? ` · ${r.ordered_qty} ${r.unit_of_measure}` : ""}
+                                      {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => markReceivedSingle(r.inventory_item_id)}
+                                    disabled={!!rowBusy[r.inventory_item_id]}
+                                    title="Goods arrived - add to stock and clear the flag"
+                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 min-h-[28px]"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3" /> Mark received
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => clearOrdered(r.inventory_item_id)}
+                                    disabled={!!rowBusy[r.inventory_item_id]}
+                                    title="Didn't actually order this - clear the flag without receiving"
+                                    className="text-[11px] px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
+                                  >
+                                    Undo
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="mt-2 text-[10px] text-blue-700">
+                              Items hidden from Buy-now until delivery. Mark received once the goods arrive (writes a stock-in transaction) or Undo if it was a mistake.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+                      {snoozedRows.length > 0 && (
+                        <Card className="border-0 shadow-sm bg-slate-50">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-xs font-semibold text-slate-700">
+                                Snoozed ({snoozedRows.length})
+                              </p>
+                            </div>
+                            <ul className="space-y-1.5">
+                              {snoozedRows.map((r) => (
+                                <li
+                                  key={r.inventory_item_id}
+                                  className="flex items-center gap-2 flex-wrap text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                                    <span className="text-slate-400 ml-1">
+                                      til {r.snooze_until ? new Date(r.snooze_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => clearSnooze(r.inventory_item_id)}
+                                    disabled={!!rowBusy[r.inventory_item_id]}
+                                    className="text-[11px] px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
+                                  >
+                                    Unsnooze
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
                       )}
                     </div>
                   );
