@@ -54,9 +54,11 @@ import {
 } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 import {
   outsourceProviderService,
   COMMON_ROLES,
@@ -134,7 +136,10 @@ function emptyForm(): FormState {
 }
 
 function ProvidersList() {
-  const { profile } = useAuth() as { profile: { company_id?: string; role?: string; active_role?: string } | null };
+  const { profile, company: tenantCompany } = useAuth() as {
+    profile: { company_id?: string; role?: string; active_role?: string } | null;
+    company: { company_name?: string } | null;
+  };
   const companyId = profile?.company_id;
   const { toast } = useToast();
 
@@ -152,11 +157,16 @@ function ProvidersList() {
     financeRole === "owner" || financeRole === "company_admin" ||
     financeRole === "super_admin";
 
+  const router = useRouter();
   const [providers, setProviders] = useState<OutsourceProviderWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  // OUT-D: region filter + URL state.
+  const [regionFilter, setRegionFilter] = useState<string>("all");
+  // CSV import dialog.
+  const [importOpen, setImportOpen] = useState(false);
 
   const [editing, setEditing] = useState<OutsourceProvider | null>(null);
   const [adding, setAdding] = useState(false);
@@ -197,6 +207,52 @@ function ProvidersList() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
 
+  // OUT-D: realtime channel. Add a provider on a phone, see it on
+  // desktop ~2s later. Debounced 1500ms so CSV imports don't thrash.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { load(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`outsource-providers:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "outsource_providers", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // OUT-D: URL state hydration on mount.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    const role = typeof router.query.role === "string" ? router.query.role : "all";
+    const region = typeof router.query.region === "string" ? router.query.region : "all";
+    const active = typeof router.query.active === "string" ? router.query.active : null;
+    setSearch(q);
+    setRoleFilter(role);
+    setRegionFilter(region);
+    if (active === "all") setActiveOnly(false);
+    else if (active === "1") setActiveOnly(true);
+  }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push state back to URL.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = { ...router.query as Record<string, string> };
+    if (search) next.q = search; else delete next.q;
+    if (roleFilter && roleFilter !== "all") next.role = roleFilter; else delete next.role;
+    if (regionFilter && regionFilter !== "all") next.region = regionFilter; else delete next.region;
+    next.active = activeOnly ? "1" : "all";
+    router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, roleFilter, regionFilter, activeOnly]);
+
   // Available roles for the filter = COMMON_ROLES + any custom role
   // already in use by an existing provider.
   const availableRoles = useMemo(() => {
@@ -210,6 +266,13 @@ function ProvidersList() {
     return providers.filter((p) => {
       if (activeOnly && !p.is_active) return false;
       if (roleFilter !== "all" && !(p.provider_roles || []).includes(roleFilter)) return false;
+      // OUT-D: region filter. "all" includes any-region providers
+      // (null region_id) AND region-scoped ones. A specific region
+      // value matches that region only.
+      if (regionFilter !== "all") {
+        const pRegion = (p as typeof p & { region_id?: string | null }).region_id;
+        if (pRegion !== regionFilter) return false;
+      }
       if (!q) return true;
       return (
         p.provider_name.toLowerCase().includes(q) ||
@@ -219,7 +282,7 @@ function ProvidersList() {
         (p.provider_roles || []).some((r) => r.toLowerCase().includes(q))
       );
     });
-  }, [providers, search, activeOnly, roleFilter]);
+  }, [providers, search, activeOnly, roleFilter, regionFilter]);
 
   const openAdd = () => {
     setForm(emptyForm());
@@ -410,6 +473,25 @@ function ProvidersList() {
   const roleLabel = (value: string) =>
     COMMON_ROLES.find((r) => r.value === value)?.label || value.replace(/_/g, " ");
 
+  // OUT-D: templated WhatsApp enquiry pre-fill. Operators told Bobby
+  // they wanted the wa.me link to start a chat with sensible context
+  // rather than an empty thread. Mirrors HIR-B's hire-in email shape.
+  const tenantName = tenantCompany?.company_name || "us";
+  const waTemplateFor = (p: OutsourceProviderWithStats) => {
+    const num = (p.whatsapp_number || "").replace(/[^\d]/g, "");
+    if (!num) return null;
+    const first = (p.contact_person || p.provider_name).split(" ")[0];
+    const roles = (p.provider_roles || []).map(roleLabel).join(", ");
+    const text = [
+      `Hi ${first}, this is ${tenantName}.`,
+      roles
+        ? `We've got an upcoming event and would like to check your availability for ${roles.toLowerCase()}.`
+        : "We've got an upcoming event and would like to check your availability.",
+      "Are you free in the next two weeks? Happy to share the details.",
+    ].join("\n\n");
+    return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+  };
+
   return (
     <>
       <NoIndexMeta />
@@ -430,10 +512,15 @@ function ProvidersList() {
                 comms fire automatically.
               </p>
             </div>
-            <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add provider
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => setImportOpen(true)} title="Import providers from CSV">
+                Import CSV
+              </Button>
+              <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add provider
+              </Button>
+            </div>
           </div>
 
           {/* OUT-B: cron dry-run tester. Demoted from always-on
@@ -455,7 +542,7 @@ function ProvidersList() {
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full sm:w-56 bg-white">
+              <SelectTrigger className="w-full sm:w-44 bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -465,6 +552,19 @@ function ProvidersList() {
                 ))}
               </SelectContent>
             </Select>
+            {regions.length > 0 && (
+              <Select value={regionFilter} onValueChange={setRegionFilter}>
+                <SelectTrigger className="w-full sm:w-44 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All regions</SelectItem>
+                  {regions.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 px-3 py-2 bg-white border border-slate-200 rounded-md cursor-pointer">
               <input
                 type="checkbox"
@@ -556,9 +656,10 @@ function ProvidersList() {
                             )}
                             {p.whatsapp_number && (
                               <a
-                                href={`https://wa.me/${p.whatsapp_number.replace(/[^\d]/g, "")}`}
+                                href={waTemplateFor(p) || `https://wa.me/${p.whatsapp_number.replace(/[^\d]/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                title="Opens WhatsApp with a templated enquiry pre-filled"
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2 py-1 hover:bg-green-100"
                               >
                                 <MessageCircle className="w-3 h-3" />
@@ -588,11 +689,34 @@ function ProvidersList() {
                           <p className="text-[11px] text-slate-500 mt-1">
                             Prefers {p.preferred_contact_channel}
                           </p>
-                          {p.assignment_count > 0 && (
-                            <p className="text-[11px] text-slate-500 mt-0.5">
-                              {p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"} on file
-                            </p>
-                          )}
+                          {/* OUT-D: reliability + last-booked pills.
+                              Data already on OutsourceProviderWithStats
+                              (assignment_count, accepted_count,
+                              cancelled_count, last_assignment_at).
+                              Surface them inline so the operator sees
+                              who's solid at a glance. */}
+                          {p.assignment_count > 0 && (() => {
+                            const responded = p.accepted_count + p.cancelled_count;
+                            const acceptRate = responded > 0
+                              ? Math.round((p.accepted_count / responded) * 100)
+                              : null;
+                            const daysSinceLast = p.last_assignment_at
+                              ? Math.floor((Date.now() - new Date(p.last_assignment_at).getTime()) / 86_400_000)
+                              : null;
+                            return (
+                              <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
+                                <p>{p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"} on file</p>
+                                {acceptRate != null && (
+                                  <p className={acceptRate >= 80 ? "text-emerald-700" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
+                                    {acceptRate}% accept
+                                  </p>
+                                )}
+                                {daysSinceLast != null && (
+                                  <p>last booked {daysSinceLast === 0 ? "today" : `${daysSinceLast}d ago`}</p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
@@ -928,6 +1052,13 @@ function ProvidersList() {
         </DialogContent>
       </Dialog>
 
+      <ImportProvidersDialog
+        open={importOpen}
+        companyId={companyId || ""}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { setImportOpen(false); void load(); }}
+      />
+
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1127,6 +1258,230 @@ function CronDryRunPanel() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// OUT-D: ImportProvidersDialog
+// ──────────────────────────────────────────────────────────────────
+// Bulk import outsource providers from CSV. Custom splitCsvLine,
+// preview + inline validation, downloadable UTF-8 BOM template.
+// Mirrors the suppliers CSV import (SUP-C).
+
+function splitCsvLineOP(line: string): string[] {
+  const out: string[] = [];
+  let cur = ""; let inQ = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i += 1; }
+        else { inQ = false; }
+      } else cur += ch;
+    } else {
+      if (ch === ',') { out.push(cur); cur = ""; }
+      else if (ch === '"') inQ = true;
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+type ParsedProviderRow = {
+  provider_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  roles_text: string;
+  specialty: string;
+  default_rate_type: OutsourceRateType;
+  default_rate: number | null;
+  payment_terms_days: number | null;
+  _error?: string;
+};
+
+function ImportProvidersDialog({
+  open, companyId, onClose, onImported,
+}: { open: boolean; companyId: string; onClose: () => void; onImported: () => void }) {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<ParsedProviderRow[]>([]);
+  const [filename, setFilename] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (!open) { setRows([]); setFilename(""); } }, [open]);
+
+  const onFile = (file: File) => {
+    setFilename(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length === 0) { setRows([]); return; }
+      const first = splitCsvLineOP(lines[0]).map((c) => c.toLowerCase());
+      const hasHeader = first.some((c) => ["provider", "provider name", "name"].includes(c));
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      const parsed: ParsedProviderRow[] = dataLines.map((ln) => {
+        const cols = splitCsvLineOP(ln);
+        const [
+          name = "", contact = "", email = "", phone = "", whatsapp = "",
+          rolesText = "", specialty = "", rateType = "per_event", rate = "", terms = "",
+        ] = cols;
+        const rt = (RATE_TYPE_OPTIONS.find((o) => o.value === rateType.trim().toLowerCase())?.value || "per_event") as OutsourceRateType;
+        const rateNum = rate.trim() ? Number(rate) : null;
+        const termsNum = terms.trim() ? Number.parseInt(terms, 10) : null;
+        const row: ParsedProviderRow = {
+          provider_name: name.trim(),
+          contact_person: contact.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          whatsapp_number: whatsapp.trim(),
+          roles_text: rolesText.trim(),
+          specialty: specialty.trim(),
+          default_rate_type: rt,
+          default_rate: Number.isFinite(rateNum as number) ? rateNum : null,
+          payment_terms_days: Number.isFinite(termsNum as number) ? termsNum : null,
+        };
+        if (!row.provider_name) row._error = "Missing name";
+        else if (!row.email && !row.phone && !row.whatsapp_number) row._error = "No contact channel";
+        return row;
+      });
+      setRows(parsed);
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const runImport = async () => {
+    if (!companyId || rows.length === 0) return;
+    const validRows = rows.filter((r) => !r._error);
+    if (validRows.length === 0) {
+      toast({ title: "Nothing to import", description: "Every row has an error.", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await outsourceProviderService.bulkCreate({
+        companyId,
+        rows: validRows.map((r) => ({
+          provider_name: r.provider_name,
+          contact_person: r.contact_person || null,
+          email: r.email || null,
+          phone: r.phone || null,
+          whatsapp_number: r.whatsapp_number || null,
+          provider_roles: r.roles_text ? r.roles_text.split(";").map((s) => s.trim()).filter(Boolean) : [],
+          specialty: r.specialty || null,
+          default_rate_type: r.default_rate_type,
+          default_rate: r.default_rate,
+          payment_terms_days: r.payment_terms_days,
+        })),
+      });
+      toast({
+        title: `Imported ${result.inserted}`,
+        description: `${result.skipped} duplicate${result.skipped === 1 ? "" : "s"} skipped, ${result.errors.length} error${result.errors.length === 1 ? "" : "s"}.`,
+      });
+      onImported();
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/outsource-providers", area: "csv-import" } });
+      toast({ title: "Import failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally { setBusy(false); }
+  };
+
+  const downloadTemplate = () => {
+    const headers = "Provider name,Contact person,Email,Phone,WhatsApp,Roles (semi-colon),Specialty,Rate type,Default rate,Payment terms (days)";
+    const sample = `MH Catering,Henry Helmuth,henry@example.com,,0827638960,onsite_chef;sound,Spit braai,per_event,1400,1
+Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quoted,,30`;
+    const blob = new Blob(["﻿" + headers + "\r\n" + sample], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "outsource-providers-template.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const errorCount = rows.filter((r) => r._error).length;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Import providers from CSV</DialogTitle>
+          <DialogDescription>
+            Columns: name, contact person, email, phone, WhatsApp, roles
+            (semi-colon-separated), specialty, rate type, default rate,
+            payment terms days. Header row optional. Existing provider
+            names are skipped (case-insensitive). Each row needs at
+            least one contact channel.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onFile(f);
+              }}
+              className="text-sm"
+            />
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>Download template</Button>
+            {filename && <span className="text-xs text-slate-500">{filename}</span>}
+          </div>
+          {rows.length > 0 && (
+            <>
+              <div className="text-xs text-slate-600">
+                {rows.length} row{rows.length === 1 ? "" : "s"} parsed
+                {errorCount > 0 && <span className="text-rose-600 ml-2">· {errorCount} with errors</span>}
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                    <tr>
+                      <th className="text-left px-2 py-1.5">Name</th>
+                      <th className="text-left px-2 py-1.5">Contact</th>
+                      <th className="text-left px-2 py-1.5">Email</th>
+                      <th className="text-left px-2 py-1.5">Roles</th>
+                      <th className="text-right px-2 py-1.5">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, 50).map((r, i) => (
+                      <tr key={i} className={r._error ? "bg-rose-50" : "border-t border-slate-100"}>
+                        <td className="px-2 py-1.5 font-medium text-slate-900">
+                          {r.provider_name || <span className="text-rose-600">(blank)</span>}
+                          {r._error && <span className="block text-[10px] text-rose-600">{r._error}</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.contact_person}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.email}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.roles_text}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{r.default_rate ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {rows.length > 50 && (
+                  <div className="px-2 py-1 text-[10px] text-slate-500 bg-slate-50 border-t">
+                    + {rows.length - 50} more rows
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button
+            onClick={runImport}
+            disabled={rows.length === 0 || busy}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+            Import {rows.filter((r) => !r._error).length}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

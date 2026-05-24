@@ -222,6 +222,84 @@ export const outsourceProviderService = {
   },
 
   /**
+   * OUT-D: bulk insert from CSV. Mirrors supplierService.bulkCreate.
+   * De-dupes against existing provider_name (case-insensitive).
+   */
+  async bulkCreate(args: {
+    companyId: string;
+    rows: Array<{
+      provider_name: string;
+      contact_person?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      whatsapp_number?: string | null;
+      provider_roles?: string[];
+      specialty?: string | null;
+      default_rate_type?: OutsourceRateType;
+      default_rate?: number | null;
+      payment_terms_days?: number | null;
+    }>;
+  }): Promise<{
+    inserted: number;
+    skipped: number;
+    errors: Array<{ row: number; provider_name: string; reason: string }>;
+  }> {
+    const { data: existing } = await (supabase as any)
+      .from("outsource_providers")
+      .select("provider_name")
+      .eq("company_id", args.companyId)
+      .is("deleted_at", null);
+    const existingSet = new Set(
+      ((existing || []) as Array<{ provider_name: string }>)
+        .map((r) => (r.provider_name || "").toLowerCase().trim()),
+    );
+
+    let inserted = 0, skipped = 0;
+    const errors: Array<{ row: number; provider_name: string; reason: string }> = [];
+
+    for (let i = 0; i < args.rows.length; i += 1) {
+      const r = args.rows[i];
+      const nm = (r.provider_name || "").trim();
+      if (!nm) {
+        errors.push({ row: i + 1, provider_name: "(blank)", reason: "Missing name" });
+        continue;
+      }
+      if (existingSet.has(nm.toLowerCase())) {
+        skipped += 1;
+        continue;
+      }
+      // Need at least one contact channel.
+      if (!r.email && !r.phone && !r.whatsapp_number) {
+        errors.push({ row: i + 1, provider_name: nm, reason: "No contact channel" });
+        continue;
+      }
+      const { error } = await (supabase as any).from("outsource_providers").insert({
+        company_id: args.companyId,
+        provider_name: nm,
+        contact_person: r.contact_person?.trim() || null,
+        email: r.email?.trim() || null,
+        phone: r.phone?.trim() || null,
+        whatsapp_number: r.whatsapp_number?.trim() || null,
+        provider_roles: r.provider_roles ?? [],
+        specialty: r.specialty?.trim() || null,
+        default_rate_type: r.default_rate_type ?? "per_event",
+        default_rate: r.default_rate ?? null,
+        default_currency: "ZAR",
+        payment_terms_days: r.payment_terms_days ?? null,
+        preferred_contact_channel: r.whatsapp_number ? "whatsapp" : r.email ? "email" : "phone",
+        is_active: true,
+      });
+      if (error) {
+        errors.push({ row: i + 1, provider_name: nm, reason: error.message });
+      } else {
+        inserted += 1;
+        existingSet.add(nm.toLowerCase());
+      }
+    }
+    return { inserted, skipped, errors };
+  },
+
+  /**
    * OUT-B: pre-delete FK guard. Returns the count of open assignments
    * (anything pre-completed) so the dialog can warn or block. Mirrors
    * supplierService.countReferences from the suppliers audit.

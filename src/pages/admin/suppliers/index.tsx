@@ -571,6 +571,18 @@ function SuppliersList() {
               )}
             </CardContent>
           </Card>
+
+          {/* OUT-D: reciprocal cross-link to outsource providers. The
+              outsource page links here in its footer; this is the
+              return half so operators don't have to remember which
+              entity lives where. */}
+          <p className="mt-4 text-xs text-slate-500">
+            Looking for per-event service providers (on-site chefs, florists,
+            photographers)?{" "}
+            <Link href={withSlug("/admin/outsource-providers")} className="text-amber-700 underline hover:text-amber-800">
+              Open outsource providers
+            </Link>
+          </p>
         </div>
       </div>
 
