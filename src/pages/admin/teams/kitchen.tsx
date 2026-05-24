@@ -47,10 +47,18 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
+import { useToast } from "@/hooks/use-toast"; // used by PrepBroadcastDialog below
+import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
   DollarSign, CalendarDays, Wrench, Package, Flame,
-  CheckCircle2, ArrowRight,
+  CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
 } from "lucide-react";
 
 function startOfWeek(): Date {
@@ -85,6 +93,27 @@ interface KitchenStats {
   // KIT-A: stock at risk - perishable items at or below minimum
   // OR with a batch expiring in the next 3 days.
   stockAtRisk: number;
+  // KIT-B (task #211, 2026-05-25): equipment handovers waiting on a
+  // kitchen receive (to_stage='kitchen' AND received_by_user_id IS
+  // NULL). Surfaces gear that the kitchen needs to acknowledge.
+  handoversWaiting: number;
+  // KIT-B: top 6 kitchen_staff_members by this week's mins. Lets
+  // the manager spot who's racking up overtime before payroll
+  // surfaces it. Sorted desc by minutes.
+  topStaffHours: Array<{ id: string; name: string; mins: number }>;
+}
+
+// KIT-B (task #211, 2026-05-25): today's prep schedule snapshot for
+// the printable view. One row per task with the data the manager
+// needs at the pass: name, start time, duration, station, status.
+interface PrepRow {
+  id: string;
+  menu_item_name: string | null;
+  start_at: string | null;
+  duration_min: number | null;
+  task_type: string | null;
+  status: string | null;
+  notes: string | null;
 }
 
 function KitchenTeamPage() {
@@ -106,7 +135,42 @@ function KitchenTeamPage() {
     tomorrowEvents: 0, tomorrowPrepMin: 0,
     issuesThisWeek: 0,
     stockAtRisk: 0,
+    handoversWaiting: 0,
+    topStaffHours: [],
   });
+  // KIT-B (task #211, 2026-05-25): today's prep rows for the
+  // print view. Loaded alongside the pipeline rollup.
+  const [prepRows, setPrepRows] = useState<PrepRow[]>([]);
+  // KIT-B: send-prep-list WhatsApp dialog state.
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  // KIT-B: tick bumped by the realtime channel below; gates the
+  // existing load() useEffect so realtime fan-out re-runs the
+  // payload without re-mounting.
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // KIT-B (task #211, 2026-05-25): realtime subscription on the
+  // tables that drive every card above the fold. Debounced 1500ms
+  // so a prep-task bulk insert doesn't thrash the page.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRefreshTick((n) => n + 1), 1500);
+    };
+    const channel = supabase
+      .channel(`teams-kitchen:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_handovers" }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,9 +202,12 @@ function KitchenTeamPage() {
 
         // Week shift hours via kitchen_staff_shifts (canonical wage
         // record). Region scope via the joined kitchen_staff_members.
+        // KIT-B (task #211, 2026-05-25): include member id so the
+        // per-staff hours roll-up can map back to a name without a
+        // second query.
         const staffShiftsSelect = regionFilterId
-          ? "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id, hourly_rate)"
-          : "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(hourly_rate)";
+          ? "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(id, region_id, hourly_rate)"
+          : "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(id, hourly_rate)";
         let shiftsWeekQ = supabase.from("kitchen_staff_shifts")
           .select(staffShiftsSelect)
           .eq("company_id", companyId)
@@ -168,12 +235,15 @@ function KitchenTeamPage() {
         // Today's prep pipeline. Pull every kitchen_prep_tasks row
         // whose start_at is within today and roll up by status. The
         // overdue derivation needs duration_min on each row.
+        // KIT-B (task #211, 2026-05-25): also fetch menu_item_name +
+        // task_type + notes so the print view can render them.
         let prepTodayQ = supabase.from("kitchen_prep_tasks")
-          .select("status, start_at, duration_min")
+          .select("id, status, start_at, duration_min, menu_item_name, task_type, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("start_at", todayStartISO)
-          .lte("start_at", todayEndISO);
+          .lte("start_at", todayEndISO)
+          .order("start_at", { ascending: true });
         if (regionFilterId) prepTodayQ = prepTodayQ.eq("region_id", regionFilterId);
 
         // Tomorrow's prep minutes total for the load card.
@@ -223,21 +293,44 @@ function KitchenTeamPage() {
           .gte("expiry_date", todayISO)
           .lte("expiry_date", threeDaysISO);
 
+        // KIT-B (task #211, 2026-05-25): equipment handovers waiting
+        // on a kitchen-side receive. The schema models stage hand-
+        // offs (kitchen -> cleaning, prep -> service); we count rows
+        // headed into the kitchen that haven't been acknowledged.
+        const handoverWaitingQ = supabase.from("equipment_handovers")
+          .select("id", { count: "exact", head: true })
+          .eq("to_stage", "kitchen")
+          .is("received_by_user_id", null);
+
+        // KIT-B: per-staff hours-this-week. Fetch the member list to
+        // map id -> name; we then walk the shiftsWeekRes payload
+        // client-side (already pulled, no extra round trip).
+        let kitchenMembersQ = supabase.from("kitchen_staff_members")
+          .select("id, full_name")
+          .eq("company_id", companyId)
+          .is("deleted_at", null);
+        if (regionFilterId) kitchenMembersQ = kitchenMembersQ.eq("region_id", regionFilterId);
+
         const [
           staffRes, shiftsWeekRes, jobsTodayRes, tomorrowJobsRes,
           prepTodayRes, prepTomorrowRes, activeDutyRes, damagesRes,
           lowStockRes, expiringBatchesRes,
+          handoverWaitingRes, membersRes,
         ] = await Promise.all([
           staffQ, shiftsWeekQ, jobsTodayQ, tomorrowJobsQ,
           prepTodayQ, prepTomorrowQ, activeDutyQ, damagesQ,
           lowStockQ, expiringBatchesQ,
+          handoverWaitingQ, kitchenMembersQ,
         ]);
 
         // Hours-this-week + wage burn today, walking the same rows.
+        // KIT-B (task #211, 2026-05-25): also bucket mins per member
+        // so we can render the per-staff overtime chips below.
         let hours = 0;
         let burnToday = 0;
         const todayMs = new Date(todayStartISO).getTime();
         const todayEndMs = new Date(todayEndISO).getTime();
+        const minsByMember = new Map<string, number>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const s of (shiftsWeekRes.data || []) as any[]) {
           const mins =
@@ -251,18 +344,41 @@ function KitchenTeamPage() {
             const rate = Number(s.kitchen_staff_members?.hourly_rate || 0);
             if (rate > 0) burnToday += (mins / 60) * rate;
           }
+          // The shift row's member id needs to come off the joined
+          // row; the existing select syntax returns the joined
+          // object as kitchen_staff_members. Use whichever key the
+          // PostgREST shape gives us.
+          const memberId = s.kitchen_staff_members?.id || s.member_id || null;
+          if (memberId) minsByMember.set(memberId, (minsByMember.get(memberId) || 0) + mins);
         }
+
+        // KIT-B: build the top-staff-hours sorted desc, slicing 6.
+        // We need both the id->name map (from membersRes) and the
+        // minsByMember rollup above. Members with zero shifts this
+        // week don't appear.
+        const nameById = new Map<string, string>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const m of (membersRes.data || []) as any[]) {
+          nameById.set(m.id, m.full_name || "Unnamed");
+        }
+        const topStaffHours = Array.from(minsByMember.entries())
+          .map(([id, mins]) => ({ id, name: nameById.get(id) || "Member", mins }))
+          .sort((a, b) => b.mins - a.mins)
+          .slice(0, 6);
 
         // Prep pipeline rollup. Status from the CHECK constraint:
         // pending / in_progress / done / skipped. We bucket skipped
         // into the done count for the "this isn't going to happen
         // any more" frame.
-        const prepRows = (prepTodayRes.data || []) as Array<{
-          status: string | null; start_at: string | null; duration_min: number | null;
-        }>;
+        // KIT-B (task #211, 2026-05-25): the prep query now includes
+        // the print-view fields too (id, menu_item_name, task_type,
+        // notes). Keep the local var typed strictly enough to walk
+        // for the rollup; we pass the full payload to setPrepRows
+        // below.
+        const prepRowsLocal = (prepTodayRes.data || []) as PrepRow[];
         let prepPending = 0, prepInProgress = 0, prepDone = 0, prepOverdue = 0;
         const nowMs = Date.now();
-        for (const r of prepRows) {
+        for (const r of prepRowsLocal) {
           const s = String(r.status || "").toLowerCase();
           if (s === "done" || s === "skipped") {
             prepDone += 1;
@@ -309,7 +425,10 @@ function KitchenTeamPage() {
             tomorrowPrepMin: prepTomorrowMin,
             issuesThisWeek: damagesRes.count ?? 0,
             stockAtRisk: lowStockIds.size,
+            handoversWaiting: handoverWaitingRes.count ?? 0,
+            topStaffHours,
           });
+          setPrepRows(prepRowsLocal);
         }
       } catch (e) {
         captureException(e, { tags: { route: "/admin/teams/kitchen", step: "load", companyId: companyId || "" } });
@@ -319,7 +438,7 @@ function KitchenTeamPage() {
     };
     run();
     return () => { cancelled = true; };
-  }, [companyId, regionFilterId]);
+  }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
     { href: "/admin/kitchen-staff", icon: Users, label: "Kitchen staff", sub: "Roster, rates, departments", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
@@ -342,9 +461,36 @@ function KitchenTeamPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
-          <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
-            <ArrowLeft className="w-4 h-4" /> All teams
-          </Link>
+          {/* KIT-B (task #211, 2026-05-25): top toolbar - All teams
+              back link + Print prep schedule + Send prep list to
+              clocked-in. Hidden in print via no-print. */}
+          <div className="flex items-center justify-between gap-3 mb-3 no-print flex-wrap">
+            <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+              <ArrowLeft className="w-4 h-4" /> All teams
+            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBroadcastOpen(true)}
+                className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50"
+                title="Send today's prep list to every kitchen staff member with a phone on file."
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Send prep list
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="gap-1.5"
+                title="Print-friendly view of today's prep schedule."
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print
+              </Button>
+            </div>
+          </div>
 
           <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
@@ -407,7 +553,57 @@ function KitchenTeamPage() {
                 {tenantCurrency.format(stats.burnTodayZar)} burn today
               </Badge>
             )}
+            {/* KIT-B (task #211, 2026-05-25): handover queue chip.
+                Equipment handovers waiting on a kitchen-side receive
+                are usually small but high-impact - a missed handover
+                means gear didn't move stations. */}
+            {stats.handoversWaiting > 0 && (
+              <Link href={withSlug("/admin/equipment?tab=handovers")}>
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-violet-300 text-violet-700 bg-violet-50 cursor-pointer hover:bg-violet-100">
+                  <FileText className="w-3 h-3 mr-1" />
+                  {stats.handoversWaiting} handover{stats.handoversWaiting === 1 ? "" : "s"} awaiting receive
+                </Badge>
+              </Link>
+            )}
           </div>
+
+          {/* KIT-B (task #211, 2026-05-25): per-staff hours-this-week
+              chip strip. Top 6 by mins; overtime tint kicks in at 45h.
+              Each chip links into /admin/staff-hours filtered to the
+              staffer so the manager can drill into the breakdown.
+              Hidden when nobody clocked any hours this week. */}
+          {stats.topStaffHours.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
+                Hours this week
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {stats.topStaffHours.map((m) => {
+                  const hrs = Math.round((m.mins / 60) * 10) / 10;
+                  const overtime = hrs > 45;
+                  const high = hrs > 38;
+                  return (
+                    <Link key={m.id} href={withSlug(`/admin/staff-hours?staff=${m.id}`)}>
+                      <Badge
+                        variant="outline"
+                        className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
+                          overtime
+                            ? "border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100"
+                            : high
+                              ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                              : "border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+                        }`}
+                        title={overtime ? "Over 45h - check overtime policy" : high ? "Approaching overtime" : ""}
+                      >
+                        {m.name} · {hrs}h
+                        {overtime && <span className="ml-1 text-rose-600">!</span>}
+                      </Badge>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* KIT-A: intel grid - 4 cards above the 3 tile shortcuts.
               Mirrors the cleaning landing's pattern (damages + supplies)
@@ -559,14 +755,244 @@ function KitchenTeamPage() {
           {/* KIT-A: an at-a-glance "what's surfaced where" hint at
               the bottom so a new operator knows the deeper drilldowns
               exist (handovers / wages / live ops). */}
-          <p className="text-xs text-slate-500 text-center mt-6">
+          <p className="text-xs text-slate-500 text-center mt-6 no-print">
             Detailed live ops live at <Link href={withSlug("/admin/live-operations")} className="text-amber-700 hover:underline">/admin/live-operations</Link> ·
             wage reports at <Link href={withSlug("/admin/wages")} className="text-amber-700 hover:underline">/admin/wages</Link> ·
             kitchen handover history at <Link href={withSlug("/team-portal/kitchen/handovers")} className="text-amber-700 hover:underline">/team-portal/kitchen/handovers</Link>.
           </p>
+
+          {/* KIT-B (task #211, 2026-05-25): print-only view of today's
+              prep schedule. The screen view stays hidden via CSS
+              below; window.print() renders just this block. Format
+              is intentionally boring - black text on white paper,
+              one row per task, big legible columns. */}
+          <div className="hidden print:block mt-6">
+            <h2 className="text-2xl font-bold mb-1">Kitchen prep schedule</h2>
+            <p className="text-sm text-slate-600 mb-4">
+              {new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              {" · "}
+              {prepRows.length} task{prepRows.length === 1 ? "" : "s"}
+            </p>
+            {prepRows.length === 0 ? (
+              <p className="text-sm">No prep tasks scheduled for today.</p>
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-black">
+                    <th className="text-left py-2 pr-3 font-semibold">Time</th>
+                    <th className="text-left py-2 pr-3 font-semibold">Task</th>
+                    <th className="text-left py-2 pr-3 font-semibold">Item</th>
+                    <th className="text-left py-2 pr-3 font-semibold">Mins</th>
+                    <th className="text-left py-2 pr-3 font-semibold">Status</th>
+                    <th className="text-left py-2 font-semibold">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prepRows.map((r) => (
+                    <tr key={r.id} className="border-b border-slate-200 align-top">
+                      <td className="py-2 pr-3 tabular-nums">
+                        {r.start_at
+                          ? new Date(r.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-3 capitalize">{r.task_type || "prep"}</td>
+                      <td className="py-2 pr-3 font-medium">{r.menu_item_name || "Unnamed"}</td>
+                      <td className="py-2 pr-3 tabular-nums">{r.duration_min || "—"}</td>
+                      <td className="py-2 pr-3 capitalize">{(r.status || "pending").replace("_", " ")}</td>
+                      <td className="py-2 text-xs">{r.notes || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* KIT-B: send-prep-list-to-clocked-in WhatsApp dialog. Fans
+          one queue insert per kitchen_staff_members with a phone on
+          file. Uses the queue from #99; drain cron sends within 5
+          min. */}
+      <PrepBroadcastDialog
+        open={broadcastOpen}
+        onClose={() => setBroadcastOpen(false)}
+        companyId={companyId || ""}
+        regionFilterId={regionFilterId || null}
+        prepRows={prepRows}
+      />
+
+      {/* KIT-B: print stylesheet. Hides every .no-print element +
+          AdminNav + sidebar, so window.print() renders just the
+          prep schedule. */}
+      <style jsx global>{`
+        @media print {
+          .no-print,
+          nav,
+          aside,
+          .lg\\:pl-72,
+          .lg\\:pl-80 { padding-left: 0 !important; }
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          .min-h-screen { min-height: auto !important; }
+        }
+      `}</style>
     </>
+  );
+}
+
+// KIT-B (task #211, 2026-05-25): WhatsApp broadcast for today's
+// prep list. Mirrors the per-team dialog on /admin/teams with
+// extra kitchen-shaped affordances: defaults the message body to
+// the day's task summary so the manager doesn't start from blank.
+function PrepBroadcastDialog({
+  open, onClose, companyId, regionFilterId, prepRows,
+}: {
+  open: boolean;
+  onClose: () => void;
+  companyId: string;
+  regionFilterId: string | null;
+  prepRows: PrepRow[];
+}) {
+  const { toast } = useToast();
+  const [body, setBody] = useState("");
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string | null; phone: string }>>([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!open || !companyId) { setRecipients([]); return; }
+    let cancelled = false;
+    setLoadingRoster(true);
+
+    // Default body: a summary of today's prep so the recipient
+    // sees what's expected of them. Operator can edit before send.
+    const today = new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "short" });
+    const lines = prepRows.slice(0, 8).map((r) => {
+      const t = r.start_at ? new Date(r.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—";
+      return `- ${t}  ${r.menu_item_name || "Unnamed"} (${r.duration_min || "?"}m)`;
+    });
+    const more = prepRows.length > 8 ? `\n+ ${prepRows.length - 8} more on the full sheet` : "";
+    const summary = prepRows.length === 0
+      ? `Hi team,\n\nNo prep tasks scheduled for ${today}. Standby for ad-hoc work.\n\nThanks.`
+      : `Hi team,\n\n${today} prep:\n${lines.join("\n")}${more}\n\nFull sheet on the kitchen board. Shout if anything looks off.\n\nThanks.`;
+    setBody(summary);
+
+    (async () => {
+      let q = supabase.from("kitchen_staff_members")
+        .select("id, full_name, phone")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .not("phone", "is", null);
+      if (regionFilterId) q = q.eq("region_id", regionFilterId);
+      const { data } = await q;
+      if (cancelled) return;
+      const rcpts = ((data || []) as Array<{ id: string; full_name: string | null; phone: string | null }>)
+        .filter((m) => !!m.phone)
+        .map((m) => ({ id: m.id, name: m.full_name, phone: m.phone as string }));
+      setRecipients(rcpts);
+      setLoadingRoster(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, companyId, regionFilterId, prepRows]);
+
+  const handleSend = async () => {
+    if (!companyId) return;
+    const trimmed = body.trim();
+    if (!trimmed) {
+      toast({ title: "Message is empty", variant: "destructive" });
+      return;
+    }
+    if (recipients.length === 0) {
+      toast({ title: "No kitchen staff with a phone on file", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      const stamp = Date.now().toString(36);
+      const results = await Promise.all(
+        recipients.map((r) =>
+          whatsappIntegrationService.enqueueWhatsAppMessage({
+            companyId,
+            recipientPhone: r.phone,
+            recipientName: r.name,
+            body: trimmed,
+            relatedEntityType: "kitchen_prep_broadcast",
+            relatedEntityId: null,
+            dedupKey: `kitchen-prep:${stamp}:${r.id}`,
+          }),
+        ),
+      );
+      const queued = results.filter((id) => !!id).length;
+      const refused = results.length - queued;
+      toast({
+        title: `Queued ${queued} message${queued === 1 ? "" : "s"}`,
+        description: refused > 0
+          ? `${refused} refused by the comms guard. Drain cron sends the rest within 5 min.`
+          : "Drain cron sends them within 5 min.",
+      });
+      onClose();
+    } catch (err) {
+      captureException(err, { tags: { surface: "admin/teams/kitchen", area: "prep-broadcast", companyId } });
+      toast({
+        title: "Could not queue messages",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-600" />
+            Send prep list
+          </DialogTitle>
+          <DialogDescription>
+            Goes to every kitchen staff member with a phone on file. Drain cron sends within 5 minutes. We've pre-filled the message with today's prep summary - edit before sending.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            {loadingRoster ? (
+              <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
+            ) : recipients.length === 0 ? (
+              <span className="text-amber-700">No kitchen staff with a phone on file. Add phone numbers on /admin/kitchen-staff.</span>
+            ) : (
+              <>
+                <span className="font-medium">{recipients.length} recipient{recipients.length === 1 ? "" : "s"}:</span>{" "}
+                <span className="text-slate-600">{recipients.slice(0, 4).map((r) => r.name || r.phone).join(", ")}{recipients.length > 4 ? ` +${recipients.length - 4} more` : ""}</span>
+              </>
+            )}
+          </div>
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={10}
+            className="text-sm font-mono"
+          />
+          <p className="text-[11px] text-slate-500">
+            WhatsApp Business templates required for first contact. If a recipient hasn't messaged you in 24h, Meta may drop the free-form text - the queue logs the failure with a clear reason.
+          </p>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={sending}>Cancel</Button>
+          </DialogClose>
+          <Button
+            onClick={handleSend}
+            disabled={sending || loadingRoster || recipients.length === 0 || !body.trim()}
+            className="bg-green-600 hover:bg-green-700 gap-1.5"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+            {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
