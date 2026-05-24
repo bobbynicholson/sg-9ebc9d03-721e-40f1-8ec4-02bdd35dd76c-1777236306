@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Package, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Package, AlertCircle, ScanBarcode } from "lucide-react";
 import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useToast } from "@/hooks/use-toast";
 
 export interface ReceiveLine {
   id: string;
@@ -49,6 +50,7 @@ const newLine = (): ReceiveLine => ({
 export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy, inventoryOptions, onSaved }: Props) {
   // Wave 24: tenant currency on the line-total preview.
   const tenantCurrency = useTenantCurrency(companyId);
+  const { toast } = useToast();
   const [suppliers, setSuppliers] = useState<Array<{ id: string; supplier_name: string }>>([]);
   const [supplierId, setSupplierId] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -57,6 +59,14 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
   const [lines, setLines] = useState<ReceiveLine[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // INV-B (inventory deferred, 2026-05-24): barcode scan input.
+  // USB / Bluetooth scanners type the code + ENTER into the focused
+  // field, so we listen for Enter on this input and look up the
+  // matching item. Falls back to manual typing for slow days where
+  // the scanner battery is dead.
+  const [barcode, setBarcode] = useState("");
+  const [scanLooking, setScanLooking] = useState(false);
+  const barcodeRef = useRef<HTMLInputElement>(null);
 
   // Load suppliers when modal opens
   useEffect(() => {
@@ -94,6 +104,62 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
   };
 
   const addLine = () => setLines(ls => [...ls, newLine()]);
+
+  // INV-B: barcode scan -> preselect the matching item on the
+  // first empty line. If every line already has an item, append
+  // a new line and stamp it.
+  const handleBarcodeSubmit = async () => {
+    const code = barcode.trim();
+    if (!code || !companyId) return;
+    setScanLooking(true);
+    try {
+      const match = await inventoryService.findItemByBarcode(companyId, code);
+      if (!match) {
+        toast({
+          title: "No item matched",
+          description: `Barcode "${code}" isn't on any inventory item. Set it via Edit item -> Barcode.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const opt = inventoryOptions.find((o) => o.id === match.id);
+      if (!opt) {
+        toast({
+          title: "Item not loaded",
+          description: "Refresh inventory and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setLines((ls) => {
+        const emptyIdx = ls.findIndex((l) => !l.itemId);
+        if (emptyIdx === -1) {
+          const fresh = newLine();
+          fresh.itemId = opt.id;
+          fresh.itemName = opt.name;
+          fresh.unit = opt.unit;
+          fresh.unitCost = String(opt.costPerUnit);
+          return [...ls, fresh];
+        }
+        const next = [...ls];
+        next[emptyIdx] = {
+          ...next[emptyIdx],
+          itemId: opt.id,
+          itemName: opt.name,
+          unit: opt.unit,
+          unitCost: next[emptyIdx].unitCost || String(opt.costPerUnit),
+        };
+        return next;
+      });
+      toast({ title: "Scanned", description: opt.name });
+      setBarcode("");
+      // Re-focus so the operator can scan the next item without
+      // moving their hand from the scanner.
+      barcodeRef.current?.focus();
+    } finally {
+      setScanLooking(false);
+    }
+  };
 
   const subtotal = useMemo(() => {
     return lines.reduce((sum, l) => {
@@ -199,6 +265,48 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
                 className="mt-1"
               />
             </div>
+          </div>
+
+          {/* INV-B: barcode scan input. USB / Bluetooth scanners type
+              the code + ENTER, so the input fires on Enter. Falls
+              back to manual typing if the scanner is offline. */}
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-3">
+            <Label htmlFor="barcode" className="text-xs uppercase tracking-wide text-emerald-800">
+              Scan barcode
+            </Label>
+            <div className="mt-1 flex gap-2">
+              <div className="relative flex-1">
+                <ScanBarcode className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-emerald-700" />
+                <Input
+                  ref={barcodeRef}
+                  id="barcode"
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleBarcodeSubmit();
+                    }
+                  }}
+                  placeholder="Point the scanner here, or type a code and press Enter"
+                  className="pl-8"
+                  disabled={scanLooking}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBarcodeSubmit}
+                disabled={!barcode.trim() || scanLooking}
+                className="gap-1.5"
+              >
+                <ScanBarcode className="w-4 h-4" />
+                Find
+              </Button>
+            </div>
+            <p className="text-[11px] text-emerald-800/70 mt-1">
+              Scans land on the first empty line. Already-filled lines aren't overwritten.
+            </p>
           </div>
 
           {/* Lines */}
