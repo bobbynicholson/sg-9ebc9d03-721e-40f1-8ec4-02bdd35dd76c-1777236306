@@ -21,12 +21,17 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import {
-  Receipt, Upload, Plus, Trash2, Download, AlertCircle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Receipt, Upload, Plus, Trash2, Download, AlertCircle, Search,
   FileText, Loader2, Camera, ChevronDown, ChevronRight, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ReconcileSlipDrawer, type Extraction } from "@/components/shopping/ReconcileSlipDrawer";
 import { toLocalISO } from "@/lib/localDate";
+import { supabase } from "@/integrations/supabase/client";
 import {
   uploadReceiptImage,
   createReceipt,
@@ -93,6 +98,14 @@ export function ReceiptsTab({ companyId, userId }: Props) {
   // boolean filter so the operator can jump from the summary tile
   // to the list of slips needing line-by-line breakdown.
   const [needsLinesOnly, setNeedsLinesOnly] = useState(false);
+  // SHOP-K (tabs deferred, 2026-05-24): search by vendor / amount /
+  // note + vendor-filter chip from the list itself.
+  const [search, setSearch] = useState("");
+  const [vendorFilter, setVendorFilter] = useState<string | null>(null);
+  // SHOP-K: deferred delete confirms - lifted out of native
+  // confirm() to AlertDialog for consistent UX + a11y.
+  const [confirmDeleteLine, setConfirmDeleteLine] = useState<{ receiptId: string; itemId: string; description: string } | null>(null);
+  const [confirmDeleteSlip, setConfirmDeleteSlip] = useState<{ id: string; label: string } | null>(null);
 
   // TAX-B: auto-expand + scroll on deep-link.
   useEffect(() => {
@@ -179,6 +192,29 @@ export function ReceiptsTab({ companyId, userId }: Props) {
 
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [companyId, windowKind]);
 
+  // SHOP-K: realtime subscription. Audit caught that phone-scanned
+  // slips don't show on the desktop tab without a reload. Two
+  // channels (one per table) with a shared debounced reload so a
+  // batch upload doesn't thrash. company_id filter scopes both.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { reload(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`receipts-tab:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipt_items", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
   const summary = useMemo(() => summarise(receipts), [receipts]);
 
   const handleAddSlip = async () => {
@@ -259,6 +295,36 @@ export function ReceiptsTab({ companyId, userId }: Props) {
     });
   };
 
+  // SHOP-K: lifted delete-confirm handlers. Both call services that
+  // exist at parent scope already - deleteItem and softDeleteReceipt.
+  // After success we refresh through reload(); realtime would also
+  // pick it up but the explicit reload is faster.
+  const handleConfirmDeleteLine = async () => {
+    if (!confirmDeleteLine) return;
+    try {
+      await deleteItem(confirmDeleteLine.itemId);
+      toast({ title: "Line removed" });
+      await reload();
+    } catch (err: unknown) {
+      toast({ title: "Couldn't delete line", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    } finally {
+      setConfirmDeleteLine(null);
+    }
+  };
+
+  const handleConfirmDeleteSlip = async () => {
+    if (!confirmDeleteSlip) return;
+    try {
+      await softDeleteReceipt(confirmDeleteSlip.id);
+      toast({ title: "Slip deleted", description: "It's soft-deleted - ping support if you need it back." });
+      await reload();
+    } catch (err: unknown) {
+      toast({ title: "Couldn't delete slip", description: err instanceof Error ? err.message : "", variant: "destructive" });
+    } finally {
+      setConfirmDeleteSlip(null);
+    }
+  };
+
   return (
     <>
       {/* TOOLBAR */}
@@ -285,7 +351,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       </div>
 
       {/* SUMMARY */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <Card className="border-0 shadow-sm">
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Slips logged</p>
@@ -302,6 +368,22 @@ export function ReceiptsTab({ companyId, userId }: Props) {
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Non-deductible</p>
             <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.nonDeductibleTotal)}</p>
+          </CardContent>
+        </Card>
+        {/* SHOP-K: VAT-claimable surface. The summarise()
+            function returned vatClaimableTotal but no tile ever
+            showed it. SARS-input use case for VAT-registered
+            tenants. Mismatch chip overlays when lines diverge
+            from slip totals on N receipts in this window. */}
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-100">
+          <CardContent className="py-4 px-4">
+            <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">VAT input</p>
+            <p className="text-2xl font-bold text-blue-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
+            {summary.mismatchCount > 0 && (
+              <p className="text-[10px] text-rose-700 mt-0.5 font-medium">
+                {summary.mismatchCount} mismatch{summary.mismatchCount === 1 ? "" : "es"} - review before filing
+              </p>
+            )}
           </CardContent>
         </Card>
         {/* SHOP-J: clickable filter tile. Audit caught this was a
@@ -335,9 +417,9 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         </button>
       </div>
 
-      {/* WINDOW PICKER */}
+      {/* WINDOW PICKER + SEARCH */}
       <Card className="border-0 shadow-sm mb-4">
-        <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+        <CardContent className="py-3 px-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Window</span>
           <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
             {([
@@ -360,6 +442,28 @@ export function ReceiptsTab({ companyId, userId }: Props) {
               </button>
             ))}
           </div>
+          {/* SHOP-K: search across vendor + notes + total. Cheap
+              client-side filter over already-loaded receipts. */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search vendor, notes, amount..."
+              className="pl-9 h-9"
+            />
+          </div>
+          {vendorFilter && (
+            <button
+              type="button"
+              onClick={() => setVendorFilter(null)}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-800"
+              title="Clear vendor filter"
+            >
+              <span>Vendor: <strong>{vendorFilter}</strong></span>
+              <span className="text-amber-600">×</span>
+            </button>
+          )}
         </CardContent>
       </Card>
 
@@ -378,9 +482,23 @@ export function ReceiptsTab({ companyId, userId }: Props) {
           </CardContent>
         </Card>
       ) : (() => {
-        // SHOP-J: apply the "needing lines" filter from the
-        // summary tile.
-        const visible = needsLinesOnly ? receipts.filter((r) => r.items.length === 0) : receipts;
+        // SHOP-J + SHOP-K: stacked filters applied client-side.
+        const q = search.trim().toLowerCase();
+        const visible = receipts.filter((r) => {
+          if (needsLinesOnly && r.items.length > 0) return false;
+          if (vendorFilter && (r.vendor || "").toLowerCase() !== vendorFilter.toLowerCase()) return false;
+          if (q) {
+            const hay = [
+              r.vendor || "",
+              r.notes || "",
+              r.total != null ? String(r.total) : "",
+              r.receipt_date || "",
+              ...r.items.map((it) => `${it.description} ${it.notes || ""}`),
+            ].join(" ").toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
         if (visible.length === 0) {
           return (
             <Card className="border-0 shadow-sm">
@@ -408,6 +526,11 @@ export function ReceiptsTab({ companyId, userId }: Props) {
                 onChanged={reload}
                 onRescan={handleRescan}
                 rescanning={rescanningId === r.id}
+                onRequestDeleteLine={(itemId, description) =>
+                  setConfirmDeleteLine({ receiptId: r.id, itemId, description })
+                }
+                onRequestDeleteSlip={(id, label) => setConfirmDeleteSlip({ id, label })}
+                onVendorClick={(vendor) => setVendorFilter(vendor)}
               />
             ))}
           </div>
@@ -481,6 +604,48 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         </DialogContent>
       </Dialog>
 
+      {/* SHOP-K: delete-line confirm. Replaces native confirm() so the
+          UX matches the rest of the app + reads on touch devices. */}
+      <AlertDialog open={!!confirmDeleteLine} onOpenChange={(o) => { if (!o) setConfirmDeleteLine(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this line?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDeleteLine?.description
+                ? <>Removing <strong>{confirmDeleteLine.description}</strong> from this slip. The slip itself stays. You can re-add it after.</>
+                : "Removing this line from the slip. The slip stays. You can re-add it after."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteLine} className="bg-rose-600 hover:bg-rose-700">
+              Delete line
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* SHOP-K: delete-slip confirm. Soft delete - the row hides but
+          the record stays for audit. Wording flags this. */}
+      <AlertDialog open={!!confirmDeleteSlip} onOpenChange={(o) => { if (!o) setConfirmDeleteSlip(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this slip?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDeleteSlip?.label
+                ? <>Removing the <strong>{confirmDeleteSlip.label}</strong> slip and all its lines from the visible log. This is a soft delete - the record stays in the database for audit, just hidden here.</>
+                : "Removing this slip from the visible log. Soft delete - hidden but still in the database."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteSlip} className="bg-rose-600 hover:bg-rose-700">
+              Delete slip
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Reconcile drawer for the AI rescan result */}
       <ReconcileSlipDrawer
         open={!!rescanResult}
@@ -498,6 +663,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
 
 function ReceiptRow({
   receipt, expanded, onToggle, onChanged, onRescan, rescanning,
+  onRequestDeleteLine, onRequestDeleteSlip, onVendorClick,
 }: {
   receipt: ReceiptWithItems;
   expanded: boolean;
@@ -505,6 +671,15 @@ function ReceiptRow({
   onChanged: () => Promise<void>;
   onRescan: (id: string) => void;
   rescanning: boolean;
+  // SHOP-K: delete confirms lifted to AlertDialog at the parent
+  // level. Row asks the parent to open the dialog; parent owns
+  // the actual delete + onChanged refresh.
+  onRequestDeleteLine: (itemId: string, description: string) => void;
+  onRequestDeleteSlip: (id: string, label: string) => void;
+  // SHOP-K: clicking the vendor name sets the parent's
+  // vendorFilter chip. One tap to "show me everything from
+  // Makro" - vendor negotiation use case.
+  onVendorClick: (vendor: string) => void;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -545,24 +720,13 @@ function ReceiptRow({
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Remove this line?")) return;
-    try {
-      await deleteItem(itemId);
-      await onChanged();
-    } catch (err: unknown) {
-      toast({ title: "Couldn't delete", description: err instanceof Error ? err.message : "", variant: "destructive" });
-    }
+  // SHOP-K: hand off to the parent's AlertDialog.
+  const handleDeleteItem = (itemId: string, description: string) => {
+    onRequestDeleteLine(itemId, description);
   };
 
-  const handleDeleteSlip = async () => {
-    if (!confirm("Delete this slip and all its lines?")) return;
-    try {
-      await softDeleteReceipt(receipt.id);
-      await onChanged();
-    } catch (err: unknown) {
-      toast({ title: "Couldn't delete", description: err instanceof Error ? err.message : "", variant: "destructive" });
-    }
+  const handleDeleteSlip = () => {
+    onRequestDeleteSlip(receipt.id, receipt.vendor || "Untitled vendor");
   };
 
   const itemsTotal = receipt.deductibleTotal + receipt.nonDeductibleTotal;
@@ -581,31 +745,60 @@ function ReceiptRow({
     // deep-link can scrollIntoView.
     <Card id={`receipt-row-${receipt.id}`} className="border-0 shadow-sm">
       <CardContent className="py-3 px-4">
-        <button
-          type="button"
-          className="w-full flex items-center gap-3 text-left"
-          onClick={onToggle}
-        >
-          {expanded
-            ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-            : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
-          {receipt.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={receipt.image_url}
-              alt="Slip"
-              className="w-10 h-10 object-cover rounded border border-slate-200 shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 text-slate-400" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
+        {/* SHOP-K: dropped the wrapping <button> because we now nest
+            a vendor-click button + rescan button inside. The chevron
+            zone + image + spacer area is the toggle target; vendor
+            name is its own button that filters; rescan unchanged. */}
+        <div className="w-full flex items-center gap-3 text-left">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex items-center gap-3 shrink-0"
+            aria-label={expanded ? "Collapse slip" : "Expand slip"}
+          >
+            {expanded
+              ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+              : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+            {receipt.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={receipt.image_url}
+                alt="Slip"
+                className="w-10 h-10 object-cover rounded border border-slate-200 shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-slate-400" />
+              </div>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex-1 min-w-0 text-left"
+            aria-label={expanded ? "Collapse slip" : "Expand slip"}
+          >
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-slate-900">
-                {receipt.vendor || "Untitled vendor"}
-              </p>
+              {receipt.vendor ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); onVendorClick(receipt.vendor as string); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onVendorClick(receipt.vendor as string);
+                    }
+                  }}
+                  title={`Show only ${receipt.vendor} slips`}
+                  className="text-sm font-semibold text-slate-900 hover:text-amber-700 hover:underline cursor-pointer"
+                >
+                  {receipt.vendor}
+                </span>
+              ) : (
+                <p className="text-sm font-semibold text-slate-500 italic">Untitled vendor</p>
+              )}
               {receipt.receipt_date && (
                 <span className="text-xs text-slate-500">
                   {new Date(receipt.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
@@ -650,8 +843,8 @@ function ReceiptRow({
                 </span>
               )}
             </div>
-          </div>
-        </button>
+          </button>
+        </div>
 
         {expanded && (
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
@@ -679,25 +872,20 @@ function ReceiptRow({
             {receipt.items.length > 0 && (
               <div className="space-y-1.5">
                 {receipt.items.map((it) => (
-                  <div key={it.id} className="flex items-center gap-2 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-slate-900 truncate">{it.description}</p>
-                      {it.notes && <p className="text-[11px] text-slate-500 truncate">{it.notes}</p>}
-                    </div>
-                    <span className="tabular-nums text-slate-700 shrink-0 w-24 text-right">{fmtR(it.amount)}</span>
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer shrink-0">
-                      <Switch
-                        checked={it.is_deductible}
-                        onCheckedChange={(v: boolean) => handleToggleDeductible(it.id, v)}
-                      />
-                      <span className={it.is_deductible ? "text-emerald-700 font-medium" : "text-slate-500"}>
-                        {it.is_deductible ? "Deductible" : "Skip"}
-                      </span>
-                    </label>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteItem(it.id)} className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  <LineRow
+                    key={it.id}
+                    item={it}
+                    onToggleDeductible={handleToggleDeductible}
+                    onUpdateNotes={async (next) => {
+                      try {
+                        await updateItem({ itemId: it.id, notes: next });
+                        await onChanged();
+                      } catch (err: unknown) {
+                        toast({ title: "Couldn't save note", description: err instanceof Error ? err.message : "", variant: "destructive" });
+                      }
+                    }}
+                    onRequestDelete={() => handleDeleteItem(it.id, it.description)}
+                  />
                 ))}
               </div>
             )}
@@ -742,5 +930,88 @@ function ReceiptRow({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// SHOP-K (tabs deferred, 2026-05-24): per-line notes editor. Schema
+// has a notes column on purchase_receipt_items but nothing wrote to
+// it. Accountants ask "what was the 50kg lamb actually for?" - the
+// note is the cheap answer. Click to edit, blur or Enter to save.
+function LineRow({
+  item,
+  onToggleDeductible,
+  onUpdateNotes,
+  onRequestDelete,
+}: {
+  item: ReceiptWithItems["items"][number];
+  onToggleDeductible: (itemId: string, next: boolean) => void | Promise<void>;
+  onUpdateNotes: (next: string | null) => Promise<void>;
+  onRequestDelete: () => void;
+}) {
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(item.notes || "");
+
+  const commitNote = async () => {
+    const trimmed = noteDraft.trim();
+    const next = trimmed.length === 0 ? null : trimmed;
+    if ((next || null) === (item.notes || null)) {
+      setEditingNote(false);
+      return;
+    }
+    await onUpdateNotes(next);
+    setEditingNote(false);
+  };
+
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <div className="flex-1 min-w-0">
+        <p className="text-slate-900 truncate">{item.description}</p>
+        {editingNote ? (
+          <Input
+            autoFocus
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            onBlur={commitNote}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commitNote(); }
+              if (e.key === "Escape") { setNoteDraft(item.notes || ""); setEditingNote(false); }
+            }}
+            placeholder="Note for the accountant (e.g. Smith wedding stock)"
+            className="h-7 text-[12px] mt-0.5"
+          />
+        ) : item.notes ? (
+          <button
+            type="button"
+            onClick={() => { setNoteDraft(item.notes || ""); setEditingNote(true); }}
+            className="text-[11px] text-slate-500 hover:text-amber-700 hover:underline text-left truncate block w-full"
+            title="Edit note"
+          >
+            {item.notes}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setNoteDraft(""); setEditingNote(true); }}
+            className="text-[11px] text-slate-400 hover:text-amber-700 hover:underline italic"
+            title="Add a note for the accountant"
+          >
+            + Add note
+          </button>
+        )}
+      </div>
+      <span className="tabular-nums text-slate-700 shrink-0 w-24 text-right pt-0.5">{fmtR(item.amount)}</span>
+      <label className="flex items-center gap-1.5 text-xs cursor-pointer shrink-0 pt-0.5">
+        <Switch
+          checked={item.is_deductible}
+          onCheckedChange={(v: boolean) => onToggleDeductible(item.id, v)}
+        />
+        <span className={item.is_deductible ? "text-emerald-700 font-medium" : "text-slate-500"}>
+          {item.is_deductible ? "Deductible" : "Skip"}
+        </span>
+      </label>
+      <Button variant="ghost" size="sm" onClick={onRequestDelete} className="h-7 w-7 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+        <Trash2 className="w-3.5 h-3.5" />
+      </Button>
+    </div>
   );
 }
