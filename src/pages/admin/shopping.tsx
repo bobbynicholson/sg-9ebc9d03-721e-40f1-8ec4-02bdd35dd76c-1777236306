@@ -316,11 +316,35 @@ function SmartShoppingPage() {
   }, [enriched]);
 
   // - Plan-ahead list: anything with demand in next 14 days that isn't OK
+  // SHOP-J (tabs audit, 2026-05-24):
+  // - Hide snoozed/ordered items here too. Buy-now already does; the
+  //   audit caught that Plan-ahead was leaking them, surfacing rows
+  //   the operator had explicitly told the page to suppress.
+  // - Include below_minimum rows even when no upcoming order pulls
+  //   on them. Restocking ahead of demand is exactly what "plan
+  //   ahead" is for - excluding these meant a perishable that fell
+  //   below minimum but had no upcoming bookings vanished.
+  // - Split the demand horizon by perishability: perishables stay
+  //   on the 14d window (anything further out is too risky to buy);
+  //   non-perishables widen to 30d so dry-goods top-ups surface
+  //   early instead of disappearing until day 15.
   const planAhead = useMemo(() => {
     return enriched
-      .filter((r) => r.upcoming_order_count > 0 && Number(r.demand_next_14_days) > 0)
+      .filter((r) => {
+        if (r.isSnoozed || r.orderedActive) return false;
+        const horizonDemand = r.is_perishable
+          ? Number(r.demand_next_14_days)
+          : Number(r.demand_next_30_days);
+        const hasUpcomingDemand = r.upcoming_order_count > 0 && horizonDemand > 0;
+        const isBelowPar = r.status === "below_minimum" || r.status === "shortfall";
+        return hasUpcomingDemand || isBelowPar;
+      })
       .sort((a, b) => {
-        if (!a.buyBy && !b.buyBy) return Number(b.demand_next_14_days) - Number(a.demand_next_14_days);
+        if (!a.buyBy && !b.buyBy) {
+          const da = a.is_perishable ? Number(a.demand_next_14_days) : Number(a.demand_next_30_days);
+          const db = b.is_perishable ? Number(b.demand_next_14_days) : Number(b.demand_next_30_days);
+          return db - da;
+        }
         if (!a.buyBy) return 1;
         if (!b.buyBy) return -1;
         return a.buyBy.getTime() - b.buyBy.getTime();
@@ -1291,13 +1315,56 @@ function SmartShoppingPage() {
               <TabsContent value="plan">
                 <Card className="border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-blue-600" />
-                      Plan ahead (next 14 days)
-                    </CardTitle>
-                    <CardDescription>
-                      Sorted by buy-by date. Perishables surface earliest, non-perishables can wait. Urgent items pulse amber.
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-blue-600" />
+                          Plan ahead
+                        </CardTitle>
+                        <CardDescription>
+                          Perishables on a 14-day horizon, non-perishables 30. Sorted by buy-by date. Urgent items pulse amber.
+                        </CardDescription>
+                      </div>
+                      {/* SHOP-J: CSV export for Plan-ahead. Mirrors
+                          the Buy-now button (UTF-8 BOM + CRLF) so an
+                          operator can hand the 14d list to the
+                          kitchen manager Sunday night. */}
+                      {planAhead.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const headers = ["Item", "Category", "On hand", "Need 14d (perishable) / 30d (non-perishable)", "Reorder qty", "Unit", "Cost", "Buy by", "Supplier", "Status"];
+                            const esc = (v: unknown) => {
+                              const s = v == null ? "" : String(v).replace(/"/g, '""');
+                              return /[",\n]/.test(s) ? `"${s}"` : s;
+                            };
+                            const lines = [headers.join(",")];
+                            for (const r of planAhead) {
+                              const horizonDemand = r.is_perishable ? r.demand_next_14_days : r.demand_next_30_days;
+                              lines.push([
+                                esc(r.item_name), esc(r.category), esc(r.current_stock),
+                                esc(horizonDemand), esc(r.reorderQty), esc(r.unit_of_measure),
+                                esc(r.cost), esc(r.buyBy ? toLocalISO(r.buyBy) : "any time"),
+                                esc(r.supplier?.supplier_name || ""), esc(r.status),
+                              ].join(","));
+                            }
+                            const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `shopping-plan-ahead-${toLocalISO(new Date())}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Export
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
                     {planAhead.length === 0 ? (
@@ -1317,6 +1384,7 @@ function SmartShoppingPage() {
                         creep={creep}
                         suppliersById={suppliers}
                         onSnooze={snoozeItem}
+                        onMarkOrdered={markOrdered}
                         rowBusy={rowBusy}
                         canSeeFinance={canSeeFinanceAggregate}
                         withSlug={withSlug}
@@ -1353,9 +1421,26 @@ function SmartShoppingPage() {
                       const isOpen = openSupplier === g.id;
                       return (
                         <Card key={g.id} className="border-0 shadow-lg">
-                          <button
+                          {/* SHOP-J: dropped the outer <button> that
+                              wrapped the entire header. It had a
+                              nested <button> for Email order
+                              (invalid HTML + a11y trip). Now: the
+                              row uses div + onClick, the chevron has
+                              its own button role, and Email order
+                              stays a real button without
+                              stopPropagation gymnastics. */}
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setOpenSupplier(isOpen ? null : g.id)}
-                            className="w-full text-left"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setOpenSupplier(isOpen ? null : g.id);
+                              }
+                            }}
+                            className="w-full text-left cursor-pointer"
+                            aria-expanded={isOpen}
                           >
                             <CardHeader className="hover:bg-slate-50 transition-colors">
                               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1375,6 +1460,22 @@ function SmartShoppingPage() {
                                         </span>
                                       )}
                                     </p>
+                                    {/* SHOP-J: supplier contact info
+                                        inline so the operator sees
+                                        what's on file before clicking
+                                        Email order. Was "supplier name
+                                        only" - the audit caught the
+                                        contact fields were already
+                                        loaded but never rendered. */}
+                                    {g.supplier && (g.supplier.email || g.supplier.phone || g.supplier.contact_person) && (
+                                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                        {g.supplier.contact_person && <span>{g.supplier.contact_person}</span>}
+                                        {g.supplier.contact_person && (g.supplier.email || g.supplier.phone) && <span className="mx-1 text-slate-300">·</span>}
+                                        {g.supplier.email && <span>{g.supplier.email}</span>}
+                                        {g.supplier.email && g.supplier.phone && <span className="mx-1 text-slate-300">·</span>}
+                                        {g.supplier.phone && <span>{g.supplier.phone}</span>}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -1404,9 +1505,16 @@ function SmartShoppingPage() {
                                 </div>
                               </div>
                             </CardHeader>
-                          </button>
+                          </div>
                           {isOpen && (
                             <CardContent className="p-0">
+                              {/* SHOP-J: pass the same intel + action
+                                  props as the other two tabs - the
+                                  audit caught these were silently
+                                  missing here, so cheaper-supplier
+                                  swap chips + Mark ordered / Snooze
+                                  never rendered when the operator
+                                  expanded a supplier group. */}
                               <ItemTable
                                 rows={g.items}
                                 picked={picked} togglePick={togglePick}
@@ -1414,6 +1522,14 @@ function SmartShoppingPage() {
                                 demand={demand}
                                 hideSupplier
                                 showBuyBy
+                                supplierLinks={supplierLinks}
+                                creep={creep}
+                                suppliersById={suppliers}
+                                onSnooze={snoozeItem}
+                                onMarkOrdered={markOrdered}
+                                rowBusy={rowBusy}
+                                canSeeFinance={canSeeFinanceAggregate}
+                                withSlug={withSlug}
                               />
                             </CardContent>
                           )}
