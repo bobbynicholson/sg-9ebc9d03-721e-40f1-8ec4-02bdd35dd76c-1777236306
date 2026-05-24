@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -116,6 +117,18 @@ interface Supplier {
   email: string | null;
   phone: string | null;
   contact_person: string | null;
+  // SHOP-L (tabs deferred, 2026-05-24): delivery cutoff intel.
+  // All nullable - rendered only when data is present.
+  delivery_cutoff_time: string | null;
+  delivery_cutoff_days: number[] | null;
+  delivery_lead_time_days: number | null;
+}
+
+// SHOP-L: per-supplier purchase history rolled up at load time.
+// Drives YTD spend chip + last-order chip on the By-supplier tab.
+interface SupplierHistory {
+  ytdSpend: number;
+  lastOrderDate: string | null; // ISO date
 }
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
@@ -128,6 +141,64 @@ const STATUS_META: Record<string, { label: string; tone: string; rank: number }>
 };
 
 const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
+
+// SHOP-L (tabs deferred, 2026-05-24): supplier delivery cutoff
+// chip. Reads delivery_cutoff_time + delivery_cutoff_days +
+// delivery_lead_time_days off the supplier row. Returns null if
+// nothing usable is on file - the chip just doesn't render.
+//
+// Logic: if we're past the cutoff today (or today isn't an
+// accepting day), shift forward to the next accepting weekday.
+// Then add lead_time business days for the ETA. The label tells
+// the operator whether they can still ship today.
+function describeDeliveryCutoff(
+  s: { delivery_cutoff_time: string | null; delivery_cutoff_days: number[] | null; delivery_lead_time_days: number | null },
+): { label: string; urgent: boolean } | null {
+  if (!s.delivery_cutoff_time && s.delivery_lead_time_days == null) return null;
+  const now = new Date();
+  const todayDow = now.getDay();
+  const accepts = (dow: number) =>
+    !s.delivery_cutoff_days || s.delivery_cutoff_days.length === 0 || s.delivery_cutoff_days.includes(dow);
+  let cutoffHours = 23, cutoffMins = 59;
+  if (s.delivery_cutoff_time) {
+    const [h, m] = s.delivery_cutoff_time.split(":");
+    cutoffHours = Number(h) || 0;
+    cutoffMins = Number(m) || 0;
+  }
+  const pastTodayCutoff =
+    now.getHours() > cutoffHours ||
+    (now.getHours() === cutoffHours && now.getMinutes() >= cutoffMins);
+  let canOrderTodayForToday = accepts(todayDow) && !pastTodayCutoff;
+  if (s.delivery_lead_time_days != null && s.delivery_lead_time_days > 0) canOrderTodayForToday = false;
+  if (canOrderTodayForToday) {
+    const remainingMins = (cutoffHours * 60 + cutoffMins) - (now.getHours() * 60 + now.getMinutes());
+    if (remainingMins <= 60) {
+      return { label: `Order by ${String(cutoffHours).padStart(2, "0")}:${String(cutoffMins).padStart(2, "0")} for today`, urgent: true };
+    }
+    return { label: `Cutoff ${String(cutoffHours).padStart(2, "0")}:${String(cutoffMins).padStart(2, "0")} for same-day`, urgent: false };
+  }
+  // Find next accepting day, skipping today if past cutoff.
+  let shipDow = todayDow;
+  let daysAdded = 0;
+  const startToday = accepts(todayDow) && !pastTodayCutoff;
+  if (!startToday) {
+    for (let i = 1; i <= 7; i++) {
+      const d = (todayDow + i) % 7;
+      if (accepts(d)) { shipDow = d; daysAdded = i; break; }
+    }
+  }
+  const lead = s.delivery_lead_time_days ?? 0;
+  if (lead > 0) daysAdded += lead;
+  const eta = new Date(now);
+  eta.setDate(eta.getDate() + daysAdded);
+  void shipDow;
+  const label = daysAdded === 0
+    ? "Same-day if ordered now"
+    : daysAdded === 1
+      ? "Next-day delivery"
+      : `Delivers ${eta.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`;
+  return { label, urgent: false };
+}
 
 function SmartShoppingPage() {
   const { user, profile, company } = useAuth() as any;
@@ -165,6 +236,21 @@ function SmartShoppingPage() {
   const [creep, setCreep] = useState<Record<string, CreepRow>>({});
   // Snooze + ordered busy flags so a click can't double-fire.
   const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
+  // SHOP-L (tabs deferred, 2026-05-24): per-supplier purchase
+  // history. Drives YTD spend + last-order chips on the By-supplier
+  // tab. Keyed by supplier_id; suppliers with no receipts on file
+  // simply don't get the chips rendered.
+  const [supplierHistory, setSupplierHistory] = useState<Record<string, SupplierHistory>>({});
+  // SHOP-L: "sent today" memory. Persisted to localStorage and keyed
+  // by supplier_id so the operator sees a chip on suppliers they've
+  // already emailed today. Survives a page reload; cleared at midnight
+  // on render (cheap: stale entries just don't show).
+  const [sentToday, setSentToday] = useState<Record<string, string>>({});
+  // SHOP-L: Plan-ahead by-event grouping toggle. When ON, the Plan
+  // ahead tab groups items by the earliest event that pulls on them
+  // so the operator can shop event-by-event instead of item-by-item.
+  // Default OFF (preserves the existing item table behaviour).
+  const [planByEvent, setPlanByEvent] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -172,7 +258,10 @@ function SmartShoppingPage() {
     (async () => {
       setLoading(true);
       const todayISO = toLocalISO(new Date());
-      const [outlookRes, invRes, demandRes, supRes, linksRes, creepRes] = await Promise.all([
+      // SHOP-L: YTD window for the supplier-spend chip.
+      const ytdStart = new Date(new Date().getFullYear(), 0, 1);
+      const ytdStartISO = toLocalISO(ytdStart);
+      const [outlookRes, invRes, demandRes, supRes, linksRes, creepRes, receiptsRes] = await Promise.all([
         supabase
           .from("inventory_demand_outlook")
           .select("*")
@@ -188,9 +277,9 @@ function SmartShoppingPage() {
           .eq("company_id", companyId)
           .gte("event_date", todayISO)
           .in("order_status", ["confirmed", "preparing", "ready"]),
-        supabase
+        (supabase as any)
           .from("suppliers")
-          .select("id, supplier_name, email, phone, contact_person")
+          .select("id, supplier_name, email, phone, contact_person, delivery_cutoff_time, delivery_cutoff_days, delivery_lead_time_days")
           .eq("company_id", companyId)
           .is("deleted_at", null),
         // SHOP-C: multi-supplier links for swap suggestions.
@@ -204,6 +293,16 @@ function SmartShoppingPage() {
           (r) => r,
           () => ({ data: [], error: null } as { data: CreepRow[]; error: null }),
         ),
+        // SHOP-L: YTD spend + last-order date per supplier from the
+        // receipt log. Client-side rollup so we don't need another
+        // view. Bounded by ytdStartISO to keep the payload small.
+        (supabase as any)
+          .from("purchase_receipts")
+          .select("supplier_id, total, receipt_date")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .not("supplier_id", "is", null)
+          .gte("receipt_date", ytdStartISO),
       ]);
       if (cancelled) return;
       setOutlook((outlookRes.data || []) as OutlookRow[]);
@@ -228,6 +327,18 @@ function SmartShoppingPage() {
       const creepMap: Record<string, CreepRow> = {};
       ((creepRes.data || []) as CreepRow[]).forEach((r) => { creepMap[r.supplier_id] = r; });
       setCreep(creepMap);
+      // SHOP-L: rollup receipts into per-supplier history.
+      const hist: Record<string, SupplierHistory> = {};
+      ((receiptsRes?.data || []) as Array<{ supplier_id: string | null; total: number | null; receipt_date: string | null }>).forEach((r) => {
+        if (!r.supplier_id) return;
+        const slot = hist[r.supplier_id] || { ytdSpend: 0, lastOrderDate: null };
+        slot.ytdSpend += Number(r.total ?? 0);
+        if (r.receipt_date && (!slot.lastOrderDate || r.receipt_date > slot.lastOrderDate)) {
+          slot.lastOrderDate = r.receipt_date;
+        }
+        hist[r.supplier_id] = slot;
+      });
+      setSupplierHistory(hist);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -350,6 +461,54 @@ function SmartShoppingPage() {
         return a.buyBy.getTime() - b.buyBy.getTime();
       });
   }, [enriched]);
+
+  // SHOP-L: by-event grouping for Plan ahead. Walks demand rows to
+  // figure out which event each plan-ahead item is for, picks the
+  // earliest, and groups by (event_date, event_name, order_number).
+  // Items with no demand row (the below-par-with-no-orders cohort)
+  // bucket into a "Restock" group at the bottom.
+  const planAheadByEvent = useMemo(() => {
+    if (!planByEvent) return null;
+    const earliestDemandRow: Record<string, DemandLine> = {};
+    demand.forEach((d) => {
+      if (!d.inventory_item_id) return;
+      const prev = earliestDemandRow[d.inventory_item_id];
+      if (!prev || d.event_date < prev.event_date) earliestDemandRow[d.inventory_item_id] = d;
+    });
+    type EventGroup = {
+      key: string;
+      eventDate: string | null;
+      eventName: string | null;
+      orderNumber: string | null;
+      items: typeof planAhead;
+      totalCost: number;
+    };
+    const groups: Record<string, EventGroup> = {};
+    planAhead.forEach((r) => {
+      const demandRow = earliestDemandRow[r.inventory_item_id];
+      const key = demandRow
+        ? `${demandRow.event_date}::${demandRow.order_number || ""}::${demandRow.event_name || ""}`
+        : "_restock";
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          eventDate: demandRow?.event_date ?? null,
+          eventName: demandRow?.event_name ?? null,
+          orderNumber: demandRow?.order_number ?? null,
+          items: [],
+          totalCost: 0,
+        };
+      }
+      groups[key].items.push(r);
+      groups[key].totalCost += r.cost;
+    });
+    return Object.values(groups).sort((a, b) => {
+      if (!a.eventDate && !b.eventDate) return 0;
+      if (!a.eventDate) return 1;
+      if (!b.eventDate) return -1;
+      return a.eventDate.localeCompare(b.eventDate);
+    });
+  }, [planByEvent, planAhead, demand]);
 
   // - By-supplier rollup
   const bySupplier = useMemo(() => {
@@ -523,6 +682,8 @@ function SmartShoppingPage() {
         if (row) await markOrdered(id, row.reorderQty, 7);
       }
     }
+    // SHOP-L: record "sent today" for the chip on the supplier card.
+    if (d.supplier?.id) markSentToday(d.supplier.id);
     toast({
       title: `Order opened in ${channel}`,
       description: d.alsoMarkOrdered
@@ -570,6 +731,36 @@ function SmartShoppingPage() {
     }
   };
 
+  // SHOP-L: hydrate "sent today" memory from localStorage, scoped
+  // by company so a multi-tenant browser doesn't bleed signals
+  // across logins. Entries from prior days are stripped on load so
+  // the chip cleanly disappears at midnight.
+  useEffect(() => {
+    if (!companyId) return;
+    try {
+      const raw = localStorage.getItem(`shopping-sent-today:${companyId}`);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      const today = toLocalISO(new Date());
+      const fresh: Record<string, string> = {};
+      Object.entries(parsed).forEach(([k, v]) => { if (v === today) fresh[k] = v; });
+      setSentToday(fresh);
+      if (Object.keys(fresh).length !== Object.keys(parsed).length) {
+        localStorage.setItem(`shopping-sent-today:${companyId}`, JSON.stringify(fresh));
+      }
+    } catch { /* localStorage blocked - silently skip */ }
+  }, [companyId]);
+
+  const markSentToday = (supplierId: string) => {
+    if (!companyId) return;
+    const today = toLocalISO(new Date());
+    setSentToday((prev) => {
+      const next = { ...prev, [supplierId]: today };
+      try { localStorage.setItem(`shopping-sent-today:${companyId}`, JSON.stringify(next)); } catch { /* noop */ }
+      return next;
+    });
+  };
+
   // SHOP-D: master "Email all suppliers" - fan out one mailto per
   // group in one click. Only groups with an email on file get a
   // window; ones without surface as a toast tally so the operator
@@ -588,11 +779,39 @@ function SmartShoppingPage() {
       setTimeout(() => {
         if (!g.supplier?.email) return;
         window.open(composeEmail.gmailUrl({ to: g.supplier.email, subject, body }), "_blank", "noopener");
+        // SHOP-L: bulk path also paints sent-today chips.
+        if (g.supplier?.id) markSentToday(g.supplier.id);
       }, i * 200);
     });
     toast({
       title: `Opening ${groupsWithEmail.length} email${groupsWithEmail.length === 1 ? "" : "s"}`,
       description: skipped > 0 ? `${skipped} supplier${skipped === 1 ? "" : "s"} skipped (no email on file).` : undefined,
+    });
+  };
+
+  // SHOP-L: mirror of emailAllSuppliers but fans out wa.me links to
+  // every supplier with a phone on file. Useful for the "everyone's
+  // on WhatsApp" tenant - one click opens a chat per supplier.
+  const whatsappAllSuppliers = () => {
+    const groupsWithPhone = bySupplier.filter((g) => g.supplier?.phone);
+    const skipped = bySupplier.length - groupsWithPhone.length;
+    if (groupsWithPhone.length === 0) {
+      toast({ title: "No suppliers with phone", description: "Add supplier phone numbers on /admin/suppliers first.", variant: "destructive" });
+      return;
+    }
+    groupsWithPhone.forEach((g, i) => {
+      const { body } = buildOrderRequest(g);
+      setTimeout(() => {
+        const raw = (g.supplier?.phone || "").replace(/[\s()-]/g, "");
+        if (!raw) return;
+        const intl = raw.startsWith("+") ? raw.slice(1) : raw.startsWith("0") ? `27${raw.slice(1)}` : raw;
+        window.open(`https://wa.me/${intl}?text=${encodeURIComponent(body)}`, "_blank", "noopener");
+        if (g.supplier?.id) markSentToday(g.supplier.id);
+      }, i * 200);
+    });
+    toast({
+      title: `Opening WhatsApp x ${groupsWithPhone.length}`,
+      description: skipped > 0 ? `${skipped} supplier${skipped === 1 ? "" : "s"} skipped (no phone on file).` : undefined,
     });
   };
 
@@ -1325,6 +1544,18 @@ function SmartShoppingPage() {
                           Perishables on a 14-day horizon, non-perishables 30. Sorted by buy-by date. Urgent items pulse amber.
                         </CardDescription>
                       </div>
+                      {/* SHOP-L: group-by-event toggle. Default OFF so
+                          the item table behaviour is unchanged. ON
+                          flips the layout to one card per upcoming
+                          event, so the operator can shop event by
+                          event - useful when each event has its own
+                          shopping run. */}
+                      {planAhead.length > 0 && (
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer text-slate-600">
+                          <Switch checked={planByEvent} onCheckedChange={setPlanByEvent} />
+                          <span>Group by event</span>
+                        </label>
+                      )}
                       {/* SHOP-J: CSV export for Plan-ahead. Mirrors
                           the Buy-now button (UTF-8 BOM + CRLF) so an
                           operator can hand the 14d list to the
@@ -1372,6 +1603,47 @@ function SmartShoppingPage() {
                         <Calendar className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                         No upcoming demand on inventory.
                       </div>
+                    ) : planByEvent && planAheadByEvent ? (
+                      <div className="divide-y divide-slate-100">
+                        {planAheadByEvent.map((group) => (
+                          <div key={group.key} className="p-4 space-y-2">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                {group.eventDate ? (
+                                  <>
+                                    {new Date(group.eventDate + "T00:00:00").toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                                    {group.eventName && <span className="ml-2 text-slate-700 font-normal">- {group.eventName}</span>}
+                                    {group.orderNumber && <span className="ml-2 text-[11px] text-slate-500 font-mono">#{group.orderNumber}</span>}
+                                  </>
+                                ) : (
+                                  <>Restock (no event linked)</>
+                                )}
+                              </h3>
+                              {canSeeFinanceAggregate && (
+                                <span className="text-xs tabular-nums text-slate-700">
+                                  {group.items.length} item{group.items.length === 1 ? "" : "s"} · {fmtMoney.format(group.totalCost)}
+                                </span>
+                              )}
+                            </div>
+                            <ItemTable
+                              rows={group.items}
+                              picked={picked} togglePick={togglePick}
+                              expandedItem={expandedItem} setExpandedItem={setExpandedItem}
+                              demand={demand}
+                              showBuyBy
+                              showShelfLife
+                              supplierLinks={supplierLinks}
+                              creep={creep}
+                              suppliersById={suppliers}
+                              onSnooze={snoozeItem}
+                              onMarkOrdered={markOrdered}
+                              rowBusy={rowBusy}
+                              canSeeFinance={canSeeFinanceAggregate}
+                              withSlug={withSlug}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <ItemTable
                         rows={planAhead}
@@ -1405,8 +1677,14 @@ function SmartShoppingPage() {
                     <Button size="sm" variant="outline" onClick={emailAllSuppliers} className="gap-1.5">
                       <Mail className="w-3.5 h-3.5" /> Email all suppliers
                     </Button>
+                    {/* SHOP-L: WhatsApp counterpart. Many tenants have
+                        more suppliers on WhatsApp than email, so the
+                        bulk fanout there matters just as much. */}
+                    <Button size="sm" variant="outline" onClick={whatsappAllSuppliers} className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50">
+                      <MessageCircle className="w-3.5 h-3.5" /> WhatsApp all suppliers
+                    </Button>
                     <span className="text-slate-500">
-                      Opens one compose window per supplier with an email on file.
+                      One compose window per supplier with contact info on file.
                     </span>
                   </div>
                 )}
@@ -1475,6 +1753,60 @@ function SmartShoppingPage() {
                                         {g.supplier.email && g.supplier.phone && <span className="mx-1 text-slate-300">·</span>}
                                         {g.supplier.phone && <span>{g.supplier.phone}</span>}
                                       </p>
+                                    )}
+                                    {/* SHOP-L: intel chip row. YTD spend
+                                        (finance-gated), last-order date,
+                                        cutoff chip from delivery_cutoff_*
+                                        columns, and "sent today" pill if
+                                        the operator already fired a
+                                        message at this supplier today. */}
+                                    {g.supplier && (
+                                      <div className="flex flex-wrap gap-1.5 mt-1">
+                                        {sentToday[g.supplier.id] && (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                            <Mail className="w-2.5 h-2.5" /> Sent today
+                                          </span>
+                                        )}
+                                        {canSeeFinanceAggregate && supplierHistory[g.supplier.id]?.ytdSpend > 0 && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Total spend on this supplier this calendar year, from logged receipts.">
+                                            YTD {fmtMoney.format(supplierHistory[g.supplier.id].ytdSpend)}
+                                          </span>
+                                        )}
+                                        {(() => {
+                                          const lastIso = supplierHistory[g.supplier.id]?.lastOrderDate;
+                                          if (!lastIso) return null;
+                                          const d = new Date(lastIso + "T00:00:00");
+                                          const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
+                                          const label = diff <= 0
+                                            ? "today"
+                                            : diff === 1
+                                              ? "yesterday"
+                                              : diff < 14
+                                                ? `${diff}d ago`
+                                                : d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+                                          return (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Most recent receipt logged against this supplier.">
+                                              Last order {label}
+                                            </span>
+                                          );
+                                        })()}
+                                        {(() => {
+                                          const cut = describeDeliveryCutoff(g.supplier);
+                                          if (!cut) return null;
+                                          return (
+                                            <span
+                                              className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full border ${
+                                                cut.urgent
+                                                  ? "bg-amber-100 text-amber-800 border-amber-200"
+                                                  : "bg-blue-50 text-blue-800 border-blue-200"
+                                              }`}
+                                              title="Supplier delivery cutoff and lead time from /admin/suppliers."
+                                            >
+                                              {cut.label}
+                                            </span>
+                                          );
+                                        })()}
+                                      </div>
                                     )}
                                   </div>
                                 </div>
