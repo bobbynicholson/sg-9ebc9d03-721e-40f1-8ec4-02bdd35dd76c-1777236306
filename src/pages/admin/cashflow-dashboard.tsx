@@ -131,7 +131,11 @@ function CashflowDashboardInner() {
       setLoadError(null);
 
       const companyId = user.company_id;
-      const ordersData = await orderService.getAllOrders(companyId);
+      // SHAPE-A (task #97, 2026-05-24): cashflow projections read
+      // order columns + region_id only. No nested data is touched.
+      // Drop to light mode to skip the joins that this tenant's
+      // 1000+ orders would otherwise stream uselessly.
+      const ordersData = await orderService.getAllOrders(companyId, { mode: "light" });
       // CASH-A: filter the orders array by the active region filter
       // BEFORE every downstream calc. Staff / fixed costs / supplier
       // payables totals stay company-wide because none of those tables

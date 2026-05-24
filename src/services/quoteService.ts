@@ -76,13 +76,69 @@ const DEFAULT_QUOTES_LIMIT = 500;
 export interface GetQuotesOpts {
   limit?: number;
   offset?: number;
+  /**
+   * SHAPE-A (task #97, 2026-05-24): light vs heavy payload mode.
+   *
+   * - "full" (default): every quote column including the heavy
+   *   jsonb / long-text fields (menu_items, equipment_items,
+   *   addons, notes, terms_and_conditions). The /admin/quotes
+   *   list + editor consume these directly.
+   * - "light": list-shape columns only. Drops the heavy jsonb /
+   *   text fields. For consumers that aggregate / search / display
+   *   row-level metadata only (financial-dashboard,
+   *   cashflow-dashboard, command-palette, notification copy).
+   *
+   * On a tenant with detailed quotes the heavy fields can be MB
+   * each - "light" typically cuts payload by 80%+.
+   */
+  mode?: "full" | "light";
 }
+
+// SHAPE-A: explicit light-mode select. Lists every base column
+// the list page genuinely needs - intentionally omits the heavy
+// jsonb / text fields (menu_items, equipment_items, addons,
+// notes, terms_and_conditions, custom_message, sales_pitch).
+// Adding new light-safe columns: extend this constant and the
+// LightQuote type below.
+const LIGHT_QUOTE_SELECT = [
+  "id", "company_id", "region_id", "quote_number", "quote_name",
+  "client_name", "client_email", "client_phone", "contact_name",
+  "event_date", "event_time", "event_type", "guest_count",
+  "venue_address",
+  "status", "source", "tags", "lost_reason",
+  "lead_id", "client_id", "parent_quote_id", "prepared_by",
+  "subtotal", "tax_amount", "discount_amount", "total_amount",
+  "deposit_percentage", "delivery_fee",
+  "valid_until", "created_at", "updated_at", "sent_at",
+  "accepted_at", "viewed_at", "rejected_at",
+  "converted_to_order_id",
+  "public_token", "deleted_at",
+].join(", ");
 
 export const quoteService = {
   duplicateQuote,
   async getQuotes(companyId: string, opts: GetQuotesOpts = {}): Promise<Quote[]> {
     const limit = Math.max(1, Math.min(opts.limit ?? DEFAULT_QUOTES_LIMIT, 2000));
     const offset = Math.max(0, opts.offset ?? 0);
+    const mode = opts.mode ?? "full";
+
+    // Two distinct .select() calls so PostgREST's typed parser
+    // can statically infer each branch's shape.
+    if (mode === "light") {
+      const { data, error } = await (supabase as any)
+        .from("quotes")
+        .select(LIGHT_QUOTE_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error("Error fetching quotes:", error);
+        return [];
+      }
+      return (data || []) as Quote[];
+    }
 
     const { data, error } = await supabase
       .from("quotes")
@@ -97,7 +153,7 @@ export const quoteService = {
       return [];
     }
 
-    return data || [];
+    return (data || []) as Quote[];
   },
 
   async getQuote(quoteId: string): Promise<Quote | null> {
