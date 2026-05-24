@@ -30,7 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
+import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, MessageCircle, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
@@ -361,20 +361,81 @@ function SmartShoppingPage() {
   const togglePick = (id: string) =>
     setPicked((p) => ({ ...p, [id]: !p[id] }));
 
-  // Email supplier with the items in the cart that are theirs
-  const emailSupplier = (group: { supplier: Supplier | null; items: typeof enriched }) => {
-    if (!group.supplier?.email) {
-      toast({ title: "No email on file", description: `Add an email for ${group.supplier?.supplier_name || "this supplier"} on the Suppliers page.`, variant: "destructive" });
-      return;
-    }
+  // SHOP-D: bulk-tick helpers. allByIds toggles every id in the
+  // passed list; pickAll / clearAll bind to the Buy-now list. The
+  // operator clicks once to add the whole list to the cart.
+  const setManyPicked = (ids: string[], on: boolean) => {
+    setPicked((p) => {
+      const next = { ...p };
+      for (const id of ids) next[id] = on;
+      return next;
+    });
+  };
+  const pickAllBuyNow = () => setManyPicked(buyNow.map((r) => r.inventory_item_id), true);
+  const clearAllPicks = () => setPicked({});
+
+  // Compose the per-supplier order body once - reused by emailSupplier
+  // and the WhatsApp template path.
+  const buildOrderRequest = (group: { supplier: Supplier | null; items: typeof enriched }) => {
     const linesInScope = group.items.filter((r) => picked[r.inventory_item_id]);
     const lines = linesInScope.length > 0 ? linesInScope : group.items;
     const subject = `Order request from ${company?.company_name || "us"}`;
     const lineText = lines
       .map((r) => `- ${r.reorderQty} ${r.unit_of_measure} ${r.item_name}${r.buyBy ? ` (needed by ${r.buyBy.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : ""}`)
       .join("\n");
-    const body = `Hi ${group.supplier.contact_person || group.supplier.supplier_name},\n\nCould you put the following on order for us?\n\n${lineText}\n\nLet me know an ETA and the total when you're ready.\n\nThanks,\n${company?.company_name || "The team"}`;
+    const body = `Hi ${group.supplier?.contact_person || group.supplier?.supplier_name || "there"},\n\nCould you put the following on order for us?\n\n${lineText}\n\nLet me know an ETA and the total when you're ready.\n\nThanks,\n${company?.company_name || "The team"}`;
+    return { subject, body, count: lines.length };
+  };
+
+  // Email supplier with the items in the cart that are theirs
+  const emailSupplier = (group: { supplier: Supplier | null; items: typeof enriched }) => {
+    if (!group.supplier?.email) {
+      toast({ title: "No email on file", description: `Add an email for ${group.supplier?.supplier_name || "this supplier"} on the Suppliers page.`, variant: "destructive" });
+      return;
+    }
+    const { subject, body } = buildOrderRequest(group);
     window.open(composeEmail.gmailUrl({ to: group.supplier.email, subject, body }), "_blank", "noopener");
+  };
+
+  // SHOP-D: WhatsApp templated order request. SA suppliers
+  // routinely prefer WhatsApp over email - mirrors the HIR-B / OUT-D
+  // template shape. Operator can edit the pre-filled chat before
+  // sending. Phone numbers get the leading-0 -> +27 SA normalisation.
+  const whatsappSupplier = (group: { supplier: Supplier | null; items: typeof enriched }) => {
+    const num = (group.supplier?.phone || "").replace(/[\s()-]/g, "");
+    if (!num) {
+      toast({ title: "No phone on file", description: `Add a phone for ${group.supplier?.supplier_name || "this supplier"} on the Suppliers page.`, variant: "destructive" });
+      return;
+    }
+    const intl = num.startsWith("+") ? num.slice(1) : num.startsWith("0") ? `27${num.slice(1)}` : num;
+    const { body } = buildOrderRequest(group);
+    window.open(`https://wa.me/${intl}?text=${encodeURIComponent(body)}`, "_blank", "noopener");
+  };
+
+  // SHOP-D: master "Email all suppliers" - fan out one mailto per
+  // group in one click. Only groups with an email on file get a
+  // window; ones without surface as a toast tally so the operator
+  // sees what to chase up manually.
+  const emailAllSuppliers = () => {
+    const groupsWithEmail = bySupplier.filter((g) => g.supplier?.email);
+    const skipped = bySupplier.length - groupsWithEmail.length;
+    if (groupsWithEmail.length === 0) {
+      toast({ title: "No suppliers with email", description: "Add supplier emails on /admin/suppliers first.", variant: "destructive" });
+      return;
+    }
+    // Stagger so the popup blocker treats each as a separate user
+    // gesture chain.
+    groupsWithEmail.forEach((g, i) => {
+      const { subject, body } = buildOrderRequest(g);
+      setTimeout(() => {
+        if (!g.supplier?.email) return;
+        window.open(composeEmail.gmailUrl({ to: g.supplier.email, subject, body }), "_blank", "noopener");
+      }, i * 200);
+    });
+    toast({
+      title: `Opening ${groupsWithEmail.length} email${groupsWithEmail.length === 1 ? "" : "s"}`,
+      description: skipped > 0 ? `${skipped} supplier${skipped === 1 ? "" : "s"} skipped (no email on file).` : undefined,
+    });
   };
 
   // SHOP-C: snooze an item from the Buy-now flag until a chosen
@@ -874,13 +935,40 @@ function SmartShoppingPage() {
                 })()}
                 <Card className="border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <ListChecks className="w-5 h-5 text-emerald-600" />
-                      Buy now
-                    </CardTitle>
-                    <CardDescription>
-                      Items below minimum stock or already short for the next 7 days. Tick to add to your PO list.
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <ListChecks className="w-5 h-5 text-emerald-600" />
+                          Buy now
+                        </CardTitle>
+                        <CardDescription>
+                          Items below minimum stock or already short for the next 7 days. Tick to add to your PO list.
+                        </CardDescription>
+                      </div>
+                      {/* SHOP-D: bulk-tick. One click adds the whole
+                          Buy-now list to the cart for a Mark purchased
+                          / Email all sweep. */}
+                      {buyNow.length > 0 && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={pickAllBuyNow}
+                            className="px-2 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Tick all ({buyNow.length})
+                          </button>
+                          {pickedCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={clearAllPicks}
+                              className="px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            >
+                              Clear ({pickedCount})
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
                     {buyNow.length === 0 ? (
@@ -951,6 +1039,20 @@ function SmartShoppingPage() {
 
               {/* BY SUPPLIER */}
               <TabsContent value="supplier">
+                {/* SHOP-D: master Email-all button. Fans out one
+                    compose window per supplier with an email on
+                    file. Stagger 200ms so popup blockers don't
+                    treat them as a burst. */}
+                {bySupplier.length > 1 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                    <Button size="sm" variant="outline" onClick={emailAllSuppliers} className="gap-1.5">
+                      <Mail className="w-3.5 h-3.5" /> Email all suppliers
+                    </Button>
+                    <span className="text-slate-500">
+                      Opens one compose window per supplier with an email on file.
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-3">
                   {bySupplier.length === 0 ? (
                     <Card className="border-0 shadow"><CardContent className="py-12 text-center text-slate-500">
@@ -998,6 +1100,21 @@ function SmartShoppingPage() {
                                     >
                                       <Mail className="w-3.5 h-3.5" />
                                       Email order
+                                    </Button>
+                                  )}
+                                  {/* SHOP-D: WhatsApp templated order.
+                                      SA suppliers routinely prefer
+                                      WhatsApp over email. */}
+                                  {g.supplier?.phone && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => { e.stopPropagation(); whatsappSupplier(g); }}
+                                      className="gap-1.5 text-green-700 hover:bg-green-50 border-green-200"
+                                      title="Open WhatsApp chat with the templated order request"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                      WhatsApp
                                     </Button>
                                   )}
                                   {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -1057,36 +1174,73 @@ function SmartShoppingPage() {
           {" - "}
           {buyNow.length} item{buyNow.length === 1 ? "" : "s"} to buy
         </p>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", fontFamily: "sans-serif" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #0f172a" }}>
-              <th style={{ width: "24pt", textAlign: "left", padding: "4pt" }}> </th>
-              <th style={{ textAlign: "left", padding: "4pt" }}>Item</th>
-              <th style={{ textAlign: "right", padding: "4pt" }}>Qty</th>
-              <th style={{ textAlign: "left", padding: "4pt" }}>Unit</th>
-              <th style={{ textAlign: "left", padding: "4pt" }}>Supplier</th>
-              <th style={{ textAlign: "left", padding: "4pt" }}>Buy by</th>
-            </tr>
-          </thead>
-          <tbody>
-            {buyNow.map((r: any) => (
-              <tr key={r.id} style={{ borderBottom: "1px solid #cbd5e1" }}>
-                <td style={{ padding: "6pt 4pt" }}>
-                  <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
-                </td>
-                <td style={{ padding: "6pt 4pt" }}>
-                  <strong>{r.item_name}</strong>
-                  {r.category ? <span style={{ color: "#64748b", marginLeft: "6pt" }}>{r.category}</span> : null}
-                  {r.isUrgent ? <span style={{ marginLeft: "6pt", padding: "1pt 4pt", border: "1pt solid #dc2626", color: "#dc2626", fontSize: "8pt", fontWeight: 700 }}>URGENT</span> : null}
-                </td>
-                <td style={{ padding: "6pt 4pt", textAlign: "right" }}>{r.reorderQty}</td>
-                <td style={{ padding: "6pt 4pt" }}>{r.unit_of_measure || ""}</td>
-                <td style={{ padding: "6pt 4pt" }}>{r.supplier?.supplier_name || ""}</td>
-                <td style={{ padding: "6pt 4pt" }}>{r.buyBy ? toLocalISO(r.buyBy) : ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* SHOP-D: aisle-grouped print mode. Items grouped by
+            category (proxy for supermarket aisle) so the shopper
+            walks the store once. Each group has its own subtotal
+            line for cash reconciliation in-store. */}
+        {(() => {
+          const byCategory = new Map<string, typeof buyNow>();
+          buyNow.forEach((r) => {
+            const cat = r.category || "Uncategorised";
+            const list = byCategory.get(cat) || [];
+            list.push(r);
+            byCategory.set(cat, list);
+          });
+          const groups = Array.from(byCategory.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+          return (
+            <>
+              {groups.map(([cat, items]) => {
+                const groupCost = items.reduce((s, r) => s + Number(r.cost || 0), 0);
+                return (
+                  <div key={cat} style={{ marginBottom: "14pt", pageBreakInside: "avoid" }}>
+                    <h2 style={{ fontSize: "12pt", margin: "8pt 0 4pt", fontFamily: "sans-serif", borderBottom: "1.5pt solid #0f172a", paddingBottom: "2pt" }}>
+                      {cat} <span style={{ fontSize: "9pt", color: "#64748b", fontWeight: 400 }}>({items.length} item{items.length === 1 ? "" : "s"}{canSeeFinanceAggregate ? ` - ${fmtMoney.format(groupCost)}` : ""})</span>
+                    </h2>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", fontFamily: "sans-serif" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1pt solid #94a3b8" }}>
+                          <th style={{ width: "24pt", textAlign: "left", padding: "3pt" }}> </th>
+                          <th style={{ textAlign: "left", padding: "3pt" }}>Item</th>
+                          <th style={{ textAlign: "right", padding: "3pt" }}>Qty</th>
+                          <th style={{ textAlign: "left", padding: "3pt" }}>Supplier</th>
+                          <th style={{ textAlign: "right", padding: "3pt" }}>Paid</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((r) => (
+                          <tr key={r.inventory_item_id} style={{ borderBottom: "1px solid #cbd5e1" }}>
+                            <td style={{ padding: "6pt 3pt" }}>
+                              <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
+                            </td>
+                            <td style={{ padding: "6pt 3pt" }}>
+                              <strong>{r.item_name}</strong>
+                              {r.isUrgent ? <span style={{ marginLeft: "6pt", padding: "1pt 4pt", border: "1pt solid #dc2626", color: "#dc2626", fontSize: "8pt", fontWeight: 700 }}>URGENT</span> : null}
+                            </td>
+                            <td style={{ padding: "6pt 3pt", textAlign: "right" }}>{r.reorderQty} {r.unit_of_measure || ""}</td>
+                            <td style={{ padding: "6pt 3pt" }}>{r.supplier?.supplier_name || ""}</td>
+                            <td style={{ padding: "6pt 3pt", textAlign: "right", borderBottom: "0.75pt dashed #cbd5e1", minWidth: "60pt" }}>R _____</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+              {/* SHOP-D: signoff row so the shopper can reconcile
+                  cash in store. */}
+              <div style={{ marginTop: "18pt", borderTop: "2pt solid #0f172a", paddingTop: "8pt", fontSize: "10pt", fontFamily: "sans-serif", display: "flex", justifyContent: "space-between", gap: "24pt" }}>
+                <div>
+                  <p style={{ margin: "0 0 4pt" }}>Total spent: <strong>R _________</strong></p>
+                  <p style={{ margin: 0 }}>Change / receipt #: _________________</p>
+                </div>
+                <div>
+                  <p style={{ margin: "0 0 4pt" }}>Shopper signature:</p>
+                  <p style={{ margin: 0, borderBottom: "1pt solid #0f172a", width: "180pt", height: "20pt" }}>&nbsp;</p>
+                </div>
+              </div>
+            </>
+          );
+        })()}
         <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
           Generated {new Date().toLocaleString("en-ZA")} from CateringMS Smart Shopping
         </p>
