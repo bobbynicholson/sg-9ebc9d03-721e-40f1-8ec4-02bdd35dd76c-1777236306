@@ -156,7 +156,6 @@ export const outsourceProviderService = {
     whatsapp_number?: string | null;
     provider_roles?: string[];
     specialty?: string | null;
-    service_radius_km?: number | null;
     default_rate_type?: OutsourceRateType;
     default_rate?: number | null;
     default_currency?: string;
@@ -164,6 +163,14 @@ export const outsourceProviderService = {
     preferred_contact_channel?: OutsourceContactChannel;
     notes?: string | null;
     linked_supplier_id?: string | null;
+    // OUT-C: deferred batch additions.
+    region_id?: string | null;
+    rating?: number | null;
+    vat_number?: string | null;
+    insurance_provider?: string | null;
+    insurance_policy_number?: string | null;
+    insurance_expiry?: string | null;
+    certification_notes?: string | null;
   }): Promise<OutsourceProvider | null> {
     const { data, error } = await (supabase as any)
       .from("outsource_providers")
@@ -176,7 +183,6 @@ export const outsourceProviderService = {
         whatsapp_number: args.whatsapp_number?.trim() || null,
         provider_roles: args.provider_roles ?? [],
         specialty: args.specialty?.trim() || null,
-        service_radius_km: args.service_radius_km ?? null,
         default_rate_type: args.default_rate_type ?? "per_event",
         default_rate: args.default_rate ?? null,
         default_currency: args.default_currency ?? "ZAR",
@@ -184,6 +190,13 @@ export const outsourceProviderService = {
         preferred_contact_channel: args.preferred_contact_channel ?? "whatsapp",
         notes: args.notes?.trim() || null,
         linked_supplier_id: args.linked_supplier_id ?? null,
+        region_id: args.region_id ?? null,
+        rating: args.rating ?? null,
+        vat_number: args.vat_number?.trim() || null,
+        insurance_provider: args.insurance_provider?.trim() || null,
+        insurance_policy_number: args.insurance_policy_number?.trim() || null,
+        insurance_expiry: args.insurance_expiry || null,
+        certification_notes: args.certification_notes?.trim() || null,
         is_active: true,
       })
       .select()

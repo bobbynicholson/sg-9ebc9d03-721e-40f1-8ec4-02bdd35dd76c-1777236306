@@ -56,6 +56,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   outsourceProviderService,
   COMMON_ROLES,
@@ -91,12 +92,20 @@ interface FormState {
   whatsapp_number: string;
   provider_roles: string[];
   specialty: string;
-  service_radius_km: string;
   default_rate_type: OutsourceRateType;
   default_rate: string;
   payment_terms_days: string;
   preferred_contact_channel: OutsourceContactChannel;
   notes: string;
+  // OUT-C additions
+  region_id: string;
+  linked_supplier_id: string;
+  rating: string;
+  vat_number: string;
+  insurance_provider: string;
+  insurance_policy_number: string;
+  insurance_expiry: string;
+  certification_notes: string;
 }
 
 function emptyForm(): FormState {
@@ -108,12 +117,19 @@ function emptyForm(): FormState {
     whatsapp_number: "",
     provider_roles: [],
     specialty: "",
-    service_radius_km: "",
     default_rate_type: "per_event",
     default_rate: "",
     payment_terms_days: "",
     preferred_contact_channel: "whatsapp",
     notes: "",
+    region_id: "",
+    linked_supplier_id: "",
+    rating: "",
+    vat_number: "",
+    insurance_provider: "",
+    insurance_policy_number: "",
+    insurance_expiry: "",
+    certification_notes: "",
   };
 }
 
@@ -148,6 +164,24 @@ function ProvidersList() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OutsourceProvider | null>(null);
   const [deleteOpenAssignments, setDeleteOpenAssignments] = useState<number | null>(null);
+  // OUT-C: regions + suppliers for the form dropdowns.
+  const [regions, setRegions] = useState<Array<{ id: string; name: string }>>([]);
+  const [supplierOptions, setSupplierOptions] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const [regRes, supRes] = await Promise.all([
+        supabase.from("regions").select("id, name").eq("company_id", companyId).order("name"),
+        supabase.from("suppliers").select("id, supplier_name").eq("company_id", companyId).is("deleted_at", null).order("supplier_name"),
+      ]);
+      if (cancelled) return;
+      setRegions(((regRes.data || []) as Array<{ id: string; name: string }>));
+      setSupplierOptions(((supRes.data || []) as Array<{ id: string; supplier_name: string }>)
+        .map((s) => ({ id: s.id, name: s.supplier_name })));
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   const load = async () => {
     if (!companyId) { setLoading(false); return; }
@@ -194,6 +228,17 @@ function ProvidersList() {
   };
 
   const openEdit = (p: OutsourceProvider) => {
+    // OUT-C: cast widens to include the new columns regenerated into
+    // the supabase types after the 20260524180000 migration.
+    const pp = p as OutsourceProvider & {
+      region_id?: string | null;
+      rating?: number | null;
+      vat_number?: string | null;
+      insurance_provider?: string | null;
+      insurance_policy_number?: string | null;
+      insurance_expiry?: string | null;
+      certification_notes?: string | null;
+    };
     setForm({
       provider_name: p.provider_name,
       contact_person: p.contact_person || "",
@@ -202,12 +247,19 @@ function ProvidersList() {
       whatsapp_number: p.whatsapp_number || "",
       provider_roles: p.provider_roles || [],
       specialty: p.specialty || "",
-      service_radius_km: p.service_radius_km != null ? String(p.service_radius_km) : "",
       default_rate_type: p.default_rate_type,
       default_rate: p.default_rate != null ? String(p.default_rate) : "",
       payment_terms_days: p.payment_terms_days != null ? String(p.payment_terms_days) : "",
       preferred_contact_channel: p.preferred_contact_channel,
       notes: p.notes || "",
+      region_id: pp.region_id || "",
+      linked_supplier_id: p.linked_supplier_id || "",
+      rating: pp.rating != null ? String(pp.rating) : "",
+      vat_number: pp.vat_number || "",
+      insurance_provider: pp.insurance_provider || "",
+      insurance_policy_number: pp.insurance_policy_number || "",
+      insurance_expiry: pp.insurance_expiry || "",
+      certification_notes: pp.certification_notes || "",
     });
     setEditing(p);
     setAdding(true);
@@ -248,6 +300,12 @@ function ProvidersList() {
 
     setSaving(true);
     try {
+      const ratingParsed = (() => {
+        const raw = form.rating.trim();
+        if (!raw) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+      })();
       const payload = {
         provider_name: form.provider_name.trim(),
         contact_person: form.contact_person.trim() || null,
@@ -256,9 +314,6 @@ function ProvidersList() {
         whatsapp_number: form.whatsapp_number.trim() || null,
         provider_roles: form.provider_roles,
         specialty: form.specialty.trim() || null,
-        service_radius_km: form.service_radius_km.trim()
-          ? Number(form.service_radius_km) || null
-          : null,
         default_rate_type: form.default_rate_type,
         default_rate: form.default_rate.trim() ? Number(form.default_rate) || null : null,
         payment_terms_days: form.payment_terms_days.trim()
@@ -266,6 +321,15 @@ function ProvidersList() {
           : null,
         preferred_contact_channel: form.preferred_contact_channel,
         notes: form.notes.trim() || null,
+        // OUT-C deferred batch
+        region_id: form.region_id || null,
+        linked_supplier_id: form.linked_supplier_id || null,
+        rating: ratingParsed,
+        vat_number: form.vat_number.trim() || null,
+        insurance_provider: form.insurance_provider.trim() || null,
+        insurance_policy_number: form.insurance_policy_number.trim() || null,
+        insurance_expiry: form.insurance_expiry || null,
+        certification_notes: form.certification_notes.trim() || null,
       };
 
       if (editing) {
@@ -690,15 +754,19 @@ function ProvidersList() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="op-radius">Service radius (km)</Label>
-                <Input
-                  id="op-radius"
-                  type="number"
-                  min={0}
-                  value={form.service_radius_km}
-                  onChange={(e) => setForm({ ...form, service_radius_km: e.target.value })}
-                  placeholder="60"
-                />
+                <Label htmlFor="op-region">Region <span className="text-xs text-slate-400">(optional)</span></Label>
+                <Select
+                  value={form.region_id || "_none"}
+                  onValueChange={(v) => setForm({ ...form, region_id: v === "_none" ? "" : v })}
+                >
+                  <SelectTrigger id="op-region"><SelectValue placeholder="Any region" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Any region</SelectItem>
+                    {regions.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -756,6 +824,99 @@ function ProvidersList() {
                 placeholder="Prefers Sundays off, has own transport, vegan-friendly..."
               />
             </div>
+
+            {/* OUT-C: compliance + commercial. Folded into a collapsed
+                disclosure so the day-1 form stays light, but the data
+                is available for SARS-readiness and public-liability
+                tracking when the operator wants it. */}
+            <details className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
+              <summary className="text-xs font-semibold uppercase tracking-wide text-slate-700 cursor-pointer">
+                Compliance, rating + linked supplier
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-rating">Rating (1-5)</Label>
+                    <Input
+                      id="op-rating"
+                      type="number"
+                      min={1}
+                      max={5}
+                      step={0.5}
+                      value={form.rating}
+                      onChange={(e) => setForm({ ...form, rating: e.target.value })}
+                      placeholder="e.g. 4.5"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-supplier">Linked supplier <span className="text-xs text-slate-400">(optional)</span></Label>
+                    <Select
+                      value={form.linked_supplier_id || "_none"}
+                      onValueChange={(v) => setForm({ ...form, linked_supplier_id: v === "_none" ? "" : v })}
+                    >
+                      <SelectTrigger id="op-supplier"><SelectValue placeholder="Not linked" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">Not linked</SelectItem>
+                        {supplierOptions.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-slate-500">e.g. the florist who also sells you vases.</p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="op-vat">VAT number <span className="text-xs text-slate-400">(SARS-readiness)</span></Label>
+                  <Input
+                    id="op-vat"
+                    value={form.vat_number}
+                    onChange={(e) => setForm({ ...form, vat_number: e.target.value })}
+                    placeholder="e.g. 4123456789"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-ins-prov">Insurance provider</Label>
+                    <Input
+                      id="op-ins-prov"
+                      value={form.insurance_provider}
+                      onChange={(e) => setForm({ ...form, insurance_provider: e.target.value })}
+                      placeholder="e.g. Santam Public Liability"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-ins-num">Policy number</Label>
+                    <Input
+                      id="op-ins-num"
+                      value={form.insurance_policy_number}
+                      onChange={(e) => setForm({ ...form, insurance_policy_number: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="op-ins-exp">Insurance expiry</Label>
+                  <Input
+                    id="op-ins-exp"
+                    type="date"
+                    value={form.insurance_expiry}
+                    onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    Detail page chip turns amber within 30 days, rose when expired.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="op-cert">Certifications <span className="text-xs text-slate-400">(free text)</span></Label>
+                  <Textarea
+                    id="op-cert"
+                    rows={2}
+                    value={form.certification_notes}
+                    onChange={(e) => setForm({ ...form, certification_notes: e.target.value })}
+                    placeholder="FAS food handling, First Aid Level 2, valid until..."
+                  />
+                </div>
+              </div>
+            </details>
           </div>
 
           <DialogFooter>

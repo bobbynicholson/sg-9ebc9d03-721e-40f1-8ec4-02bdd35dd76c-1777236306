@@ -7283,6 +7283,7 @@ export type Database = {
       }
       outsource_providers: {
         Row: {
+          certification_notes: string | null
           company_id: string
           contact_person: string | null
           created_at: string
@@ -7292,6 +7293,9 @@ export type Database = {
           deleted_at: string | null
           email: string | null
           id: string
+          insurance_expiry: string | null
+          insurance_policy_number: string | null
+          insurance_provider: string | null
           is_active: boolean
           linked_supplier_id: string | null
           linked_user_id: string | null
@@ -7302,12 +7306,14 @@ export type Database = {
           provider_name: string
           provider_roles: string[]
           rating: number | null
-          service_radius_km: number | null
+          region_id: string | null
           specialty: string | null
           updated_at: string
+          vat_number: string | null
           whatsapp_number: string | null
         }
         Insert: {
+          certification_notes?: string | null
           company_id: string
           contact_person?: string | null
           created_at?: string
@@ -7317,6 +7323,9 @@ export type Database = {
           deleted_at?: string | null
           email?: string | null
           id?: string
+          insurance_expiry?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
           is_active?: boolean
           linked_supplier_id?: string | null
           linked_user_id?: string | null
@@ -7327,12 +7336,14 @@ export type Database = {
           provider_name: string
           provider_roles?: string[]
           rating?: number | null
-          service_radius_km?: number | null
+          region_id?: string | null
           specialty?: string | null
           updated_at?: string
+          vat_number?: string | null
           whatsapp_number?: string | null
         }
         Update: {
+          certification_notes?: string | null
           company_id?: string
           contact_person?: string | null
           created_at?: string
@@ -7342,6 +7353,9 @@ export type Database = {
           deleted_at?: string | null
           email?: string | null
           id?: string
+          insurance_expiry?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
           is_active?: boolean
           linked_supplier_id?: string | null
           linked_user_id?: string | null
@@ -7352,9 +7366,10 @@ export type Database = {
           provider_name?: string
           provider_roles?: string[]
           rating?: number | null
-          service_radius_km?: number | null
+          region_id?: string | null
           specialty?: string | null
           updated_at?: string
+          vat_number?: string | null
           whatsapp_number?: string | null
         }
         Relationships: [
@@ -7370,6 +7385,13 @@ export type Database = {
             columns: ["linked_supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsource_providers_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
