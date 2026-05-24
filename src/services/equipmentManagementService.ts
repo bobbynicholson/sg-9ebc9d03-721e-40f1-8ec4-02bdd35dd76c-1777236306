@@ -227,4 +227,223 @@ export const equipmentManagementService = {
     }
     return (data || []) as any[];
   },
+
+  // ── EQP-B (equipment deferred, 2026-05-24) ─────────────────────
+
+  /**
+   * Utilisation per item over the last N days. Returns a Map
+   * keyed by equipment_id with { bookedEvents, totalEvents,
+   * pct } so the page can render "booked 12 / 18 events" chips.
+   *
+   * "totalEvents" = distinct event_date count from non-cancelled
+   * orders in the window with at least one equipment_booking - i.e.
+   * the universe of events the company actually ran.
+   *
+   * "bookedEvents" per equipment = distinct event_dates this item
+   * was booked into. Dead-stock = bookedEvents === 0 across the
+   * window. High-util = bookedEvents / totalEvents > 0.6.
+   */
+  async getUtilisationByItem(
+    companyId: string,
+    days: number = 90,
+  ): Promise<Map<string, { bookedEvents: number; totalEvents: number; pct: number }>> {
+    const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await (supabase as any)
+      .from("equipment_bookings")
+      .select("equipment_id, booked_from, status")
+      .eq("company_id", companyId)
+      .gte("booked_from", sinceIso)
+      .neq("status", "cancelled");
+    if (error) {
+      console.warn("getUtilisationByItem failed:", error);
+      return new Map();
+    }
+    const rows = (data || []) as Array<{ equipment_id: string; booked_from: string | null }>;
+    const allDates = new Set<string>();
+    const datesByItem = new Map<string, Set<string>>();
+    for (const r of rows) {
+      const date = (r.booked_from || "").slice(0, 10);
+      if (!date || !r.equipment_id) continue;
+      allDates.add(date);
+      const s = datesByItem.get(r.equipment_id) || new Set<string>();
+      s.add(date);
+      datesByItem.set(r.equipment_id, s);
+    }
+    const totalEvents = allDates.size;
+    const out = new Map<string, { bookedEvents: number; totalEvents: number; pct: number }>();
+    for (const [equipmentId, dates] of datesByItem.entries()) {
+      const booked = dates.size;
+      out.set(equipmentId, {
+        bookedEvents: booked,
+        totalEvents,
+        pct: totalEvents > 0 ? booked / totalEvents : 0,
+      });
+    }
+    return out;
+  },
+
+  /**
+   * Damages per item in the last N days. Returns count + total rand
+   * cost so the row chip can read "2 damages 90d" and finance can
+   * see the cost on hover.
+   */
+  async getDamagesByItem(
+    companyId: string,
+    days: number = 90,
+  ): Promise<Map<string, { count: number; totalCost: number }>> {
+    const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await (supabase as any)
+      .from("equipment_damages")
+      .select("equipment_id, total_cost")
+      .eq("company_id", companyId)
+      .gte("created_at", sinceIso);
+    if (error) {
+      console.warn("getDamagesByItem failed:", error);
+      return new Map();
+    }
+    const map = new Map<string, { count: number; totalCost: number }>();
+    for (const r of (data || []) as Array<{ equipment_id: string; total_cost: number | null }>) {
+      if (!r.equipment_id) continue;
+      const cur = map.get(r.equipment_id) || { count: 0, totalCost: 0 };
+      cur.count += 1;
+      cur.totalCost += Number(r.total_cost || 0);
+      map.set(r.equipment_id, cur);
+    }
+    return map;
+  },
+
+  // EQP-B: package usage per item deferred until a booking_package_items
+  // linkage table exists. Packages currently link to orders, not to
+  // equipment/menu items directly, so the "Hidden - in N packages"
+  // chip needs schema first.
+
+  /**
+   * EQP-B: hire-in spend per item over the last N days. Drives the
+   * buy-vs-rent recommendation when (hire_in_spend) > replacement_cost.
+   */
+  async getHireInSpendByItem(
+    companyId: string,
+    days: number = 90,
+  ): Promise<Map<string, { hireCount: number; totalSpend: number }>> {
+    const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await (supabase as any)
+      .from("equipment_hire_orders")
+      .select("equipment_id, total_cost")
+      .eq("company_id", companyId)
+      .gte("created_at", sinceIso);
+    if (error) {
+      console.warn("getHireInSpendByItem failed:", error);
+      return new Map();
+    }
+    const map = new Map<string, { hireCount: number; totalSpend: number }>();
+    for (const r of (data || []) as Array<{ equipment_id: string | null; total_cost: number | null }>) {
+      if (!r.equipment_id) continue;
+      const cur = map.get(r.equipment_id) || { hireCount: 0, totalSpend: 0 };
+      cur.hireCount += 1;
+      cur.totalSpend += Number(r.total_cost || 0);
+      map.set(r.equipment_id, cur);
+    }
+    return map;
+  },
+
+  /**
+   * EQP-B: bulk archive (soft delete) a set of equipment ids.
+   */
+  async bulkArchive(itemIds: string[]): Promise<{ count: number; error?: string }> {
+    if (itemIds.length === 0) return { count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("equipment")
+      .update({ deleted_at: new Date().toISOString(), is_available: false }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) return { count: 0, error: error.message };
+    return { count: count ?? itemIds.length };
+  },
+
+  /**
+   * EQP-B: bulk toggle is_available. Use to hide a swathe of
+   * component parts (Bain-Marie internals) or expose them.
+   */
+  async bulkSetAvailable(itemIds: string[], isAvailable: boolean): Promise<{ count: number; error?: string }> {
+    if (itemIds.length === 0) return { count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("equipment")
+      .update({ is_available: isAvailable }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) return { count: 0, error: error.message };
+    return { count: count ?? itemIds.length };
+  },
+
+  /**
+   * EQP-B: bulk recategorise.
+   */
+  async bulkSetCategory(itemIds: string[], category: string): Promise<{ count: number; error?: string }> {
+    if (itemIds.length === 0) return { count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("equipment")
+      .update({ category }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) return { count: 0, error: error.message };
+    return { count: count ?? itemIds.length };
+  },
+
+  /**
+   * EQP-B: bulk set hire-in cost. Quick way to fill the fallback
+   * cost on a swathe of items so the shortage tab can quote margins.
+   */
+  async bulkSetHireInCost(itemIds: string[], cost: number): Promise<{ count: number; error?: string }> {
+    if (itemIds.length === 0) return { count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("equipment")
+      .update({ hire_in_cost: cost }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) return { count: 0, error: error.message };
+    return { count: count ?? itemIds.length };
+  },
 };
+
+/**
+ * EQP-B: pure helper - "consider buying" recommendation. True when
+ * the operator hired this item in enough in the last 90 days that
+ * the cumulative hire spend now exceeds the replacement cost.
+ *
+ * Returns { recommend: boolean, multiplier: number } where
+ * multiplier = hireSpend / replacementCost (1.0 = breakeven, 2.0 =
+ * could have bought two by now).
+ */
+export function buyVsRentRecommendation(
+  hireSpend: number,
+  hireCount: number,
+  replacementCost: number | null | undefined,
+): { recommend: boolean; multiplier: number | null } {
+  const rc = Number(replacementCost || 0);
+  if (rc <= 0) return { recommend: false, multiplier: null };
+  if (hireCount < 5) return { recommend: false, multiplier: hireSpend / rc };
+  const multiplier = hireSpend / rc;
+  return { recommend: multiplier >= 1, multiplier };
+}
+
+/**
+ * EQP-B: detect a material conflict between an equipment item's
+ * name and its description. "Bowl (porcelain)" + description
+ * "Plastic pudding bowl" is the canonical bug we caught on Spit
+ * Braai. Returns the conflicting material pair when found.
+ *
+ * Conservative - only flags when both the name and description
+ * have unambiguous material words. We don't try to infer materials
+ * from category or other context.
+ */
+const MATERIAL_WORDS = ["plastic", "porcelain", "stainless", "glass", "acrylic", "wooden", "wood", "ceramic", "melamine"];
+export function detectMaterialConflict(
+  name: string | null | undefined,
+  description: string | null | undefined,
+): { nameMaterial: string; descMaterial: string } | null {
+  const nameLower = (name || "").toLowerCase();
+  const descLower = (description || "").toLowerCase();
+  const nameMat = MATERIAL_WORDS.find((m) => nameLower.includes(m));
+  const descMat = MATERIAL_WORDS.find((m) => descLower.includes(m));
+  if (!nameMat || !descMat) return null;
+  // Treat wood/wooden as the same material.
+  const norm = (m: string) => m === "wooden" ? "wood" : m;
+  if (norm(nameMat) === norm(descMat)) return null;
+  return { nameMaterial: nameMat, descMaterial: descMat };
+}
