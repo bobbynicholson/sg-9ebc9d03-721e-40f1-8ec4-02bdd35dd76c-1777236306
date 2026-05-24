@@ -1,16 +1,24 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Suppliers hub - list of every supplier on file with rolling spend
  * totals (30d / 90d / 365d), product counts, and a one-click compose
  * email action that uses the same Gmail / Outlook / default-mail
  * fallback chain as /admin/clients.
  *
- * Owner-level view - only owners and admins should see commercial
- * spend numbers. Gated via ProtectedRoute.
+ * SUP-B (suppliers audit, 2026-05-24):
+ *   - Rand values hidden from SALES_ADMIN / REGION_ADMIN (finance-vis).
+ *   - Realtime channel on suppliers (auto-refresh on insert/update).
+ *   - Search + activeOnly persist to URL query string.
+ *   - Mobile card fallback under sm.
+ *   - Reliance + stale chips so the operator sees who matters at a
+ *     glance + who's gone cold.
+ *   - WhatsApp click-to-chat link next to phone.
+ *   - Delete confirm shows referencing-row counts before soft-delete.
+ *   - payment_terms admin form coerces to numeric (column is int).
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -24,7 +32,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building2, Search, Plus, Pencil, Trash2, Mail, Phone, TrendingUp, Package, Calendar, Loader2, Filter, ArrowRight } from "lucide-react";
+import {
+  Building2, Search, Plus, Pencil, Trash2, Mail, Phone, TrendingUp, Package,
+  Calendar, Loader2, Filter, ArrowRight, MessageCircle, Star, AlertTriangle,
+} from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -33,9 +44,11 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { supplierService, type SupplierWithStats } from "@/services/supplierService";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const relativeTime = (iso: string | null) => {
   if (!iso) return "never";
@@ -46,12 +59,32 @@ const relativeTime = (iso: string | null) => {
   return hours >= 1 ? `${hours}h ago` : "just now";
 };
 
+// SUP-B: international format the phone for wa.me. Strips spaces /
+// dashes / parens and converts a leading 0 to ZA's +27 (most common
+// case for this tenant base). Leaves +XX prefixes alone.
+const waLink = (phone: string | null | undefined): string | null => {
+  if (!phone) return null;
+  const cleaned = String(phone).replace(/[\s()-]/g, "");
+  if (!cleaned) return null;
+  if (cleaned.startsWith("+")) return `https://wa.me/${cleaned.slice(1)}`;
+  if (cleaned.startsWith("0")) return `https://wa.me/27${cleaned.slice(1)}`;
+  return `https://wa.me/${cleaned}`;
+};
+
 function SuppliersList() {
-  const { profile } = useAuth() as any;
+  const { profile } = useAuth() as { profile: { company_id: string; role?: string; active_role?: string } | null };
   const companyId = profile?.company_id;
   const { toast } = useToast();
-  // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
+  const router = useRouter();
+
+  // SUP-B: finance-vis gate. Sales / region admin can see contact info
+  // + product count but not rand spend.
+  const financeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canSeeFinance =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
+
   const [suppliers, setSuppliers] = useState<SupplierWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -59,16 +92,88 @@ function SuppliersList() {
   const [editing, setEditing] = useState<SupplierWithStats | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<SupplierWithStats | null>(null);
+  const [deleteRefCounts, setDeleteRefCounts] = useState<{
+    equipment_owned: number; equipment_preferred_hire: number; open_hire_orders: number;
+    open_payables: number; linked_items: number; preferred_items: number;
+  } | null>(null);
+
+  // SUP-B: hydrate filters from URL on mount.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    const activeParam = typeof router.query.active === "string" ? router.query.active : null;
+    setSearch(q);
+    if (activeParam === "all") setActiveOnly(false);
+    else if (activeParam === "1") setActiveOnly(true);
+  }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // SUP-B: push state back to URL (shallow, no scroll) so refresh/back
+  // restores the same view.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = { ...router.query as Record<string, string> };
+    if (search) next.q = search; else delete next.q;
+    next.active = activeOnly ? "1" : "all";
+    router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, activeOnly]);
 
   const reload = async () => {
     if (!companyId) return;
     setLoading(true);
-    const data = await supplierService.listForCompany(companyId);
-    setSuppliers(data);
-    setLoading(false);
+    try {
+      const data = await supplierService.listForCompany(companyId);
+      setSuppliers(data);
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/suppliers", area: "load", tenant: companyId } });
+      toast({
+        title: "Could not load suppliers",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { reload(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // SUP-B: realtime. Add a supplier on phone, see it on desktop.
+  // Debounced 1500ms so a flurry of inserts (CSV import later) doesn't
+  // hammer the page.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { reload(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`admin-suppliers:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "suppliers", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // SUP-B: when the delete dialog opens, fetch reference counts so the
+  // operator sees what's about to lose its FK link.
+  useEffect(() => {
+    if (!confirmDelete) { setDeleteRefCounts(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const counts = await supplierService.countReferences(confirmDelete.id);
+        if (!cancelled) setDeleteRefCounts(counts);
+      } catch (e: unknown) {
+        captureException(e, { tags: { surface: "admin/suppliers", area: "count-refs" } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [confirmDelete]);
 
   const visible = useMemo(() => {
     const q = search.toLowerCase();
@@ -88,8 +193,25 @@ function SuppliersList() {
     const total90 = suppliers.reduce((s, x) => s + Number(x.spend_90d || 0), 0);
     const total365 = suppliers.reduce((s, x) => s + Number(x.spend_365d || 0), 0);
     const active = suppliers.filter((s) => s.is_active !== false).length;
-    return { total30, total90, total365, active, all: suppliers.length };
+    const stale = suppliers.filter((s) => {
+      if (s.is_active === false) return false;
+      if (!s.last_purchase_at) return s.product_count > 0;
+      return (Date.now() - new Date(s.last_purchase_at).getTime()) / 86_400_000 > 90;
+    }).length;
+    return { total30, total90, total365, active, all: suppliers.length, stale };
   }, [suppliers]);
+
+  // SUP-B: row-level chips. Reliance = number of inventory items
+  // preferring this supplier (cached via product_count); Stale = no
+  // purchase in 90d but still active.
+  const rowFlags = (s: SupplierWithStats) => {
+    const days = s.last_purchase_at
+      ? Math.floor((Date.now() - new Date(s.last_purchase_at).getTime()) / 86_400_000)
+      : null;
+    const stale = s.is_active !== false && (days == null ? s.product_count > 0 : days > 90);
+    const reliance = s.product_count;
+    return { stale, reliance, daysSinceBuy: days };
+  };
 
   return (
     <>
@@ -122,12 +244,26 @@ function SuppliersList() {
             </Button>
           </div>
 
-          {/* Top stat tiles */}
+          {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             <StatTile label="Active suppliers" value={`${totals.active} / ${totals.all}`} icon={Building2} />
-            <StatTile label="Spend last 30d" value={fmtR(totals.total30)} icon={TrendingUp} accent="emerald" />
-            <StatTile label="Spend last 90d" value={fmtR(totals.total90)} icon={TrendingUp} accent="emerald" />
-            <StatTile label="Spend last 365d" value={fmtR(totals.total365)} icon={Calendar} />
+            <StatTile
+              label="Stale (no buy in 90d)"
+              value={`${totals.stale}`}
+              icon={AlertTriangle}
+              accent={totals.stale > 0 ? "rose" : "slate"}
+            />
+            {canSeeFinance ? (
+              <>
+                <StatTile label="Spend last 90d" value={fmtR(totals.total90)} icon={TrendingUp} accent="emerald" />
+                <StatTile label="Spend last 365d" value={fmtR(totals.total365)} icon={Calendar} />
+              </>
+            ) : (
+              <>
+                <StatTile label="Last 90d" value="hidden" icon={TrendingUp} muted />
+                <StatTile label="Last 365d" value="hidden" icon={Calendar} muted />
+              </>
+            )}
           </div>
 
           {/* Filters */}
@@ -157,7 +293,7 @@ function SuppliersList() {
             </CardContent>
           </Card>
 
-          {/* Suppliers table */}
+          {/* Suppliers table (desktop) + card list (mobile) */}
           <Card className="border-0 shadow-lg">
             <CardContent className="p-0">
               {loading ? (
@@ -182,95 +318,193 @@ function SuppliersList() {
                   }
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
-                      <tr>
-                        <th className="text-left py-3 pl-4 pr-2">Supplier</th>
-                        <th className="text-left py-3 px-2">Contact</th>
-                        <th className="text-right py-3 px-2">Products</th>
-                        <th className="text-right py-3 px-2">30d spend</th>
-                        <th className="text-right py-3 px-2">90d spend</th>
-                        <th className="text-right py-3 px-2">365d spend</th>
-                        <th className="text-left py-3 px-2">Last buy</th>
-                        <th className="text-right py-3 pr-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((s) => (
-                        <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${s.is_active === false ? "opacity-60" : ""}`}>
-                          <td className="py-3 pl-4 pr-2">
-                            <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
-                              <div className="font-semibold text-slate-900 group-hover:text-amber-600 inline-flex items-center gap-1.5">
-                                {s.supplier_name}
-                                <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                              {(s.supplier_categories || []).length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {(s.supplier_categories || []).slice(0, 3).map((c) => (
-                                    <Badge key={c} variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                                      {c}
-                                    </Badge>
-                                  ))}
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
+                        <tr>
+                          <th className="text-left py-3 pl-4 pr-2">Supplier</th>
+                          <th className="text-left py-3 px-2">Contact</th>
+                          <th className="text-right py-3 px-2">Products</th>
+                          {canSeeFinance && <th className="text-right py-3 px-2">90d spend</th>}
+                          {canSeeFinance && <th className="text-right py-3 px-2">365d spend</th>}
+                          <th className="text-left py-3 px-2">Last buy</th>
+                          <th className="text-right py-3 pr-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visible.map((s) => {
+                          const flags = rowFlags(s);
+                          const wa = waLink(s.phone);
+                          return (
+                            <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${s.is_active === false ? "opacity-60" : ""}`}>
+                              <td className="py-3 pl-4 pr-2">
+                                <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
+                                  <div className="font-semibold text-slate-900 group-hover:text-amber-600 inline-flex items-center gap-1.5 flex-wrap">
+                                    {s.supplier_name}
+                                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {flags.reliance >= 3 && (
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                                        <Star className="w-2.5 h-2.5" /> {flags.reliance} items
+                                      </Badge>
+                                    )}
+                                    {flags.stale && (
+                                      <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                                        Stale{flags.daysSinceBuy != null ? ` ${flags.daysSinceBuy}d` : ""}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {(s.supplier_categories || []).length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {(s.supplier_categories || []).slice(0, 3).map((c) => (
+                                        <Badge key={c} variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
+                                          {c}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {s.is_active === false && (
+                                    <Badge variant="outline" className="mt-1 text-[10px] bg-rose-50 text-rose-700 border-rose-200">Inactive</Badge>
+                                  )}
+                                </Link>
+                              </td>
+                              <td className="py-3 px-2 text-xs text-slate-600">
+                                {s.contact_person && <div className="text-slate-900">{s.contact_person}</div>}
+                                {s.email && (
+                                  <div className="flex items-center gap-1">
+                                    <Mail className="w-3 h-3" /> {s.email}
+                                  </div>
+                                )}
+                                {s.phone && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1">
+                                      <Phone className="w-3 h-3" /> {s.phone}
+                                    </span>
+                                    {wa && (
+                                      <a
+                                        href={wa}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center text-emerald-600 hover:text-emerald-700"
+                                        title="Open WhatsApp"
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-2 text-right tabular-nums">
+                                {s.product_count > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-slate-700">
+                                    <Package className="w-3 h-3 text-slate-400" />
+                                    {s.product_count}
+                                  </span>
+                                ) : <span className="text-slate-400">-</span>}
+                              </td>
+                              {canSeeFinance && (
+                                <td className="py-3 px-2 text-right tabular-nums">{s.spend_90d > 0 ? fmtR(s.spend_90d) : "-"}</td>
+                              )}
+                              {canSeeFinance && (
+                                <td className="py-3 px-2 text-right tabular-nums font-semibold">{s.spend_365d > 0 ? fmtR(s.spend_365d) : "-"}</td>
+                              )}
+                              <td className="py-3 px-2 text-xs text-slate-500">{relativeTime(s.last_purchase_at)}</td>
+                              <td className="py-3 pr-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setEditing(s)}
+                                    aria-label={`Edit ${s.supplier_name}`}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50"
+                                    onClick={() => setConfirmDelete(s)}
+                                    aria-label={`Delete ${s.supplier_name}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
                                 </div>
-                              )}
-                              {s.is_active === false && (
-                                <Badge variant="outline" className="mt-1 text-[10px] bg-rose-50 text-rose-700 border-rose-200">Inactive</Badge>
-                              )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* SUP-B: Mobile card fallback. */}
+                  <div className="sm:hidden divide-y divide-slate-100">
+                    {visible.map((s) => {
+                      const flags = rowFlags(s);
+                      const wa = waLink(s.phone);
+                      return (
+                        <div key={s.id} className={`p-4 ${s.is_active === false ? "opacity-60" : ""}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="flex-1 min-w-0">
+                              <div className="font-semibold text-slate-900 flex flex-wrap items-center gap-1.5">
+                                {s.supplier_name}
+                                {flags.reliance >= 3 && (
+                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                                    <Star className="w-2.5 h-2.5" /> {flags.reliance}
+                                  </Badge>
+                                )}
+                                {flags.stale && (
+                                  <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                                    Stale
+                                  </Badge>
+                                )}
+                                {s.is_active === false && (
+                                  <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">Inactive</Badge>
+                                )}
+                              </div>
+                              {s.contact_person && <div className="text-xs text-slate-900 mt-0.5">{s.contact_person}</div>}
+                              <div className="text-xs text-slate-600 mt-1 space-y-0.5">
+                                {s.email && <div className="flex items-center gap-1"><Mail className="w-3 h-3" /> {s.email}</div>}
+                                {s.phone && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {s.phone}</span>
+                                    {wa && (
+                                      <a href={wa} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-emerald-600">
+                                        <MessageCircle className="w-3.5 h-3.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-2">
+                                <span>{s.product_count} item{s.product_count === 1 ? "" : "s"}</span>
+                                {canSeeFinance && s.spend_365d > 0 && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="font-medium text-slate-700">{fmtR(s.spend_365d)} / 365d</span>
+                                  </>
+                                )}
+                                <span>·</span>
+                                <span>last buy {relativeTime(s.last_purchase_at)}</span>
+                              </div>
                             </Link>
-                          </td>
-                          <td className="py-3 px-2 text-xs text-slate-600">
-                            {s.contact_person && <div className="text-slate-900">{s.contact_person}</div>}
-                            {s.email && (
-                              <div className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" /> {s.email}
-                              </div>
-                            )}
-                            {s.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone className="w-3 h-3" /> {s.phone}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-2 text-right tabular-nums">
-                            {s.product_count > 0 ? (
-                              <span className="inline-flex items-center gap-1 text-slate-700">
-                                <Package className="w-3 h-3 text-slate-400" />
-                                {s.product_count}
-                              </span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </td>
-                          <td className="py-3 px-2 text-right tabular-nums">{s.spend_30d > 0 ? fmtR(s.spend_30d) : "—"}</td>
-                          <td className="py-3 px-2 text-right tabular-nums">{s.spend_90d > 0 ? fmtR(s.spend_90d) : "—"}</td>
-                          <td className="py-3 px-2 text-right tabular-nums font-semibold">{s.spend_365d > 0 ? fmtR(s.spend_365d) : "—"}</td>
-                          <td className="py-3 px-2 text-xs text-slate-500">{relativeTime(s.last_purchase_at)}</td>
-                          <td className="py-3 pr-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setEditing(s)}
-                                aria-label={`Edit ${s.supplier_name}`}
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
+                            <div className="flex items-center gap-1">
+                              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setEditing(s)} aria-label="Edit">
+                                <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50"
-                                onClick={() => setConfirmDelete(s)}
-                                aria-label={`Delete ${s.supplier_name}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
+                              <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-rose-600" onClick={() => setConfirmDelete(s)} aria-label="Delete">
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -280,7 +514,7 @@ function SuppliersList() {
       <SupplierFormDialog
         open={adding || !!editing}
         editing={editing}
-        companyId={companyId}
+        companyId={companyId!}
         onClose={() => { setAdding(false); setEditing(null); }}
         onSaved={() => { setAdding(false); setEditing(null); reload(); }}
       />
@@ -289,9 +523,46 @@ function SuppliersList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this supplier?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDelete?.supplier_name} will be hidden. Their products keep the link but the
-              supplier won't show in shopping lists. Receipts and stock-in transactions stay on file.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  <strong>{confirmDelete?.supplier_name}</strong> will be hidden. Receipts and
+                  stock-in transactions stay on file for accounting.
+                </p>
+                {deleteRefCounts && (
+                  deleteRefCounts.equipment_owned > 0 ||
+                  deleteRefCounts.equipment_preferred_hire > 0 ||
+                  deleteRefCounts.open_hire_orders > 0 ||
+                  deleteRefCounts.open_payables > 0 ||
+                  deleteRefCounts.linked_items > 0
+                ) ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs space-y-1">
+                    <div className="font-semibold text-amber-900">Currently linked to:</div>
+                    {deleteRefCounts.equipment_owned > 0 && (
+                      <div>· {deleteRefCounts.equipment_owned} equipment item{deleteRefCounts.equipment_owned === 1 ? "" : "s"} (supplier of record)</div>
+                    )}
+                    {deleteRefCounts.equipment_preferred_hire > 0 && (
+                      <div>· {deleteRefCounts.equipment_preferred_hire} equipment item{deleteRefCounts.equipment_preferred_hire === 1 ? "" : "s"} (preferred for hire)</div>
+                    )}
+                    {deleteRefCounts.open_hire_orders > 0 && (
+                      <div className="text-amber-900 font-medium">· {deleteRefCounts.open_hire_orders} open hire order{deleteRefCounts.open_hire_orders === 1 ? "" : "s"}</div>
+                    )}
+                    {deleteRefCounts.open_payables > 0 && (
+                      <div className="text-amber-900 font-medium">· {deleteRefCounts.open_payables} pending payable{deleteRefCounts.open_payables === 1 ? "" : "s"}</div>
+                    )}
+                    {deleteRefCounts.linked_items > 0 && (
+                      <div>· {deleteRefCounts.linked_items} inventory item link{deleteRefCounts.linked_items === 1 ? "" : "s"} ({deleteRefCounts.preferred_items} preferred)</div>
+                    )}
+                    <div className="text-amber-700 pt-1">
+                      Existing links keep their data but the supplier won't appear in pickers. Re-link to another supplier first if you don't want the gap.
+                    </div>
+                  </div>
+                ) : deleteRefCounts ? (
+                  <p className="text-xs text-slate-500">No equipment, hire orders, payables, or inventory items currently reference this supplier.</p>
+                ) : (
+                  <p className="text-xs text-slate-400">Checking references...</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -306,12 +577,13 @@ function SuppliersList() {
                   toast({ title: "Supplier deleted" });
                   setConfirmDelete(null);
                   reload();
-                } catch (e: any) {
-                  toast({ title: "Couldn't delete", description: e?.message, variant: "destructive" });
+                } catch (e: unknown) {
+                  captureException(e, { tags: { surface: "admin/suppliers", area: "delete" } });
+                  toast({ title: "Couldn't delete", description: e instanceof Error ? e.message : "", variant: "destructive" });
                 }
               }}
             >
-              Delete
+              Delete anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -321,9 +593,13 @@ function SuppliersList() {
 }
 
 function StatTile({
-  label, value, icon: Icon, accent = "slate",
-}: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" }) {
-  const accentClass = accent === "emerald" ? "text-emerald-600" : "text-slate-700";
+  label, value, icon: Icon, accent = "slate", muted = false,
+}: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" | "rose"; muted?: boolean }) {
+  const accentClass = muted
+    ? "text-slate-400"
+    : accent === "emerald" ? "text-emerald-600"
+    : accent === "rose"    ? "text-rose-600"
+    : "text-slate-700";
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="py-4">
@@ -402,46 +678,41 @@ function SupplierFormDialog({
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+      // SUP-B: payment_terms column is int (days). Coerce; ignore text
+      // like "COD" / "Net-30 EOM" - those belong in Notes until the
+      // deferred schema split adds a payment_terms_note field.
+      const parsedTerms = (() => {
+        const raw = form.payment_terms.trim();
+        if (!raw) return null;
+        const n = parseInt(raw, 10);
+        return Number.isFinite(n) && n >= 0 ? n : null;
+      })();
+      const payload = {
+        supplier_name: form.supplier_name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        contact_person: form.contact_person.trim() || null,
+        payment_terms: parsedTerms,
+        payment_method: form.payment_method || null,
+        preferred_contact_method: form.preferred_contact_method,
+        website: form.website.trim() || null,
+        address_line1: form.address_line1.trim() || null,
+        address_line2: form.address_line2.trim() || null,
+        city: form.city.trim() || null,
+        postal_code: form.postal_code.trim() || null,
+        notes: form.notes.trim() || null,
+        supplier_categories: categories,
+      };
       if (editing) {
-        await supplierService.update(editing.id, {
-          supplier_name: form.supplier_name.trim(),
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          contact_person: form.contact_person.trim() || null,
-          payment_terms: form.payment_terms.trim() || null,
-          payment_method: form.payment_method || null,
-          preferred_contact_method: form.preferred_contact_method,
-          website: form.website.trim() || null,
-          address_line1: form.address_line1.trim() || null,
-          address_line2: form.address_line2.trim() || null,
-          city: form.city.trim() || null,
-          postal_code: form.postal_code.trim() || null,
-          notes: form.notes.trim() || null,
-          supplier_categories: categories,
-        } as any);
+        await supplierService.update(editing.id, payload as Partial<typeof editing>);
       } else {
-        await supplierService.create({
-          companyId,
-          supplier_name: form.supplier_name.trim(),
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          contact_person: form.contact_person.trim() || null,
-          payment_terms: form.payment_terms.trim() || null,
-          payment_method: form.payment_method || null,
-          preferred_contact_method: form.preferred_contact_method,
-          website: form.website.trim() || null,
-          address_line1: form.address_line1.trim() || null,
-          address_line2: form.address_line2.trim() || null,
-          city: form.city.trim() || null,
-          postal_code: form.postal_code.trim() || null,
-          notes: form.notes.trim() || null,
-          supplier_categories: categories,
-        });
+        await supplierService.create({ companyId, ...payload });
       }
       toast({ title: editing ? "Supplier updated" : "Supplier added" });
       onSaved();
-    } catch (e: any) {
-      toast({ title: "Couldn't save", description: e?.message, variant: "destructive" });
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/suppliers", area: "save" } });
+      toast({ title: "Couldn't save", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -510,8 +781,18 @@ function SupplierFormDialog({
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Payment terms</label>
-              <Input value={form.payment_terms} onChange={(e) => set("payment_terms", e.target.value)} className="mt-1" placeholder="e.g. 30 days, COD" />
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Payment terms (days)</label>
+              <Input
+                type="number"
+                min={0}
+                value={form.payment_terms}
+                onChange={(e) => set("payment_terms", e.target.value)}
+                className="mt-1"
+                placeholder="e.g. 30"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Number of days. Use Notes for COD / Net-30 EOM / other wording.
+              </p>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Categories (comma-separated)</label>
@@ -546,6 +827,7 @@ export default function SuppliersPage() {
   return (
     // SUP-A (suppliers audit, SUP-2): admit sales_admin (supplier
     // contact for client advisories) + region_admin (regional view).
+    // SUP-B: rand columns gated inside the page via canSeeFinance.
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <SuppliersList />
     </ProtectedRoute>

@@ -5,15 +5,19 @@
  *   - /admin/suppliers/[id]     (detail page with purchases + products)
  *   - /admin/shopping           (PO email composition)
  *
- * Two ways spend is measured:
- *   1. inventory_transactions   (canonical receive log - has the
- *                                 supplier_id FK + qty * unit_cost)
- *   2. purchase_receipts        (slip ledger - has supplier_id FK
- *                                 since the 2026-05 migration; older
- *                                 rows match by vendor text fallback)
+ * Two sources of spend signal:
+ *   1. purchase_receipts        (slip ledger - has supplier_id FK
+ *                                 since the 2026-05 migration. The
+ *                                 canonical source.)
+ *   2. inventory_transactions   (per-line receive log - has supplier_id
+ *                                 FK + qty * unit_cost. Used only as a
+ *                                 fallback for tenants who haven't yet
+ *                                 adopted the receipts ledger.)
  *
- * Spend numbers are union-deduplicated by reference_number where set,
- * otherwise summed independently. Real-world overlap is small.
+ * SUP-B (2026-05-24): the previous implementation summed BOTH into the
+ * same total which double-counted every receipt that wrote both rows.
+ * Now we use receipts when present, fall back to transactions only
+ * when no receipt exists in the 365d window for that supplier.
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -130,27 +134,46 @@ export const supplierService = {
       const sId = s.id;
       let spend30 = 0, spend90 = 0, spend365 = 0;
       let lastAt: string | null = null;
-      const txRows = (tx || []).filter((t: any) => t.supplier_id === sId);
-      for (const t of txRows) {
-        const amt = Number(t.quantity || 0) * Number(t.unit_cost || 0);
-        const at = t.created_at;
-        if (!lastAt || at > lastAt) lastAt = at;
-        const ad = new Date(at);
-        spend365 += amt;
-        if (ad >= cutoff90) spend90 += amt;
-        if (ad >= cutoff30) spend30 += amt;
-      }
       const rcptRows = (receipts || []).filter((r: any) => r.supplier_id === sId);
+      const txRows = (tx || []).filter((t: any) => t.supplier_id === sId);
+
+      // SUP-B audit fix: the previous version summed
+      // inventory_transactions AND purchase_receipts into the same
+      // total, which double-counted any receipt that wrote both rows.
+      // Canonical source is now purchase_receipts (the slip ledger, has
+      // supplier_id post-2026-05). Fall back to inventory_transactions
+      // only for suppliers/tenants where receipts aren't in use at all
+      // - i.e. no receipts in the 365d window. This stops the inflated
+      // numbers without losing legacy data.
+      const useReceipts = rcptRows.length > 0;
       let activeReceiptsCount = 0;
-      for (const r of rcptRows) {
-        const amt = Number(r.total || 0);
-        const at = r.created_at;
-        if (!lastAt || at > lastAt) lastAt = at;
-        const ad = new Date(at);
-        spend365 += amt;
-        activeReceiptsCount += 1;
-        if (ad >= cutoff90) spend90 += amt;
-        if (ad >= cutoff30) spend30 += amt;
+      if (useReceipts) {
+        for (const r of rcptRows) {
+          const amt = Number(r.total || 0);
+          const at = r.created_at;
+          if (!lastAt || at > lastAt) lastAt = at;
+          const ad = new Date(at);
+          spend365 += amt;
+          activeReceiptsCount += 1;
+          if (ad >= cutoff90) spend90 += amt;
+          if (ad >= cutoff30) spend30 += amt;
+        }
+      } else {
+        for (const t of txRows) {
+          const amt = Number(t.quantity || 0) * Number(t.unit_cost || 0);
+          const at = t.created_at;
+          if (!lastAt || at > lastAt) lastAt = at;
+          const ad = new Date(at);
+          spend365 += amt;
+          if (ad >= cutoff90) spend90 += amt;
+          if (ad >= cutoff30) spend30 += amt;
+        }
+      }
+      // Always honour the most-recent transaction timestamp for last
+      // buy (even when receipts is canonical, an out-of-band stock-in
+      // is still a real purchase signal).
+      for (const t of txRows) {
+        if (!lastAt || t.created_at > lastAt) lastAt = t.created_at;
       }
       return {
         ...(s as Supplier),
@@ -180,7 +203,8 @@ export const supplierService = {
     email?: string | null;
     phone?: string | null;
     contact_person?: string | null;
-    payment_terms?: string | null;
+    // SUP-B: column is int in the schema (days). Callers must coerce.
+    payment_terms?: number | null;
     payment_method?: string | null;
     preferred_contact_method?: string | null;
     website?: string | null;
@@ -232,6 +256,46 @@ export const supplierService = {
       .update({ deleted_at: new Date().toISOString(), is_active: false } as any)
       .eq("id", supplierId);
     if (error) throw error;
+  },
+
+  /**
+   * SUP-B: count referencing rows so the delete confirm can warn the
+   * operator before silently nulling FKs. All five referencing tables
+   * use ON DELETE SET NULL or similar, but the operator deserves to
+   * see what's about to lose its link.
+   *
+   * Cheap: each is a HEAD count query, fired in parallel.
+   */
+  async countReferences(supplierId: string): Promise<{
+    equipment_owned: number;
+    equipment_preferred_hire: number;
+    open_hire_orders: number;
+    open_payables: number;
+    linked_items: number;
+    preferred_items: number;
+  }> {
+    const heads = async (tbl: string, col: string, extra?: (q: any) => any) => {
+      let q = (supabase as any).from(tbl).select("id", { head: true, count: "exact" }).eq(col, supplierId);
+      if (extra) q = extra(q);
+      const { count } = await q;
+      return Number(count || 0);
+    };
+    const [eqOwned, eqPref, hire, payable, links, preferred] = await Promise.all([
+      heads("equipment", "supplier_of_record_id"),
+      heads("equipment", "preferred_hire_supplier_id"),
+      heads("equipment_hire_orders", "supplier_id", (q: any) => q.in("status", ["draft", "confirmed", "picked_up"])),
+      heads("supplier_payables", "supplier_id", (q: any) => q.eq("status", "pending")),
+      heads("inventory_item_suppliers", "supplier_id"),
+      heads("inventory_item_suppliers", "supplier_id", (q: any) => q.eq("is_preferred", true)),
+    ]);
+    return {
+      equipment_owned: eqOwned,
+      equipment_preferred_hire: eqPref,
+      open_hire_orders: hire,
+      open_payables: payable,
+      linked_items: links,
+      preferred_items: preferred,
+    };
   },
 
   /** All inventory items linked to this supplier, with the join row's
