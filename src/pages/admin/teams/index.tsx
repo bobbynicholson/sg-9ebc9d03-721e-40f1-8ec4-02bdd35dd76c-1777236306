@@ -59,7 +59,7 @@ import {
 } from "lucide-react";
 
 interface TeamRow {
-  key: "kitchen" | "drivers" | "shopping" | "cleaning";
+  key: "kitchen" | "drivers" | "shopping" | "cleaning" | "sales" | "outsource";
   name: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any;
@@ -166,6 +166,11 @@ function TeamsIndexPage() {
   // TMS-C: WhatsApp broadcast dialog state. Per-team team-key
   // identifies which roster to fan out to.
   const [broadcastTeam, setBroadcastTeam] = useState<TeamRow | null>(null);
+  // TMS-D (task #206, 2026-05-24): hire-in pipeline counters for
+  // the "Operational pipelines" section below the team tiles.
+  const [hireInOpenCount, setHireInOpenCount] = useState(0);
+  const [hireInOverdue, setHireInOverdue] = useState(0);
+  const [hireInBurn, setHireInBurn] = useState(0);
 
   const regionLabel = useMemo(() => {
     if (!regionFilterId) return null;
@@ -489,6 +494,79 @@ function TeamsIndexPage() {
         .eq("company_id", companyId)
         .in("status", ["expected", "in_progress"]);
 
+      // TMS-D (task #206, 2026-05-24): sales + outsource team
+      // metrics. Both are valid profiles.role values; both have
+      // their own ops surfaces (leads + quotes for sales, outsource
+      // providers for outsource). We pull lightweight counts in
+      // parallel so the extra tiles don't cost a round-trip burst.
+      const [
+        leadsTodayRes,
+        quotesTodayRes,
+        outsourceProvidersRes,
+        outsourceAssnTodayRes,
+        outsourceAssnLastWeekRes,
+      ] = await Promise.all([
+        // Leads created today (proxy for sales activity).
+        supabase.from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("created_at", todayISO + "T00:00:00"),
+        // Quotes sent today.
+        supabase.from("quotes")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("created_at", todayISO + "T00:00:00"),
+        // Active outsource providers - those with at least one
+        // assignment in the last 30 days are "in rotation". The
+        // simpler count is just is_active=true on the providers
+        // row.
+        supabase.from("outsource_providers")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .is("deleted_at", null),
+        // Outsource assignments today via the joined order.
+        // outsource_assignments doesn't carry event_date directly;
+        // we filter via orders.event_date.
+        supabase.from("outsource_assignments")
+          .select("id, orders!inner(event_date, company_id, deleted_at)")
+          .eq("company_id", companyId)
+          .is("orders.deleted_at", null)
+          .eq("orders.event_date", todayISO),
+        supabase.from("outsource_assignments")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("created_at", lastWeekISO + "T00:00:00")
+          .lt("created_at", lastWeekISO + "T23:59:59"),
+      ]);
+
+      // TMS-D: hire-in pipeline (separate "Operational pipelines"
+      // section below the team tiles). Counts open hire orders +
+      // overdue picks - same shape as the existing HireInPanel
+      // overdue logic.
+      const { data: hireInOpenRows } = await supabase
+        .from("equipment_hire_orders")
+        .select("id, status, expected_pickup_date, total_cost")
+        .eq("company_id", companyId)
+        .in("status", ["draft", "confirmed", "picked_up"]);
+      const hireInOpen = (hireInOpenRows || []) as Array<{
+        status: string; expected_pickup_date: string | null; total_cost: number | null;
+      }>;
+      let burnAccum = 0;
+      let overdueAccum = 0;
+      for (const h of hireInOpen) {
+        burnAccum += Number(h.total_cost || 0);
+        if (
+          h.status === "draft" &&
+          h.expected_pickup_date &&
+          h.expected_pickup_date < todayISO
+        ) overdueAccum += 1;
+      }
+      setHireInOpenCount(hireInOpen.length);
+      setHireInOverdue(overdueAccum);
+      setHireInBurn(burnAccum);
+
       // TMS-B: cross-team risk - events in the next 4 hours with no
       // accepted driver. Pulls confirmed orders + their assignment
       // status. Anything with no assignment OR all assignments
@@ -590,10 +668,10 @@ function TeamsIndexPage() {
           icon: ShoppingBag,
           iconColor: "text-orange-600",
           bg: "from-orange-50 to-rose-50",
-          // TMS-B: route stays on /admin/shopping (the ops surface).
-          // No teams/shopping landing yet - parked in the deferred
-          // bundle so this PR doesn't grow.
-          href: "/admin/shopping",
+          // TMS-D (task #206, 2026-05-24): now routes to the team
+          // landing built in admin/teams/shopping.tsx - same IA as
+          // kitchen / drivers / cleaning.
+          href: "/admin/teams/shopping",
           headCount: staffByRole["shopping_staff"] || 0,
           // null = honest "we don't track shift hours for this team"
           // - the tile renders "—" instead of a misleading 0.
@@ -632,6 +710,58 @@ function TeamsIndexPage() {
           clockedNow: null,
           handoverPending: handoverPending ?? 0,
         },
+        // TMS-D (task #206, 2026-05-24): Sales tile. sales_admin
+        // role is real (per enum). Activity = leads created today +
+        // quotes sent today. No shift table for the sales persona,
+        // so hours wk renders "—". Routes to /admin/leads as the
+        // natural daily landing for that team.
+        {
+          key: "sales" as TeamRow["key"],
+          name: "Sales",
+          icon: Users,
+          iconColor: "text-indigo-600",
+          bg: "from-indigo-50 to-violet-50",
+          href: "/admin/leads",
+          headCount: staffByRole["sales_admin"] || 0,
+          hoursThisWeek: null,
+          jobsToday: (leadsTodayRes.count ?? 0) + (quotesTodayRes.count ?? 0),
+          jobsSameDayLastWeek: null,
+          anomalies: 0,
+          anomalyHint: (leadsTodayRes.count ?? 0) > 0
+            ? `${leadsTodayRes.count} new lead${leadsTodayRes.count === 1 ? "" : "s"}, ${quotesTodayRes.count ?? 0} quote${quotesTodayRes.count === 1 ? "" : "s"} sent`
+            : "Quiet pipeline today",
+          nextLabel: null,
+          nextTimeISO: null,
+          burnTodayZar: null,
+          clockedNow: null,
+          handoverPending: 0,
+        },
+        // TMS-D: Outsource tile. 'outsource' role exists in the
+        // enum (used for sub-contractor logins); outsource_providers
+        // is the catalogue table. Numbers = active providers, today's
+        // assignments. Routes to /admin/outsource-providers for the
+        // operator's daily landing.
+        {
+          key: "outsource" as TeamRow["key"],
+          name: "Outsource",
+          icon: Truck,
+          iconColor: "text-teal-600",
+          bg: "from-teal-50 to-cyan-50",
+          href: "/admin/outsource-providers",
+          headCount: outsourceProvidersRes.count ?? 0,
+          hoursThisWeek: null,
+          jobsToday: (outsourceAssnTodayRes.data || []).length,
+          jobsSameDayLastWeek: outsourceAssnLastWeekRes.count ?? null,
+          anomalies: 0,
+          anomalyHint: (outsourceAssnTodayRes.data || []).length > 0
+            ? "Sub-contractors on assignment today"
+            : "No outsource jobs today",
+          nextLabel: null,
+          nextTimeISO: null,
+          burnTodayZar: null,
+          clockedNow: null,
+          handoverPending: 0,
+        },
       ];
 
       setRows(teamRows);
@@ -668,6 +798,12 @@ function TeamsIndexPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "shopping_lists", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
+      // TMS-D (task #206, 2026-05-24): also listen on the tables
+      // backing the new Sales / Outsource / Hire-in surfaces so
+      // those tiles + the Pipelines card stay fresh.
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "outsource_assignments", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_hire_orders", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -895,6 +1031,56 @@ function TeamsIndexPage() {
             })}
           </div>
 
+          {/* TMS-D (task #206, 2026-05-24): operational pipelines
+              section. Hire-in isn't a "team" in the staff sense but
+              it's a daily ops queue the dispatcher cares about - open
+              orders, overdue picks, committed spend. Tile mirrors the
+              team-row shape so the page reads consistently. */}
+          {!loading && (
+            <div className="mt-6">
+              <h2 className="text-xs uppercase tracking-wide font-semibold text-slate-500 mb-2">
+                Operational pipelines
+              </h2>
+              <Link href={withSlug("/admin/equipment?tab=hire-in")} className="block">
+                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-purple-50 to-fuchsia-50 flex items-center justify-center flex-shrink-0">
+                        <ShoppingBag className="w-6 h-6 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-lg sm:text-xl font-bold text-slate-900">Hire-in</h3>
+                          {hireInOverdue > 0 && (
+                            <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
+                              {hireInOverdue} overdue
+                            </Badge>
+                          )}
+                          {canSeeFinance && hireInBurn > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] tabular-nums border-emerald-300 text-emerald-700 bg-emerald-50"
+                              title="Committed spend across all open hire-in orders (draft + confirmed + picked-up). Closes when the order is marked returned + payable cleared."
+                            >
+                              <DollarSign className="w-2.5 h-2.5 mr-0.5" />
+                              {tenantCurrency.format(hireInBurn)} open
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {hireInOpenCount === 0
+                            ? "No open hire-in orders"
+                            : `${hireInOpenCount} open order${hireInOpenCount === 1 ? "" : "s"} across draft / confirmed / picked-up`}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+          )}
+
           {/* TMS-C: per-team WhatsApp broadcast dialog. Fans out one
               queue row per team member with a phone + whatsapp_opt_in.
               The drain cron (/api/cron/whatsapp-drain) sends them. */}
@@ -962,6 +1148,8 @@ function BroadcastDialog({
     drivers: "driver",
     shopping: "shopping_staff",
     cleaning: "cleaning_staff",
+    sales: "sales_admin",
+    outsource: "outsource",
   };
 
   // Load roster every time the dialog opens for a new team.
