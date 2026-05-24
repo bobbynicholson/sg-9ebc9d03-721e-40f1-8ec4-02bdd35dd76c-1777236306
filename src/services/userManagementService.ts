@@ -374,6 +374,16 @@ export const userManagementService = {
         // Don't throw here, just log - the assignment might still be valid
       }
 
+      // USR-C (task #208, 2026-05-24): capture before-state for
+      // the audit log. We need company_id + the existing
+      // department list so the audit row can show the diff.
+      const [{ data: beforeRow }, { data: beforeDepts }] = await Promise.all([
+        supabase.from("profiles").select("company_id").eq("id", userId).maybeSingle(),
+        supabase.from("user_departments").select("department, is_primary").eq("user_id", userId),
+      ]);
+      const beforeDeptList = ((beforeDepts || []) as Array<{ department: string; is_primary: boolean | null }>)
+        .map((d) => ({ department: d.department, is_primary: !!d.is_primary }));
+
       // Delete existing departments for the user
       const { error: deleteError } = await supabase
         .from("user_departments")
@@ -384,7 +394,7 @@ export const userManagementService = {
         console.error("Error deleting existing departments:", deleteError);
         throw new Error(`Failed to remove existing department assignments: ${deleteError.message}`);
       }
-      
+
       // Insert new department assignments
       if (departments.length > 0) {
         const newDepartmentsData = departments.map(dept => ({
@@ -393,22 +403,42 @@ export const userManagementService = {
           is_primary: dept.is_primary,
           assigned_by: assignedBy,
         }));
-        
+
         const { error: insertError } = await supabase
           .from("user_departments")
           .insert(newDepartmentsData as any);
 
         if (insertError) {
           console.error("Error inserting new departments:", insertError);
-          
+
           // Provide more specific error messages
           if (insertError.code === "23503") {
             throw new Error("Foreign key constraint violation: User profile does not exist");
           } else if (insertError.code === "23505") {
             throw new Error("Duplicate department assignment detected");
           }
-          
+
           throw new Error(`Failed to assign departments: ${insertError.message}`);
+        }
+      }
+
+      // USR-C: audit log write. Best-effort so a Sentry blip on the
+      // audit insert doesn't roll back the actual department change.
+      if (beforeRow?.company_id) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from("user_access_audit").insert({
+            company_id: beforeRow.company_id,
+            target_user_id: userId,
+            actor_user_id: assignedBy,
+            action: "departments_changed",
+            details: {
+              before: { departments: beforeDeptList },
+              after: { departments: departments.map((d) => ({ department: d.department, is_primary: d.is_primary })) },
+            },
+          });
+        } catch (auditErr) {
+          console.warn("[user_access_audit] departments_changed write failed:", auditErr);
         }
       }
 
@@ -469,8 +499,11 @@ export const userManagementService = {
 
   /**
    * Update user's active status
+   *
+   * USR-C (task #208, 2026-05-24): now takes `actorUserId` so we
+   * can write the audit row alongside the profiles update.
    */
-  async updateUserStatus(userId: string, isActive: boolean): Promise<void> {
+  async updateUserStatus(userId: string, isActive: boolean, actorUserId?: string): Promise<void> {
     try {
       // Verify user exists first
       const exists = await this.userExists(userId);
@@ -478,12 +511,41 @@ export const userManagementService = {
         throw new Error(`User with ID ${userId} does not exist`);
       }
 
+      // Pull the company_id + before-state so the audit row is
+      // complete. If the lookup fails we still update; audit is
+      // best-effort to avoid blocking the operator on a Sentry blip.
+      const { data: priorRow } = await supabase
+        .from("profiles")
+        .select("company_id, is_active")
+        .eq("id", userId)
+        .maybeSingle();
+
       const { error } = await supabase
         .from("profiles")
         .update({ is_active: isActive })
         .eq("id", userId);
 
       if (error) throw error;
+
+      // Audit log write. Skipped on no priorRow (can't determine
+      // company_id) or matching state (no-op update).
+      if (priorRow?.company_id && priorRow.is_active !== isActive) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from("user_access_audit").insert({
+            company_id: priorRow.company_id,
+            target_user_id: userId,
+            actor_user_id: actorUserId || null,
+            action: "status_changed",
+            details: {
+              before: { is_active: priorRow.is_active },
+              after: { is_active: isActive },
+            },
+          });
+        } catch (auditErr) {
+          console.warn("[user_access_audit] status_changed write failed:", auditErr);
+        }
+      }
     } catch (error) {
       console.error("Error updating user status:", error);
       throw error;

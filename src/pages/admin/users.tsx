@@ -3,12 +3,22 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { AdminNav } from "@/components/admin/AdminNav";
 import {
   Users,
@@ -26,8 +36,15 @@ import {
   AlertCircle,
   RefreshCw,
   Download,
-  X
+  X,
+  UserPlus,
+  UserX,
+  UserCheck,
+  Clock,
+  Mail,
+  Trash2,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,9 +58,37 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
 
+// USR-C (task #208, 2026-05-24): pending-invite shape used by the
+// new Pending tab + Invite dialog.
+interface PendingInvitation {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string | null;
+  status: string | null;
+  invited_by: string | null;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
 function AdminUsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  // USR-C: tab between live staff (default) and pending invites.
+  const [activeTab, setActiveTab] = useState<"staff" | "pending">("staff");
+  const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  // USR-C: Invite User dialog state.
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<UserRole>("kitchen_staff" as UserRole);
+  const [inviting, setInviting] = useState(false);
+  // USR-C: Deactivate-confirm + role-mutation tracking. Held on a
+  // per-user id so two clicks on different rows don't race.
+  const [confirmDeactivate, setConfirmDeactivate] = useState<UserWithDepartments | null>(null);
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
   // Phase 26 #6: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -123,6 +168,178 @@ function AdminUsersPage() {
       setStats(fetchedStats);
     } catch (error) {
       console.error("Error loading stats:", error);
+    }
+  };
+
+  // USR-C (task #208, 2026-05-24): pending invitations loader.
+  // Pulls staff_invitations for the tenant with status='pending'.
+  // Expired invites surface with a chip so the operator can resend
+  // or cancel.
+  const loadInvitations = async () => {
+    if (!user?.company_id) return;
+    setInvitationsLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from("staff_invitations")
+        .select("id, email, full_name, role, status, invited_by, created_at, expires_at")
+        .eq("company_id", user.company_id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setInvitations((data || []) as PendingInvitation[]);
+    } catch (err) {
+      console.error("Error loading invitations:", err);
+    } finally {
+      setInvitationsLoading(false);
+    }
+  };
+
+  // USR-C: URL persistence on q, sort, tab. Reads on mount; the
+  // sort sync writes back via SortMenu's setSort indirectly through
+  // userSort below.
+  useEffect(() => {
+    const q = typeof router.query.q === "string" ? router.query.q : "";
+    const tab = router.query.tab === "pending" ? "pending" : "staff";
+    if (q !== searchTerm) setSearchTerm(q);
+    if (tab !== activeTab) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
+  // Write q + tab back to the URL with shallow replace so the URL
+  // reflects the current view but doesn't push history entries on
+  // every keystroke.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = { ...router.query } as Record<string, string>;
+    if (searchTerm) next.q = searchTerm; else delete next.q;
+    if (activeTab !== "staff") next.tab = activeTab; else delete next.tab;
+    const desired = new URLSearchParams(next).toString();
+    const current = new URLSearchParams(router.query as Record<string, string>).toString();
+    if (desired !== current) {
+      router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, activeTab]);
+
+  // USR-C: realtime debounce. New signup / department change /
+  // invitation accept should refresh the page without manual click.
+  // 1500ms because role / department admin work tends to cluster.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void loadUsers();
+        void loadStats();
+        void loadInvitations();
+      }, 1500);
+    };
+    const channel = supabase
+      .channel(`admin-users:${user.company_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${user.company_id}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "staff_invitations", filter: `company_id=eq.${user.company_id}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
+  // Initial load of invitations.
+  useEffect(() => {
+    if (user?.company_id) void loadInvitations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
+  // USR-C: invite-new-user submit handler. Validates input,
+  // calls existing inviteStaffMember service, resets the dialog.
+  const handleInviteSubmit = async () => {
+    if (!user?.company_id || !user.id) return;
+    const trimmedEmail = inviteEmail.trim();
+    const trimmedName = inviteName.trim();
+    if (!trimmedEmail) {
+      toast({ title: "Email required", variant: "destructive" });
+      return;
+    }
+    setInviting(true);
+    try {
+      const res = await userManagementService.inviteStaffMember(
+        user.company_id,
+        trimmedEmail,
+        inviteRole,
+        trimmedName || trimmedEmail.split("@")[0],
+        user.id,
+      );
+      if (!res.success) {
+        toast({ title: "Could not invite", description: res.error || "Unknown error", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Invitation sent",
+        description: res.error
+          ? `Invite created but email failed: ${res.error}`
+          : `Magic-link email queued to ${trimmedEmail}.`,
+      });
+      setInviteOpen(false);
+      setInviteEmail("");
+      setInviteName("");
+      setInviteRole("kitchen_staff" as UserRole);
+      void loadInvitations();
+    } catch (err) {
+      toast({
+        title: "Could not invite",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  // USR-C: toggle is_active via the service. Audit-logged at the
+  // service layer. Confirms before deactivating (a click-by-mistake
+  // here locks someone out); re-activation is single-click.
+  const handleStatusToggle = async (targetUser: UserWithDepartments, nextActive: boolean) => {
+    if (!user?.id) return;
+    setStatusBusy(targetUser.id);
+    try {
+      await userManagementService.updateUserStatus(targetUser.id, nextActive, user.id);
+      toast({
+        title: nextActive ? "User reactivated" : "User deactivated",
+        description: nextActive
+          ? `${targetUser.full_name || targetUser.email} can sign in again.`
+          : `${targetUser.full_name || targetUser.email} can no longer sign in. Reactivate from this page.`,
+      });
+      await loadUsers();
+    } catch (err) {
+      toast({
+        title: "Could not update",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setStatusBusy(null);
+      setConfirmDeactivate(null);
+    }
+  };
+
+  // USR-C: cancel a pending invitation. Service exists; reload on
+  // success so the row drops out of the tab.
+  const handleCancelInvitation = async (invitationId: string) => {
+    try {
+      await userManagementService.cancelInvitation(invitationId);
+      toast({ title: "Invitation cancelled" });
+      void loadInvitations();
+    } catch (err) {
+      toast({
+        title: "Could not cancel",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
     }
   };
 
@@ -382,6 +599,18 @@ function AdminUsersPage() {
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
+                {/* USR-C (task #208, 2026-05-24): Invite User
+                    button. Opens the dialog that calls the existing
+                    inviteStaffMember service (which now has the
+                    schema columns it needs). */}
+                <Button
+                  size="sm"
+                  onClick={() => setInviteOpen(true)}
+                  className="bg-purple-600 hover:bg-purple-700 gap-1.5"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Invite user
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -425,6 +654,39 @@ function AdminUsersPage() {
             ))}
           </div>
 
+          {/* USR-C (task #208, 2026-05-24): tab switcher between
+              the live staff list and pending invitations. */}
+          <div className="mb-4 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 w-fit text-sm">
+            <button
+              type="button"
+              onClick={() => setActiveTab("staff")}
+              className={`px-3 py-1.5 rounded-md transition ${
+                activeTab === "staff"
+                  ? "bg-purple-600 text-white font-medium"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Staff <span className="ml-1 text-xs opacity-75">({users.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("pending")}
+              className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
+                activeTab === "pending"
+                  ? "bg-purple-600 text-white font-medium"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Pending invites
+              {invitations.length > 0 && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === "pending" ? "bg-white/30" : "bg-amber-100 text-amber-800"}`}>
+                  {invitations.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           <div className="mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
@@ -465,7 +727,13 @@ function AdminUsersPage() {
             />
           </div>
 
-          {filteredUsers.length === 0 ? (
+          {activeTab === "pending" ? (
+            <PendingInvitationsList
+              invitations={invitations}
+              loading={invitationsLoading}
+              onCancel={handleCancelInvitation}
+            />
+          ) : filteredUsers.length === 0 ? (
             <Card className="border-0 shadow-md">
               <CardContent className="pt-12 pb-12 text-center">
                 <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
@@ -567,7 +835,7 @@ function AdminUsersPage() {
                         </div>
 
                         {editingUser !== targetUser.id && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <InfoTooltip
                               content={"Click to assign or change departments for this user.\n\nYou can pick more than one and mark one as primary."}
                               side="left"
@@ -576,11 +844,41 @@ function AdminUsersPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditUser(targetUser.id)}
-                              className="w-full sm:w-auto text-sm"
+                              className="text-sm"
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Departments
                             </Button>
+                            {/* USR-C (task #208, 2026-05-24): deactivate
+                                / reactivate. The hero copy used to
+                                promise "revoke access here" - this
+                                ships it. Deactivation needs a confirm
+                                because mis-clicking locks the user
+                                out; reactivation is one click. */}
+                            {targetUser.is_active ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setConfirmDeactivate(targetUser)}
+                                disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
+                                title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
+                                className="text-sm text-rose-700 border-rose-300 hover:bg-rose-50"
+                              >
+                                <UserX className="w-4 h-4 mr-2" />
+                                Deactivate
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleStatusToggle(targetUser, true)}
+                                disabled={statusBusy === targetUser.id}
+                                className="text-sm text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                              >
+                                <UserCheck className="w-4 h-4 mr-2" />
+                                {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -696,7 +994,185 @@ function AdminUsersPage() {
           )}
         </div>
       </div>
+
+      {/* USR-C (task #208, 2026-05-24): Invite User dialog. Calls
+          the existing inviteStaffMember service (now functional
+          after the staff_invitations email + full_name migration). */}
+      <Dialog open={inviteOpen} onOpenChange={(o) => { if (!o) setInviteOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-purple-600" />
+              Invite new user
+            </DialogTitle>
+            <DialogDescription>
+              They'll get a magic-link email to set their password and pick their portal. Expires in 7 days.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Email</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="e.g. sipho@spitbraaidelivery.co.za"
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Full name (optional)</Label>
+              <Input
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Sipho Dlamini"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Role</Label>
+              <Select value={String(inviteRole)} onValueChange={(v) => setInviteRole(v as UserRole)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="company_admin">Company Admin</SelectItem>
+                  <SelectItem value="kitchen_staff">Kitchen Team</SelectItem>
+                  <SelectItem value="driver">Driver</SelectItem>
+                  <SelectItem value="shopping_staff">Shopping Team</SelectItem>
+                  <SelectItem value="cleaning_staff">Cleaning Team</SelectItem>
+                  <SelectItem value="sales_admin">Sales Admin</SelectItem>
+                  <SelectItem value="region_admin">Region Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Departments can be assigned on the user's row after they accept. The role here drives their initial portal default.
+            </p>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={inviting}>Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleInviteSubmit}
+              disabled={inviting || !inviteEmail.trim()}
+              className="bg-purple-600 hover:bg-purple-700 gap-1.5"
+            >
+              {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              {inviting ? "Sending..." : "Send invite"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* USR-C: deactivate confirm. Locking someone out is destructive
+          enough to deserve a confirm. Reactivation skips it. */}
+      <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => { if (!o) setConfirmDeactivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDeactivate?.full_name || confirmDeactivate?.email} will not be able to sign in until you reactivate them.
+              Their data stays - departments, history, payslips all remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusBusy === confirmDeactivate?.id}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmDeactivate && handleStatusToggle(confirmDeactivate, false)}
+              disabled={statusBusy === confirmDeactivate?.id}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              {statusBusy === confirmDeactivate?.id ? "Saving..." : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+  );
+}
+
+// USR-C (task #208, 2026-05-24): pending invites tab body.
+function PendingInvitationsList({
+  invitations, loading, onCancel,
+}: {
+  invitations: PendingInvitation[];
+  loading: boolean;
+  onCancel: (id: string) => Promise<void>;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+  if (invitations.length === 0) {
+    return (
+      <Card className="border-0 shadow-md">
+        <CardContent className="pt-12 pb-12 text-center">
+          <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-base font-semibold text-slate-900 mb-1">No pending invitations</p>
+          <p className="text-sm text-slate-600">Invitations expire after 7 days. Send one from the button up top.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  const nowMs = Date.now();
+  return (
+    <div className="space-y-3">
+      {invitations.map((inv) => {
+        const expiresMs = inv.expires_at ? new Date(inv.expires_at).getTime() : null;
+        const expired = expiresMs != null && expiresMs < nowMs;
+        return (
+          <Card key={inv.id} className="border-0 shadow-md">
+            <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-slate-900 truncate">{inv.full_name || inv.email || "Invitee"}</p>
+                  {inv.role && (
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                      {inv.role}
+                    </Badge>
+                  )}
+                  {expired ? (
+                    <Badge variant="destructive" className="text-[10px]">
+                      <Clock className="w-2.5 h-2.5 mr-1" /> Expired
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[10px]">Pending</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5 truncate">{inv.email || "(no email captured)"}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Invited {inv.created_at ? formatLocalDate(inv.created_at) : "—"}
+                  {inv.expires_at && (
+                    <span className="ml-2">
+                      · Expires {formatLocalDate(inv.expires_at)}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onCancel(inv.id)}
+                className="text-rose-700 border-rose-300 hover:bg-rose-50 gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Cancel
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
