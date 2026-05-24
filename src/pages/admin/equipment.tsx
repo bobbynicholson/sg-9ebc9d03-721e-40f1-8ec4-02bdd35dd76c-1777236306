@@ -240,6 +240,7 @@ function EquipmentPage() {
 
 function CatalogTab({ companyId }: { companyId: string | null }) {
   const { toast } = useToast();
+  const router = useRouter();
   const pricingMode = usePricingMode();
   const [rows, setRows] = useState<EquipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,6 +281,18 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
   const [filterAvailable, setFilterAvailable] = useState<"all" | "available" | "hidden">("all");
+  // OFR-B (offering deferred, 2026-05-24): honour ?filter= from the
+  // /admin/offering page. "missing-photo" filters to rows without an
+  // image_url, "missing-price" to rows with no rental_price set.
+  // Lets the operator land on the exact rows that need fixing
+  // straight from the chip on /admin/offering.
+  const [gapFilter, setGapFilter] = useState<"none" | "missing-photo" | "missing-price">("none");
+  useEffect(() => {
+    if (!router.isReady) return;
+    const f = typeof router.query.filter === "string" ? router.query.filter : "";
+    if (f === "missing-photo" || f === "missing-price") setGapFilter(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.filter]);
 
   const [editing, setEditing] = useState<EquipmentRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -338,6 +351,9 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
     return rows.filter((r) => {
       if (filterAvailable === "available" && r.is_available === false) return false;
       if (filterAvailable === "hidden" && r.is_available !== false) return false;
+      // OFR-B: gap-filter from /admin/offering deep-link.
+      if (gapFilter === "missing-photo" && r.image_url) return false;
+      if (gapFilter === "missing-price" && r.rental_price && Number(r.rental_price) > 0) return false;
       if (!q) return true;
       return (
         (r.name || "").toLowerCase().includes(q) ||
@@ -345,7 +361,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         (r.description || "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, filterAvailable]);
+  }, [rows, search, filterAvailable, gapFilter]);
 
   const equipmentSortColumns: ColumnDef<EquipmentRow>[] = useMemo(() => [
     { key: "name",     accessor: (r) => r.name,                             type: "string" },

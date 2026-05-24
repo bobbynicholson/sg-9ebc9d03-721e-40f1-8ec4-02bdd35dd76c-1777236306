@@ -183,6 +183,17 @@ function MenuPage() {
     if (q) setSearch(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
+  // OFR-B (offering deferred, 2026-05-24): gap-filter from
+  // /admin/offering deep-link. Same vocab the equipment page uses.
+  // "missing-photo" filters to rows without an image_url, "missing-
+  // price" to rows where base_price is null/0.
+  const [gapFilter, setGapFilter] = useState<"none" | "missing-photo" | "missing-price">("none");
+  useEffect(() => {
+    if (!router.isReady) return;
+    const f = typeof router.query.filter === "string" ? router.query.filter : "";
+    if (f === "missing-photo" || f === "missing-price") setGapFilter(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.filter]);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -314,6 +325,23 @@ function MenuPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
 
+  // OFR-B (offering deferred, 2026-05-24): honour ?item=<id> from
+  // /admin/offering's Top-3 / Never-quoted deep-links. Once the
+  // item list loads, find the row and open the edit drawer on it.
+  // Single-fire flag so a manual close doesn't immediately re-open.
+  const [didOpenFromQuery, setDidOpenFromQuery] = useState(false);
+  useEffect(() => {
+    if (didOpenFromQuery) return;
+    if (!router.isReady) return;
+    const id = typeof router.query.item === "string" ? router.query.item : "";
+    if (!id || items.length === 0) return;
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    setDidOpenFromQuery(true);
+    void openEdit(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.item, items.length]);
+
   // ── Filtering ────────────────────────────────────────────────────────
 
   const visibleRaw = useMemo(() => {
@@ -321,12 +349,17 @@ function MenuPage() {
     return items
       .filter(i => showArchived ? true : !i.deleted_at)
       .filter(i => filterCategory === "all" || (i.category || "").toLowerCase() === filterCategory.toLowerCase())
+      // OFR-B: gap-filter from /admin/offering deep-link.
+      .filter(i => gapFilter === "none"
+        || (gapFilter === "missing-photo" && !i.image_url)
+        || (gapFilter === "missing-price" && (!i.base_price || Number(i.base_price) <= 0))
+      )
       .filter(i => !term
         || i.item_name.toLowerCase().includes(term)
         || (i.category || "").toLowerCase().includes(term)
         || (i.description || "").toLowerCase().includes(term)
       );
-  }, [items, showArchived, search, filterCategory]);
+  }, [items, showArchived, search, filterCategory, gapFilter]);
 
   // Sortable columns exposed via the SortMenu (the menu page is a
   // card grid grouped by category, so a click-to-sort header doesn't
