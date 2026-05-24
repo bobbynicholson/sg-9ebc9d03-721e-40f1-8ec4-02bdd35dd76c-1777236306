@@ -53,11 +53,17 @@ import { usePricingMode } from "@/hooks/usePricingMode";
 import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
-import { equipmentManagementService } from "@/services/equipmentManagementService";
+import {
+  equipmentManagementService,
+  buyVsRentRecommendation,
+  detectMaterialConflict,
+} from "@/services/equipmentManagementService";
 import { ShortagesPanel } from "@/components/admin/equipment/ShortagesPanel";
 import { HireInPanel } from "@/components/admin/equipment/HireInPanel";
 import { DamageAnalytics } from "@/components/cleaning/DamageAnalytics";
 import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
+import { supabase } from "@/integrations/supabase/client";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -314,6 +320,13 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
     return m ? `/${m[1]}` : "";
   }, []);
 
+  // EQP-B (equipment deferred, 2026-05-24): intel maps. Loaded
+  // alongside the catalogue rows in one fan-out so the per-row chips
+  // (utilisation, damages, buy-vs-rent) render without an N+1 query.
+  const [utilByItem, setUtilByItem] = useState<Map<string, { bookedEvents: number; totalEvents: number; pct: number }>>(new Map());
+  const [damagesByItem, setDamagesByItem] = useState<Map<string, { count: number; totalCost: number }>>(new Map());
+  const [hireSpendByItem, setHireSpendByItem] = useState<Map<string, { hireCount: number; totalSpend: number }>>(new Map());
+
   const loadRows = async () => {
     if (!companyId) {
       setLoading(false);
@@ -321,15 +334,50 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
     }
     setLoading(true);
     try {
-      const data = await equipmentManagementService.getAllEquipment(companyId);
+      const [data, util, damages, hireSpend] = await Promise.all([
+        equipmentManagementService.getAllEquipment(companyId),
+        equipmentManagementService.getUtilisationByItem(companyId, 90),
+        equipmentManagementService.getDamagesByItem(companyId, 90),
+        equipmentManagementService.getHireInSpendByItem(companyId, 90),
+      ]);
       setRows((data as any) || []);
-    } catch (e: any) {
-      toast({ title: "Could not load equipment", description: e?.message ?? "", variant: "destructive" });
+      setUtilByItem(util);
+      setDamagesByItem(damages);
+      setHireSpendByItem(hireSpend);
+    } catch (e: unknown) {
+      captureException(e, { tags: { route: "/admin/equipment", step: "load-catalog", companyId } });
+      toast({
+        title: "Could not load equipment",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => { loadRows(); /* eslint-disable-next-line */ }, [companyId]);
+
+  // EQP-B: realtime channel. Damage logged elsewhere or a hire-in
+  // status change refreshes the catalogue chips. Debounced 1500ms.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void loadRows(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`equipment:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_bookings", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   useEffect(() => {
     if (!reservationsFor || !companyId) return;
@@ -476,6 +524,26 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const lowStock = rows.filter(
     (r) => r.is_available !== false && safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0,
   ).length;
+  // EQP-B: hire-in spend rollup for the replaced "Total units" tile.
+  let hireInCommittedTotal = 0;
+  let hireInCommittedCount = 0;
+  for (const v of hireSpendByItem.values()) {
+    hireInCommittedTotal += v.totalSpend;
+    hireInCommittedCount += v.hireCount;
+  }
+  // EQP-B: finance visibility gate. Hire-in cost is supplier pricing
+  // (not customer pricing) - finance role only. Mirrors the Skylight
+  // "finance to Directors" rule we apply on /admin/wages, refunds,
+  // and the cashflow pages. Same role check pattern menu.tsx uses.
+  const { profile } = useAuth();
+  const financeRole = String(
+    (profile as { active_role?: string; role?: string } | null)?.active_role
+    || (profile as { active_role?: string; role?: string } | null)?.role
+    || "",
+  ).toLowerCase();
+  const canSeeFinance =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
   // Phase 19 #3: roll up service-due state so an operator scanning
   // the page sees how much kit needs servicing without having to
   // scroll through and read each row's badge. Same definition as the
@@ -522,28 +590,32 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
               toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
               return;
             }
+            // EQP-B: column accessor was reading hire_in_cost_per_unit
+            // which doesn't exist on this table - the column is
+            // hire_in_cost. Pre-EQP-B the Hire-in cost column was
+            // permanently empty in the export. Also added BOM + CRLF.
             const headers = [
               "Name", "Category", "Quantity", "Available", "Condition",
               "Rental price", "Hire-in cost", "Cleaning hrs", "Hidden", "Description",
             ];
-            const esc = (v: any) => {
+            const esc = (v: unknown) => {
               if (v == null) return "";
               const s = String(v).replace(/"/g, '""');
               return /[",\n]/.test(s) ? `"${s}"` : s;
             };
             const lines = [headers.join(",")];
-            for (const r of filtered as any[]) {
+            for (const r of filtered as unknown as Array<Record<string, unknown>>) {
               lines.push([
                 esc(r.name), esc(r.category),
                 esc(r.quantity), esc(r.available_quantity),
                 esc(r.condition),
-                esc(r.rental_price), esc(r.hire_in_cost_per_unit),
+                esc(r.rental_price), esc(r.hire_in_cost),
                 esc(r.cleaning_time_hours),
                 esc(r.is_available === false ? "yes" : "no"),
                 esc(r.description),
               ].join(","));
             }
-            const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+            const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -581,9 +653,40 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
-        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
+        {/* EQP-B: replaced "Total units" vanity tile with hire-in
+            committed - the operator-actionable number is "how much
+            am I spending on third-party rentals". Falls back to
+            total-units for roles without finance visibility. */}
+        {canSeeFinance ? (
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4">
+              <p className="text-xs text-slate-600 mb-1">Hire-in spend (90d)</p>
+              <p className="text-2xl font-bold text-rose-600">
+                R {hireInCommittedTotal.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+              </p>
+              {hireInCommittedCount > 0 && (
+                <p className="text-[10px] text-slate-500 mt-0.5">{hireInCommittedCount} order{hireInCommittedCount === 1 ? "" : "s"}</p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
+        )}
         <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
-        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Hidden from quotes</p><p className="text-2xl font-bold text-slate-500">{offlineItems}</p></CardContent></Card>
+        {/* EQP-B: clickable tile drilldown to the hidden subset. */}
+        <button
+          type="button"
+          onClick={() => setFilterAvailable("hidden")}
+          className={`text-left rounded-lg border bg-white p-4 shadow-md transition-all hover:shadow ${
+            filterAvailable === "hidden" ? "ring-2 ring-slate-300 border-slate-400" : "border-slate-200"
+          }`}
+        >
+          <p className="text-xs text-slate-600 mb-1">Hidden from quotes</p>
+          <p className="text-2xl font-bold text-slate-500">{offlineItems}</p>
+          {offlineItems > 0 && (
+            <p className="text-[10px] text-slate-500 mt-0.5">Tap to filter</p>
+          )}
+        </button>
       </div>
 
       {/* Phase 19 #3: service-due rollup banner. Renders only when
@@ -783,9 +886,80 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                                 className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
                                 title={r.supplier_cleans ? "Hire-in; supplier handles cleaning" : "Hire-in equipment"}
                               >
-                                hire-in{r.supplier_cleans ? " · supplier cleans" : ""}
+                                hire-in{r.supplier_cleans ? " - supplier cleans" : ""}
                               </Badge>
                             )}
+                            {/* EQP-B: utilisation chip (90d). High = booked
+                                on >60% of upcoming events. Dead = 0 bookings. */}
+                            {(() => {
+                              const util = utilByItem.get(r.id);
+                              if (!util || util.totalEvents === 0) return null;
+                              if (util.bookedEvents === 0) {
+                                return (
+                                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200" title="Zero bookings in the last 90 days. Consider archiving or repurposing.">
+                                    Dead 90d
+                                  </Badge>
+                                );
+                              }
+                              if (util.pct >= 0.6) {
+                                return (
+                                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200" title={`Booked on ${util.bookedEvents} of ${util.totalEvents} events in the last 90 days. Consider buying more stock.`}>
+                                    High-util ({util.bookedEvents}/{util.totalEvents})
+                                  </Badge>
+                                );
+                              }
+                              return null;
+                            })()}
+                            {/* EQP-B: damages chip (90d). Cost masked from
+                                non-finance roles per the Skylight rule. */}
+                            {(() => {
+                              const dmg = damagesByItem.get(r.id);
+                              if (!dmg || dmg.count === 0) return null;
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                  title={canSeeFinance
+                                    ? `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days, total R ${dmg.totalCost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`
+                                    : `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days`}
+                                >
+                                  {dmg.count} damages 90d
+                                </Badge>
+                              );
+                            })()}
+                            {/* EQP-B: buy-vs-rent recommendation chip. */}
+                            {(() => {
+                              if (!canSeeFinance) return null;
+                              const spend = hireSpendByItem.get(r.id);
+                              if (!spend) return null;
+                              const rec = buyVsRentRecommendation(spend.totalSpend, spend.hireCount, r.replacement_cost as number | null);
+                              if (!rec.recommend) return null;
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
+                                  title={`Hired in ${spend.hireCount}x in last 90d for R ${spend.totalSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}. Replacement cost R ${(r.replacement_cost as number).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}. You've spent ${rec.multiplier?.toFixed(1)}x what you'd pay to buy.`}
+                                >
+                                  Consider buying
+                                </Badge>
+                              );
+                            })()}
+                            {/* EQP-B: material-conflict warning. Catches
+                                "Bowl (porcelain)" + "Plastic pudding bowl"
+                                style data entry errors. */}
+                            {(() => {
+                              const conflict = detectMaterialConflict(r.name, r.description);
+                              if (!conflict) return null;
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                  title={`Name says "${conflict.nameMaterial}" but description says "${conflict.descMaterial}". Looks like a data-entry mix-up - review the row.`}
+                                >
+                                  Material mismatch
+                                </Badge>
+                              );
+                            })()}
                           </div>
                           {r.description && (
                             <p className="text-xs text-slate-500 mt-1 line-clamp-1">{r.description}</p>
@@ -794,23 +968,25 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                         <div className="text-right text-xs text-slate-500">
                           <div>{safeNum(r.available_quantity)} / {safeNum(r.quantity)} free</div>
                           <div className="text-base font-semibold text-blue-700 mt-0.5">{fmtR(safeNum(r.rental_price))}</div>
-                          {safeNum(r.hire_in_cost) > 0 && (
+                          {/* EQP-B: hire-in cost gated to finance role. */}
+                          {canSeeFinance && safeNum(r.hire_in_cost) > 0 && (
                             <div className="text-[10px] text-amber-700 mt-0.5">
                               hire-in {fmtR(safeNum(r.hire_in_cost))}
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
+                          {/* EQP-B: per-row icon aria-labels. */}
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`View upcoming bookings for ${r.name}`} title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
                             <CalendarIcon className="w-4 h-4 text-blue-600" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={offline ? `Show ${r.name} in quote builder` : `Hide ${r.name} from quote builder`} title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
                             {offline ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(r)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${r.name}`} title={`Edit ${r.name}`} onClick={() => setEditing(r)}>
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingId(r.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${r.name}`} title={`Delete ${r.name}`} onClick={() => setDeletingId(r.id)}>
                             <Trash2 className="w-4 h-4 text-rose-600" />
                           </Button>
                         </div>
