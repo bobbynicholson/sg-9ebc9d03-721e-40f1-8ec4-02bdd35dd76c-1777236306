@@ -84,6 +84,15 @@ export function ReceiptsTab({ companyId, userId }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [rescanningId, setRescanningId] = useState<string | null>(null);
   const [rescanResult, setRescanResult] = useState<{ receiptId: string; mappedData: Extraction } | null>(null);
+  // SHOP-J: per-receipt rescan cooldown. AI calls cost money - a
+  // double-click was firing two paid Anthropic vision requests
+  // against the same image. 30 second floor between rescans for
+  // the same id; live rescans against different receipts are fine.
+  const [lastRescanAt, setLastRescanAt] = useState<Record<string, number>>({});
+  // SHOP-J: clickable "Slips needing lines" tile filter. Sets a
+  // boolean filter so the operator can jump from the summary tile
+  // to the list of slips needing line-by-line breakdown.
+  const [needsLinesOnly, setNeedsLinesOnly] = useState(false);
 
   // TAX-B: auto-expand + scroll on deep-link.
   useEffect(() => {
@@ -102,6 +111,18 @@ export function ReceiptsTab({ companyId, userId }: Props) {
   }, [targetReceiptId, receipts]);
 
   const handleRescan = async (receiptId: string) => {
+    // SHOP-J cooldown guard.
+    const last = lastRescanAt[receiptId];
+    if (last && Date.now() - last < 30_000) {
+      const wait = Math.ceil((30_000 - (Date.now() - last)) / 1000);
+      toast({
+        title: "Just rescanned",
+        description: `Give it ${wait}s before rescanning the same slip - AI calls cost money per attempt.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setLastRescanAt((m) => ({ ...m, [receiptId]: Date.now() }));
     setRescanningId(receiptId);
     try {
       const res = await fetch(`/api/receipts/${receiptId}/rescan`, { method: "POST" });
@@ -214,7 +235,11 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       return;
     }
     const csv = buildCsvExport(receipts);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    // SHOP-J (tabs audit, 2026-05-24): every other CSV export in
+    // this codebase prepends a UTF-8 BOM so Excel-ZA reads R + ZAR
+    // diacritics correctly. Receipts was the lone holdout - mangled
+    // year-end accountant exports.
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -279,16 +304,35 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.nonDeductibleTotal)}</p>
           </CardContent>
         </Card>
-        <Card className={`border-0 shadow-sm ${summary.unfiledCount > 0 ? "bg-amber-50" : ""}`}>
-          <CardContent className="py-4 px-4">
-            <p className={`text-xs uppercase tracking-wide font-semibold ${summary.unfiledCount > 0 ? "text-amber-700" : "text-slate-500"}`}>
-              Slips needing lines
-            </p>
-            <p className={`text-2xl font-bold mt-1 tabular-nums ${summary.unfiledCount > 0 ? "text-amber-900" : "text-slate-900"}`}>
-              {summary.unfiledCount}
-            </p>
-          </CardContent>
-        </Card>
+        {/* SHOP-J: clickable filter tile. Audit caught this was a
+            dead-stat. Now: tap to filter the list to slips with
+            zero lines. Tap again to clear. */}
+        <button
+          type="button"
+          onClick={() => setNeedsLinesOnly((v) => !v)}
+          disabled={summary.unfiledCount === 0}
+          className="text-left disabled:cursor-default"
+        >
+          <Card
+            className={`border-0 shadow-sm transition ${
+              summary.unfiledCount > 0 ? "bg-amber-50 hover:bg-amber-100" : ""
+            } ${needsLinesOnly ? "ring-2 ring-amber-400" : ""}`}
+          >
+            <CardContent className="py-4 px-4">
+              <p className={`text-xs uppercase tracking-wide font-semibold ${summary.unfiledCount > 0 ? "text-amber-700" : "text-slate-500"}`}>
+                Slips needing lines{needsLinesOnly ? " · filtering" : ""}
+              </p>
+              <p className={`text-2xl font-bold mt-1 tabular-nums ${summary.unfiledCount > 0 ? "text-amber-900" : "text-slate-900"}`}>
+                {summary.unfiledCount}
+              </p>
+              {summary.unfiledCount > 0 && (
+                <p className="text-[10px] text-amber-700 mt-0.5">
+                  {needsLinesOnly ? "Tap again to clear filter" : "Tap to filter the list"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </button>
       </div>
 
       {/* WINDOW PICKER */}
@@ -333,21 +377,42 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             </p>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-2">
-          {receipts.map((r) => (
-            <ReceiptRow
-              key={r.id}
-              receipt={r}
-              expanded={expanded.has(r.id)}
-              onToggle={() => toggleExpand(r.id)}
-              onChanged={reload}
-              onRescan={handleRescan}
-              rescanning={rescanningId === r.id}
-            />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        // SHOP-J: apply the "needing lines" filter from the
+        // summary tile.
+        const visible = needsLinesOnly ? receipts.filter((r) => r.items.length === 0) : receipts;
+        if (visible.length === 0) {
+          return (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="py-10 text-center text-sm text-slate-500">
+                No slips match the current filter.
+                <button
+                  type="button"
+                  onClick={() => setNeedsLinesOnly(false)}
+                  className="ml-2 text-blue-600 hover:underline"
+                >
+                  Clear filter
+                </button>
+              </CardContent>
+            </Card>
+          );
+        }
+        return (
+          <div className="space-y-2">
+            {visible.map((r) => (
+              <ReceiptRow
+                key={r.id}
+                receipt={r}
+                expanded={expanded.has(r.id)}
+                onToggle={() => toggleExpand(r.id)}
+                onChanged={reload}
+                onRescan={handleRescan}
+                rescanning={rescanningId === r.id}
+              />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ADD SLIP DIALOG */}
       <Dialog open={addOpen} onOpenChange={(o) => { if (!o) setAddOpen(false); }}>
