@@ -210,13 +210,18 @@ export function HireInPanel() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // EQP-C (task #190 must-fix, 2026-05-24): TZ-correct overdue
+    // compare. expected_pickup_date is a YYYY-MM-DD date column;
+    // new Date("YYYY-MM-DD") parses as UTC midnight which drifts
+    // by the tenant's UTC offset against today's local midnight.
+    // Compare both as local YYYY-MM-DD strings.
+    const todayIso = toLocalISO(new Date());
     return rows.filter((r) => {
       // Wave 66.6 - order-scoped filter takes precedence.
       if (orderIdFilter && r.order_id !== orderIdFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (overdueOnly) {
-        const overdue = r.expected_pickup_date && new Date(r.expected_pickup_date) < today && r.status === "draft";
+        const overdue = r.expected_pickup_date && r.expected_pickup_date < todayIso && r.status === "draft";
         if (!overdue) return false;
       }
       if (!q) return true;
@@ -247,9 +252,10 @@ export function HireInPanel() {
     [rows],
   );
   const overdueCount = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // EQP-C: same TZ-correct compare as the visible filter above.
+    const todayIso = toLocalISO(new Date());
     return rows.filter((r) =>
-      r.status === "draft" && r.expected_pickup_date && new Date(r.expected_pickup_date) < today,
+      r.status === "draft" && r.expected_pickup_date && r.expected_pickup_date < todayIso,
     ).length;
   }, [rows]);
 
@@ -768,7 +774,11 @@ export function HireInPanel() {
         <div className="space-y-2">
           {filtered.map((r) => {
             const meta = STATUS_META[r.status];
-            const overdue = r.expected_pickup_date && new Date(r.expected_pickup_date) < new Date() && r.status === "draft";
+            // EQP-C (task #190 must-fix, 2026-05-24): TZ-correct
+            // overdue compare. Same as the filter above - YYYY-MM-DD
+            // string compare to avoid UTC drift.
+            const todayIso = toLocalISO(new Date());
+            const overdue = r.expected_pickup_date && r.expected_pickup_date < todayIso && r.status === "draft";
             const selected = selectedIds.has(r.id);
             const age = daysSinceCreated(r);
             const showAging = r.status === "draft" && age >= 2;
