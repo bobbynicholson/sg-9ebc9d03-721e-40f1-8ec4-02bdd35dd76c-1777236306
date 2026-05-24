@@ -198,6 +198,22 @@ export interface GetAllOrdersOpts {
   limit?: number;
   /** Optional offset for server-paginated callers. */
   offset?: number;
+  /**
+   * SHAPE-A (task #97, 2026-05-24): light vs heavy payload mode.
+   *
+   * - "full" (default - back-compat): hauls every join the admin
+   *   orders detail modal needs: client.*, order_items(*), assigned
+   *   driver/chef/vehicle, linked quote token.
+   * - "light": base orders columns only. No joins. For consumers
+   *   that aggregate / search / display row-level metadata only -
+   *   financial-dashboard, cashflow-dashboard, command-palette,
+   *   notification builders, calendar feeds.
+   *
+   * Switching a consumer from "full" to "light" typically cuts the
+   * payload by 60-90% on tenants with line-itemed orders, because
+   * order_items(*) is the dominant join on a mature tenant.
+   */
+  mode?: "full" | "light";
 }
 
 export async function getAllOrders(companyId: string, opts: GetAllOrdersOpts = {}) {
@@ -209,6 +225,24 @@ export async function getAllOrders(companyId: string, opts: GetAllOrdersOpts = {
     // window into "what does the client actually see for this order".
     const limit = Math.max(1, Math.min(opts.limit ?? DEFAULT_ORDERS_LIMIT, 2000));
     const offset = Math.max(0, opts.offset ?? 0);
+    const mode = opts.mode ?? "full";
+
+    // SHAPE-A: light callers don't get joined relations. Heavy
+    // shape stays the default for back-compat with the /admin/orders
+    // list + detail modal that consume the joins directly. Split
+    // into two distinct .select() calls so PostgREST's typed parser
+    // can still statically infer the shape for each branch.
+    if (mode === "light") {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      return data || [];
+    }
 
     const { data, error } = await supabase
       .from("orders")

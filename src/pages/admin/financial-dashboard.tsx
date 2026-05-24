@@ -122,8 +122,12 @@ function FinancialDashboardInner() {
       setLoading(true);
       setLoadError(null);
 
-      // Load all financial data
-      const ordersData = await orderService.getAllOrders(user.company_id);
+      // Load all financial data. SHAPE-A (task #97, 2026-05-24):
+      // dashboard reads order columns + computes totals; never
+      // touches the joined client / order_items / driver / chef /
+      // vehicle objects. Pull the light shape so we don't haul
+      // hundreds of order_items(*) rows we'll never look at.
+      const ordersData = await orderService.getAllOrders(user.company_id, { mode: "light" });
 
       // FIN-E (financial dashboard tabs audit): dropped the
       // aiFinancialService.getPredictiveAnalytics call entirely.

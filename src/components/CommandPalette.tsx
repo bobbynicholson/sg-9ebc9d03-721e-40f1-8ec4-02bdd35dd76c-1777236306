@@ -173,8 +173,12 @@ export function CommandPalette() {
     (async () => {
       try {
         const [orders, quotes, leads, clients, inventory] = await Promise.all([
-          orderService.getAllOrders(companyId).catch(() => []),
-          quoteService.getQuotes(companyId).catch(() => []),
+          // SHAPE-A (task #97, 2026-05-24): palette only shows
+          // order_number / client_name / event_date / venue_address
+          // in search results. Light shape cuts the join cost on a
+          // mature tenant - this dropdown fires on every Cmd-K.
+          orderService.getAllOrders(companyId, { mode: "light" }).catch(() => []),
+          quoteService.getQuotes(companyId, { mode: "light" }).catch(() => []),
           leadService.getLeads(companyId).catch(() => []),
           clientManagementService.getCompanyClients(companyId).catch(() => []),
           inventoryService.getInventory(companyId).catch(() => []),
