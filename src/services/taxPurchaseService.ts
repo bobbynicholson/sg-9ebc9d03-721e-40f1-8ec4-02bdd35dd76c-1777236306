@@ -24,6 +24,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
 
 export interface PurchaseReceipt {
   id: string;
@@ -108,7 +109,10 @@ export async function uploadReceiptImage(args: {
     .from(BUCKET)
     .upload(path, args.file, { upsert: false, contentType: args.file.type });
   if (error) {
-    console.error("uploadReceiptImage error:", error);
+    // TAX-C (task #180, 2026-05-24): tag the silent failure path so
+    // an upload that 403s on a bucket-policy regression doesn't
+    // disappear into the void.
+    captureException(error, { tags: { service: "taxPurchase", area: "uploadReceiptImage", tenant: args.companyId } });
     return null;
   }
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -140,7 +144,7 @@ export async function createReceipt(args: {
     .select()
     .single();
   if (error) {
-    console.error("createReceipt error:", error);
+    captureException(error, { tags: { service: "taxPurchase", area: "createReceipt", tenant: args.companyId } });
     return null;
   }
   return data as PurchaseReceipt;
@@ -194,7 +198,7 @@ export async function addItem(args: {
     .select()
     .single();
   if (error) {
-    console.error("addItem error:", error);
+    captureException(error, { tags: { service: "taxPurchase", area: "addItem", receiptId: args.receiptId } });
     return null;
   }
   return data as PurchaseReceiptItem;
@@ -265,7 +269,7 @@ export async function listForCompany(args: {
 
   const { data, error } = await q;
   if (error) {
-    console.error("listForCompany error:", error);
+    captureException(error, { tags: { service: "taxPurchase", area: "listForCompany", tenant: args.companyId } });
     return [];
   }
   return (data || []).map((r: any) => {
