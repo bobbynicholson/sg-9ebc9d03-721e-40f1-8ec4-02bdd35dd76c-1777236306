@@ -142,6 +142,47 @@ export function OutsourcedFulfilmentPanel({
   const [quotedCost, setQuotedCost] = useState<string>("");
   const [requiredOnSiteAt, setRequiredOnSiteAt] = useState<string>("");
 
+  // OUT-E: conflict detector. When a provider is picked, look up any
+  // OTHER accepted/on_site/en_route assignments they have within a
+  // 6-hour window of this booking's on-site time. Surfaces a warning
+  // chip so the operator doesn't double-book a popular florist.
+  const [conflicts, setConflicts] = useState<Array<{
+    order_id: string; order_number: string | null;
+    required_on_site_at: string; service_description: string;
+  }>>([]);
+  useEffect(() => {
+    if (!pickedProviderId || !requiredOnSiteAt) { setConflicts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const onSite = new Date(requiredOnSiteAt);
+      if (Number.isNaN(onSite.getTime())) { setConflicts([]); return; }
+      const windowMs = 6 * 60 * 60 * 1000;
+      const fromIso = new Date(onSite.getTime() - windowMs).toISOString();
+      const toIso = new Date(onSite.getTime() + windowMs).toISOString();
+      const { data } = await (supabase as any)
+        .from("outsource_assignments")
+        .select("id, order_id, required_on_site_at, service_description, status, order:orders(order_number)")
+        .eq("provider_id", pickedProviderId)
+        .eq("company_id", companyId)
+        .in("status", ["accepted", "en_route", "on_site"])
+        .neq("order_id", orderId)
+        .gte("required_on_site_at", fromIso)
+        .lte("required_on_site_at", toIso)
+        .is("deleted_at", null);
+      if (cancelled) return;
+      setConflicts(((data || []) as Array<{
+        order_id: string; required_on_site_at: string; service_description: string;
+        order: { order_number: string | null } | null;
+      }>).map((r) => ({
+        order_id: r.order_id,
+        order_number: r.order?.order_number || null,
+        required_on_site_at: r.required_on_site_at,
+        service_description: r.service_description,
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [pickedProviderId, requiredOnSiteAt, companyId, orderId]);
+
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin);
   }, []);
@@ -563,6 +604,26 @@ export function OutsourcedFulfilmentPanel({
                           </Button>
                         </>
                       )}
+                      {/* OUT-E (deferred batch part 3, 2026-05-24):
+                          decline-then-replace flow. When a provider
+                          declines, the row used to just sit there
+                          greyed out; the operator had to remember to
+                          pick a backup. Surface a "Pick a backup"
+                          button that re-opens the Add dialog scoped
+                          to this assignment's routing group, so the
+                          new candidate inherits scope + on-site time
+                          from the decliner and joins the group. */}
+                      {a.status === "declined" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAddCandidate(a)}
+                          title="Pick a backup provider for this fulfilment slot"
+                          className="text-blue-700 hover:bg-blue-50 border-blue-200"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Pick backup
+                        </Button>
+                      )}
                       {a.status !== "cancelled" && a.status !== "completed" && (
                         <Button
                           size="sm"
@@ -677,6 +738,33 @@ export function OutsourcedFulfilmentPanel({
                 />
               </div>
             </div>
+
+            {/* OUT-E: conflict detector. Provider already accepted /
+                on-site for another order within 6h of this slot? Warn
+                before the operator double-books. Doesn't block - some
+                providers can genuinely cover two close events. */}
+            {conflicts.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs">
+                <p className="font-semibold text-amber-900 inline-flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  This provider is booked elsewhere near this time
+                </p>
+                <ul className="mt-1.5 space-y-1 text-amber-800">
+                  {conflicts.map((c) => (
+                    <li key={c.order_id} className="leading-snug">
+                      <span className="font-mono">{c.order_number || c.order_id.slice(0, 8)}</span>
+                      {" - "}
+                      {new Date(c.required_on_site_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {" - "}
+                      {c.service_description}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[10px] text-amber-700">
+                  Proceed anyway, pick another candidate, or shift the on-site time.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
