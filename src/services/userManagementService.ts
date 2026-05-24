@@ -274,9 +274,20 @@ export const userManagementService = {
 
       if (profilesError) throw profilesError;
 
-      const { data: departments, error: deptError } = await supabase
-        .from("user_departments")
-        .select("*");
+      // USR-A (task #207 must-fix, 2026-05-24): scope the
+      // user_departments fetch by the profile ids we just resolved.
+      // Pre-fix this was a bare `.select("*")` with no filter, relying
+      // entirely on RLS. If RLS ever loosens on user_departments
+      // (a future tooling regression on a multi-tenant service-role
+      // path) this leaks cross-tenant department assignments. The
+      // `.in("user_id", ...)` adds belt-and-braces tenant scope.
+      const profileIds = (profiles || []).map((p) => p.id);
+      const { data: departments, error: deptError } = profileIds.length === 0
+        ? { data: [], error: null as null | { message: string } }
+        : await supabase
+            .from("user_departments")
+            .select("*")
+            .in("user_id", profileIds);
 
       if (deptError) throw deptError;
 
