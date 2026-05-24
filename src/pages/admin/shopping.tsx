@@ -29,6 +29,11 @@ import { useRouter } from "next/router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, MessageCircle, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
@@ -374,8 +379,59 @@ function SmartShoppingPage() {
   const pickAllBuyNow = () => setManyPicked(buyNow.map((r) => r.inventory_item_id), true);
   const clearAllPicks = () => setPicked({});
 
-  // Compose the per-supplier order body once - reused by emailSupplier
-  // and the WhatsApp template path.
+  // SHOP-E (Bobby's "2-step dialogue + intelligent UX" ask, 2026-
+  // 05-24): clicking "Email order" no longer fires Gmail compose
+  // straight away. It opens a rich dialog that previews the
+  // composed subject + body, lets the operator deselect individual
+  // lines, edit any wording, then pick a channel (Gmail / Outlook /
+  // default mail / clipboard / WhatsApp). Optional "Also mark
+  // these items as ordered" toggle to wire the cart action into
+  // the send so the operator doesn't have to repeat themselves.
+
+  // Snapshot type stored in dialog state - decoupled from enriched
+  // so the dialog can edit lines without mutating the live list.
+  interface OrderDialogLine {
+    inventory_item_id: string;
+    item_name: string;
+    unit_of_measure: string | null;
+    reorderQty: number;
+    buyBy: Date | null;
+    included: boolean;
+  }
+
+  const [orderDialog, setOrderDialog] = useState<{
+    supplier: Supplier | null;
+    supplierName: string;
+    supplierEmail: string | null;
+    supplierPhone: string | null;
+    contactPerson: string | null;
+    lines: OrderDialogLine[];
+    subject: string;
+    body: string;
+    alsoMarkOrdered: boolean;
+    bodyManuallyEdited: boolean;
+  } | null>(null);
+
+  // Rebuild the body from the current line selections + supplier
+  // info. Called on dialog open and every time the operator toggles
+  // a line. Operators can override the body manually - once edited
+  // we stop re-templating to respect their changes.
+  const renderOrderBody = (
+    supplierName: string,
+    contactPerson: string | null,
+    lines: OrderDialogLine[],
+  ): string => {
+    const greeting = contactPerson || supplierName || "there";
+    const included = lines.filter((l) => l.included);
+    const lineText = included
+      .map((l) => `- ${l.reorderQty} ${l.unit_of_measure || ""} ${l.item_name}${l.buyBy ? ` (needed by ${l.buyBy.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : ""}`.replace(/\s+/g, " ").trim())
+      .join("\n");
+    return `Hi ${greeting},\n\nCould you put the following on order for us?\n\n${lineText}\n\nLet me know an ETA and the total when you're ready.\n\nThanks,\n${company?.company_name || "The team"}`;
+  };
+
+  // Pre-existing buildOrderRequest is kept for the "Email all"
+  // master button which sends straight without opening the dialog
+  // (one-click bulk path). Per-supplier path now uses the dialog.
   const buildOrderRequest = (group: { supplier: Supplier | null; items: typeof enriched }) => {
     const linesInScope = group.items.filter((r) => picked[r.inventory_item_id]);
     const lines = linesInScope.length > 0 ? linesInScope : group.items;
@@ -387,29 +443,106 @@ function SmartShoppingPage() {
     return { subject, body, count: lines.length };
   };
 
-  // Email supplier with the items in the cart that are theirs
-  const emailSupplier = (group: { supplier: Supplier | null; items: typeof enriched }) => {
-    if (!group.supplier?.email) {
-      toast({ title: "No email on file", description: `Add an email for ${group.supplier?.supplier_name || "this supplier"} on the Suppliers page.`, variant: "destructive" });
-      return;
-    }
-    const { subject, body } = buildOrderRequest(group);
-    window.open(composeEmail.gmailUrl({ to: group.supplier.email, subject, body }), "_blank", "noopener");
+  // Open the rich dialog with a snapshot of the supplier group.
+  const openOrderDialog = (group: { supplier: Supplier | null; items: typeof enriched }) => {
+    const supplierName = group.supplier?.supplier_name || "supplier";
+    // Default to picked lines if any of the group's items are in
+    // the cart; otherwise include all.
+    const anyPickedInGroup = group.items.some((r) => picked[r.inventory_item_id]);
+    const lines: OrderDialogLine[] = group.items.map((r) => ({
+      inventory_item_id: r.inventory_item_id,
+      item_name: r.item_name,
+      unit_of_measure: r.unit_of_measure,
+      reorderQty: r.reorderQty,
+      buyBy: r.buyBy,
+      included: anyPickedInGroup ? !!picked[r.inventory_item_id] : true,
+    }));
+    setOrderDialog({
+      supplier: group.supplier,
+      supplierName,
+      supplierEmail: group.supplier?.email || null,
+      supplierPhone: group.supplier?.phone || null,
+      contactPerson: group.supplier?.contact_person || null,
+      lines,
+      subject: `Order request from ${company?.company_name || "us"}`,
+      body: renderOrderBody(supplierName, group.supplier?.contact_person || null, lines),
+      alsoMarkOrdered: false,
+      bodyManuallyEdited: false,
+    });
   };
 
-  // SHOP-D: WhatsApp templated order request. SA suppliers
-  // routinely prefer WhatsApp over email - mirrors the HIR-B / OUT-D
-  // template shape. Operator can edit the pre-filled chat before
-  // sending. Phone numbers get the leading-0 -> +27 SA normalisation.
-  const whatsappSupplier = (group: { supplier: Supplier | null; items: typeof enriched }) => {
-    const num = (group.supplier?.phone || "").replace(/[\s()-]/g, "");
-    if (!num) {
-      toast({ title: "No phone on file", description: `Add a phone for ${group.supplier?.supplier_name || "this supplier"} on the Suppliers page.`, variant: "destructive" });
+  const toggleOrderLine = (itemId: string) => {
+    setOrderDialog((d) => {
+      if (!d) return d;
+      const nextLines = d.lines.map((l) =>
+        l.inventory_item_id === itemId ? { ...l, included: !l.included } : l,
+      );
+      return {
+        ...d,
+        lines: nextLines,
+        body: d.bodyManuallyEdited ? d.body : renderOrderBody(d.supplierName, d.contactPerson, nextLines),
+      };
+    });
+  };
+
+  // After a channel fires, optionally mark each included line as
+  // ordered (PO sent, hide from Buy-now for 7d) so the action is
+  // cohesive.
+  const finaliseOrderDialog = async (channel: string) => {
+    const d = orderDialog;
+    if (!d) return;
+    if (d.alsoMarkOrdered) {
+      const includedIds = d.lines.filter((l) => l.included).map((l) => l.inventory_item_id);
+      for (const id of includedIds) {
+        const row = enriched.find((r) => r.inventory_item_id === id);
+        if (row) await markOrdered(id, row.reorderQty, 7);
+      }
+    }
+    toast({
+      title: `Order opened in ${channel}`,
+      description: d.alsoMarkOrdered
+        ? `${d.lines.filter((l) => l.included).length} item${d.lines.filter((l) => l.included).length === 1 ? "" : "s"} marked as ordered.`
+        : undefined,
+    });
+    setOrderDialog(null);
+  };
+
+  const sendOrderVia = async (channel: "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => {
+    const d = orderDialog;
+    if (!d) return;
+    const payload = { to: d.supplierEmail || "", subject: d.subject, body: d.body };
+    if (channel === "whatsapp") {
+      const num = (d.supplierPhone || "").replace(/[\s()-]/g, "");
+      if (!num) {
+        toast({ title: "No phone on file", description: `Add a phone for ${d.supplierName} on /admin/suppliers.`, variant: "destructive" });
+        return;
+      }
+      const intl = num.startsWith("+") ? num.slice(1) : num.startsWith("0") ? `27${num.slice(1)}` : num;
+      window.open(`https://wa.me/${intl}?text=${encodeURIComponent(d.body)}`, "_blank", "noopener");
+      await finaliseOrderDialog("WhatsApp");
       return;
     }
-    const intl = num.startsWith("+") ? num.slice(1) : num.startsWith("0") ? `27${num.slice(1)}` : num;
-    const { body } = buildOrderRequest(group);
-    window.open(`https://wa.me/${intl}?text=${encodeURIComponent(body)}`, "_blank", "noopener");
+    if (channel !== "clipboard" && !d.supplierEmail) {
+      toast({ title: "No email on file", description: `Add an email for ${d.supplierName} or use Copy / WhatsApp.`, variant: "destructive" });
+      return;
+    }
+    if (channel === "gmail") {
+      window.open(composeEmail.gmailUrl(payload), "_blank", "noopener");
+      await finaliseOrderDialog("Gmail");
+    } else if (channel === "outlook") {
+      window.open(composeEmail.outlookUrl(payload), "_blank", "noopener");
+      await finaliseOrderDialog("Outlook");
+    } else if (channel === "mailto") {
+      window.location.href = composeEmail.mailto(payload);
+      await finaliseOrderDialog("default mail");
+    } else if (channel === "clipboard") {
+      const ok = await composeEmail.copyToClipboard(payload);
+      if (ok) {
+        await finaliseOrderDialog("clipboard");
+      } else {
+        toast({ title: "Could not copy", description: "Clipboard access blocked - try Gmail / Outlook / mailto.", variant: "destructive" });
+      }
+    }
   };
 
   // SHOP-D: master "Email all suppliers" - fan out one mailto per
@@ -1092,29 +1225,23 @@ function SmartShoppingPage() {
                                   <span className="font-bold tabular-nums text-slate-900">
                                     {fmtMoney.format(g.totalCost)}
                                   </span>
-                                  {g.supplier?.email && (
+                                  {/* SHOP-E: single Email order button
+                                      opens the rich 2-step dialog
+                                      with channel choice (Gmail /
+                                      Outlook / default mail /
+                                      clipboard / WhatsApp). Old
+                                      standalone WhatsApp button
+                                      replaced - WA is now a channel
+                                      inside the dialog. */}
+                                  {(g.supplier?.email || g.supplier?.phone) && (
                                     <Button
                                       size="sm"
-                                      onClick={(e) => { e.stopPropagation(); emailSupplier(g); }}
+                                      onClick={(e) => { e.stopPropagation(); openOrderDialog(g); }}
                                       className="gap-1.5"
+                                      title="Compose and send this supplier's order - preview before sending"
                                     >
                                       <Mail className="w-3.5 h-3.5" />
                                       Email order
-                                    </Button>
-                                  )}
-                                  {/* SHOP-D: WhatsApp templated order.
-                                      SA suppliers routinely prefer
-                                      WhatsApp over email. */}
-                                  {g.supplier?.phone && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={(e) => { e.stopPropagation(); whatsappSupplier(g); }}
-                                      className="gap-1.5 text-green-700 hover:bg-green-50 border-green-200"
-                                      title="Open WhatsApp chat with the templated order request"
-                                    >
-                                      <MessageCircle className="w-3.5 h-3.5" />
-                                      WhatsApp
                                     </Button>
                                   )}
                                   {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -1165,6 +1292,200 @@ function SmartShoppingPage() {
           One row per buy-now item with a checkbox column so the
           shopper can tick off in the field. Supplier-grouped so a
           single shopping run can fan out to multiple suppliers. */}
+      {/* SHOP-E: Order request dialog. Replaces the one-shot Gmail
+          compose. Click "Email order" -> dialog opens with editable
+          subject + body + per-line tick list + channel choice. Two
+          steps: review/edit then pick a channel. */}
+      <Dialog open={!!orderDialog} onOpenChange={(o) => { if (!o) setOrderDialog(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Order from {orderDialog?.supplierName || "supplier"}
+            </DialogTitle>
+            <DialogDescription>
+              Preview and tweak the message, then pick how to send it. Nothing fires until you click a channel.
+            </DialogDescription>
+          </DialogHeader>
+          {orderDialog && (
+            <div className="space-y-4">
+              {/* Recipient strip */}
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <span><span className="text-slate-500">Supplier:</span> <strong>{orderDialog.supplierName}</strong></span>
+                  {orderDialog.contactPerson && (
+                    <span><span className="text-slate-500">Contact:</span> {orderDialog.contactPerson}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {orderDialog.supplierEmail ? (
+                    <span><span className="text-slate-500">Email:</span> {orderDialog.supplierEmail}</span>
+                  ) : (
+                    <span className="text-amber-700">No email on file</span>
+                  )}
+                  {orderDialog.supplierPhone ? (
+                    <span><span className="text-slate-500">Phone:</span> {orderDialog.supplierPhone}</span>
+                  ) : (
+                    <span className="text-amber-700">No phone on file</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Per-line toggle. Untick to drop a line from the
+                  outgoing order without losing its place in the
+                  cart. */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 mb-1.5">
+                  Items ({orderDialog.lines.filter((l) => l.included).length} of {orderDialog.lines.length})
+                </p>
+                <div className="rounded-md border border-slate-200 divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                  {orderDialog.lines.map((l) => (
+                    <label
+                      key={l.inventory_item_id}
+                      className={`flex items-center gap-2 p-2 text-sm cursor-pointer ${l.included ? "bg-white" : "bg-slate-50 opacity-60"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={l.included}
+                        onChange={() => toggleOrderLine(l.inventory_item_id)}
+                      />
+                      <span className="flex-1">
+                        <strong>{l.reorderQty} {l.unit_of_measure}</strong> {l.item_name}
+                      </span>
+                      {l.buyBy && (
+                        <span className="text-[11px] text-slate-500">
+                          by {l.buyBy.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Editable subject. Operator can rename "Order request
+                  from us" to anything that helps the supplier triage. */}
+              <div>
+                <label htmlFor="order-subject" className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Subject
+                </label>
+                <Input
+                  id="order-subject"
+                  value={orderDialog.subject}
+                  onChange={(e) => setOrderDialog((d) => d ? { ...d, subject: e.target.value } : d)}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Editable body. Auto-re-renders when lines toggle
+                  UNLESS the operator has typed in here - then we
+                  respect their edits. */}
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <label htmlFor="order-body" className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Message
+                  </label>
+                  {orderDialog.bodyManuallyEdited && (
+                    <button
+                      type="button"
+                      onClick={() => setOrderDialog((d) => d ? {
+                        ...d,
+                        body: renderOrderBody(d.supplierName, d.contactPerson, d.lines),
+                        bodyManuallyEdited: false,
+                      } : d)}
+                      className="text-[11px] text-blue-700 hover:underline"
+                    >
+                      Reset to template
+                    </button>
+                  )}
+                </div>
+                <Textarea
+                  id="order-body"
+                  rows={10}
+                  value={orderDialog.body}
+                  onChange={(e) => setOrderDialog((d) => d ? { ...d, body: e.target.value, bodyManuallyEdited: true } : d)}
+                  className="mt-1 font-mono text-xs"
+                />
+              </div>
+
+              {/* "Also mark as ordered" toggle. Wires the cart
+                  action into the send so the operator doesn't have
+                  to click both. Defaults off because some operators
+                  treat the email as exploratory. */}
+              <label className="flex items-start gap-2 cursor-pointer rounded-md border border-slate-200 p-2.5 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={orderDialog.alsoMarkOrdered}
+                  onChange={(e) => setOrderDialog((d) => d ? { ...d, alsoMarkOrdered: e.target.checked } : d)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-slate-900 inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Also mark these items as ordered
+                  </span>
+                  <span className="text-xs text-slate-600 block mt-0.5">
+                    Hides them from Buy-now for 7 days. Clear when Mark purchased writes the receive.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex flex-wrap gap-2 w-full">
+              <Button
+                onClick={() => sendOrderVia("gmail")}
+                disabled={!orderDialog?.supplierEmail || orderDialog?.lines.every((l) => !l.included)}
+                className="bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+                title="Opens Gmail compose in a new tab"
+              >
+                <Mail className="w-4 h-4" /> Gmail
+              </Button>
+              <Button
+                onClick={() => sendOrderVia("outlook")}
+                disabled={!orderDialog?.supplierEmail || orderDialog?.lines.every((l) => !l.included)}
+                variant="outline"
+                className="gap-1.5"
+                title="Opens Outlook compose in a new tab"
+              >
+                <Mail className="w-4 h-4" /> Outlook
+              </Button>
+              <Button
+                onClick={() => sendOrderVia("mailto")}
+                disabled={!orderDialog?.supplierEmail || orderDialog?.lines.every((l) => !l.included)}
+                variant="outline"
+                className="gap-1.5"
+                title="Opens your default mail app via mailto:"
+              >
+                <Mail className="w-4 h-4" /> Default mail
+              </Button>
+              <Button
+                onClick={() => sendOrderVia("whatsapp")}
+                disabled={!orderDialog?.supplierPhone || orderDialog?.lines.every((l) => !l.included)}
+                variant="outline"
+                className="gap-1.5 text-green-700 hover:bg-green-50 border-green-200"
+                title="Opens WhatsApp Web / app with the message pre-filled"
+              >
+                <MessageCircle className="w-4 h-4" /> WhatsApp
+              </Button>
+              <Button
+                onClick={() => sendOrderVia("clipboard")}
+                disabled={orderDialog?.lines.every((l) => !l.included)}
+                variant="ghost"
+                className="gap-1.5"
+                title="Copy subject + body to clipboard"
+              >
+                Copy
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setOrderDialog(null)}
+                className="ml-auto"
+              >
+                Cancel
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div id="print-shopping-list" className="print-only">
         <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
           Shopping list
