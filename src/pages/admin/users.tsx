@@ -318,7 +318,14 @@ function AdminUsersPage() {
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     Full team
                   </h1>
-                  <p className="text-sm md:text-base text-slate-600 mt-1">Everyone with a login: owners, admins, kitchen, drivers, shopping, cleaning, and clients. Assign roles and revoke access here.</p>
+                  {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
+                      this line claimed clients were listed too, but
+                      the loadUsers call passes excludeRoles=["client"]
+                      so they are not. Same line also promised "Assign
+                      roles and revoke access here" - role edit ships
+                      via Edit Departments; revoke isn't surfaced yet
+                      (deferred to #208). Honest framing now. */}
+                  <p className="text-sm md:text-base text-slate-600 mt-1">Everyone with a staff login: owners, admins, kitchen, drivers, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts.</p>
                 </div>
               </div>
               
@@ -356,7 +363,11 @@ function AdminUsersPage() {
                         esc(u.created_at ? toLocalISO(new Date(u.created_at)) : ""),
                       ].join(","));
                     }
-                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    // USR-A (task #207, 2026-05-24): UTF-8 BOM so
+                    // Excel-ZA reads SA surnames with diacritics
+                    // (Müller, Naudé, etc.) correctly. Matches every
+                    // other export in this codebase.
+                    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
@@ -693,7 +704,11 @@ export default function UsersPage() {
   return (
     // USR-A (users audit, USR-2): dedupe COMPANY_ADMIN copy-paste
     // typo. Same pattern as CS-1 / STH-3 / HRS-1.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // USR-B (task #207 must-fix, 2026-05-24): admit OWNER per
+    // project_cateringms_owner_dashboard memo. Owner persona was
+    // 403'd on their own tenant's user list - same drift fixed on
+    // /admin/teams and /admin/inventory.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN]}>
       <AdminUsersPage />
     </ProtectedRoute>
   );
