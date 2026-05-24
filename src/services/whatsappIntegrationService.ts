@@ -194,6 +194,74 @@ export const whatsappIntegrationService = {
     }
   },
 
+  /**
+   * WA-A (task #99, 2026-05-24): asynchronous enqueue path.
+   * Writes a row to whatsapp_messages at status='pending' and
+   * lets /api/cron/whatsapp-drain pick it up on the next tick.
+   *
+   * Returns the inserted row id on success, or null when the
+   * comms guard refused (recipient on block list, paused, etc).
+   * Caller decides whether a null is fatal or just a noop.
+   *
+   * Use this instead of sendWhatsAppMessage when the caller
+   * doesn't need to wait for the gateway response - notification
+   * fan-out, after-sales drips, anything that should survive a
+   * network blip or a queued retry.
+   */
+  async enqueueWhatsAppMessage(args: {
+    companyId: string;
+    recipientPhone: string;
+    recipientName?: string | null;
+    body: string;
+    relatedEntityType?: string | null;
+    relatedEntityId?: string | null;
+    dedupKey?: string | null;
+    enqueuedBy?: string | null;
+  }): Promise<string | null> {
+    try {
+      const guard = await isCommsAllowed({
+        companyId: args.companyId,
+        channel: "whatsapp",
+        phone: args.recipientPhone,
+      });
+      if (!guard.allowed) {
+        console.log(`[whatsapp/enqueue] refused: ${guard.detail || guard.reason}`);
+        return null;
+      }
+
+      const row = {
+        company_id: args.companyId,
+        recipient_phone: args.recipientPhone,
+        recipient_name: args.recipientName ?? null,
+        message_type: "text" as const,
+        message_content: args.body,
+        status: "pending" as const,
+        related_entity_type: args.relatedEntityType ?? null,
+        related_entity_id: args.relatedEntityId ?? null,
+        dedup_key: args.dedupKey ?? null,
+        enqueued_by: args.enqueuedBy ?? null,
+      };
+
+      // eslint-disable-next-line no-restricted-syntax -- whatsapp_messages migration (20260524210000) predates types regen
+      const { data, error } = await (supabase as any)
+        .from("whatsapp_messages")
+        .insert(row)
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        // Dedup conflict is expected for retries - swallow silently.
+        if (String(error.code) === "23505") return null;
+        console.error("[whatsapp/enqueue] insert failed:", error);
+        return null;
+      }
+      return (data as { id: string } | null)?.id ?? null;
+    } catch (e) {
+      console.error("[whatsapp/enqueue] threw:", e);
+      return null;
+    }
+  },
+
   async sendOrderConfirmation(orderId: string): Promise<boolean> {
     try {
       const { data: order, error: orderErr } = await supabase

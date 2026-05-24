@@ -224,7 +224,7 @@ const KNOWN_TABLES = new Set([
   "supplier_payables","support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
   "training_materials","trial_expiry_notifications","user_departments","user_saved_views",
   "vehicle_bookings","vehicle_maintenance_log","vehicles","waste_logs",
-  "webhook_deliveries","webhook_subscriptions","whatsapp_templates",
+  "webhook_deliveries","webhook_subscriptions","whatsapp_messages","whatsapp_templates",
   "won_then_cancelled_quotes","xero_integration_settings",
 ]);
 

@@ -700,6 +700,74 @@ export const notificationService = {
         return 0;
       }
 
+      // WA-A (task #99, 2026-05-24): WhatsApp fan-out for the
+      // same recipients. Enqueue rows into whatsapp_messages
+      // when:
+      //   - recipient profile has phone_number AND whatsapp_opt_in
+      //   - their email pref shows whatsapp.<category> != false
+      //     (default opt-in unless they explicitly toggled off)
+      // The drain cron (/api/cron/whatsapp-drain) then sends.
+      // No-op silently if WhatsApp isn't connected for the
+      // tenant - the drain skips disconnected tenants.
+      try {
+        const recipientIds = recipientFilteredProfiles.map((p: { id: string }) => p.id);
+        if (recipientIds.length === 0) return notifications.length;
+
+        const { data: contactRows } = await sb
+          .from("profiles")
+          .select("id, phone_number, whatsapp_opt_in, full_name")
+          .in("id", recipientIds);
+
+        const phoneByUserId = new Map<string, { phone: string; name: string | null }>();
+        for (const row of (contactRows || []) as Array<{ id: string; phone_number: string | null; whatsapp_opt_in: boolean | null; full_name: string | null }>) {
+          if (!row.phone_number) continue;
+          if (row.whatsapp_opt_in === false) continue;
+          phoneByUserId.set(row.id, { phone: row.phone_number, name: row.full_name });
+        }
+        if (phoneByUserId.size === 0) return notifications.length;
+
+        // Honour the same per-user pref bucket - if the user
+        // explicitly turned WhatsApp off for this category, skip.
+        if (pushCategory) {
+          const { data: prefRows } = await sb
+            .from("email_notification_preferences")
+            .select("user_id, preferences")
+            .in("user_id", Array.from(phoneByUserId.keys()));
+          for (const row of (prefRows || []) as Array<{ user_id: string; preferences: { whatsapp?: Record<string, boolean> } | null }>) {
+            const value = row.preferences?.whatsapp?.[pushCategory];
+            if (value === false) phoneByUserId.delete(row.user_id);
+          }
+        }
+        if (phoneByUserId.size === 0) return notifications.length;
+
+        // Lazy import to keep notificationService free of a hard
+        // dependency on the WhatsApp service module path. Avoids
+        // circular service-module loads.
+        const { whatsappIntegrationService } = await import("@/services/whatsappIntegrationService");
+        const body = `${params.title}\n\n${params.message}`;
+        const dedupBase = `${params.type}:${params.relatedEntityId || "_"}`;
+
+        await Promise.all(
+          Array.from(phoneByUserId.entries()).map(([userId, contact]) =>
+            whatsappIntegrationService.enqueueWhatsAppMessage({
+              companyId: params.companyId,
+              recipientPhone: contact.phone,
+              recipientName: contact.name,
+              body,
+              relatedEntityType: params.relatedEntityType ?? null,
+              relatedEntityId: params.relatedEntityId ?? null,
+              dedupKey: `${dedupBase}:${userId}`,
+              enqueuedBy: null,
+            }),
+          ),
+        );
+      } catch (waErr) {
+        // WhatsApp fan-out is best-effort. Don't let it dent the
+        // in-app notification count or block the function. The
+        // drain cron will retry anything that does land.
+        console.warn("[broadcastNotification] WhatsApp fan-out failed:", waErr);
+      }
+
       return notifications.length;
     } catch (error) {
       console.error("Error in broadcastNotification:", error);
