@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * ReceiptsTab - the slip log and tax-deductible editor that used to
  * live on /admin/tax-purchases. Mounted as the "Receipts" tab on
@@ -28,7 +25,7 @@ import {
   FileText, Loader2, Camera, ChevronDown, ChevronRight, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
+import { ReconcileSlipDrawer, type Extraction } from "@/components/shopping/ReconcileSlipDrawer";
 import { toLocalISO } from "@/lib/localDate";
 import {
   uploadReceiptImage,
@@ -86,7 +83,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
   const [windowKind, setWindowKind] = useState<WindowKind>(targetReceiptId ? "all" : "this_month");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [rescanningId, setRescanningId] = useState<string | null>(null);
-  const [rescanResult, setRescanResult] = useState<{ receiptId: string; mappedData: any } | null>(null);
+  const [rescanResult, setRescanResult] = useState<{ receiptId: string; mappedData: Extraction } | null>(null);
 
   // TAX-B: auto-expand + scroll on deep-link.
   useEffect(() => {
@@ -130,8 +127,8 @@ export function ReceiptsTab({ companyId, userId }: Props) {
           : "Review the tags and save when you're happy.",
       });
       setRescanResult({ receiptId, mappedData: json.extraction });
-    } catch (e: any) {
-      toast({ title: "Rescan failed", description: e?.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Rescan failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
     } finally {
       setRescanningId(null);
     }
@@ -204,8 +201,8 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       setNewFile(null);
       setExpanded((prev) => new Set([...prev, created.id]));
       await reload();
-    } catch (err: any) {
-      toast({ title: "Error", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "", variant: "destructive" });
     } finally {
       setAdding(false);
     }
@@ -467,8 +464,8 @@ function ReceiptRow({
       setNewAmount("");
       setNewDeductible(true);
       await onChanged();
-    } catch (err: any) {
-      toast({ title: "Couldn't add line", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Couldn't add line", description: err instanceof Error ? err.message : "", variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -478,8 +475,8 @@ function ReceiptRow({
     try {
       await updateItem({ itemId, isDeductible: next });
       await onChanged();
-    } catch (err: any) {
-      toast({ title: "Couldn't update", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Couldn't update", description: err instanceof Error ? err.message : "", variant: "destructive" });
     }
   };
 
@@ -488,8 +485,8 @@ function ReceiptRow({
     try {
       await deleteItem(itemId);
       await onChanged();
-    } catch (err: any) {
-      toast({ title: "Couldn't delete", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Couldn't delete", description: err instanceof Error ? err.message : "", variant: "destructive" });
     }
   };
 
@@ -498,8 +495,8 @@ function ReceiptRow({
     try {
       await softDeleteReceipt(receipt.id);
       await onChanged();
-    } catch (err: any) {
-      toast({ title: "Couldn't delete", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Couldn't delete", description: err instanceof Error ? err.message : "", variant: "destructive" });
     }
   };
 
