@@ -34,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { ToastAction } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, MessageCircle, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
@@ -586,7 +587,15 @@ function SmartShoppingPage() {
         .eq("id", itemId);
       if (error) throw error;
       setDetails((m) => ({ ...m, [itemId]: { ...m[itemId], snooze_until: toLocalISO(until) } }));
-      toast({ title: "Snoozed", description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}.` });
+      toast({
+        title: "Snoozed",
+        description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}.`,
+        action: (
+          <ToastAction altText="Undo snooze" onClick={() => clearSnooze(itemId)}>
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch (e: unknown) {
       captureException(e, { tags: { surface: "admin/shopping", area: "snooze", tenant: companyId } });
       toast({ title: "Could not snooze", description: e instanceof Error ? e.message : "", variant: "destructive" });
@@ -617,6 +626,39 @@ function SmartShoppingPage() {
   // physically received). Suppresses the Buy-now flag for an ETA
   // window. Mark purchased remains the real receive path; it clears
   // ordered_* + writes inventory_transactions via receiveStock.
+  // SHOP-H: clearOrdered - undo path for an accidentally-clicked
+  // Mark ordered. Resets the three ordered_* columns so the item
+  // pops back into Buy-now on next render. Used by both the toast
+  // Undo action and the "ordered" side-panel chip.
+  const clearOrdered = async (itemId: string, opts: { silent?: boolean } = {}) => {
+    if (!companyId) return;
+    setRowBusy((m) => ({ ...m, [itemId]: true }));
+    try {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({
+          ordered_qty: null,
+          ordered_at: null,
+          ordered_until: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", itemId);
+      if (error) throw error;
+      setDetails((m) => ({
+        ...m,
+        [itemId]: { ...m[itemId], ordered_qty: null, ordered_at: null, ordered_until: null },
+      }));
+      if (!opts.silent) toast({ title: "Order flag cleared", description: "Item back on Buy-now." });
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/shopping", area: "clear-ordered", tenant: companyId } });
+      if (!opts.silent) {
+        toast({ title: "Could not clear", description: e instanceof Error ? e.message : "", variant: "destructive" });
+      }
+    } finally {
+      setRowBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  };
+
   const markOrdered = async (itemId: string, qty: number, etaDaysFromNow: number) => {
     if (!companyId) return;
     setRowBusy((m) => ({ ...m, [itemId]: true }));
@@ -642,9 +684,17 @@ function SmartShoppingPage() {
           ordered_until: toLocalISO(until),
         },
       }));
+      // SHOP-H: undo action on the toast. Clicking by mistake stops
+      // being a 7-day mystery - the operator gets a one-tap reversal
+      // right next to the confirmation.
       toast({
         title: "Marked as ordered",
         description: `Hidden until ${until.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}. Click Mark purchased once it arrives.`,
+        action: (
+          <ToastAction altText="Undo mark as ordered" onClick={() => clearOrdered(itemId)}>
+            Undo
+          </ToastAction>
+        ),
       });
     } catch (e: unknown) {
       captureException(e, { tags: { surface: "admin/shopping", area: "mark-ordered", tenant: companyId } });
@@ -1049,12 +1099,26 @@ function SmartShoppingPage() {
                           </summary>
                           <ul className="mt-1.5 space-y-1 pl-1">
                             {orderedRows.map((r) => (
-                              <li key={r.inventory_item_id} className="text-slate-700">
-                                <strong>{r.item_name}</strong>
-                                <span className="text-slate-500 ml-1">
-                                  {r.ordered_qty != null ? `${r.ordered_qty} ${r.unit_of_measure} ordered` : "ordered"}
-                                  {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                              <li key={r.inventory_item_id} className="flex items-center justify-between gap-2">
+                                <span className="text-slate-700">
+                                  <strong>{r.item_name}</strong>
+                                  <span className="text-slate-500 ml-1">
+                                    {r.ordered_qty != null ? `${r.ordered_qty} ${r.unit_of_measure} ordered` : "ordered"}
+                                    {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                                  </span>
                                 </span>
+                                {/* SHOP-H: inline undo so an accidental
+                                    Mark ordered can be cleared anytime
+                                    from the side panel, not just from
+                                    the toast that may have dismissed. */}
+                                <button
+                                  type="button"
+                                  onClick={() => clearOrdered(r.inventory_item_id)}
+                                  disabled={!!rowBusy[r.inventory_item_id]}
+                                  className="text-[10px] text-blue-700 hover:underline disabled:opacity-50"
+                                >
+                                  undo
+                                </button>
                               </li>
                             ))}
                           </ul>
@@ -1757,10 +1821,11 @@ function ItemTable({
                           type="button"
                           onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
                           disabled={!!rowBusy?.[r.inventory_item_id]}
-                          className="text-[10px] px-1.5 py-0.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                          title="Mark as ordered - hides this item from Buy-now for 7 days"
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+                          title="Already ordered this from your supplier? Marks the line as in-flight so it stops flagging as shortfall. 7-day ETA, undo available."
                         >
-                          PO sent
+                          <Truck className="w-3 h-3" />
+                          Mark ordered
                         </button>
                       )}
                       {onSnooze && (
@@ -1942,9 +2007,11 @@ function ItemTable({
                         type="button"
                         onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
                         disabled={!!rowBusy?.[r.inventory_item_id]}
-                        className="text-xs px-2 py-1 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 min-h-[32px]"
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 min-h-[32px]"
+                        title="Marks the line as in-flight - hides it from Buy-now for 7 days. Undo available."
                       >
-                        PO sent
+                        <Truck className="w-3.5 h-3.5" />
+                        Mark ordered
                       </button>
                     )}
                     {onSnooze && (
