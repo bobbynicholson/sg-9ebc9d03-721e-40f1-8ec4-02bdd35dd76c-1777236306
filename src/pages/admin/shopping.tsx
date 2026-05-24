@@ -1614,7 +1614,11 @@ function ItemTable({
   canSeeFinance, withSlug,
 }: any) {
   return (
-    <div className="overflow-x-auto">
+    <>
+      {/* SHOP-G: desktop table - hidden under sm, swapped for the
+          card layout below so the 9-column row doesn't horizontal-
+          scroll off-screen on a phone. */}
+      <div className="hidden sm:block overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
@@ -1821,7 +1825,181 @@ function ItemTable({
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+
+      {/* SHOP-G: mobile card fallback. Same data, vertical stack
+          per row. Below sm only - desktop keeps the table. */}
+      <div className="sm:hidden divide-y divide-slate-100">
+        {rows.map((r: any) => {
+          const meta = STATUS_META[r.status] || STATUS_META.ok;
+          const isOpen = expandedItem === r.inventory_item_id;
+          const lines = demand.filter((d: any) => d.inventory_item_id === r.inventory_item_id);
+          const myUnit = Number(r.cost_per_unit || 0);
+          const links = supplierLinks?.[r.inventory_item_id] || [];
+          const cheaperLink = myUnit > 0 && links.length >= 2
+            ? [...links]
+                .filter((l: ItemSupplierLink) => l.supplier_id !== r.preferred_supplier_id && l.unit_price != null && l.unit_price > 0 && l.unit_price < myUnit)
+                .sort((a: ItemSupplierLink, b: ItemSupplierLink) => Number(a.unit_price) - Number(b.unit_price))[0]
+            : null;
+          return (
+            <div key={r.inventory_item_id} className={`p-3 ${r.isUrgent ? "bg-amber-50/40" : ""}`}>
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!picked[r.inventory_item_id]}
+                  onChange={() => togglePick(r.inventory_item_id)}
+                  className="w-5 h-5 rounded border-slate-300 mt-0.5"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                    {r.is_perishable && <Snowflake className="w-3 h-3 text-cyan-500 shrink-0" />}
+                    <Badge variant="outline" className={`${meta.tone} border text-[10px]`}>{meta.label}</Badge>
+                    {canSeeFinance && r.preferred_supplier_id && creep?.[r.preferred_supplier_id]?.median_pct_change != null && Math.abs(creep[r.preferred_supplier_id].median_pct_change) >= 5 && creep[r.preferred_supplier_id].items_compared >= 2 && (() => {
+                      const pct = creep[r.preferred_supplier_id].median_pct_change as number;
+                      return (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${pct > 0 ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+                        >
+                          {pct > 0 ? "+" : ""}{pct.toFixed(0)}%
+                        </Badge>
+                      );
+                    })()}
+                    {cheaperLink && (() => {
+                      const pct = Math.round((1 - Number(cheaperLink.unit_price) / myUnit) * 100);
+                      const cheaperName = suppliersById?.[cheaperLink.supplier_id]?.supplier_name || "Other";
+                      return (
+                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                          {cheaperName} -{pct}%
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {r.category || "Uncategorised"}{showShelfLife && r.shelf_life_days ? ` · ${r.shelf_life_days}d shelf` : ""}
+                  </div>
+
+                  {/* 2-col data grid. Each cell has label + value. */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2 text-xs">
+                    <div>
+                      <span className="text-slate-500">On hand: </span>
+                      <span className="font-medium text-slate-900 tabular-nums">
+                        {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Need 7d: </span>
+                      <span className="font-medium text-slate-900 tabular-nums">
+                        {Number(r.demand_next_7_days).toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Reorder: </span>
+                      <span className="font-semibold text-slate-900 tabular-nums">
+                        {Number(r.reorderQty).toLocaleString()} {r.unit_of_measure}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Cost: </span>
+                      <span className="font-medium text-slate-900 tabular-nums">
+                        {fmtMoney.format(r.cost)}
+                      </span>
+                    </div>
+                    {showBuyBy && (
+                      <div className="col-span-2">
+                        <span className="text-slate-500">Buy by: </span>
+                        {r.buyBy ? (
+                          <span className={`inline-flex items-center gap-1 ${r.isUrgent ? "text-orange-600 font-semibold" : "text-slate-700"}`}>
+                            {r.isUrgent && (
+                              <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+                              </span>
+                            )}
+                            {r.buyBy.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                            {r.buyByDays !== null && (
+                              <span className="text-slate-400 ml-1">({r.buyByDays}d)</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Any time</span>
+                        )}
+                      </div>
+                    )}
+                    {!hideSupplier && (
+                      <div className="col-span-2">
+                        <span className="text-slate-500">Supplier: </span>
+                        <span className="text-slate-700">{r.supplier?.supplier_name || "-"}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions row */}
+                  <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                    {onMarkOrdered && (
+                      <button
+                        type="button"
+                        onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
+                        disabled={!!rowBusy?.[r.inventory_item_id]}
+                        className="text-xs px-2 py-1 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 min-h-[32px]"
+                      >
+                        PO sent
+                      </button>
+                    )}
+                    {onSnooze && (
+                      <button
+                        type="button"
+                        onClick={() => onSnooze(r.inventory_item_id, 7)}
+                        disabled={!!rowBusy?.[r.inventory_item_id]}
+                        className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 min-h-[32px]"
+                      >
+                        Snooze 7d
+                      </button>
+                    )}
+                    {lines.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedItem(isOpen ? null : r.inventory_item_id)}
+                        className="ml-auto text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 min-h-[32px] px-1"
+                      >
+                        {lines.length} pull{lines.length === 1 ? "" : "s"}
+                        {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {isOpen && lines.length > 0 && (
+                <div className="mt-3 ml-7 pl-2 border-l border-slate-200 space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Pulled by upcoming orders
+                  </div>
+                  {lines.map((l: any, i: number) => (
+                    <div key={`${l.order_number}-${i}`} className="text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {withSlug ? (
+                          <Link href={withSlug(`/admin/orders?q=${encodeURIComponent(l.order_number)}`)}>
+                            <Badge variant="outline" className="text-[10px] hover:bg-slate-100">{l.order_number}</Badge>
+                          </Link>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
+                        )}
+                        <span className="text-slate-700 truncate">{l.event_name}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {Number(l.quantity_required).toLocaleString()} {l.unit} · {new Date(l.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} · via {l.menu_item_name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
