@@ -365,7 +365,10 @@ export function ReconcileSlipDrawer({
         // operator can correct later from /admin/inventory.
         stripVat = false;
       }
-      const toStoredCost = (val: number | null | undefined): number =>
+      // toStoredCost is bound late - SHOP-D guards stripVat against
+      // the resolved supplier's vat_number. Built after supplierId
+      // is known (below).
+      let toStoredCost = (val: number | null | undefined): number =>
         !val || val <= 0 ? 0 : stripVat ? toExVat(Number(val), vatRate) : Number(val);
       // 1) Best-effort signed URL of the slip image so /admin/tax-purchases
       //    can show it. Imports bucket is private, so we sign for ~10 yrs.
@@ -394,6 +397,30 @@ export function ReconcileSlipDrawer({
           .limit(1)
           .maybeSingle();
         if (supplierMatch) supplierId = (supplierMatch as any).id;
+      }
+
+      // SHOP-D (audit fix, 2026-05-24): only strip VAT when the
+      // matched supplier is VAT-registered OR the slip itself
+      // recorded a VAT amount. Previously every slip got 15%
+      // stripped including food-only zero-VAT slips from non-
+      // registered vendors, silently inflating cost_per_unit. Now:
+      // if we matched a supplier, look up their vat_number; if
+      // they have one (or the slip's vat > 0) keep stripping, else
+      // skip and leave the price as-is. No supplier match falls
+      // back to the previous behaviour so legacy slips don't break.
+      const extractedVat = Number(mappedData?.vat || 0);
+      if (stripVat && supplierId) {
+        const { data: sup } = await supabase
+          .from("suppliers")
+          .select("vat_number")
+          .eq("id", supplierId)
+          .maybeSingle();
+        const supVat = (sup as { vat_number?: string | null } | null)?.vat_number?.trim();
+        if (!supVat && extractedVat <= 0) {
+          stripVat = false;
+          toStoredCost = (val: number | null | undefined): number =>
+            !val || val <= 0 ? 0 : Number(val);
+        }
       }
 
       // 2) Create or update the receipt row depending on mode.
