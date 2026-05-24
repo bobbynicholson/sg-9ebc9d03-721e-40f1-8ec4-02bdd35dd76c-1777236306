@@ -33,28 +33,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
 
   let authSource: CronAuthSource | "owner_dryrun" = "cron";
+  // OUT-B (2026-05-24): the dry-run path previously ran the
+  // assignments query with no company_id scope - any owner clicking
+  // "Test pre-event" got a preview list of provider emails / order ids
+  // across every tenant on the platform. Cross-tenant data leak. Fix:
+  // resolve caller's company_id from the SSR profile and scope the
+  // fetch. Tighten the role gate at the same time (drop plain `admin`
+  // per the audit; super_admin / company_admin / owner only).
+  let dryRunCompanyId: string | null = null;
   if (!dryRun) {
     const auth = await requireCronAuth(req, res);
     if (!auth.ok) return;
     authSource = auth.source;
   } else {
-    // Dry-run is intentionally broader than the standard cron auth:
-    // owner / company_admin / admin can fire it for QA without
-    // needing super_admin. Returns provider emails in the preview so
-    // the gate prevents enumeration from outside the network.
     try {
       const { createPagesServerClient } = await import("@/lib/supabase/server");
       const ssr = createPagesServerClient({ req, res });
       const { data: { user } } = await ssr.auth.getUser();
       if (!user) return res.status(401).json({ error: "Sign in required for dry-run" });
-      const { data: profile } = await ssr.from("profiles").select("role, active_role").eq("id", user.id).maybeSingle();
-      const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
-      if (!new Set(["super_admin", "company_admin", "admin", "owner"]).has(role)) {
-        return res.status(403).json({ error: "Owner / admin only" });
+      const { data: profile } = await ssr
+        .from("profiles")
+        .select("role, active_role, company_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const role = (((profile as { role?: string; active_role?: string; company_id?: string } | null)?.active_role) || ((profile as { role?: string; active_role?: string; company_id?: string } | null)?.role) || "") as string;
+      if (!new Set(["super_admin", "company_admin", "owner"]).has(role)) {
+        return res.status(403).json({ error: "Owner / company admin / super admin only" });
+      }
+      dryRunCompanyId = (profile as { company_id?: string } | null)?.company_id || null;
+      if (!dryRunCompanyId) {
+        return res.status(403).json({ error: "No company on profile" });
       }
       authSource = "owner_dryrun";
-    } catch (e: any) {
-      return res.status(500).json({ error: e?.message || "auth check failed" });
+    } catch (e: unknown) {
+      return res.status(500).json({ error: e instanceof Error ? e.message : "auth check failed" });
     }
   }
 
@@ -64,8 +76,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const windowStart = now.toISOString();
     const windowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
 
-    // Pull accepted assignments inside the 36h window.
-    const { data: assignments, error } = await (sb as any)
+    // Pull accepted assignments inside the 36h window. OUT-B: scope
+    // by company_id when running as a tenant dry-run; full-platform
+    // sweep only for the cron-secret path.
+    let assignmentsQuery = (sb as any)
       .from("outsource_assignments")
       .select(`
         id, company_id, order_id, provider_id, status,
@@ -77,6 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .gte("required_on_site_at", windowStart)
       .lte("required_on_site_at", windowEnd)
       .is("deleted_at", null);
+    if (dryRun && dryRunCompanyId) {
+      assignmentsQuery = assignmentsQuery.eq("company_id", dryRunCompanyId);
+    }
+    const { data: assignments, error } = await assignmentsQuery;
 
     if (error) {
       console.error("[outsource-pre-event-reminder] fetch failed:", error);
@@ -123,10 +141,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
-        // Pull the order context for the email body.
+        // Pull the order context for the email body. OUT-B: include
+        // event_name (the subject formatter reads it; the previous
+        // SELECT was missing the column so the subject always fell
+        // through to order_number).
         const { data: order } = await (sb as any)
           .from("orders")
-          .select("order_number, event_date, event_time, client_name, venue_address, guest_count, setup_time")
+          .select("order_number, event_name, event_date, event_time, client_name, venue_address, guest_count, setup_time")
           .eq("id", a.order_id)
           .maybeSingle();
         if (!order) {

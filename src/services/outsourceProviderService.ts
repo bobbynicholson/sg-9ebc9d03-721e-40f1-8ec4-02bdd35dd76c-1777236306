@@ -102,11 +102,15 @@ export const outsourceProviderService = {
     if (!providers || providers.length === 0) return [];
 
     const providerIds = (providers as OutsourceProvider[]).map((p) => p.id);
+    // OUT-B: filter soft-deleted assignments out of the roll-up.
+    // The detail page already did this; the list view inflated counts
+    // for tenants who had cleaned up bad assignments.
     const { data: assignmentRows, error: aErr } = await (supabase as any)
       .from("outsource_assignments")
       .select("provider_id, status, created_at")
       .eq("company_id", companyId)
-      .in("provider_id", providerIds);
+      .in("provider_id", providerIds)
+      .is("deleted_at", null);
     if (aErr) console.warn("[outsourceProviderService] assignments rollup failed:", aErr);
 
     const statsByProvider = new Map<string, { count: number; accepted: number; cancelled: number; last: string | null }>();
@@ -202,5 +206,20 @@ export const outsourceProviderService = {
       .update({ deleted_at: new Date().toISOString(), is_active: false })
       .eq("id", providerId);
     if (error) throw error;
+  },
+
+  /**
+   * OUT-B: pre-delete FK guard. Returns the count of open assignments
+   * (anything pre-completed) so the dialog can warn or block. Mirrors
+   * supplierService.countReferences from the suppliers audit.
+   */
+  async countOpenAssignments(providerId: string): Promise<number> {
+    const { count } = await (supabase as any)
+      .from("outsource_assignments")
+      .select("id", { head: true, count: "exact" })
+      .eq("provider_id", providerId)
+      .in("status", ["requested", "accepted", "en_route", "on_site"])
+      .is("deleted_at", null);
+    return Number(count || 0);
   },
 };

@@ -104,7 +104,12 @@ const STATUS_TONE: Record<string, string> = {
 function ProviderDetail() {
   const router = useRouter();
   const providerId = typeof router.query.id === "string" ? router.query.id : null;
-  const { profile } = useAuth() as any;
+  const { profile } = useAuth() as { profile: { company_id?: string; role?: string; active_role?: string } | null };
+  // OUT-B: finance-vis gate. Same rule as the list page.
+  const financeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canSeeFinance =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id as string | undefined;
@@ -278,20 +283,22 @@ function ProviderDetail() {
                     )}
                   </div>
                 </div>
-                <div className="text-left md:text-right shrink-0 md:pl-4 md:border-l md:border-slate-200">
-                  {provider.default_rate != null && (
-                    <>
-                      <p className="text-xs text-slate-500 uppercase tracking-wide">Default rate</p>
-                      <p className="text-lg font-bold text-slate-900 tabular-nums">
-                        {fmtMoney(Number(provider.default_rate), provider.default_currency)}
-                      </p>
-                      <p className="text-[11px] text-slate-500">{rateLabel.toLowerCase()}</p>
-                    </>
-                  )}
-                  {provider.payment_terms_days != null && (
-                    <p className="text-[11px] text-slate-500 mt-1">Pay Net {provider.payment_terms_days} days</p>
-                  )}
-                </div>
+                {canSeeFinance && (
+                  <div className="text-left md:text-right shrink-0 md:pl-4 md:border-l md:border-slate-200">
+                    {provider.default_rate != null && (
+                      <>
+                        <p className="text-xs text-slate-500 uppercase tracking-wide">Default rate</p>
+                        <p className="text-lg font-bold text-slate-900 tabular-nums">
+                          {fmtMoney(Number(provider.default_rate), provider.default_currency)}
+                        </p>
+                        <p className="text-[11px] text-slate-500">{rateLabel.toLowerCase()}</p>
+                      </>
+                    )}
+                    {provider.payment_terms_days != null && (
+                      <p className="text-[11px] text-slate-500 mt-1">Pay Net {provider.payment_terms_days} days</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Performance stats. 2-up on mobile, 4-up md+. p-3 on
@@ -334,19 +341,31 @@ function ProviderDetail() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="p-3 sm:p-4">
-                    <p className="text-xs text-slate-600 mb-1">Total billed</p>
-                    <p className="text-base sm:text-lg font-bold text-slate-900 tabular-nums break-words">
-                      {fmtMoney(stats.totalBilled, provider.default_currency)}
-                    </p>
-                    {stats.outstanding > 0 && (
-                      <p className="text-[10px] text-amber-700 mt-1 tabular-nums">
-                        {fmtMoney(stats.outstanding, provider.default_currency)} outstanding
+                {canSeeFinance ? (
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-xs text-slate-600 mb-1">Total billed</p>
+                      <p className="text-base sm:text-lg font-bold text-slate-900 tabular-nums break-words">
+                        {fmtMoney(stats.totalBilled, provider.default_currency)}
                       </p>
-                    )}
-                  </CardContent>
-                </Card>
+                      {stats.outstanding > 0 && (
+                        <p className="text-[10px] text-amber-700 mt-1 tabular-nums">
+                          {fmtMoney(stats.outstanding, provider.default_currency)} outstanding
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-xs text-slate-600 mb-1">Accepted jobs</p>
+                      <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{stats.accepted}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        of {stats.total} request{stats.total === 1 ? "" : "s"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* Decline reasons */}
