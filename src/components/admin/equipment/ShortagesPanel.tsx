@@ -31,6 +31,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShortageFlag {
   id: string;
@@ -86,6 +87,30 @@ export function ShortagesPanel() {
     if (user) loadShortages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // EQP-C (task #190 must-fix, 2026-05-24): realtime channel.
+  // Damage / shortage flags inserted from the cleaning portal or
+  // any other surface should refresh the panel without a manual
+  // reload - matches the catalog + hire-in tabs' realtime promise.
+  // Debounced 1500ms.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => loadShortages(), 1500);
+    };
+    const channel = supabase
+      .channel(`equipment-shortages:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_shortage_flags", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   const preFilteredShortages = useMemo(() => {
     return shortages.filter((s) => {
@@ -369,7 +394,8 @@ export function ShortagesPanel() {
                     <div className="flex items-center gap-2 text-xs md:text-sm">
                       <DollarSign className="w-3 h-3 text-red-500 flex-shrink-0" />
                       <span className="font-medium text-gray-600">Impact:</span>
-                      <span className="text-red-600 font-semibold">R{Number(shortage.financial_impact).toFixed(2)}</span>
+                      {/* EQP-C: tenantCurrency for non-ZAR tenants. */}
+                      <span className="text-red-600 font-semibold">{tenantCurrency.format(Number(shortage.financial_impact))}</span>
                     </div>
                   ) : null}
 

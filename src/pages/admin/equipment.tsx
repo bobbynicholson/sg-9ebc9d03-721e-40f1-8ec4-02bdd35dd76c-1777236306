@@ -147,7 +147,11 @@ export default function ProtectedEquipmentPage() {
   return (
     // EQP-A (equipment audit, EQP-3): admit sales_admin (hire-in
     // capability check) + region_admin (regional fleet RLS).
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // EQP-C (task #190 must-fix, 2026-05-24): admit OWNER. The
+    // finance gates inside the page (canSeeFinance) already include
+    // owner, but owner couldn't reach the page at all - 403'd at the
+    // route. Inconsistent with stock / inventory / financial pages.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <EquipmentPage />
     </ProtectedRoute>
   );
