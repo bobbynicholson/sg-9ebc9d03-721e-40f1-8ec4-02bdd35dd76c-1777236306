@@ -1167,18 +1167,6 @@ function MenuPage() {
             </div>
           </div>
 
-          {/* Wave 70.57: top sellers relocated here from /admin/dashboard
-              per owner brief 2026-05-22. Belongs with the catalogue -
-              the question "what's actually pulling on my menu?" lands
-              right where the kitchen/sales lead is reviewing items.
-              Self-hides on a tenant with no confirmed orders in the
-              last 30 days. */}
-          {companyId ? (
-            <WidgetErrorBoundary label="Menu top sellers">
-              <MenuTopSellersWidget companyId={companyId} />
-            </WidgetErrorBoundary>
-          ) : null}
-
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             <Card className="border-0 shadow-sm">
@@ -1630,6 +1618,22 @@ function MenuPage() {
               ))}
             </div>
           )}
+
+          {/* MNU-C (2026-05-24): top-sellers widget moved to the
+              bottom of the page per Bobby's owner brief. The stat
+              strip + filter bar are what the operator works in;
+              the historical "what's pulling" view belongs as a
+              footer card, not above the fold. Wave 70.57 moved it
+              here from /admin/dashboard; MNU-C demotes it within
+              this page. Self-hides on a tenant with no confirmed
+              orders in the last 30 days. */}
+          {companyId ? (
+            <div className="mt-6">
+              <WidgetErrorBoundary label="Menu top sellers">
+                <MenuTopSellersWidget companyId={companyId} />
+              </WidgetErrorBoundary>
+            </div>
+          ) : null}
         </div>
         <Footer />
       </main>
