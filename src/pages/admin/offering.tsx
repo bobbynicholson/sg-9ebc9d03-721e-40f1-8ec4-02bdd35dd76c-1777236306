@@ -56,9 +56,35 @@ interface MenuTile {
   withPrice: number;
   missingPhoto: number;
   missingPrice: number;
+  // OFR-C (task #183 deferred, 2026-05-24): photo-age chip. Counts
+  // menu items whose photo (proxy: updated_at) is older than 180
+  // days. Stale photos drag conversion on the public quote view.
+  stalePhoto: number;
   lastEdited: string | null;
+  // OFR-C: per-item revenue + margin from order_items in the
+  // active period. marginPct is averaged across rows so it survives
+  // missing unit_cost on a subset (those rows contribute 0%).
   topQuoted: { id: string; name: string; count: number }[];
-  topByRevenue: { id: string; name: string; revenue: number }[];
+  topByRevenue: { id: string; name: string; revenue: number; marginPct: number | null }[];
+}
+
+// OFR-C: top packages by revenue in the active window. orders.total_
+// amount summed where orders.package_id matches and the order isn't
+// soft-deleted / cancelled.
+interface PackageRevenueRow {
+  id: string;
+  name: string;
+  orderCount: number;
+  revenue: number;
+}
+
+// OFR-C: bundle suggestions - menu_item co-occurrence on the same
+// order. Top 3 unordered pairs (a, b) by frequency. Useful "what
+// goes with what" intel for the operator building the next quote.
+interface BundlePair {
+  a: { id: string; name: string };
+  b: { id: string; name: string };
+  count: number;
 }
 
 interface EquipmentTile {
@@ -115,8 +141,10 @@ function OfferingPage() {
   const [period, setPeriod] = useState<Period>(90);
   const [menuTile, setMenuTile] = useState<MenuTile>({
     active: 0, total: 0, withPhoto: 0, withPrice: 0, missingPhoto: 0, missingPrice: 0,
-    lastEdited: null, topQuoted: [], topByRevenue: [],
+    stalePhoto: 0, lastEdited: null, topQuoted: [], topByRevenue: [],
   });
+  const [packageRevenue, setPackageRevenue] = useState<PackageRevenueRow[]>([]);
+  const [bundlePairs, setBundlePairs] = useState<BundlePair[]>([]);
   const [equipTile, setEquipTile] = useState<EquipmentTile>({
     total: 0, withPhoto: 0, withPrice: 0, missingPrice: 0, missingPhoto: 0,
   });
@@ -174,9 +202,13 @@ function OfferingPage() {
           .eq("company_id", companyId)
           .is("deleted_at", null),
         // order_items uses line_total (not total_price).
+        // OFR-C (task #183 deferred, 2026-05-24): also pull order_id
+        // (for bundle co-occurrence), unit_cost (for margin maths)
+        // and orders.total_amount + orders.package_id (for package
+        // revenue rollup).
         supabase
           .from("order_items")
-          .select("menu_item_id, item_name, line_total, quantity, orders!inner(company_id, event_date, deleted_at, status)")
+          .select("order_id, menu_item_id, item_name, line_total, quantity, unit_cost, orders!inner(company_id, event_date, deleted_at, status, total_amount, package_id)")
           .eq("orders.company_id", companyId)
           .is("orders.deleted_at", null)
           .gte("orders.event_date", sincePeriod)
@@ -231,6 +263,17 @@ function OfferingPage() {
         .filter((d): d is string => !!d)
         .sort()
         .reverse()[0] || null;
+      // OFR-C: stale-photo count. updated_at is a proxy - the column
+      // bumps for every edit not just photo upload - so this is a
+      // ceiling estimate. Better than nothing: if a row hasn't seen
+      // any edit in 6 months the photo is almost certainly stale.
+      const photoStaleCutoff = today.getTime() - 180 * 24 * 3600 * 1000;
+      const menuStalePhoto = menuRows.filter((m) => {
+        if (m.is_available === false) return false;
+        if (!m.image_url) return false;
+        if (!m.updated_at) return true;
+        return new Date(m.updated_at).getTime() < photoStaleCutoff;
+      }).length;
 
       const equipMissingPrice = equipRows.filter((e) => !e.rental_price || Number(e.rental_price) === 0).length;
       const equipMissingPhoto = equipRows.filter((e) => !e.image_url).length;
@@ -253,20 +296,104 @@ function OfferingPage() {
 
       // Volume + revenue Top 3 from order_items. order_items uses
       // line_total (= unit_price * quantity).
+      // OFR-C: now also tracks per-item cost (sum quantity * unit_
+      // cost where unit_cost not null) so we can render a margin
+      // chip on the top-by-revenue rows.
       const oiRows = (oiRes.data || []) as Array<{
+        order_id: string | null;
         menu_item_id: string | null; item_name: string | null;
         line_total: number | null; quantity: number | null;
+        unit_cost: number | null;
+        orders: {
+          status?: string; event_date?: string;
+          total_amount?: number | null; package_id?: string | null;
+        } | null;
       }>;
-      const freq: Record<string, { id: string; name: string; count: number; revenue: number }> = {};
+      const freq: Record<string, { id: string; name: string; count: number; revenue: number; cost: number; costRows: number }> = {};
       for (const r of oiRows) {
         const id = r.menu_item_id;
         if (!id) continue;
-        if (!freq[id]) freq[id] = { id, name: r.item_name || "Unnamed", count: 0, revenue: 0 };
+        if (!freq[id]) freq[id] = { id, name: r.item_name || "Unnamed", count: 0, revenue: 0, cost: 0, costRows: 0 };
         freq[id].count += 1;
         freq[id].revenue += Number(r.line_total || 0);
+        if (r.unit_cost != null && r.quantity != null) {
+          freq[id].cost += Number(r.unit_cost) * Number(r.quantity);
+          freq[id].costRows += 1;
+        }
       }
       const topQuoted = Object.values(freq).sort((a, b) => b.count - a.count).slice(0, 3);
-      const topByRevenue = Object.values(freq).sort((a, b) => b.revenue - a.revenue).slice(0, 3);
+      const topByRevenue = Object.values(freq).sort((a, b) => b.revenue - a.revenue).slice(0, 3).map((m) => ({
+        id: m.id,
+        name: m.name,
+        revenue: m.revenue,
+        // marginPct null = no cost data on any line; don't render the
+        // chip (better than rendering a misleading 100%).
+        marginPct: m.costRows > 0 && m.revenue > 0
+          ? Math.round(((m.revenue - m.cost) / m.revenue) * 100)
+          : null,
+      }));
+
+      // OFR-C: package revenue rollup. Walk the order_items, dedupe
+      // by order_id (each order's total_amount counts once), group
+      // by orders.package_id. Top 5 packages by revenue in window.
+      const pkgRev = new Map<string, { orderIds: Set<string>; revenue: number }>();
+      const seenOrderPkg = new Set<string>();
+      for (const r of oiRows) {
+        const pkgId = r.orders?.package_id;
+        const orderId = r.order_id;
+        if (!pkgId || !orderId) continue;
+        const orderPkgKey = `${orderId}:${pkgId}`;
+        if (seenOrderPkg.has(orderPkgKey)) continue;
+        seenOrderPkg.add(orderPkgKey);
+        const slot = pkgRev.get(pkgId) || { orderIds: new Set<string>(), revenue: 0 };
+        slot.orderIds.add(orderId);
+        slot.revenue += Number(r.orders?.total_amount || 0);
+        pkgRev.set(pkgId, slot);
+      }
+      const pkgNameById = new Map(packageRows.map((p) => [p.id, p.name]));
+      const packageRevRows: PackageRevenueRow[] = Array.from(pkgRev.entries())
+        .map(([id, slot]) => ({
+          id,
+          name: pkgNameById.get(id) || "Unknown package",
+          orderCount: slot.orderIds.size,
+          revenue: slot.revenue,
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      // OFR-C: bundle co-occurrence. Group order_items by order_id,
+      // emit every unordered (a, b) pair, count frequency. O(n^2) on
+      // line count per order but n is small (5-20 lines). 5000-row
+      // cap on the select keeps the outer loop bounded.
+      const linesByOrder = new Map<string, Array<{ id: string; name: string }>>();
+      for (const r of oiRows) {
+        const oid = r.order_id;
+        const mid = r.menu_item_id;
+        if (!oid || !mid) continue;
+        const arr = linesByOrder.get(oid) || [];
+        // Skip duplicates of the same menu_item_id on the same order.
+        if (arr.some((x) => x.id === mid)) continue;
+        arr.push({ id: mid, name: r.item_name || "Unnamed" });
+        linesByOrder.set(oid, arr);
+      }
+      const pairCount = new Map<string, { a: { id: string; name: string }; b: { id: string; name: string }; count: number }>();
+      for (const items of linesByOrder.values()) {
+        if (items.length < 2) continue;
+        for (let i = 0; i < items.length; i++) {
+          for (let j = i + 1; j < items.length; j++) {
+            // Canonicalise pair so (A,B) and (B,A) collapse.
+            const [a, b] = items[i].id < items[j].id ? [items[i], items[j]] : [items[j], items[i]];
+            const key = `${a.id}|${b.id}`;
+            const slot = pairCount.get(key) || { a, b, count: 0 };
+            slot.count += 1;
+            pairCount.set(key, slot);
+          }
+        }
+      }
+      const topPairs: BundlePair[] = Array.from(pairCount.values())
+        .filter((p) => p.count >= 2) // single co-occurrence is noise
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
       setMenuTile({
         active: menuActive,
@@ -275,10 +402,13 @@ function OfferingPage() {
         withPrice: menuWithPrice,
         missingPhoto: menuMissingPhoto,
         missingPrice: menuMissingPrice,
+        stalePhoto: menuStalePhoto,
         lastEdited: menuLastEdited,
         topQuoted,
         topByRevenue,
       });
+      setPackageRevenue(packageRevRows);
+      setBundlePairs(topPairs);
       setEquipTile({
         total: equipRows.length,
         withPhoto: equipWithPhoto,
@@ -538,7 +668,7 @@ function OfferingPage() {
                     {/* OFR-B: menu-side gap chips - matching equipment.
                         Hero copy promised "spot gaps in pricing or
                         photos", asymmetry pre-OFR-B was confusing. */}
-                    {(menuTile.missingPrice > 0 || menuTile.missingPhoto > 0) && (
+                    {(menuTile.missingPrice > 0 || menuTile.missingPhoto > 0 || menuTile.stalePhoto > 0) && (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {menuTile.missingPrice > 0 && (
                           <Link href={withSlug("/admin/menu?filter=missing-price")}>
@@ -553,6 +683,18 @@ function OfferingPage() {
                             <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 cursor-pointer">
                               <ImageOff className="w-3 h-3 mr-1" />
                               {menuTile.missingPhoto} missing photo
+                            </Badge>
+                          </Link>
+                        )}
+                        {/* OFR-C (task #183 deferred, 2026-05-24):
+                            stale-photo chip. Photo > 6 months since
+                            any item edit - likely outdated and worth
+                            a refresh. Conversion driver. */}
+                        {menuTile.stalePhoto > 0 && (
+                          <Link href={withSlug("/admin/menu?filter=stale-photo")}>
+                            <Badge variant="outline" className="border-slate-300 text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer" title="Photo > 6 months old. Refreshing helps conversion on the public quote view.">
+                              <ImageOff className="w-3 h-3 mr-1" />
+                              {menuTile.stalePhoto} stale photo
                             </Badge>
                           </Link>
                         )}
@@ -598,7 +740,26 @@ function OfferingPage() {
                                   className="flex items-center justify-between text-sm hover:bg-slate-50 rounded px-1 -mx-1 py-0.5"
                                 >
                                   <span className="truncate text-slate-700">{m.name}</span>
-                                  <Badge variant="secondary" className="ml-2 flex-shrink-0 tabular-nums">{fmtR(m.revenue)}</Badge>
+                                  <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                                    {/* OFR-C: margin chip. Hidden when
+                                        no unit_cost data on file - a
+                                        suppressed chip is honest;
+                                        rendering 100% would mislead. */}
+                                    {m.marginPct != null && (
+                                      <Badge
+                                        variant="outline"
+                                        className={`tabular-nums text-[10px] ${
+                                          m.marginPct >= 50 ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                          m.marginPct >= 25 ? "border-amber-300 text-amber-700 bg-amber-50" :
+                                          "border-rose-300 text-rose-700 bg-rose-50"
+                                        }`}
+                                        title="Margin = (revenue - cost) / revenue. Cost from order_items.unit_cost snapshot."
+                                      >
+                                        {m.marginPct}% margin
+                                      </Badge>
+                                    )}
+                                    <Badge variant="secondary" className="tabular-nums">{fmtR(m.revenue)}</Badge>
+                                  </span>
                                 </Link>
                               </li>
                             ))}
@@ -794,11 +955,88 @@ function OfferingPage() {
                         </p>
                       </Link>
                     )}
+                    {/* OFR-C (task #183 deferred, 2026-05-24): Top
+                        packages by revenue in window. Tells the
+                        operator which bundles are actually pulling
+                        weight - the rest can be retired or repriced. */}
+                    {packageRevenue.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                          Top by revenue ({period}d)
+                        </p>
+                        <ul className="space-y-1">
+                          {packageRevenue.slice(0, 3).map((p) => (
+                            <li key={p.id}>
+                              <Link
+                                href={withSlug(`/admin/packages?id=${p.id}`)}
+                                className="flex items-center justify-between text-sm hover:bg-slate-50 rounded px-1 -mx-1 py-0.5"
+                              >
+                                <span className="truncate text-slate-700">{p.name}</span>
+                                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                                  <Badge variant="outline" className="text-[10px] tabular-nums border-slate-300">
+                                    {p.orderCount}x
+                                  </Badge>
+                                  <Badge variant="secondary" className="tabular-nums">{fmtR(p.revenue)}</Badge>
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
             </Card>
           </div>
+
+          {/* OFR-C (task #183 deferred, 2026-05-24): bundle suggestions.
+              Pairs of menu items that co-occurred on the same order >= 2
+              times in the window. Cross-sell intel - "clients who picked
+              X also picked Y". Hidden when no qualifying pairs exist. */}
+          {!loading && bundlePairs.length > 0 && (
+            <Card className="border-0 shadow-lg mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-violet-600" />
+                  Often ordered together ({period}d)
+                </CardTitle>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Menu pairs that landed on the same order more than once. Useful when building a quote - one tap to add the natural companion.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {bundlePairs.map((p) => (
+                    <div
+                      key={`${p.a.id}|${p.b.id}`}
+                      className="rounded-lg border border-slate-200 bg-slate-50/40 p-3"
+                    >
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Sparkles className="w-3 h-3 text-violet-600" />
+                        <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                          Co-ordered {p.count}x
+                        </span>
+                      </div>
+                      <Link
+                        href={withSlug(`/admin/menu?item=${p.a.id}`)}
+                        className="text-sm text-slate-900 font-semibold hover:text-amber-700 hover:underline block truncate"
+                      >
+                        {p.a.name}
+                      </Link>
+                      <p className="text-xs text-slate-400 my-0.5">with</p>
+                      <Link
+                        href={withSlug(`/admin/menu?item=${p.b.id}`)}
+                        className="text-sm text-slate-900 font-semibold hover:text-amber-700 hover:underline block truncate"
+                      >
+                        {p.b.name}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recently quoted strip */}
           <Card className="border-0 shadow-lg mb-6">
