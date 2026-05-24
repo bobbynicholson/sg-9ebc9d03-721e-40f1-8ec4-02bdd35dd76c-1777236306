@@ -35,7 +35,7 @@ import {
 import {
   Building2, Search, Plus, Pencil, Trash2, Mail, Phone, TrendingUp, Package,
   Calendar, Loader2, Filter, ArrowRight, MessageCircle, Star, AlertTriangle,
-  Upload, Merge,
+  Upload, Merge, TrendingDown,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -208,13 +208,23 @@ function SuppliersList() {
   // SUP-B: row-level chips. Reliance = number of inventory items
   // preferring this supplier (cached via product_count); Stale = no
   // purchase in 90d but still active.
+  // SUP-D: price-creep signal from supplier_price_creep_summary RPC.
   const rowFlags = (s: SupplierWithStats) => {
     const days = s.last_purchase_at
       ? Math.floor((Date.now() - new Date(s.last_purchase_at).getTime()) / 86_400_000)
       : null;
     const stale = s.is_active !== false && (days == null ? s.product_count > 0 : days > 90);
     const reliance = s.product_count;
-    return { stale, reliance, daysSinceBuy: days };
+    // Price-creep: surface chip when median rise is >= 5% over enough
+    // items to be signal not noise (2+). Hide drops by default since
+    // they're rare and operator usually only acts on rises.
+    const pct = s.price_median_pct_change;
+    const showCreep = pct != null && s.price_items_compared >= 2 && Math.abs(pct) >= 5;
+    return {
+      stale, reliance, daysSinceBuy: days,
+      creepPct: showCreep ? pct : null,
+      creepItems: s.price_items_compared,
+    };
   };
 
   return (
@@ -367,6 +377,22 @@ function SuppliersList() {
                                         Stale{flags.daysSinceBuy != null ? ` ${flags.daysSinceBuy}d` : ""}
                                       </Badge>
                                     )}
+                                    {canSeeFinance && flags.creepPct != null && (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] inline-flex items-center gap-1 ${
+                                          flags.creepPct > 0
+                                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}
+                                        title={`Median per-item price change vs 60-120d ago, across ${flags.creepItems} items`}
+                                      >
+                                        {flags.creepPct > 0
+                                          ? <TrendingUp className="w-2.5 h-2.5" />
+                                          : <TrendingDown className="w-2.5 h-2.5" />}
+                                        Prices {flags.creepPct > 0 ? "+" : ""}{flags.creepPct.toFixed(0)}%
+                                      </Badge>
+                                    )}
                                   </div>
                                   {(s.supplier_categories || []).length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1">
@@ -484,6 +510,18 @@ function SuppliersList() {
                                 {flags.stale && (
                                   <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
                                     Stale
+                                  </Badge>
+                                )}
+                                {canSeeFinance && flags.creepPct != null && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] inline-flex items-center gap-1 ${
+                                      flags.creepPct > 0
+                                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    }`}
+                                  >
+                                    {flags.creepPct > 0 ? "+" : ""}{flags.creepPct.toFixed(0)}%
                                   </Badge>
                                 )}
                                 {s.is_active === false && (

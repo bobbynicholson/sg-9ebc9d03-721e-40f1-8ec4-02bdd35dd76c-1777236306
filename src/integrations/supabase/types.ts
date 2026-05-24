@@ -4549,6 +4549,71 @@ export type Database = {
           },
         ]
       }
+      inventory_item_supplier_price_history: {
+        Row: {
+          company_id: string
+          id: string
+          inventory_item_id: string
+          pack_size: string | null
+          recorded_at: string
+          source: string
+          supplier_id: string
+          unit_price: number
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          inventory_item_id: string
+          pack_size?: string | null
+          recorded_at?: string
+          source?: string
+          supplier_id: string
+          unit_price: number
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          inventory_item_id?: string
+          pack_size?: string | null
+          recorded_at?: string
+          source?: string
+          supplier_id?: string
+          unit_price?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_item_supplier_price_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_supplier_price_history_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_demand_outlook"
+            referencedColumns: ["inventory_item_id"]
+          },
+          {
+            foreignKeyName: "inventory_item_supplier_price_history_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_supplier_price_history_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_item_suppliers: {
         Row: {
           company_id: string
@@ -12137,6 +12202,14 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      supplier_price_creep_summary: {
+        Args: { p_company_id: string }
+        Returns: {
+          items_compared: number
+          median_pct_change: number
+          supplier_id: string
+        }[]
       }
       sweep_stale_hire_drafts: { Args: never; Returns: number }
       unlockrows: { Args: { "": string }; Returns: number }

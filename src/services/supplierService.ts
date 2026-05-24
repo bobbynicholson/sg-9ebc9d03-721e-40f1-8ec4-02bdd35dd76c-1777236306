@@ -33,6 +33,12 @@ export interface SupplierWithStats extends Supplier {
   spend_365d: number;
   last_purchase_at: string | null;
   active_receipts_count: number;
+  // SUP-D: price-creep signal. items_compared = how many of the
+  // supplier's items had a baseline 60-120d ago + a recent 30d price.
+  // median_pct_change = the per-item median percentage change.
+  // Both null when the supplier has no comparable history yet.
+  price_items_compared: number;
+  price_median_pct_change: number | null;
 }
 
 export interface SupplierProduct extends InventoryItemSupplier {
@@ -123,9 +129,34 @@ export const supplierService = {
       .eq("company_id", companyId);
     if (linksRawErr) console.error("[supplierService] inventory_item_suppliers lookup failed:", linksRawErr);
     const productCount = new Map<string, number>();
-    (linksRaw || []).forEach((l: any) => {
+    (linksRaw || []).forEach((l: { supplier_id: string | null }) => {
+      if (!l.supplier_id) return;
       productCount.set(l.supplier_id, (productCount.get(l.supplier_id) || 0) + 1);
     });
+
+    // SUP-D: per-supplier price-creep summary. Tolerant - if the RPC
+    // is missing (older project) or returns empty, every supplier
+    // simply shows no chip.
+    const creepMap = new Map<string, { items: number; pct: number | null }>();
+    try {
+      const { data: creepRows, error: creepErr } = await supabase.rpc(
+        "supplier_price_creep_summary",
+        { p_company_id: companyId },
+      );
+      if (creepErr) {
+        console.warn("[supplierService] price-creep summary unavailable:", creepErr.message);
+      } else {
+        (creepRows || []).forEach((row) => {
+          creepMap.set(row.supplier_id, {
+            items: Number(row.items_compared || 0),
+            pct: row.median_pct_change == null ? null : Number(row.median_pct_change),
+          });
+        });
+      }
+    } catch (e) {
+      // RPC missing entirely - silently no-op.
+      console.warn("[supplierService] price-creep RPC threw:", e);
+    }
 
     const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30);
     const cutoff90 = new Date(); cutoff90.setDate(cutoff90.getDate() - 90);
@@ -175,6 +206,7 @@ export const supplierService = {
       for (const t of txRows) {
         if (!lastAt || t.created_at > lastAt) lastAt = t.created_at;
       }
+      const creep = creepMap.get(sId);
       return {
         ...(s as Supplier),
         product_count: productCount.get(sId) || 0,
@@ -183,8 +215,45 @@ export const supplierService = {
         spend_365d: spend365,
         last_purchase_at: lastAt,
         active_receipts_count: activeReceiptsCount,
+        price_items_compared: creep?.items || 0,
+        price_median_pct_change: creep?.pct ?? null,
       } as SupplierWithStats;
     });
+  },
+
+  /**
+   * SUP-D: full per-item price history for a supplier. Drives the
+   * detail-page sparkline. Cheap - indexed on (supplier_id,
+   * recorded_at desc). Returns chronological for easy charting.
+   */
+  async getPriceHistory(supplierId: string, daysBack = 365): Promise<Array<{
+    inventory_item_id: string;
+    unit_price: number;
+    pack_size: string | null;
+    recorded_at: string;
+  }>> {
+    const fromIso = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+    const { data, error } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          eq: (k: string, v: string) => {
+            gte: (k: string, v: string) => {
+              order: (k: string, opts: { ascending: boolean }) => Promise<{
+                data: Array<{ inventory_item_id: string; unit_price: number; pack_size: string | null; recorded_at: string }> | null;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+    })
+      .from("inventory_item_supplier_price_history")
+      .select("inventory_item_id, unit_price, pack_size, recorded_at")
+      .eq("supplier_id", supplierId)
+      .gte("recorded_at", fromIso)
+      .order("recorded_at", { ascending: true });
+    if (error) { console.error("supplierService.getPriceHistory:", error); return []; }
+    return data || [];
   },
 
   async getById(supplierId: string): Promise<Supplier | null> {

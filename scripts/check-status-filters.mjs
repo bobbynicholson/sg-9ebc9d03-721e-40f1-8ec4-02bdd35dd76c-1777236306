@@ -201,6 +201,7 @@ const KNOWN_TABLES = new Set([
   "gamification_points","gps_tracking","health_certificates","import_events",
   "import_jobs","import_rows","ingredient_substitutions","insurance_policies",
   "integrations","inventory","inventory_batches","inventory_demand_outlook",
+  "inventory_item_supplier_price_history",
   "inventory_item_suppliers","inventory_items","inventory_transactions","invoices",
   "kitchen_duty_shifts","kitchen_handoffs","kitchen_payslips","kitchen_prep_tasks",
   "kitchen_shifts","kitchen_staff_members","kitchen_staff_shifts","kitchen_stations",
