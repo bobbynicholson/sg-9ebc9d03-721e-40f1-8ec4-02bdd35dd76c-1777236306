@@ -255,6 +255,33 @@ function ProviderDetail() {
                         {roleLabel(r)}
                       </Badge>
                     ))}
+                    {/* OUT-C: insurance expiry chip. Amber within 30
+                        days, rose when expired. Hidden when no expiry
+                        date on file. */}
+                    {(() => {
+                      const pp = provider as typeof provider & { insurance_expiry?: string | null };
+                      if (!pp.insurance_expiry) return null;
+                      const days = Math.floor((new Date(pp.insurance_expiry).getTime() - Date.now()) / 86_400_000);
+                      if (days >= 30) {
+                        return (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Insured · expires in {days}d
+                          </Badge>
+                        );
+                      }
+                      if (days >= 0) {
+                        return (
+                          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                            Insurance expires in {days}d
+                          </Badge>
+                        );
+                      }
+                      return (
+                        <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                          Insurance expired {-days}d ago
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   {provider.specialty && (
                     <p className="text-sm text-slate-600 mt-1">{provider.specialty}</p>
@@ -367,6 +394,62 @@ function ProviderDetail() {
                   </Card>
                 )}
               </div>
+
+              {/* OUT-C: Compliance card - VAT + insurance + certs.
+                  Only renders when at least one field is populated;
+                  noise-free for tenants that don't track this. */}
+              {(() => {
+                const pp = provider as typeof provider & {
+                  vat_number?: string | null;
+                  insurance_provider?: string | null;
+                  insurance_policy_number?: string | null;
+                  insurance_expiry?: string | null;
+                  certification_notes?: string | null;
+                };
+                const hasAny = pp.vat_number || pp.insurance_provider || pp.insurance_policy_number || pp.insurance_expiry || pp.certification_notes;
+                if (!hasAny) return null;
+                return (
+                  <Card className="mb-6">
+                    <CardContent className="p-4">
+                      <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                        Compliance
+                      </p>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {pp.vat_number && (
+                          <div>
+                            <dt className="text-xs text-slate-500">VAT number</dt>
+                            <dd className="text-slate-900">{pp.vat_number}</dd>
+                          </div>
+                        )}
+                        {pp.insurance_provider && (
+                          <div>
+                            <dt className="text-xs text-slate-500">Insurance provider</dt>
+                            <dd className="text-slate-900">{pp.insurance_provider}</dd>
+                          </div>
+                        )}
+                        {pp.insurance_policy_number && (
+                          <div>
+                            <dt className="text-xs text-slate-500">Policy number</dt>
+                            <dd className="text-slate-900">{pp.insurance_policy_number}</dd>
+                          </div>
+                        )}
+                        {pp.insurance_expiry && (
+                          <div>
+                            <dt className="text-xs text-slate-500">Expires</dt>
+                            <dd className="text-slate-900">{new Date(pp.insurance_expiry).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</dd>
+                          </div>
+                        )}
+                        {pp.certification_notes && (
+                          <div className="sm:col-span-2">
+                            <dt className="text-xs text-slate-500">Certifications</dt>
+                            <dd className="text-slate-700 whitespace-pre-wrap">{pp.certification_notes}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Decline reasons */}
               {declineReasons.length > 0 && (
