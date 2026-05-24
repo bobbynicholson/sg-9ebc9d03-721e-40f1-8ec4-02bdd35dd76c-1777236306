@@ -27,7 +27,10 @@ import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
 import { toExVat } from "@/lib/vatMath";
 
-interface ExtractionLine {
+// SHOP-F (ReceiptsTab ts-nocheck removal, 2026-05-24): exported so
+// the ReceiptsTab can type its rescan-result state instead of using
+// `any`. Same shape the Anthropic vision pipeline emits.
+export interface ExtractionLine {
   description: string;
   quantity: number | null;
   unit: string | null;
@@ -38,7 +41,7 @@ interface ExtractionLine {
   match_confidence?: number | null;
 }
 
-interface Extraction {
+export interface Extraction {
   supplier_name: string | null;
   supplier_vat_number: string | null;
   receipt_date: string | null;
