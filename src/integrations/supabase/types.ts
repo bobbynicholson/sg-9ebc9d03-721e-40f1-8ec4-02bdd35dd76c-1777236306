@@ -3116,20 +3116,26 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           dishwasher_safe: boolean | null
+          expected_lifespan_years: number | null
           hire_in_cost: number
           id: string
           image_url: string | null
+          insurance_policy_ref: string | null
           is_available: boolean
           is_hire_in: boolean
           last_serviced_at: string | null
           name: string | null
           next_service_due: string | null
+          purchase_cost: number | null
+          purchase_date: string | null
           quantity: number | null
           rental_price: number
           replacement_cost: number | null
           requires_cleaning: boolean
+          serial_number: string | null
           service_interval_days: number | null
           supplier_cleans: boolean
+          supplier_of_record_id: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -3145,20 +3151,26 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           dishwasher_safe?: boolean | null
+          expected_lifespan_years?: number | null
           hire_in_cost?: number
           id?: string
           image_url?: string | null
+          insurance_policy_ref?: string | null
           is_available?: boolean
           is_hire_in?: boolean
           last_serviced_at?: string | null
           name?: string | null
           next_service_due?: string | null
+          purchase_cost?: number | null
+          purchase_date?: string | null
           quantity?: number | null
           rental_price?: number
           replacement_cost?: number | null
           requires_cleaning?: boolean
+          serial_number?: string | null
           service_interval_days?: number | null
           supplier_cleans?: boolean
+          supplier_of_record_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -3174,24 +3186,38 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           dishwasher_safe?: boolean | null
+          expected_lifespan_years?: number | null
           hire_in_cost?: number
           id?: string
           image_url?: string | null
+          insurance_policy_ref?: string | null
           is_available?: boolean
           is_hire_in?: boolean
           last_serviced_at?: string | null
           name?: string | null
           next_service_due?: string | null
+          purchase_cost?: number | null
+          purchase_date?: string | null
           quantity?: number | null
           rental_price?: number
           replacement_cost?: number | null
           requires_cleaning?: boolean
+          serial_number?: string | null
           service_interval_days?: number | null
           supplier_cleans?: boolean
+          supplier_of_record_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "equipment_supplier_of_record_id_fkey"
+            columns: ["supplier_of_record_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_bookings: {
         Row: {
@@ -3676,6 +3702,34 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_shortage_flags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_equipment_booking_id_fkey"
+            columns: ["equipment_booking_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_shortage_flags_resolved_by_fkey"
             columns: ["resolved_by"]
@@ -5802,6 +5856,44 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      menu_item_price_history: {
+        Row: {
+          changed_at: string
+          changed_by_user_id: string | null
+          id: string
+          menu_item_id: string
+          new_price: number
+          old_price: number | null
+          reason: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by_user_id?: string | null
+          id?: string
+          menu_item_id: string
+          new_price: number
+          old_price?: number | null
+          reason?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by_user_id?: string | null
+          id?: string
+          menu_item_id?: string
+          new_price?: number
+          old_price?: number | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_price_history_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       menu_items: {
         Row: {
