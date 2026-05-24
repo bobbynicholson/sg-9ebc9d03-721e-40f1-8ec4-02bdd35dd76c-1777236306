@@ -50,12 +50,44 @@ export interface PurchaseReceiptItem {
   category: string | null;
   notes: string | null;
   created_at: string;
+  /** TAX-B (tax-purchases deferred, 2026-05-24): FK to
+   *  sa_tax_deductibility_rules. Lets the read path render an
+   *  override badge when the line's is_deductible disagrees with
+   *  rule.deductibility, and powers the VAT input claim split. */
+  suggested_rule_id?: string | null;
+  /** Joined from sa_tax_deductibility_rules via suggested_rule_id.
+   *  NULL when no rule matched at extraction time. */
+  rule?: TaxRule | null;
+}
+
+/**
+ * TAX-B: shallow projection of sa_tax_deductibility_rules. The full
+ * rule has match_keywords, example_items, legal_reference etc. - we
+ * only need the verdict + VAT claimability on the read path.
+ */
+export interface TaxRule {
+  id: string;
+  category_code: string;
+  display_name: string;
+  deductibility: "deductible" | "partial" | "non_deductible";
+  vat_input_claimable: "claimable" | "not_claimable" | "depends";
 }
 
 export interface ReceiptWithItems extends PurchaseReceipt {
   items: PurchaseReceiptItem[];
   deductibleTotal: number;
   nonDeductibleTotal: number;
+  /** TAX-B: VAT input that can be reclaimed on this slip. Sums the
+   *  VAT portion (amount * 15/115) of lines that are both
+   *  is_deductible AND have rule.vat_input_claimable = 'claimable'.
+   *  Lines with vat_input_claimable = 'depends' are excluded here
+   *  to stay conservative; the export still shows them so an
+   *  accountant can decide. */
+  vatClaimableTotal: number;
+  /** TAX-B: lines where the operator marked deductible but the
+   *  rule says non_deductible. Surfaced as the amber override
+   *  badge. Zero on a clean slip. */
+  overrideCount: number;
 }
 
 const BUCKET = "purchase-receipts";
@@ -207,11 +239,21 @@ export async function listForCompany(args: {
   fromDate?: string;
   toDate?: string;
 }): Promise<ReceiptWithItems[]> {
+  // TAX-B: join the rule via suggested_rule_id so the read path
+  // can render the override badge + compute the VAT claim split.
+  // sa_tax_deductibility_rules is a small global table (sub-50
+  // rows) with RLS that lets every authenticated user read it, so
+  // the join is cheap.
   let q = (supabase as any)
     .from("purchase_receipts")
     .select(`
       *,
-      items:purchase_receipt_items(*)
+      items:purchase_receipt_items(
+        *,
+        rule:sa_tax_deductibility_rules!suggested_rule_id(
+          id, category_code, display_name, deductibility, vat_input_claimable
+        )
+      )
     `)
     .eq("company_id", args.companyId)
     .is("deleted_at", null)
@@ -234,7 +276,24 @@ export async function listForCompany(args: {
     const nonDeductibleTotal = items
       .filter((it) => !it.is_deductible)
       .reduce((s, it) => s + Number(it.amount || 0), 0);
-    return { ...r, items, deductibleTotal, nonDeductibleTotal } as ReceiptWithItems;
+    // TAX-B: VAT input claim. South Africa is 15% VAT (Schedule 1,
+    // VAT Act). The VAT portion of a R 100 standard-rated line is
+    // R 100 * 15 / 115 = R 13.04. We only count it when the rule
+    // says 'claimable' - 'depends' is left to the accountant.
+    const vatClaimableTotal = items
+      .filter((it) => it.is_deductible && it.rule?.vat_input_claimable === "claimable")
+      .reduce((s, it) => s + (Number(it.amount || 0) * 15) / 115, 0);
+    const overrideCount = items.filter(
+      (it) => it.is_deductible && it.rule?.deductibility === "non_deductible",
+    ).length;
+    return {
+      ...r,
+      items,
+      deductibleTotal,
+      nonDeductibleTotal,
+      vatClaimableTotal,
+      overrideCount,
+    } as ReceiptWithItems;
   });
 }
 
@@ -243,6 +302,10 @@ export async function listForCompany(args: {
  * accountant. One row per line item with its deductibility flag.
  */
 export function buildCsvExport(receipts: ReceiptWithItems[]): string {
+  // TAX-B: added VAT input, rule verdict, and an Override flag so
+  // the accountant can spot deductible-marked lines whose rule says
+  // non_deductible. Also added the UTF-8 BOM (﻿) at write-time
+  // on the page so Excel-ZA renders R + diacritics correctly.
   const header = [
     "Receipt date",
     "Vendor",
@@ -250,6 +313,10 @@ export function buildCsvExport(receipts: ReceiptWithItems[]): string {
     "Item description",
     "Item amount",
     "Deductible",
+    "Rule verdict",
+    "VAT input claimable",
+    "VAT (R)",
+    "Override of non-deductible rule",
     "Category",
     "Notes",
     "Receipt notes",
@@ -273,11 +340,23 @@ export function buildCsvExport(receipts: ReceiptWithItems[]): string {
         "",
         "",
         "",
+        "",
+        "",
+        "",
+        "",
         r.notes || "",
       ].map(escape).join(","));
       continue;
     }
     for (const it of r.items) {
+      const ruleVerdict = it.rule?.deductibility || "";
+      const ruleVat = it.rule?.vat_input_claimable || "";
+      const vatRand =
+        it.is_deductible && ruleVat === "claimable"
+          ? ((Number(it.amount) || 0) * 15 / 115).toFixed(2)
+          : "";
+      const isOverride =
+        it.is_deductible && it.rule?.deductibility === "non_deductible";
       rows.push([
         r.receipt_date || "",
         r.vendor || "",
@@ -285,6 +364,10 @@ export function buildCsvExport(receipts: ReceiptWithItems[]): string {
         it.description,
         it.amount,
         it.is_deductible ? "Yes" : "No",
+        ruleVerdict,
+        ruleVat,
+        vatRand,
+        isOverride ? "Yes" : "",
         it.category || "",
         it.notes || "",
         r.notes || "",
@@ -304,21 +387,159 @@ export interface PurchaseSummary {
   deductibleTotal: number;
   nonDeductibleTotal: number;
   unfiledCount: number;
+  /** TAX-B: VAT input claimable across all receipts. Sum of each
+   *  receipt's vatClaimableTotal. */
+  vatClaimableTotal: number;
+  /** TAX-B: count of lines where is_deductible disagrees with the
+   *  rule's non_deductible verdict. Drives the SARS-readiness card
+   *  and the per-row badge. */
+  overrideCount: number;
+  /** TAX-B: count of receipts where the lines don't reconcile to
+   *  the printed slip total (drift > 5% AND > R 1). Drives the
+   *  page-level mismatch banner. */
+  mismatchCount: number;
 }
 
 export function summarise(receipts: ReceiptWithItems[]): PurchaseSummary {
   let deductibleTotal = 0;
   let nonDeductibleTotal = 0;
   let unfiledCount = 0;
+  let vatClaimableTotal = 0;
+  let overrideCount = 0;
+  let mismatchCount = 0;
   for (const r of receipts) {
     deductibleTotal += r.deductibleTotal;
     nonDeductibleTotal += r.nonDeductibleTotal;
+    vatClaimableTotal += r.vatClaimableTotal || 0;
+    overrideCount += r.overrideCount || 0;
     if (r.items.length === 0) unfiledCount += 1;
+    // Same drift rule the per-slip chip uses on the page.
+    const itemsTotal = r.deductibleTotal + r.nonDeductibleTotal;
+    const slipTotal = Number(r.total ?? 0);
+    if (slipTotal > 0) {
+      const drift = Math.abs(itemsTotal - slipTotal);
+      if (drift > slipTotal * 0.05 && drift > 1) mismatchCount += 1;
+    }
   }
   return {
     receiptCount: receipts.length,
     deductibleTotal,
     nonDeductibleTotal,
     unfiledCount,
+    vatClaimableTotal,
+    overrideCount,
+    mismatchCount,
   };
+}
+
+/**
+ * TAX-B: SA tax-year range. Tax year runs 1 March - end February.
+ * On 24 May 2026 the current tax year is 2026/2027, starting
+ * 1 March 2026. In Jan-Feb the current tax year started the
+ * previous calendar year.
+ */
+export function saTaxYearRange(now: Date = new Date()): { from: string; to: string } {
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-indexed
+  const startYear = m >= 2 ? y : y - 1;
+  const from = new Date(startYear, 2, 1);
+  const to = new Date(startYear + 1, 1, 28);
+  // ISO yyyy-mm-dd via local fields (matches toLocalISO shape).
+  const fmt = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  return { from: fmt(from), to: fmt(to) };
+}
+
+/**
+ * TAX-B: month buckets for the sparkline. Returns the last N months
+ * (oldest first) keyed by 'YYYY-MM', with the deductible total per
+ * month. Months with no receipts get 0 so the sparkline still has
+ * the right number of bars.
+ */
+export function monthlyDeductibleSparkline(
+  receipts: ReceiptWithItems[],
+  monthsBack: number = 6,
+): Array<{ key: string; label: string; total: number }> {
+  const out: Array<{ key: string; label: string; total: number }> = [];
+  const now = new Date();
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    out.push({
+      key: `${yyyy}-${mm}`,
+      label: d.toLocaleDateString("en-ZA", { month: "short" }),
+      total: 0,
+    });
+  }
+  const idx = new Map(out.map((b, i) => [b.key, i] as const));
+  for (const r of receipts) {
+    if (!r.receipt_date) continue;
+    const key = r.receipt_date.slice(0, 7);
+    const i = idx.get(key);
+    if (i == null) continue;
+    out[i].total += r.deductibleTotal;
+  }
+  return out;
+}
+
+/**
+ * TAX-B: detect calendar weeks with zero slips logged in a tenant
+ * that normally posts weekly. The "normal" baseline is the median
+ * weekly slip count across the input range. Weeks below the
+ * threshold are flagged so an accountant can ask "where are the
+ * slips for that week?".
+ *
+ * Returns at most the 4 most recent zero-or-low weeks within the
+ * input range. Returns [] when there isn't enough data to set a
+ * baseline (< 6 weeks of history).
+ */
+export function detectMissingSlipWeeks(
+  receipts: ReceiptWithItems[],
+): Array<{ weekStart: string; slipCount: number; expected: number }> {
+  if (receipts.length < 6) return [];
+  // Bucket by ISO-week start (Monday). Use receipt_date.
+  const buckets = new Map<string, number>();
+  let earliest: Date | null = null;
+  let latest: Date | null = null;
+  for (const r of receipts) {
+    if (!r.receipt_date) continue;
+    const d = new Date(r.receipt_date + "T12:00:00");
+    if (Number.isNaN(d.getTime())) continue;
+    if (!earliest || d < earliest) earliest = d;
+    if (!latest || d > latest) latest = d;
+    const dow = d.getDay(); // 0 = Sun
+    const offset = dow === 0 ? -6 : 1 - dow;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + offset);
+    const key = monday.toISOString().slice(0, 10);
+    buckets.set(key, (buckets.get(key) || 0) + 1);
+  }
+  if (!earliest || !latest) return [];
+  const weekCount = Math.ceil(((latest.getTime() - earliest.getTime()) / 86_400_000) / 7) + 1;
+  if (weekCount < 6) return [];
+  // Walk weeks from earliest -> latest filling in zeros so a quiet
+  // week shows up as a bucket.
+  const weeklyCounts: Array<{ weekStart: string; count: number }> = [];
+  const cursor = new Date(earliest);
+  const cursorDow = cursor.getDay();
+  cursor.setDate(cursor.getDate() + (cursorDow === 0 ? -6 : 1 - cursorDow));
+  while (cursor <= latest) {
+    const key = cursor.toISOString().slice(0, 10);
+    weeklyCounts.push({ weekStart: key, count: buckets.get(key) || 0 });
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  // Median of non-zero weeks gives the "normal" rhythm.
+  const nonZero = weeklyCounts.map((w) => w.count).filter((c) => c > 0).sort((a, b) => a - b);
+  if (nonZero.length < 4) return [];
+  const median = nonZero[Math.floor(nonZero.length / 2)];
+  const threshold = Math.max(1, Math.floor(median / 2));
+  return weeklyCounts
+    .filter((w) => w.count < threshold)
+    .slice(-4)
+    .map((w) => ({ weekStart: w.weekStart, slipCount: w.count, expected: median }));
 }
