@@ -90,6 +90,25 @@ export function ReceiptScanner({
   const [reconcileRow, setReconcileRow] = useState<RowShape | null>(null);
   const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // SHOP-B: monthly scan quota. Replaces the misleading hardcoded
+  // "around ZAR 0.05 per batch" line that was ~80x understated.
+  const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number; exceeded: boolean } | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    const fetchQuota = async () => {
+      try {
+        const r = await fetch("/api/imports/receipts/quota", { credentials: "include" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled) setQuota(data);
+      } catch { /* silent */ }
+    };
+    fetchQuota();
+    // Refetch after a scan settles (jobId flips when busy ends).
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, jobId]);
 
   const accentText = accent === "emerald" ? "text-emerald-600" : "text-purple-600";
   const accentBorder = accent === "emerald" ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50" : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
@@ -250,7 +269,9 @@ export function ReceiptScanner({
               </Button>
             )}
             <p className="text-[11px] text-slate-500 ml-2">
-              Sequential extraction, around 3 s per slip, around ZAR 0.05 per batch
+              {quota
+                ? <>Sequential extraction, ~3 s per slip. <strong className={quota.exceeded ? "text-rose-700" : quota.remaining <= 5 ? "text-amber-700" : "text-slate-700"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
+                : <>Sequential extraction, around 3 s per slip. Capped at 60 scans / month.</>}
             </p>
           </div>
         </CardContent>
