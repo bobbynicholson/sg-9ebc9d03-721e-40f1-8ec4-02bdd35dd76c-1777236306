@@ -209,11 +209,11 @@ function TaxPurchasesPage() {
     const channel = supabase
       .channel(`tax-purchases:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipts", filter: `company_id=eq.${companyId}` }, bump)
-      // purchase_receipt_items doesn't carry company_id directly, so
-      // we listen unfiltered and rely on the receipt-level update
-      // firing right after. Cheap because the table is small per
-      // tenant and supabase delivers on the same channel.
-      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipt_items" }, bump)
+      // TAX-C (task #180, 2026-05-24): purchase_receipt_items now
+      // carries company_id (migration 20260524220000) so we can
+      // finally tenant-filter this subscription. Pre-fix it was
+      // unfiltered and woke up on every tenant's OCR fan-out.
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipt_items", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -915,7 +915,7 @@ function LineRow({
 
 export default function ProtectedTaxPurchasesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN]}>
       <TaxPurchasesPage />
     </ProtectedRoute>
   );
