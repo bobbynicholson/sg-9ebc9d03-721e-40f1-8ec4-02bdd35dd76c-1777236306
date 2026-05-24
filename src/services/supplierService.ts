@@ -205,6 +205,8 @@ export const supplierService = {
     contact_person?: string | null;
     // SUP-B: column is int in the schema (days). Callers must coerce.
     payment_terms?: number | null;
+    // SUP-C: free-text annotation (COD / Net-30 EOM / on account).
+    payment_terms_note?: string | null;
     payment_method?: string | null;
     preferred_contact_method?: string | null;
     website?: string | null;
@@ -214,6 +216,14 @@ export const supplierService = {
     postal_code?: string | null;
     supplier_categories?: string[];
     notes?: string | null;
+    // SUP-C: SARS VAT registration number.
+    vat_number?: string | null;
+    // SUP-C: fields the team-portal/shopping/suppliers page captures.
+    // Centralising here so both surfaces write the same way.
+    account_number?: string | null;
+    rating?: number | null;
+    emergency_contact?: string | null;
+    is_active?: boolean;
   }): Promise<Supplier | null> {
     const { data, error } = await supabase
       .from("suppliers")
@@ -224,6 +234,7 @@ export const supplierService = {
         phone: args.phone ?? null,
         contact_person: args.contact_person ?? null,
         payment_terms: args.payment_terms ?? null,
+        payment_terms_note: args.payment_terms_note ?? null,
         payment_method: args.payment_method ?? null,
         preferred_contact_method: args.preferred_contact_method ?? "email",
         website: args.website ?? null,
@@ -233,13 +244,108 @@ export const supplierService = {
         postal_code: args.postal_code ?? null,
         supplier_categories: args.supplier_categories ?? [],
         notes: args.notes ?? null,
-        is_active: true,
-        active: true,
-      } as any)
+        vat_number: args.vat_number ?? null,
+        account_number: args.account_number ?? null,
+        rating: args.rating ?? null,
+        emergency_contact: args.emergency_contact ?? null,
+        is_active: args.is_active ?? true,
+        active: args.is_active ?? true,
+      })
       .select()
       .single();
     if (error) { console.error("supplierService.create:", error); return null; }
     return data as Supplier;
+  },
+
+  /**
+   * SUP-C: bulk insert from CSV. Returns per-row outcomes so the
+   * import dialog can show "added 14, skipped 3 duplicates, 1 error".
+   * De-dupes against existing supplier_name (case-insensitive) within
+   * the tenant.
+   */
+  async bulkCreate(args: {
+    companyId: string;
+    rows: Array<{
+      supplier_name: string;
+      contact_person?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      vat_number?: string | null;
+      payment_terms?: number | null;
+      payment_terms_note?: string | null;
+      supplier_categories?: string[];
+    }>;
+  }): Promise<{
+    inserted: number;
+    skipped: number;
+    errors: Array<{ row: number; supplier_name: string; reason: string }>;
+  }> {
+    // Pull existing names once for cheap dedupe.
+    const { data: existing } = await supabase
+      .from("suppliers")
+      .select("supplier_name")
+      .eq("company_id", args.companyId)
+      .is("deleted_at", null);
+    const existingSet = new Set(
+      ((existing || []) as Array<{ supplier_name: string }>)
+        .map((r) => (r.supplier_name || "").toLowerCase().trim()),
+    );
+
+    let inserted = 0, skipped = 0;
+    const errors: Array<{ row: number; supplier_name: string; reason: string }> = [];
+
+    for (let i = 0; i < args.rows.length; i += 1) {
+      const r = args.rows[i];
+      const nm = (r.supplier_name || "").trim();
+      if (!nm) {
+        errors.push({ row: i + 1, supplier_name: "(blank)", reason: "Missing name" });
+        continue;
+      }
+      if (existingSet.has(nm.toLowerCase())) {
+        skipped += 1;
+        continue;
+      }
+      const { error } = await supabase.from("suppliers").insert({
+        company_id: args.companyId,
+        supplier_name: nm,
+        contact_person: r.contact_person?.trim() || null,
+        email: r.email?.trim() || null,
+        phone: r.phone?.trim() || null,
+        vat_number: r.vat_number?.trim() || null,
+        payment_terms: r.payment_terms ?? null,
+        payment_terms_note: r.payment_terms_note?.trim() || null,
+        supplier_categories: r.supplier_categories ?? [],
+        preferred_contact_method: "email",
+        is_active: true,
+        active: true,
+      });
+      if (error) {
+        errors.push({ row: i + 1, supplier_name: nm, reason: error.message });
+      } else {
+        inserted += 1;
+        existingSet.add(nm.toLowerCase());
+      }
+    }
+    return { inserted, skipped, errors };
+  },
+
+  /**
+   * SUP-C: merge source supplier into target. Calls the
+   * SECURITY DEFINER RPC merge_suppliers which walks the FK graph
+   * across equipment, hire orders, payables, inventory_item_suppliers,
+   * purchase_receipts, inventory_transactions. Soft-deletes the source
+   * and writes an audit_logs row.
+   */
+  async mergeInto(args: {
+    targetId: string;
+    sourceId: string;
+  }): Promise<Record<string, number>> {
+    const { data, error } = await (supabase.rpc as any)("merge_suppliers", {
+      p_target_id: args.targetId,
+      p_source_id: args.sourceId,
+    });
+    if (error) throw error;
+    return (data || {}) as Record<string, number>;
   },
 
   async update(supplierId: string, patch: Partial<Supplier>): Promise<void> {

@@ -17,6 +17,10 @@ import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+// SUP-C: route reads + writes through the canonical service so the
+// admin and team-portal surfaces stop drifting. The card UI stays
+// shopper-shaped but the data plumbing is unified.
+import { supplierService } from "@/services/supplierService";
 
 interface Supplier {
   id: string;
@@ -94,15 +98,8 @@ export default function ShoppingSuppliersPage() {
     if (!user?.company_id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("suppliers")
-        .select("*")
-        .eq("company_id", user.company_id)
-        .is("deleted_at", null)
-        .order("supplier_name", { ascending: true })
-        .returns<Supplier[]>();
-      if (error) throw error;
-      setItems(data || []);
+      const data = await supplierService.listForCompany(user.company_id);
+      setItems(data as unknown as Supplier[]);
     } catch (e) {
       toast({ title: "Could not load suppliers", variant: "destructive" });
     } finally {
@@ -144,20 +141,43 @@ export default function ShoppingSuppliersPage() {
     }
     setSaving(true);
     try {
-      const payload = { ...editing, company_id: user.company_id, supplier_name: editing.supplier_name.trim() };
+      const sharedPayload = {
+        supplier_name: editing.supplier_name.trim(),
+        email: editing.email ?? null,
+        phone: editing.phone ?? null,
+        contact_person: editing.contact_person ?? null,
+        payment_terms: editing.payment_terms ?? null,
+        address_line1: editing.address_line1 ?? null,
+        address_line2: editing.address_line2 ?? null,
+        city: editing.city ?? null,
+        postal_code: editing.postal_code ?? null,
+        notes: editing.notes ?? null,
+        account_number: editing.account_number ?? null,
+        rating: editing.rating ?? null,
+        emergency_contact: editing.emergency_contact ?? null,
+      };
       if (editing.id) {
-        const { error } = await supabase.from("suppliers").update(payload as never).eq("id", editing.id);
-        if (error) throw error;
+        await supplierService.update(editing.id, {
+          ...sharedPayload,
+          is_active: editing.is_active !== false,
+        } as never);
         toast({ title: "Supplier updated" });
       } else {
-        const { error } = await supabase.from("suppliers").insert([payload as never]);
-        if (error) throw error;
+        await supplierService.create({
+          companyId: user.company_id,
+          ...sharedPayload,
+          is_active: editing.is_active !== false,
+        });
         toast({ title: "Supplier added" });
       }
       close();
       load();
-    } catch (e: any) {
-      toast({ title: "Could not save", description: e?.message ?? "Unknown error", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not save",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }

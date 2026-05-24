@@ -9850,6 +9850,7 @@ export type Database = {
           notes: string | null
           payment_method: string | null
           payment_terms: number | null
+          payment_terms_note: string | null
           phone: string | null
           postal_code: string | null
           preferred_contact_method: string | null
@@ -9857,6 +9858,7 @@ export type Database = {
           supplier_categories: string[] | null
           supplier_name: string
           updated_at: string | null
+          vat_number: string | null
           website: string | null
         }
         Insert: {
@@ -9876,6 +9878,7 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           payment_terms?: number | null
+          payment_terms_note?: string | null
           phone?: string | null
           postal_code?: string | null
           preferred_contact_method?: string | null
@@ -9883,6 +9886,7 @@ export type Database = {
           supplier_categories?: string[] | null
           supplier_name: string
           updated_at?: string | null
+          vat_number?: string | null
           website?: string | null
         }
         Update: {
@@ -9902,6 +9906,7 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           payment_terms?: number | null
+          payment_terms_note?: string | null
           phone?: string | null
           postal_code?: string | null
           preferred_contact_method?: string | null
@@ -9909,6 +9914,7 @@ export type Database = {
           supplier_categories?: string[] | null
           supplier_name?: string
           updated_at?: string | null
+          vat_number?: string | null
           website?: string | null
         }
         Relationships: [
@@ -11435,6 +11441,10 @@ export type Database = {
       is_owner_or_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      merge_suppliers: {
+        Args: { p_source_id: string; p_target_id: string }
+        Returns: Json
+      }
       mint_client_account_token: {
         Args: { p_company_id: string; p_email: string; p_label?: string }
         Returns: Json

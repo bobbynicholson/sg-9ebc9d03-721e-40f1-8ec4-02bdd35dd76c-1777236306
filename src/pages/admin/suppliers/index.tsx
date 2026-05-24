@@ -35,6 +35,7 @@ import {
 import {
   Building2, Search, Plus, Pencil, Trash2, Mail, Phone, TrendingUp, Package,
   Calendar, Loader2, Filter, ArrowRight, MessageCircle, Star, AlertTriangle,
+  Upload, Merge,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -96,6 +97,9 @@ function SuppliersList() {
     equipment_owned: number; equipment_preferred_hire: number; open_hire_orders: number;
     open_payables: number; linked_items: number; preferred_items: number;
   } | null>(null);
+  // SUP-C: merge + CSV import dialogs.
+  const [mergeOpen, setMergeOpen] = useState<SupplierWithStats | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // SUP-B: hydrate filters from URL on mount.
   useEffect(() => {
@@ -236,12 +240,21 @@ function SuppliersList() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => setAdding(true)}
-              className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
-            >
-              <Plus className="w-4 h-4 mr-1.5" /> Add supplier
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                title="Import suppliers from CSV"
+              >
+                <Upload className="w-4 h-4 mr-1.5" /> Import CSV
+              </Button>
+              <Button
+                onClick={() => setAdding(true)}
+                className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+              >
+                <Plus className="w-4 h-4 mr-1.5" /> Add supplier
+              </Button>
+            </div>
           </div>
 
           {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
@@ -419,8 +432,19 @@ function SuppliersList() {
                                     className="h-8 w-8 p-0"
                                     onClick={() => setEditing(s)}
                                     aria-label={`Edit ${s.supplier_name}`}
+                                    title="Edit"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setMergeOpen(s)}
+                                    aria-label={`Merge ${s.supplier_name}`}
+                                    title="Merge into another supplier"
+                                  >
+                                    <Merge className="w-3.5 h-3.5" />
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -428,6 +452,7 @@ function SuppliersList() {
                                     className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50"
                                     onClick={() => setConfirmDelete(s)}
                                     aria-label={`Delete ${s.supplier_name}`}
+                                    title="Delete"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
@@ -517,6 +542,20 @@ function SuppliersList() {
         companyId={companyId!}
         onClose={() => { setAdding(false); setEditing(null); }}
         onSaved={() => { setAdding(false); setEditing(null); reload(); }}
+      />
+
+      <MergeSupplierDialog
+        source={mergeOpen}
+        candidates={suppliers}
+        onClose={() => setMergeOpen(null)}
+        onMerged={() => { setMergeOpen(null); reload(); }}
+      />
+
+      <ImportSuppliersDialog
+        open={importOpen}
+        companyId={companyId || ""}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { setImportOpen(false); reload(); }}
       />
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
@@ -626,9 +665,10 @@ function SupplierFormDialog({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     supplier_name: "", email: "", phone: "", contact_person: "",
-    payment_terms: "", payment_method: "eft",
+    payment_terms: "", payment_terms_note: "", payment_method: "eft",
     preferred_contact_method: "email",
     website: "",
+    vat_number: "",
     address_line1: "", address_line2: "", city: "", postal_code: "",
     notes: "",
     supplier_categories_text: "",
@@ -637,27 +677,31 @@ function SupplierFormDialog({
   useEffect(() => {
     if (!open) return;
     if (editing) {
+      const e = editing as SupplierWithStats & { payment_terms_note?: string | null; vat_number?: string | null };
       setForm({
-        supplier_name: editing.supplier_name || "",
-        email: editing.email || "",
-        phone: editing.phone || "",
-        contact_person: editing.contact_person || "",
-        payment_terms: editing.payment_terms != null ? String(editing.payment_terms) : "",
-        payment_method: (editing.payment_method as string) || "eft",
-        preferred_contact_method: (editing.preferred_contact_method as string) || "email",
-        website: (editing.website as string) || "",
-        address_line1: editing.address_line1 || "",
-        address_line2: editing.address_line2 || "",
-        city: editing.city || "",
-        postal_code: editing.postal_code || "",
-        notes: editing.notes || "",
-        supplier_categories_text: ((editing.supplier_categories as string[]) || []).join(", "),
+        supplier_name: e.supplier_name || "",
+        email: e.email || "",
+        phone: e.phone || "",
+        contact_person: e.contact_person || "",
+        payment_terms: e.payment_terms != null ? String(e.payment_terms) : "",
+        payment_terms_note: e.payment_terms_note || "",
+        payment_method: (e.payment_method as string) || "eft",
+        preferred_contact_method: (e.preferred_contact_method as string) || "email",
+        website: (e.website as string) || "",
+        vat_number: e.vat_number || "",
+        address_line1: e.address_line1 || "",
+        address_line2: e.address_line2 || "",
+        city: e.city || "",
+        postal_code: e.postal_code || "",
+        notes: e.notes || "",
+        supplier_categories_text: ((e.supplier_categories as string[]) || []).join(", "),
       });
     } else {
       setForm({
         supplier_name: "", email: "", phone: "", contact_person: "",
-        payment_terms: "", payment_method: "eft",
+        payment_terms: "", payment_terms_note: "", payment_method: "eft",
         preferred_contact_method: "email", website: "",
+        vat_number: "",
         address_line1: "", address_line2: "", city: "", postal_code: "",
         notes: "", supplier_categories_text: "",
       });
@@ -693,9 +737,11 @@ function SupplierFormDialog({
         phone: form.phone.trim() || null,
         contact_person: form.contact_person.trim() || null,
         payment_terms: parsedTerms,
+        payment_terms_note: form.payment_terms_note.trim() || null,
         payment_method: form.payment_method || null,
         preferred_contact_method: form.preferred_contact_method,
         website: form.website.trim() || null,
+        vat_number: form.vat_number.trim() || null,
         address_line1: form.address_line1.trim() || null,
         address_line2: form.address_line2.trim() || null,
         city: form.city.trim() || null,
@@ -790,8 +836,29 @@ function SupplierFormDialog({
                 className="mt-1"
                 placeholder="e.g. 30"
               />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Payment terms note</label>
+              <Input
+                value={form.payment_terms_note}
+                onChange={(e) => set("payment_terms_note", e.target.value)}
+                className="mt-1"
+                placeholder="e.g. COD, Net-30 EOM, on account"
+              />
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Number of days. Use Notes for COD / Net-30 EOM / other wording.
+                Free-text annotation when days alone isn't the whole story.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">VAT number</label>
+              <Input
+                value={form.vat_number}
+                onChange={(e) => set("vat_number", e.target.value)}
+                className="mt-1"
+                placeholder="e.g. 4123456789"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                SARS-readiness. Leave blank if not VAT-registered.
               </p>
             </div>
             <div>
@@ -816,6 +883,370 @@ function SupplierFormDialog({
           <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
             {editing ? "Save changes" : "Add supplier"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// SUP-C: MergeSupplierDialog
+// ──────────────────────────────────────────────────────────────────
+// Merge SOURCE supplier into TARGET. Walks the FK graph in the
+// merge_suppliers RPC. The dialog ranks candidates by a cheap
+// trigram-ish similarity score so "Coastal Hire" and "Coastal Hire
+// Co" land at the top.
+function similarity(a: string, b: string): number {
+  const la = (a || "").toLowerCase().trim();
+  const lb = (b || "").toLowerCase().trim();
+  if (!la || !lb) return 0;
+  if (la === lb) return 1;
+  if (la.includes(lb) || lb.includes(la)) return 0.85;
+  // Bigram overlap
+  const grams = (s: string) => {
+    const out = new Set<string>();
+    for (let i = 0; i < s.length - 1; i += 1) out.add(s.slice(i, i + 2));
+    return out;
+  };
+  const ga = grams(la); const gb = grams(lb);
+  if (ga.size === 0 || gb.size === 0) return 0;
+  let shared = 0;
+  ga.forEach((g) => { if (gb.has(g)) shared += 1; });
+  return shared / Math.max(ga.size, gb.size);
+}
+
+function MergeSupplierDialog({
+  source, candidates, onClose, onMerged,
+}: {
+  source: SupplierWithStats | null;
+  candidates: SupplierWithStats[];
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  const { toast } = useToast();
+  const [targetId, setTargetId] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (source) { setTargetId(""); setSearch(""); } }, [source]);
+
+  const ranked = useMemo(() => {
+    if (!source) return [];
+    const others = candidates.filter((c) => c.id !== source.id && c.is_active !== false);
+    const q = search.trim().toLowerCase();
+    const scored = others.map((c) => ({
+      c,
+      score: similarity(source.supplier_name, c.supplier_name),
+    }));
+    const filtered = q
+      ? scored.filter(({ c }) => c.supplier_name.toLowerCase().includes(q))
+      : scored;
+    return filtered.sort((a, b) => b.score - a.score);
+  }, [source, candidates, search]);
+
+  const run = async () => {
+    if (!source || !targetId) return;
+    setBusy(true);
+    try {
+      const result = await supplierService.mergeInto({ targetId, sourceId: source.id });
+      const moved = Object.entries(result)
+        .filter(([k]) => !k.endsWith("_id"))
+        .reduce((s, [, v]) => s + Number(v || 0), 0);
+      toast({
+        title: "Suppliers merged",
+        description: `${source.supplier_name} merged. ${moved} link${moved === 1 ? "" : "s"} re-pointed.`,
+      });
+      onMerged();
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/suppliers", area: "merge" } });
+      toast({
+        title: "Merge failed",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={!!source} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Merge supplier</DialogTitle>
+          <DialogDescription>
+            Move every reference from <strong>{source?.supplier_name}</strong> onto the
+            target supplier. Equipment, hire orders, payables, inventory items,
+            receipts and stock-in transactions all get re-pointed. The source
+            is then soft-deleted.
+          </DialogDescription>
+        </DialogHeader>
+        {source && (
+          <div className="space-y-3">
+            <div>
+              <Input
+                placeholder="Search for the supplier to merge INTO..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
+              {ranked.length === 0 && (
+                <div className="p-4 text-xs text-slate-500 text-center">
+                  No active suppliers to merge into.
+                </div>
+              )}
+              {ranked.slice(0, 25).map(({ c, score }) => (
+                <label
+                  key={c.id}
+                  className={`flex items-center gap-2 p-2.5 cursor-pointer hover:bg-slate-50 ${targetId === c.id ? "bg-amber-50" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="merge-target"
+                    checked={targetId === c.id}
+                    onChange={() => setTargetId(c.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-900">{c.supplier_name}</div>
+                    <div className="text-[11px] text-slate-500">
+                      {c.product_count} item{c.product_count === 1 ? "" : "s"}
+                      {c.email && ` · ${c.email}`}
+                    </div>
+                  </div>
+                  {score >= 0.6 && (
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                      likely dup
+                    </Badge>
+                  )}
+                </label>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Cannot be undone. The merge is logged to audit_logs.
+            </p>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={run} disabled={!targetId || busy} className="bg-rose-600 hover:bg-rose-700 text-white">
+            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Merge className="w-4 h-4 mr-1.5" />}
+            Merge into target
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// SUP-C: ImportSuppliersDialog
+// ──────────────────────────────────────────────────────────────────
+// Bulk import suppliers from CSV. Mirrors the payables CSV pattern:
+// custom split, headerless tolerated, preview + inline validation,
+// per-row outcome reporting. No external CSV library.
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = ""; let inQ = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i += 1; }
+        else { inQ = false; }
+      } else cur += ch;
+    } else {
+      if (ch === ',') { out.push(cur); cur = ""; }
+      else if (ch === '"') inQ = true;
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+type ParsedRow = {
+  supplier_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  vat_number: string;
+  payment_terms: number | null;
+  payment_terms_note: string;
+  supplier_categories: string[];
+  _error?: string;
+};
+
+function ImportSuppliersDialog({
+  open, companyId, onClose, onImported,
+}: { open: boolean; companyId: string; onClose: () => void; onImported: () => void }) {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [filename, setFilename] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (!open) { setRows([]); setFilename(""); } }, [open]);
+
+  const onFile = (file: File) => {
+    setFilename(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length === 0) { setRows([]); return; }
+      // Detect header: if first row's first cell case-insensitively
+      // matches a known header label, drop it.
+      const first = splitCsvLine(lines[0]).map((c) => c.toLowerCase());
+      const hasHeader = first.some((c) => ["supplier", "supplier name", "name"].includes(c));
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      const parsed: ParsedRow[] = dataLines.map((ln) => {
+        const cols = splitCsvLine(ln);
+        // Expected: name, contact_person, email, phone, vat_number, payment_terms_days, payment_terms_note, categories(semi-colon)
+        const [name = "", contact = "", email = "", phone = "", vat = "", termsRaw = "", note = "", cats = ""] = cols;
+        const parsedTerms = termsRaw.trim() ? Number.parseInt(termsRaw, 10) : null;
+        const row: ParsedRow = {
+          supplier_name: name.trim(),
+          contact_person: contact.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          vat_number: vat.trim(),
+          payment_terms: Number.isFinite(parsedTerms as number) ? parsedTerms : null,
+          payment_terms_note: note.trim(),
+          supplier_categories: cats.split(";").map((s) => s.trim()).filter(Boolean),
+        };
+        if (!row.supplier_name) row._error = "Missing name";
+        return row;
+      });
+      setRows(parsed);
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const runImport = async () => {
+    if (!companyId || rows.length === 0) return;
+    const validRows = rows.filter((r) => !r._error);
+    if (validRows.length === 0) {
+      toast({ title: "Nothing to import", description: "Every row has an error.", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await supplierService.bulkCreate({
+        companyId,
+        rows: validRows.map((r) => ({
+          supplier_name: r.supplier_name,
+          contact_person: r.contact_person || null,
+          email: r.email || null,
+          phone: r.phone || null,
+          vat_number: r.vat_number || null,
+          payment_terms: r.payment_terms,
+          payment_terms_note: r.payment_terms_note || null,
+          supplier_categories: r.supplier_categories,
+        })),
+      });
+      toast({
+        title: `Imported ${result.inserted}`,
+        description: `${result.skipped} duplicate${result.skipped === 1 ? "" : "s"} skipped, ${result.errors.length} error${result.errors.length === 1 ? "" : "s"}.`,
+      });
+      onImported();
+    } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/suppliers", area: "csv-import" } });
+      toast({ title: "Import failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally { setBusy(false); }
+  };
+
+  const downloadTemplate = () => {
+    const headers = "Supplier name,Contact person,Email,Phone,VAT number,Payment terms (days),Payment terms note,Categories (semi-colon)";
+    const sample = `Coastal Hire,Linda Bekker,linda@coastalhire.co.za,0214441234,4123456789,30,,Equipment;Hire
+A1 Chicken,,orders@a1chicken.co.za,0215551236,,,COD on delivery,Meat;Fresh`;
+    const blob = new Blob(["﻿" + headers + "\r\n" + sample], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "suppliers-template.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const errorCount = rows.filter((r) => r._error).length;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Import suppliers from CSV</DialogTitle>
+          <DialogDescription>
+            Columns: name, contact person, email, phone, VAT number,
+            payment terms (days), payment terms note, categories (semi-colon).
+            Header row optional. Existing supplier names are skipped (case-insensitive).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onFile(f);
+              }}
+              className="text-sm"
+            />
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              Download template
+            </Button>
+            {filename && <span className="text-xs text-slate-500">{filename}</span>}
+          </div>
+          {rows.length > 0 && (
+            <>
+              <div className="text-xs text-slate-600">
+                {rows.length} row{rows.length === 1 ? "" : "s"} parsed
+                {errorCount > 0 && <span className="text-rose-600 ml-2">· {errorCount} with errors</span>}
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                    <tr>
+                      <th className="text-left px-2 py-1.5">Name</th>
+                      <th className="text-left px-2 py-1.5">Contact</th>
+                      <th className="text-left px-2 py-1.5">Email</th>
+                      <th className="text-left px-2 py-1.5">VAT</th>
+                      <th className="text-right px-2 py-1.5">Terms</th>
+                      <th className="text-left px-2 py-1.5">Categories</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, 50).map((r, i) => (
+                      <tr key={i} className={r._error ? "bg-rose-50" : "border-t border-slate-100"}>
+                        <td className="px-2 py-1.5 font-medium text-slate-900">
+                          {r.supplier_name || <span className="text-rose-600">(blank)</span>}
+                          {r._error && <span className="block text-[10px] text-rose-600">{r._error}</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.contact_person}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.email}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.vat_number}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{r.payment_terms ?? ""}</td>
+                        <td className="px-2 py-1.5 text-slate-600">{r.supplier_categories.join(", ")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {rows.length > 50 && (
+                  <div className="px-2 py-1 text-[10px] text-slate-500 bg-slate-50 border-t">
+                    + {rows.length - 50} more rows
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button
+            onClick={runImport}
+            disabled={rows.length === 0 || busy}
+            className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+          >
+            {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+            Import {rows.filter((r) => !r._error).length}
           </Button>
         </DialogFooter>
       </DialogContent>
