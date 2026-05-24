@@ -118,9 +118,23 @@ function emptyForm(): FormState {
 }
 
 function ProvidersList() {
-  const { profile } = useAuth() as any;
-  const companyId = (profile as any)?.company_id;
+  const { profile } = useAuth() as { profile: { company_id?: string; role?: string; active_role?: string } | null };
+  const companyId = profile?.company_id;
   const { toast } = useToast();
+
+  // OUT-B: finance-vis gate. SALES_ADMIN + REGION_ADMIN are admitted
+  // for legitimate contact-lookup reasons but shouldn't see rates +
+  // payment terms. Same rule as suppliers / hire-in.
+  const financeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canSeeFinance =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
+  // OUT-B: dry-run cron tester is tighter than canSeeFinance because
+  // its preview surfaces provider emails. Owner / company admin /
+  // super admin only.
+  const canRunCronDryRun =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "super_admin";
 
   const [providers, setProviders] = useState<OutsourceProviderWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +147,7 @@ function ProvidersList() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OutsourceProvider | null>(null);
+  const [deleteOpenAssignments, setDeleteOpenAssignments] = useState<number | null>(null);
 
   const load = async () => {
     if (!companyId) { setLoading(false); return; }
@@ -289,15 +304,44 @@ function ProvidersList() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    // OUT-B FK guard: block if open assignments still point at this
+    // provider. They'd be orphaned from a list view that hides
+    // inactives. Operator can cancel / reassign them first.
+    if (deleteOpenAssignments && deleteOpenAssignments > 0) {
+      toast({
+        title: "Open assignments block delete",
+        description: `${deleteOpenAssignments} requested / accepted / on-site assignment${deleteOpenAssignments === 1 ? "" : "s"} reference this provider. Cancel or reassign first.`,
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       await outsourceProviderService.softDelete(deleteTarget.id);
       toast({ title: "Provider removed", description: deleteTarget.provider_name });
       setDeleteTarget(null);
       void load();
-    } catch (e: any) {
-      toast({ title: "Could not delete", description: e?.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not delete",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
     }
   };
+
+  // OUT-B: fetch open-assignment count when the delete dialog opens so
+  // the operator sees what's about to be orphaned.
+  useEffect(() => {
+    if (!deleteTarget) { setDeleteOpenAssignments(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const n = await outsourceProviderService.countOpenAssignments(deleteTarget.id);
+        if (!cancelled) setDeleteOpenAssignments(n);
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [deleteTarget]);
 
   const roleLabel = (value: string) =>
     COMMON_ROLES.find((r) => r.value === value)?.label || value.replace(/_/g, " ");
@@ -317,8 +361,9 @@ function ProvidersList() {
               </h1>
               <p className="text-slate-600 text-sm mt-1 max-w-2xl">
                 Per-event service providers: on-site chefs, florists, photographers, sound, security.
-                Distinct from suppliers (procurement) and staff (payroll). Each one can be assigned to an
-                order with cost + accept/decline flow in Phase D.
+                Distinct from suppliers (procurement) and staff (payroll). Attach them to orders from the
+                order modal - they get a magic-link to accept or decline, and reminder + invoice-nudge
+                comms fire automatically.
               </p>
             </div>
             <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700">
@@ -327,12 +372,12 @@ function ProvidersList() {
             </Button>
           </div>
 
-          {/* Wave 70.4 - cron dry-run tester. Hits both outsource
-              comms crons with dryRun=1 so an admin can verify the
-              window logic + dedup + recipient resolution on prod
-              data without sending a single email. Surfaces who
-              would have been notified in the next firing window. */}
-          <CronDryRunPanel />
+          {/* OUT-B: cron dry-run tester. Demoted from always-on
+              yellow banner to a collapsed disclosure. Only owner /
+              company admin / super admin see it; plain admin no
+              longer triggers a query that returns other providers'
+              emails. */}
+          {canRunCronDryRun && <CronDryRunPanel />}
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -381,8 +426,8 @@ function ProvidersList() {
                 </h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
                   Add the chefs, florists, sound engineers and other external parties you work with on
-                  specific orders. They&apos;ll surface on menu items, quotes, and order timelines from
-                  Phase C onwards.
+                  specific orders. They become assignable from the order modal with a built-in
+                  accept/decline magic link.
                 </p>
                 <Button onClick={openAdd} className="mt-4 bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
@@ -468,9 +513,13 @@ function ProvidersList() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-slate-900 tabular-nums">{rateDisplay}</p>
-                          {p.payment_terms_days != null && (
-                            <p className="text-[11px] text-slate-500">Net {p.payment_terms_days}d</p>
+                          {canSeeFinance && (
+                            <>
+                              <p className="text-sm font-semibold text-slate-900 tabular-nums">{rateDisplay}</p>
+                              {p.payment_terms_days != null && (
+                                <p className="text-[11px] text-slate-500">Net {p.payment_terms_days}d</p>
+                              )}
+                            </>
                           )}
                           <p className="text-[11px] text-slate-500 mt-1">
                             Prefers {p.preferred_contact_channel}
@@ -722,14 +771,35 @@ function ProvidersList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {deleteTarget?.provider_name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Soft-deletes the provider. Past assignments stay on file for the audit trail. If they come
-              back into rotation later, re-add them and the history reconnects via name.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Soft-deletes the provider. Past assignments stay on file for the audit trail. If they
+                  come back into rotation later, re-add them and the history reconnects via name.
+                </p>
+                {deleteOpenAssignments == null ? (
+                  <p className="text-xs text-slate-400">Checking open assignments...</p>
+                ) : deleteOpenAssignments > 0 ? (
+                  <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-900">
+                    <div className="font-semibold">Blocked: {deleteOpenAssignments} open assignment{deleteOpenAssignments === 1 ? "" : "s"}</div>
+                    <div className="mt-0.5 text-rose-700">
+                      This provider is still booked for in-flight events. Cancel or reassign those first
+                      from the order modal, then remove.
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No open assignments reference this provider.</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-rose-600 hover:bg-rose-700">
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteOpenAssignments == null || deleteOpenAssignments > 0}
+              className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:pointer-events-none"
+            >
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -772,6 +842,9 @@ function CronDryRunPanel() {
   const [pre, setPre] = useState<DryRunResult | null>(null);
   const [post, setPost] = useState<DryRunResult | null>(null);
   const [busy, setBusy] = useState<"pre" | "post" | null>(null);
+  // OUT-B: collapsed by default - the previous yellow banner
+  // dominated the page and made admins assume there was a bug.
+  const [open, setOpen] = useState(false);
 
   const run = async (kind: "pre" | "post") => {
     setBusy(kind);
@@ -833,19 +906,41 @@ function CronDryRunPanel() {
     );
   };
 
+  if (!open) {
+    return (
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1.5"
+        >
+          <Send className="w-3 h-3" />
+          Test outsource crons (dry-run, no emails sent)
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <Card className="mb-4 border-amber-200 bg-amber-50">
+    <Card className="mb-4 border-slate-200 bg-slate-50">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-900 inline-flex items-center gap-1.5">
-              <Send className="w-4 h-4 text-amber-700" />
+              <Send className="w-4 h-4 text-slate-700" />
               Cron dry-run (no emails sent)
             </p>
             <p className="text-xs text-slate-600 mt-0.5">
-              Preview who the pre-event reminder + post-event thanks crons would email on their next firing. Useful right before going live with provider comms.
+              Preview who the pre-event reminder + post-event thanks crons would email on their next firing. Tenant-scoped.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-xs text-slate-500 hover:text-slate-700"
+          >
+            Hide
+          </button>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => run("pre")} disabled={busy !== null} className="gap-1.5 bg-white">
               {busy === "pre" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}

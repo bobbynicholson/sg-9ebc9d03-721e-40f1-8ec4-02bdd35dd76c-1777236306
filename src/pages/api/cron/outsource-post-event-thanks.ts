@@ -29,6 +29,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
 
   let authSource: CronAuthSource | "owner_dryrun" = "cron";
+  // OUT-B: same cross-tenant fix as the pre-event sibling. Scope the
+  // dry-run by company_id and tighten role gate.
+  let dryRunCompanyId: string | null = null;
   if (!dryRun) {
     const auth = await requireCronAuth(req, res);
     if (!auth.ok) return;
@@ -39,14 +42,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const ssr = createPagesServerClient({ req, res });
       const { data: { user } } = await ssr.auth.getUser();
       if (!user) return res.status(401).json({ error: "Sign in required for dry-run" });
-      const { data: profile } = await ssr.from("profiles").select("role, active_role").eq("id", user.id).maybeSingle();
-      const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
-      if (!new Set(["super_admin", "company_admin", "admin", "owner"]).has(role)) {
-        return res.status(403).json({ error: "Owner / admin only" });
+      const { data: profile } = await ssr
+        .from("profiles")
+        .select("role, active_role, company_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const role = (((profile as { role?: string; active_role?: string; company_id?: string } | null)?.active_role) || ((profile as { role?: string; active_role?: string; company_id?: string } | null)?.role) || "") as string;
+      if (!new Set(["super_admin", "company_admin", "owner"]).has(role)) {
+        return res.status(403).json({ error: "Owner / company admin / super admin only" });
+      }
+      dryRunCompanyId = (profile as { company_id?: string } | null)?.company_id || null;
+      if (!dryRunCompanyId) {
+        return res.status(403).json({ error: "No company on profile" });
       }
       authSource = "owner_dryrun";
-    } catch (e: any) {
-      return res.status(500).json({ error: e?.message || "auth check failed" });
+    } catch (e: unknown) {
+      return res.status(500).json({ error: e instanceof Error ? e.message : "auth check failed" });
     }
   }
 
@@ -59,7 +70,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const windowEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const windowStart = new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString();
 
-    const { data: assignments, error } = await (sb as any)
+    // OUT-B: tenant-scope dry-runs.
+    let assignmentsQuery = (sb as any)
       .from("outsource_assignments")
       .select(`
         id, company_id, order_id, provider_id, status,
@@ -73,6 +85,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .gte("required_on_site_at", windowStart)
       .lte("required_on_site_at", windowEnd)
       .is("deleted_at", null);
+    if (dryRun && dryRunCompanyId) {
+      assignmentsQuery = assignmentsQuery.eq("company_id", dryRunCompanyId);
+    }
+    const { data: assignments, error } = await assignmentsQuery;
 
     if (error) {
       console.error("[outsource-post-event-thanks] fetch failed:", error);
