@@ -201,7 +201,13 @@ function readableTransactionType(t: string): string {
   }
 }
 
-export default function AdminInventory() {
+// INV-C (task #188 must-fix, 2026-05-24): renamed from default
+// export to a plain function. The default export below is now the
+// wrapped ProtectedInventoryPage. Pre-fix the unprotected
+// component was the default export - so any logged-in user (kitchen,
+// cleaning, sales, even client portal) reached this page despite
+// ProtectedInventoryPage being defined - it was orphaned.
+function AdminInventory() {
   const { user } = useAuth();
   const { toast } = useToast();
   const companyId = (user as any)?.company_id ?? null;
@@ -774,7 +780,7 @@ export default function AdminInventory() {
     if (ids.length === 0) return;
     setBulkDeleteLoading(true);
     try {
-      const result = await inventoryService.bulkDelete(ids);
+      const result = await inventoryService.bulkDelete(ids, companyId);
       setBulkDeleteOpen(false);
       setSelected(new Set());
       toast({
@@ -793,7 +799,7 @@ export default function AdminInventory() {
   const handleBulkMarkPerishable = async (isPerishable: boolean) => {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
-    const result = await inventoryService.bulkMarkPerishable(ids, isPerishable);
+    const result = await inventoryService.bulkMarkPerishable(ids, isPerishable, companyId);
     setSelected(new Set());
     toast({
       title: `${result.updated} item${result.updated === 1 ? "" : "s"} ${isPerishable ? "flagged perishable" : "no longer perishable"}`,
@@ -1436,7 +1442,11 @@ export default function AdminInventory() {
                         {item.maxStock > 0 && <span className="text-slate-400"> / {item.maxStock}</span>}
                       </div>
                       <div className="text-right tabular-nums text-sm text-slate-700">
-                        {item.costPerUnit > 0 ? `R${item.costPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}
+                        {/* INV-C (task #188 must-fix, 2026-05-24):
+                            tenantCurrency.format() for non-ZAR
+                            tenants. Hardcoded `R` rendered the wrong
+                            symbol on any non-South African company. */}
+                        {item.costPerUnit > 0 ? tenantCurrency.format(item.costPerUnit) : "—"}
                       </div>
                       <div className="min-w-0 text-sm text-slate-700 truncate">
                         {item.supplierName || <span className="text-slate-400">—</span>}
@@ -1946,7 +1956,7 @@ export default function AdminInventory() {
         onSaved={(itemName, qty, costImpact) => {
           toast({
             title: "Stock written off",
-            description: `${itemName}: ${qty} written off${costImpact > 0 ? ` · R${costImpact.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}`,
+            description: `${itemName}: ${qty} written off${costImpact > 0 ? ` · ${tenantCurrency.format(costImpact)}` : ""}`,
           });
           refreshAll();
         }}
@@ -2256,15 +2266,22 @@ function BranchScopePicker({
   );
 }
 
-export function ProtectedInventoryPage() {
+function ProtectedInventoryPage() {
   return (
     // INV2-A (inventory audit, INV2-3): admit region_admin (regional
     // RLS-narrowed view) + sales_admin (read-only context for quotes).
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // INV-C (task #188 must-fix, 2026-05-24): admit OWNER per
+    // project_cateringms_owner_dashboard memo - owner is finance-
+    // visible and behaves like company_admin.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <AdminInventory />
     </ProtectedRoute>
   );
 }
+
+// INV-C: this is now the only default export. The unprotected raw
+// component is no longer exported directly.
+export default ProtectedInventoryPage;
 
 /**
  * Equipment-catalog summary strip rendered on the Inventory page.

@@ -47,8 +47,14 @@ export function BulkReassignDialog({
     setSaving(true);
     setError("");
     try {
+      if (!companyId) {
+        setError("No company context. Reload and try again.");
+        return;
+      }
       if (mode === "supplier") {
-        const result = await inventoryService.bulkReassignSupplier(itemIds, supplierId || null);
+        // INV-C (task #188 must-fix, 2026-05-24): bulk ops now
+        // require companyId for the belt-and-braces tenant filter.
+        const result = await inventoryService.bulkReassignSupplier(itemIds, supplierId || null, companyId);
         if (result.errors.length > 0) {
           setError(result.errors.join("; "));
           if (result.updated === 0) return;
@@ -58,7 +64,7 @@ export function BulkReassignDialog({
           : "no supplier";
         onSaved("supplier", result.updated, label);
       } else {
-        const result = await inventoryService.bulkReassignCategory(itemIds, category);
+        const result = await inventoryService.bulkReassignCategory(itemIds, category, companyId);
         if (result.errors.length > 0) {
           setError(result.errors.join("; "));
           if (result.updated === 0) return;
