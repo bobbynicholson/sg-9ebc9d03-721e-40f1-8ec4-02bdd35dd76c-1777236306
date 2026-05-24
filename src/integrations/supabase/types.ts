@@ -3126,6 +3126,7 @@ export type Database = {
           last_serviced_at: string | null
           name: string | null
           next_service_due: string | null
+          preferred_hire_supplier_id: string | null
           purchase_cost: number | null
           purchase_date: string | null
           quantity: number | null
@@ -3161,6 +3162,7 @@ export type Database = {
           last_serviced_at?: string | null
           name?: string | null
           next_service_due?: string | null
+          preferred_hire_supplier_id?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
           quantity?: number | null
@@ -3196,6 +3198,7 @@ export type Database = {
           last_serviced_at?: string | null
           name?: string | null
           next_service_due?: string | null
+          preferred_hire_supplier_id?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
           quantity?: number | null
@@ -3210,6 +3213,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_preferred_hire_supplier_id_fkey"
+            columns: ["preferred_hire_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_supplier_of_record_id_fkey"
             columns: ["supplier_of_record_id"]
@@ -3411,10 +3421,12 @@ export type Database = {
           hire_in_cost_per_unit: number
           id: string
           order_id: string | null
+          payable_id: string | null
           quantity: number
           quote_id: string | null
           status: string
           supplier_contact: string | null
+          supplier_id: string | null
           supplier_name: string | null
           supplier_notes: string | null
           total_cost: number
@@ -3434,10 +3446,12 @@ export type Database = {
           hire_in_cost_per_unit?: number
           id?: string
           order_id?: string | null
+          payable_id?: string | null
           quantity?: number
           quote_id?: string | null
           status?: string
           supplier_contact?: string | null
+          supplier_id?: string | null
           supplier_name?: string | null
           supplier_notes?: string | null
           total_cost?: number
@@ -3457,10 +3471,12 @@ export type Database = {
           hire_in_cost_per_unit?: number
           id?: string
           order_id?: string | null
+          payable_id?: string | null
           quantity?: number
           quote_id?: string | null
           status?: string
           supplier_contact?: string | null
+          supplier_id?: string | null
           supplier_name?: string | null
           supplier_notes?: string | null
           total_cost?: number
@@ -3496,6 +3512,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "equipment_hire_orders_payable_id_fkey"
+            columns: ["payable_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_payables"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "equipment_hire_orders_quote_id_fkey"
             columns: ["quote_id"]
             isOneToOne: false
@@ -3508,6 +3531,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "won_then_cancelled_quotes"
             referencedColumns: ["quote_id"]
+          },
+          {
+            foreignKeyName: "equipment_hire_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -12098,6 +12128,7 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      sweep_stale_hire_drafts: { Args: never; Returns: number }
       unlockrows: { Args: { "": string }; Returns: number }
       update_overdue_invoices: { Args: never; Returns: number }
       updategeometrysrid: {
