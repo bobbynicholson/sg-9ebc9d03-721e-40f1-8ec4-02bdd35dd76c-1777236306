@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Tag, Truck, Trash2, X } from "lucide-react";
+import { Tag, Truck, Trash2, X, Snowflake } from "lucide-react";
 
 interface Props {
   selectedCount: number;
@@ -7,6 +7,10 @@ interface Props {
   onBulkReassignSupplier: () => void;
   onBulkReassignCategory: () => void;
   onBulkDelete: () => void;
+  /** INV-B (inventory deferred, 2026-05-24): bulk mark/unmark
+   *  perishable. Snowflake icon, sits between recategorise and
+   *  delete because it's a property-edit, not a destructive op. */
+  onBulkMarkPerishable?: (isPerishable: boolean) => void;
 }
 
 /**
@@ -21,6 +25,7 @@ export function BulkActionsBar({
   onBulkReassignSupplier,
   onBulkReassignCategory,
   onBulkDelete,
+  onBulkMarkPerishable,
 }: Props) {
   if (selectedCount === 0) return null;
   return (
@@ -57,6 +62,18 @@ export function BulkActionsBar({
           <Tag className="w-3.5 h-3.5" />
           Recategorise
         </Button>
+        {onBulkMarkPerishable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onBulkMarkPerishable(true)}
+            className="text-white hover:bg-slate-800 gap-1.5 h-8"
+            title="Flag the selected items as perishable so they appear in the expiry tracking and shelf-life reports."
+          >
+            <Snowflake className="w-3.5 h-3.5" />
+            Mark perishable
+          </Button>
+        )}
         <div className="w-px h-5 bg-slate-700" />
         <Button
           variant="ghost"

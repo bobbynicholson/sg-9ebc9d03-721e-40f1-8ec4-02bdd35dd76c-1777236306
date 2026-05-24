@@ -834,6 +834,174 @@ export const inventoryService = {
     return { updated: count ?? itemIds.length, errors: [] };
   },
 
+  // INV-B (inventory deferred, 2026-05-24) ─────────────────────────
+
+  /**
+   * Bulk mark a set of items as perishable (or not). Same shape as
+   * the other bulk helpers - returns counts for a single toast.
+   */
+  async bulkMarkPerishable(itemIds: string[], isPerishable: boolean): Promise<{ updated: number; errors: string[] }> {
+    if (itemIds.length === 0) return { updated: 0, errors: [] };
+    const { error, count } = await supabase
+      .from("inventory_items")
+      .update({ is_perishable: isPerishable, updated_at: new Date().toISOString() }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) {
+      console.error("Bulk mark perishable error:", error);
+      return { updated: 0, errors: [error.message] };
+    }
+    return { updated: count ?? itemIds.length, errors: [] };
+  },
+
+  /**
+   * INV-B: total wastage per item over the last N days from
+   * inventory_transactions. Drives the per-row wastage hint chip
+   * and the existing "Wastage hints" card on /admin/stock.
+   */
+  async getWastageByItem(companyId: string, days: number = 30): Promise<Map<string, number>> {
+    const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("inventory_transactions")
+      .select("inventory_item_id, quantity")
+      .eq("company_id", companyId)
+      .eq("transaction_type", "waste")
+      .gte("created_at", sinceIso);
+    if (error) {
+      console.warn("getWastageByItem failed:", error);
+      return new Map();
+    }
+    const map = new Map<string, number>();
+    for (const t of (data || []) as Array<{ inventory_item_id: string; quantity: number }>) {
+      const id = t.inventory_item_id;
+      if (!id) continue;
+      map.set(id, (map.get(id) || 0) + Math.abs(Number(t.quantity || 0)));
+    }
+    return map;
+  },
+
+  /**
+   * INV-B: find item by barcode within a company. Drives the receive-
+   * stock dialog's barcode shortcut (scan → preselect the matching
+   * item, no manual hunt).
+   */
+  async findItemByBarcode(companyId: string, barcode: string): Promise<{ id: string; item_name: string } | null> {
+    const trimmed = (barcode || "").trim();
+    if (!trimmed) return null;
+    const { data, error } = await supabase
+      .from("inventory_items")
+      .select("id, item_name")
+      .eq("company_id", companyId)
+      .eq("barcode", trimmed)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) {
+      console.warn("findItemByBarcode failed:", error);
+      return null;
+    }
+    return (data as { id: string; item_name: string } | null) || null;
+  },
+
+  /**
+   * INV-B: usage-based reorder quantity suggestion. Walks the
+   * "usage" transactions in the trailing window, projects forward
+   * over the supplier's lead time, and adds a safety buffer.
+   *
+   * Math: suggestedQty = avgDailyUsage * (leadTimeDays + safetyDays)
+   * - current_stock. Floored at 0 when stock already covers the
+   * projection. Defaults to 7-day safety buffer.
+   *
+   * Returns NULL when usage data is too thin (< 3 transactions in
+   * the window) so the UI can prompt "not enough history yet".
+   */
+  async suggestReorderQuantity(
+    companyId: string,
+    itemId: string,
+    opts: { windowDays?: number; safetyDays?: number; leadTimeDays?: number } = {},
+  ): Promise<{ suggested: number; basis: string } | null> {
+    const windowDays = opts.windowDays ?? 30;
+    const safetyDays = opts.safetyDays ?? 7;
+    const sinceIso = new Date(Date.now() - windowDays * 24 * 3600 * 1000).toISOString();
+    const [{ data: txns }, { data: item }] = await Promise.all([
+      supabase
+        .from("inventory_transactions")
+        .select("quantity")
+        .eq("company_id", companyId)
+        .eq("inventory_item_id", itemId)
+        .eq("transaction_type", "usage")
+        .gte("created_at", sinceIso),
+      supabase
+        .from("inventory_items")
+        .select("current_stock")
+        .eq("id", itemId)
+        .maybeSingle(),
+    ]);
+    const usageRows = (txns || []) as Array<{ quantity: number }>;
+    if (usageRows.length < 3) return null;
+    const totalUsed = usageRows.reduce((s, t) => s + Math.abs(Number(t.quantity || 0)), 0);
+    const avgDaily = totalUsed / windowDays;
+    let leadTime = opts.leadTimeDays;
+    if (leadTime == null) {
+      // Look up the preferred supplier's lead time.
+      const { data: link } = await supabase
+        .from("inventory_item_suppliers")
+        .select("lead_time_days")
+        .eq("inventory_item_id", itemId)
+        .eq("is_preferred", true)
+        .maybeSingle();
+      leadTime = Number((link as { lead_time_days: number | null } | null)?.lead_time_days || 0) || 0;
+    }
+    const horizon = leadTime + safetyDays;
+    const projected = avgDaily * horizon;
+    const onHand = Number((item as { current_stock: number | null } | null)?.current_stock || 0);
+    const suggested = Math.max(0, Math.ceil(projected - onHand));
+    const basis = `${Math.round(avgDaily * 100) / 100}/day x ${horizon} day${horizon === 1 ? "" : "s"} (lead ${leadTime} + safety ${safetyDays})`;
+    return { suggested, basis };
+  },
+
+  /**
+   * INV-B: propose (don't apply) min/max for an item from its trailing
+   * usage. min = avg daily usage * lead time (re-order trigger so
+   * stock lasts through replenishment), max = min * 2.5 (rule of
+   * thumb for 2-3 reorder cycles before re-triggering). The UI
+   * surfaces this as a "Suggest min/max" affordance the operator
+   * accepts or tweaks - we never silently overwrite their settings.
+   */
+  async suggestMinMaxFromHistory(
+    companyId: string,
+    itemId: string,
+    opts: { windowDays?: number; leadTimeDays?: number } = {},
+  ): Promise<{ min: number; max: number; basis: string } | null> {
+    const windowDays = opts.windowDays ?? 30;
+    const sinceIso = new Date(Date.now() - windowDays * 24 * 3600 * 1000).toISOString();
+    const { data: txns } = await supabase
+      .from("inventory_transactions")
+      .select("quantity")
+      .eq("company_id", companyId)
+      .eq("inventory_item_id", itemId)
+      .eq("transaction_type", "usage")
+      .gte("created_at", sinceIso);
+    const usageRows = (txns || []) as Array<{ quantity: number }>;
+    if (usageRows.length < 3) return null;
+    const totalUsed = usageRows.reduce((s, t) => s + Math.abs(Number(t.quantity || 0)), 0);
+    const avgDaily = totalUsed / windowDays;
+    let leadTime = opts.leadTimeDays;
+    if (leadTime == null) {
+      const { data: link } = await supabase
+        .from("inventory_item_suppliers")
+        .select("lead_time_days")
+        .eq("inventory_item_id", itemId)
+        .eq("is_preferred", true)
+        .maybeSingle();
+      leadTime = Number((link as { lead_time_days: number | null } | null)?.lead_time_days || 0) || 3;
+    }
+    const min = Math.max(1, Math.ceil(avgDaily * leadTime));
+    const max = Math.max(min + 1, Math.ceil(min * 2.5));
+    return {
+      min, max,
+      basis: `${Math.round(avgDaily * 100) / 100}/day usage x ${leadTime} day lead time -> reorder at ${min}, max ${max}`,
+    };
+  },
+
   async getLowStockItems(companyId: string): Promise<Inventory[]> {
     const { data, error } = await supabase
       .from("inventory_items")

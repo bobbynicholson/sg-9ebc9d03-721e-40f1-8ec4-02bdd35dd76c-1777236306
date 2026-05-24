@@ -450,8 +450,40 @@ export default function AdminInventory() {
     loadOutlook();
     loadLastActivity();
     loadSuppliers();
+    loadWastage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
+
+  // INV-B (inventory deferred, 2026-05-24): per-row wastage hint.
+  // Pre-INV-B operators had to bounce to /admin/stock's wastage card.
+  // Now each row gets a small chip when the item has waste in 30d.
+  const [wastageByItem, setWastageByItem] = useState<Map<string, number>>(new Map());
+  const loadWastage = useCallback(async () => {
+    if (!companyId) return;
+    const map = await inventoryService.getWastageByItem(companyId, 30);
+    setWastageByItem(map);
+  }, [companyId]);
+
+  // INV-B: realtime channel. Receive-stock on /admin/shopping or a
+  // bulk reassign elsewhere refreshes this page automatically.
+  // Debounced 1500ms to absorb the cluster a receive flow fires.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { refreshAll(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`inventory:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_transactions", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, refreshAll]);
 
   // ── Row expand: load recipes + movements lazily ────────────────
   const toggleRow = async (item: InventoryItem) => {
@@ -755,6 +787,21 @@ export default function AdminInventory() {
     }
   };
 
+  // INV-B (inventory deferred, 2026-05-24): bulk mark-perishable.
+  // Toggles is_perishable on every selected row in one round trip.
+  // The expiry tab + shelf-life reports key off this flag.
+  const handleBulkMarkPerishable = async (isPerishable: boolean) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const result = await inventoryService.bulkMarkPerishable(ids, isPerishable);
+    setSelected(new Set());
+    toast({
+      title: `${result.updated} item${result.updated === 1 ? "" : "s"} ${isPerishable ? "flagged perishable" : "no longer perishable"}`,
+      description: result.errors.length > 0 ? `Errors: ${result.errors.join("; ")}` : undefined,
+    });
+    refreshAll();
+  };
+
   const openBulkReassign = (mode: "supplier" | "category") => {
     setBulkReassignMode(mode);
     setBulkReassignOpen(true);
@@ -776,11 +823,19 @@ export default function AdminInventory() {
   };
 
   const exportCSV = () => {
-    const headers = ["SKU", "Item name", "Category", "On hand", "Unit", "Reorder point", "Par level", "Cost per unit", "Supplier", "Storage location"];
-    const escape = (s: any) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    // INV-B: added Perishable + Shelf life (days) so the export
+    // carries the same data the on-screen Perishable filter relies on.
+    const headers = [
+      "SKU", "Item name", "Category", "On hand", "Unit", "Reorder point",
+      "Par level", "Cost per unit", "Supplier", "Storage location",
+      "Perishable", "Shelf life (days)",
+    ];
+    const escape = (s: unknown) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const rows = filteredInventory.map(item => [
       item.sku, item.name, item.category, item.quantity, item.unit,
       item.minStock, item.maxStock, item.costPerUnit, item.supplierName, item.storageLocation,
+      item.isPerishable ? "Yes" : "No",
+      item.shelfLifeDays ?? "",
     ]);
     const csv = [headers, ...rows].map(row => row.map(escape).join(",")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
@@ -815,10 +870,23 @@ export default function AdminInventory() {
       });
   }, [outlook]);
 
-  const stockOnHandValue = useMemo(
-    () => inventory.reduce((sum, item) => sum + item.quantity * item.costPerUnit, 0),
-    [inventory],
-  );
+  // INV-B (inventory deferred, 2026-05-24): expose the cost-data
+  // coverage alongside the value so the operator sees whether the
+  // R total is a complete picture or a partial roll-up. Pre-INV-B
+  // items with no cost_per_unit silently contributed zero and the
+  // tile presented as authoritative.
+  const stockOnHand = useMemo(() => {
+    let value = 0;
+    let itemsWithCost = 0;
+    for (const item of inventory) {
+      if (item.costPerUnit > 0) {
+        itemsWithCost += 1;
+        value += item.quantity * item.costPerUnit;
+      }
+    }
+    return { value, itemsWithCost, total: inventory.length };
+  }, [inventory]);
+  const stockOnHandValue = stockOnHand.value;
 
   const tabFiltered = useMemo(() => {
     if (activeTab === "all") return inventory;
@@ -949,13 +1017,18 @@ export default function AdminInventory() {
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                   Below reorder
-                  <InfoTooltip content="Items at or below their reorder point. Order these next." />
+                  <InfoTooltip content="Items at or below their reorder point, including items completely out. Order these next." />
                 </p>
                 <AlertTriangle className="w-4 h-4 text-red-500" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">{belowReorderCount}</p>
+              {/* INV-B: honest split. Pre-INV-B the sub-line read
+                  "X fully out" but the tile total mashed below-reorder
+                  + out together. Spell out the math so the click
+                  destination (below_reorder tab, 19 items) matches
+                  the headline (38 = 19 low + 19 out). */}
               <p className="text-xs text-slate-500 mt-1">
-                {outOfStockItems.length > 0 ? `${outOfStockItems.length} fully out` : "Click to filter"}
+                {belowReorderItems.length} low + {outOfStockItems.length} out
               </p>
             </button>
 
@@ -984,14 +1057,21 @@ export default function AdminInventory() {
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                   Stock on hand
-                  <InfoTooltip content="Value of stock on hand at last cost. Sum of quantity × cost per unit across all items." />
+                  <InfoTooltip content="Value of stock on hand at last logged cost. Sum of quantity x cost_per_unit across items with a non-zero cost. Items without cost data don't contribute." />
                 </p>
                 <Package className="w-4 h-4 text-emerald-500" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">
                 {tenantCurrency.format(stockOnHandValue, 0)}
               </p>
-              <p className="text-xs text-slate-500 mt-1">at last cost</p>
+              {/* INV-B: honest "based on N of M items" caveat so the
+                  total reads as the partial roll-up it is when cost
+                  data is missing. */}
+              <p className="text-xs text-slate-500 mt-1">
+                at last cost{stockOnHand.itemsWithCost < stockOnHand.total
+                  ? ` - ${stockOnHand.itemsWithCost} / ${stockOnHand.total} priced`
+                  : ""}
+              </p>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -1013,16 +1093,12 @@ export default function AdminInventory() {
             </div>
           </div>
 
-          {/*
-            Equipment integration strip. Inventory is food-side; the
-            equipment catalog (chafing dishes, tables, chairs) is
-            managed separately on /admin/equipment but the team
-            thinks of both as "stuff we have". This strip surfaces
-            the catalog headline + deep-links so the operator never
-            forgets it exists, and flags any open hire-in orders so
-            procurement doesn't drift.
-          */}
-          <InventoryEquipmentStrip />
+          {/* INV-B (inventory deferred, 2026-05-24): equipment strip
+              removed per the food-only product call. Food and
+              equipment are managed by different people, ordered from
+              different suppliers, and counted on different cadences -
+              mixing them on this page was kitchen-sink design. The
+              cross-link is one click via AdminNav -> Equipment. */}
 
           {/* At risk this week (the most valuable block, now first) */}
           <Card id="at-risk-panel" className="border-0 shadow-sm mb-6">
@@ -1221,6 +1297,7 @@ export default function AdminInventory() {
             onBulkReassignSupplier={() => openBulkReassign("supplier")}
             onBulkReassignCategory={() => openBulkReassign("category")}
             onBulkDelete={() => setBulkDeleteOpen(true)}
+            onBulkMarkPerishable={handleBulkMarkPerishable}
           />
 
           {/* Dense table */}
@@ -2199,116 +2276,8 @@ export function ProtectedInventoryPage() {
  * /spit-braai-delivery/admin/inventory and the deep links keep the
  * tenant prefix.
  */
-function InventoryEquipmentStrip() {
-  const { user } = useAuth() as any;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
-  const [stats, setStats] = useState<{
-    items: number;
-    units: number;
-    hidden: number;
-    hireOpen: number;
-    hireSpend: number;
-  } | null>(null);
-
-  // Slug-aware deep-link prefix.
-  const slugPrefix = (() => {
-    if (typeof window === "undefined") return "";
-    const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
-    return m ? `/${m[1]}` : "";
-  })();
-
-  useEffect(() => {
-    if (!companyId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        // Cast both queries to any - equipment_hire_orders isn't yet
-        // in the auto-generated Database types so the union inference
-        // bails with TS2589 ("Type instantiation is excessively deep").
-        const sb = supabase as any;
-        const [eqRes, hireRes] = await Promise.all([
-          sb.from("equipment").select("id, quantity, is_available").eq("company_id", companyId),
-          sb.from("equipment_hire_orders").select("status, total_cost").eq("company_id", companyId),
-        ]);
-        if (cancelled) return;
-        const eqRows = (eqRes.data || []) as any[];
-        const hires = (hireRes.data || []) as any[];
-        const items = eqRows.length;
-        const units = eqRows.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
-        const hidden = eqRows.filter((r) => r.is_available === false).length;
-        const open = hires.filter((h) => h.status !== "returned" && h.status !== "cancelled");
-        const hireOpen = open.length;
-        const hireSpend = open.reduce((s, h) => s + (Number(h.total_cost) || 0), 0);
-        setStats({ items, units, hidden, hireOpen, hireSpend });
-      } catch {
-        if (!cancelled) setStats({ items: 0, units: 0, hidden: 0, hireOpen: 0, hireSpend: 0 });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [companyId]);
-
-  if (!stats) return null;
-
-  return (
-    <Card className="border-0 shadow-sm mb-6">
-      <CardContent className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Package className="w-4.5 h-4.5 text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">Equipment catalog</p>
-              <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span><strong className="text-slate-900">{stats.items}</strong> items</span>
-                <span>·</span>
-                <span><strong className="text-slate-900">{stats.units}</strong> units owned</span>
-                {stats.hidden > 0 && (
-                  <>
-                    <span>·</span>
-                    <span className="text-amber-700">{stats.hidden} hidden from quotes</span>
-                  </>
-                )}
-                {stats.hireOpen > 0 && (
-                  <>
-                    <span>·</span>
-                    <span className="text-rose-700 font-medium">
-                      {stats.hireOpen} open hire-in order{stats.hireOpen === 1 ? "" : "s"}
-                      {stats.hireSpend > 0 && (
-                        <> ({`R ${stats.hireSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`} committed)</>
-                      )}
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Link href={`${slugPrefix}/admin/equipment`}>
-              <Button variant="outline" size="sm">
-                Manage catalog
-              </Button>
-            </Link>
-            <Link href={`${slugPrefix}/admin/equipment?tab=hire-in`}>
-              <Button
-                variant="outline"
-                size="sm"
-                className={stats.hireOpen > 0 ? "border-rose-300 text-rose-700" : ""}
-              >
-                Hire-in orders
-                {stats.hireOpen > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center text-[10px] bg-rose-600 text-white rounded-full w-5 h-5">
-                    {stats.hireOpen}
-                  </span>
-                )}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// INV-B: InventoryEquipmentStrip removed - equipment lives on
+// /admin/equipment per the food-only product call.
 
 /** At-risk inventory mini-table with sortable columns. Reads the same
  *  rows as the parent page and lets dispatch flick between sort by
