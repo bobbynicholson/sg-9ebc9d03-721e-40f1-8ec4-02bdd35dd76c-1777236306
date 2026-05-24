@@ -44,9 +44,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
+import { canAccessFinance } from "@/lib/authGuards";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ChefHat, Truck, ShoppingBag, Sparkles, Users, AlertTriangle,
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
+  MessageCircle, FileText, DollarSign,
 } from "lucide-react";
 
 interface TeamRow {
@@ -70,6 +79,15 @@ interface TeamRow {
   // null when nothing upcoming.
   nextLabel: string | null;
   nextTimeISO: string | null;
+  // TMS-C (task #205, 2026-05-24): money burn today, finance-gated
+  // at the render layer. null = we don't compute it for this team.
+  burnTodayZar: number | null;
+  // TMS-C: clocked-in vs rostered/headcount sub-line. Only the
+  // kitchen team has a live duty board today. null elsewhere.
+  clockedNow: number | null;
+  // TMS-C: unread handover badge (cleaning only - cleaning_event_
+  // handovers with status='expected' or 'in_progress').
+  handoverPending: number;
 }
 
 // Cross-team risk surfaced above the tiles. Today's confirmed
@@ -131,13 +149,23 @@ function TeamsIndexPage() {
   const { user, profile } = useAuth();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userRole = ((profile as any)?.active_role || (profile as any)?.role || (user as any)?.role) as UserRole | undefined;
+  // TMS-C (task #205, 2026-05-24): finance-vis gate for the money
+  // chip per tile. Same helper Wages / Cashflow / Financial pages
+  // use - owner / company_admin / admin / super_admin only.
+  const canSeeFinance = userRole ? canAccessFinance(userRole) : false;
   const { regionFilterId, options: regionOptions } = useRegionFilter();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
+  const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<TeamRow[]>([]);
   const [risks, setRisks] = useState<CrossTeamRisk[]>([]);
+  // TMS-C: WhatsApp broadcast dialog state. Per-team team-key
+  // identifies which roster to fan out to.
+  const [broadcastTeam, setBroadcastTeam] = useState<TeamRow | null>(null);
 
   const regionLabel = useMemo(() => {
     if (!regionFilterId) return null;
@@ -196,7 +224,12 @@ function TeamsIndexPage() {
         staffShiftsQ = staffShiftsQ.eq("kitchen_staff_members.region_id", regionFilterId);
       }
 
-      const [activeDuty, staffShiftsThisWeek] = await Promise.all([
+      // TMS-C (task #205, 2026-05-24): also pull today's shifts with
+      // hourly_rate joined so we can compute kitchen wage burn today.
+      // Separate from the week aggregate so we don't double-walk the
+      // bigger payload.
+      const todayStartISO = `${todayISO}T00:00:00`;
+      const [activeDuty, staffShiftsThisWeek, staffShiftsToday] = await Promise.all([
         supabase
           .from("kitchen_duty_shifts")
           .select("id, shift_start, is_active")
@@ -204,13 +237,25 @@ function TeamsIndexPage() {
           .eq("is_active", true)
           .gte("shift_start", weekStartISO),
         staffShiftsQ,
+        // Burn-today rollup. Joins kitchen_staff_members for the
+        // hourly_rate snapshot - mins * rate / 60 = burn.
+        supabase
+          .from("kitchen_staff_shifts")
+          .select("standard_min, overtime_min, sunday_holiday_min, kitchen_staff_members!inner(hourly_rate)")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("shift_start", todayStartISO),
       ]);
 
       let kitchenMissingClockOut = 0;
+      let kitchenClockedNow = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const s of (activeDuty.data || []) as any[]) {
         const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
         if (start && start < stale) kitchenMissingClockOut += 1;
+        // Counts as "currently clocked in" if is_active = true and
+        // the shift_start is within today's window.
+        kitchenClockedNow += 1;
       }
 
       let kitchenHours = 0;
@@ -221,6 +266,20 @@ function TeamsIndexPage() {
           Number(s.overtime_min || 0) +
           Number(s.sunday_holiday_min || 0);
         if (mins > 0) kitchenHours += mins / 60;
+      }
+
+      // TMS-C: kitchen burn today (ZAR). Skips rows without a rate
+      // on the joined member - they show as null contribution.
+      let kitchenBurnToday = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const s of (staffShiftsToday.data || []) as any[]) {
+        const rate = Number(s.kitchen_staff_members?.hourly_rate || 0);
+        if (!rate) continue;
+        const mins =
+          Number(s.standard_min || 0) +
+          Number(s.overtime_min || 0) +
+          Number(s.sunday_holiday_min || 0);
+        if (mins > 0) kitchenBurnToday += (mins / 60) * rate;
       }
 
       // Kitchen jobs today + next imminent + last-week comparison.
@@ -266,7 +325,9 @@ function TeamsIndexPage() {
       // via the joined orders.region_id when active.
       let drvAssnQ = supabase
         .from("driver_assignments")
-        .select("id, status, assigned_at, accepted_at, completed_at, orders!inner(order_number, event_name, event_time, event_date, company_id, deleted_at, region_id, status)")
+        // TMS-C: also pull the earnings columns so we can roll up
+        // the driver burn-today chip.
+        .select("id, status, assigned_at, accepted_at, completed_at, base_fee, distance_fee, total_earnings, orders!inner(order_number, event_name, event_time, event_date, company_id, deleted_at, region_id, status)")
         .eq("company_id", companyId)
         .is("orders.deleted_at", null)
         .eq("orders.event_date", todayISO);
@@ -276,6 +337,19 @@ function TeamsIndexPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const drvRows = (drvAssn || []) as any[];
       const driverJobs = drvRows.length;
+
+      // TMS-C: driver burn today. total_earnings is the canonical
+      // post-trip number; fall back to base_fee + distance_fee for
+      // assignments that haven't completed yet.
+      let driverBurnToday = 0;
+      for (const a of drvRows) {
+        const earned = Number(a.total_earnings || 0);
+        if (earned > 0) {
+          driverBurnToday += earned;
+        } else {
+          driverBurnToday += Number(a.base_fee || 0) + Number(a.distance_fee || 0);
+        }
+      }
       const driverAnomalies = drvRows.filter((a) => {
         const s = String(a.status || "").toLowerCase();
         return s === "rejected" || s === "declined" || s === "no_show";
@@ -325,12 +399,22 @@ function TeamsIndexPage() {
       const { count: driverLastWeekJobs } = await driverLastWeekQ;
 
       // Shopping lists today + pending overdue
+      // TMS-C: pull actual_total + estimated_total for the burn chip.
       const { data: shoppingToday } = await supabase
         .from("shopping_lists")
-        .select("id, status, list_date, total_estimated_cost")
+        .select("id, status, list_date, actual_total, estimated_total")
         .eq("company_id", companyId)
         .eq("list_date", todayISO);
       const shoppingJobs = (shoppingToday || []).length;
+      // TMS-C: shopping spend today. actual_total is the post-run
+      // truth; estimated_total covers lists that are still pending.
+      let shoppingBurnToday = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const s of (shoppingToday || []) as any[]) {
+        const actual = Number(s.actual_total || 0);
+        const estimated = Number(s.estimated_total || 0);
+        shoppingBurnToday += actual > 0 ? actual : estimated;
+      }
 
       const { data: shoppingOverdue } = await supabase
         .from("shopping_lists")
@@ -393,6 +477,17 @@ function TeamsIndexPage() {
         .is("deleted_at", null)
         .gte("planned_start", lastWeekISO + "T00:00:00")
         .lt("planned_start", lastWeekISO + "T23:59:59");
+
+      // TMS-C (task #205, 2026-05-24): unread handover notes badge.
+      // cleaning_event_handovers carries status='expected' (created
+      // but not yet reviewed) or 'in_progress'. Either state means
+      // the operator should still take a look. status='complete' or
+      // 'cancelled' falls out of the badge.
+      const { count: handoverPending } = await supabase
+        .from("cleaning_event_handovers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .in("status", ["expected", "in_progress"]);
 
       // TMS-B: cross-team risk - events in the next 4 hours with no
       // accepted driver. Pulls confirmed orders + their assignment
@@ -462,6 +557,9 @@ function TeamsIndexPage() {
             ? `${nextKitchenRow.event_name || nextKitchenRow.order_number || "Event"}`
             : null,
           nextTimeISO: nextKitchenRow?.event_time ? `${todayISO}T${nextKitchenRow.event_time}` : null,
+          burnTodayZar: kitchenBurnToday,
+          clockedNow: kitchenClockedNow,
+          handoverPending: 0,
         },
         {
           key: "drivers",
@@ -482,6 +580,9 @@ function TeamsIndexPage() {
           nextTimeISO: nextDriverRow?.orders?.event_time
             ? `${todayISO}T${nextDriverRow.orders.event_time}`
             : null,
+          burnTodayZar: driverBurnToday,
+          clockedNow: null,
+          handoverPending: 0,
         },
         {
           key: "shopping",
@@ -503,6 +604,9 @@ function TeamsIndexPage() {
           anomalyHint: shoppingAnomalies > 0 ? `${shoppingAnomalies} overdue list${shoppingAnomalies === 1 ? "" : "s"}` : "On track",
           nextLabel: nextShoppingRow ? "Today's shopping run" : null,
           nextTimeISO: null,
+          burnTodayZar: shoppingBurnToday,
+          clockedNow: null,
+          handoverPending: 0,
         },
         {
           key: "cleaning",
@@ -522,6 +626,11 @@ function TeamsIndexPage() {
             : cleaningJobsToday > 0 ? "On track" : "Quiet day",
           nextLabel: nextCleaningRow ? "Next cleaning slot" : null,
           nextTimeISO: nextCleaningRow?.planned_start || null,
+          // TMS-C: cleaning_jobs has no cost field. Showing 0 would
+          // be misleading; null suppresses the chip entirely.
+          burnTodayZar: null,
+          clockedNow: null,
+          handoverPending: handoverPending ?? 0,
         },
       ];
 
@@ -664,10 +773,16 @@ function TeamsIndexPage() {
                 ? null
                 : r.jobsToday - r.jobsSameDayLastWeek;
               return (
-                <Link key={r.key} href={withSlug(r.href)} className="block">
-                  <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4 sm:p-5">
-                      <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                <Card key={r.key} className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4 sm:p-5">
+                    {/* TMS-C (task #205, 2026-05-24): split the row
+                        into the click-through Link (covers icon +
+                        name + stats) and a separate action zone for
+                        the WhatsApp broadcast button. Wrapping the
+                        whole row in a Link meant the operator could
+                        only navigate; now they get both. */}
+                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                      <Link href={withSlug(r.href)} className="flex items-center gap-4 flex-1 min-w-0">
                         <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${r.bg} flex items-center justify-center flex-shrink-0`}>
                           <r.icon className={`w-6 h-6 ${r.iconColor}`} />
                         </div>
@@ -677,6 +792,32 @@ function TeamsIndexPage() {
                             {r.anomalies > 0 && (
                               <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
                                 {r.anomalies} {r.anomalies === 1 ? "issue" : "issues"}
+                              </Badge>
+                            )}
+                            {/* TMS-C: handover-notes badge (cleaning).
+                                Surfaces the queue of unreviewed event
+                                handovers so the manager doesn't miss them. */}
+                            {r.handoverPending > 0 && (
+                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide border-violet-300 text-violet-700 bg-violet-50">
+                                <FileText className="w-2.5 h-2.5 mr-1" />
+                                {r.handoverPending} handover{r.handoverPending === 1 ? "" : "s"}
+                              </Badge>
+                            )}
+                            {/* TMS-C: money chip per tile, finance-
+                                gated. null suppresses (cleaning has no
+                                cost data). */}
+                            {canSeeFinance && r.burnTodayZar != null && r.burnTodayZar > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] tabular-nums border-emerald-300 text-emerald-700 bg-emerald-50"
+                                title={r.key === "shopping"
+                                  ? "Shopping spend committed today (actual + estimated for pending lists)."
+                                  : r.key === "drivers"
+                                    ? "Driver earnings booked against today's events."
+                                    : "Kitchen wage burn today: shift minutes x hourly_rate from kitchen_staff_members."}
+                              >
+                                <DollarSign className="w-2.5 h-2.5 mr-0.5" />
+                                {tenantCurrency.format(r.burnTodayZar)}
                               </Badge>
                             )}
                           </div>
@@ -698,32 +839,70 @@ function TeamsIndexPage() {
                               )}
                             </p>
                           )}
+                          {/* TMS-C: clocked-vs-expected sub-line.
+                              Kitchen only - we have a live duty board.
+                              Drivers don't track clock-in the same way
+                              so the column stays null. */}
+                          {r.clockedNow != null && r.headCount > 0 && (
+                            <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
+                              <span className="text-slate-400">Clocked:</span>
+                              <span className={`tabular-nums font-medium ${r.clockedNow >= r.headCount ? "text-emerald-700" : r.clockedNow === 0 ? "text-rose-700" : "text-amber-700"}`}>
+                                {r.clockedNow} / {r.headCount}
+                              </span>
+                              {r.clockedNow < r.headCount && (
+                                <span className="text-rose-600 text-[10px]">
+                                  {r.headCount - r.clockedNow} not clocked in
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
-                        <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
-                          <Stat label="Active" value={loading ? "—" : String(r.headCount)} />
-                          <Stat
-                            label="Hours wk"
-                            value={loading ? "—" : r.hoursThisWeek == null ? "—" : String(r.hoursThisWeek)}
-                            // TMS-B: honest "not tracked" tooltip.
-                            title={r.hoursThisWeek == null
-                              ? "No shift table for this team yet - showing the head-count and job activity instead."
-                              : "Hours logged Mon 00:00 to now (local time). Matches the Wages report for the same window."}
-                          />
-                          <Stat
-                            label="Jobs today"
-                            value={loading ? "—" : String(r.jobsToday)}
-                            delta={deltaVs}
-                            deltaTooltip={r.jobsSameDayLastWeek != null ? `vs ${r.jobsSameDayLastWeek} on same day last week` : undefined}
-                          />
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
+                      </Link>
+                      <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
+                        <Stat label="Active" value={loading ? "—" : String(r.headCount)} />
+                        <Stat
+                          label="Hours wk"
+                          value={loading ? "—" : r.hoursThisWeek == null ? "—" : String(r.hoursThisWeek)}
+                          title={r.hoursThisWeek == null
+                            ? "No shift table for this team yet - showing the head-count and job activity instead."
+                            : "Hours logged Mon 00:00 to now (local time). Matches the Wages report for the same window."}
+                        />
+                        <Stat
+                          label="Jobs today"
+                          value={loading ? "—" : String(r.jobsToday)}
+                          delta={deltaVs}
+                          deltaTooltip={r.jobsSameDayLastWeek != null ? `vs ${r.jobsSameDayLastWeek} on same day last week` : undefined}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                      {/* TMS-C: per-tile WhatsApp broadcast. Opens a
+                          dialog scoped to this team's roster. Uses
+                          the queue + drain we shipped in #99. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.preventDefault(); setBroadcastTeam(r); }}
+                        className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50 flex-shrink-0"
+                        title={`Send a WhatsApp message to every ${r.name.toLowerCase()} member with a phone on file.`}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Message</span>
+                      </Button>
+                      <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
+
+          {/* TMS-C: per-team WhatsApp broadcast dialog. Fans out one
+              queue row per team member with a phone + whatsapp_opt_in.
+              The drain cron (/api/cron/whatsapp-drain) sends them. */}
+          <BroadcastDialog
+            team={broadcastTeam}
+            onClose={() => setBroadcastTeam(null)}
+            companyId={companyId}
+          />
         </div>
       </div>
     </>
@@ -752,6 +931,170 @@ function Stat({
       </div>
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
     </div>
+  );
+}
+
+// TMS-C (task #205, 2026-05-24): per-team WhatsApp broadcast.
+// Opens when a tile's Message button is clicked. Resolves the
+// team's roster (profiles.role = team key), filters to members
+// with a phone_number + whatsapp_opt_in != false, enqueues one
+// row per recipient into whatsapp_messages via the service
+// helper we shipped in #99. The drain cron picks them up on the
+// next tick.
+function BroadcastDialog({
+  team, onClose, companyId,
+}: {
+  team: TeamRow | null;
+  onClose: () => void;
+  companyId: string | null;
+}) {
+  const { toast } = useToast();
+  const [body, setBody] = useState("");
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string | null; phone: string }>>([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  // role key -> profiles.role filter. Cleaning uses cleaning_staff,
+  // kitchen uses kitchen_staff, drivers uses driver, shopping uses
+  // shopping_staff. Matches the headCount lookups in load().
+  const roleByTeam: Record<string, string> = {
+    kitchen: "kitchen_staff",
+    drivers: "driver",
+    shopping: "shopping_staff",
+    cleaning: "cleaning_staff",
+  };
+
+  // Load roster every time the dialog opens for a new team.
+  useEffect(() => {
+    if (!team || !companyId) { setRecipients([]); return; }
+    let cancelled = false;
+    setLoadingRecipients(true);
+    setBody(""); // fresh dialog state per team
+    (async () => {
+      const role = roleByTeam[team.key];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, phone_number, whatsapp_opt_in")
+        .eq("company_id", companyId)
+        .eq("role", role)
+        .not("phone_number", "is", null);
+      if (cancelled) return;
+      const rcpts = (data || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((p: any) => p.phone_number && p.whatsapp_opt_in !== false)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((p: any) => ({ id: p.id, name: p.full_name, phone: p.phone_number }));
+      setRecipients(rcpts);
+      setLoadingRecipients(false);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team?.key, companyId]);
+
+  const handleSend = async () => {
+    if (!team || !companyId) return;
+    const trimmed = body.trim();
+    if (!trimmed) {
+      toast({ title: "Message is empty", variant: "destructive" });
+      return;
+    }
+    if (recipients.length === 0) {
+      toast({ title: "No recipients with phone + opt-in", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      // TMS-C: dedupKey scopes to (team, message-hash, member) so
+      // a double-click doesn't double-queue. The hash trick is a
+      // cheap stand-in for an actual content-hash - good enough for
+      // the same-day re-click case.
+      const stamp = Date.now().toString(36);
+      const results = await Promise.all(
+        recipients.map((r) =>
+          whatsappIntegrationService.enqueueWhatsAppMessage({
+            companyId,
+            recipientPhone: r.phone,
+            recipientName: r.name,
+            body: trimmed,
+            relatedEntityType: "team_broadcast",
+            relatedEntityId: null,
+            dedupKey: `team-broadcast:${team.key}:${stamp}:${r.id}`,
+          }),
+        ),
+      );
+      const queued = results.filter((id) => !!id).length;
+      const refused = results.length - queued;
+      toast({
+        title: `Queued ${queued} message${queued === 1 ? "" : "s"}`,
+        description: refused > 0
+          ? `${refused} refused by the comms guard (blocked / paused). The drain cron sends the rest within 5 min.`
+          : "The drain cron sends them within 5 min.",
+      });
+      onClose();
+    } catch (err) {
+      captureException(err, { tags: { surface: "admin/teams", area: "whatsapp-broadcast", team: team?.key || "" } });
+      toast({
+        title: "Could not queue messages",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!team} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-600" />
+            Message {team?.name.toLowerCase() || "team"}
+          </DialogTitle>
+          <DialogDescription>
+            Goes to every {team?.name.toLowerCase()} member with a phone on file and WhatsApp opt-in. Drain cron sends within 5 minutes.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            {loadingRecipients ? (
+              <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
+            ) : recipients.length === 0 ? (
+              <span className="text-amber-700">No-one with a phone + opt-in. Add phone numbers on /admin/staff and flag whatsapp_opt_in.</span>
+            ) : (
+              <>
+                <span className="font-medium">{recipients.length} recipient{recipients.length === 1 ? "" : "s"}:</span>{" "}
+                <span className="text-slate-600">{recipients.slice(0, 4).map((r) => r.name || r.phone).join(", ")}{recipients.length > 4 ? ` +${recipients.length - 4} more` : ""}</span>
+              </>
+            )}
+          </div>
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={`Hi team, ...`}
+            rows={5}
+            className="text-sm"
+          />
+          <p className="text-[11px] text-slate-500">
+            WhatsApp Business templates are required for first contact - if a recipient hasn't messaged you in 24h, Meta may drop free-form text. The queue logs the failure with a clear reason.
+          </p>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={sending}>Cancel</Button>
+          </DialogClose>
+          <Button
+            onClick={handleSend}
+            disabled={sending || loadingRecipients || recipients.length === 0 || !body.trim()}
+            className="bg-green-600 hover:bg-green-700 gap-1.5"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+            {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
