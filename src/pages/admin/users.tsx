@@ -119,15 +119,126 @@ function AdminUsersPage() {
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
 
-  const roleConfig = [
-    { value: "admin" as UserRole, label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700 border-purple-200" },
-    { value: "company_admin" as UserRole, label: "Company Admin", icon: Shield, color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
-    { value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat, color: "bg-orange-100 text-orange-700 border-orange-200" },
-    { value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
-    { value: "driver" as UserRole, label: "Driver", icon: Truck, color: "bg-blue-100 text-blue-700 border-blue-200" },
-    { value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles, color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
-    { value: "client" as UserRole, label: "Client", icon: UserCircle, color: "bg-slate-100 text-slate-700 border-slate-200" }
+  // USR-D (task #209, 2026-05-24): the Edit Departments picker was
+  // a flat 7-checkbox grid with no copy explaining what each grants.
+  // Reworked into 4 groups with per-role descriptions so the
+  // operator knows what they're actually ticking. Also adds the
+  // three roles the user_role enum supports but this picker was
+  // missing: owner, sales_admin, region_admin.
+  //
+  // department on user_departments is a free-text column (not the
+  // user_role enum), so we can add new values without a migration.
+  const roleConfig: Array<{
+    value: UserRole;
+    label: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    icon: any;
+    color: string;
+    group: "leadership" | "administrative" | "operational" | "client";
+    description: string;
+  }> = [
+    // Leadership - founder / shareholder access. Sees finance + all
+    // company controls.
+    {
+      value: "owner" as UserRole, label: "Owner", icon: Shield,
+      color: "bg-amber-100 text-amber-800 border-amber-200",
+      group: "leadership",
+      description: "Full company control: finance, settings, every operational surface. Pick this for shareholders / directors.",
+    },
+    // Administrative - day-to-day admin. Two levels: company-wide
+    // (admin everything) vs region-scoped.
+    {
+      value: "company_admin" as UserRole, label: "Company Admin", icon: Shield,
+      color: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      group: "administrative",
+      description: "Runs the business day-to-day: every order, every region, every report. Same finance access as owner.",
+    },
+    {
+      value: "admin" as UserRole, label: "Admin", icon: Shield,
+      color: "bg-purple-100 text-purple-700 border-purple-200",
+      group: "administrative",
+      description: "General admin access without owner-level finance settings. Manages orders, calendar, dispatch, staff.",
+    },
+    {
+      value: "sales_admin" as UserRole, label: "Sales Admin", icon: UserCircle,
+      color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
+      group: "administrative",
+      description: "Leads, quotes, client communications. Sees order pipeline but not kitchen / driver tooling.",
+    },
+    {
+      value: "region_admin" as UserRole, label: "Region Admin", icon: Shield,
+      color: "bg-rose-100 text-rose-700 border-rose-200",
+      group: "administrative",
+      description: "Admin scoped to a single region. Like Admin but rows outside their region are filtered out.",
+    },
+    // Operational portals - hands-on roles. Each opens a specific
+    // mobile portal optimised for that job.
+    {
+      value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat,
+      color: "bg-orange-100 text-orange-700 border-orange-200",
+      group: "operational",
+      description: "Kitchen portal: today's prep tasks, clock-in / clock-out, handover notes.",
+    },
+    {
+      value: "driver" as UserRole, label: "Driver", icon: Truck,
+      color: "bg-blue-100 text-blue-700 border-blue-200",
+      group: "operational",
+      description: "Driver portal on mobile: assigned routes, accept / reject jobs, proof-of-delivery.",
+    },
+    {
+      value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart,
+      color: "bg-green-100 text-green-700 border-green-200",
+      group: "operational",
+      description: "Shopping portal: Buy-now list, snap-a-slip receipts, supplier contacts.",
+    },
+    {
+      value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles,
+      color: "bg-cyan-100 text-cyan-700 border-cyan-200",
+      group: "operational",
+      description: "Cleaning portal: post-event handovers, equipment damages log, low-supplies alerts.",
+    },
+    // Client - the outside-facing portal. Lives on /c/* paths.
+    {
+      value: "client" as UserRole, label: "Client", icon: UserCircle,
+      color: "bg-slate-100 text-slate-700 border-slate-200",
+      group: "client",
+      description: "Client portal at /c/. Sees their own quotes, orders, payments. Never sees other clients.",
+    },
   ];
+
+  // USR-D: group labels + intro copy for the picker. Pure data so
+  // the render below can stay tight.
+  const ROLE_GROUPS: Array<{
+    key: "leadership" | "administrative" | "operational" | "client";
+    label: string;
+    hint: string;
+  }> = [
+    { key: "leadership",     label: "Leadership",            hint: "Founder / shareholder. Full finance access." },
+    { key: "administrative", label: "Administrative",        hint: "Pick ONE - they stack from broadest (Company Admin) to narrowest (Region Admin)." },
+    { key: "operational",    label: "Operational portals",   hint: "Hands-on roles. Tick any that apply if the user works in those teams too." },
+    { key: "client",         label: "Client portal",         hint: "Only tick if this person should see their own client-facing view. Rare for staff." },
+  ];
+
+  // USR-D: smart guidance based on the current selection. Surfaces
+  // the most common mistake or next-step suggestion above the
+  // grid - "Owner + Company Admin" pattern, lonely "Admin" tick,
+  // etc.
+  const guidance = useMemo(() => {
+    const set = new Set<string>(selectedDepartments as unknown as string[]);
+    if (set.has("owner") && !set.has("company_admin")) {
+      return "Owners almost always need Company Admin too - that's the role that opens every operational page (orders, calendar, dispatch). Without it the owner only sees finance.";
+    }
+    if (set.has("client") && set.size > 1) {
+      return "Client + a staff role is unusual. The client portal is locked to /c/ and won't share session with the admin portal.";
+    }
+    if (set.has("admin") && set.has("company_admin")) {
+      return "Company Admin already includes everything Admin does. Tick only one.";
+    }
+    if (selectedDepartments.length === 0) {
+      return null;
+    }
+    return null;
+  }, [selectedDepartments]);
 
   useEffect(() => {
     if (user) {
@@ -885,63 +996,118 @@ function AdminUsersPage() {
 
                       {editingUser === targetUser.id && (
                         <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-purple-200">
+                          {/* USR-D (task #209, 2026-05-25): grouped
+                              picker with per-role descriptions. The
+                              old flat 7-checkbox grid gave no hint
+                              what each role meant - operators had
+                              to guess whether an "owner-admin"
+                              needed Admin or Company Admin or both.
+                              Now: 4 groups (Leadership /
+                              Administrative / Operational / Client),
+                              one-line description per role, and a
+                              smart guidance banner that catches the
+                              most common mistakes. */}
                           <div>
-                            <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                               <Label className="font-semibold text-slate-700 text-sm md:text-base">
-                                Assign Departments:
+                                Assign access
                               </Label>
-                              <InfoTooltip
-                                content={"Tick every department this user needs access to.\n\nThe primary one is where they land when they log in."}
-                                side="right"
-                              />
+                              <span className="text-[11px] text-slate-500">
+                                {selectedDepartments.length === 0
+                                  ? "Pick at least one role"
+                                  : `${selectedDepartments.length} role${selectedDepartments.length === 1 ? "" : "s"} selected`}
+                              </span>
                             </div>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {roleConfig.map((role) => {
-                                const isSelected = selectedDepartments.includes(role.value);
-                                const isPrimary = primaryDepartment === role.value;
-                                
+                            <p className="text-xs text-slate-600 mb-3">
+                              Most staff need one or two roles. Tick every portal this person should be able to open. The <strong>Primary</strong> role is where they land after login.
+                            </p>
+
+                            {/* USR-D: smart-guidance banner. Shown
+                                only when the current selection
+                                trips a known footgun (owner without
+                                company_admin, redundant admin tick,
+                                client+staff mix). */}
+                            {guidance && (
+                              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-3 flex items-start gap-2">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <span>{guidance}</span>
+                              </div>
+                            )}
+
+                            <div className="space-y-3">
+                              {ROLE_GROUPS.map((group) => {
+                                const rolesInGroup = roleConfig.filter((r) => r.group === group.key);
+                                if (rolesInGroup.length === 0) return null;
                                 return (
-                                  <div key={role.value} className={`flex items-center space-x-2 p-2 rounded border-2 transition-all ${
-                                    isPrimary ? "border-purple-500 bg-purple-50" : isSelected ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-50"
-                                  }`}>
-                                    <Checkbox
-                                      id={`${targetUser.id}-${role.value}`}
-                                      checked={isSelected}
-                                      onCheckedChange={() => handleDepartmentToggle(role.value)}
-                                    />
-                                    <Label
-                                      htmlFor={`${targetUser.id}-${role.value}`}
-                                      className="text-xs md:text-sm font-medium leading-none flex items-center gap-2 cursor-pointer flex-1"
-                                    >
-                                      <role.icon className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                                      <span className="truncate">{role.label}</span>
-                                    </Label>
-                                    {isSelected && (
-                                      <div className="flex items-center gap-1">
-                                        <InfoTooltip
-                                          content={"The primary department is where this user lands when they log in. They can switch between all the departments you have assigned."}
-                                          side="top"
-                                          className="mr-1"
-                                        />
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-2 text-xs"
-                                          onClick={() => handleSetPrimary(role.value)}
-                                          disabled={isPrimary}
-                                        >
-                                          {isPrimary ? "Primary" : "Set Primary"}
-                                        </Button>
-                                      </div>
-                                    )}
+                                  <div key={group.key} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                                    <div className="flex items-baseline justify-between gap-2 mb-1.5 flex-wrap">
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                        {group.label}
+                                      </p>
+                                      <p className="text-[10px] text-slate-500 italic">{group.hint}</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {rolesInGroup.map((role) => {
+                                        const isSelected = selectedDepartments.includes(role.value);
+                                        const isPrimary = primaryDepartment === role.value;
+                                        return (
+                                          <div
+                                            key={role.value}
+                                            className={`relative rounded-md border-2 transition-all p-2.5 ${
+                                              isPrimary
+                                                ? "border-purple-500 bg-purple-50"
+                                                : isSelected
+                                                  ? "border-slate-400 bg-white"
+                                                  : "border-slate-200 bg-slate-50/60 hover:bg-white"
+                                            }`}
+                                          >
+                                            <div className="flex items-start gap-2">
+                                              <Checkbox
+                                                id={`${targetUser.id}-${role.value}`}
+                                                checked={isSelected}
+                                                onCheckedChange={() => handleDepartmentToggle(role.value)}
+                                                className="mt-0.5"
+                                              />
+                                              <div className="flex-1 min-w-0">
+                                                <Label
+                                                  htmlFor={`${targetUser.id}-${role.value}`}
+                                                  className="text-sm font-semibold flex items-center gap-1.5 cursor-pointer"
+                                                >
+                                                  <role.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                                                  <span className="truncate">{role.label}</span>
+                                                  {isPrimary && (
+                                                    <Badge className="bg-purple-100 text-purple-700 border-0 text-[9px] ml-1">
+                                                      Primary
+                                                    </Badge>
+                                                  )}
+                                                </Label>
+                                                <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
+                                                  {role.description}
+                                                </p>
+                                                {isSelected && !isPrimary && selectedDepartments.length > 1 && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleSetPrimary(role.value)}
+                                                    className="text-[10px] text-purple-700 hover:underline mt-1"
+                                                  >
+                                                    Set as Primary
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 );
                               })}
                             </div>
-                            
-                            <p className="text-xs text-slate-600 mt-2">
-                              {primaryDepartment ? `Primary department: ${roleConfig.find(r => r.value === primaryDepartment)?.label}` : "Select at least one department"}
+
+                            <p className="text-xs text-slate-600 mt-3">
+                              {primaryDepartment
+                                ? <>Primary: <strong>{roleConfig.find(r => r.value === primaryDepartment)?.label}</strong>. They land here after login; can switch portals from the persona menu.</>
+                                : "Select at least one role above."}
                             </p>
                           </div>
                           
