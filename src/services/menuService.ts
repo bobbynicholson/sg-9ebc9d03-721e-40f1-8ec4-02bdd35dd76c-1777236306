@@ -119,9 +119,26 @@ export const MENU_CATEGORIES = [
   "Sides",
   "Desserts",
   "Drinks",
+  // MNU-B (menu deferred, 2026-05-24): added Equipment + Kids so
+  // "Other" stops being the dumping ground for crockery, kiddies
+  // meals and the like. Existing "Other" rows stay - the form
+  // still displays raw legacy categories - but new entries are
+  // steered onto one of these.
+  "Equipment",
+  "Kids",
   "Service",
   "Other",
 ];
+
+/**
+ * MNU-B: categories that aren't food and shouldn't be nagged for a
+ * recipe or a cost number. Used by the stat-tile + per-row chip code
+ * to suppress the "Missing recipe" and "Cost incomplete" amber
+ * signals. Pre-MNU-B the Waiter / Server item (Service category)
+ * counted as a missing-recipe false positive, drowning out a real
+ * signal.
+ */
+export const NON_FOOD_CATEGORIES = new Set(["Service", "Equipment"]);
 
 export const DIETARY_TAGS = [
   "vegetarian", "vegan", "halaal", "kosher", "gluten_free",
@@ -509,4 +526,297 @@ export const menuService = {
     }
     return (data || []) as any[];
   },
+
+  // ── MNU-B (menu deferred, 2026-05-24) ────────────────────────────
+
+  /**
+   * Bulk soft-archive. Sets deleted_at on each id. Each row also
+   * gets `is_available = false` so it stops surfacing on quote
+   * pickers immediately.
+   */
+  async bulkArchive(
+    companyId: string,
+    itemIds: string[],
+  ): Promise<{ ok: boolean; count: number; error?: string }> {
+    if (itemIds.length === 0) return { ok: true, count: 0 };
+    const nowIso = new Date().toISOString();
+    const { error, count } = await (supabase as any)
+      .from("menu_items")
+      .update({ deleted_at: nowIso, is_available: false }, { count: "exact" })
+      .eq("company_id", companyId)
+      .in("id", itemIds);
+    if (error) return { ok: false, count: 0, error: error.message };
+    return { ok: true, count: count || itemIds.length };
+  },
+
+  /**
+   * Bulk category change. Validates against MENU_CATEGORIES but
+   * allows arbitrary legacy strings (matching the rest of the
+   * service's "display raw, normalise on save" rule).
+   */
+  async bulkUpdateCategory(
+    companyId: string,
+    itemIds: string[],
+    newCategory: string,
+  ): Promise<{ ok: boolean; count: number; error?: string }> {
+    if (itemIds.length === 0) return { ok: true, count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("menu_items")
+      .update({ category: newCategory }, { count: "exact" })
+      .eq("company_id", companyId)
+      .in("id", itemIds);
+    if (error) return { ok: false, count: 0, error: error.message };
+    return { ok: true, count: count || itemIds.length };
+  },
+
+  /**
+   * Bulk price adjustment by percentage. Positive = price increase,
+   * negative = decrease. New price = current * (1 + pct/100), rounded
+   * to 2 decimals. Each row's old price is stamped into
+   * menu_item_price_history so the per-item sparkline can render.
+   *
+   * Returns the count of rows actually updated (items with NULL or 0
+   * base_price are skipped - "increase R 0 by 5%" is nonsense).
+   */
+  async bulkAdjustPrice(
+    companyId: string,
+    itemIds: string[],
+    pctChange: number,
+    actorUserId: string | null,
+  ): Promise<{ ok: boolean; count: number; error?: string }> {
+    if (itemIds.length === 0) return { ok: true, count: 0 };
+    if (!Number.isFinite(pctChange)) return { ok: false, count: 0, error: "Invalid percentage" };
+
+    // Pull current prices so we can compute + log to history in one
+    // pass. Bulk update via SQL math (base_price * factor) would be
+    // cleaner but Supabase REST doesn't support arithmetic updates.
+    const { data: rows, error: fetchErr } = await supabase
+      .from("menu_items")
+      .select("id, base_price")
+      .eq("company_id", companyId)
+      .in("id", itemIds);
+    if (fetchErr) return { ok: false, count: 0, error: fetchErr.message };
+
+    const factor = 1 + pctChange / 100;
+    let updated = 0;
+    for (const r of (rows || []) as Array<{ id: string; base_price: number | null }>) {
+      const current = Number(r.base_price || 0);
+      if (current <= 0) continue;
+      const next = Math.round(current * factor * 100) / 100;
+      const { error: updErr } = await (supabase as any)
+        .from("menu_items")
+        .update({ base_price: next })
+        .eq("id", r.id);
+      if (updErr) continue;
+      // Best-effort history stamp. Trigger should fire automatically
+      // (see migration 20260524100000_menu_item_price_history) but
+      // we also write here explicitly for callers that bypass the
+      // trigger (e.g. service-role inserts during seed scripts).
+      try {
+        await (supabase as any).from("menu_item_price_history").insert({
+          menu_item_id: r.id,
+          old_price: current,
+          new_price: next,
+          changed_by_user_id: actorUserId,
+        });
+      } catch { /* trigger covers this */ }
+      updated += 1;
+    }
+    return { ok: true, count: updated };
+  },
+
+  /**
+   * Bulk allergen-review stamp. Sets allergens_reviewed_at = now()
+   * and allergens_reviewed_by = actor on each item.
+   */
+  async bulkMarkAllergensReviewed(
+    companyId: string,
+    itemIds: string[],
+    actorUserId: string | null,
+  ): Promise<{ ok: boolean; count: number; error?: string }> {
+    if (itemIds.length === 0) return { ok: true, count: 0 };
+    const { error, count } = await (supabase as any)
+      .from("menu_items")
+      .update({
+        allergens_reviewed_at: new Date().toISOString(),
+        allergens_reviewed_by: actorUserId,
+      }, { count: "exact" })
+      .eq("company_id", companyId)
+      .in("id", itemIds);
+    if (error) return { ok: false, count: 0, error: error.message };
+    return { ok: true, count: count || itemIds.length };
+  },
+
+  /**
+   * Duplicate a menu item with all its fields, recipe, and ingredients.
+   * Appends " (copy)" to the name so the uniqueness warning in the
+   * save flow doesn't fire on the clone. Returns the new item id.
+   *
+   * Use case: variant rows like "Crockery & Cutlery Standard" vs
+   * "Crockery & Cutlery Premium" where the operator wants a near-
+   * identical row with a tweaked price.
+   */
+  async duplicateItem(
+    companyId: string,
+    itemId: string,
+    actorUserId: string | null,
+  ): Promise<{ ok: boolean; newId?: string; error?: string }> {
+    const full = await menuService.getFull(itemId);
+    if (!full) return { ok: false, error: "Original item not found" };
+    const src = full.item as any;
+    // Clone the menu_item row (excluding id, timestamps, allergen
+    // review state - we don't want to silently inherit the reviewed
+    // stamp). Cast through any because the local MenuItem interface
+    // is a subset of the real menu_items row (fulfilment_type etc.
+    // live on the DB).
+    const { data: created, error: insertErr } = await (supabase as any)
+      .from("menu_items")
+      .insert({
+        company_id: companyId,
+        item_name: `${src.item_name} (copy)`,
+        category: src.category,
+        description: src.description,
+        base_price: src.base_price,
+        cost_per_unit: src.cost_per_unit,
+        image_url: src.image_url,
+        dietary_tags: src.dietary_tags,
+        allergen_codes: src.allergen_codes,
+        requires_advance_notice_hours: src.requires_advance_notice_hours,
+        is_available: src.is_available,
+        is_buy_and_sell: src.is_buy_and_sell,
+        linked_inventory_item_id: src.linked_inventory_item_id,
+        fulfilment_type: src.fulfilment_type,
+        default_outsource_provider_id: src.default_outsource_provider_id,
+        outsource_unit_cost: src.outsource_unit_cost,
+        outsource_lead_hours: src.outsource_lead_hours,
+        prep_time_minutes: src.prep_time_minutes,
+        cook_time_minutes: src.cook_time_minutes,
+        base_servings: src.base_servings,
+        // Pre-OFR-B reviewed_at would have leaked across. Force a
+        // fresh review on the clone.
+        allergens_reviewed_at: null,
+        allergens_reviewed_by: null,
+      })
+      .select("id")
+      .single();
+    if (insertErr || !created) return { ok: false, error: insertErr?.message || "Insert failed" };
+    const newId = (created as { id: string }).id;
+
+    // Clone the recipe + ingredients if present.
+    if (full.recipe) {
+      const recipeSrc = full.recipe as any;
+      const { data: recipeCreated } = await (supabase as any)
+        .from("recipes")
+        .insert({
+          company_id: companyId,
+          menu_item_id: newId,
+          name: recipeSrc.name,
+          base_servings: recipeSrc.base_servings,
+          prep_time_minutes: recipeSrc.prep_time_minutes,
+          cook_time_minutes: recipeSrc.cook_time_minutes,
+          instructions: recipeSrc.instructions,
+          requires_advance_notice_hours: recipeSrc.requires_advance_notice_hours,
+        })
+        .select("id")
+        .single();
+      const newRecipeId = (recipeCreated as { id: string } | null)?.id;
+      if (newRecipeId && full.ingredients && full.ingredients.length > 0) {
+        const cloneIngs = full.ingredients.map((ing) => {
+          const ingSrc = ing as any;
+          return {
+            recipe_id: newRecipeId,
+            inventory_item_id: ingSrc.inventory_item_id,
+            free_text_ingredient: ingSrc.free_text_ingredient,
+            quantity: ingSrc.quantity,
+            unit_of_measure: ingSrc.unit_of_measure,
+            sort_order: ingSrc.sort_order,
+          };
+        });
+        await (supabase as any).from("recipe_ingredients").insert(cloneIngs);
+      }
+    }
+
+    // Best-effort audit row.
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: companyId,
+        user_id: actorUserId,
+        action: "menu_item_duplicated",
+        entity_type: "menu_item",
+        entity_id: newId,
+        details: { from_item_id: itemId, from_name: src.item_name },
+      });
+    } catch { /* non-blocking */ }
+
+    return { ok: true, newId };
+  },
+
+  /**
+   * Check whether an item name is already in use by an ACTIVE item
+   * in this tenant. Returns the offending id when so. Used by the
+   * save flow to warn (not block) on duplicates.
+   */
+  async findDuplicateName(
+    companyId: string,
+    name: string,
+    excludeId?: string,
+  ): Promise<string | null> {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    let q = supabase
+      .from("menu_items")
+      .select("id")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .ilike("item_name", trimmed)
+      .limit(1);
+    if (excludeId) q = q.neq("id", excludeId);
+    const { data } = await q;
+    const rows = (data || []) as Array<{ id: string }>;
+    return rows[0]?.id || null;
+  },
+
+  /**
+   * Per-item price history for the sparkline in the edit dialog.
+   * Returns the last 12 rows (newest first) so we can render a
+   * compact trend without overwhelming the UI.
+   */
+  async getPriceHistory(
+    itemId: string,
+    limit: number = 12,
+  ): Promise<Array<{ old_price: number; new_price: number; changed_at: string }>> {
+    // MNU-B: cast through any until the next types regen pulls
+    // menu_item_price_history into the generated schema.
+    const { data, error } = await (supabase as any)
+      .from("menu_item_price_history")
+      .select("old_price, new_price, changed_at")
+      .eq("menu_item_id", itemId)
+      .order("changed_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.warn("menuService.getPriceHistory failed:", error);
+      return [];
+    }
+    return ((data || []) as unknown) as Array<{ old_price: number; new_price: number; changed_at: string }>;
+  },
 };
+
+/**
+ * MNU-B: suggested price from cost-per-serving and a target margin
+ * percentage. Returns NULL when there's no cost data - we don't want
+ * to suggest a price built on nothing.
+ *
+ * Target margin defaults to 60% (catering industry rule-of-thumb for
+ * food cost: food at 30-35% of menu price, leaving 65-70% margin).
+ */
+export function suggestedPrice(
+  costPerServing: number | null | undefined,
+  targetMarginPct: number = 60,
+): number | null {
+  if (costPerServing == null || costPerServing <= 0) return null;
+  if (targetMarginPct >= 100 || targetMarginPct < 0) return null;
+  // price = cost / (1 - margin) so the resulting margin pct hits the
+  // target. 60% target on R 30 cost = R 75.
+  const price = costPerServing / (1 - targetMarginPct / 100);
+  return Math.round(price * 100) / 100;
+}

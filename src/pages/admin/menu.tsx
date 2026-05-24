@@ -24,8 +24,10 @@ import {
 import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
-  Upload, X, ShoppingBag, Download, RefreshCw, Sparkles,
+  Upload, X, ShoppingBag, Download, RefreshCw, Sparkles, Copy, CheckSquare,
+  Square, TrendingUp, Camera,
 } from "lucide-react";
+import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
@@ -44,9 +46,11 @@ import {
   menuService,
   computeRecipeCost,
   MENU_CATEGORIES,
+  NON_FOOD_CATEGORIES,
   DIETARY_TAGS,
   ALLERGEN_CODES,
   DEFAULT_UNITS,
+  suggestedPrice,
   type MenuItemWithRecipeSummary,
   type RecipeIngredientRow,
 } from "@/services/menuService";
@@ -317,6 +321,7 @@ function MenuPage() {
       setInventoryPool(inv);
       setProviderPool((providersRes?.data || []) as typeof providerPool);
     } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "load", companyId } });
       toast({ title: "Could not load menu", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -394,25 +399,69 @@ function MenuPage() {
   // items don't count towards the average margin.
   const stats = useMemo(() => {
     const active = items.filter(i => !i.deleted_at);
+    // MNU-B: non-food rows (Service / Equipment categories, plus
+    // outsourced or buy-and-sell items) don't need recipes or cost
+    // numbers. Excluding them from the "Missing recipe" / "Cost
+    // incomplete" counts kills the Waiter / Server false positive
+    // that dragged a real signal into noise pre-MNU-B.
+    const needsRecipe = (i: MenuItemWithRecipeSummary): boolean => {
+      const cat = (i.category || "").trim();
+      if (NON_FOOD_CATEGORIES.has(cat)) return false;
+      if ((i as any).is_buy_and_sell) return false;
+      if ((i as any).fulfilment_type === "outsourced") return false;
+      return true;
+    };
+    const foodActive = active.filter(needsRecipe);
     const withCost = active.filter(i => i.cost && i.cost.contributing > 0);
     const withMargin = withCost.filter(i => Number(i.base_price || 0) > 0);
-    const incompleteCost = active.filter(i => i.cost && (i.cost.free_text > 0 || i.cost.missing_cost > 0));
-    const avgMarginPct = withMargin.length === 0 ? null : (() => {
-      let total = 0;
-      for (const i of withMargin) {
-        const price = Number(i.base_price || 0);
-        const cost = i.cost!.cost_per_serving;
-        total += ((price - cost) / price) * 100;
-      }
-      return total / withMargin.length;
-    })();
+    const incompleteCost = foodActive.filter(i => i.cost && (i.cost.free_text > 0 || i.cost.missing_cost > 0));
+    // MNU-B: keep raw mean for the tooltip, but the headline uses
+    // the median - one R5250 spit-on-site outlier shouldn't drag
+    // the whole catalogue's avg from ~40% to 54%.
+    const pcts = withMargin
+      .map(i => ((Number(i.base_price || 0) - i.cost!.cost_per_serving) / Number(i.base_price || 1)) * 100)
+      .sort((a, b) => a - b);
+    const meanMarginPct = pcts.length === 0 ? null : pcts.reduce((a, b) => a + b, 0) / pcts.length;
+    const medianMarginPct = pcts.length === 0 ? null
+      : pcts.length % 2 === 1 ? pcts[Math.floor(pcts.length / 2)]
+      : (pcts[pcts.length / 2 - 1] + pcts[pcts.length / 2]) / 2;
+    // MNU-B: items with margin > 85% are usually services priced
+    // separately to the food (chef-on-site, venue hire) where the
+    // cost column is intentionally food-only. Flag them in a chip
+    // so the operator knows to check the line is intentional.
+    const highMarginItems = withMargin.filter(i => {
+      const p = Number(i.base_price || 0);
+      const c = i.cost!.cost_per_serving;
+      return p > 0 && (p - c) / p > 0.85;
+    });
+    // MNU-B: per-category margin breakdown for the tooltip.
+    const marginByCategory: Record<string, { mean: number; n: number }> = {};
+    for (const i of withMargin) {
+      const cat = (i.category || "Other").trim();
+      const pct = ((Number(i.base_price || 0) - i.cost!.cost_per_serving) / Number(i.base_price || 1)) * 100;
+      const cur = marginByCategory[cat] || { mean: 0, n: 0 };
+      marginByCategory[cat] = { mean: (cur.mean * cur.n + pct) / (cur.n + 1), n: cur.n + 1 };
+    }
+    // MNU-B: photo coverage. /admin/offering already surfaces this
+    // at the catalogue summary level, but the menu page itself needs
+    // it inline so the operator can act without bouncing.
+    const missingPhoto = active.filter(i => !i.image_url).length;
     return {
       total: active.length,
-      withRecipe: active.filter(i => i.recipe_id !== null).length,
-      missingRecipe: active.filter(i => i.recipe_id === null).length,
+      withRecipe: active.filter(i => i.recipe_id !== null && needsRecipe(i)).length,
+      missingRecipe: foodActive.filter(i => i.recipe_id === null).length,
       withCost: withCost.length,
       incompleteCost: incompleteCost.length,
-      avgMarginPct,
+      // Headline value is median; legacy callers still get avgMarginPct
+      // which now maps to median to keep the tile honest. Mean lives
+      // separately for the tooltip.
+      avgMarginPct: medianMarginPct,
+      meanMarginPct,
+      medianMarginPct,
+      highMarginCount: highMarginItems.length,
+      marginByCategory,
+      missingPhoto,
+      photoCoveragePct: active.length > 0 ? Math.round(((active.length - missingPhoto) / active.length) * 100) : 0,
     };
   }, [items]);
 
@@ -423,6 +472,170 @@ function MenuPage() {
     for (const inv of inventoryPool) m.set(inv.id, inv.cost_per_unit);
     return m;
   }, [inventoryPool]);
+
+  // ── MNU-B (menu deferred, 2026-05-24): bulk ops + selection ────────
+  //
+  // Selection lives at the page level so the toolbar can persist as
+  // the operator scrolls. Action handlers gate on selection length so
+  // an accidental click on Archive with nothing selected is a no-op.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkDialog, setBulkDialog] = useState<null | "archive" | "category" | "price" | "allergens">(null);
+  const [bulkCategoryValue, setBulkCategoryValue] = useState<string>("Mains");
+  const [bulkPricePct, setBulkPricePct] = useState<string>("5");
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const runBulkArchive = async () => {
+    if (!companyId || selectedIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await menuService.bulkArchive(companyId, Array.from(selectedIds));
+      if (!res.ok) throw new Error(res.error);
+      toast({ title: `Archived ${res.count} item${res.count === 1 ? "" : "s"}` });
+      clearSelection();
+      setBulkDialog(null);
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "bulk-archive", companyId } });
+      toast({ title: "Bulk archive failed", description: e?.message, variant: "destructive" });
+    } finally { setBulkBusy(false); }
+  };
+  const runBulkCategory = async () => {
+    if (!companyId || selectedIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await menuService.bulkUpdateCategory(companyId, Array.from(selectedIds), bulkCategoryValue);
+      if (!res.ok) throw new Error(res.error);
+      toast({ title: `Moved ${res.count} item${res.count === 1 ? "" : "s"} to ${bulkCategoryValue}` });
+      clearSelection();
+      setBulkDialog(null);
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "bulk-category", companyId } });
+      toast({ title: "Bulk category change failed", description: e?.message, variant: "destructive" });
+    } finally { setBulkBusy(false); }
+  };
+  const runBulkPrice = async () => {
+    if (!companyId || selectedIds.size === 0) return;
+    const pct = Number(bulkPricePct);
+    if (!Number.isFinite(pct)) {
+      toast({ title: "Enter a percentage", variant: "destructive" });
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const res = await menuService.bulkAdjustPrice(
+        companyId, Array.from(selectedIds), pct,
+        (profile as any)?.id || null,
+      );
+      if (!res.ok) throw new Error(res.error);
+      toast({
+        title: `Adjusted ${res.count} price${res.count === 1 ? "" : "s"} by ${pct >= 0 ? "+" : ""}${pct}%`,
+        description: "Original prices logged to history.",
+      });
+      clearSelection();
+      setBulkDialog(null);
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "bulk-price", companyId } });
+      toast({ title: "Bulk price adjust failed", description: e?.message, variant: "destructive" });
+    } finally { setBulkBusy(false); }
+  };
+  const runBulkAllergens = async () => {
+    if (!companyId || selectedIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await menuService.bulkMarkAllergensReviewed(
+        companyId, Array.from(selectedIds),
+        (profile as any)?.id || null,
+      );
+      if (!res.ok) throw new Error(res.error);
+      toast({ title: `Marked allergens reviewed on ${res.count} item${res.count === 1 ? "" : "s"}` });
+      clearSelection();
+      setBulkDialog(null);
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "bulk-allergens", companyId } });
+      toast({ title: "Bulk allergen review failed", description: e?.message, variant: "destructive" });
+    } finally { setBulkBusy(false); }
+  };
+
+  const handleDuplicateItem = async (it: MenuItemWithRecipeSummary) => {
+    if (!companyId) return;
+    try {
+      const res = await menuService.duplicateItem(companyId, it.id, (profile as any)?.id || null);
+      if (!res.ok || !res.newId) throw new Error(res.error || "Duplicate failed");
+      toast({
+        title: "Item duplicated",
+        description: `"${it.item_name} (copy)" created. Edit it to set the new name + price.`,
+      });
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "duplicate", companyId } });
+      toast({ title: "Couldn't duplicate", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // MNU-B: drag-drop photo onto a row. Upload to the menu-images
+  // bucket then patch the item's image_url. Reuses the same bucket
+  // + path shape the edit dialog uses.
+  const handleDropPhoto = async (it: MenuItemWithRecipeSummary, file: File) => {
+    if (!companyId) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Only images please", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast({ title: "Image too large", description: "3 MB max.", variant: "destructive" });
+      return;
+    }
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${companyId}/${it.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(IMAGE_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      const { error: patchErr } = await (supabase as any)
+        .from("menu_items").update({ image_url: publicUrl }).eq("id", it.id);
+      if (patchErr) throw patchErr;
+      toast({ title: "Photo updated", description: it.item_name });
+      await load();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "drop-photo", companyId } });
+      toast({ title: "Photo upload failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // MNU-B: realtime channel. A photo upload from another tab, a bulk
+  // price adjust elsewhere - this page picks it up without a manual
+  // Refresh. Debounced 1500ms to avoid storming on a bulk update.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void load(); }, 1500);
+    };
+    const channel = supabase
+      .channel(`menu:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   // Categories present in real data, plus the canonical list - so legacy
   // "main" / "Mains" both appear in the filter without losing rows.
@@ -592,6 +805,21 @@ function MenuPage() {
     if (!itemDraft.item_name.trim()) {
       setError("Item name is required");
       return;
+    }
+    // MNU-B: warn (not block) when the trimmed name matches an
+    // existing active item. Two "Crockery & Cutlery" rows pre-MNU-B
+    // had no signal. We don't enforce uniqueness because legitimate
+    // variants exist (Standard / Premium), but the operator should
+    // see they're about to create a twin and confirm.
+    if (!editTargetId) {
+      const dupId = await menuService.findDuplicateName(companyId, itemDraft.item_name);
+      if (dupId) {
+        const proceed = window.confirm(
+          `Another active item with the name "${itemDraft.item_name.trim()}" already exists. ` +
+          `Create this one anyway? Consider appending a variant suffix like " (Premium)" so the kitchen and dispatch can tell them apart.`,
+        );
+        if (!proceed) return;
+      }
     }
     const price = Number(itemDraft.base_price);
     if (isNaN(price) || price < 0) {
@@ -886,22 +1114,41 @@ function MenuPage() {
                     const s = String(v).replace(/"/g, '""');
                     return /[",\n]/.test(s) ? `"${s}"` : s;
                   };
-                  const headers = ["Item", "Category", "Price", "Cost per serving", "Margin %", "Archived"];
+                  // MNU-B: BOM for Excel-ZA, both VAT views, allergen
+                  // review state + recipe completeness so the export
+                  // is a real catalogue health snapshot, not just
+                  // name+price.
+                  const headers = [
+                    "Item", "Category", "Price (ex VAT)", "Price (inc VAT)",
+                    "Cost per serving", "Margin %", "Has recipe",
+                    "Allergens reviewed", "Has photo", "Archived",
+                  ];
                   const lines = [headers.join(",")];
                   for (const it of visible) {
                     const price = Number(it.base_price || 0);
                     const cost = Number((it.cost as any)?.cost_per_serving || 0);
                     const margin = price > 0 ? (((price - cost) / price) * 100).toFixed(1) : "";
+                    // MNU-B: base_price is stored in whichever mode the
+                    // tenant operates in. Compute the other view at
+                    // 15% so the CSV has both columns.
+                    const isInc = pricingMode.mode === "inc";
+                    const exVat = isInc ? toExVat(price, 0.15) : price;
+                    const incVat = isInc ? price : toIncVat(price, 0.15);
                     lines.push([
                       esc(it.item_name),
                       esc(it.category || ""),
-                      esc(price.toFixed(2)),
+                      esc(exVat.toFixed(2)),
+                      esc(incVat.toFixed(2)),
                       esc(cost.toFixed(2)),
                       esc(margin),
-                      esc((it as any).is_archived ? "yes" : "no"),
+                      esc(it.recipe_id ? "yes" : "no"),
+                      esc((it as any).allergens_reviewed_at ? "yes" : "no"),
+                      esc(it.image_url ? "yes" : "no"),
+                      esc(it.deleted_at ? "yes" : "no"),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // MNU-B: UTF-8 BOM so Excel-ZA renders ZAR + accents.
+                  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -932,8 +1179,8 @@ function MenuPage() {
             </WidgetErrorBoundary>
           ) : null}
 
-          {/* Stat strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+          {/* Stat strip - MNU-B widened to 6 tiles. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active items</p>
@@ -949,18 +1196,65 @@ function MenuPage() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                  Avg margin
-                  <InfoTooltip content="Average gross margin across menu items that have BOTH a costed recipe and a base price.\n\nMargin = (base_price - cost_per_serving) / base_price.\n\nOwner-only, the kitchen surface never sees these numbers." />
+                  Median margin
+                  <InfoTooltip content={(() => {
+                    const lines: string[] = [];
+                    lines.push("Median gross margin across menu items that have BOTH a costed recipe and a base price.");
+                    lines.push("");
+                    lines.push("Median (not mean) so an outlier - chef-on-site service line priced at 95%+ margin - doesn't drag the headline up.");
+                    if (stats.meanMarginPct != null && stats.medianMarginPct != null) {
+                      lines.push("");
+                      lines.push(`Median: ${stats.medianMarginPct.toFixed(0)}%`);
+                      lines.push(`Mean: ${stats.meanMarginPct.toFixed(0)}%`);
+                    }
+                    const cats = Object.entries(stats.marginByCategory).sort((a, b) => b[1].mean - a[1].mean);
+                    if (cats.length > 0) {
+                      lines.push("");
+                      lines.push("By category (mean):");
+                      for (const [cat, v] of cats) {
+                        lines.push(`  ${cat}: ${v.mean.toFixed(0)}% (n=${v.n})`);
+                      }
+                    }
+                    lines.push("");
+                    lines.push("Owner-only, the kitchen surface never sees these numbers.");
+                    return lines.join("\n");
+                  })()} />
                 </p>
                 <p className={`text-2xl font-bold tabular-nums ${
-                  stats.avgMarginPct == null ? "text-slate-400" :
-                  stats.avgMarginPct < 30 ? "text-red-700" :
-                  stats.avgMarginPct < 50 ? "text-amber-700" :
-                                            "text-emerald-700"
+                  stats.medianMarginPct == null ? "text-slate-400" :
+                  stats.medianMarginPct < 30 ? "text-red-700" :
+                  stats.medianMarginPct < 50 ? "text-amber-700" :
+                                               "text-emerald-700"
                 }`}>
-                  {stats.avgMarginPct == null ? "--" : `${stats.avgMarginPct.toFixed(0)}%`}
+                  {stats.medianMarginPct == null ? "--" : `${stats.medianMarginPct.toFixed(0)}%`}
                 </p>
-                {stats.avgMarginPct == null && <p className="text-[11px] text-slate-500 mt-1">Need recipes + costs</p>}
+                {stats.medianMarginPct == null && <p className="text-[11px] text-slate-500 mt-1">Need recipes + costs</p>}
+                {stats.highMarginCount > 0 && (
+                  <p className="text-[10px] text-amber-700 mt-1">
+                    {stats.highMarginCount} item{stats.highMarginCount === 1 ? "" : "s"} {">"} 85% - check pricing
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            {/* MNU-B: photo coverage tile. Matches the equivalent
+                surface on /admin/offering and tells the operator
+                where to focus the next photoshoot. */}
+            <Card className={`border-0 shadow-sm ${stats.missingPhoto > 0 ? "bg-amber-50" : ""}`}>
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                  Photo coverage
+                  {stats.missingPhoto > 0 && <Camera className="w-3 h-3 text-amber-600" />}
+                </p>
+                <p className={`text-2xl font-bold tabular-nums ${
+                  stats.photoCoveragePct >= 90 ? "text-emerald-700" :
+                  stats.photoCoveragePct >= 60 ? "text-amber-700" :
+                  "text-rose-700"
+                }`}>
+                  {stats.photoCoveragePct}%
+                </p>
+                {stats.missingPhoto > 0 && (
+                  <p className="text-[10px] text-amber-700 mt-1 tabular-nums">{stats.missingPhoto} missing</p>
+                )}
               </CardContent>
             </Card>
             <Card className={`border-0 shadow-sm ${stats.incompleteCost > 0 ? "bg-amber-50" : ""}`}>
@@ -992,6 +1286,34 @@ function MenuPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* MNU-B: bulk action toolbar. Surfaces when N rows are
+              selected. Operator can archive, change category, bump
+              prices by %, or mark allergens reviewed in one go.
+              Sticks to the top of the list area so the buttons stay
+              reachable as the list scrolls. */}
+          {selectedIds.size > 0 && (
+            <div className="sticky top-0 z-10 mb-4 rounded-lg bg-slate-900 text-white shadow-lg p-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">
+                {selectedIds.size} selected
+              </span>
+              <button onClick={clearSelection} className="text-xs underline opacity-70 hover:opacity-100">Clear</button>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("allergens")} className="gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5" /> Mark allergens reviewed
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("category")} className="gap-1.5">
+                  Change category
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("price")} className="gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" /> Adjust price %
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setBulkDialog("archive")} className="gap-1.5">
+                  <Archive className="w-3.5 h-3.5" /> Archive
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Filter bar */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -1077,9 +1399,39 @@ function MenuPage() {
                       <ul className="divide-y divide-slate-100">
                         {list.map(it => {
                           const archived = !!it.deleted_at;
+                          const isSelected = selectedIds.has(it.id);
                           return (
-                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""}`}>
-                              <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""} ${isSelected ? "bg-blue-50/40" : ""}`}>
+                              {/* MNU-B: selection checkbox for bulk
+                                  operations. Stays in the gutter so the
+                                  layout doesn't shift when toggled. */}
+                              <button
+                                type="button"
+                                onClick={() => toggleSelect(it.id)}
+                                className="text-slate-400 hover:text-blue-700 shrink-0"
+                                title={isSelected ? "Deselect" : "Select for bulk action"}
+                                aria-label={isSelected ? "Deselect item" : "Select item"}
+                              >
+                                {isSelected
+                                  ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                                  : <Square className="w-4 h-4" />}
+                              </button>
+                              {/* MNU-B: drag-drop photo upload onto
+                                  the thumbnail. Drop an image here to
+                                  set the row's image_url without
+                                  opening the edit dialog. */}
+                              <div
+                                className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border-2 border-dashed border-transparent hover:border-blue-300 transition-colors"
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-blue-400"); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove("border-blue-400"); }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.remove("border-blue-400");
+                                  const f = e.dataTransfer.files?.[0];
+                                  if (f) void handleDropPhoto(it, f);
+                                }}
+                                title={it.image_url ? "Drop a new image to replace" : "Drop an image here, or open Edit to upload"}
+                              >
                                 {it.image_url
                                   // eslint-disable-next-line @next/next/no-img-element
                                   ? <img src={it.image_url} alt={it.item_name} className="w-full h-full object-cover" />
@@ -1089,13 +1441,34 @@ function MenuPage() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-semibold text-slate-900 truncate">{it.item_name}</span>
                                   {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
-                                  {it.recipe_id ? (
-                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                                      <ChefHat className="w-2.5 h-2.5 mr-0.5" />Recipe x{it.recipe_ingredient_count}
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
-                                  )}
+                                  {/* MNU-B: suppress "No recipe" amber on
+                                      non-food categories (Service /
+                                      Equipment) and on buy-and-sell /
+                                      outsourced items. Pre-MNU-B Waiter
+                                      / Server got nagged for a recipe
+                                      it correctly didn't have. */}
+                                  {(() => {
+                                    const cat = (it.category || "").trim();
+                                    const isNonFood = NON_FOOD_CATEGORIES.has(cat);
+                                    const isBuySell = !!(it as any).is_buy_and_sell;
+                                    const ftype = (it as any).fulfilment_type;
+                                    if (it.recipe_id) {
+                                      return (
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                          <ChefHat className="w-2.5 h-2.5 mr-0.5" />Recipe x{it.recipe_ingredient_count}
+                                        </Badge>
+                                      );
+                                    }
+                                    if (isNonFood || isBuySell || ftype === "outsourced") {
+                                      // Non-food items: no nag. The
+                                      // category chip itself is enough
+                                      // signal.
+                                      return null;
+                                    }
+                                    return (
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
+                                    );
+                                  })()}
                                   {/* Wave 66.9 Phase 3 - recipe-completeness chip.
                                       Counts how many of the four backplanning
                                       fields are populated (prep_time_minutes,
@@ -1160,11 +1533,22 @@ function MenuPage() {
                                       amber unreviewed warning - a green
                                       "reviewed" badge on every row would
                                       drown the layout. */}
-                                  <AllergenReviewBadge
-                                    reviewedAt={(it as any).allergens_reviewed_at ?? null}
-                                    compact
-                                    hideWhenReviewed
-                                  />
+                                  {/* MNU-B: wrap the unreviewed-allergen
+                                      badge in a button so a tap opens
+                                      the edit dialog. Mirrors the
+                                      prep-timing chip pattern. */}
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(it)}
+                                    className="inline-flex"
+                                    title="Review allergens for this item"
+                                  >
+                                    <AllergenReviewBadge
+                                      reviewedAt={(it as any).allergens_reviewed_at ?? null}
+                                      compact
+                                      hideWhenReviewed
+                                    />
+                                  </button>
                                 </div>
                                 {it.description && (
                                   <p className="text-xs text-slate-500 truncate mt-0.5">{it.description}</p>
@@ -1210,6 +1594,22 @@ function MenuPage() {
                                 <Button variant="outline" size="sm" onClick={() => openEdit(it)}>
                                   <Pencil className="w-3 h-3 mr-1" />Edit
                                 </Button>
+                                {/* MNU-B: duplicate-item shortcut.
+                                    Use case: "Crockery & Cutlery"
+                                    variants (Standard / Premium) where
+                                    the operator wants a near-identical
+                                    row with a price tweak. Clones the
+                                    recipe + ingredients. */}
+                                {!archived && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDuplicateItem(it)}
+                                    title="Duplicate this item with all its fields and recipe"
+                                  >
+                                    <Copy className="w-3 h-3 mr-1" />Duplicate
+                                  </Button>
+                                )}
                                 {archived ? (
                                   <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving}>
                                     <ArchiveRestore className="w-3 h-3 mr-1" />Restore
@@ -2032,6 +2432,107 @@ function MenuPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MNU-B: bulk action dialogs. One Dialog per action - keeps
+          the confirm content focused. Each one only renders when
+          the matching bulkDialog kind is set. */}
+      <Dialog open={bulkDialog === "archive"} onOpenChange={(o) => !o && setBulkDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Archive {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}?</DialogTitle>
+            <DialogDescription>
+              They'll disappear from the live menu and stop appearing on new quotes. Existing orders aren't affected. You can restore them later via "Show archived".
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>Cancel</Button>
+            <Button onClick={runBulkArchive} disabled={bulkBusy} className="bg-red-600 hover:bg-red-700">
+              {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Archive className="w-4 h-4 mr-1.5" />}
+              Archive {selectedIds.size}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={bulkDialog === "category"} onOpenChange={(o) => !o && setBulkDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change category on {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}</DialogTitle>
+            <DialogDescription>
+              Pick the new category. Kitchen / shopping / dispatch all read from this list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="bulk_cat">Category</Label>
+            <select
+              id="bulk_cat"
+              value={bulkCategoryValue}
+              onChange={(e) => setBulkCategoryValue(e.target.value)}
+              className="mt-1 w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
+            >
+              {MENU_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>Cancel</Button>
+            <Button onClick={runBulkCategory} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={bulkDialog === "price"} onOpenChange={(o) => !o && setBulkDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adjust price on {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}</DialogTitle>
+            <DialogDescription>
+              Positive number = increase, negative = decrease. Rounded to 2 decimals. Original prices land in the per-item history so you can roll back.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="bulk_pct">Percentage change</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Input
+                id="bulk_pct"
+                type="number"
+                step="0.1"
+                value={bulkPricePct}
+                onChange={(e) => setBulkPricePct(e.target.value)}
+                placeholder="e.g. 5 for +5%, -10 for a sale"
+                className="flex-1"
+              />
+              <span className="text-sm text-slate-500">%</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              Items with a NULL or zero base_price are skipped - "increase R 0 by X%" is nonsense.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>Cancel</Button>
+            <Button onClick={runBulkPrice} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <TrendingUp className="w-4 h-4 mr-1.5" />}
+              Apply {bulkPricePct ? `${Number(bulkPricePct) >= 0 ? "+" : ""}${bulkPricePct}%` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={bulkDialog === "allergens"} onOpenChange={(o) => !o && setBulkDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark allergens reviewed on {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}?</DialogTitle>
+            <DialogDescription>
+              Stamps the reviewed-at timestamp on each item. Only confirm after you've actually checked the allergen codes - this is the operator's signature that the data is right.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>Cancel</Button>
+            <Button onClick={runBulkAllergens} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <CheckSquare className="w-4 h-4 mr-1.5" />}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ProtectedRoute>
   );
 }
