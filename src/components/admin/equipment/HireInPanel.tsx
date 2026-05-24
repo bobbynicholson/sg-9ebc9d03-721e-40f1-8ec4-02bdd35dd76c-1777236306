@@ -427,6 +427,15 @@ export function HireInPanel() {
       `CateringMS`,
     ].filter(Boolean).join("\n");
     try {
+      // HIR-C (task #193 must-fix, 2026-05-24): column names match
+      // the actual outgoing_email_queue schema. Pre-fix the insert
+      // used `body_text` (column doesn't exist), `source_kind` +
+      // `source_id` (don't exist) and missed `trigger_event` which
+      // is NOT NULL. Every send 400'd silently because the `as
+      // unknown as ...` cast above hid the type error. Real columns
+      // per the migrations: body, subject, to_email, trigger_event,
+      // trigger_ref_id, status. status='queued' is a valid CHECK
+      // value.
       const { error } = await (supabase as unknown as {
         from: (t: string) => {
           insert: (v: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
@@ -437,10 +446,10 @@ export function HireInPanel() {
           company_id: companyId,
           to_email: supplierEmail,
           subject,
-          body_text: body,
+          body,
           status: "queued",
-          source_kind: "hire_in_supplier_request",
-          source_id: r.id,
+          trigger_event: "hire_in_supplier_request",
+          trigger_ref_id: r.id,
         });
       if (error) throw new Error(error.message);
       toast({ title: "Supplier email queued", description: `Will send to ${supplierEmail}.` });
