@@ -152,6 +152,170 @@ const PORTAL_LINK_VARS: TemplateVariable[] = [
   { name: "from_name",      description: "Sender's name",                     example: "Bobby" },
 ];
 
+// After-sales sequence shared variable list. Used by the buildAfterSalesEntries
+// helper below. Keys (clientName, eventType) match the bag built by
+// lib/afterSalesTemplates.getEmailVariables so a template override here
+// renders against the same data.
+const AFTER_SALES_VARS: TemplateVariable[] = [
+  { name: "clientName",  description: "Client's name",                  example: "Bobby Nicholson" },
+  { name: "eventType",   description: "Type of event hosted",           example: "30th birthday" },
+  { name: "eventDate",   description: "Original event date",            example: "5 May 2026" },
+  { name: "eventMonth",  description: "Month name of the event",        example: "May" },
+  { name: "orderId",     description: "Order id",                       example: "ORD-003829" },
+  { name: "year",        description: "Year of the event",              example: "2026" },
+];
+
+// Subscription / billing / account variables. Used by every
+// BillingEmailService-driven template. The bag is wide because each
+// subtype carries a different cut; substitution leaves unknown tokens
+// in place so the editor doesn't need a per-template variable set.
+const SUBSCRIPTION_VARS: TemplateVariable[] = [
+  { name: "user_name",            description: "Owner / admin name",                  example: "Bobby" },
+  { name: "company_name",         description: "Catering company name",               example: "Spit Braai Delivery" },
+  { name: "plan_name",            description: "Subscription plan name",              example: "Pro" },
+  { name: "amount",               description: "Charge amount (formatted)",           example: "R 899" },
+  { name: "billing_cycle",        description: "Monthly or Yearly",                   example: "Monthly" },
+  { name: "next_billing_date",    description: "Next billing date",                   example: "1 June 2026" },
+  { name: "renewal_date",         description: "Renewal date",                        example: "1 June 2026" },
+  { name: "days_until_renewal",   description: "Days until renewal",                  example: "7" },
+  { name: "subscription_url",     description: "Link to manage subscription",         example: "https://app.example.com/admin/subscription" },
+  { name: "payment_date",         description: "Date payment was processed",          example: "1 May 2026" },
+  { name: "transaction_id",       description: "Payment provider transaction id",     example: "TXN_ABC123" },
+  { name: "billing_period_start", description: "Start of billing period",             example: "1 May 2026" },
+  { name: "billing_period_end",   description: "End of billing period",               example: "31 May 2026" },
+  { name: "invoice_url",          description: "Subscription invoice link",           example: "https://app.example.com/admin/subscription" },
+  { name: "attempted_date",       description: "Date of failed payment attempt",      example: "1 May 2026" },
+  { name: "failure_reason",       description: "Card-issuer reason for the failure", example: "Insufficient funds" },
+  { name: "update_payment_url",   description: "Link to update payment method",       example: "https://app.example.com/admin/subscription" },
+  { name: "trial_end_date",       description: "When the free trial ends",            example: "15 May 2026" },
+  { name: "days_remaining",       description: "Days of trial left",                  example: "3" },
+  { name: "clients_created",      description: "Clients created during trial",        example: "12" },
+  { name: "quotes_created",       description: "Quotes created during trial",         example: "7" },
+  { name: "orders_created",       description: "Orders created during trial",         example: "3" },
+  { name: "pricing_url",          description: "Pricing page link",                   example: "https://app.example.com/pricing" },
+  { name: "current_price",        description: "Current subscription price",          example: "R 799" },
+  { name: "new_price",            description: "New subscription price",              example: "R 899" },
+  { name: "effective_date",       description: "Date the price change applies",       example: "1 July 2026" },
+  { name: "change_reason",        description: "Short explanation",                   example: "Annual price review" },
+  { name: "explanation",          description: "Longer explanation paragraph",        example: "We're investing in infrastructure to keep the platform fast and reliable." },
+  { name: "payment_method",       description: "Card on file label",                  example: "Visa ending 4242" },
+  { name: "cancelled_date",       description: "Date the subscription was cancelled", example: "1 May 2026" },
+  { name: "access_until_date",    description: "Last day of paid access",             example: "31 May 2026" },
+  { name: "reactivate_url",       description: "Link to reactivate",                  example: "https://app.example.com/admin/subscription" },
+  { name: "dashboard_url",        description: "Dashboard link",                      example: "https://app.example.com/admin/dashboard" },
+  { name: "inviter_name",         description: "Name of the manager sending the invite", example: "Bobby" },
+  { name: "role",                 description: "Role being assigned",                 example: "Team Member" },
+  { name: "join_url",             description: "Invite acceptance link",              example: "https://app.example.com/auth/invite?token=..." },
+  { name: "deletion_date",        description: "Scheduled account deletion date",     example: "1 June 2026" },
+  { name: "cancel_deletion_url",  description: "Link to cancel the deletion request", example: "https://app.example.com/admin/account/restore" },
+];
+
+// Builds the after-sales sequence templates. Function declaration so
+// it's hoisted and can be referenced from the TEMPLATE_REGISTRY
+// initializer below.
+function buildAfterSalesEntries(): TemplateDefinition[] {
+  // Mirrors lib/afterSalesTemplates.defaultAfterSalesTemplates. Keys
+  // map 1:1 to template_type values used by ensureScheduledAfterSales
+  // in services/order/orderWorkflow.ts.
+  return [
+    {
+      key: "aftersales_after-sales-1",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Two months after event",
+      description: "Soft check-in 2 months after the event. Asks for honest feedback.",
+      defaultSubject: "How did your {{eventType}} land?",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `It's been a couple of months since your {{eventType}} on {{eventDate}}. Hope it was everything you wanted it to be.\n\n` +
+        `If you've got a minute, we'd love a quick line back - what worked, what we could've done differently. Honest is best.\n\n` +
+        `Thanks again for trusting us with the day.`,
+      variables: AFTER_SALES_VARS,
+    },
+    {
+      key: "aftersales_after-sales-2",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Four months after event",
+      description: "Menu-update check-in. No discount, no pressure.",
+      defaultSubject: "If anything's coming up, we're here",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `Just a quick check-in. We've added a few new menu items since your {{eventType}} in {{eventMonth}}, plus some seasonal options that are good for this time of year.\n\n` +
+        `If you've got something coming up - a corporate function, a family thing, a celebration - we're around. Reply to this email and we'll get a quote together.\n\n` +
+        `No pressure, just hello.`,
+      variables: AFTER_SALES_VARS,
+    },
+    {
+      key: "aftersales_after-sales-3",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Six months after event",
+      description: "Diary-fills-up nudge with no discount.",
+      defaultSubject: "Half a year on - anything brewing?",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `Hard to believe it's been six months since your {{eventType}}.\n\n` +
+        `Year-end and the festive season tend to fill up fast on our diary, so if you're thinking about a function in the next few months it's worth pencilling something in soon.\n\n` +
+        `Reply to this email if you'd like a quick chat about what you've got in mind.`,
+      variables: AFTER_SALES_VARS,
+    },
+    {
+      key: "aftersales_after-sales-4",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Eight months after event",
+      description: "Friendly catch-up with what's new.",
+      defaultSubject: "Hi from the team",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `Just dropping in to say hi.\n\n` +
+        `Planning an event takes time and the right reason to do it - so we're not here to push. But if you've got something in mind, even loosely, we'd love to help shape it.\n\n` +
+        `A few things we've added since your last booking:\n` +
+        `- More dietary-flexible menu options\n` +
+        `- Streamlined ordering for returning clients\n` +
+        `- Better tracking and updates on the day\n\n` +
+        `Reply if you're curious. Otherwise we'll catch up again later in the year.`,
+      variables: AFTER_SALES_VARS,
+    },
+    {
+      key: "aftersales_after-sales-5",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Ten months after event",
+      description: "End-of-year planning nudge.",
+      defaultSubject: "Year's nearly out - planning anything?",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `End of the year tends to creep up. If you're thinking about a function before the holidays, or kicking off the new year with something planned, this is the moment to lock in dates.\n\n` +
+        `We've still got a handful of slots open that we tend to hold for returning clients.\n\n` +
+        `Reply to this email and we'll send through availability.`,
+      variables: AFTER_SALES_VARS,
+    },
+    {
+      key: "aftersales_after-sales-6",
+      channel: "email",
+      category: "client",
+      group: "After-sales",
+      label: "Twelve months after event",
+      description: "One-year anniversary touch.",
+      defaultSubject: "A year since your {{eventType}}",
+      defaultBody:
+        `Hi {{clientName}},\n\n` +
+        `A year ago you trusted us with your {{eventType}}. That still means a lot.\n\n` +
+        `If you've got another event on the horizon - anniversary, birthday, function - we'd love to do it again. Same care, just for whatever you're planning next.\n\n` +
+        `Reply when you're ready, no rush.\n\n` +
+        `Thanks for being a client.`,
+      variables: AFTER_SALES_VARS,
+    },
+  ];
+}
+
 // ── REGISTRY ────────────────────────────────────────────────────────
 
 export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
@@ -885,7 +1049,432 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `{{from_name}}`,
     variables: PORTAL_LINK_VARS,
   },
+
+  // --- CANCELLATION / REFUND / POSTPONEMENT ---
+  // Keys deliberately match templateType used by
+  // services/email/cancellationEmails.ts so tenant overrides land
+  // immediately when an operator saves a customisation here.
+  {
+    key: "cancellation_approved",
+    channel: "email",
+    category: "client",
+    group: "Cancellation",
+    label: "Order cancelled",
+    description: "Confirmation email when an order is cancelled. The refund_paragraph variable carries the per-policy refund / credit / no-refund wording.",
+    defaultSubject: "Order cancelled - {{order_number}}",
+    defaultBody:
+      `Hi {{client_first_name}},\n\n` +
+      `This confirms that order {{order_number}}{{event_date_label}} has been cancelled.\n\n` +
+      `{{refund_paragraph}}` +
+      `If this wasn't expected, please reply to this email and we'll sort it out straight away.\n\n` +
+      `Thanks,\n{{company_name}}`,
+    variables: [
+      { name: "client_first_name",  description: "Client's first name",              example: "Bobby" },
+      { name: "order_number",       description: "Order reference",                  example: "ORD-003829" },
+      { name: "event_date_label",   description: "Optional date phrase",             example: " for 5 May 2026" },
+      { name: "refund_paragraph",   description: "Refund / credit / no-refund block (auto-built per policy)", example: "Per our cancellation policy, a refund of R 2 500 is due..." },
+      { name: "refund_amount",      description: "Refund amount (formatted)",        example: "R 2 500" },
+      { name: "credit_amount",      description: "Store credit amount (formatted)",  example: "R 485" },
+      { name: "refund_sla_phrase",  description: "Tenant-configured refund SLA",     example: "within 3 business days" },
+      { name: "company_name",       description: "Catering company name",            example: "Spit Braai Delivery" },
+      { name: "tenant_name",        description: "Catering brand name",              example: "Spit Braai Delivery" },
+      { name: "event_name",         description: "Event description",                example: "30th birthday braai" },
+    ],
+  },
+  {
+    key: "refund_paid",
+    channel: "email",
+    category: "client",
+    group: "Cancellation",
+    label: "Refund paid",
+    description: "Sent after a refund EFT has been processed.",
+    defaultSubject: "Refund processed for {{order_number}} - {{refund_amount}}",
+    defaultBody:
+      `Hi {{client_first_name}},\n\n` +
+      `Confirming that the refund of {{refund_amount}} for the cancelled order {{order_number}} has been processed. ` +
+      `It should land in your account within the next 1-3 business days, depending on your bank.\n\n` +
+      `Reply to this email if anything looks off.\n\n` +
+      `Thanks,\n{{company_name}}`,
+    variables: [
+      { name: "client_first_name", description: "Client's first name",        example: "Bobby" },
+      { name: "order_number",      description: "Order reference",            example: "ORD-003829" },
+      { name: "refund_amount",     description: "Refund amount (formatted)",  example: "R 2 500" },
+      { name: "company_name",      description: "Catering company name",      example: "Spit Braai Delivery" },
+      { name: "tenant_name",       description: "Catering brand name",        example: "Spit Braai Delivery" },
+    ],
+  },
+  {
+    key: "postponement_approved",
+    channel: "email",
+    category: "client",
+    group: "Cancellation",
+    label: "Postponement approved",
+    description: "Sent when a client postpones their event to a new date.",
+    defaultSubject: "Postponed to {{new_event_date}} - {{order_number}}",
+    defaultBody:
+      `Hi {{client_first_name}},\n\n` +
+      `Your booking has been postponed. New event date: {{new_event_date}}.\n\n` +
+      `Everything else on the order stays the same. If you need to tweak anything, just reply to this email.\n\n` +
+      `Thanks,\n{{company_name}}`,
+    variables: [
+      { name: "client_first_name", description: "Client's first name",            example: "Bobby" },
+      { name: "order_number",      description: "Order reference",                example: "ORD-003829" },
+      { name: "new_event_date",    description: "Rescheduled event date",         example: "12 May 2026" },
+      { name: "company_name",      description: "Catering company name",          example: "Spit Braai Delivery" },
+      { name: "tenant_name",       description: "Catering brand name",            example: "Spit Braai Delivery" },
+      { name: "event_name",        description: "Event description",              example: "30th birthday braai" },
+    ],
+  },
+
+  // --- INVOICE + PAYMENT ---
+  // Keys match templateType used by services/invoiceGenerationService.ts
+  // (deposit_invoice_issued / balance_invoice_issued) and
+  // pages/api/webhooks/payment-confirmation.ts (balance_payment_received).
+  {
+    key: "deposit_invoice_issued",
+    channel: "email",
+    category: "client",
+    group: "Invoice",
+    label: "Deposit invoice sent",
+    description: "Sent when the deposit invoice is first issued to lock in the event date.",
+    defaultSubject: "Deposit invoice {{invoice_number}} - {{event_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `{{tenant_name}} issued the deposit invoice {{invoice_number}} for {{event_name}}. Deposit due: {{amount}}.\n\n` +
+      `Open the invoice: {{invoice_link}}\n\n` +
+      `Once the deposit lands, your event date is locked in.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: [
+      { name: "first_name",     description: "Client's first name",          example: "Bobby" },
+      { name: "client_name",    description: "Full client name",             example: "Bobby Nicholson" },
+      { name: "tenant_name",    description: "Catering brand name",          example: "Spit Braai Delivery" },
+      { name: "event_name",     description: "Event description",            example: "30th birthday braai" },
+      { name: "invoice_number", description: "Invoice number",               example: "INV-2026-0421" },
+      { name: "amount",         description: "Amount on this invoice",       example: "R 4 500" },
+      { name: "deposit_amount", description: "Deposit amount",               example: "R 4 500" },
+      { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
+    ],
+  },
+  {
+    key: "balance_invoice_issued",
+    channel: "email",
+    category: "client",
+    group: "Invoice",
+    label: "Balance invoice sent",
+    description: "Sent when the balance invoice goes out after the deposit is paid.",
+    defaultSubject: "Balance invoice {{invoice_number}} - {{event_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\n` +
+      `Open the invoice: {{invoice_link}}\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: [
+      { name: "first_name",     description: "Client's first name",          example: "Bobby" },
+      { name: "client_name",    description: "Full client name",             example: "Bobby Nicholson" },
+      { name: "tenant_name",    description: "Catering brand name",          example: "Spit Braai Delivery" },
+      { name: "event_name",     description: "Event description",            example: "30th birthday braai" },
+      { name: "invoice_number", description: "Invoice number",               example: "INV-2026-0421B" },
+      { name: "amount",         description: "Amount on this invoice",       example: "R 6 500" },
+      { name: "balance_amount", description: "Balance amount",               example: "R 6 500" },
+      { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
+    ],
+  },
+  {
+    key: "balance_payment_received",
+    channel: "email",
+    category: "client",
+    group: "Invoice",
+    label: "Payment received receipt",
+    description: "Receipt sent when a client payment lands (deposit, balance, or full payment).",
+    defaultSubject: "Payment received - invoice {{invoice_number}}",
+    defaultBody:
+      `Hi {{client_name}},\n\n` +
+      `Thanks for your payment of {{amount}} against invoice {{invoice_number}}.\n\n` +
+      `Reply to this email if anything looks off.\n\n` +
+      `Thanks,\n{{company_name}}`,
+    variables: [
+      { name: "client_name",    description: "Client's first name or 'there'", example: "Bobby" },
+      { name: "invoice_number", description: "Invoice number",                example: "INV-2026-0421" },
+      { name: "order_number",   description: "Order reference (often the same as invoice)", example: "INV-2026-0421" },
+      { name: "amount",         description: "Amount received (formatted)",   example: "R 6 500.00" },
+      { name: "company_name",   description: "Catering company name",         example: "Spit Braai Delivery" },
+    ],
+  },
+
+  // --- QUOTE ACCEPTED ---
+  // quote_accepted_client is already wired in pages/api/public/quotes/[token]/accept.ts
+  {
+    key: "quote_accepted_client",
+    channel: "email",
+    category: "client",
+    group: "Quote",
+    label: "Quote accepted (client confirmation)",
+    description: "Auto-reply the client receives the moment they accept a quote on the portal.",
+    defaultSubject: "Quote accepted - thanks {{first_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+      `Here's what happens from here:\n\n` +
+      `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
+      `2. Deposit invoice: {{tenant_name}} will send the deposit invoice shortly to lock in your event date.\n` +
+      `3. Event day{{event_day_suffix}}: we'll be in touch the week before with final headcount and any last tweaks.\n\n` +
+      `If anything has changed on your side, just reply to this email and we'll sort it.\n\n` +
+      `Looking forward to it,\n{{tenant_name}}`,
+    variables: [
+      { name: "first_name",       description: "Client's first name",              example: "Bobby" },
+      { name: "client_name",      description: "Full client name",                 example: "Bobby Nicholson" },
+      { name: "tenant_name",      description: "Catering brand name",              example: "Spit Braai Delivery" },
+      { name: "event_name",       description: "Event description",                example: "30th birthday braai" },
+      { name: "event_date",       description: "Formatted event date",             example: "5 May 2026" },
+      { name: "event_day_suffix", description: "Optional ' (5 May 2026)' suffix",  example: " (5 May 2026)" },
+    ],
+  },
+  {
+    key: "quote_accepted_admin_notify",
+    channel: "email",
+    category: "staff",
+    group: "Quote",
+    label: "Quote accepted (admin notify)",
+    description: "Operator-facing email when a client accepts a quote on the portal.",
+    defaultSubject: "Quote accepted - {{client_name}}",
+    defaultBody:
+      `{{acceptor_name}} just accepted the quote for {{client_name}}.\n\n` +
+      `Total: {{total}}\n` +
+      `Event date: {{event_date}}\n` +
+      `Guests: {{guest_count}}\n\n` +
+      `Open the quote to convert it into an order:\n{{quote_link}}`,
+    variables: [
+      { name: "client_name",   description: "Client name on the quote",       example: "Bobby Nicholson" },
+      { name: "acceptor_name", description: "Name typed at acceptance",       example: "Bobby Nicholson" },
+      { name: "total",         description: "Quote total (formatted)",        example: "R 12 500.00" },
+      { name: "event_date",    description: "Formatted event date",           example: "5 May 2026" },
+      { name: "guest_count",   description: "Guest count",                    example: "80" },
+      { name: "quote_link",    description: "Link to the quote in admin",     example: "https://app.example.com/admin/quotes/..." },
+      { name: "company_name",  description: "Catering company name",          example: "Spit Braai Delivery" },
+    ],
+  },
+
+  // --- AFTER-SALES SEQUENCE (cron-fired post-event nurture) ---
+  // Keys match templateType used by ensureScheduledAfterSales in
+  // services/order/orderWorkflow.ts so a tenant override here lands
+  // immediately on the next queued row.
+  ...buildAfterSalesEntries(),
+
+  // --- BILLING / SUBSCRIPTION (platform comms to the catering business) ---
+  // Keys match the type passed to BillingEmailService.sendBillingEmail
+  // so an override here drives the live send.
+  {
+    key: "subscription_started",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription started",
+    description: "Welcome email when a tenant first subscribes.",
+    defaultSubject: "Welcome to CateringMS! Your subscription is active",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `Thank you for subscribing to our {{plan_name}} plan. Your subscription is now active and ready to use.\n\n` +
+      `Plan: {{plan_name}}\n` +
+      `Amount: {{amount}}\n` +
+      `Billing cycle: {{billing_cycle}}\n` +
+      `Next billing date: {{next_billing_date}}\n\n` +
+      `Manage your subscription: {{subscription_url}}\n\n` +
+      `Getting started:\n` +
+      `1. Complete your profile setup\n` +
+      `2. Add your first clients\n` +
+      `3. Create your first quote\n` +
+      `4. Set up your inventory\n\n` +
+      `Need help? Reply here or email support@cateringms.com.\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "payment_succeeded",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription payment received",
+    description: "Payment receipt for a successful subscription charge.",
+    defaultSubject: "Payment received - {{amount}}",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `We have successfully received your payment of {{amount}}.\n\n` +
+      `Payment date: {{payment_date}}\n` +
+      `Transaction ID: {{transaction_id}}\n` +
+      `Billing period: {{billing_period_start}} to {{billing_period_end}}\n` +
+      `Next billing date: {{next_billing_date}}\n\n` +
+      `Invoice: {{invoice_url}}\n\n` +
+      `Questions? billing@cateringms.com\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "payment_failed",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription payment failed",
+    description: "Sent when a subscription charge bounces.",
+    defaultSubject: "Payment failed - action required",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `We attempted to process your payment but it failed.\n\n` +
+      `Amount: {{amount}}\n` +
+      `Attempted date: {{attempted_date}}\n` +
+      `Reason: {{failure_reason}}\n\n` +
+      `We will automatically retry in 3 days. To avoid any service interruption, please:\n` +
+      `1. Check that your payment method is valid\n` +
+      `2. Ensure sufficient funds are available\n` +
+      `3. Update your payment details if needed\n\n` +
+      `Update payment method: {{update_payment_url}}\n\n` +
+      `Questions? billing@cateringms.com\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "trial_ending_soon",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Free trial ending",
+    description: "Reminder a few days before the free trial expires.",
+    defaultSubject: "Your free trial ends in {{days_remaining}} days",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `Your free trial of CateringMS will end on {{trial_end_date}} (in {{days_remaining}} days).\n\n` +
+      `What you've accomplished:\n` +
+      `- {{clients_created}} clients\n` +
+      `- {{quotes_created}} quotes\n` +
+      `- {{orders_created}} orders\n\n` +
+      `To keep using CateringMS without interruption, please select a plan: {{pricing_url}}\n\n` +
+      `If your trial ends without selecting a plan, your account will be paused but your data is safely stored for 30 days.\n\n` +
+      `Questions? support@cateringms.com\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "subscription_expiring",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription renewing soon",
+    description: "Reminder before the next billing cycle hits the card on file.",
+    defaultSubject: "Your subscription renews in {{days_until_renewal}} days",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `Friendly reminder: your CateringMS subscription will automatically renew on {{renewal_date}}.\n\n` +
+      `Plan: {{plan_name}}\n` +
+      `Amount: {{amount}}\n` +
+      `Renewal date: {{renewal_date}}\n` +
+      `Payment method: {{payment_method}}\n\n` +
+      `No action is required unless you want to make changes.\n\n` +
+      `Manage subscription: {{subscription_url}}\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "price_change_notification",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Price change notification",
+    description: "Sent ahead of a subscription price change.",
+    defaultSubject: "Upcoming price change",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `We wanted to let you know about an upcoming change to our pricing.\n\n` +
+      `Current price: {{current_price}}\n` +
+      `New price: {{new_price}}\n` +
+      `Effective date: {{effective_date}}\n` +
+      `Reason: {{change_reason}}\n\n` +
+      `{{explanation}}\n\n` +
+      `Your options:\n` +
+      `1. Continue: no action needed, new price applies from {{effective_date}}\n` +
+      `2. Cancel: cancel without penalty before {{effective_date}}\n` +
+      `3. Downgrade: switch to a different plan\n\n` +
+      `You have 30 days to make any changes.\n\n` +
+      `Manage subscription: {{subscription_url}}\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "subscription_cancelled",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription cancelled",
+    description: "Confirmation when the tenant cancels their subscription.",
+    defaultSubject: "Subscription cancellation confirmed",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `We have processed your cancellation. We're sorry to see you go.\n\n` +
+      `Plan: {{plan_name}}\n` +
+      `Cancelled on: {{cancelled_date}}\n` +
+      `Access until: {{access_until_date}}\n\n` +
+      `You will continue to have access to all CateringMS features until {{access_until_date}}. Your data will be safely stored for 30 days after that.\n\n` +
+      `If you change your mind, reactivate any time: {{reactivate_url}}\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "subscription_reactivated",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Subscription reactivated",
+    description: "Welcome-back email after a reactivation.",
+    defaultSubject: "Welcome back! Your subscription is reactivated",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `Great news, your subscription has been successfully reactivated. We're excited to have you back.\n\n` +
+      `Plan: {{plan_name}}\n` +
+      `Amount: {{amount}}\n` +
+      `Next billing date: {{next_billing_date}}\n\n` +
+      `All your data has been preserved and is ready for you to pick up where you left off.\n\n` +
+      `Go to dashboard: {{dashboard_url}}\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "staff_invitation",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Team member invitation",
+    description: "Email a manager-invited team member receives to set up their portal account.",
+    defaultSubject: "You're invited to join {{company_name}} on CateringMS",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `You have been invited by {{inviter_name}} to join {{company_name}} on the CateringMS platform as {{role}}.\n\n` +
+      `To accept your invitation and set up your account, click the link below. The link expires in 7 days.\n\n` +
+      `Accept invitation: {{join_url}}\n\n` +
+      `If you have any questions, please contact your manager.\n\n` +
+      `Welcome aboard,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
+  {
+    key: "account_deletion_scheduled",
+    channel: "email",
+    category: "staff",
+    group: "Subscription",
+    label: "Account deletion scheduled",
+    description: "Sent when the tenant requests account deletion (30-day grace period).",
+    defaultSubject: "Account deletion scheduled - 30 day grace period",
+    defaultBody:
+      `Hi {{user_name}},\n\n` +
+      `We have received your request to delete your CateringMS account. Your account is scheduled for permanent deletion on {{deletion_date}}.\n\n` +
+      `Important:\n` +
+      `- You have 30 days to change your mind\n` +
+      `- All your data will be permanently deleted\n` +
+      `- This action cannot be undone after the deletion date\n` +
+      `- Your subscription has been cancelled\n\n` +
+      `Cancel this request any time before {{deletion_date}}: {{cancel_deletion_url}}\n\n` +
+      `If you would like a data export, reply to this email.\n\n` +
+      `Best regards,\nThe CateringMS Team`,
+    variables: SUBSCRIPTION_VARS,
+  },
 ];
+
 
 /** Get a template definition by key. */
 export function getTemplateDefinition(key: string): TemplateDefinition | null {

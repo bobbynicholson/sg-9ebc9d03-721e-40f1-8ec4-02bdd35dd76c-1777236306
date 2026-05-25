@@ -2045,17 +2045,39 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
       // path later if the operator wants to back-fill.
       if (sendAt.getTime() < Date.now() - 24 * 3600 * 1000) continue;
 
+      // Wave 50: each after-sales row now resolves through
+      // resolveEmailTemplate so the tenant's customisation in
+      // /admin/messaging-templates (registry key aftersales_<id>)
+      // drives the queued copy. Fallback is the same interpolated
+      // string we used before so a tenant that hasn't customised
+      // sees no behaviour change.
+      const templateType = `aftersales_${template.id}`;
+      let resolvedSubject = interpolateEmailTemplate(template.subject, variables);
+      let resolvedBody = interpolateEmailTemplate(template.body, variables);
+      try {
+        const resolved = await resolveEmailTemplate({
+          companyId: order.company_id,
+          templateType,
+          variables,
+          fallback: { subject: template.subject, bodyHtml: template.body },
+        });
+        resolvedSubject = resolved.subject;
+        resolvedBody = resolved.bodyHtml;
+      } catch (e) {
+        console.warn(`[orderWorkflow] aftersales resolveEmailTemplate failed for ${templateType}, using inline default:`, e);
+      }
+
       rows.push({
         company_id: order.company_id,
         to_email: order.client_email,
         to_name: order.client_name || "there",
-        subject: interpolateEmailTemplate(template.subject, variables),
-        body: interpolateEmailTemplate(template.body, variables),
+        subject: resolvedSubject,
+        body: resolvedBody,
         trigger_event: "aftersales",
         trigger_ref_id: order.id,
         status: "pending",
         scheduled_for: sendAt.toISOString(),
-        template_type: `aftersales_${template.id}`,
+        template_type: templateType,
         variables,
       });
     }

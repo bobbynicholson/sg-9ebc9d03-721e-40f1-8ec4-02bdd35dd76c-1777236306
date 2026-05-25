@@ -1,7 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "./emailService";
+import { resolveEmailTemplate } from "./email/templateResolver";
 import { buildTenantHref } from "@/lib/tenantUrl";
+
+// camelCase -> snake_case so the variable bag the tenant edits in
+// /admin/messaging-templates uses the same names as the registry
+// (user_name, plan_name) and not the legacy camelCase keys this
+// service used internally. We feed BOTH to resolveEmailTemplate so
+// existing tenant overrides keep working through any naming style.
+function dualCaseVariables(data: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = { ...data };
+  for (const [k, v] of Object.entries(data)) {
+    const snake = k.replace(/([A-Z])/g, "_$1").toLowerCase();
+    if (snake !== k && !(snake in out)) out[snake] = v;
+  }
+  return out;
+}
 
 // Helper for building absolute URLs that the billing email links use.
 // Slug is the catering company's URL slug (e.g. "spit-braai-delivery").
@@ -346,15 +361,30 @@ export class BillingEmailService {
   // helper falls back to the imported browser anon client, which has
   // no session on the server, and the email_provider_settings SELECT
   // silently returns nothing - the email never sends.
+  //
+  // Wave 50: every billing email now routes through resolveEmailTemplate
+  // so a tenant editing the subscription_started / payment_succeeded /
+  // etc. template in /admin/messaging-templates drives the actual send.
+  // The inline HTML body returned by getEmailTemplate stays as the
+  // fallback for any tenant that hasn't customised yet.
   async sendBillingEmail(to: string, type: string, data: Record<string, any>, companyId: string, client?: any): Promise<boolean> {
     try {
-      const template = this.getEmailTemplate(type, data);
+      const fallback = this.getEmailTemplate(type, data);
+      const variables = dualCaseVariables(data);
+
+      const resolved = await resolveEmailTemplate({
+        companyId,
+        templateType: type,
+        variables,
+        fallback: { subject: fallback.subject, bodyHtml: fallback.body },
+        client,
+      });
 
       return await emailService.sendEmail({
         companyId,
         to,
-        subject: template.subject,
-        body: template.body,
+        subject: resolved.subject,
+        body: resolved.bodyHtml,
         ...(client ? { _client: client } : {}),
       } as any);
     } catch (error) {

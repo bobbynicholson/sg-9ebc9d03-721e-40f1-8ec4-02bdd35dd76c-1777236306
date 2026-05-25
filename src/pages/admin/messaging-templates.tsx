@@ -40,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Mail, MessageCircle, Pencil, RotateCcw, Save, Sparkles, AlertCircle, CheckCircle2, Search } from "lucide-react";
+import { Mail, MessageCircle, Pencil, RotateCcw, Save, Sparkles, AlertCircle, CheckCircle2, Search, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
@@ -357,6 +357,7 @@ function EditorDrawer({
   const [body, setBody] = useState(initialBody);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const dirty = subject !== initialSubject || body !== initialBody;
 
@@ -465,6 +466,50 @@ function EditorDrawer({
     onClose();
   };
 
+  // Send test reads the LIVE override (or default if no override).
+  // If the operator has unsaved edits, we ask them to save first so
+  // what they see in the inbox matches what they tested.
+  const handleSendTest = async () => {
+    if (dirty) {
+      toast({
+        title: "Save first",
+        description: "Save your customisation before sending a test so what you receive matches what's stored.",
+      });
+      return;
+    }
+    setSendingTest(true);
+    try {
+      const resp = await fetch("/api/admin/messaging-templates/send-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateKey: template.key }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json?.error || "Send failed");
+      toast({
+        title: "Test sent",
+        description: `Sent to ${json.to}. Check your ${json.channel === "email" ? "inbox" : "WhatsApp"}.`,
+      });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      captureException(err, {
+        tags: {
+          route: "/admin/messaging-templates",
+          step: "send-test",
+          companyId,
+          templateKey: template.key,
+        },
+      });
+      toast({
+        title: "Test send failed",
+        description: e?.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   return (
     <>
       <SheetHeader>
@@ -569,6 +614,18 @@ function EditorDrawer({
             {resetting ? "Resetting..." : "Reset to default"}
           </Button>
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleSendTest}
+          disabled={sendingTest || dirty}
+          className="w-full gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+          title={dirty ? "Save your customisation first - then test" : "Sends the live template to your own email / WhatsApp with example data"}
+        >
+          <Send className="w-4 h-4" />
+          {sendingTest ? "Sending test..." : `Send test ${isEmail ? "email" : "WhatsApp"} to me`}
+        </Button>
 
         {dirty && (
           <p className="text-[11px] text-amber-700 text-center bg-amber-50 border border-amber-200 rounded px-2 py-1.5">

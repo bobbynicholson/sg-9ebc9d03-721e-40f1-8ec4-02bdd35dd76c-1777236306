@@ -373,30 +373,52 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
     console.warn("[public/quotes/accept] in-app notif failed", err);
   }
 
-  // 2. Email to the owner
+  // 2. Email to the owner. Wave 50: routes through resolveEmailTemplate
+  // so a tenant editing quote_accepted_admin_notify in
+  // /admin/messaging-templates drives this send.
   try {
     if (profile?.email) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "";
       const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
       const { emailService } = await import("@/services/emailService");
-      // Wave 17 audit: this is an unauthenticated public route, so the
-      // anon supabase client passed in here can't read
-      // email_provider_settings under RLS - getEmailConfig returned
-      // null, sendEmail logged "no provider configured", owner never
-      // got their "quote accepted" email. Pass the service-role
-      // client so the gates + provider lookup actually run.
+      const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
+
+      const quoteLink = `${origin}/admin/quotes/${quote.id}`;
+      const fallbackSubject = `Quote accepted - ${quote.client_name || "client"}`;
+      const fallbackBody =
+        `{{acceptor_name}} just accepted the quote for {{client_name}}.\n\n` +
+        `Total: {{total}}\nEvent date: {{event_date}}\nGuests: {{guest_count}}\n\n` +
+        `Open the quote to convert it into an order:\n{{quote_link}}`;
+
+      const resolved = await resolveEmailTemplate({
+        companyId: quote.company_id,
+        templateType: "quote_accepted_admin_notify",
+        variables: {
+          client_name: String(quote.client_name || "the client"),
+          acceptor_name: String(acceptorLabel),
+          total: String(totalLabel),
+          event_date: String(eventLabel),
+          guest_count: String(quote.guest_count ?? "TBD"),
+          quote_link: quoteLink,
+          company_name: String(companyName),
+          // Legacy keys retained for tenants whose existing override
+          // referenced the camelCase bag this email used to ship.
+          clientName: String(quote.client_name || "the client"),
+          companyName: String(companyName),
+          totalAmount: String(totalLabel),
+        },
+        fallback: { subject: fallbackSubject, bodyHtml: fallbackBody },
+        client: supabase,
+      });
+
+      // Wave 17 audit: pass the service-role client so getEmailConfig
+      // reads email_provider_settings under the right auth context
+      // (this is a public unauth route).
       await (emailService as any).sendEmail({
         companyId: quote.company_id,
         to: profile.email,
-        subject: `Quote accepted - ${quote.client_name || "client"}`,
-        body: `${acceptorLabel} just accepted the quote for ${quote.client_name || "this booking"}.\n\n` +
-              `Total: ${totalLabel}\nEvent date: ${eventLabel}\nGuests: ${quote.guest_count ?? "TBD"}\n\n` +
-              `Open the quote to convert it into an order: ${origin}/admin/quotes/${quote.id}`,
-        variables: {
-          clientName: quote.client_name,
-          companyName,
-          totalAmount: totalLabel,
-        },
+        subject: resolved.subject,
+        body: resolved.bodyHtml,
         _client: supabase,
       });
     }
