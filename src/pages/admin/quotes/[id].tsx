@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, Mail, Users, DollarSign, MapPin, FileText,
-  Save, Send, Loader2, Sparkles, AlertTriangle, ArrowRight,
+  Save, Send, Loader2, Sparkles, AlertTriangle, ArrowRight, Pencil,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -586,6 +586,34 @@ function AdminQuoteDetailInner() {
                         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border">
                           Client portal request
                         </Badge>
+                      )}
+                      {/* ODOC H.5: prominent header-level Edit quote CTA.
+                          The inline editor on this page only flips when
+                          status === 'draft' and only lets you tweak
+                          unit prices + delivery + notes. The full editor
+                          at /admin/quotes/new?fromQuoteId= is the one
+                          that lets the operator change menu items,
+                          event date, guest count, venue. Pre-H.5 that
+                          editor lived behind the buried "Revise & resend"
+                          button at the bottom of the action bar; admins
+                          editing in response to a client change request
+                          (the screenshot use case) couldn't find it.
+                          Hidden for rejected / expired - editing those
+                          doesn't fit the workflow (operator should
+                          duplicate to a new quote instead). */}
+                      {quote.status !== "draft"
+                        && quote.status !== "rejected"
+                        && quote.status !== "expired" && (
+                        <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}>
+                          <Button
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                            title="Open the full editor to change menu items, date, guests, venue. Save & Send will re-send to the client for re-acceptance."
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit quote
+                          </Button>
+                        </Link>
                       )}
                     </div>
                   </div>
