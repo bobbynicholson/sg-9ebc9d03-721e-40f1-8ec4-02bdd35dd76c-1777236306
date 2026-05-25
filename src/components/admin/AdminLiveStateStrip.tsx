@@ -202,7 +202,7 @@ export function AdminLiveStateStrip() {
         aria-label={p.aria}
         title={p.aria}
         className={cn(
-          "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-all active:scale-[0.98]",
+          "flex items-center gap-2 rounded-lg border px-2 py-1.5 min-h-[44px] transition-all active:scale-[0.98]",
           TONE_BG[p.tone],
         )}
       >
@@ -215,14 +215,17 @@ export function AdminLiveStateStrip() {
         >
           <Icon className="h-3 w-3" />
         </span>
-        <span className="min-w-0">
-          <span className="block text-[14px] font-bold tabular-nums leading-none">{p.value}</span>
-          {/* Wave 70.41b - dropped truncate so labels that don't fit
-              break to a second line rather than collapsing to
-              "OVER..." / "REVEN...". With the shortened labels above
-              this should only trigger on the very narrow xl-collapsed
-              sidebar state, and a 2-line label still reads correctly. */}
-          <span className="block text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none">{p.label}</span>
+        {/* H.8: text stack is now a proper flex column with min-w-0
+            so the value + label always render side-by-side with the
+            icon, never collapsing to 0-width. truncate prevents a
+            long money value (R1,234,567) from pushing the icon off
+            the tile or stacking the label below it. Pre-H.8 the
+            outer span was `inline` with block children - layout
+            went weird in the narrow xl-sidebar (~110px per pill)
+            and the right-column pills read as "icon only". */}
+        <span className="flex flex-col flex-1 min-w-0">
+          <span className="text-[14px] font-bold tabular-nums leading-none truncate">{p.value}</span>
+          <span className="text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none truncate">{p.label}</span>
         </span>
       </Link>
     );
