@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
-  FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History,
+  FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
 } from "lucide-react";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
@@ -39,6 +39,7 @@ import { DriverSection } from "./sections/DriverSection";
 import { WaiterSection } from "./sections/WaiterSection";
 import { CleaningSection } from "./sections/CleaningSection";
 import { FinanceSection } from "./sections/FinanceSection";
+import { FeedbackSection } from "./sections/FeedbackSection";
 import { HistorySection } from "./sections/HistorySection";
 
 const ROUTE_TAG = "/order/[id]";
@@ -299,9 +300,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       { id: "section-cleaning", label: "Cleaning", icon: Droplets, key: "cleaning" },
     ];
     if (canSeeFinance) items.push({ id: "section-admin", label: "Finance", icon: Wallet, key: "admin" });
+    // Feedback chip only shows on delivered orders. The section
+    // itself returns null otherwise so the chip would scroll to
+    // nothing - safer to omit when not delivered.
+    const isDelivered = !!order && (order.status === "delivered" || order.status === "completed" || !!order.delivered_at);
+    if (isDelivered) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
     items.push({ id: "section-history", label: "History", icon: History, key: "history" });
     return items;
-  }, [canSeeFinance]);
+  }, [canSeeFinance, order]);
 
   if (loading) {
     return (
@@ -466,6 +472,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             highlight={primary === "admin"}
           />
         )}
+        {/* ODOC Wave E: customer feedback - only mounts post-delivery.
+            Section returns null when not delivered so the doc stays
+            tight for pre-event orders. */}
+        <FeedbackSection
+          orderId={order.id}
+          companyId={order.company_id}
+          delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
+          forceOpen={forceAll}
+          defaultOpen={false}
+        />
         <HistorySection
           orderId={order.id}
           companyId={order.company_id}
