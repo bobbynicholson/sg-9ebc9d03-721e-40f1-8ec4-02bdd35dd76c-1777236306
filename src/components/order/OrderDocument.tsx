@@ -224,11 +224,27 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // ODOC: scroll to a section by id. Sections set scroll-margin-top
   // via CollapsibleSection so the browser handles the offset for the
   // sticky nav without a magic number here.
+  //
+  // Also dispatches an 'odoc:expand-section' custom event so the
+  // target accordion opens on tap (deliberate signal, separate from
+  // the passive IntersectionObserver hash updates that fire on
+  // ordinary scroll). Brief delay before the scroll lets the section
+  // expand first so the offset lands on the open layout.
   const scrollToSection = useCallback((sectionId: string) => {
     const el = document.getElementById(sectionId);
     if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Reflect the section in the URL hash so deep-links are share-able.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("odoc:expand-section", { detail: { id: sectionId } }));
+    }
+    // Two raf ticks - first paints the expanded body, second lets
+    // layout settle before scrolling. Fallback to setTimeout for
+    // older browsers.
+    const doScroll = () => el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (typeof requestAnimationFrame !== "undefined") {
+      requestAnimationFrame(() => requestAnimationFrame(doScroll));
+    } else {
+      setTimeout(doScroll, 50);
+    }
     if (typeof window !== "undefined" && window.history?.replaceState) {
       window.history.replaceState(null, "", `#${sectionId}`);
     }

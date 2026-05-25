@@ -11,7 +11,7 @@
  * - `accent` controls the left-edge stripe tint per section type
  *   so the eye finds its lane fast on a long document.
  */
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 export type SectionAccent = "slate" | "orange" | "emerald" | "indigo" | "amber" | "purple" | "cyan" | "rose" | "blue";
@@ -52,6 +52,24 @@ export function CollapsibleSection({
   const [open, setOpen] = useState(defaultOpen);
   const isOpen = forceOpen || open;
   const a = ACCENTS[accent];
+
+  // ODOC: open this section when an explicit expand event targets
+  // it (chip tap in the anchor nav). Decoupled via a custom event
+  // so we don't conflate this with IntersectionObserver hash
+  // updates that fire on plain scroll.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onExpand = (e: Event) => {
+      const detail = (e as CustomEvent<{ id?: string }>).detail;
+      if (detail?.id === id) setOpen(true);
+    };
+    window.addEventListener("odoc:expand-section", onExpand as EventListener);
+    // On first mount, honour a hash that targets this section -
+    // covers deep-links like /order/abc#section-driver.
+    const initialHash = window.location.hash.replace(/^#/, "");
+    if (initialHash === id) setOpen(true);
+    return () => window.removeEventListener("odoc:expand-section", onExpand as EventListener);
+  }, [id]);
   return (
     <section
       id={id}
