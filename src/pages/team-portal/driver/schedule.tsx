@@ -2,9 +2,10 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock, Users, Loader2, AlertCircle, Navigation } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, Loader2, AlertCircle, Navigation, ExternalLink } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -12,6 +13,7 @@ import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface ScheduleOrder {
   id: string;
@@ -35,6 +37,7 @@ const dayBucket = (d: Date, today: Date) => {
 
 export default function DriverSchedulePage() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<ScheduleOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -152,18 +155,28 @@ export default function DriverSchedulePage() {
                                   so a driver scanning Tomorrow's jobs can
                                   pre-check the route. 44px-tall hit area for
                                   thumbs on a phone. */}
-                              {o.venue_address && (
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label={`Open ${o.venue_address} in Google Maps`}
-                                  className="inline-flex items-center gap-1 mt-2 text-xs px-2.5 py-2 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[44px]"
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                {o.venue_address && (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`Open ${o.venue_address} in Google Maps`}
+                                    className="inline-flex items-center gap-1 text-xs px-2.5 py-2 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[44px]"
+                                  >
+                                    <Navigation className="w-3.5 h-3.5" />
+                                    Open in Maps
+                                  </a>
+                                )}
+                                <Link
+                                  href={withSlug(`/order/${o.id}?role=driver`)}
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                                  title="Open the driver brief for this order"
                                 >
-                                  <Navigation className="w-3.5 h-3.5" />
-                                  Open in Maps
-                                </a>
-                              )}
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Open brief
+                                </Link>
+                              </div>
                             </div>
                           </div>
                           {/* Order value was previously shown here. Removed

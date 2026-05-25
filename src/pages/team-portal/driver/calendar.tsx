@@ -29,6 +29,7 @@ import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OrderRow {
   id: string;
@@ -65,6 +66,7 @@ function fromIso(s: string): Date {
 export default function DriverCalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [cursor, setCursor] = useState<Date>(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
@@ -400,7 +402,15 @@ export default function DriverCalendarPage() {
                               )}
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
+                            <Link
+                              href={withSlug(`/order/${o.id}?role=driver`)}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                              title="Open the driver brief for this order"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Open brief
+                            </Link>
                             {o.is_mine ? (
                               <Link href="/team-portal/driver/routes">
                                 <Button size="sm" variant="outline" className="min-h-11">

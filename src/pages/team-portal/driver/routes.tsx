@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,9 @@ import {
   Pause,
   Flag,
   X,
+  ExternalLink,
 } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -48,6 +51,7 @@ const RouteMap = dynamic(
 export default function DriverRoutes() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [route, setRoute] = useState<OptimizedRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
@@ -804,6 +808,14 @@ export default function DriverRoutes() {
                                 >
                                   {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"}
                                 </Badge>
+                                <Link
+                                  href={withSlug(`/order/${stop.order_id}?role=driver`)}
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                                  title="Open the driver brief for this order"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Open brief
+                                </Link>
                               </div>
                               <p className="text-sm text-slate-600 mb-2 flex items-start gap-1">
                                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />

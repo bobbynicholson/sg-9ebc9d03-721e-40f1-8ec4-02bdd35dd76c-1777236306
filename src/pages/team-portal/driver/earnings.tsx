@@ -15,13 +15,15 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Clock, TrendingUp, Calendar, Wallet, Truck, Loader2, Route, MapPin,
+  Clock, TrendingUp, Calendar, Wallet, Truck, Loader2, Route, MapPin, ExternalLink,
 } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
@@ -87,6 +89,7 @@ export default function DriverEarningsPage() {
   // so a UK / US driver sees their own currency instead of R.
   const tenantCurrency = useTenantCurrency(companyId);
   const formatR = buildFormatR(tenantCurrency.code);
+  const { withSlug } = useTenantHref();
 
   const [preset, setPreset] = useState<Preset>("last_30");
   const [from, setFrom] = useState(daysAgoIso(30));
@@ -253,7 +256,7 @@ export default function DriverEarningsPage() {
                       <ShiftTable summary={summary} formatR={formatR} />
                     </TabsContent>
                     <TabsContent value="deliveries">
-                      <DeliveryTable summary={summary} formatR={formatR} />
+                      <DeliveryTable summary={summary} formatR={formatR} withSlug={withSlug} />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -327,7 +330,7 @@ function ShiftTable({ summary, formatR }: { summary: DriverPaySummary | null; fo
   );
 }
 
-function DeliveryTable({ summary, formatR }: { summary: DriverPaySummary | null; formatR: (n: number) => string }) {
+function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySummary | null; formatR: (n: number) => string; withSlug: (href: string) => string }) {
   if (!summary || summary.deliveries.length === 0) {
     return (
       <div className="py-12 text-center text-slate-500">
@@ -346,6 +349,7 @@ function DeliveryTable({ summary, formatR }: { summary: DriverPaySummary | null;
             <th className="text-right px-4 py-2 font-medium">Distance pay</th>
             <th className="text-right px-4 py-2 font-medium">Callout</th>
             <th className="text-right px-4 py-2 font-medium">Total</th>
+            <th className="text-right px-4 py-2 font-medium" />
           </tr>
         </thead>
         <tbody>
@@ -356,6 +360,16 @@ function DeliveryTable({ summary, formatR }: { summary: DriverPaySummary | null;
               <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.distance_pay)}</td>
               <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.callout_fee)}</td>
               <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(d.total)}</td>
+              <td className="px-4 py-2 text-right">
+                <Link
+                  href={withSlug(`/order/${d.order_id}?role=driver`)}
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                  title="Open the driver brief for this order"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open brief
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>

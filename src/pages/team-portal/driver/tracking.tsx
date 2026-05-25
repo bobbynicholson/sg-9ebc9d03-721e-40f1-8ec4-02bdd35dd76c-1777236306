@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,9 @@ import {
 } from "@/components/ui/accordion";
 import {
   MapPin, Navigation, Clock, CheckCircle, Package, Users,
-  UtensilsCrossed, AlertTriangle, ChefHat, Phone, Calendar,
+  UtensilsCrossed, AlertTriangle, ChefHat, Phone, Calendar, ExternalLink,
 } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
@@ -88,6 +90,7 @@ const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
 function DriverTrackingInner() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [delivery, setDelivery] = useState<ActiveDelivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -509,6 +512,14 @@ function DriverTrackingInner() {
                       Kept at the bottom so the driver scrolls past
                       the manifest first. */}
                   <div className="p-5 space-y-2">
+                    <Link
+                      href={withSlug(`/order/${delivery.orderId}?role=driver`)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                      title="Open the driver brief for this order"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open brief
+                    </Link>
                     <Button
                       className="w-full"
                       size="lg"

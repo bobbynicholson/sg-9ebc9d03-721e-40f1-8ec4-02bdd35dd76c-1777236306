@@ -6,10 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search, Navigation,
+  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search, Navigation, ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { DriverNav } from "@/components/navigation/DriverNav";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
@@ -219,6 +221,11 @@ function MiniStat({
 }
 
 function DeliveryList({ orders }: { orders: DriverOrder[] }) {
+  // ODOC H.9: deep-link to the unified /order/[id] doc with the
+  // driver section pre-expanded. Same chip pattern as the dashboard
+  // - the doc carries venue contact, leave-by, checklist, POD path
+  // all in one brief.
+  const { withSlug } = useTenantHref();
   if (orders.length === 0) {
     return (
       <div className="py-12 text-center text-slate-500">
@@ -263,18 +270,31 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                     Header above shows the venue text; this row gives
                     the driver the tap-to-navigate / tap-to-call links
                     that aren't part of the shared header component. */}
-                {o.venue_address && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open ${o.venue_address} in Google Maps`}
-                    className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[32px]"
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {/* ODOC H.9: Open brief - the unified driver
+                      doc with venue contact, checklist, leave-by,
+                      POD path in one place. */}
+                  <Link
+                    href={withSlug(`/order/${o.id}?role=driver`)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                    title="Open the driver brief for this order"
                   >
-                    <Navigation className="w-3.5 h-3.5" />
-                    Open in Maps
-                  </a>
-                )}
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open brief
+                  </Link>
+                  {o.venue_address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${o.venue_address} in Google Maps`}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[32px]"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      Open in Maps
+                    </a>
+                  )}
+                </div>
                 {/* Driver -> client comms bridge. Tap-to-call + open
                     WhatsApp / email so the driver can reach the
                     client without copying numbers off another screen.
