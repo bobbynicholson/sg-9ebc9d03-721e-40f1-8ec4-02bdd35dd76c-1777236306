@@ -34,6 +34,7 @@ import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
 import { OrderSuggestedAction } from "./OrderSuggestedAction";
 import { OrderPresence } from "./OrderPresence";
+import { OrderAmendmentBanner } from "./OrderAmendmentBanner";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -42,6 +43,7 @@ import { WaiterSection } from "./sections/WaiterSection";
 import { CleaningSection } from "./sections/CleaningSection";
 import { FinanceSection } from "./sections/FinanceSection";
 import { FeedbackSection } from "./sections/FeedbackSection";
+import { CommsLogSection } from "./sections/CommsLogSection";
 import { HistorySection } from "./sections/HistorySection";
 
 const ROUTE_TAG = "/order/[id]";
@@ -408,6 +410,10 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         </nav>
       )}
 
+      {/* ODOC Wave F: pending amendment banner - admin reviews
+          client-requested changes inline with Approve / Decline. */}
+      <OrderAmendmentBanner orderId={order.id} companyId={order.company_id} onApplied={load} />
+
       {/* ODOC Wave F: role-aware suggested next action. One-line
           rule-based nudge that picks the highest-value thing the
           viewer can do for this order right now. Dismissible. */}
@@ -492,6 +498,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           forceOpen={forceAll}
           defaultOpen={false}
         />
+        {/* ODOC Wave F: communications log - admin-only, unified
+            feed of notifications + outgoing emails for this order. */}
+        {canSeeFinance && (
+          <CommsLogSection
+            orderId={order.id}
+            companyId={order.company_id}
+            forceOpen={forceAll}
+            defaultOpen={false}
+          />
+        )}
         <HistorySection
           orderId={order.id}
           companyId={order.company_id}
