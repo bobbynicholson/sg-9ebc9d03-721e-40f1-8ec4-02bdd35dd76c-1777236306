@@ -427,7 +427,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
                                     </span>
                                   </div>
                                 </div>
-                                <Link href={withSlug(`/admin/orders?orderId=${d.order_id}`)} className="shrink-0">
+                                <Link href={withSlug(`/order/${d.order_id}?role=shopping_staff`)} className="shrink-0">
                                   <Button
                                     size="sm"
                                     variant="outline"

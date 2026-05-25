@@ -562,7 +562,7 @@ function NotificationsPage() {
                                             // bare order page when we only
                                             // have the related_entity_id.
                                             const fallback = notification.related_entity_id
-                                              ? `/admin/orders?orderId=${encodeURIComponent(notification.related_entity_id)}`
+                                              ? `/order/${encodeURIComponent(notification.related_entity_id)}`
                                               : "/admin/orders";
                                             window.location.href = withSlug(notification.link || fallback);
                                           }}

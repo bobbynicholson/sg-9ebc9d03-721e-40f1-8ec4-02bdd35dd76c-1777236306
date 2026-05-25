@@ -172,7 +172,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                           block stays a single click target into the
                           admin order drawer, same as before. */}
                       <Link
-                        href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                        href={withSlug(`/order/${o.id}`)}
                         className="flex-1 min-w-0 flex items-baseline gap-3 hover:bg-indigo-50/60 rounded transition px-1"
                       >
                         <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">

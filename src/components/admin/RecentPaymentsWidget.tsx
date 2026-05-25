@@ -141,7 +141,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                   <li key={r.id}>
                     {r.order_id ? (
                       <Link
-                        href={withSlug(`/admin/orders?orderId=${r.order_id}`)}
+                        href={withSlug(`/order/${r.order_id}`)}
                         className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
                       >
                         {Row}

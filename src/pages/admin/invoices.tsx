@@ -2222,7 +2222,7 @@ function InvoicesPageInner() {
                             the order number then navigate to /admin/orders. */}
                         {invoice.order_id && (
                           <a
-                            href={`/admin/orders?orderId=${invoice.order_id}`}
+                            href={`/order/${invoice.order_id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
                             title="Open the order this invoice belongs to"

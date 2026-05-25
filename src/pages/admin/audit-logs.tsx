@@ -66,7 +66,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
   if (!entityId) return null;
   switch (entityType) {
     case "order":
-      return `/admin/orders?orderId=${entityId}`;
+      return `/order/${entityId}`;
     case "quote":
       return `/admin/quotes/${entityId}`;
     case "driver_shift":

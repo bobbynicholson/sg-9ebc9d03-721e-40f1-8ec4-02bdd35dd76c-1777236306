@@ -128,7 +128,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
                       {o.guest_count != null && ` · ${o.guest_count} guests`}
                     </p>
                   </div>
-                  <Link href={withSlug(`/admin/orders?orderId=${o.id}`)}>
+                  <Link href={withSlug(`/order/${o.id}?role=driver`)}>
                     <Button size="sm" variant="outline" className="shrink-0">
                       Open
                     </Button>

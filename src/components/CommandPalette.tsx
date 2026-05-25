@@ -199,7 +199,7 @@ export function CommandPalette() {
             label,
             sublabel,
             badge: "Order",
-            href: `/admin/orders?orderId=${o.id}`,
+            href: `/order/${o.id}`,
             haystack: [ref, o.order_number, o.client_name, o.venue_address, o.event_name, o.id].filter(Boolean).join(" "),
           });
         });

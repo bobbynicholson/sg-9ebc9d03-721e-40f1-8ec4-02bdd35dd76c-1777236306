@@ -302,7 +302,7 @@ export default function AdminReviewsPage() {
                               <span className="text-sm font-semibold text-slate-900">{r.client?.client_name || "Unknown client"}</span>
                               {r.order?.order_number && (
                                 <Link
-                                  href={user?.company_slug ? `/${user.company_slug}/admin/orders/${r.order_id}` : `/admin/orders/${r.order_id}`}
+                                  href={user?.company_slug ? `/${user.company_slug}/order/${r.order_id}` : `/order/${r.order_id}`}
                                   className="inline-flex items-center gap-0.5 text-xs text-orange-700 hover:text-orange-800 hover:underline"
                                 >
                                   {r.order.order_number}

@@ -530,7 +530,7 @@ function KitchenScheduleGrid() {
                                   {dayOrders.map((o) => (
                                     <li key={o.id} className="text-xs flex items-center justify-between gap-2">
                                       <Link
-                                        href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                        href={withSlug(`/order/${o.id}?role=kitchen_staff`)}
                                         className={`truncate ${needsCover ? "text-rose-900" : "text-blue-900"} font-medium`}
                                       >
                                         {o.client_name || o.order_number || "Event"}
@@ -615,7 +615,7 @@ function KitchenScheduleGrid() {
                                     {dayOrders.map((o) => (
                                       <Link
                                         key={o.id}
-                                        href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                        href={withSlug(`/order/${o.id}?role=kitchen_staff`)}
                                         className={`block text-left rounded-md border px-1.5 py-1 text-[10px] leading-tight hover:bg-blue-50 transition ${needsCover ? "border-rose-200 bg-white" : "border-blue-200 bg-blue-50"}`}
                                         title={`${o.order_number || "Order"} - ${o.client_name || ""} - ${o.guest_count ?? "?"} guests`}
                                       >

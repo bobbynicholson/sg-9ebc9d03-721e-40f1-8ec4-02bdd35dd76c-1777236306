@@ -283,7 +283,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             )}
             {orderId && (
               <Link
-                href={withSlug(`/admin/orders?orderId=${orderId}`)}
+                href={withSlug(`/order/${orderId}`)}
                 target="_blank"
                 className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50"
                 title={orderNumber || "Open the order"}

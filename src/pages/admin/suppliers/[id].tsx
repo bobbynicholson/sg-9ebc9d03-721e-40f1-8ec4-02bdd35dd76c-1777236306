@@ -326,7 +326,7 @@ function SupplierDetail() {
                               </td>
                               <td className="py-2 px-3">
                                 <Link
-                                  href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                                  href={withSlug(`/order/${o.id}?role=shopping_staff`)}
                                   className="text-blue-700 hover:text-blue-900 font-medium inline-flex items-center gap-1"
                                 >
                                   {o.order_number}

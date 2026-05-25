@@ -139,7 +139,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
               // rating or post-mortem.
               <li key={r.entity_id}>
                 <Link
-                  href={withSlug(`/admin/orders?orderId=${r.entity_id}`)}
+                  href={withSlug(`/order/${r.entity_id}`)}
                   className="py-2 flex items-center gap-3 hover:bg-yellow-50/60 rounded transition"
                 >
                   <div className="shrink-0 flex items-center">

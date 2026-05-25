@@ -47,7 +47,7 @@ const fmtRelative = (iso: string): string => {
 const entityHref = (entityType: string, entityId: string | null): string | null => {
   if (!entityId) return null;
   switch (entityType) {
-    case "order": return `/admin/orders?orderId=${entityId}`;
+    case "order": return `/order/${entityId}`;
     case "quote": return `/admin/quotes?quoteId=${entityId}`;
     case "invoice": return `/admin/invoices?invoiceId=${entityId}`;
     case "driver_shift": return `/admin/driver-settlement`;

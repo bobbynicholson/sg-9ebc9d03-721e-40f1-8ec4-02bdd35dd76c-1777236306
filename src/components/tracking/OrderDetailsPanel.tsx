@@ -450,7 +450,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             <ArrowRight className="h-3 w-3" /> Quick actions
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Link href={withSlug(`/admin/orders?orderId=${order.id}`)} legacyBehavior>
+            <Link href={withSlug(`/order/${order.id}`)} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <FileText className="h-3 w-3" /> Full order
               </Button></a>

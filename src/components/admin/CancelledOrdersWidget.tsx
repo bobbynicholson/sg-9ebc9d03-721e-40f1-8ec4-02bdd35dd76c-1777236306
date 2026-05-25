@@ -117,7 +117,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               // Phase 22.
               <li key={r.id}>
                 <Link
-                  href={withSlug(`/admin/orders?orderId=${r.id}`)}
+                  href={withSlug(`/order/${r.id}`)}
                   className="py-2 flex items-center gap-3 hover:bg-slate-100/60 rounded transition"
                 >
                   <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">

@@ -1116,7 +1116,7 @@ function StockPage() {
                       : "bg-rose-500";
                     return (
                       <li key={e.orderId}>
-                        <Link href={withSlug(`/admin/orders/${e.orderId}`)} className="block hover:bg-slate-50 rounded-md px-1 py-1.5">
+                        <Link href={withSlug(`/order/${e.orderId}?role=shopping_staff`)} className="block hover:bg-slate-50 rounded-md px-1 py-1.5">
                           <div className="flex items-center justify-between text-xs mb-0.5">
                             <span className="font-medium text-slate-900 truncate flex-1 min-w-0">
                               {dateFmt(e.eventDate)} - {e.clientName}

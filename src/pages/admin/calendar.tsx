@@ -1434,7 +1434,7 @@ function AdminCalendar() {
                       {upcoming.map((e: any) => (
                         <Link
                           key={e.id}
-                          href={withSlug(`/admin/orders?orderId=${e.id}`)}
+                          href={withSlug(`/order/${e.id}`)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex flex-col items-center justify-center flex-shrink-0">
@@ -1806,7 +1806,7 @@ function AdminCalendar() {
                     return (
                       <Link
                         key={e.id}
-                        href={withSlug(`/admin/orders?orderId=${e.id}`)}
+                        href={withSlug(`/order/${e.id}`)}
                         className="block"
                       >
                         <Card className={cn(

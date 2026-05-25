@@ -501,7 +501,7 @@ function ProviderDetail() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Link
-                                  href={withSlug(`/admin/orders?orderId=${a.order_id}`)}
+                                  href={withSlug(`/order/${a.order_id}`)}
                                   className="font-semibold text-slate-900 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
                                 >
                                   {orderNumber} <ExternalLink className="w-3 h-3" />

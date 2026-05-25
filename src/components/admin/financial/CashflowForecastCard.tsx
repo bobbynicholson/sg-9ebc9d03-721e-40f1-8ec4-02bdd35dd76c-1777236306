@@ -1056,7 +1056,7 @@ export function CashflowForecastCard({
                           {point.orders.map((o) => (
                             <a
                               key={o.id}
-                              href={withSlug(`/admin/orders?orderId=${o.id}`)}
+                              href={withSlug(`/order/${o.id}`)}
                               className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50"
                             >
                               <span className="text-sm text-slate-900 truncate flex-1">

@@ -679,7 +679,7 @@ export function HireInPanel() {
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           <span className="font-medium">Filtered to</span>
           <Link
-            href={`${slugPrefix}/admin/orders?orderId=${orderIdFilter}`}
+            href={`${slugPrefix}/order/${orderIdFilter}`}
             className="font-semibold hover:underline inline-flex items-center gap-1"
           >
             {orderNumberFilter || "this order"}
@@ -869,7 +869,7 @@ export function HireInPanel() {
                     </Button>
                     {r.order_id ? (
                       <Link
-                        href={`${slugPrefix}/admin/orders?orderId=${r.order_id}`}
+                        href={`${slugPrefix}/order/${r.order_id}`}
                         className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                         title="Open parent order"
                       >

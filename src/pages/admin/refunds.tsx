@@ -680,7 +680,7 @@ function RefundsPage() {
             <span className="text-sm text-slate-700">{kindLabel}</span>
             {r.order_number ? (
               <Link
-                href={withSlug(`/admin/orders?orderId=${r.order_id || ""}`)}
+                href={withSlug(`/order/${r.order_id || ""}`)}
                 className="text-xs text-blue-700 hover:underline"
               >
                 #{r.order_number}
@@ -749,7 +749,7 @@ function RefundsPage() {
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
             {r.order_id ? (
               <Link
-                href={withSlug(`/admin/orders?orderId=${r.order_id}`)}
+                href={withSlug(`/order/${r.order_id}`)}
                 className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
               >
                 <ExternalLink className="w-3 h-3" />

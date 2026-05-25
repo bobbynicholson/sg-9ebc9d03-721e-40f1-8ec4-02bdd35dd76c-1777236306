@@ -546,7 +546,7 @@ function AdminLeadsInner() {
 
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
     if (kind === "view_order" && links.orderId) {
-      router.push(withSlug(`/admin/orders?orderId=${links.orderId}`));
+      router.push(withSlug(`/order/${links.orderId}`));
       return;
     }
     if (kind === "convert_to_order") {
@@ -1479,7 +1479,7 @@ function AdminLeadsInner() {
                                 : "hover:bg-slate-100";
                               return (
                                 <Link
-                                  href={withSlug(`/admin/orders?orderId=${links.orderId}`)}
+                                  href={withSlug(`/order/${links.orderId}`)}
                                   className={`inline-flex items-center gap-1 text-[11px] font-medium border rounded px-1.5 py-0.5 ${classes} ${hoverClasses}`}
                                   title={`Linked order is ${label.toLowerCase()}. Click to open.`}
                                 >
@@ -1814,7 +1814,7 @@ function AdminLeadsInner() {
                               <p className="text-[11px] text-slate-500">
                                 Rebooked from past order
                                 <Link
-                                  href={withSlug(`/admin/orders?orderId=${lead.source_order_id}`)}
+                                  href={withSlug(`/order/${lead.source_order_id}`)}
                                   className="ml-1.5 text-purple-600 hover:underline font-medium"
                                 >
                                   view original
@@ -1950,7 +1950,7 @@ function AdminLeadsInner() {
           // up the new "booked" pill on return, and deep-link straight
           // into the new orders dashboard with the order pre-selected.
           void loadLeads();
-          router.push(withSlug(`/admin/orders?orderId=${orderId}`));
+          router.push(withSlug(`/order/${orderId}`));
         }}
       />
     </>
