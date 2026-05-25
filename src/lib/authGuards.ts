@@ -306,6 +306,30 @@ export function canAccessFinance(userRole: UserRole): boolean {
 }
 
 /**
+ * Can this role see other staff members' personal pay data
+ * (hourly_rate, earnings, payslips)?
+ *
+ * Pay is per-person and private. Even on shared team pages like
+ * /team-portal/kitchen/duty where everyone sees the live floor +
+ * handoffs + ranking, the only person whose rate / earnings / payslips
+ * should ever render is the logged-in user themselves. The catering
+ * company office (company_admin, owner, super_admin) has dedicated
+ * surfaces for cross-staff pay: /admin/wages, /admin/staff-hours,
+ * /admin/kitchen-settlement, /admin/driver-settlement. Those pages
+ * are where the company sets and reviews rates, NOT the team-portal
+ * pages a kitchen tablet might be parked on all day.
+ *
+ * Use this gate when deciding whether to:
+ *   - request `hourly_rate` for any profile other than `auth.uid()`
+ *   - render an earnings figure derived from someone else's shift
+ *   - show team-wide payroll-burn totals
+ */
+export function canSeeOtherStaffPay(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
  * Check if user has full company access (including finance)
  */
 export function hasFullCompanyAccess(userRole: UserRole): boolean {

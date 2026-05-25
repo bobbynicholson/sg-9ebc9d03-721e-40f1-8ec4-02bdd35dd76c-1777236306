@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -16,6 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { canSeeOtherStaffPay } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
+import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
 
 interface Shift {
   id: string;
@@ -30,17 +34,45 @@ interface Shift {
   total_break_min: number;
 }
 
+// KIT3-F: split shape. `Profile` is the team-safe shape every staffer
+// can see for every teammate (name, email, role). `SelfProfile` adds
+// `hourly_rate` and is ONLY ever populated for the logged-in user
+// themselves, OR for office roles allowed to see other staff pay
+// (canSeeOtherStaffPay). Splitting at the type level prevents anyone
+// from accidentally rendering `staff[someoneElse.id].hourly_rate` in
+// a future change - the team-safe map literally doesn't have it.
 interface Profile {
   id: string;
   full_name: string | null;
   email: string | null;
   role: string | null;
+}
+interface SelfProfile extends Profile {
   hourly_rate: number | null;
 }
+
+// KIT3-F: page route constant for captureException tags so every
+// observability call carries the same route identifier.
+const ROUTE = "/team-portal/kitchen/duty";
 
 export default function KitchenDutyRosterPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // KIT3-F: pay-visibility split.
+  // - `canSeeOthers` is the office-admin flag (company_admin / owner /
+  //   super_admin). Lets the page request hourly_rate for every staffer
+  //   and compute team payroll burn. False for kitchen_staff, region_admin
+  //   etc. - those users only ever see their own pay.
+  // - `selfRate` is always the logged-in user's own rate. Even office
+  //   admins use this for their own earnings strip; the wider staff map
+  //   stays purely identity (name/email/role).
+  const canSeeOthers = canSeeOtherStaffPay(user?.role as UserRole);
+  const [selfRate, setSelfRate] = useState<number | null>(null);
+  // Office-admin only: hourly_rate per staff_id, populated when
+  // canSeeOthers is true. Used for the payroll-burn intel strip; never
+  // rendered as a per-row number.
+  const [staffRates, setStaffRates] = useState<Record<string, number | null>>({});
 
   const [active, setActive] = useState<Shift[]>([]);
   const [recent, setRecent] = useState<Shift[]>([]);
@@ -127,12 +159,9 @@ export default function KitchenDutyRosterPage() {
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    if (!user?.company_id) return;
-    load();
-  }, [user?.company_id]);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user?.company_id) return;
     setLoading(true);
     try {
@@ -161,14 +190,54 @@ export default function KitchenDutyRosterPage() {
         if (s.staff_id) ids.add(s.staff_id);
       });
       if (ids.size > 0) {
+        // KIT3-F: team-safe select. No hourly_rate. Every staffer can
+        // see every teammate's name + role for the live floor / recent
+        // shifts / handoff author rendering, but never their pay rate
+        // through this map.
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, full_name, email, role, hourly_rate")
+          .select("id, full_name, email, role")
           .in("id", Array.from(ids))
           .returns<Profile[]>();
         const map: Record<string, Profile> = {};
         (profiles || []).forEach((p) => { map[p.id] = p; });
         setStaff(map);
+
+        // KIT3-F: office-admin only, fetch rates for the payroll-burn
+        // intel strip. Separate query so the team-safe select above stays
+        // pristine and easy to audit. RLS will still gate the rows even
+        // if a non-admin somehow flips the flag client-side.
+        if (canSeeOthers) {
+          try {
+            const { data: rateRows } = await supabase
+              .from("profiles")
+              .select("id, hourly_rate")
+              .in("id", Array.from(ids))
+              .returns<Array<{ id: string; hourly_rate: number | null }>>();
+            const rateMap: Record<string, number | null> = {};
+            (rateRows || []).forEach((r) => { rateMap[r.id] = r.hourly_rate; });
+            setStaffRates(rateMap);
+          } catch (rateErr) {
+            captureException(rateErr, { tags: { route: ROUTE, step: "loadStaffRates", companyId: user.company_id  } });
+          }
+        }
+      }
+
+      // KIT3-F: always pull the logged-in user's own rate, regardless
+      // of role. Drives the personal earnings strip + payslips
+      // disclosure. This is the ONLY surface where any pay number
+      // touches a non-admin user's screen.
+      if (user.id) {
+        try {
+          const { data: me } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, role, hourly_rate")
+            .eq("id", user.id)
+            .maybeSingle<SelfProfile>();
+          setSelfRate(me?.hourly_rate ?? null);
+        } catch (meErr) {
+          captureException(meErr, { tags: { route: ROUTE, step: "loadSelfRate", companyId: user.company_id  } });
+        }
       }
 
       // Pull tenant kitchen settings for overtime / break thresholds
@@ -185,7 +254,7 @@ export default function KitchenDutyRosterPage() {
           mealBreakAfterHours: Number(ks.mealBreakAfterHours ?? 5),
         });
       } catch (sErr) {
-        console.warn("Settings load failed, using defaults:", sErr);
+        captureException(sErr, { tags: { route: ROUTE, step: "loadKitchenSettings", companyId: user.company_id  } });
       }
 
       // Phase 3: chef performance for the last 7 days
@@ -199,7 +268,7 @@ export default function KitchenDutyRosterPage() {
         );
         setChefPerf(perf);
       } catch (perfErr) {
-        console.warn("Chef performance query failed:", perfErr);
+        captureException(perfErr, { tags: { route: ROUTE, step: "loadChefPerformance", companyId: user.company_id  } });
       }
 
       // Wave 36.3: pull this chef's last 12 payslips so the
@@ -213,15 +282,17 @@ export default function KitchenDutyRosterPage() {
         });
         setMyPayslips(ps as PayslipPreview[]);
       } catch (psErr) {
-        console.warn("Payslips lookup failed (non-blocking):", psErr);
+        captureException(psErr, { tags: { route: ROUTE, step: "loadPayslips", companyId: user.company_id  } });
       }
 
       // Wave 36.1: today's rostered shift for the current user.
       // Surfaces "You're rostered 8am-5pm today" on the status card,
       // and gives clock-in/out the row to stamp actual times onto.
       try {
-        const today = new Date();
-        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        // KIT3-F: toLocalISO not hand-rolled. Same SA-tz correctness
+        // story as everywhere else - midnight local on Sunday should
+        // still resolve to the right day, not yesterday in UTC.
+        const todayIso = toLocalISO(new Date());
         // Wave 42 Tier 2: scope to kitchen-side shift_types. Without
         // this, a staffer who has both a 'kitchen' and a 'delivery'
         // (or other shift_type) row today would crash maybeSingle()
@@ -238,7 +309,7 @@ export default function KitchenDutyRosterPage() {
           .maybeSingle();
         setMyRoster(rosterRow || null);
       } catch (rosterErr) {
-        console.warn("Roster lookup failed (non-blocking):", rosterErr);
+        captureException(rosterErr, { tags: { route: ROUTE, step: "loadRoster", companyId: user.company_id  } });
       }
 
       // Wave 35: pull the most recent hand-off notes for this
@@ -254,13 +325,15 @@ export default function KitchenDutyRosterPage() {
           .returns<Handoff[]>();
         setHandoffs(hoData || []);
         // Backfill the staff lookup so author names render.
+        // KIT3-F: same team-safe shape (no hourly_rate). The handoff
+        // author dropdown is a name + role lookup, nothing more.
         const authorIds = new Set<string>();
         (hoData || []).forEach((h) => { if (h.author_id) authorIds.add(h.author_id); });
         const newIds = [...authorIds].filter((id) => !staff[id]);
         if (newIds.length > 0) {
           const { data: extraProfiles } = await supabase
             .from("profiles")
-            .select("id, full_name, email, role, hourly_rate")
+            .select("id, full_name, email, role")
             .in("id", newIds)
             .returns<Profile[]>();
           if (extraProfiles && extraProfiles.length > 0) {
@@ -272,14 +345,56 @@ export default function KitchenDutyRosterPage() {
           }
         }
       } catch (hoErr) {
-        console.warn("Hand-off notes load failed:", hoErr);
+        captureException(hoErr, { tags: { route: ROUTE, step: "loadHandoffs", companyId: user.company_id  } });
       }
+      setLastLoadedAt(new Date());
     } catch (e) {
+      captureException(e, { tags: { route: ROUTE, step: "loadDutyRoster", companyId: user.company_id  } });
       toast({ title: "Could not load duty roster", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, user?.id, canSeeOthers]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    load();
+  }, [user?.company_id, load]);
+
+  // KIT3-F: realtime subscription on the three tables this page
+  // shows live. kitchen_duty_shifts drives Live Floor + Recent shifts
+  // + the chef's own earnings strip. kitchen_handoffs drives the
+  // Hand-off notes inbox. kitchen_shifts drives the rostered-today
+  // line + lateness chip. Debounced 400ms so a burst of inserts
+  // (multiple chefs clocking in at once) doesn't trigger four loads.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const trigger = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => { load(); }, 400);
+    };
+    const channel = supabase
+      .channel(`duty-roster:${user.company_id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${user.company_id}` },
+        trigger,
+      )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_handoffs", filter: `company_id=eq.${user.company_id}` },
+        trigger,
+      )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${user.company_id}` },
+        trigger,
+      )
+      .subscribe();
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.company_id, load]);
 
   const myActiveShift = useMemo(
     () => active.find((s) => s.staff_id === user?.id) ?? null,
@@ -332,6 +447,60 @@ export default function KitchenDutyRosterPage() {
     // shift still in progress.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, recent, now]);
+
+  // KIT3-F: roster coverage. "3 of 4 rostered chefs clocked in" -
+  // tells whoever opens this page whether the kitchen is short. Uses
+  // kitchen_shifts.actual_start as the proof-of-attendance signal
+  // (set on clock-in by startShift below).
+  const [rosterCoverage, setRosterCoverage] = useState<{ rostered: number; clockedIn: number } | null>(null);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const todayIso = toLocalISO(new Date());
+        const { data } = await (supabase as any)
+          .from("kitchen_shifts")
+          .select("id, actual_start")
+          .eq("company_id", user.company_id)
+          .eq("shift_date", todayIso)
+          .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
+          .is("deleted_at", null);
+        if (cancelled) return;
+        const rows = (data || []) as Array<{ id: string; actual_start: string | null }>;
+        setRosterCoverage({
+          rostered: rows.length,
+          clockedIn: rows.filter((r) => !!r.actual_start).length,
+        });
+      } catch (err) {
+        captureException(err, { tags: { route: ROUTE, step: "rosterCoverage", companyId: user.company_id  } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id, lastLoadedAt]);
+
+  // KIT3-F: office-admin only - live payroll burn for the current
+  // shift. Sums every active shifter's worked-minutes-so-far *
+  // their_hourly_rate. Doesn't render per-staff numbers; just the
+  // aggregate. Helps the kitchen manager / owner see "the kitchen
+  // is costing R 480 / hour to run right now".
+  const payrollBurn = useMemo(() => {
+    if (!canSeeOthers || active.length === 0) return null;
+    let perHour = 0;
+    let earnedToday = 0;
+    let missingRates = 0;
+    for (const s of active) {
+      const rate = s.staff_id ? staffRates[s.staff_id] : null;
+      if (rate == null) { missingRates += 1; continue; }
+      perHour += rate;
+      if (!s.shift_start) continue;
+      const startMs = new Date(s.shift_start).getTime();
+      const workedMin = Math.max(0, Math.floor((Date.now() - startMs) / 60000) - (s.total_break_min || 0));
+      earnedToday += (workedMin / 60) * rate;
+    }
+    return { perHour, earnedToday, missingRates };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSeeOthers, active, staffRates, now]);
 
   // Group recent shifts by day for the timeline view.
   const recentByDay = useMemo(() => {
@@ -563,21 +732,42 @@ export default function KitchenDutyRosterPage() {
                 <p className="text-sm text-slate-600 mt-0.5">Live floor, hand-off notes, performance</p>
               </div>
             </div>
-            <div
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
-                active.length > 0
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                  : "bg-slate-50 border-slate-200 text-slate-500"
-              }`}
-              title={active.length > 0 ? "Live - updates every 30 seconds" : "Nobody on shift"}
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                {active.length > 0 && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                )}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-emerald-500" : "bg-slate-400"}`}></span>
-              </span>
-              {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* KIT3-F: as-of chip + refresh. Realtime keeps the page
+                  fresh automatically but a manual force-refresh helps
+                  when an admin wants to confirm "yes, this is the
+                  current state right now". */}
+              {lastLoadedAt && (
+                <span className="text-[11px] text-slate-500 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => load()}
+                disabled={loading}
+                className="h-8"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
+                  active.length > 0
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : "bg-slate-50 border-slate-200 text-slate-500"
+                }`}
+                title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}
+              >
+                <span className="relative flex h-2.5 w-2.5">
+                  {active.length > 0 && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-emerald-500" : "bg-slate-400"}`}></span>
+                </span>
+                {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
+              </div>
             </div>
           </div>
 
@@ -622,13 +812,15 @@ export default function KitchenDutyRosterPage() {
           {/* Phase 4: live earnings + overtime + break panel. Numbers tick
               every 30s without any DB hit, pure math off the shift row. */}
           {(() => {
-            const myProfile = user?.id ? staff[user.id] : null;
+            // KIT3-F: earnings always come from `selfRate`. The wider
+            // staff map no longer carries hourly_rate by design; using
+            // it here would have been the data leak this audit closes.
             const earnings = myActiveShift
               ? kitchenPrepService.computeShiftEarnings({
                   shiftStart: myActiveShift.shift_start,
                   breakStartedAt: myActiveShift.break_started_at,
                   totalBreakMin: myActiveShift.total_break_min,
-                  hourlyRate: myProfile?.hourly_rate ?? null,
+                  hourlyRate: selfRate,
                   settings,
                   now,
                 })
@@ -649,7 +841,14 @@ export default function KitchenDutyRosterPage() {
                       <div>
                         <p className="text-xs text-slate-600 flex items-center gap-1">
                           Your status
-                          <InfoTooltip content="Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours." />
+                          <InfoTooltip content="Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours.\n\nPrivate: your hourly rate and earnings are only visible to you and the catering office. No teammates see your pay on this page." />
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium ml-1"
+                            title="Pay numbers on this card are only visible to you"
+                          >
+                            <Lock className="w-2.5 h-2.5" />
+                            Private
+                          </span>
                         </p>
                         <p className="text-base font-semibold text-slate-900">
                           {myActiveShift
@@ -783,14 +982,73 @@ export default function KitchenDutyRosterPage() {
           {/* Wave 35: section header restyle. Bigger sentence-case
               heading + a count chip + tooltip stay on the same line.
               Reads as a real heading, not a database row label. */}
+          {/* KIT3-F: office-admin payroll-burn strip. Sits above Live
+              Floor so the kitchen manager / owner can see the live
+              cost of staff on shift right now WITHOUT a per-staffer
+              breakdown. Aggregate-only by design - per-person pay
+              still stays in /admin/wages / /admin/kitchen-settlement.
+              Only renders for canSeeOtherStaffPay roles. */}
+          {payrollBurn && (
+            <Card className="mb-4 border-amber-200 bg-amber-50/40">
+              <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-4 h-4 text-amber-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                      Live payroll burn
+                      <InfoTooltip content="Combined rate of every staffer currently on shift, multiplied by their hourly rate. Aggregate only - per-person pay lives on /admin/wages and /admin/kitchen-settlement." />
+                    </div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      R {payrollBurn.perHour.toFixed(2)}/hr
+                      <span className="text-slate-500 font-normal ml-2 text-xs">
+                        · R {payrollBurn.earnedToday.toFixed(2)} earned so far
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {payrollBurn.missingRates > 0 && (
+                  <a
+                    href={user?.company_slug ? `/${user.company_slug}/admin/wages` : "/admin/wages"}
+                    className="inline-flex items-center gap-1 text-xs text-amber-800 hover:text-amber-900 font-medium hover:underline"
+                  >
+                    <AlertTriangle className="w-3 h-3" />
+                    {payrollBurn.missingRates} staff missing rate
+                    <ChevronRight className="w-3 h-3" />
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center justify-between mb-3 px-0.5">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-600" />
               Live floor
               <span className="text-sm font-normal text-slate-500">·</span>
               <span className="text-sm font-medium text-slate-600 tabular-nums">{active.length}</span>
-              <InfoTooltip content="Everyone currently clocked in for a kitchen shift. Updates every 30 seconds." />
+              <InfoTooltip content="Everyone currently clocked in for a kitchen shift. Updates the second someone clocks in or out." />
             </h2>
+            {/* KIT3-F: roster coverage chip. "3 of 4 rostered chefs
+                clocked in" surfaces gaps so the manager knows whether
+                to chase anyone. Visible to all roles - it's an
+                attendance signal, not a pay signal. */}
+            {rosterCoverage && rosterCoverage.rostered > 0 && (
+              <span
+                className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${
+                  rosterCoverage.clockedIn >= rosterCoverage.rostered
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : rosterCoverage.clockedIn === 0
+                      ? "bg-rose-50 border-rose-200 text-rose-800"
+                      : "bg-amber-50 border-amber-200 text-amber-800"
+                }`}
+                title={`Today's roster: ${rosterCoverage.clockedIn} of ${rosterCoverage.rostered} rostered chefs clocked in`}
+              >
+                <CalendarIcon className="w-3 h-3" />
+                {rosterCoverage.clockedIn}/{rosterCoverage.rostered} rostered clocked in
+              </span>
+            )}
           </div>
           <Card className="mb-8 border-0 shadow-sm">
             <CardContent className="p-0">
@@ -802,7 +1060,32 @@ export default function KitchenDutyRosterPage() {
                     <ChefHat className="h-7 w-7 text-slate-300" />
                   </div>
                   <p className="text-sm font-medium text-slate-700">Quiet kitchen</p>
-                  <p className="text-xs text-slate-500 mt-1">When the team clocks in, they'll show up here in real time.</p>
+                  {/* KIT3-F: smarter empty state. Three shapes:
+                      - nobody rostered today -> point to the schedule
+                      - rostered but nobody clocked in -> nudge to clock in
+                      - rostered + some clocked in already (shouldn't hit
+                        this branch since active.length > 0 in that case) */}
+                  {rosterCoverage && rosterCoverage.rostered === 0 ? (
+                    <>
+                      <p className="text-xs text-slate-500 mt-1">No one is rostered for today.</p>
+                      {canSeeOthers && (
+                        <a
+                          href={user?.company_slug ? `/${user.company_slug}/admin/kitchen-schedule` : "/admin/kitchen-schedule"}
+                          className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 font-medium mt-2 hover:underline"
+                        >
+                          <CalendarIcon className="w-3 h-3" />
+                          Open kitchen schedule
+                          <ChevronRight className="w-3 h-3" />
+                        </a>
+                      )}
+                    </>
+                  ) : rosterCoverage && rosterCoverage.rostered > 0 ? (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {rosterCoverage.rostered} chef{rosterCoverage.rostered === 1 ? "" : "s"} rostered today but nobody's clocked in yet.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500 mt-1">When the team clocks in, they'll show up here in real time.</p>
+                  )}
                 </div>
               ) : (
                 <ul className="divide-y divide-slate-100">
@@ -810,8 +1093,14 @@ export default function KitchenDutyRosterPage() {
                     const p = s.staff_id ? staff[s.staff_id] : null;
                     const initials = (p?.full_name || p?.email || "?")
                       .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+                    const isMe = s.staff_id === user?.id;
                     return (
-                      <li key={s.id} className="p-4 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
+                      <li
+                        key={s.id}
+                        className={`p-4 flex items-center gap-3 transition-colors ${
+                          isMe ? "bg-orange-50/60 hover:bg-orange-50/80" : "hover:bg-slate-50/50"
+                        }`}
+                      >
                         <div className="relative flex-shrink-0">
                           <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-sm">
                             {initials}
@@ -819,7 +1108,18 @@ export default function KitchenDutyRosterPage() {
                           <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live - on shift" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-900 truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
+                          <div className="font-medium text-slate-900 truncate flex items-center gap-1.5">
+                            {p?.full_name ?? p?.email ?? "Unknown staff"}
+                            {/* KIT3-F: self chip. Helps the chef find
+                                themselves in a busy kitchen list at
+                                a glance. Pay still never appears here. */}
+                            {isMe && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 text-[10px] font-semibold">
+                                <UserCheck className="w-2.5 h-2.5" />
+                                You
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-slate-500 capitalize">{s.shift_type ?? "kitchen"} · started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
                         </div>
                         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 tabular-nums">
