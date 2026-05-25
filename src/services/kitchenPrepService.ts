@@ -822,7 +822,65 @@ export const kitchenPrepService = {
       }
     }
 
-    if (demandByIngredient.size === 0) return [];
+    // KIT3-E (task #248): also walk the buy-and-sell path. The
+    // `order_ingredient_demand` DB view does a UNION between the
+    // recipe path AND any order_items whose menu_item is
+    // is_buy_and_sell=true with a linked_inventory_item_id set.
+    // The recipe-only path above missed these entirely, so a tenant
+    // whose menu is configured as buy-and-sell (no recipes) saw an
+    // empty by-ingredient tab while the by-order tab listed every
+    // ingredient correctly. We stash the raw rows here and fold them
+    // in after the inventory pull below (when we have item names +
+    // units to key on).
+    const bsRowsForJoin: Array<{ invId: string; qty: number; order: any }> = [];
+    try {
+      const orderIds = (orders as any[]).map((o) => o.id);
+      if (orderIds.length > 0) {
+        const { data: bsRows } = await supabase
+          .from("order_items")
+          .select(`
+            order_id,
+            quantity,
+            menu_item:menu_item_id (
+              id,
+              is_buy_and_sell,
+              linked_inventory_item_id,
+              recipes ( id )
+            )
+          `)
+          .in("order_id", orderIds);
+
+        const ordersById = new Map<string, any>(
+          (orders as any[]).map((o) => [o.id, o]),
+        );
+        for (const r of (bsRows || []) as any[]) {
+          const mi = r.menu_item;
+          if (!mi) continue;
+          if (!mi.is_buy_and_sell) continue;
+          if (!mi.linked_inventory_item_id) continue;
+          // Skip when the menu item also has a recipe row - the
+          // recipe arm of the main loop already counted it. Mirrors
+          // the view's `NOT EXISTS (SELECT 1 FROM recipes ...)` guard
+          // so we don't double-count.
+          if (Array.isArray(mi.recipes) && mi.recipes.length > 0) continue;
+
+          const order = ordersById.get(r.order_id);
+          if (!order) continue;
+          const qty = Number(r.quantity || 0);
+          if (qty <= 0) continue;
+
+          bsRowsForJoin.push({
+            invId: mi.linked_inventory_item_id as string,
+            qty,
+            order,
+          });
+        }
+      }
+    } catch (bsErr) {
+      console.warn("[kitchenPrepService] buy-and-sell demand pass failed:", bsErr);
+    }
+
+    if (demandByIngredient.size === 0 && bsRowsForJoin.length === 0) return [];
 
     // Join to inventory by name to get on_hand. When the caller asked
     // for a region-scoped demand view, only consider the branch's own
@@ -838,8 +896,45 @@ export const kitchenPrepService = {
     }
     const { data: inv } = await invQuery;
     const invByName = new Map<string, any>();
+    const invById = new Map<string, any>();
     for (const i of (inv || []) as any[]) {
       invByName.set((i.item_name || "").toLowerCase(), i);
+      if (i.id) invById.set(i.id as string, i);
+    }
+
+    // KIT3-E: fold buy-and-sell rows into demandByIngredient now
+    // that we know the inventory item names + units. Same key
+    // shape as the recipe loop so a recipe ingredient and a buy-
+    // and-sell linked-inventory entry that share a name/unit roll
+    // up into one row.
+    for (const bs of bsRowsForJoin) {
+      const inv = invById.get(bs.invId);
+      if (!inv) continue;
+      const name = String(inv.item_name || "").trim();
+      const unit = String(inv.unit_of_measure || "");
+      if (!name) continue;
+      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
+      const existing = demandByIngredient.get(key);
+      const usedBy = {
+        order_id: bs.order.id as string,
+        client_name: bs.order.client_name,
+        event_date: bs.order.event_date,
+        qty: bs.qty,
+      };
+      if (existing) {
+        existing.total_quantity += bs.qty;
+        existing.used_by.push(usedBy);
+      } else {
+        demandByIngredient.set(key, {
+          name,
+          unit,
+          total_quantity: bs.qty,
+          on_hand: 0,
+          shortfall: 0,
+          inventory_item_id: bs.invId,
+          used_by: [usedBy],
+        });
+      }
     }
 
     const out: IngredientDemand[] = [];

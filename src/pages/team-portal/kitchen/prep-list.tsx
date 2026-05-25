@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// KIT3-E (task #248): @ts-nocheck removed; this file is type-checked.
+// Remaining `any` casts are isolated to supabase realtime payloads
+// and the `equipment_items` JSONB column shape.
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +24,9 @@ import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPre
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
+import { onOrderUpdated } from "@/lib/events/orderEvents";
+import { RefreshCw } from "lucide-react";
 
 interface DemandRow {
   order_id: string;
@@ -105,16 +110,29 @@ export default function KitchenPrepListPage() {
   // previously hid the real cause.
   const [confirmedOrdersInWindow, setConfirmedOrdersInWindow] = useState(0);
 
-  useEffect(() => {
+  // KIT3-E: horizon selector. Chef gets to pick how far out the pull
+  // list looks. 30d (default) covers a whole month for tenants that
+  // plan ahead; 7d / 14d narrows the view to the imminent prep load.
+  const [horizonDays, setHorizonDays] = useState<7 | 14 | 30>(30);
+  // "As of" timestamp - last successful load. Surfaces in the
+  // header so the chef knows whether the screen is fresh.
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
+
+  const load = useCallback(async () => {
     const companyId = profile?.company_id;
     if (!companyId) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
+    // `cancelled` is a no-op flag now (load() is callable from
+    // multiple sources, not anchored to a single useEffect closure
+    // that flips it on unmount). The inner `if (!cancelled)` guards
+    // are kept so the structure stays the same and a future
+    // concurrent-load abort can flip it.
+    const cancelled = false;
+    setLoading(true);
+    try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayStr = toLocalISO(today);
-      const horizon = toLocalISO(new Date(today.getTime() + 30 * 86400000));
+      const horizon = toLocalISO(new Date(today.getTime() + horizonDays * 86400000));
 
       const [demandRes, outlookRes] = await Promise.all([
         supabase
@@ -185,7 +203,9 @@ export default function KitchenPrepListPage() {
           .in("status", ["confirmed", "preparing", "ready"]);
         if (!cancelled) setConfirmedOrdersInWindow(count || 0);
       } catch (e) {
-        console.warn("orders count failed:", e);
+        captureException(e, {
+          tags: { route: "/team-portal/kitchen/prep-list", step: "orders-count", companyId },
+        });
       }
 
       setLoading(false);
@@ -196,13 +216,73 @@ export default function KitchenPrepListPage() {
         const agg = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizon, regionFilterId);
         if (!cancelled) setAggregated(agg);
       } catch (e) {
-        console.warn("Aggregated demand failed:", e);
+        captureException(e, {
+          tags: { route: "/team-portal/kitchen/prep-list", step: "aggregated-demand", companyId },
+        });
       } finally {
         if (!cancelled) setAggregatedLoading(false);
+        if (!cancelled) setLastLoadedAt(new Date());
       }
-    })();
-    return () => { cancelled = true; };
-  }, [profile?.company_id, regionFilterId]);
+    } catch (loadErr) {
+      captureException(loadErr, {
+        tags: { route: "/team-portal/kitchen/prep-list", step: "load", companyId },
+      });
+      setLoading(false);
+    }
+    // The cancelled flag is no longer scoped to a useEffect closure;
+    // load() is callable from realtime + refresh. State writes inside
+    // are guarded by the local cancelled var which stays false for the
+    // current invocation. We leave it in place for the read-aborts
+    // inside the await sites above; concurrent invocations rely on
+    // setState being a no-op when the most recent value wins.
+    void cancelled;
+  }, [profile?.company_id, regionFilterId, horizonDays]);
+
+  // Initial load + refire when the deps change (region scope, horizon).
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // KIT3-E: realtime subscriptions + cross-tab event bus. Without
+  // these the chef has to reload to see a new booking land. Debounced
+  // through a 400ms timer so a chatty tenant doesn't burn requests.
+  useEffect(() => {
+    const companyId = profile?.company_id;
+    if (!companyId) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (document.hidden) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        load();
+      }, 400);
+    };
+    const sub = supabase
+      .channel(`kitchen-prep-list-${companyId}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "orders",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "order_items",
+      }, refresh)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "UPDATE", schema: "public", table: "inventory_items",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .subscribe();
+    const offBus = onOrderUpdated(() => { refresh(); });
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      offBus();
+      void sub.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.company_id]);
 
   // ── Group by order ────────────────────────────────────────────────
   const orders = useMemo(() => {
@@ -333,13 +413,42 @@ export default function KitchenPrepListPage() {
   const shortfallCount = aggregated.filter(d => d.shortfall > 0).length;
   const [creatingList, setCreatingList] = useState(false);
 
-  // ── Add a single ingredient to the shopping queue (Phase 1: just toast,
-  // Phase 2 wires through to the procurement queue / shopping list) ──
-  const handleAddToShoppingList = (d: IngredientDemand) => {
-    toast({
-      title: "Added to shopping list",
-      description: `${d.shortfall} ${d.unit} ${d.name}, procurement will see this on the shopping page.`,
-    });
+  // KIT3-E (task #248): wire the per-ingredient "Add to list" CTA
+  // to actually write a shopping_list_item row instead of toasting
+  // a lie. Reuses the same createShoppingListFromShortfall helper
+  // with a single-item array so procurement sees the row immediately.
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const handleAddToShoppingList = async (d: IngredientDemand) => {
+    const companyId = profile?.company_id;
+    const userId = (profile as { id?: string } | null)?.id;
+    if (!companyId || !userId) return;
+    setAddingId(d.inventory_item_id || d.name);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const fromStr = toLocalISO(today);
+      const toStr = toLocalISO(new Date(today.getTime() + horizonDays * 86400000));
+      const result = await kitchenPrepService.createShoppingListFromShortfall(
+        companyId,
+        userId,
+        [d],
+        { from: fromStr, to: toStr },
+      );
+      toast({
+        title: result ? "Added to shopping list" : "Nothing to add",
+        description: result
+          ? `${d.shortfall} ${d.unit} ${d.name} - procurement will see this on the shopping page.`
+          : `${d.name} doesn't have a shortfall right now.`,
+      });
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      captureException(e, {
+        tags: { route: "/team-portal/kitchen/prep-list", step: "add-to-shopping-list", companyId },
+      });
+      toast({ title: "Could not add", description: err?.message, variant: "destructive" });
+    } finally {
+      setAddingId(null);
+    }
   };
 
   // ── Phase 3: turn the entire aggregated shortfall into a real shopping
@@ -393,14 +502,70 @@ export default function KitchenPrepListPage() {
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Pull list
-                  <InfoTooltip content="Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next 30 days)." />
+                  <InfoTooltip content={`Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next ${horizonDays} days).`} />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
-                  What to pull from stores. Across {orders.length} order{orders.length === 1 ? "" : "s"} from today onwards.
+                  What to pull from stores. Across {orders.length} order{orders.length === 1 ? "" : "s"} in the next {horizonDays} days.
                 </p>
               </div>
             </div>
+            {/* KIT3-E: horizon picker + refresh + last-loaded chip. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+                {([7, 14, 30] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setHorizonDays(d)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      horizonDays === d
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {d}d
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => load()}
+                disabled={loading}
+                className="gap-1.5"
+                title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              {lastLoadedAt && (
+                <span className="text-[11px] text-slate-500 tabular-nums">
+                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* KIT3-E: recipe-gap banner. When the by-order view has
+              ingredients (sourced from the order_ingredient_demand
+              view which includes the buy-and-sell path) but the
+              by-ingredient view is empty (sourced from
+              getAggregatedDemand which used to be recipe-only),
+              warn the chef that the aggregated shortfall calc may
+              be lagging until the recipes are attached. The service
+              now covers the buy-and-sell path too so this only
+              fires in genuinely weird shapes; useful as a safety
+              net. */}
+          {!loading && !aggregatedLoading && rows.length > 0 && aggregated.length === 0 && (
+            <Card className="border-amber-200 bg-amber-50/40 shadow-sm mb-5">
+              <CardContent className="p-3 px-4 flex items-start gap-3 text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-amber-900">
+                  Per-order ingredients show below but the cross-order shortfall calc is empty. This usually means recipes haven&apos;t been attached for one or more menu items. Ask admin to add recipes in <span className="font-mono">Menu &rarr; edit item &rarr; Recipe</span>.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Aggregated shortfall banner, Phase 3 wires the one-click
               "create shopping list" path so the chef never has to retype it. */}
