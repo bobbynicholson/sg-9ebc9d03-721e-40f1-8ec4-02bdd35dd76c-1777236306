@@ -9,6 +9,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Button } from "@/components/ui/button";
 import { UserRole } from "@/types/app";
 import { Truck, MapPin, Clock, CheckCircle2, Loader2, Camera, User, Navigation } from "lucide-react";
@@ -52,6 +53,7 @@ interface Assignment {
 
 export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Props) {
   const { user, userRoles } = useAuth();
+  const { withSlug } = useTenantHref();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [driverProfile, setDriverProfile] = useState<{ full_name: string | null; phone: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,22 +71,22 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
   const navUrl = order.venue_address
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.venue_address)}`
     : null;
-  const podDeepLink = user?.company_slug
-    ? `/${user.company_slug}/team-portal/driver/dashboard#order-${order.id}`
-    : `/team-portal/driver/dashboard#order-${order.id}`;
+  const podDeepLink = `${withSlug("/team-portal/driver/dashboard")}#order-${order.id}`;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        // Pull the latest assignment (there's usually one). POD
-        // fields live on orders, not driver_assignments - we read
-        // them off the order prop instead.
+        // Pull the latest PRIMARY assignment. assignment_type can be
+        // 'primary' / 'secondary' / 'waiter' - we only care about the
+        // primary delivery here. POD fields live on orders, not on
+        // the assignment row.
         const { data: aData } = await (supabase as any)
           .from("driver_assignments")
           .select("id, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, driver:driver_id(full_name, phone)")
           .eq("order_id", order.id)
+          .eq("assignment_type", "primary")
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -108,6 +110,31 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
     })();
     return () => { cancelled = true; };
   }, [order.id, order.company_id, order.assigned_driver_id]);
+
+  // ODOC: realtime sub on driver_assignments scoped to this order.
+  // Picks up en_route_at, arrived_at_venue_at, delivered_at flips so
+  // the section stays live without a manual refresh.
+  useEffect(() => {
+    if (!order.id) return;
+    const ch = supabase
+      .channel(`order-doc-driver:${order.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "driver_assignments", filter: `order_id=eq.${order.id}` },
+        async () => {
+          const { data } = await (supabase as any)
+            .from("driver_assignments")
+            .select("id, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, driver:driver_id(full_name, phone)")
+            .eq("order_id", order.id)
+            .eq("assignment_type", "primary")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (data) setAssignment(data as Assignment);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [order.id]);
 
   const driver = assignment?.driver || driverProfile;
   // POD lives on orders. Pull from the order prop, not the

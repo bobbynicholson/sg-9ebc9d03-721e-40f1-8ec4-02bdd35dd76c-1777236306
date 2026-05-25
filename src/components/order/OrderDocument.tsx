@@ -373,6 +373,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         )}
         <HistorySection
           orderId={order.id}
+          companyId={order.company_id}
           forceOpen={forceAll}
           defaultOpen={false}
         />

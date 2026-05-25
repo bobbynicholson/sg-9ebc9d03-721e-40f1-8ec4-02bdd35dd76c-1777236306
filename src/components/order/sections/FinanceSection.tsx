@@ -76,6 +76,36 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
     return () => { cancelled = true; };
   }, [orderId, companyId]);
 
+  // ODOC: realtime sub on payments scoped to this order. When a
+  // deposit/balance/refund lands the totals + payment list should
+  // flip live without manual refresh - parity with client portal.
+  useEffect(() => {
+    if (!orderId) return;
+    const ch = supabase
+      .channel(`order-doc-finance:${orderId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "payments", filter: `order_id=eq.${orderId}` },
+        async () => {
+          const [{ data: oData }, { data: pData }] = await Promise.all([
+            (supabase as any)
+              .from("orders")
+              .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid")
+              .eq("id", orderId)
+              .maybeSingle(),
+            (supabase as any)
+              .from("payments")
+              .select("id, amount, payment_method, payment_status, payment_date, payment_reference, payment_type")
+              .eq("order_id", orderId)
+              .order("payment_date", { ascending: false }),
+          ]);
+          if (oData) setMoney(oData as OrderMoney);
+          setPayments((pData || []) as Payment[]);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [orderId]);
+
   const total = Number(money?.total_amount ?? 0);
   const paid = Number(money?.amount_paid ?? 0);
   // Prefer the persisted balance_amount column if filled - it

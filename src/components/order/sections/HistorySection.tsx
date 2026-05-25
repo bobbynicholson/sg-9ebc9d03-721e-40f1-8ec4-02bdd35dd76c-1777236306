@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 
 interface Props {
   orderId: string;
+  companyId: string;
   defaultOpen?: boolean;
   forceOpen?: boolean;
 }
@@ -26,7 +27,7 @@ interface AuditEntry {
   actor?: { full_name: string | null } | null;
 }
 
-export function HistorySection({ orderId, defaultOpen, forceOpen }: Props) {
+export function HistorySection({ orderId, companyId, defaultOpen, forceOpen }: Props) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +42,7 @@ export function HistorySection({ orderId, defaultOpen, forceOpen }: Props) {
         const { data, error } = await (supabase as any)
           .from("audit_logs")
           .select("id, action, details, user_id, created_at, actor:user_id(full_name)")
+          .eq("company_id", companyId)
           .eq("entity_type", "order")
           .eq("entity_id", orderId)
           .order("created_at", { ascending: false })

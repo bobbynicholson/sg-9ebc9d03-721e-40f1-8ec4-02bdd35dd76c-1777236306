@@ -35,6 +35,9 @@ const TENANT_SCOPED_PREFIXES = [
   "/client-portal",
   "/account",
   "/subscription",
+  // ODOC: unified order document. Slug-prefixed so links generated
+  // via withSlug land on /[slug]/order/[id] rather than the bare path.
+  "/order",
 ] as const;
 
 // Top-level path segments that are NEVER tenant-scoped, even if a

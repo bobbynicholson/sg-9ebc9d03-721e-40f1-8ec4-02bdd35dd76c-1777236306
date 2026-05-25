@@ -51,12 +51,14 @@ interface PrepTask {
   task_type: string;
   status: string;
   start_at: string | null;
-  end_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
   station_id: string | null;
-  duration_minutes: number | null;
+  duration_min: number | null;
   notes: string | null;
+  menu_item_name: string | null;
+  assigned_chef_id: string | null;
   station?: { name: string | null } | null;
-  menu_item?: { name: string | null } | null;
 }
 
 interface OrderItemRow {
@@ -173,8 +175,9 @@ export function KitchenSection({
         const [tasksRes, itemsRes, eqRes] = await Promise.all([
           (supabase as any)
             .from("kitchen_prep_tasks")
-            .select("id, task_type, status, start_at, end_at, station_id, duration_minutes, notes, station:station_id(name), menu_item:menu_item_id(name)")
+            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, station:station_id(name)")
             .eq("order_id", orderId)
+            .is("deleted_at", null)
             .order("start_at", { ascending: true, nullsFirst: false }),
           (supabase as any)
             .from("order_items")
@@ -229,8 +232,9 @@ export function KitchenSection({
         async () => {
           const { data } = await (supabase as any)
             .from("kitchen_prep_tasks")
-            .select("id, task_type, status, start_at, end_at, station_id, duration_minutes, notes, station:station_id(name), menu_item:menu_item_id(name)")
+            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, station:station_id(name)")
             .eq("order_id", orderId)
+            .is("deleted_at", null)
             .order("start_at", { ascending: true, nullsFirst: false });
           setTasks((data || []) as PrepTask[]);
         },
@@ -506,14 +510,14 @@ export function KitchenSection({
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-900 truncate">
                           <span className="capitalize">{t.task_type}</span>
-                          {t.menu_item?.name && <span className="text-slate-500"> · {t.menu_item.name}</span>}
+                          {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                         </p>
                         <p className="text-xs text-slate-500">
                           {t.station?.name && <span>{t.station.name}</span>}
                           {t.start_at && (
                             <span>{t.station?.name ? " · " : ""}{new Date(t.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}</span>
                           )}
-                          {t.duration_minutes && <span> · {t.duration_minutes}min</span>}
+                          {t.duration_min && <span> · {t.duration_min}min</span>}
                         </p>
                       </div>
                       {canAct && !doneish && (
