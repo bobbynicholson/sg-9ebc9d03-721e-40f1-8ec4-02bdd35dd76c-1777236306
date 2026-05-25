@@ -465,19 +465,22 @@ function FormCard({
   return (
     <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
       <CardContent className="p-0">
-        {/* Thumbnail iframe. LCF-J: bumped from h-44 (176px) to
-            h-80 (320px) so the actual form is readable in the
-            preview pane. Combined with compact=1 above this gives
-            the operator a proper at-a-glance feel for each form
-            without having to open the customiser. */}
-        <div className="relative h-80 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-xl border-b border-slate-200">
+        {/* Thumbnail iframe. LCF-K (task #232, 2026-05-25):
+            bumped to h-[480px] and dropped the pointer-events-none
+            blocker. Bobby's ask was a bigger pane + working scroll.
+            The previous pointer-events-none disabled scroll along
+            with clicks; lifting it lets the operator scroll the
+            form and even click submit (token=preview routes through
+            loader.js demoMode which short-circuits submissions, so
+            no real lead row gets created from these thumbnails). */}
+        <div className="relative h-[480px] bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-xl border-b border-slate-200">
           {previewSrc ? (
             <iframe
               src={previewSrc}
               title={form.name}
-              className="absolute inset-0 w-full h-full pointer-events-none"
+              className="absolute inset-0 w-full h-full"
               loading="lazy"
-              sandbox="allow-scripts allow-same-origin"
+              sandbox="allow-scripts allow-same-origin allow-forms"
             />
           ) : (
             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
