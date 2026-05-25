@@ -696,7 +696,7 @@ ${companyName}`;
           UserRole.REGION_ADMIN,
         ],
         priority: "low",
-        link: `/admin/orders?orderId=${orderId}`,
+        link: `/order/${orderId}?role=admin`,
         relatedEntityType: "order",
         relatedEntityId: orderId,
       });

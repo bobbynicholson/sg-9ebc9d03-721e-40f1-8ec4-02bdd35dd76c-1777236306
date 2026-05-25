@@ -106,7 +106,7 @@ export async function fireRichCancellationNotification(
         title: `Order ${orderRef} cancelled (${daysOutLabel})`,
         message,
         priority: "high",
-        link: `/admin/orders?orderId=${input.orderId}`,
+        link: `/order/${input.orderId}?role=admin`,
         relatedEntityType: "order",
         relatedEntityId: input.orderId,
         targetRoles: [

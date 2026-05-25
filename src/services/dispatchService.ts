@@ -646,7 +646,7 @@ export const dispatchService = {
               `Reassign one of them before the events clash.`,
             type: "driver_double_booked",
             priority: "high",
-            link: `/admin/orders?orderId=${payload.orderId}`,
+            link: `/order/${payload.orderId}?role=admin`,
             relatedEntityType: "order",
             relatedEntityId: payload.orderId,
             metadata: {

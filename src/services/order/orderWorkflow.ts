@@ -316,7 +316,7 @@ export async function updateOrderStatus(
               message: `Order confirmed with only ${Math.max(0, hoursUntilEvent).toFixed(1)}h until event start. Kitchen needs ${leadHours}h to prep cleanly - consider pushing the event back or assigning extra hands.`,
               type: "kitchen_prep_lead_short",
               priority: "high",
-              link: `/admin/orders?orderId=${order.id}`,
+              link: `/order/${order.id}?role=kitchen_staff`,
               relatedEntityType: "order",
               relatedEntityId: order.id,
             }).catch((e) => {
@@ -423,7 +423,7 @@ export async function updateOrderStatus(
               `Ask the driver to capture POD on the driver app, or accept the bare delivery on the order detail.`,
             type: "pod_missing",
             priority: "high",
-            link: `/admin/orders?orderId=${order.id}`,
+            link: `/order/${order.id}?role=admin`,
             relatedEntityType: "order",
             relatedEntityId: order.id,
           });
@@ -1495,9 +1495,13 @@ async function sendStatusNotifications(order: any) {
     priority?: string;
   };
   const inApp: InAppPush[] = [];
-  const adminLink = `/admin/orders?orderId=${order.id}`;
-  const driverLink = `/team-portal/driver/deliveries?orderId=${order.id}`;
-  const clientLink = `/client-portal/my-orders?orderId=${order.id}`;
+  const adminLink = `/order/${order.id}?role=admin`;
+  // ODOC G.6 Wave 2: drivers + clients now land on the unified doc
+  // too. Doc accepts role hint and renders the correct section
+  // auto-expanded. Driver dashboard is still the POD capture host
+  // (the doc's button deep-links there).
+  const driverLink = `/order/${order.id}?role=driver`;
+  const clientLink = `/order/${order.id}?role=client`;
 
   switch (status) {
     case "confirmed":

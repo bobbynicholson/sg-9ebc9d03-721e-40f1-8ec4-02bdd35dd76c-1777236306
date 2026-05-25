@@ -423,7 +423,14 @@ export default function MyOrders() {
                               </Button>
                             </>
                           )}
-                          <Link href={`/c/order/${order.id}`}>
+                          {/* ODOC G.7: logged-in client lands on the
+                              unified order doc with the Finance
+                              section gated (client mode hides money).
+                              Was sending to /c/order/[id] with no
+                              token - that fell through to magic-link
+                              'request a new link' for portal-auth
+                              users, which is wrong. */}
+                          <Link href={`/order/${order.id}?role=client`}>
                             <Button size="sm" variant="outline" className="w-full sm:w-auto">
                               View Details
                             </Button>

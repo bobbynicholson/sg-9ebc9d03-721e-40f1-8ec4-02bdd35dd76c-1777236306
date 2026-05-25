@@ -221,7 +221,7 @@ export const deliveryService = {
         title: "Delivery Status Update",
         message,
         priority: notificationType === "error" ? "high" : "normal",
-        link: `/admin/orders?orderId=${orderId}`,
+        link: `/order/${orderId}?role=admin`,
         related_entity_type: "order",
         related_entity_id: orderId,
         metadata: {

@@ -275,7 +275,7 @@ export const kitchenDutyService = {
             message: `Task "${data.task_type}" for ${order.order_number || `order ${data.order_id}`} is done.`,
             targetRoles: KITCHEN_ADMIN_ROLES,
             priority: "medium",
-            link: `/admin/orders?orderId=${data.order_id}`,
+            link: `/order/${data.order_id}?role=admin`,
             relatedEntityType: "order",
             relatedEntityId: data.order_id,
           });
@@ -479,7 +479,7 @@ export const kitchenDutyService = {
       message: `Emergency reported for order ${orderId}: ${description}`,
       targetRoles: KITCHEN_ADMIN_ROLES,
       priority: "urgent",
-      link: `/admin/orders?orderId=${orderId}`,
+      link: `/order/${orderId}?role=admin`,
       relatedEntityType: "order",
       relatedEntityId: orderId,
     });

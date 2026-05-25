@@ -230,7 +230,7 @@ class PaymentProcessingService {
           message: `A payment was successfully processed for order ${order.order_number}.`,
           notification_type: "payment_received",
           priority: "high",
-          link: `/admin/orders?orderId=${orderId}`,
+          link: `/order/${orderId}?role=admin`,
           related_entity_type: "order",
           related_entity_id: orderId,
         });
@@ -383,7 +383,7 @@ class PaymentProcessingService {
           message: `The final balance for order ${order.order_number} has been paid.`,
           notification_type: "payment_received",
           priority: "high",
-          link: `/admin/orders?orderId=${orderId}`,
+          link: `/order/${orderId}?role=admin`,
           related_entity_type: "order",
           related_entity_id: orderId,
         });
@@ -530,7 +530,7 @@ class PaymentProcessingService {
           message: `A payment reminder was sent to ${orderData.client_email}.`,
           notification_type: "payment_reminder",
           priority: "medium",
-          link: `/admin/orders?orderId=${reminder.order_id}`,
+          link: `/order/${reminder.order_id}?role=admin`,
           related_entity_type: "order",
           related_entity_id: reminder.order_id,
         });
@@ -653,7 +653,7 @@ Your Catering Company`;
               message: `A modification deadline reminder for order ${orderData.order_number} was sent to ${orderData.client_email}.`,
               notification_type: "modification_deadline",
               priority: "medium",
-              link: `/admin/orders?orderId=${orderData.id}`,
+              link: `/order/${orderData.id}?role=admin`,
               related_entity_type: "order",
               related_entity_id: orderData.id,
             });
