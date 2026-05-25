@@ -1,5 +1,9 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// KIT3-D (task #247): @ts-nocheck removed. The page is now type-
+// checked. Remaining `any` casts are for supabase realtime channel
+// payloads + the nested join shape on kitchen_prep_tasks (the
+// generated Database type doesn't carry the joined order/station/
+// chef fields, so we narrow at use-site instead).
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -41,6 +45,38 @@ interface OrderItem {
   item_name: string | null;
   quantity: number | null;
   special_instructions: string | null;
+}
+
+// KIT3-D: explicit local type for the kitchen_prep_tasks rows returned
+// by kitchenPrepService.getTasksForDateRange. The generated Database
+// type omits the joined order/station/chef so this models what we
+// actually consume on this page.
+interface PrepTask {
+  id: string;
+  order_id: string;
+  station_id: string | null;
+  menu_item_name: string | null;
+  task_type: string | null;
+  status: "pending" | "in_progress" | "done" | "skipped" | string;
+  start_at: string;
+  duration_min: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  order?: {
+    id?: string;
+    event_name?: string | null;
+    client_name?: string | null;
+    event_date?: string | null;
+    event_time?: string | null;
+    guest_count?: number | null;
+    status?: string | null;
+  } | null;
+  station?: {
+    id?: string;
+    name?: string | null;
+    station_type?: string | null;
+    display_order?: number | null;
+  } | null;
 }
 
 const STATUS_TONES: Record<string, string> = {
@@ -101,8 +137,14 @@ export default function KitchenProductionPage() {
   const [anchor, setAnchor] = useState<Date>(startOfDay(new Date())); // pivots both views
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<PrepTask[]>([]);
   const [stations, setStations] = useState<KitchenStation[]>([]);
+  // KIT3-D: available staff-hours for the on-screen window. Powers
+  // the cook-hours-vs-available utilisation chip + per-day load
+  // bar in week view. Sourced from kitchen_duty_shifts (active +
+  // recently-active) so it stays honest even if the schedule
+  // changes mid-day.
+  const [availableHours, setAvailableHours] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   // KIT3-C: "next event" lookahead for the quiet-day empty state.
   // Single-row pull beyond the on-screen window so the chef knows
@@ -182,7 +224,8 @@ export default function KitchenProductionPage() {
       const ords = (ordsRes.data || []) as Order[];
       setOrders(ords);
       setStations(stationsRes);
-      setTasks(tasksRes);
+      // Service returns Promise<any[]>; cast to our local PrepTask shape.
+      setTasks((tasksRes || []) as PrepTask[]);
 
       const orderIds = ords.map((o) => o.id);
       if (orderIds.length === 0) {
@@ -206,6 +249,42 @@ export default function KitchenProductionPage() {
         captureException(accErr, {
           tags: { route: "/team-portal/kitchen/production", step: "load-recipe-accuracy", companyId: user.company_id },
         });
+      }
+
+      // KIT3-D: available staff-hours for the window. Sum
+      // (shift_end - shift_start) over kitchen_duty_shifts whose
+      // window overlaps the visible window. Open-ended shifts
+      // (shift_end IS NULL, still on the clock) get an 8h cap so
+      // we don't claim infinite capacity. This is the denominator
+      // for the utilisation chip + the per-day load bar.
+      try {
+        // Pull shifts active any time in the window. Use ISO strings
+        // already prepared above (fromISO / toISO).
+        const dutyQuery = (supabase as any)
+          .from("kitchen_duty_shifts")
+          .select("shift_start, shift_end, is_active")
+          .eq("company_id", user.company_id)
+          .lt("shift_start", toISO)
+          .or(`shift_end.is.null,shift_end.gte.${fromISO}`);
+        const { data: dutyRows } = await dutyQuery;
+        let hours = 0;
+        const winFrom = from.getTime();
+        const winTo = to.getTime();
+        for (const r of (dutyRows || []) as Array<{ shift_start: string; shift_end: string | null }>) {
+          const s = new Date(r.shift_start).getTime();
+          // Cap open-ended shifts at 8h from start so an idle shift
+          // doesn't claim infinite hours.
+          const eRaw = r.shift_end ? new Date(r.shift_end).getTime() : (s + 8 * 3600_000);
+          const clipS = Math.max(s, winFrom);
+          const clipE = Math.min(eRaw, winTo);
+          if (clipE > clipS) hours += (clipE - clipS) / 3600_000;
+        }
+        setAvailableHours(Math.round(hours));
+      } catch (capErr) {
+        captureException(capErr, {
+          tags: { route: "/team-portal/kitchen/production", step: "load-available-hours", companyId: user.company_id },
+        });
+        setAvailableHours(0);
       }
 
       // KIT3-C: next event after the current window. Powers the
@@ -311,12 +390,23 @@ export default function KitchenProductionPage() {
     return { events, guests, dishes, cookHours };
   }, [orders, items, tasks]);
 
+  // KIT3-D: utilisation - scheduled cook-hours vs available staff-
+  // hours. Available comes from the on-duty + scheduled shift sum
+  // (loaded below). Tone: green under 70%, amber 70-95%, rose
+  // 95%+ (likely under-resourced).
+  const utilisation = useMemo(() => {
+    if (availableHours <= 0) return null;
+    const pct = Math.round((totals.cookHours / availableHours) * 100);
+    const tone = pct >= 95 ? "rose" : pct >= 70 ? "amber" : "emerald";
+    return { pct, tone };
+  }, [totals.cookHours, availableHours]);
+
   // Group tasks by date for the day view to filter to this day
-  const tasksOnAnchor = useMemo(() => {
+  const tasksOnAnchor = useMemo<PrepTask[]>(() => {
     if (view !== "day") return [];
     const start = startOfDay(anchor).getTime();
     const end = addDays(anchor, 1).getTime();
-    return tasks.filter((t: any) => {
+    return tasks.filter((t) => {
       const ts = new Date(t.start_at).getTime();
       return ts >= start && ts < end;
     });
@@ -333,12 +423,12 @@ export default function KitchenProductionPage() {
   useEffect(() => {
     if (view !== "day") return;
     const stillVisibleIds = new Set<string>();
-    const newlyOverdue: any[] = [];
+    const newlyOverdue: PrepTask[] = [];
     for (const t of tasksOnAnchor) {
       if (t.status !== "pending" || t.started_at) continue;
-      stillVisibleIds.add(t.id as string);
+      stillVisibleIds.add(t.id);
       const startMs = new Date(t.start_at).getTime();
-      if (startMs <= nowMs && !alertedOverdueRef.current.has(t.id as string)) {
+      if (startMs <= nowMs && !alertedOverdueRef.current.has(t.id)) {
         newlyOverdue.push(t);
       }
     }
@@ -348,7 +438,7 @@ export default function KitchenProductionPage() {
       if (!stillVisibleIds.has(id)) alertedOverdueRef.current.delete(id);
     }
     for (const t of newlyOverdue) {
-      alertedOverdueRef.current.add(t.id as string);
+      alertedOverdueRef.current.add(t.id);
       const dueClock = new Date(t.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
       toast({
         title: "Prep task overdue",
@@ -359,7 +449,7 @@ export default function KitchenProductionPage() {
   }, [tasksOnAnchor, nowMs, view, toast]);
 
   // Task position helper for the day grid
-  const taskPosition = (task: any): { leftPct: number; widthPct: number } | null => {
+  const taskPosition = (task: PrepTask): { leftPct: number; widthPct: number } | null => {
     const ts = new Date(task.start_at);
     const dayStart = new Date(anchor);
     dayStart.setHours(DAY_START_HOUR, 0, 0, 0);
@@ -375,13 +465,13 @@ export default function KitchenProductionPage() {
     const list: Array<{ id: string | null; name: string; station_type: string }> = stations.map(s => ({
       id: s.id, name: s.name, station_type: s.station_type,
     }));
-    const hasUnassigned = tasksOnAnchor.some((t: any) => !t.station_id);
+    const hasUnassigned = tasksOnAnchor.some((t) => !t.station_id);
     if (hasUnassigned) list.push({ id: null, name: "Unassigned", station_type: "general" });
     return list;
   }, [stations, tasksOnAnchor]);
 
   const tasksByStation = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, PrepTask[]> = {};
     for (const s of stationsForGrid) {
       const key = s.id ?? "__unassigned__";
       map[key] = [];
@@ -393,6 +483,85 @@ export default function KitchenProductionPage() {
     }
     return map;
   }, [tasksOnAnchor, stationsForGrid]);
+
+  // KIT3-D: cook-hours per day in the week view. Pre-bucket tasks
+  // by event_date once so the per-day card can render its load bar
+  // without re-walking the whole tasks array.
+  const cookHoursByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of tasks) {
+      const date = (t.order?.event_date as string | undefined)
+        || (new Date(t.start_at).toISOString().slice(0, 10));
+      if (!date) continue;
+      map[date] = (map[date] || 0) + Number(t.duration_min || 0) / 60;
+    }
+    return map;
+  }, [tasks]);
+  // Daily capacity = availableHours / windowDays count. A rough
+  // even-split that flags "this day is heavier than the others"
+  // not an absolute per-day staffing call.
+  const dailyCapacity = useMemo(() => {
+    if (availableHours <= 0 || windowDays.length === 0) return 0;
+    return availableHours / windowDays.length;
+  }, [availableHours, windowDays.length]);
+
+  // KIT3-D: "Generate prep plan" CTA. When the chef opens a day
+  // with orders but no prep tasks (auto-cascade disabled in
+  // kitchen_settings, or the order was imported late and bypassed
+  // it), this lets them spin tasks up from the menu items in one
+  // tap. Loops kitchenPrepService.ensurePrepTasksForOrder over the
+  // visible orders + refreshes.
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const generatePrepPlan = useCallback(async (forOrderIds: string[]) => {
+    if (!user?.company_id || forOrderIds.length === 0) return;
+    setGeneratingPlan(true);
+    let createdTotal = 0;
+    let skipped = 0;
+    try {
+      for (const orderId of forOrderIds) {
+        try {
+          const res = await kitchenPrepService.ensurePrepTasksForOrder(
+            user.company_id,
+            orderId,
+            user.id,
+          );
+          createdTotal += res.created || 0;
+          if (res.skippedReason) skipped += 1;
+        } catch (perOrderErr) {
+          captureException(perOrderErr, {
+            tags: {
+              route: "/team-portal/kitchen/production",
+              step: "generate-prep-plan",
+              companyId: user.company_id,
+              orderId,
+            },
+          });
+        }
+      }
+      toast({
+        title: createdTotal > 0 ? "Prep plan ready" : "Nothing to generate",
+        description: createdTotal > 0
+          ? `${createdTotal} task${createdTotal === 1 ? "" : "s"} scheduled across ${forOrderIds.length} order${forOrderIds.length === 1 ? "" : "s"}.${skipped > 0 ? ` ${skipped} skipped (auto-generate disabled or quarantined).` : ""}`
+          : skipped > 0
+            ? "Auto-generate is disabled in /admin/kitchen-settings, or the orders are in import quarantine."
+            : "No prep work needed for these orders.",
+        variant: createdTotal > 0 ? "default" : "destructive",
+      });
+      await load();
+    } finally {
+      setGeneratingPlan(false);
+    }
+  }, [user?.company_id, user?.id, load, toast]);
+
+  // Orders on the anchor day that have zero prep tasks (day view
+  // only). Drives the "Generate prep plan" banner above the grid.
+  const ordersWithoutPrep = useMemo(() => {
+    if (view !== "day") return [];
+    const todayList = ordersByDate[isoDate(anchor)] || [];
+    if (todayList.length === 0) return [];
+    const orderIdsWithTasks = new Set(tasksOnAnchor.map((t) => t.order_id));
+    return todayList.filter((o) => !orderIdsWithTasks.has(o.id));
+  }, [view, ordersByDate, anchor, tasksOnAnchor]);
 
   // ── Header navigation ──────────────────────────────────────────────────
   const stepBack = () => setAnchor(d => addDays(d, view === "day" ? -1 : -7));
@@ -482,8 +651,10 @@ export default function KitchenProductionPage() {
             </div>
           </div>
 
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-5">
+          {/* Stat cards - KIT3-D adds the Utilisation tile (cook-
+              hours scheduled / available staff-hours) so the chef
+              sees whether the prep load fits the day's roster. */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
             <Card><CardContent className="p-3 sm:p-4">
               <p className="text-xs text-slate-600 flex items-center gap-1">Events
                 <InfoTooltip content="Orders booked in the window shown above." />
@@ -504,9 +675,39 @@ export default function KitchenProductionPage() {
             </CardContent></Card>
             <Card><CardContent className="p-3 sm:p-4">
               <p className="text-xs text-slate-600 flex items-center gap-1">Cook-hours
-                <InfoTooltip content="Total cooking time scheduled across every prep task in the window. The number that tells you whether the kitchen has the hours to do the work." />
+                <InfoTooltip content={"Total cooking time scheduled across every prep task in the window.\nThe number that tells you whether the kitchen has the hours to do the work."} />
               </p>
               <p className="text-2xl font-bold tabular-nums">{totals.cookHours}h</p>
+            </CardContent></Card>
+            <Card><CardContent className="p-3 sm:p-4">
+              <p className="text-xs text-slate-600 flex items-center gap-1">Utilisation
+                <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% (emerald) is calm, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
+              </p>
+              {utilisation ? (
+                <>
+                  <p
+                    className={`text-2xl font-bold tabular-nums ${
+                      utilisation.tone === "rose"
+                        ? "text-rose-700"
+                        : utilisation.tone === "amber"
+                          ? "text-amber-700"
+                          : "text-emerald-700"
+                    }`}
+                  >
+                    {utilisation.pct}%
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 tabular-nums">
+                    {totals.cookHours}h of {availableHours}h available
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold tabular-nums text-slate-400">—</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Clock the team in to compare
+                  </p>
+                </>
+              )}
             </CardContent></Card>
           </div>
 
@@ -660,6 +861,37 @@ export default function KitchenProductionPage() {
                 })()}
               </CardContent></Card>
             ) : (
+              <>
+                {/* KIT3-D: "Generate prep plan" CTA. Renders when the
+                    day has orders but at least one of them has zero
+                    prep tasks. Fires ensurePrepTasksForOrder per
+                    order so the chef doesn't have to deep-link into
+                    each ticket manually. */}
+                {ordersWithoutPrep.length > 0 && (
+                  <Card className="mb-3 border-0 shadow-sm bg-orange-50 border-l-4 border-l-orange-500">
+                    <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-start gap-3 flex-1">
+                        <ChefHat className="w-5 h-5 text-orange-700 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-orange-900">
+                            {ordersWithoutPrep.length} order{ordersWithoutPrep.length === 1 ? "" : "s"} on today have no prep tasks scheduled
+                          </p>
+                          <p className="text-xs text-orange-800 mt-0.5">
+                            Generate a prep plan from the menu items in one tap. Each task gets a station, a duration and a start time backed off from the event clock.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => generatePrepPlan(ordersWithoutPrep.map((o) => o.id))}
+                        disabled={generatingPlan}
+                        className="bg-orange-600 hover:bg-orange-700 shrink-0 gap-1.5"
+                      >
+                        {generatingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
+                        Generate prep plan
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               <Card>
                 <CardContent className="p-0 overflow-x-auto">
                   <div className="min-w-[900px] relative">
@@ -787,6 +1019,7 @@ export default function KitchenProductionPage() {
                   </div>
                 </CardContent>
               </Card>
+              </>
             )
           ) : (
             // ── WEEK VIEW: per-day card lists (existing layout, polished) ──
@@ -795,14 +1028,45 @@ export default function KitchenProductionPage() {
                 const key = isoDate(d);
                 const list = ordersByDate[key] || [];
                 const isToday = key === isoDate(new Date());
+                // KIT3-D: per-day cook-hours load. Sum the prep
+                // task minutes scheduled on this date, compare to
+                // an even-split of available staff-hours (rough
+                // "is this day heavier than the others" tell).
+                const dayHours = Math.round((cookHoursByDate[key] || 0) * 10) / 10;
+                const loadPct = dailyCapacity > 0
+                  ? Math.min(100, Math.round((dayHours / dailyCapacity) * 100))
+                  : 0;
+                const loadTone = loadPct >= 95
+                  ? "bg-rose-500"
+                  : loadPct >= 70
+                    ? "bg-amber-500"
+                    : "bg-emerald-500";
                 return (
                   <div key={key}>
-                    <div className="flex items-center gap-2 mb-2 px-1">
+                    <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
                       <h2 className={`text-sm font-semibold ${isToday ? "text-orange-600" : "text-slate-700"}`}>
                         {fmtDay(d)}
                         {isToday && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Today</span>}
                       </h2>
                       <span className="text-xs text-slate-500">{list.length} event{list.length === 1 ? "" : "s"}</span>
+                      {dayHours > 0 && (
+                        <span
+                          className="ml-auto inline-flex items-center gap-2 text-[11px] text-slate-600"
+                          title={dailyCapacity > 0
+                            ? `${dayHours}h scheduled, ~${Math.round(dailyCapacity)}h of staff capacity per day`
+                            : `${dayHours}h scheduled`}
+                        >
+                          <span className="tabular-nums">{dayHours}h prep</span>
+                          {dailyCapacity > 0 && (
+                            <span className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
+                              <span
+                                className={`block h-full ${loadTone}`}
+                                style={{ width: `${loadPct}%` }}
+                              />
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
                     {list.length === 0 ? (
                       <Card><CardContent className="p-3 text-center text-xs text-slate-400">Quiet day</CardContent></Card>
