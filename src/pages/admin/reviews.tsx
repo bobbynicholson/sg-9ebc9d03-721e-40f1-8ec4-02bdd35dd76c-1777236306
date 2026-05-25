@@ -69,7 +69,7 @@ export default function AdminReviewsPage() {
       // RVW-A: join the client (name + email) and the order (order_number,
       // event_name, event_date, region_id) so the row can be scanned at
       // a glance without N+1 follow-ups.
-      let q = (supabase as any)
+      const q = (supabase as any)
         .from("delivery_feedback")
         .select(
           "id, company_id, order_id, client_id, overall_rating, food_quality_rating, delivery_timeliness_rating, driver_professionalism_rating, comments, requires_follow_up, followed_up_at, followed_up_by, is_public, created_at, " +
