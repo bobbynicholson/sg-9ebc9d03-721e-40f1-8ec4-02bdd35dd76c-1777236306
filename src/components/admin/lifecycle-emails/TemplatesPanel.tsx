@@ -39,13 +39,16 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Mail, MessageCircle, Pencil, RotateCcw, Save, AlertCircle, CheckCircle2, Search, Send } from "lucide-react";
+import { Mail, MessageCircle, Pencil, RotateCcw, Save, AlertCircle, CheckCircle2, Search, Send, Zap, MousePointerClick, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import {
   renderTemplate,
   type MessageChannel,
+  type MessageDelivery,
 } from "@/lib/messageTemplates/registry";
 import {
   listForCompany,
@@ -62,11 +65,13 @@ function useCompanyId(): string | null {
 export function TemplatesPanel() {
   const companyId = useCompanyId();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<MergedTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<MergedTemplate | null>(null);
   const [filterChannel, setFilterChannel] = useState<"all" | MessageChannel>("all");
   const [filterCategory, setFilterCategory] = useState<"all" | "client" | "staff">("all");
+  const [filterDelivery, setFilterDelivery] = useState<"all" | MessageDelivery>("all");
   const [query, setQuery] = useState("");
   const [onlyCustomised, setOnlyCustomised] = useState(false);
 
@@ -94,14 +99,15 @@ export function TemplatesPanel() {
     return rows.filter((r) => {
       if (filterChannel !== "all" && r.channel !== filterChannel) return false;
       if (filterCategory !== "all" && r.category !== filterCategory) return false;
+      if (filterDelivery !== "all" && (r.delivery || "manual") !== filterDelivery) return false;
       if (onlyCustomised && !r.isCustomised) return false;
       if (q) {
-        const hay = `${r.label} ${r.description} ${r.group} ${r.key}`.toLowerCase();
+        const hay = `${r.label} ${r.description} ${r.group} ${r.key} ${r.trigger || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, filterChannel, filterCategory, onlyCustomised, query]);
+  }, [rows, filterChannel, filterCategory, filterDelivery, onlyCustomised, query]);
 
   const grouped = useMemo(() => {
     const buckets = new Map<string, MergedTemplate[]>();
@@ -119,6 +125,8 @@ export function TemplatesPanel() {
   const customisedCount = rows.filter((r) => r.isCustomised).length;
   const emailCount = rows.filter((r) => r.channel === "email").length;
   const whatsappCount = rows.filter((r) => r.channel === "whatsapp").length;
+  const automatedCount = rows.filter((r) => (r.delivery || "manual") === "automated").length;
+  const manualCount = rows.filter((r) => (r.delivery || "manual") === "manual").length;
 
   return (
     <>
@@ -135,7 +143,46 @@ export function TemplatesPanel() {
           <p className="text-[10px] text-slate-500 mt-0.5">
             {emailCount} email &middot; {whatsappCount} WhatsApp
           </p>
+          <p className="text-[10px] text-slate-500">
+            {automatedCount} automatic &middot; {manualCount} manual
+          </p>
         </div>
+      </div>
+
+      {/* Two-panel intel banner: automatic vs manual. Operators kept
+          asking "wait, does this one actually send by itself?" - now
+          they can see at a glance. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <Card className="border-0 shadow-sm bg-purple-50">
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 text-purple-700" />
+            </div>
+            <div className="text-xs text-purple-950 leading-relaxed">
+              <p className="font-semibold text-purple-900 mb-0.5">
+                Automatic &middot; {automatedCount} template{automatedCount === 1 ? "" : "s"}
+              </p>
+              <p>
+                The system fires these on its own (order status change, cron, webhook). Edits land immediately on the next firing - no clicking required. Use the Sent Log tab to see what's gone out.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm bg-amber-50">
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+              <MousePointerClick className="w-4 h-4 text-amber-700" />
+            </div>
+            <div className="text-xs text-amber-950 leading-relaxed">
+              <p className="font-semibold text-amber-900 mb-0.5">
+                Manual &middot; {manualCount} template{manualCount === 1 ? "" : "s"}
+              </p>
+              <p>
+                You click a Send button on Leads / Quotes / Staff to use these. Edits show up prefilled when you next click - perfect for tweaking your sales voice without losing the core copy.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="border-0 shadow-sm mb-4 bg-blue-50">
@@ -205,6 +252,30 @@ export function TemplatesPanel() {
             ))}
           </div>
 
+          <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold ml-2">Delivery</span>
+          <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+            {([
+              { id: "all",       label: "All" },
+              { id: "automated", label: "Automatic" },
+              { id: "manual",    label: "Manual" },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setFilterDelivery(t.id)}
+                className={`px-3 py-1.5 rounded-md inline-flex items-center gap-1 ${
+                  filterDelivery === t.id
+                    ? "bg-emerald-600 text-white font-medium"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {t.id === "automated" && <Zap className="w-3 h-3" />}
+                {t.id === "manual" && <MousePointerClick className="w-3 h-3" />}
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2 ml-auto">
             <Switch
               id="only-customised"
@@ -239,36 +310,72 @@ export function TemplatesPanel() {
                 <span className="text-[10px] text-slate-400 ml-1">({g.items.length})</span>
               </div>
               <div className="space-y-2">
-                {g.items.map((row) => (
-                  <Card key={row.key} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="py-3 px-4 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-slate-900">{row.label}</p>
-                          {row.isCustomised ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Customised
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-slate-500">Default</Badge>
+                {g.items.map((row) => {
+                  const delivery: MessageDelivery = row.delivery || "manual";
+                  return (
+                    <Card key={row.key} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="py-3 px-4 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-slate-900">{row.label}</p>
+                            {/* Delivery badge - leftmost so it's the
+                                first thing the eye lands on. */}
+                            {delivery === "automated" ? (
+                              <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] gap-1">
+                                <Zap className="w-3 h-3" /> Automatic
+                              </Badge>
+                            ) : delivery === "hybrid" ? (
+                              <Badge className="bg-indigo-100 text-indigo-800 border-0 text-[10px] gap-1">
+                                <Zap className="w-3 h-3" /> Auto + manual
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-900 border-0 text-[10px] gap-1">
+                                <MousePointerClick className="w-3 h-3" /> Manual
+                              </Badge>
+                            )}
+                            {row.isCustomised ? (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Customised
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-slate-500">Default</Badge>
+                            )}
+                            {row.isCustomised && !row.customIsActive && (
+                              <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1">
+                                <AlertCircle className="w-3 h-3" /> Disabled, using default
+                              </Badge>
+                            )}
+                            <code className="text-[10px] font-mono text-slate-400 ml-auto hidden sm:inline">
+                              {row.key}
+                            </code>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">{row.description}</p>
+                          {row.trigger && (
+                            <p
+                              className={`text-[11px] mt-1 inline-flex items-center gap-1 ${
+                                delivery === "automated"
+                                  ? "text-purple-700"
+                                  : delivery === "hybrid"
+                                    ? "text-indigo-700"
+                                    : "text-amber-800"
+                              }`}
+                            >
+                              {delivery === "automated"
+                                ? <Zap className="w-3 h-3 shrink-0" />
+                                : <MousePointerClick className="w-3 h-3 shrink-0" />}
+                              <span className="truncate" title={row.trigger}>
+                                {row.trigger}
+                              </span>
+                            </p>
                           )}
-                          {row.isCustomised && !row.customIsActive && (
-                            <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1">
-                              <AlertCircle className="w-3 h-3" /> Disabled, using default
-                            </Badge>
-                          )}
-                          <code className="text-[10px] font-mono text-slate-400 ml-auto hidden sm:inline">
-                            {row.key}
-                          </code>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{row.description}</p>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => setEditing(row)} className="gap-1.5 shrink-0">
-                        <Pencil className="w-3.5 h-3.5" /> Edit
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <Button size="sm" variant="outline" onClick={() => setEditing(row)} className="gap-1.5 shrink-0">
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -280,6 +387,7 @@ export function TemplatesPanel() {
           <EditorDrawer
             template={editing}
             companyId={companyId}
+            withSlug={withSlug}
             onClose={() => setEditing(null)}
             onSaved={() => { setEditing(null); reload(); }}
             onReset={() => { setEditing(null); reload(); }}
@@ -291,10 +399,11 @@ export function TemplatesPanel() {
 }
 
 function EditorDrawer({
-  template, companyId, onClose, onSaved, onReset,
+  template, companyId, withSlug, onClose, onSaved, onReset,
 }: {
   template: MergedTemplate;
   companyId: string | null;
+  withSlug: (path: string) => string;
   onClose: () => void;
   onSaved: () => void;
   onReset: () => void;
@@ -433,7 +542,14 @@ function EditorDrawer({
         body: JSON.stringify({ templateKey: template.key }),
       });
       const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.error || "Send failed");
+      if (!resp.ok) {
+        // Structured failures from sendEmailDetailed carry an
+        // error_code + optional fix_link. Surface the fix path so
+        // the operator knows exactly which settings page to open.
+        const code = json?.error_code ? ` [${json.error_code}]` : "";
+        const fix = json?.fix_link ? ` Open: ${json.fix_link}` : "";
+        throw new Error(`${json?.error || "Send failed"}${code}${fix}`);
+      }
       toast({
         title: "Test sent",
         description: `Sent to ${json.to}. Check your ${json.channel === "email" ? "inbox" : "WhatsApp"}.`,
@@ -476,6 +592,52 @@ function EditorDrawer({
       </SheetHeader>
 
       <div className="space-y-4 mt-4">
+        {/* LCF-Q: delivery panel - tells the operator exactly when /
+            how this template fires and links to the workflow page
+            that drives it. */}
+        {(() => {
+          const delivery: MessageDelivery = template.delivery || "manual";
+          const isAutomated = delivery === "automated";
+          const tone = isAutomated
+            ? "border-purple-200 bg-purple-50"
+            : delivery === "hybrid"
+              ? "border-indigo-200 bg-indigo-50"
+              : "border-amber-200 bg-amber-50";
+          const Icon = isAutomated ? Zap : MousePointerClick;
+          const iconColour = isAutomated
+            ? "text-purple-700"
+            : delivery === "hybrid"
+              ? "text-indigo-700"
+              : "text-amber-700";
+          const headerLabel = isAutomated
+            ? "Automatic - the system fires this for you"
+            : delivery === "hybrid"
+              ? "Automatic with manual re-send option"
+              : "Manual - you click Send when you're ready";
+          return (
+            <Card className={`shadow-none ${tone}`}>
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${iconColour}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-900">{headerLabel}</p>
+                  {template.trigger && (
+                    <p className="text-[11px] text-slate-700 mt-0.5">{template.trigger}</p>
+                  )}
+                  {template.settingsLink && (
+                    <Link
+                      href={withSlug(template.settingsLink)}
+                      className="text-[11px] inline-flex items-center gap-1 text-slate-700 underline mt-1 hover:text-slate-900"
+                    >
+                      {isAutomated ? "Open the workflow page that fires this" : "Open the page where you click Send"}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <Card className="border-slate-200 shadow-none">
           <CardContent className="py-3 px-4 space-y-2">
             <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">

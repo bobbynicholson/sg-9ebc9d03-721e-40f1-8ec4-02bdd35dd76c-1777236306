@@ -368,8 +368,14 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Email",               href: "/admin/email-settings",        icon: Mail,          description: "SMTP, Gmail, Outlook, Mailchimp" },
         { title: "Integrations",        href: "/admin/integrations",          icon: Zap,           description: "Zapier, webhooks, 5,000+ apps" },
         { title: "Lead capture forms",  href: "/admin/integrations/embed",    icon: Code2,         description: "Public embeddable forms" },
-        { title: "Messaging templates", href: "/admin/messaging-templates",   icon: MessageSquare, description: "Edit every email + WhatsApp template" },
-        { title: "Lifecycle emails",    href: "/admin/email-templates",       icon: Sparkles,      description: "After-sales follow-ups + automation" },
+        // LCF-Q (task #239): /admin/messaging-templates and
+        // /admin/email-templates both surface the same registry-backed
+        // editor now. Collapsed into one nav entry pointing at the
+        // canonical hub (/admin/email-templates) so operators stop
+        // toggling between two pages that do the same thing. The
+        // legacy /admin/messaging-templates route still resolves for
+        // deep links from older notifications.
+        { title: "Messages & templates", href: "/admin/email-templates",      icon: MessageSquare, description: "Edit every email + WhatsApp message, see what's been sent, manage automation" },
         { title: "Notifications",       href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
         { title: "Audit log",           href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
         // Wave 70.47 - end-to-end smoke test. One-click regression net

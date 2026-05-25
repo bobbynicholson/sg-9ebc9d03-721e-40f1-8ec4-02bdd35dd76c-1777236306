@@ -24,6 +24,29 @@
 export type MessageChannel = "email" | "whatsapp";
 export type MessageCategory = "client" | "staff";
 
+/**
+ * How a template actually leaves the system.
+ *
+ *  - "automated":   the platform fires this without the operator
+ *                   clicking anything (cron, webhook, status change).
+ *                   Examples: order_confirmed, balance_reminder_email,
+ *                   aftersales_*, embed_lead_admin_*, billing emails.
+ *  - "manual":      the operator clicks a button on a workflow page
+ *                   (Leads / Quotes / Staff) and the system either
+ *                   composes the email through their own provider or
+ *                   opens a draft in Gmail / Outlook to send by hand.
+ *                   Examples: every email_lead_* / email_quote_* /
+ *                   whatsapp_* outreach template.
+ *  - "hybrid":      automated by default but the operator can also
+ *                   trigger it manually for re-sends or back-fills.
+ *
+ * The editor surfaces this so an operator knows whether saving a
+ * customisation here changes what the system will send next time it
+ * fires, or what they'll see prefilled when they next click "Send"
+ * on the Leads / Quotes page.
+ */
+export type MessageDelivery = "automated" | "manual" | "hybrid";
+
 export interface TemplateVariable {
   /** Raw {{name}} token used in the body. */
   name: string;
@@ -49,6 +72,27 @@ export interface TemplateDefinition {
   defaultBody: string;
   /** Variables available for this template. */
   variables: TemplateVariable[];
+  /**
+   * How this template leaves the system. Defaults to "manual" when
+   * omitted because the historical default for outreach templates
+   * (every email_lead_* / whatsapp_*) is operator-clicked.
+   */
+  delivery?: MessageDelivery;
+  /**
+   * Plain-English description of WHEN the template fires (for
+   * automated) or HOW it's used (for manual). Shown directly under
+   * the row so an operator never has to guess.
+   * Examples:
+   *   "Fires when an order moves to delivered status"
+   *   "Click the Send button on a quote row in /admin/quotes"
+   */
+  trigger?: string;
+  /**
+   * Where the operator goes to configure the firing rule for an
+   * automated template (e.g. enable / disable, delay, cadence). Used
+   * to render a "Manage automation" link on the editor row.
+   */
+  settingsLink?: string;
 }
 
 // ── Shared variable helpers ─────────────────────────────────────────
@@ -1475,6 +1519,149 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
   },
 ];
 
+
+// ── Delivery wiring ──────────────────────────────────────────────────
+// LCF-Q (task #239, 2026-05-25): explicit catalogue of how each
+// template actually leaves the system. Audited against the codebase:
+//   - every templateType referenced by services / crons / webhooks
+//     gets delivery=automated
+//   - every key that's surfaced via a "Send" button on /admin/leads,
+//     /admin/quotes or /admin/staff stays delivery=manual
+//   - the editor reads these via the post-processor below so we
+//     don't have to thread the fields onto every entry
+//
+// When adding a new template entry, you can set delivery + trigger +
+// settingsLink directly on the entry, OR add a row here. The
+// post-processor only fills in fields that aren't already on the
+// entry, so per-entry overrides win.
+const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: string; settingsLink?: string }> = {
+  // --- AUTOMATED: order lifecycle (services/order/orderWorkflow) ---
+  order_confirmed:    { delivery: "automated", trigger: "Fires the moment an order moves to confirmed status." },
+  order_preparing:    { delivery: "automated", trigger: "Fires when the kitchen marks prep as started." },
+  order_ready:        { delivery: "automated", trigger: "Fires when the kitchen marks prep complete." },
+  order_in_transit:   { delivery: "automated", trigger: "Fires the moment the driver leaves the kitchen." },
+  order_delivered:    { delivery: "automated", trigger: "Fires the moment the driver marks delivery." },
+
+  // --- AUTOMATED: pre-event cron (ensureScheduledPreEventReminders) ---
+  event_one_week_reminder:  { delivery: "automated", trigger: "Cron-scheduled 7 days before the event date." },
+  event_day_before_reminder:{ delivery: "automated", trigger: "Cron-scheduled the day before the event." },
+
+  // --- AUTOMATED: after-sales nurture (ensureScheduledAfterSales) ---
+  "aftersales_after-sales-1": { delivery: "automated", trigger: "Cron-fires 2 months after event completion." },
+  "aftersales_after-sales-2": { delivery: "automated", trigger: "Cron-fires 4 months after event completion." },
+  "aftersales_after-sales-3": { delivery: "automated", trigger: "Cron-fires 6 months after event completion." },
+  "aftersales_after-sales-4": { delivery: "automated", trigger: "Cron-fires 8 months after event completion." },
+  "aftersales_after-sales-5": { delivery: "automated", trigger: "Cron-fires 10 months after event completion." },
+  "aftersales_after-sales-6": { delivery: "automated", trigger: "Cron-fires 12 months after event completion." },
+
+  // --- AUTOMATED: money + reminders ---
+  balance_reminder_email:        { delivery: "automated", trigger: "Cron fires when an outstanding balance is approaching its due date." },
+  equipment_collection_reminder: { delivery: "automated", trigger: "Cron fires when hired equipment is still on site after the event." },
+
+  // --- AUTOMATED: cancellation pipeline (services/email/cancellationEmails) ---
+  cancellation_approved:  { delivery: "automated", trigger: "Fires the moment an order is cancelled." },
+  refund_paid:            { delivery: "automated", trigger: "Fires the moment a refund EFT is marked paid." },
+  postponement_approved:  { delivery: "automated", trigger: "Fires the moment a postponement is approved." },
+
+  // --- AUTOMATED: invoice + payment receipt ---
+  deposit_invoice_issued:   { delivery: "automated", trigger: "Fires the moment the deposit invoice is issued.", settingsLink: "/admin/invoices" },
+  balance_invoice_issued:   { delivery: "automated", trigger: "Fires the moment the balance invoice is issued.", settingsLink: "/admin/invoices" },
+  balance_payment_received: { delivery: "automated", trigger: "Fires the moment a client payment lands on an invoice (deposit, balance, or full)." },
+
+  // --- AUTOMATED: quote acceptance ---
+  quote_accepted_client:       { delivery: "automated", trigger: "Auto-reply the client receives the moment they accept a quote on the portal." },
+  quote_accepted_admin_notify: { delivery: "automated", trigger: "Operator notification the moment a client accepts a quote on the portal." },
+
+  // --- AUTOMATED: embed lead capture (lib/embed/notifyAdminOfEmbedLead) ---
+  embed_lead_admin_email:    { delivery: "automated", trigger: "Fires the moment a website embed form lead is captured.", settingsLink: "/admin/integrations/embed" },
+  embed_lead_admin_whatsapp: { delivery: "automated", trigger: "Fires the moment a website embed form lead is captured.", settingsLink: "/admin/integrations/embed" },
+  embed_lead_thank_you_client:{ delivery: "automated", trigger: "Auto-reply the lead receives after submitting the website enquiry form.", settingsLink: "/admin/integrations/embed" },
+
+  // --- AUTOMATED: account / portal ---
+  client_magic_link:  { delivery: "automated", trigger: "Fires when a client requests their portal magic link." },
+  owner_welcome:      { delivery: "automated", trigger: "Fires when a new tenant owner signs up." },
+  staff_invite_login: { delivery: "automated", trigger: "Fires when a manager invites a new team member.", settingsLink: "/admin/users" },
+
+  // --- AUTOMATED: subscription / billing (services/billingEmailService) ---
+  subscription_started:        { delivery: "automated", trigger: "Platform fires when a tenant first subscribes." },
+  payment_succeeded:           { delivery: "automated", trigger: "Platform fires after a successful subscription charge." },
+  payment_failed:              { delivery: "automated", trigger: "Platform fires when a subscription charge fails." },
+  trial_ending_soon:           { delivery: "automated", trigger: "Platform fires a few days before the free trial expires." },
+  subscription_expiring:       { delivery: "automated", trigger: "Platform fires before the next billing cycle." },
+  price_change_notification:   { delivery: "automated", trigger: "Platform fires ahead of a subscription price change." },
+  subscription_cancelled:      { delivery: "automated", trigger: "Platform fires when a tenant cancels their subscription." },
+  subscription_reactivated:    { delivery: "automated", trigger: "Platform fires on a subscription reactivation." },
+  staff_invitation:            { delivery: "automated", trigger: "Platform fires when a manager invites a team member." },
+  account_deletion_scheduled:  { delivery: "automated", trigger: "Platform fires the moment a tenant schedules account deletion." },
+
+  // --- MANUAL: lead outreach (operator clicks Send on /admin/leads) ---
+  email_lead_hot:        { delivery: "manual", trigger: "Click the Send button on a fresh enquiry in /admin/leads.", settingsLink: "/admin/leads" },
+  email_lead_quoted:     { delivery: "manual", trigger: "Click Follow up on a quoted lead in /admin/leads.",        settingsLink: "/admin/leads" },
+  email_lead_quiet:      { delivery: "manual", trigger: "Click Win-back on a quiet lead in /admin/leads.",          settingsLink: "/admin/leads" },
+  email_lead_lost:       { delivery: "manual", trigger: "Click Door-open on a lost lead in /admin/leads.",          settingsLink: "/admin/leads" },
+  email_lead_reply:      { delivery: "manual", trigger: "Click Reply on a fresh enquiry in /admin/leads.",          settingsLink: "/admin/leads" },
+  email_lead_touch_base: { delivery: "manual", trigger: "Click Touch base on a warm lead in /admin/leads.",         settingsLink: "/admin/leads" },
+  email_lead_follow_up:  { delivery: "manual", trigger: "Click Follow up on a quiet lead in /admin/leads.",          settingsLink: "/admin/leads" },
+  email_lead_chase_quote:{ delivery: "manual", trigger: "Click Chase quote on a quoted lead in /admin/leads.",      settingsLink: "/admin/leads" },
+  email_lead_winback:    { delivery: "manual", trigger: "Click Win-back on a lost lead in /admin/leads.",            settingsLink: "/admin/leads" },
+  email_lead_reopen:     { delivery: "manual", trigger: "Click Reopen on a lost lead in /admin/leads.",              settingsLink: "/admin/leads" },
+
+  // --- MANUAL: quote outreach (operator clicks Send / Follow up in /admin/quotes) ---
+  email_quote_sent:     { delivery: "manual", trigger: "Click Send on a fresh quote in /admin/quotes.",     settingsLink: "/admin/quotes" },
+  email_quote_revised:  { delivery: "manual", trigger: "Click Re-send after editing a quote.",              settingsLink: "/admin/quotes" },
+  email_quote_accepted: { delivery: "manual", trigger: "Click Confirm next steps after a quote is accepted.", settingsLink: "/admin/quotes" },
+  email_quote_expired:  { delivery: "manual", trigger: "Click Refresh on an expired quote in /admin/quotes.", settingsLink: "/admin/quotes" },
+  email_quote_draft:    { delivery: "manual", trigger: "Click Notify on a draft quote in /admin/quotes.",   settingsLink: "/admin/quotes" },
+  email_quote_rejected: { delivery: "manual", trigger: "Click Door-open on a rejected quote in /admin/quotes.", settingsLink: "/admin/quotes" },
+
+  // --- MANUAL: client relationship outreach ---
+  email_client_active:    { delivery: "manual", trigger: "Click Touch base on an active client in /admin/contacts.", settingsLink: "/admin/contacts" },
+  email_client_returning: { delivery: "manual", trigger: "Click Touch base on a returning client in /admin/contacts.", settingsLink: "/admin/contacts" },
+  email_client_vip:       { delivery: "manual", trigger: "Click Touch base on a VIP client in /admin/contacts.", settingsLink: "/admin/contacts" },
+  email_client_cold:      { delivery: "manual", trigger: "Click Re-engage on a cold client in /admin/contacts.", settingsLink: "/admin/contacts" },
+  email_client_won:       { delivery: "manual", trigger: "Click Check-in on a confirmed client in /admin/contacts.", settingsLink: "/admin/contacts" },
+
+  // --- MANUAL: WhatsApp outreach (operator clicks Send on /admin/quotes / leads / staff) ---
+  whatsapp_touch_base:       { delivery: "manual", trigger: "Click WhatsApp on a contact in /admin/contacts.",   settingsLink: "/admin/contacts" },
+  whatsapp_lead_followup:    { delivery: "manual", trigger: "Click WhatsApp on a lead in /admin/leads.",          settingsLink: "/admin/leads" },
+  whatsapp_quote_sent:       { delivery: "manual", trigger: "Click WhatsApp on a quote in /admin/quotes.",        settingsLink: "/admin/quotes" },
+  whatsapp_quote_chase:      { delivery: "manual", trigger: "Click WhatsApp chase on a quote in /admin/quotes.", settingsLink: "/admin/quotes" },
+  whatsapp_quote_accepted:   { delivery: "manual", trigger: "Click WhatsApp on an accepted quote.",              settingsLink: "/admin/quotes" },
+  whatsapp_event_week:       { delivery: "manual", trigger: "Click WhatsApp on an upcoming event in /admin/orders.", settingsLink: "/admin/orders" },
+  whatsapp_event_day_morning:{ delivery: "manual", trigger: "Click WhatsApp on an event-day order in /admin/orders.", settingsLink: "/admin/orders" },
+  whatsapp_event_arrived:    { delivery: "manual", trigger: "Click On-site WhatsApp on a delivery in /admin/live-operations.", settingsLink: "/admin/live-operations" },
+  whatsapp_delay_alert:      { delivery: "manual", trigger: "Click Running late WhatsApp on a delivery in /admin/live-operations.", settingsLink: "/admin/live-operations" },
+
+  // --- MANUAL: staff WhatsApp ---
+  whatsapp_staff_welcome_login:    { delivery: "manual", trigger: "Click WhatsApp welcome on a staff invite in /admin/users.", settingsLink: "/admin/users" },
+  whatsapp_staff_welcome_no_login: { delivery: "manual", trigger: "Click WhatsApp welcome on a no-portal staff member.",        settingsLink: "/admin/users" },
+  whatsapp_staff_shift_confirm:    { delivery: "manual", trigger: "Click Confirm shift on a staff member in /admin/staff.",    settingsLink: "/admin/staff" },
+  whatsapp_staff_job_assigned:     { delivery: "manual", trigger: "Click Notify driver / kitchen on a job in /admin/dispatch.", settingsLink: "/admin/dispatch" },
+  whatsapp_staff_pickup_ready:     { delivery: "manual", trigger: "Click WhatsApp driver when the kitchen marks pickup ready.", settingsLink: "/admin/dispatch" },
+  whatsapp_staff_check_in:         { delivery: "manual", trigger: "Click Check-in on a staff member in /admin/staff.",          settingsLink: "/admin/staff" },
+  whatsapp_staff_schedule_change:  { delivery: "manual", trigger: "Click Notify on a shift change in /admin/staff.",            settingsLink: "/admin/staff" },
+};
+
+// Apply the wiring once at module load. Per-entry fields win.
+for (const t of TEMPLATE_REGISTRY) {
+  const wiring = DELIVERY_WIRING[t.key];
+  if (!wiring) continue;
+  if (t.delivery === undefined)     t.delivery = wiring.delivery;
+  if (t.trigger === undefined)      t.trigger = wiring.trigger;
+  if (t.settingsLink === undefined) t.settingsLink = wiring.settingsLink;
+}
+// Anything not in the map defaults to "manual" with a generic trigger.
+// Outreach templates outnumber automated ones, so manual is the safer
+// fallback (an automated row with no firing wired up is a bug we want
+// surfaced, a manual row with no specific button is just generic copy).
+for (const t of TEMPLATE_REGISTRY) {
+  if (t.delivery === undefined) t.delivery = "manual";
+  if (t.trigger === undefined) {
+    t.trigger = t.channel === "whatsapp"
+      ? "Click the WhatsApp button on the matching workflow page."
+      : "Click the Send button on the matching workflow page.";
+  }
+}
 
 /** Get a template definition by key. */
 export function getTemplateDefinition(key: string): TemplateDefinition | null {

@@ -85,7 +85,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const testSubject = `[TEST] ${resolved.subject}`;
       const testBody = `<p style="background:#fef3c7;border:1px solid #fcd34d;padding:8px 12px;border-radius:6px;font-size:13px;color:#78350f;margin:0 0 16px"><strong>Test send</strong> from /admin/messaging-templates. Variables filled with example data.</p>${escapeAndLinebreak(resolved.bodyHtml)}`;
 
-      const ok = await (emailService as any).sendEmail({
+      // LCF-Q: use sendEmailDetailed so the toast carries the real
+      // reason (no_provider / resend_auth / domain_unverified /
+      // from_email_domain_mismatch / blocked_recipient) plus the
+      // /admin/... fix_link when available. The legacy boolean-
+      // returning sendEmail() squashed all of those down to "Send
+      // failed - check email config", which left Bobby guessing.
+      const detail = await (emailService as any).sendEmailDetailed({
         companyId,
         to: recipient,
         subject: testSubject,
@@ -93,9 +99,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         _client: admin,
       });
 
-      if (!ok) {
+      if (!detail?.success) {
         return res.status(500).json({
-          error: "Send failed - check that email is configured in /admin/email-settings",
+          error: detail?.error || "Send failed",
+          error_code: detail?.error_code || "unknown",
+          fix_link: detail?.fix_link || null,
+          context: detail?.context || null,
         });
       }
       return res.status(200).json({ success: true, channel: "email", to: recipient });
