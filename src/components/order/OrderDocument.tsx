@@ -29,12 +29,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
+  MessageSquare, Paperclip,
 } from "lucide-react";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
 import { OrderSuggestedAction } from "./OrderSuggestedAction";
 import { OrderPresence } from "./OrderPresence";
 import { OrderAmendmentBanner } from "./OrderAmendmentBanner";
+import { OrderCODBanner } from "./OrderCODBanner";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -44,6 +46,7 @@ import { CleaningSection } from "./sections/CleaningSection";
 import { FinanceSection } from "./sections/FinanceSection";
 import { FeedbackSection } from "./sections/FeedbackSection";
 import { CommsLogSection } from "./sections/CommsLogSection";
+import { AttachmentsSection } from "./sections/AttachmentsSection";
 import { HistorySection } from "./sections/HistorySection";
 
 const ROUTE_TAG = "/order/[id]";
@@ -242,7 +245,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     const sectionIds = [
       "section-header", "section-timeline", "section-kitchen",
       "section-shopping", "section-driver", "section-waiter",
-      "section-cleaning", "section-admin", "section-history",
+      "section-cleaning", "section-admin", "section-feedback",
+      "section-comms", "section-attachments", "section-history",
     ];
     const observer = new IntersectionObserver(
       (entries) => {
@@ -309,6 +313,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     // nothing - safer to omit when not delivered.
     const isDelivered = !!order && (order.status === "delivered" || order.status === "completed" || !!order.delivered_at);
     if (isDelivered) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
+    if (canSeeFinance) items.push({ id: "section-comms", label: "Comms", icon: MessageSquare, key: "history" as any });
+    items.push({ id: "section-attachments", label: "Files", icon: Paperclip, key: "history" as any });
     items.push({ id: "section-history", label: "History", icon: History, key: "history" });
     return items;
   }, [canSeeFinance, order]);
@@ -410,6 +416,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         </nav>
       )}
 
+      {/* ODOC Wave F: cash-on-delivery banner - shows amount owed
+          to the assigned driver + admin tier when payment_method=cash
+          and balance is outstanding. */}
+      <OrderCODBanner
+        orderId={order.id}
+        status={order.status}
+        assignedDriverId={order.assigned_driver_id}
+        deliveredAt={order.delivered_at}
+      />
+
       {/* ODOC Wave F: pending amendment banner - admin reviews
           client-requested changes inline with Approve / Decline. */}
       <OrderAmendmentBanner orderId={order.id} companyId={order.company_id} onApplied={load} />
@@ -508,6 +524,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             defaultOpen={false}
           />
         )}
+        {/* ODOC Wave F: file attachments - contracts, dietary forms,
+            venue maps, etc. Visible to all staff (RLS handles scope). */}
+        <AttachmentsSection
+          orderId={order.id}
+          companyId={order.company_id}
+          forceOpen={forceAll}
+          defaultOpen={false}
+        />
         <HistorySection
           orderId={order.id}
           companyId={order.company_id}
