@@ -46,6 +46,7 @@ import {
   Settings,
   Activity,
   ScrollText,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -192,6 +193,12 @@ const NAV: NavSection[] = [
         href: "/admin/platform/cms-blog",
         icon: Newspaper,
         sub: "Articles, SEO, thought leadership",
+      },
+      {
+        title: "Platform emails",
+        href: "/admin/platform/messaging-templates",
+        icon: Mail,
+        sub: "Subscription receipts, trial reminders, owner welcome",
       },
     ],
   },
