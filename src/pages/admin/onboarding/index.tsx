@@ -35,7 +35,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
+import { captureException } from "@/lib/observability";
 
 interface CompanyForm {
   // Basics
@@ -112,6 +113,26 @@ const STEPS = [
 
 type StepId = typeof STEPS[number]["id"];
 
+// ONB-B (task #217, 2026-05-25): pure helper - is this step's
+// key data already present on the companies row?  Drives the
+// completion checklist on the Welcome step + the resume-at-last-
+// incomplete CTA. Welcome and Done are never marked complete (they
+// have no persisted state of their own).
+function isStepComplete(stepId: StepId, form: CompanyForm): boolean {
+  switch (stepId) {
+    case "company":  return !!(form.company_name.trim() && form.email.trim());
+    case "address":  return !!(form.address_line1.trim() && form.city.trim());
+    case "branding": return !!form.primary_color && form.primary_color !== "#9333ea";
+    case "banking":  return !!form.bank_name.trim();
+    case "vat":      return form.vat_registered ? !!form.vat_number.trim() : true; // not-registered is a real answer
+    case "email":    return false; // tracked in email_provider_settings, not on the form
+    case "clients":  return false; // tracked via clients table count, not on the form
+    case "welcome":
+    case "done":
+    default:         return false;
+  }
+}
+
 function OnboardingWizard() {
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth() as any;
@@ -124,6 +145,23 @@ function OnboardingWizard() {
   const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // ONB-B: ?step=<id> deep-linking. Lets support / Settings link
+  // straight into a specific step without forcing the operator
+  // through the wizard from scratch. Only honoured for known step
+  // ids and only on the first router-ready render so a manual
+  // setStep() inside the wizard isn't overwritten.
+  const [stepLinkApplied, setStepLinkApplied] = useState(false);
+  useEffect(() => {
+    if (stepLinkApplied || !router.isReady) return;
+    const q = router.query.step;
+    const candidate = Array.isArray(q) ? q[0] : q;
+    if (!candidate) { setStepLinkApplied(true); return; }
+    if (STEPS.some((s) => s.id === candidate)) {
+      setStep(candidate as StepId);
+    }
+    setStepLinkApplied(true);
+  }, [router.isReady, router.query.step, stepLinkApplied]);
 
   // Initial load: pre-populate the wizard with whatever's already on
   // the companies row (signup may have stamped name + email, and a
@@ -183,7 +221,12 @@ function OnboardingWizard() {
   // Each step's "Save & continue" only persists the slice of fields
   // it owns. Keeps the round-trip small and means a partial save can't
   // accidentally clobber a later step's data with stale values.
-  const saveStep = async (patch: Partial<CompanyForm>): Promise<boolean> => {
+  //
+  // ONB-B: success now emits a short "Saved" toast so the operator
+  // gets a real ack instead of a silent re-render. Errors route
+  // through captureException too so they show up in Sentry with the
+  // step id tagged.
+  const saveStep = async (patch: Partial<CompanyForm>, stepLabel?: string): Promise<boolean> => {
     if (!companyId) return false;
     setSaving(true);
     try {
@@ -195,8 +238,15 @@ function OnboardingWizard() {
         .eq("id", companyId);
       if (error) throw error;
       refreshProfile?.();
+      toast({
+        title: stepLabel ? `${stepLabel} saved` : "Saved",
+        description: "You can edit any of this later in Settings.",
+      });
       return true;
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/onboarding", step: stepLabel || step, companyId: companyId || "" },
+      });
       toast({
         title: "Couldn't save",
         description: e?.message || "Try again.",
@@ -223,6 +273,9 @@ function OnboardingWizard() {
     const { error } = await onboardingProgressService.markComplete(companyId);
     setSaving(false);
     if (error) {
+      captureException(new Error(error), {
+        tags: { route: "/admin/onboarding", step: "finalize", companyId },
+      });
       toast({
         title: "Couldn't finish setup",
         description: error,
@@ -232,6 +285,33 @@ function OnboardingWizard() {
     }
     refreshProfile?.();
     router.push(slug ? `/${slug}/admin/dashboard` : "/admin/dashboard");
+  };
+
+  // ONB-B: "Skip the wizard" path now confirms first. Pre-fix one
+  // mis-tap on the small underlined link silently dropped the
+  // operator onto the dashboard with onboarding_completed_at set
+  // and no data captured. The hurdle is one extra OK to stop that.
+  const skipWizardWithConfirm = () => {
+    if (!window.confirm(
+      "Skip the setup wizard and go straight to the dashboard?\n\n"
+      + "You can finish setup later from Settings, but quotes and "
+      + "invoices won't have your business details on them until you do.",
+    )) return;
+    finalizeAndExit();
+  };
+
+  // ONB-B: jump to the first step whose data isn't yet on the
+  // companies row. Skips Welcome + Done; if everything else is
+  // complete, lands on Done so the operator can finish.
+  const resumeAtFirstIncomplete = () => {
+    const candidates: StepId[] = ["company", "address", "branding", "vat"];
+    for (const id of candidates) {
+      if (!isStepComplete(id, form)) {
+        setStep(id);
+        return;
+      }
+    }
+    setStep("done");
   };
 
   if (loading) {
@@ -275,14 +355,19 @@ function OnboardingWizard() {
             <div className="hidden sm:flex items-center justify-between mt-3 px-1">
               {STEPS.map((s, idx) => {
                 const Icon = s.icon;
-                const done = idx < stepIndex;
+                const past = idx < stepIndex;
                 const active = idx === stepIndex;
+                // ONB-B: any step with persisted data is now clickable
+                // too, so a user who came back via ?step=branding can
+                // hop back to address without rewinding the whole flow.
+                const reachable = past || active || isStepComplete(s.id, form);
+                const done = past || isStepComplete(s.id, form);
                 return (
                   <button
                     key={s.id}
                     type="button"
-                    disabled={idx > stepIndex}
-                    onClick={() => idx <= stepIndex && setStep(s.id)}
+                    disabled={!reachable}
+                    onClick={() => reachable && setStep(s.id)}
                     className={`flex items-center gap-1 text-[11px] transition ${
                       active
                         ? "text-orange-600 font-semibold"
@@ -305,11 +390,14 @@ function OnboardingWizard() {
               {step === "welcome" && (
                 <WelcomeStep
                   companyName={form.company_name}
+                  form={form}
                   onStart={goNext}
+                  onResume={resumeAtFirstIncomplete}
+                  onJumpTo={(id) => setStep(id)}
                   onSkipToImports={() =>
                     router.push(slug ? `/${slug}/admin/onboarding/imports` : "/admin/onboarding/imports")
                   }
-                  onSkipAll={finalizeAndExit}
+                  onSkipAll={skipWizardWithConfirm}
                   saving={saving}
                 />
               )}
@@ -329,7 +417,7 @@ function OnboardingWizard() {
                       website: form.website.trim() || null as any,
                       registration_number: form.registration_number.trim() || null as any,
                       tax_number: form.tax_number.trim() || null as any,
-                    });
+                    }, "Business basics");
                     if (ok) goNext();
                   }}
                 />
@@ -351,7 +439,7 @@ function OnboardingWizard() {
                       country: form.country.trim() || null as any,
                       headquarters_lat: form.headquarters_lat,
                       headquarters_lng: form.headquarters_lng,
-                    });
+                    }, "Kitchen address");
                     if (ok) goNext();
                   }}
                 />
@@ -368,7 +456,7 @@ function OnboardingWizard() {
                       primary_color: form.primary_color || null as any,
                       secondary_color: form.secondary_color || null as any,
                       logo_url: form.logo_url.trim() || null as any,
-                    });
+                    }, "Branding");
                     if (ok) goNext();
                   }}
                 />
@@ -388,7 +476,7 @@ function OnboardingWizard() {
                       bank_branch_code: form.bank_branch_code.trim() || null as any,
                       bank_account_type: form.bank_account_type || null as any,
                       eft_instructions: form.eft_instructions.trim() || null as any,
-                    });
+                    }, "Banking");
                     if (ok) goNext();
                   }}
                   onSkip={goNext}
@@ -406,7 +494,7 @@ function OnboardingWizard() {
                       vat_registered: form.vat_registered,
                       vat_number: form.vat_registered ? (form.vat_number.trim() || null as any) : null as any,
                       vat_rate: form.vat_registered ? (form.vat_rate ?? 15) : null as any,
-                    });
+                    }, "VAT");
                     if (ok) goNext();
                   }}
                 />
@@ -447,14 +535,32 @@ function OnboardingWizard() {
 // ── Step components ──────────────────────────────────────────────────
 
 function WelcomeStep({
-  companyName, onStart, onSkipToImports, onSkipAll, saving,
+  companyName, form, onStart, onResume, onJumpTo, onSkipToImports, onSkipAll, saving,
 }: {
   companyName: string;
+  form: CompanyForm;
   onStart: () => void;
+  onResume: () => void;
+  onJumpTo: (id: StepId) => void;
   onSkipToImports: () => void;
   onSkipAll: () => void;
   saving: boolean;
 }) {
+  // ONB-B: derive completion against the live form so a returning
+  // user sees what they've already entered. Welcome + Done sit
+  // outside this list - they're navigation steps, not data.
+  const checklist: Array<{ id: StepId; label: string; helper: string }> = [
+    { id: "company",  label: "Business basics",  helper: "name, contact details, registration" },
+    { id: "address",  label: "Kitchen address",  helper: "drives delivery distance + driver routing" },
+    { id: "branding", label: "Branding",         helper: "logo + brand colours for your client portal" },
+    { id: "banking",  label: "Banking",          helper: "optional - enables EFT as a payment option" },
+    { id: "vat",      label: "VAT registration", helper: "changes your invoice document title" },
+    { id: "email",    label: "Email sender",     helper: "use your domain or the shared CateringMS sender" },
+    { id: "clients",  label: "Import clients",   helper: "optional - bulk upload your contact list" },
+  ];
+  const completed = checklist.filter((c) => isStepComplete(c.id, form)).length;
+  const hasAnyProgress = completed > 0;
+
   return (
     <div className="space-y-5">
       <div className="text-center">
@@ -462,39 +568,64 @@ function WelcomeStep({
           <Sparkles className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-          Welcome{companyName ? `, ${companyName}` : ""}
+          {hasAnyProgress ? "Welcome back" : "Welcome"}{companyName ? `, ${companyName}` : ""}
         </h2>
         <p className="text-slate-600 mt-2 max-w-lg mx-auto">
-          Let&apos;s get your business set up. This takes about 5 minutes. We&apos;ll cover the
-          basics you need before you can quote, invoice and run your first event.
+          {hasAnyProgress
+            ? `You've already filled in ${completed} of ${checklist.length} steps. Pick up where you left off or jump to any step below.`
+            : "Let's get your business set up. This takes about 5 minutes. We'll cover the basics you need before you can quote, invoice and run your first event."}
         </p>
       </div>
 
+      {/* ONB-B: live completion checklist. Each row links straight
+          to its step so the operator doesn't have to walk the whole
+          wizard to fix one missed field. */}
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-          What we&apos;ll cover
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What we&apos;ll cover
+          </p>
+          {hasAnyProgress && (
+            <p className="text-xs tabular-nums text-slate-500">
+              {completed} / {checklist.length} complete
+            </p>
+          )}
+        </div>
         <ul className="space-y-2 text-sm text-slate-700">
-          {[
-            "Business basics: name, contact details, registration",
-            "Where you cook from: drives delivery distance + driver routing",
-            "Branding: logo + brand colours for your client portal",
-            "Banking (optional): enables EFT as a payment option",
-            "VAT registration: changes your invoice document title",
-            "Import existing clients (optional): bulk upload your contact list",
-          ].map((line) => (
-            <li key={line} className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-              <span>{line}</span>
-            </li>
-          ))}
+          {checklist.map((c) => {
+            const done = isStepComplete(c.id, form);
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => onJumpTo(c.id)}
+                  disabled={saving}
+                  className="w-full text-left flex items-start gap-2 px-2 -mx-2 py-1 rounded hover:bg-white transition-colors"
+                >
+                  <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${done ? "text-emerald-600" : "text-slate-300"}`} />
+                  <span className="flex-1">
+                    <span className={done ? "font-medium text-slate-900" : "text-slate-700"}>{c.label}</span>
+                    <span className="text-slate-500">: {c.helper}</span>
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-slate-300 flex-shrink-0 mt-1" />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button onClick={onStart} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
-          Let&apos;s go <ArrowRight className="w-4 h-4 ml-2" />
-        </Button>
+        {hasAnyProgress ? (
+          <Button onClick={onResume} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
+            <PlayCircle className="w-4 h-4 mr-2" />
+            Resume at next step
+          </Button>
+        ) : (
+          <Button onClick={onStart} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
+            Let&apos;s go <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={onSkipToImports}
@@ -1179,8 +1310,18 @@ function NavRow({
 }
 
 export default function ProtectedOnboarding() {
+  // ONB-B (task #217, 2026-05-25): admit OWNER. The wizard is the
+  // first thing a brand-new tenant sees after signup, and the signup
+  // user is typically OWNER (set in profileBootstrapService). Pre-
+  // ONB-B the page hardcoded SUPER_ADMIN + COMPANY_ADMIN + ADMIN
+  // which 403'd the founder off their own onboarding flow on day 1.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <OnboardingWizard />
     </ProtectedRoute>
   );
