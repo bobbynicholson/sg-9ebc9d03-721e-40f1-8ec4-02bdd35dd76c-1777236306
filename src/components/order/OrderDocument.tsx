@@ -359,7 +359,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   const forceAll = mode === "print";
 
   return (
-    <div className={mode === "print" ? "max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "max-w-5xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
+    <div className={mode === "print" ? "max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "max-w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
       {/* Toolbar - hidden in print mode */}
       {mode !== "print" && (
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
