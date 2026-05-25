@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Loader2, Download, Clock, Route, MapPin, ChevronDown, ChevronRight, RefreshCw,
   Pencil, Trash2, Check, CircleCheck, CircleDashed, BadgeCheck,
+  TrendingUp, TrendingDown, Moon, AlertTriangle, CheckCheck,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -97,8 +98,18 @@ interface SettlementRow {
 export default function ProtectedDriverSettlementPage() {
   // Pay-data privacy: tightened to COMPANY_ADMIN+ to match the
   // canAccessFinance gate on the Wages section in AdminNav.
+  // DRV-C (task #216, 2026-05-25): OWNER persona was being bounced
+  // off their own settlement page even though OWNER is in
+  // FULL_COMPANY_ACCESS_ROLES (authGuards.ts line 147-151).
+  // Admitting OWNER + ADMIN brings the gate back in line with
+  // canAccessFinance.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <DriverSettlementPage />
     </ProtectedRoute>
   );
@@ -142,6 +153,16 @@ function DriverSettlementPage() {
     new Map(),
   );
   const [settledFilter, setSettledFilter] = useState<"all" | "unsettled" | "settled">("all");
+  // DRV-C (task #216, 2026-05-25): previous-period totals so the
+  // chip row can show period-over-period deltas. Same shape as the
+  // current totals just for the immediately prior window of the
+  // same length (e.g. last_30 → the 30 days before that). Updates
+  // alongside the main bulk-totals effect.
+  const [prevTotals, setPrevTotals] = useState<{
+    hours: number; hourlyPay: number; grand: number;
+  } | null>(null);
+  const [bulkPayBusy, setBulkPayBusy] = useState(false);
+
   const [payoutDialog, setPayoutDialog] = useState<null | {
     driverId: string;
     driverName: string;
@@ -290,6 +311,46 @@ function DriverSettlementPage() {
     // We deliberately depend on rows.length (not rows itself) so the
     // recompute fires when the list shape changes, not on every
     // setRows in the inner effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id, from, to, rows.length, refreshTick]);
+
+  // DRV-C (task #216, 2026-05-25): previous-period totals fetch.
+  // Same shape as the bulk current-period call, range shifted by
+  // the period length so "Last 30 days" reads the 30 days before
+  // that. Powers the period-over-period delta chip. Best-effort:
+  // a failure here just hides the delta - the page still renders.
+  useEffect(() => {
+    if (!user?.company_id || rows.length === 0) { setPrevTotals(null); return; }
+    let cancelled = false;
+    const driverIds = rows.map((r) => r.driver.id);
+    (async () => {
+      try {
+        const fromMs = new Date(from).getTime();
+        const toMs = new Date(to).getTime();
+        const span = Math.max(86_400_000, toMs - fromMs);
+        const prevTo = toLocalISO(new Date(fromMs - 86_400_000));
+        const prevFrom = toLocalISO(new Date(fromMs - 86_400_000 - span));
+        const totalsByDriver = await driverPayService.getBulkPayTotals({
+          companyId: user.company_id,
+          driverIds,
+          range: { from: prevFrom, to: prevTo },
+        });
+        if (cancelled) return;
+        let hours = 0, hourlyPay = 0, grand = 0;
+        for (const t of totalsByDriver.values()) {
+          hours += t.hours_total;
+          hourlyPay += t.hourly_pay;
+          grand += t.grand_total;
+        }
+        setPrevTotals({ hours, hourlyPay, grand });
+      } catch (e) {
+        captureException(e, {
+          tags: { route: "/admin/driver-settlement", step: "prev-period-totals", companyId: user?.company_id },
+        });
+        if (!cancelled) setPrevTotals(null);
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, from, to, rows.length, refreshTick]);
 
@@ -527,6 +588,88 @@ function DriverSettlementPage() {
     }
   };
 
+  // DRV-C (task #216, 2026-05-25): bulk-mark-all-paid. Walks every
+  // unsettled row with a positive total, drafts the payout + flips
+  // it to paid using the eft default method. Same audit trail as
+  // the per-row dialog; the confirm hurdle is the window.confirm.
+  // Optimistic local map updates after each success so the table
+  // re-renders progressively.
+  const bulkMarkAllPaid = async () => {
+    if (!user?.company_id) return;
+    const candidates = rows.filter((r) => {
+      const t = r.summary?.totals;
+      if (!t || t.grand_total <= 0) return false;
+      return payoutsByDriver.get(r.driver.id)?.status !== "paid";
+    });
+    if (candidates.length === 0) {
+      toast({ title: "Nothing to settle", description: "Every driver with hours is already paid." });
+      return;
+    }
+    const owedSum = candidates.reduce((s, r) => s + (r.summary?.totals.grand_total || 0), 0);
+    if (!window.confirm(
+      `Mark all ${candidates.length} unsettled driver${candidates.length === 1 ? "" : "s"} as paid via EFT? `
+      + `Grand total ${formatR(owedSum)}. This writes one payout row per driver and is fully reversible.`,
+    )) return;
+    setBulkPayBusy(true);
+    let success = 0, failed = 0;
+    for (const r of candidates) {
+      try {
+        const t = r.summary!.totals;
+        const draft = await driverPayoutService.ensureDraft({
+          companyId: user.company_id,
+          driverId: r.driver.id,
+          periodFrom: from,
+          periodTo: to,
+          totals: {
+            hours_total: t.hours_total,
+            hourly_pay: t.hourly_pay,
+            distance_total_km: t.distance_total_km,
+            distance_pay: t.distance_pay,
+            callout_pay: t.callout_pay,
+            gross_total: t.grand_total,
+          },
+          actorUserId: user?.id,
+        });
+        if (!draft.ok || !draft.payout) throw new Error(draft.error || "draft failed");
+        const paid = await driverPayoutService.markPaid({
+          payoutId: draft.payout.id,
+          paidMethod: "eft",
+          paidReference: null,
+          paidNotes: "Bulk Mark all paid",
+          totals: {
+            hours_total: t.hours_total,
+            hourly_pay: t.hourly_pay,
+            distance_total_km: t.distance_total_km,
+            distance_pay: t.distance_pay,
+            callout_pay: t.callout_pay,
+            gross_total: t.grand_total,
+          },
+          actorUserId: user?.id,
+        });
+        if (!paid.ok || !paid.payout) throw new Error(paid.error || "mark-paid failed");
+        setPayoutsByDriver((prev) => {
+          const next = new Map(prev);
+          next.set(paid.payout!.driver_id, paid.payout!);
+          return next;
+        });
+        success += 1;
+      } catch (e: any) {
+        captureException(e, {
+          tags: { route: "/admin/driver-settlement", step: "bulk-mark-paid", companyId: user?.company_id, driverId: r.driver.id },
+        });
+        failed += 1;
+      }
+    }
+    setBulkPayBusy(false);
+    toast({
+      title: failed === 0 ? `Settled ${success} driver${success === 1 ? "" : "s"}` : `Settled ${success}, ${failed} failed`,
+      description: failed === 0
+        ? `Total ${formatR(owedSum)} marked as paid via EFT. Reverse any row from its chip.`
+        : "Reverse and retry the failed rows individually.",
+      variant: failed === 0 ? undefined : "destructive",
+    });
+  };
+
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -624,12 +767,130 @@ function DriverSettlementPage() {
                 >
                   <RefreshCw className="w-4 h-4 mr-2" /> Refresh
                 </Button>
+                {/* DRV-C: bulk Mark all paid. Walks every unsettled
+                    row with a positive total, drafts + flips each
+                    to paid via EFT in sequence. window.confirm is
+                    the hurdle - one click, then confirm. */}
+                <Button
+                  variant="outline"
+                  onClick={bulkMarkAllPaid}
+                  disabled={bulkPayBusy || rows.length === 0}
+                  title="Draft + mark all unsettled drivers as paid via EFT. Reversible per row."
+                  className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                >
+                  {bulkPayBusy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCheck className="w-4 h-4 mr-2" />
+                  )}
+                  Mark all paid
+                </Button>
                 <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="w-4 h-4 mr-2" /> Export CSV
                 </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* DRV-C (task #216, 2026-05-25): top intel chip row. Sits
+              above the KPI tile strip so the manager can read the
+              state of settlement at a glance:
+                - Owed: sum of grand_total across unsettled rows,
+                  red when > 0. Click to filter to unsettled.
+                - Dormant: drivers with zero hours + zero deliveries
+                  in this period. Surfaces forgotten staffers + the
+                  4 / 5 emptiness on the Spit Braai screenshot was
+                  exactly this signal.
+                - Δ Hours / Δ Grand: period-over-period deltas
+                  against the prior equal-length window. Green when
+                  up vs prev, slate when first period (no baseline).
+              */}
+          {(() => {
+            const unsettledRows = rows.filter((r) => {
+              const t = r.summary?.totals;
+              if (!t || t.grand_total <= 0) return false;
+              return payoutsByDriver.get(r.driver.id)?.status !== "paid";
+            });
+            const owed = unsettledRows.reduce(
+              (s, r) => s + (r.summary?.totals.grand_total || 0),
+              0,
+            );
+            const dormant = rows.filter((r) => {
+              if (r.loading || r.driver.is_removed || !r.driver.is_active) return false;
+              const t = r.summary?.totals;
+              return !t || (t.hours_total === 0 && t.distance_total_km === 0);
+            }).length;
+            const pct = (curr: number, prev: number | null | undefined) => {
+              if (prev == null) return null;
+              if (prev === 0) return curr > 0 ? 100 : null;
+              return Math.round(((curr - prev) / prev) * 100);
+            };
+            const hoursDelta = pct(totals.hours, prevTotals?.hours);
+            const grandDelta = pct(totals.grand, prevTotals?.grand);
+            const renderDelta = (label: string, d: number | null) => {
+              if (d == null) return null;
+              const positive = d > 0;
+              const neutral = d === 0;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`px-3 py-1.5 text-sm tabular-nums ${
+                    neutral
+                      ? "border-slate-200 text-slate-600 bg-slate-50"
+                      : positive
+                        ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                        : "border-rose-300 text-rose-700 bg-rose-50"
+                  }`}
+                >
+                  {neutral ? null : positive
+                    ? <TrendingUp className="w-3 h-3 mr-1" />
+                    : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {label} {d > 0 ? "+" : ""}{d}% vs prev
+                </Badge>
+              );
+            };
+            return (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {owed > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSettledFilter("unsettled")}
+                    className="inline-flex"
+                    title="Show only unsettled drivers"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="px-3 py-1.5 text-sm border-rose-300 text-rose-700 bg-rose-50 tabular-nums hover:bg-rose-100"
+                    >
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {formatR(owed)} owed across {unsettledRows.length} driver{unsettledRows.length === 1 ? "" : "s"}
+                    </Badge>
+                  </button>
+                )}
+                {owed === 0 && totals.active > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50"
+                  >
+                    <BadgeCheck className="w-3 h-3 mr-1" />
+                    All settled for this period
+                  </Badge>
+                )}
+                {dormant > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="px-3 py-1.5 text-sm border-slate-200 text-slate-600 bg-slate-50"
+                    title="Drivers on the roster with no shifts or deliveries in this window. Could be leave, manual logging or stale records."
+                  >
+                    <Moon className="w-3 h-3 mr-1" />
+                    {dormant} dormant
+                  </Badge>
+                )}
+                {renderDelta("Hours", hoursDelta)}
+                {renderDelta("Total", grandDelta)}
+              </div>
+            );
+          })()}
 
           {/* DRV-B: KPI strip.
               - "Active drivers" reads `active / roster` instead of
