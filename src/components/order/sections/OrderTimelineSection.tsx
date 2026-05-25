@@ -179,6 +179,42 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         ? steps[lastDoneIdx].label
         : "Awaiting confirmation";
 
+  // ODOC Wave D: stuck-stage detection. If the order is sitting at
+  // a step longer than is reasonable (and the event is approaching),
+  // we flag it. Thresholds are deliberately generous - we want to
+  // call attention, not noise the operator with false alarms.
+  const STUCK_THRESHOLDS_HOURS: Record<string, number> = {
+    created: 48,        // 2 days to get confirmed
+    confirmed: 0,       // no fixed SLA before prep starts - drives via event_date
+    prep: 24,           // prep should land in ready within a day
+    ready: 12,          // ready -> picked_up
+    picked_up: 4,       // collected -> at venue
+    arrived: 2,         // arrived -> POD
+    pod: 2,             // POD captured -> delivered status flip
+    delivered: 6,       // delivered -> setup started (if service)
+    setup: 6,           // setup -> service started
+    service_start: 8,   // service window
+    service_end: 2,     // service ended -> event complete
+    event_done: 24,     // event done -> departed venue
+    departed: 48,       // departed -> equipment back
+    equipment: 168,     // equipment back -> closed (admin closes)
+  };
+  const hoursSince = (iso: string | null | undefined): number | null => {
+    if (!iso) return null;
+    return (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  };
+  const currentStep = lastDoneIdx >= 0 ? steps[lastDoneIdx] : null;
+  const currentHoursSince = currentStep ? hoursSince(currentStep.at) : null;
+  const stuckThreshold = currentStep ? STUCK_THRESHOLDS_HOURS[currentStep.key] : undefined;
+  const isStuck = !cancelled && !postponed && currentHoursSince != null && stuckThreshold != null && stuckThreshold > 0 && currentHoursSince > stuckThreshold && order.status !== "completed" && order.status !== "delivered";
+
+  const fmtRelative = (h: number): string => {
+    if (h < 1) return `${Math.round(h * 60)}m ago`;
+    if (h < 24) return `${Math.round(h)}h ago`;
+    const days = Math.round(h / 24);
+    return `${days}d ago`;
+  };
+
   // Lane accent palette - matches each section's colour so the
   // viewer sees at a glance which team owns which step.
   const laneClass = (lane: Step["lane"], reached: boolean) => {
@@ -211,6 +247,20 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
             <div className="text-xs">
               <p className="font-semibold text-rose-900">Order cancelled</p>
               <p className="text-rose-700 mt-0.5">{fmtStamp(order.cancelled_at)}</p>
+            </div>
+          </div>
+        )}
+        {/* Stuck-stage warning - timeline-scoped (the doc-wide
+            banners cover terminal states). Only fires when the
+            current step has dwelt longer than its threshold. */}
+        {isStuck && currentStep && (
+          <div className="flex items-start gap-2 p-2.5 rounded border border-amber-300 bg-amber-50">
+            <Pause className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-semibold text-amber-900">Stuck at {currentStep.label}</p>
+              <p className="text-amber-800 mt-0.5">
+                {fmtRelative(currentHoursSince!)} - typical move-on within {stuckThreshold}h. Worth a chase.
+              </p>
             </div>
           </div>
         )}
@@ -253,13 +303,24 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
                     <p className={`text-sm ${reached ? "font-semibold text-slate-900" : "text-slate-500"}`}>
                       {step.label}
-                      {isCurrent && !cancelled && (
+                      {isCurrent && !cancelled && !isStuck && (
                         <span className="ml-2 text-[10px] uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">Now</span>
                       )}
+                      {isCurrent && isStuck && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5">Stuck</span>
+                      )}
                     </p>
-                    <p className="text-xs tabular-nums text-slate-500">
-                      {reached ? fmtStamp(step.at) : "—"}
-                    </p>
+                    <div className="flex items-baseline gap-1.5 text-xs tabular-nums text-slate-500">
+                      {reached && (
+                        <span
+                          className="text-[10px] text-slate-400"
+                          title={`Stamped: ${fmtStamp(step.at)}`}
+                        >
+                          {fmtRelative(hoursSince(step.at)!)}
+                        </span>
+                      )}
+                      <span>{reached ? fmtStamp(step.at) : "—"}</span>
+                    </div>
                   </div>
                 </div>
               </li>

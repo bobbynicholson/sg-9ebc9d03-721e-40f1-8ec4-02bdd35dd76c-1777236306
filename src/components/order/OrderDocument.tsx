@@ -213,22 +213,77 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     };
   }, [orderId, load]);
 
-  // ODOC: scroll to a section by id, accounting for the sticky nav
-  // strip (about 56px high). Used by both auto-scroll on mount and the
-  // anchor menu taps.
+  // ODOC: scroll to a section by id. Sections set scroll-margin-top
+  // via CollapsibleSection so the browser handles the offset for the
+  // sticky nav without a magic number here.
   const scrollToSection = useCallback((sectionId: string) => {
     const el = document.getElementById(sectionId);
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 64;
-    window.scrollTo({ top, behavior: "smooth" });
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Reflect the section in the URL hash so deep-links are share-able.
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      window.history.replaceState(null, "", `#${sectionId}`);
+    }
   }, []);
 
-  // ODOC: scroll to primary section on first render.
+  // ODOC Wave D: track which section is in view as the user scrolls
+  // (IntersectionObserver). Drives the anchor nav chip highlight and
+  // the URL hash. Cheap - 10 sections, root margin tuned so only one
+  // entry is "active" at a time.
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   useEffect(() => {
     if (loading || !order || mode === "print") return;
-    const t = setTimeout(() => scrollToSection(`section-${primary}`), 300);
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
+    const sectionIds = [
+      "section-header", "section-timeline", "section-kitchen",
+      "section-shopping", "section-driver", "section-waiter",
+      "section-cleaning", "section-admin", "section-history",
+    ];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Pick the entry closest to the top of the viewport that's
+        // intersecting. Falls back to last-known active otherwise.
+        const visible = entries.filter((e) => e.isIntersecting).sort(
+          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+        );
+        if (visible.length > 0) {
+          const id = visible[0].target.id;
+          setActiveSectionId(id);
+          // Reflect in URL hash without scroll-jump
+          if (window.history?.replaceState) {
+            window.history.replaceState(null, "", `#${id}`);
+          }
+        }
+      },
+      { rootMargin: "-72px 0px -60% 0px", threshold: [0, 0.1, 0.5] },
+    );
+    for (const id of sectionIds) {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [loading, order, mode]);
+
+  // ODOC: scroll to primary section on first render. Honours hash
+  // if the URL already has one (deep-link from elsewhere).
+  useEffect(() => {
+    if (loading || !order || mode === "print") return;
+    const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    const target = hash && hash.startsWith("section-") ? hash : `section-${primary}`;
+    const t = setTimeout(() => scrollToSection(target), 300);
     return () => clearTimeout(t);
   }, [loading, order, primary, mode, scrollToSection]);
+
+  // ODOC Wave D: document title - "ORD-12345 · Smith Family · CateringMS"
+  // so the browser tab strip is identifiable when many orders are open.
+  useEffect(() => {
+    if (typeof document === "undefined" || !order) return;
+    const bits: string[] = [];
+    if (order.order_number) bits.push(`#${order.order_number}`);
+    if (order.client_name) bits.push(order.client_name);
+    bits.push("CateringMS");
+    document.title = bits.join(" · ");
+  }, [order]);
 
   // ODOC: anchor nav strip - one chip per section. Tap to scroll.
   // The viewer's primary section is visually marked. Order matches
@@ -316,16 +371,20 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             {navItems.map((item) => {
               const Icon = item.icon;
               const isPrimary = `section-${primary}` === item.id;
+              const isActive = activeSectionId === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => scrollToSection(item.id)}
+                  aria-current={isActive ? "location" : undefined}
                   className={
-                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 " +
-                    (isPrimary
+                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 " +
+                    (isActive
                       ? "bg-indigo-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200")
+                      : isPrimary
+                        ? "bg-indigo-100 text-indigo-800 ring-1 ring-indigo-300"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200")
                   }
                   title={`Jump to ${item.label}`}
                 >

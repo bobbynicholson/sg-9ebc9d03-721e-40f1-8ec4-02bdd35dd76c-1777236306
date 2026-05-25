@@ -55,7 +55,10 @@ export function CollapsibleSection({
   return (
     <section
       id={id}
-      className={`relative rounded-xl border bg-white shadow-sm overflow-hidden ${highlight ? `ring-2 ${a.ring}` : ""}`}
+      // ODOC Wave D: scroll-margin-top so anchor scroll clears the
+      // sticky nav (72px on mobile incl. safe-area, 64px desktop).
+      style={{ scrollMarginTop: "72px" }}
+      className={`relative rounded-xl border bg-white shadow-sm overflow-hidden scroll-mt-[72px] ${highlight ? `ring-2 ring-offset-1 ${a.ring}` : ""}`}
     >
       {/* Coloured left stripe so the eye locates the section type at a glance */}
       <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${a.bar}`} aria-hidden />
@@ -63,8 +66,9 @@ export function CollapsibleSection({
         type="button"
         onClick={() => { if (!forceOpen) setOpen((v) => !v); }}
         disabled={forceOpen}
-        className={`w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"}`}
+        className={`w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1`}
         aria-expanded={isOpen}
+        aria-controls={`${id}-body`}
       >
         <div className="min-w-0 flex-1 pl-3">
           <h2 className={`text-base sm:text-lg font-semibold ${a.text} flex items-center gap-2`}>
@@ -82,7 +86,7 @@ export function CollapsibleSection({
         )}
       </button>
       {isOpen && (
-        <div className={`px-4 sm:px-5 pb-5 pl-7 sm:pl-8 ${a.bg}`}>{children}</div>
+        <div id={`${id}-body`} className={`px-4 sm:px-5 pb-5 pl-7 sm:pl-8 ${a.bg}`}>{children}</div>
       )}
     </section>
   );
