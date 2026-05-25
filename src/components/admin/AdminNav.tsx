@@ -53,6 +53,7 @@ import {
   Sparkles,
   Receipt,
   Wallet,
+  Star,
   HardHat,
   Activity,
   Shield,
@@ -276,6 +277,9 @@ export function AdminNav({ className }: AdminNavProps) {
         // Wave 70.45b - booking packages (multi-day event grouping).
         { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
+        // RVW-A: client reviews surface. Reads delivery_feedback
+        // (rated via /client-portal/dashboard or future magic-link).
+        { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
       ],
     },
     {

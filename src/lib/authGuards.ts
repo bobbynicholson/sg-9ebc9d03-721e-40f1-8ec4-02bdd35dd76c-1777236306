@@ -45,6 +45,9 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/notifications",
     "/admin/notification-settings",
     "/admin/regions",
+    // RVW-A: client reviews are part of the branch lifecycle - region
+    // managers need to see their branch's ratings + chase open follow-ups.
+    "/admin/reviews",
     "/team-portal/*",
   ],
   [UserRole.SALES_ADMIN]: [
@@ -100,6 +103,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/integrations",
     "/admin/settings",
     "/admin/onboarding",
+    // RVW-A: client reviews surface available to ADMIN role.
+    "/admin/reviews",
     "/team-portal/*",
   ],
   [UserRole.KITCHEN_STAFF]: [
