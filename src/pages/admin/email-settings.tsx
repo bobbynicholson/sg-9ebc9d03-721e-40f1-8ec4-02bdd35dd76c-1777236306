@@ -37,6 +37,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
 
 type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
 
@@ -118,6 +119,15 @@ function EmailSettingsPage() {
   const [smtpPass, setSmtpPass] = useState("");
   const [mailchimpApiKey, setMailchimpApiKey] = useState("");
   const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
+  // ES-B (task #221, 2026-05-25): custom recipient for the test
+  // send. Pre-ES-B the test always landed in row.from_email so an
+  // operator wanting to see what an actual client sees had to
+  // change the from address. Now they can punch in any inbox.
+  const [testRecipient, setTestRecipient] = useState("");
+  // ES-B: rolling 7-day send count per local day. Drives the
+  // sparkline in the Today's send count tile so the operator
+  // can spot a usage trend at a glance.
+  const [last7Counts, setLast7Counts] = useState<Array<{ day: string; count: number }>>([]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -179,9 +189,43 @@ function EmailSettingsPage() {
         .eq("provider", "mailchimp")
         .maybeSingle();
       if (mcError) {
-        console.error("[admin/email-settings] mailchimp settings fetch failed:", mcError);
+        captureException(mcError, {
+          tags: { route: "/admin/email-settings", step: "load-mailchimp", companyId },
+        });
       }
       if (mc) setMailchimpAudienceId(mc.mailchimp_audience_id || "");
+
+      // ES-B (task #221, 2026-05-25): pull the last 7 days of
+      // outgoing_email_log rows so the sparkline has a real series
+      // to render. Cheap: only id + sent_at, 7 days max per tenant
+      // bounded by the daily cap.
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+      const { data: logRows, error: logErr } = await supabase
+        .from("outgoing_email_log")
+        .select("sent_at")
+        .eq("company_id", companyId)
+        .gte("sent_at", sevenDaysAgo.toISOString())
+        .limit(10_000);
+      if (logErr) {
+        captureException(logErr, {
+          tags: { route: "/admin/email-settings", step: "load-7d-sends", companyId },
+        });
+      } else if (logRows) {
+        const buckets = new Map<string, number>();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          buckets.set(toLocalISO(d), 0);
+        }
+        for (const r of logRows as Array<{ sent_at: string | null }>) {
+          if (!r.sent_at) continue;
+          const day = toLocalISO(new Date(r.sent_at));
+          if (buckets.has(day)) buckets.set(day, (buckets.get(day) || 0) + 1);
+        }
+        setLast7Counts(Array.from(buckets.entries()).map(([day, count]) => ({ day, count })));
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -256,6 +300,9 @@ function EmailSettingsPage() {
           : "Provider config updated.",
       });
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "save-provider", companyId },
+      });
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -304,14 +351,22 @@ function EmailSettingsPage() {
       return;
     }
     setTesting(true);
+    // ES-B (task #221, 2026-05-25): if a custom recipient is set,
+    // send the test there instead of the from address. Lets the
+    // operator preview what a real client sees without flipping
+    // their own from_email.
+    const targetTo = (testRecipient.trim() || row.from_email)!;
     try {
       const res = await fetch("/api/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId, to: row.from_email }),
+        body: JSON.stringify({ companyId, to: targetTo }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
+        captureException(new Error(json.error || `HTTP ${res.status}`), {
+          tags: { route: "/admin/email-settings", step: "send-test", companyId },
+        });
         toast({
           title: "Test failed",
           description: json.error || "Could not send test email. Check provider config.",
@@ -321,9 +376,12 @@ function EmailSettingsPage() {
       }
       toast({
         title: "Test sent",
-        description: `Inbox: ${row.from_email}. Check spam if it doesn't appear in 30 seconds.`,
+        description: `Inbox: ${targetTo}. Check spam if it doesn't appear in 30 seconds.`,
       });
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "send-test-network", companyId },
+      });
       toast({
         title: "Test failed",
         description: e?.message || "Network error",
@@ -350,6 +408,9 @@ function EmailSettingsPage() {
       setMailchimpApiKey(""); // clear local field after save
       toast({ title: "Mailchimp saved", description: "Audience linked. Bulk sends now route through Mailchimp." });
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "save-mailchimp", companyId },
+      });
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
     }
   };
@@ -404,6 +465,54 @@ function EmailSettingsPage() {
               <p className="text-xs text-slate-500 mt-2">
                 Your <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge> plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-purple-600">Pricing</Link>.
               </p>
+
+              {/* ES-B (task #221, 2026-05-25): 7-day send sparkline.
+                  Reads from outgoing_email_log so the operator can
+                  spot a trend before they hit the cap. Inline SVG to
+                  avoid a chart-lib dep for one chart. */}
+              {last7Counts.length > 0 && (() => {
+                const max = Math.max(1, ...last7Counts.map((c) => c.count));
+                const W = 280;
+                const H = 40;
+                const stepX = W / Math.max(1, last7Counts.length - 1);
+                const points = last7Counts.map((c, i) => {
+                  const x = i * stepX;
+                  const y = H - (c.count / max) * (H - 4) - 2;
+                  return `${x.toFixed(1)},${y.toFixed(1)}`;
+                }).join(" ");
+                const total7 = last7Counts.reduce((s, c) => s + c.count, 0);
+                return (
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                        Last 7 days
+                      </p>
+                      <p className="text-sm font-medium text-slate-700 tabular-nums">
+                        {total7} sent · peak {max}/day
+                      </p>
+                    </div>
+                    <svg width={W} height={H} className="overflow-visible">
+                      <polyline
+                        fill="none"
+                        stroke="#2563eb"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points={points}
+                      />
+                      {last7Counts.map((c, i) => {
+                        const x = i * stepX;
+                        const y = H - (c.count / max) * (H - 4) - 2;
+                        return (
+                          <circle key={c.day} cx={x} cy={y} r={2} fill="#2563eb">
+                            <title>{c.day}: {c.count} sent</title>
+                          </circle>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -612,6 +721,39 @@ function EmailSettingsPage() {
                 </div>
               )}
 
+              {/* ES-B (task #221, 2026-05-25): surface the last
+                  test error if the most recent test failed. Pre-ES-B
+                  the column was populated server-side but never
+                  shown - so an operator had no breadcrumb when a
+                  test silently failed weeks ago. */}
+              {row.last_test_error && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900 flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">Last test failed</p>
+                    <p className="break-words">{row.last_test_error}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ES-B: custom test-recipient input. Defaults blank
+                  so a quick test still lands in the from address;
+                  fill in any inbox to preview what a real client
+                  sees. */}
+              <div className="pt-3 border-t border-slate-100">
+                <Label htmlFor="test_recipient">
+                  Send test to (optional)
+                  <InfoTooltip content={"Leave blank to send the test to your from address. Drop in any inbox here to see what an actual client would receive."} />
+                </Label>
+                <Input
+                  id="test_recipient"
+                  type="email"
+                  value={testRecipient}
+                  onChange={(e) => setTestRecipient(e.target.value)}
+                  placeholder={row.from_email || "you@example.com"}
+                />
+              </div>
+
               <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
                 <p className="text-xs text-slate-500 truncate">
                   {row.last_test_sent_at && (
@@ -624,7 +766,7 @@ function EmailSettingsPage() {
                     disabled={testing || saving || !row.from_email || hasUnsavedChanges}
                     variant="outline"
                     className="gap-2"
-                    title={hasUnsavedChanges ? "Save your changes first, then test." : "Send a test email to your own from address."}
+                    title={hasUnsavedChanges ? "Save your changes first, then test." : `Send a test email to ${testRecipient.trim() || row.from_email}`}
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                     Send test email
@@ -810,8 +952,17 @@ function ProviderTile({
 }
 
 export default function ProtectedEmailSettings() {
+  // ES-B (task #221, 2026-05-25): admit OWNER. Pre-ES-B the page
+  // hardcoded SUPER_ADMIN + COMPANY_ADMIN + ADMIN, so the OWNER
+  // persona was 403'd off their own email/integration page. Same
+  // regression pattern as the rest of /admin.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <EmailSettingsPage />
     </ProtectedRoute>
   );
