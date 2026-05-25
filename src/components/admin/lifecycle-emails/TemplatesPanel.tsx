@@ -47,6 +47,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import {
   renderTemplate,
+  TEMPLATE_REGISTRY,
   type MessageChannel,
   type MessageDelivery,
 } from "@/lib/messageTemplates/registry";
@@ -127,6 +128,12 @@ export function TemplatesPanel() {
   const whatsappCount = rows.filter((r) => r.channel === "whatsapp").length;
   const automatedCount = rows.filter((r) => (r.delivery || "manual") === "automated").length;
   const manualCount = rows.filter((r) => (r.delivery || "manual") === "manual").length;
+  // LCF-R: the service filters out scope='platform' templates so the
+  // tenant editor never shows subscription receipts / owner welcome
+  // etc. We show the count quietly in the footer so the operator
+  // knows the editor isn't pretending those don't exist.
+  const totalRegistry = (TEMPLATE_REGISTRY).length;
+  const platformOwnedCount = totalRegistry - rows.length;
 
   return (
     <>
@@ -380,6 +387,13 @@ export function TemplatesPanel() {
             </div>
           ))}
         </div>
+      )}
+
+      {platformOwnedCount > 0 && (
+        <p className="text-[11px] text-slate-500 text-center mt-6">
+          {platformOwnedCount} platform-owned template{platformOwnedCount === 1 ? "" : "s"}
+          {" "}(subscription receipts, trial reminders, owner welcome) are managed by CateringMS and not editable here.
+        </p>
       )}
 
       <ComposeDrawerHost open={!!editing} onClose={() => setEditing(null)}>

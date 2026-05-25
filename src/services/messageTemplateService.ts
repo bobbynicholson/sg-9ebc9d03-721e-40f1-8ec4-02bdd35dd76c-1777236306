@@ -122,19 +122,31 @@ export function invalidateCompanyCache(companyId: string): void {
 /**
  * Build the merged list for the editor: every registry template, with
  * the company's customisation status layered in.
+ *
+ * LCF-R (task #240): filters out scope='platform' entries by default
+ * (subscription receipts, owner welcome, etc.) - the catering tenant
+ * doesn't own that wording, the platform brand does. Pass
+ * { includePlatform: true } from a future platform admin surface to
+ * see them.
  */
-export async function listForCompany(companyId: string): Promise<MergedTemplate[]> {
+export async function listForCompany(
+  companyId: string,
+  opts?: { includePlatform?: boolean },
+): Promise<MergedTemplate[]> {
   const overrides = await loadCompanyOverrides(companyId);
-  return TEMPLATE_REGISTRY.map((def) => {
-    const ovr = overrides.get(def.key);
-    return {
-      ...def,
-      isCustomised: !!ovr,
-      customSubject: ovr?.subject ?? null,
-      customBody: ovr?.body ?? null,
-      customIsActive: ovr?.isActive ?? true,
-    };
-  });
+  const includePlatform = !!opts?.includePlatform;
+  return TEMPLATE_REGISTRY
+    .filter((def) => includePlatform || (def.scope ?? "tenant") === "tenant")
+    .map((def) => {
+      const ovr = overrides.get(def.key);
+      return {
+        ...def,
+        isCustomised: !!ovr,
+        customSubject: ovr?.subject ?? null,
+        customBody: ovr?.body ?? null,
+        customIsActive: ovr?.isActive ?? true,
+      };
+    });
 }
 
 /**

@@ -47,6 +47,21 @@ export type MessageCategory = "client" | "staff";
  */
 export type MessageDelivery = "automated" | "manual" | "hybrid";
 
+/**
+ * Who owns the wording of a template.
+ *
+ *  - "tenant":   the catering business owns this. They send it from
+ *                their own brand to their own clients / staff. Shows
+ *                up in the tenant admin editor at
+ *                /admin/email-templates.
+ *  - "platform": Skylight / CateringMS sends this from the platform
+ *                brand to the tenant (subscription receipts, trial
+ *                reminders, owner welcome, account-deletion notices).
+ *                Hidden from the tenant editor - the platform admin
+ *                owns the wording.
+ */
+export type MessageScope = "tenant" | "platform";
+
 export interface TemplateVariable {
   /** Raw {{name}} token used in the body. */
   name: string;
@@ -93,6 +108,13 @@ export interface TemplateDefinition {
    * to render a "Manage automation" link on the editor row.
    */
   settingsLink?: string;
+  /**
+   * Defaults to "tenant" so every existing entry stays in the tenant
+   * editor untouched. Mark "platform" for emails the platform itself
+   * (Skylight / CateringMS) sends to the tenant - those belong to a
+   * future platform admin portal, not the tenant's own editor.
+   */
+  scope?: MessageScope;
 }
 
 // ── Shared variable helpers ─────────────────────────────────────────
@@ -1642,13 +1664,40 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   whatsapp_staff_schedule_change:  { delivery: "manual", trigger: "Click Notify on a shift change in /admin/staff.",            settingsLink: "/admin/staff" },
 };
 
+// LCF-R (task #240): platform-owned templates. These are emails the
+// platform (Skylight / CateringMS) sends to the tenant - subscription
+// receipts, trial reminders, owner welcome, account-deletion notices.
+// Hidden from the tenant editor because the tenant doesn't own the
+// wording (the platform brand does). When a platform admin portal
+// lands, these surface there with the same registry editor logic.
+const PLATFORM_SCOPED_KEYS: ReadonlySet<string> = new Set([
+  "owner_welcome",
+  "subscription_started",
+  "payment_succeeded",
+  "payment_failed",
+  "trial_ending_soon",
+  "subscription_expiring",
+  "price_change_notification",
+  "subscription_cancelled",
+  "subscription_reactivated",
+  "account_deletion_scheduled",
+  // NOTE: staff_invitation stays tenant-scoped because the tenant
+  // manager is the one inviting their own team member - the body
+  // mentions {{company_name}} so they can reasonably want to tweak
+  // the welcome tone.
+]);
+
 // Apply the wiring once at module load. Per-entry fields win.
 for (const t of TEMPLATE_REGISTRY) {
   const wiring = DELIVERY_WIRING[t.key];
-  if (!wiring) continue;
-  if (t.delivery === undefined)     t.delivery = wiring.delivery;
-  if (t.trigger === undefined)      t.trigger = wiring.trigger;
-  if (t.settingsLink === undefined) t.settingsLink = wiring.settingsLink;
+  if (wiring) {
+    if (t.delivery === undefined)     t.delivery = wiring.delivery;
+    if (t.trigger === undefined)      t.trigger = wiring.trigger;
+    if (t.settingsLink === undefined) t.settingsLink = wiring.settingsLink;
+  }
+  if (t.scope === undefined) {
+    t.scope = PLATFORM_SCOPED_KEYS.has(t.key) ? "platform" : "tenant";
+  }
 }
 // Anything not in the map defaults to "manual" with a generic trigger.
 // Outreach templates outnumber automated ones, so manual is the safer
