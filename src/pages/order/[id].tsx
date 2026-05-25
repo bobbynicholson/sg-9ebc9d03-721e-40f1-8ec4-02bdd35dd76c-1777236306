@@ -18,8 +18,39 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 type ForcedSection = "kitchen" | "driver" | "waiter" | "shopping" | "cleaning" | "admin" | "client";
 
-function isForcedSection(v: string | undefined): v is ForcedSection {
-  return v === "kitchen" || v === "driver" || v === "waiter" || v === "shopping" || v === "cleaning" || v === "admin" || v === "client";
+/**
+ * ODOC G.1: normalise the ?role= query param to a force-section.
+ *
+ * We accept the canonical section keys (kitchen, driver, etc) AND
+ * the broader role identifiers staff/admin links carry. Admin-tier
+ * roles (owner, region_admin, sales_admin, company_admin) all map
+ * to the admin section so finance auto-expands for them.
+ *
+ * kitchen_staff -> kitchen, shopping_staff -> shopping,
+ * cleaning_staff -> cleaning are the long-form role IDs used in
+ * notification producers and UI links.
+ */
+const ROLE_TO_SECTION: Record<string, ForcedSection> = {
+  kitchen: "kitchen",
+  kitchen_staff: "kitchen",
+  driver: "driver",
+  waiter: "waiter",
+  shopping: "shopping",
+  shopping_staff: "shopping",
+  cleaning: "cleaning",
+  cleaning_staff: "cleaning",
+  admin: "admin",
+  owner: "admin",
+  region_admin: "admin",
+  sales_admin: "admin",
+  company_admin: "admin",
+  super_admin: "admin",
+  client: "client",
+};
+
+function resolveForcedSection(v: string | undefined): ForcedSection | null {
+  if (!v) return null;
+  return ROLE_TO_SECTION[v] || null;
 }
 
 export default function OrderDocumentPage() {
@@ -27,7 +58,7 @@ export default function OrderDocumentPage() {
   const id = String(router.query.id || "");
   const print = router.query.print === "1";
   const roleParam = typeof router.query.role === "string" ? router.query.role : undefined;
-  const forceSection = isForcedSection(roleParam) ? roleParam : null;
+  const forceSection = resolveForcedSection(roleParam);
 
   if (!id) return null;
 
