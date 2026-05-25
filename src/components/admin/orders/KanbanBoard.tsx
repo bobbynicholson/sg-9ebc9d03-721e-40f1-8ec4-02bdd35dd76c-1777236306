@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ShoppingCart, Calendar, Users, MapPin, ArrowRight, Eye, ChevronRight,
+  ShoppingCart, Calendar, Users, MapPin, ArrowRight, Eye, ChevronRight, MoreVertical,
 } from "lucide-react";
 import { deriveOrderIntelligence } from "@/lib/orderIntelligence";
 import type { OrderAutoEmailSummary } from "@/lib/orderIntelligence";
@@ -12,6 +13,7 @@ import { STATUS_CONFIG } from "@/components/admin/orders/statusConfig";
 import { formatDate } from "@/lib/formatters";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OrderCardProps {
   order: AppOrder;
@@ -22,6 +24,8 @@ interface OrderCardProps {
 }
 
 function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setIsModalOpen }: OrderCardProps) {
+  const router = useRouter();
+  const { withSlug } = useTenantHref();
   const C = currencySymbol;
   const config = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
   const Icon = config.icon;
@@ -56,6 +60,14 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
           ? undefined
           : { borderLeftColor: config.dotColor.replace('bg-', '#') }
       }
+      onClick={(e) => {
+        // ODOC H.4: card click opens the unified order doc. The
+        // kebab "Quick actions" button below still opens the modal
+        // for power users who want side-panel ergonomics.
+        const target = e.target as HTMLElement;
+        if (target.closest("button, a, input, [role=button], [data-stop-row-nav=true]")) return;
+        router.push(withSlug(`/order/${(order as any).id}?role=admin`));
+      }}
     >
       <CardContent className="p-4">
         <div className="space-y-3">
@@ -157,13 +169,30 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
                 variant="ghost"
                 size="sm"
                 className="gap-1"
-                onClick={() => {
-                  setSelectedOrder(order);
-                  setIsModalOpen(true);
+                onClick={(e) => {
+                  // ODOC H.4: primary "View" now opens the unified
+                  // order doc - canonical source of truth across
+                  // every role. Modal moves to the kebab beside it.
+                  e.stopPropagation();
+                  router.push(withSlug(`/order/${(order as any).id}?role=admin`));
                 }}
               >
                 <Eye className="w-3 h-3" />
                 View
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-2"
+                title="Quick actions (side panel)"
+                aria-label="Quick actions"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOrder(order);
+                  setIsModalOpen(true);
+                }}
+              >
+                <MoreVertical className="w-3 h-3" />
               </Button>
             </div>
           </div>

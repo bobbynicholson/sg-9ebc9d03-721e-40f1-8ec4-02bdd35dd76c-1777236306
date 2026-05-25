@@ -38,6 +38,7 @@ import { OrderPresence } from "./OrderPresence";
 import { OrderAmendmentBanner } from "./OrderAmendmentBanner";
 import { OrderCODBanner } from "./OrderCODBanner";
 import { OrderEditNotice } from "./OrderEditNotice";
+import { OrderQuickActions } from "./OrderQuickActions";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -432,6 +433,22 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </div>
         </nav>
       )}
+
+      {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
+          old OrderDetailsModal toolbar carried so the row-click
+          migration from modal to doc keeps the same affordances:
+          Quote / Client view / Copy link / Invoice / Call / WhatsApp
+          / Email. Hidden in print + for non-admin viewers. */}
+      <OrderQuickActions
+        order={{
+          id: order.id,
+          order_number: order.order_number,
+          client_name: order.client_name,
+          client_phone: order.client_phone,
+          client_email: order.client_email,
+          quote_id: order.quote_id,
+        }}
+      />
 
       {/* ODOC H.1: admin-tier 'edits live in the quote' notice.
           Tells admins explicitly that the order doc is read-only,

@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Users, MapPin, ShoppingCart, Copy, Eye, ChevronRight,
-  AlertCircle, Pause, FileText,
+  AlertCircle, Pause, FileText, MoreVertical,
 } from "lucide-react";
 import type { AppOrder } from "@/types/app";
 import type { OrderTimeline } from "@/services/order/orderTimeline";
@@ -58,6 +59,7 @@ export function TimelineRow({
   setSelectedOrder, setIsModalOpen, withSlug,
 }: Props) {
   const { toast } = useToast();
+  const router = useRouter();
   const C = currencySymbol;
   const eventDate = new Date(order.event_date);
   const isToday = eventDate.toDateString() === new Date().toDateString();
@@ -89,9 +91,16 @@ export function TimelineRow({
             ? "border-l-4 border-l-red-500 bg-red-50/30"
             : ""
       }`}
-      onClick={() => {
-        setSelectedOrder(order);
-        setIsModalOpen(true);
+      onClick={(e) => {
+        // ODOC H.4: row click now opens the unified order doc -
+        // the canonical operational source of truth. Modal stays
+        // accessible via the kebab icon below for power users
+        // who still want side-panel ergonomics.
+        const target = e.target as HTMLElement;
+        // Don't navigate if the click hit something interactive
+        // that already handled it (buttons, links, checkboxes).
+        if (target.closest("button, a, input, [role=button], [data-stop-row-nav=true]")) return;
+        router.push(withSlug(`/order/${(order as any).id}?role=admin`));
       }}
     >
       <CardContent className="p-6">
