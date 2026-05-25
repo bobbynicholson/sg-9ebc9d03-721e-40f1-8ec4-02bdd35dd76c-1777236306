@@ -30,6 +30,7 @@ import { canAccessDriverWidgets } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { RecipeDialog } from "./RecipeDialog";
+import { SectionSkeleton } from "./SectionSkeleton";
 import {
   ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle, Play,
   Utensils, BookOpen, Box, Sparkles, ExternalLink,
@@ -307,8 +308,8 @@ export function KitchenSection({
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading kitchen brief...
+        <div className="space-y-4">
+          <SectionSkeleton rows={4} variant="rows" />
         </div>
       ) : (
         <div className="space-y-5">

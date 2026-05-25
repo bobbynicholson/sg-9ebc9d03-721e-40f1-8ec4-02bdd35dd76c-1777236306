@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
+import { OrderSuggestedAction } from "./OrderSuggestedAction";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -402,6 +403,11 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </div>
         </nav>
       )}
+
+      {/* ODOC Wave F: role-aware suggested next action. One-line
+          rule-based nudge that picks the highest-value thing the
+          viewer can do for this order right now. Dismissible. */}
+      <OrderSuggestedAction order={order} />
 
       {/* ODOC Wave B: top-of-document alert banners - countdown +
           cancellation + postponement + comms-paused + cold-chain +

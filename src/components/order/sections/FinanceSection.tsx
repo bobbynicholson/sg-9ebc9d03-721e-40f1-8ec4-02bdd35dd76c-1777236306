@@ -11,6 +11,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Wallet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { SectionSkeleton } from "./SectionSkeleton";
 
 interface Props {
   orderId: string;
@@ -132,9 +133,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       highlight={highlight}
     >
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading finance...
-        </div>
+        <SectionSkeleton rows={4} variant="tiles" />
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
