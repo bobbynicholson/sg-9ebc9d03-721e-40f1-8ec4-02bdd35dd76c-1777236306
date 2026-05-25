@@ -29,6 +29,8 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -117,6 +119,7 @@ export default function ProtectedDriverSettlementPage() {
 
 function DriverSettlementPage() {
   const { user } = useAuth() as any;
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const router = useRouter();
   // DRV-B: scope drivers by the global region filter when active.
@@ -1217,6 +1220,7 @@ function FragmentRows({
   onMarkPaid: () => void;
   onReverse: (payoutId: string) => void;
 }) {
+  const { withSlug } = useTenantHref();
   // DRV-B: lazy-load the per-shift / per-delivery detail only when
   // the row is expanded. The bulk path that drives the totals
   // drops the per-row arrays to stay cheap; the drilldown drawer
@@ -1621,7 +1625,14 @@ function FragmentRows({
                   <ul className="text-xs space-y-1">
                     {detailSummary.deliveries.map((d) => (
                       <li key={d.order_id} className="flex justify-between">
-                        <span className="font-mono text-slate-500">{d.order_id.slice(0, 8)}...</span>
+                        {/* ODOC G.4: each delivery jumps into the
+                            doc for reconciliation context. */}
+                        <Link
+                          href={withSlug(`/order/${d.order_id}`)}
+                          className="font-mono text-blue-700 hover:underline"
+                        >
+                          {d.order_id.slice(0, 8)}...
+                        </Link>
                         <span>{d.distance_km.toFixed(1)} km · {formatR(d.total)}</span>
                       </li>
                     ))}

@@ -16,6 +16,7 @@ import {
   X,
   Printer,
   Route as RouteIcon,
+  ExternalLink,
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
@@ -43,6 +44,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +85,7 @@ interface Job {
 
 function DriverDashboardInner() {
   const { user, userRoles } = useAuth();
+  const { withSlug } = useTenantHref();
   // WTR-A: combined field-staff portal. A staffer with the 'waiter'
   // role (or both driver + waiter) sees service-phase widgets on top
   // of the driver UI. Same URL, same login, role-aware widget mix.
@@ -968,6 +971,18 @@ function DriverDashboardInner() {
                           <Badge className={`${getStatusColor(job.status)} text-xs border-2`}>
                             {getStatusLabel(job.status)}
                           </Badge>
+                          {/* ODOC G.4: jump to the driver-section-open
+                              order doc - venue contact, leave-by,
+                              checklist, vehicle, POD path all in one
+                              brief. */}
+                          <Link
+                            href={withSlug(`/order/${job.id}?role=driver`)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
+                            title="Open the driver brief for this order"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Open brief
+                          </Link>
                         </div>
                         <div className="space-y-1 text-xs sm:text-sm text-slate-600">
                           <div className="flex items-center gap-2">
