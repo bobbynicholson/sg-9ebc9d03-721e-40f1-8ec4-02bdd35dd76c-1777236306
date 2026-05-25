@@ -444,6 +444,14 @@ function FormCard({
           template: form.template_id,
           token: "preview",
           slug: form.slug,
+          // LCF-J (task #231, 2026-05-25): compact=1 strips the demo
+          // page chrome (heading, controls, page padding) so only
+          // the form itself renders inside the card thumbnail. The
+          // template gallery dialog has used compact=1 since day
+          // one; the FormCard iframes were silently rendering the
+          // demo's "CateringMS embed live preview" header + the
+          // template/token/slug control row instead of the form.
+          compact: "1",
         });
         if (companyName) qs.set("companyName", companyName);
         if (primaryColor) qs.set("primary", primaryColor);
@@ -457,8 +465,12 @@ function FormCard({
   return (
     <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
       <CardContent className="p-0">
-        {/* Thumbnail iframe */}
-        <div className="relative h-44 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-xl border-b border-slate-200">
+        {/* Thumbnail iframe. LCF-J: bumped from h-44 (176px) to
+            h-80 (320px) so the actual form is readable in the
+            preview pane. Combined with compact=1 above this gives
+            the operator a proper at-a-glance feel for each form
+            without having to open the customiser. */}
+        <div className="relative h-80 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden rounded-t-xl border-b border-slate-200">
           {previewSrc ? (
             <iframe
               src={previewSrc}
