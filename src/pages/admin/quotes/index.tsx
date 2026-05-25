@@ -587,9 +587,37 @@ function AdminQuotesInner() {
     if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
     return n.toFixed(0);
   };
+  // LCF-U (task #243): accepted quotes (bucket="won") have already
+  // been converted to an order - the operator's real work happens on
+  // /admin/orders from this point (kitchen prep, dispatch, invoicing,
+  // delivery). They were cluttering the default /admin/quotes view,
+  // mixing closed business with active selling work. The "Open" bucket
+  // now excludes won; the Won chip stays a one-click drill-in with a
+  // banner pointing at /admin/orders.
   const bucketFilteredRows = useMemo(
-    () => (bucket === "all" ? regionFilteredRows : regionFilteredRows.filter((r) => r.intelligence.bucket === bucket)),
+    () => {
+      if (bucket === "all") {
+        return regionFilteredRows.filter((r) => r.intelligence.bucket !== "won");
+      }
+      return regionFilteredRows.filter((r) => r.intelligence.bucket === bucket);
+    },
     [regionFilteredRows, bucket],
+  );
+
+  // Open = everything except won. Used to relabel the "all" chip
+  // count + the revenue chip so what the pill says matches what the
+  // list shows.
+  const openCount = useMemo(
+    () => regionFilteredRows.filter((r) => r.intelligence.bucket !== "won").length,
+    [regionFilteredRows],
+  );
+  const openRevenue = useMemo(
+    () => regionFilteredRows.reduce((sum, r) => {
+      if (r.intelligence.bucket === "won") return sum;
+      const t = Number((r.quote as any).total ?? (r.quote as any).subtotal ?? 0);
+      return Number.isFinite(t) ? sum + t : sum;
+    }, 0),
+    [regionFilteredRows],
   );
 
   // Smart fuzzy search across client name, email, event name, venue, ref
@@ -1511,7 +1539,7 @@ function AdminQuotesInner() {
           */}
           <div className="mb-4 flex flex-wrap gap-2">
             {([
-              { id: "all",            label: "All",           icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
+              { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-blue-100 text-blue-700 border-blue-200" },
               { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -1521,8 +1549,15 @@ function AdminQuotesInner() {
             ] as const).map((pill) => {
               const Icon = pill.icon;
               const active = bucket === pill.id;
-              const count = (counts as any)[pill.id] as number;
-              const revenue = (revenueByBucket as any)[pill.id] as number | undefined;
+              // LCF-U: the "all" chip now means "Open" - everything
+              // except won-and-converted. Show the open-only count so
+              // the pill matches the list it produces.
+              const count = pill.id === "all"
+                ? openCount
+                : ((counts as any)[pill.id] as number);
+              const revenue = pill.id === "all"
+                ? openRevenue
+                : ((revenueByBucket as any)[pill.id] as number | undefined);
               return (
                 <button
                   key={pill.id}
@@ -1722,6 +1757,27 @@ function AdminQuotesInner() {
                 }, 0);
               }}
             />
+          )}
+          {/* LCF-U: when the operator drills into the Won bucket,
+              remind them that the day-of-prep / dispatch / invoicing
+              work for those quotes lives on /admin/orders. */}
+          {bucket === "won" && bucketFilteredRows.length > 0 && (
+            <Card className="border-0 shadow-sm mb-4 bg-emerald-50">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <Crown className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                <div className="text-xs text-emerald-900 leading-relaxed flex-1">
+                  <p className="font-semibold text-emerald-900 mb-0.5">Won quotes have converted to orders</p>
+                  <p>
+                    Kitchen prep, dispatch, invoicing and delivery all happen on the orders page. This view is here for sales audit only.
+                  </p>
+                </div>
+                <Link href={withSlug("/admin/orders")}>
+                  <Button variant="outline" size="sm" className="gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-100">
+                    Open Orders <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
           )}
           <div className={`space-y-4 ${viewMode === "pipeline" ? "hidden" : ""}`}>
             {quotes.length === 0 ? (
