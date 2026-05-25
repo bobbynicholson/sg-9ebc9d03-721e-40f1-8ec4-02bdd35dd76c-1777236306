@@ -48,6 +48,12 @@ import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
 import { getTemplateMeta } from "@/lib/embed/templateCatalog";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { captureException } from "@/lib/observability";
+import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT } from "@/lib/embed/setupChecks";
+import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
@@ -81,7 +87,23 @@ const MAPPINGS: { value: typeof MAP_NONE | EmbedFieldMapping; label: string }[] 
   { value: "notes",       label: "Notes (appended)" },
 ];
 
-export default function EmbedFormCustomiser() {
+// LCF-B (task #223, 2026-05-25): ProtectedRoute wrap, same OWNER +
+// ADMIN gate every other admin page got. Pre-LCF-B the customiser
+// shipped without a route-level role guard.
+export default function ProtectedEmbedFormCustomiser() {
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <EmbedFormCustomiser />
+    </ProtectedRoute>
+  );
+}
+
+function EmbedFormCustomiser() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -159,11 +181,28 @@ export default function EmbedFormCustomiser() {
       setDirty(false);
       if (!opts.silent) toast({ title: "Saved" });
     } catch (err: any) {
+      captureException(err, {
+        tags: { route: "/admin/integrations/embed/[id]", step: "save-form", formId: form?.id || "", companyId: user?.company_id || "" },
+      });
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
-  }, [form, toast]);
+  }, [form, toast, user?.company_id]);
+
+  // LCF-B (task #223, 2026-05-25): beforeunload guard while dirty,
+  // mirroring the company-profile + white-label + kitchen-settings
+  // pattern. Stops a refresh / nav-away mid-edit from silently
+  // losing field tweaks.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   // Mutators - stage changes locally, mark dirty, save on explicit Save click
   // or when a relevant blur fires. Field reorders auto-save because they're
@@ -222,6 +261,9 @@ export default function EmbedFormCustomiser() {
       if (!resp.ok) throw new Error(json.error || "Save failed");
       toast({ title: "Pricing tiers saved" });
     } catch (err: any) {
+      captureException(err, {
+        tags: { route: "/admin/integrations/embed/[id]", step: "save-pricing-tiers", companyId: user?.company_id || "" },
+      });
       toast({ title: "Couldn't save tiers", description: err.message, variant: "destructive" });
     }
   }
@@ -231,6 +273,20 @@ export default function EmbedFormCustomiser() {
     [form?.template_id]   // eslint-disable-line react-hooks/exhaustive-deps
   );
   const showsPricing = templateMeta?.usesPricingTiers ?? false;
+
+  // LCF-B (task #223, 2026-05-25): derive the template-aware setup
+  // checklist from the live form state + tenant tier count. Pure;
+  // recomputes on every form mutation so the banner is always in
+  // sync with what's on screen.
+  const setupChecklist: SetupCheck[] = useMemo(() => {
+    if (!form) return [];
+    return getSetupChecklist({
+      form,
+      templateMeta,
+      pricingTiersCount: pricingTiers.length,
+    });
+  }, [form, templateMeta, pricingTiers.length]);
+  const readiness = useMemo(() => summariseReadiness(setupChecklist), [setupChecklist]);
 
   const previewSrc = useMemo(() => {
     if (!form || !companyData?.embed_token) return "";
@@ -288,9 +344,33 @@ export default function EmbedFormCustomiser() {
                 className="text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px]"
               />
               {dirty && <span className="text-xs text-amber-600">Unsaved</span>}
+              {/* LCF-B: persistent readiness chip beside the title.
+                  Reads from the same checklist that powers the
+                  banner below. */}
+              {!readiness.ready ? (
+                <Badge className="bg-rose-100 text-rose-800 border border-rose-200 gap-1 ml-2">
+                  <AlertTriangle className="w-3 h-3" />
+                  {readiness.failingRequired} required gap{readiness.failingRequired === 1 ? "" : "s"}
+                </Badge>
+              ) : readiness.failingRecommended > 0 ? (
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-200 gap-1 ml-2">
+                  <Info className="w-3 h-3" />
+                  {readiness.failingRecommended} recommended
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 gap-1 ml-2">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Ready to embed
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" onClick={() => setSnippetOpen(true)} className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSnippetOpen(true)}
+                className="gap-2"
+                title={readiness.ready ? "Copy embed snippet" : "Form has setup gaps - tap the checklist below first"}
+              >
                 <Code2 className="w-4 h-4" /> Get snippet
               </Button>
               <Button
@@ -304,10 +384,108 @@ export default function EmbedFormCustomiser() {
             </div>
           </div>
 
+          {/* LCF-B (task #223, 2026-05-25): per-template setup
+              checklist. Each row is anchored to the section it
+              cares about; clicking jumps. Hides when every check
+              passes so a finished form has a clean canvas. */}
+          {(() => {
+            if (setupChecklist.length === 0) return null;
+            const failing = setupChecklist.filter((c) => !c.passed);
+            if (failing.length === 0 && readiness.failingRequired === 0 && readiness.failingRecommended === 0) {
+              // Render a slim green confirmation strip when nothing's failing.
+              return (
+                <Card className="border-0 shadow mb-4 bg-gradient-to-br from-emerald-50 to-teal-50">
+                  <CardContent className="p-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <p className="text-xs text-emerald-900">
+                      <strong>Form is ready to embed.</strong>{" "}
+                      {templateMeta && <span className="text-emerald-800">{TEMPLATE_INTENT[templateMeta.id]}</span>}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            }
+            const requiredFails = failing.filter((c) => c.severity === "required");
+            const recommendedFails = failing.filter((c) => c.severity === "recommended");
+            const toneClass = requiredFails.length > 0
+              ? "from-rose-50 to-orange-50"
+              : "from-amber-50 to-yellow-50";
+            const headIcon = requiredFails.length > 0
+              ? <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+              : <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />;
+            return (
+              <Card className={`border-0 shadow mb-4 bg-gradient-to-br ${toneClass}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {headIcon}
+                      <p className="font-semibold text-slate-900">
+                        Setup checklist
+                        {templateMeta && (
+                          <span className="ml-2 text-sm font-normal text-slate-600">
+                            {templateMeta.name}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <p className="text-xs tabular-nums text-slate-600">
+                      {requiredFails.length > 0 && (
+                        <span className="text-rose-700 font-semibold">{requiredFails.length} required</span>
+                      )}
+                      {requiredFails.length > 0 && recommendedFails.length > 0 && <span className="mx-1">·</span>}
+                      {recommendedFails.length > 0 && (
+                        <span className="text-amber-700">{recommendedFails.length} recommended</span>
+                      )}
+                    </p>
+                  </div>
+                  {templateMeta && (
+                    <p className="text-xs text-slate-600 mb-3">
+                      <strong>Template intent:</strong> {TEMPLATE_INTENT[templateMeta.id]}
+                    </p>
+                  )}
+                  <ul className="space-y-1.5">
+                    {failing.map((c) => {
+                      const isRequired = c.severity === "required";
+                      const Icon = isRequired ? AlertTriangle : Info;
+                      const tone = isRequired
+                        ? "border-rose-200 text-rose-900 hover:bg-rose-50/80 bg-white/70"
+                        : "border-amber-200 text-amber-900 hover:bg-amber-50/80 bg-white/70";
+                      return (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!c.anchor) return;
+                              const el = document.getElementById(c.anchor);
+                              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                            disabled={!c.anchor}
+                            className={`w-full text-left px-3 py-2 rounded-md border transition-colors text-sm flex items-start gap-2 ${tone}`}
+                          >
+                            <Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">{c.label}</p>
+                              {c.detail && (
+                                <p className="text-xs opacity-90 mt-0.5">{c.detail}</p>
+                              )}
+                            </div>
+                            {isRequired && (
+                              <Badge className="bg-rose-600 text-white text-[10px] flex-shrink-0">Required</Badge>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
             {/* Left: field editor */}
-            <div className="lg:col-span-4">
+            <div id="section-fields" className="lg:col-span-4 scroll-mt-20">
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between mb-2">
@@ -382,7 +560,7 @@ export default function EmbedFormCustomiser() {
             <div className="lg:col-span-3 space-y-4">
 
               {/* Form settings */}
-              <Card className="border-0 shadow-lg">
+              <Card id="section-form-settings" className="border-0 shadow-lg scroll-mt-20">
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">Form settings</h3>
                   <div>
@@ -457,7 +635,7 @@ export default function EmbedFormCustomiser() {
               </Card>
 
               {/* Success behaviour */}
-              <Card className="border-0 shadow-lg">
+              <Card id="section-after-submit" className="border-0 shadow-lg scroll-mt-20">
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">After submit</h3>
                   <div>
@@ -525,7 +703,7 @@ export default function EmbedFormCustomiser() {
 
               {/* Pricing tiers (only when relevant template) */}
               {showsPricing && (
-                <Card className="border-0 shadow-lg">
+                <Card id="section-pricing-tiers" className="border-0 shadow-lg scroll-mt-20">
                   <CardContent className="p-4 space-y-3">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
                       <Calculator className="w-4 h-4 text-amber-500" /> Pricing tiers

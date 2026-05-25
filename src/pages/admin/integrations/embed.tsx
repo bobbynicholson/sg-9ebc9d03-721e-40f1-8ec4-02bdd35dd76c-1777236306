@@ -55,6 +55,9 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { TemplateGalleryDialog } from "@/components/admin/embed/TemplateGalleryDialog";
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { captureException } from "@/lib/observability";
 
 interface EmbedFormRow {
   id: string;
@@ -77,7 +80,28 @@ interface KpiBlock {
 
 const numberFmt = new Intl.NumberFormat("en-ZA");
 
-export default function AdminEmbedFormsPage() {
+// LCF-B (task #223, 2026-05-25): wrap the page in ProtectedRoute.
+// Pre-LCF-B both /admin/integrations/embed and the customiser at
+// /[id] shipped without any route-level role gate - they just
+// read useAuth and silently went blank if a user wasn't loaded.
+// API endpoints were auth-gated so no data leaked, but the admin
+// shell was visible to any signed-in user (including kitchen and
+// driver personas). Same OWNER + ADMIN gate every other admin
+// page got in this audit programme.
+export default function ProtectedAdminEmbedFormsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <AdminEmbedFormsPage />
+    </ProtectedRoute>
+  );
+}
+
+function AdminEmbedFormsPage() {
   const { user, company } = useAuth() as any;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -126,6 +150,9 @@ export default function AdminEmbedFormsPage() {
         });
       }
     } catch (err: any) {
+      captureException(err, {
+        tags: { route: "/admin/integrations/embed", step: "load-forms", companyId: user?.company_id || "" },
+      });
       toast({ title: "Couldn't load forms", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -375,7 +402,16 @@ export default function AdminEmbedFormsPage() {
         companyName={company?.company_name}
       />
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      {/* LCF-B: ChatBot was receiving a hardcoded "admin" role +
+          the wrong companyId path (user.user_metadata.company_id is
+          empty for users created post-Wave-12; the canonical path
+          is user.company_id via the profiles join). Same fix the
+          HR hub got in HRS-4. */}
+      <ChatBot
+        userRole={String(((user as { active_role?: string; role?: string } | null)?.active_role
+          || (user as { role?: string } | null)?.role) || "admin")}
+        companyId={user?.company_id}
+      />
     </>
   );
 }
