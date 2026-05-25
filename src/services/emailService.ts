@@ -23,6 +23,16 @@ export interface EmailSettings {
   resend_domain_status?: string | null;
   resend_domain_verified_at?: string | null;
   resend_dns_records?: any;
+  /**
+   * LCF-N override (task #236): when true the resolver routes mail
+   * through the platform-shared noreply@send.cateringms.com even if
+   * the tenant Resend domain is verified. DNS work is preserved so
+   * flipping back is a single toggle. Use during onboarding to test
+   * the platform-default path while keeping the tenant's DNS in place,
+   * or as a soft rollback if a verified domain develops a deliverability
+   * issue.
+   */
+  force_platform_sender?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -195,7 +205,7 @@ export const emailService = {
     const sb = client || supabase;
     const { data, error } = await sb
       .from("email_provider_settings")
-      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, created_at, updated_at")
+      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, force_platform_sender, created_at, updated_at")
       .eq("company_id", companyId)
       .neq("provider", "mailchimp")
       .order("is_verified", { ascending: false })
@@ -266,12 +276,19 @@ export const emailService = {
       return { from: `${name} <${config.from_email || SHARED_FROM_EMAIL}>` };
     }
 
+    // LCF-N: explicit operator override wins over verified-domain. Skip
+    // straight to the fallback (platform sender + reply-to). Useful for
+    // testing the onboarding path on a tenant whose DNS is already in
+    // place, or for a soft rollback to the shared sender without
+    // touching DNS.
+    const forcePlatform = !!config.force_platform_sender;
+
     const verified = !!config.resend_domain_verified_at;
     const sendingDomain = (config.resend_sending_domain || "").toLowerCase();
     const matchesDomain =
       sendingDomain && email && email.endsWith(`@${sendingDomain}`);
 
-    if (verified && matchesDomain) {
+    if (!forcePlatform && verified && matchesDomain) {
       return { from: `${name} <${email}>` };
     }
 

@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CheckCircle2, Loader2, RefreshCw, Globe, Copy, AlertTriangle,
-  ShieldCheck, RotateCcw, Clock, ExternalLink, Info, HelpCircle,
+  ShieldCheck, RotateCcw, Clock, ExternalLink, Info, HelpCircle, Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +45,11 @@ interface DomainState {
   verifiedAt?: string | null;
   lastCheckedAt?: string | null;
   records: DnsRecord[];
+  /** LCF-N: when true, mail goes via noreply@send.cateringms.com even
+   *  if the tenant's Resend domain is verified. */
+  forcePlatformSender?: boolean;
+  fromEmail?: string | null;
+  fromName?: string | null;
 }
 
 interface DnsCheckRecord {
@@ -114,7 +119,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     const { data, error } = await supabase
       .from("email_provider_settings")
       .select(
-        "id, resend_domain_id, resend_sending_domain, resend_dns_records, resend_domain_status, resend_domain_verified_at, resend_last_checked_at",
+        "id, resend_domain_id, resend_sending_domain, resend_dns_records, resend_domain_status, resend_domain_verified_at, resend_last_checked_at, force_platform_sender, from_email, from_name",
       )
       .eq("company_id", companyId)
       .eq("provider", "resend")
@@ -131,9 +136,63 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       records: Array.isArray((data as any)?.resend_dns_records)
         ? (data as any).resend_dns_records
         : [],
+      forcePlatformSender: !!(data as any)?.force_platform_sender,
+      fromEmail: (data as any)?.from_email || null,
+      fromName: (data as any)?.from_name || null,
     });
     setLoading(false);
   };
+
+  // LCF-N: toggle the platform-sender override. Updates the row in
+  // place, no Resend API call - we deliberately keep the verified-
+  // domain object intact so flipping back is a single tap. The
+  // resolver in emailService.resolveFromAddress short-circuits to
+  // the shared sender when this flag is true.
+  const [togglingForce, setTogglingForce] = useState(false);
+  const toggleForcePlatformSender = async () => {
+    if (!companyId) return;
+    setTogglingForce(true);
+    try {
+      const next = !state.forcePlatformSender;
+      const { error } = await supabase
+        .from("email_provider_settings")
+        .update({ force_platform_sender: next, updated_at: new Date().toISOString() })
+        .eq("company_id", companyId)
+        .eq("provider", "resend");
+      if (error) throw error;
+      setState((s) => ({ ...s, forcePlatformSender: next }));
+      toast({
+        title: next ? "Routing via platform default" : "Routing via your domain",
+        description: next
+          ? `Emails go from noreply@send.cateringms.com with reply-to ${state.fromEmail || "your inbox"}. DNS records stay in place.`
+          : state.verifiedAt
+            ? `Emails go from ${state.fromEmail || "your domain"} again.`
+            : "Once Resend finishes verifying, sends will switch to your domain automatically.",
+      });
+    } catch (e: any) {
+      setError(e?.message || "Could not update sender setting");
+    } finally {
+      setTogglingForce(false);
+    }
+  };
+
+  // What address will recipients actually see? Mirrors the resolver in
+  // services/emailService.resolveFromAddress so this card and the
+  // outbound mail agree.
+  const effectiveSender = useMemo(() => {
+    const verified = !!state.verifiedAt;
+    const domain = (state.domain || "").toLowerCase();
+    const fromEmail = (state.fromEmail || "").toLowerCase();
+    const matchesDomain = !!(domain && fromEmail && fromEmail.endsWith("@" + domain));
+    const usingTenantDomain = verified && matchesDomain && !state.forcePlatformSender;
+    return {
+      usingTenantDomain,
+      label: usingTenantDomain
+        ? (state.fromEmail || "your domain")
+        : "noreply@send.cateringms.com",
+      replyTo: usingTenantDomain ? null : (state.fromEmail || null),
+    };
+  }, [state.verifiedAt, state.domain, state.fromEmail, state.forcePlatformSender]);
 
   useEffect(() => {
     void reload();
@@ -517,6 +576,78 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
           </div>
         </div>
         {statusBadge}
+      </div>
+
+      {/* LCF-N: "Currently sending as" panel. Shows the actual address
+          recipients will see today, with a single toggle to flip
+          between the verified-domain sender and the platform shared
+          sender. The DNS records stay in place either way. */}
+      <div
+        className={`rounded-lg border p-3 flex items-start gap-3 ${
+          effectiveSender.usingTenantDomain
+            ? "border-emerald-200 bg-emerald-50"
+            : "border-blue-200 bg-blue-50"
+        }`}
+      >
+        <Mail
+          className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+            effectiveSender.usingTenantDomain ? "text-emerald-700" : "text-blue-700"
+          }`}
+        />
+        <div className="flex-1 min-w-0">
+          <p
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              effectiveSender.usingTenantDomain ? "text-emerald-700" : "text-blue-700"
+            }`}
+          >
+            Currently sending as
+          </p>
+          <p className="text-sm font-mono text-slate-900 break-all mt-0.5">
+            {(state.fromName ? `${state.fromName} <` : "") + effectiveSender.label + (state.fromName ? ">" : "")}
+          </p>
+          {effectiveSender.replyTo && (
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              Replies route to <code className="font-mono">{effectiveSender.replyTo}</code>
+            </p>
+          )}
+          {state.forcePlatformSender ? (
+            <p className="text-[11px] text-blue-900 mt-1">
+              Override on: sending via platform default even though your domain is set up. Toggle off to switch back.
+            </p>
+          ) : !effectiveSender.usingTenantDomain && state.verifiedAt ? (
+            <p className="text-[11px] text-slate-600 mt-1">
+              Your domain is verified but your <code>from</code> address doesn't live at <code>@{state.domain}</code>. Set the From address to something like <code>hello@{state.domain}</code> in the form below.
+            </p>
+          ) : !effectiveSender.usingTenantDomain ? (
+            <p className="text-[11px] text-slate-600 mt-1">
+              Resend hasn't flipped your domain to verified yet. Sends use the platform shared address with reply-to set to your inbox until verification completes.
+            </p>
+          ) : null}
+        </div>
+
+        {/* Toggle: only show after the domain object exists. Pre-add we
+            don't need it since there's no verified path to opt out of. */}
+        {state.domain && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleForcePlatformSender}
+            disabled={togglingForce}
+            className="text-[11px] h-7 shrink-0"
+            title={
+              state.forcePlatformSender
+                ? "Switch sends back to your verified domain"
+                : "Send via the platform default for now (keeps DNS work intact)"
+            }
+          >
+            {togglingForce
+              ? "Switching..."
+              : state.forcePlatformSender
+                ? "Use my domain"
+                : "Use platform default"}
+          </Button>
+        )}
       </div>
 
       {/* VERIFIED CELEBRATION */}
