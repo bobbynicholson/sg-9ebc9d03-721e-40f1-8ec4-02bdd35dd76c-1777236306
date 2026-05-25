@@ -1,20 +1,29 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/messaging-templates - the central place where the catering
  * owner edits every email + WhatsApp template the system uses to
  * speak to clients and staff.
  *
  * One page, two channels (email + WhatsApp), grouped by purpose
- * (lead follow-up, quote, day of event, staff). Each row shows
- * whether it's currently using the system default or the company's
+ * (lead follow-up, quote, day of event, staff, order lifecycle,
+ * pre-event, money, lead alerts, account). Each row shows whether
+ * it is currently using the system default or the company's
  * customisation. Click edit -> drawer with subject (email only),
  * body, variable insert chips, live preview, save / reset / cancel.
+ *
+ * Wave 50 (LCF-L, task #233): admit OWNER role, capture exceptions
+ * with tenant tags, drop the useAuth() as-any cast, add a search
+ * box + "only customised" filter + per-row coverage chip, dirty
+ * guard while the drawer has unsaved edits, and expand the registry
+ * to cover order lifecycle, embed lead alerts, pre-event reminders,
+ * transactional reminders and portal-link emails so an operator can
+ * edit the wording of every system-driven message in one place.
  *
  * Related pages:
  *   /admin/email-templates - after-sales lifecycle templates (no
  *   response chasers, payment reminders). That page is intentionally
- *   left alone; it deals with a different lifecycle and uses
- *   localStorage for now. Future: fold both pages into one.
+ *   left alone today; it deals with a different lifecycle and uses
+ *   localStorage. Future: fold both pages into one (tracked in the
+ *   deferred backlog).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,15 +37,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Mail, MessageCircle, Pencil, RotateCcw, Save, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, MessageCircle, Pencil, RotateCcw, Save, Sparkles, AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { captureException } from "@/lib/observability";
 import {
-  TEMPLATE_REGISTRY,
   renderTemplate,
-  type TemplateDefinition,
   type MessageChannel,
 } from "@/lib/messageTemplates/registry";
 import {
@@ -46,8 +55,8 @@ import {
   type MergedTemplate,
 } from "@/services/messageTemplateService";
 
-function useCompanyId() {
-  const { user, profile } = useAuth() as any;
+function useCompanyId(): string | null {
+  const { user, profile } = useAuth();
   return profile?.company_id ?? user?.company_id ?? null;
 }
 
@@ -59,6 +68,8 @@ function MessagingTemplatesPage() {
   const [editing, setEditing] = useState<MergedTemplate | null>(null);
   const [filterChannel, setFilterChannel] = useState<"all" | MessageChannel>("all");
   const [filterCategory, setFilterCategory] = useState<"all" | "client" | "staff">("all");
+  const [query, setQuery] = useState("");
+  const [onlyCustomised, setOnlyCustomised] = useState(false);
 
   // Load on mount + after every save / remove so the badges stay accurate.
   const reload = async () => {
@@ -67,8 +78,12 @@ function MessagingTemplatesPage() {
     try {
       const list = await listForCompany(companyId);
       setRows(list);
-    } catch (err: any) {
-      toast({ title: "Couldn't load templates", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      captureException(err, {
+        tags: { route: "/admin/messaging-templates", step: "load", companyId },
+      });
+      toast({ title: "Couldn't load templates", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -77,11 +92,18 @@ function MessagingTemplatesPage() {
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [companyId]);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) =>
-      (filterChannel === "all" || r.channel === filterChannel) &&
-      (filterCategory === "all" || r.category === filterCategory),
-    );
-  }, [rows, filterChannel, filterCategory]);
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (filterChannel !== "all" && r.channel !== filterChannel) return false;
+      if (filterCategory !== "all" && r.category !== filterCategory) return false;
+      if (onlyCustomised && !r.isCustomised) return false;
+      if (q) {
+        const hay = `${r.label} ${r.description} ${r.group} ${r.key}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, filterChannel, filterCategory, onlyCustomised, query]);
 
   // Group by header line, keep registry order within each group.
   const grouped = useMemo(() => {
@@ -98,6 +120,8 @@ function MessagingTemplatesPage() {
   }, [filtered]);
 
   const customisedCount = rows.filter((r) => r.isCustomised).length;
+  const emailCount = rows.filter((r) => r.channel === "email").length;
+  const whatsappCount = rows.filter((r) => r.channel === "whatsapp").length;
 
   return (
     <>
@@ -130,13 +154,38 @@ function MessagingTemplatesPage() {
                   <p className="text-3xl font-bold text-emerald-700 tabular-nums">
                     {customisedCount}<span className="text-base text-slate-400 font-normal"> / {rows.length}</span>
                   </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {emailCount} email &middot; {whatsappCount} WhatsApp
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* COVERAGE BANNER */}
+            <Card className="border-0 shadow-sm mb-4 bg-blue-50">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-blue-900 leading-relaxed">
+                  <strong>Editing here changes what your clients and staff actually receive.</strong>
+                  {" "}Templates marked <em>Customised</em> use your wording. The rest use the system default until you save a customisation. Reset anytime to fall back to the default. WhatsApp templates skip the subject line and only edit the body.
+                </div>
+              </CardContent>
+            </Card>
+
             {/* FILTERS */}
             <Card className="border-0 shadow-sm mb-4">
               <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+                {/* Search */}
+                <div className="relative grow min-w-[220px] max-w-[420px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search by label, key or description..."
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+
                 <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Channel</span>
                 <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
                   {([
@@ -180,14 +229,27 @@ function MessagingTemplatesPage() {
                     </button>
                   ))}
                 </div>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  <Switch
+                    id="only-customised"
+                    checked={onlyCustomised}
+                    onCheckedChange={setOnlyCustomised}
+                  />
+                  <label htmlFor="only-customised" className="text-xs text-slate-600 cursor-pointer">
+                    Only customised
+                  </label>
+                </div>
               </CardContent>
             </Card>
 
             {/* LIST */}
             {loading ? (
-              <div className="text-center py-16 text-slate-500">Loading templates…</div>
+              <div className="text-center py-16 text-slate-500">Loading templates...</div>
             ) : grouped.length === 0 ? (
-              <div className="text-center py-16 text-slate-500">No templates match the filter.</div>
+              <div className="text-center py-16 text-slate-500">
+                {rows.length === 0 ? "No templates registered yet." : "No templates match the filter."}
+              </div>
             ) : (
               <div className="space-y-6">
                 {grouped.map((g) => (
@@ -197,8 +259,11 @@ function MessagingTemplatesPage() {
                         ? <Mail className="w-4 h-4 text-blue-600" />
                         : <MessageCircle className="w-4 h-4 text-emerald-600" />}
                       <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                        {g.channel} · {g.category} · {g.group}
+                        {g.channel} &middot; {g.category} &middot; {g.group}
                       </p>
+                      <span className="text-[10px] text-slate-400 ml-1">
+                        ({g.items.length})
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {g.items.map((row) => (
@@ -219,6 +284,9 @@ function MessagingTemplatesPage() {
                                     <AlertCircle className="w-3 h-3" /> Disabled, using default
                                   </Badge>
                                 )}
+                                <code className="text-[10px] font-mono text-slate-400 ml-auto hidden sm:inline">
+                                  {row.key}
+                                </code>
                               </div>
                               <p className="text-xs text-slate-500 mt-0.5">{row.description}</p>
                             </div>
@@ -292,6 +360,19 @@ function EditorDrawer({
 
   const dirty = subject !== initialSubject || body !== initialBody;
 
+  // Dirty guard - warn the operator before navigating away with
+  // unsaved customisations. Standard pattern from company-profile /
+  // white-label / kitchen-settings.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   // Build sample preview using each variable's example.
   const previewCtx = useMemo(() => {
     const ctx: Record<string, string> = {};
@@ -337,8 +418,17 @@ function EditorDrawer({
       });
       toast({ title: "Template saved", description: "Customised version is now in use." });
       onSaved();
-    } catch (err: any) {
-      toast({ title: "Couldn't save", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      captureException(err, {
+        tags: {
+          route: "/admin/messaging-templates",
+          step: "save",
+          companyId,
+          templateKey: template.key,
+        },
+      });
+      toast({ title: "Couldn't save", description: e?.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -351,11 +441,28 @@ function EditorDrawer({
       await removeOverride({ companyId, key: template.key, channel: template.channel });
       toast({ title: "Reset to default", description: "System default will be used from now on." });
       onReset();
-    } catch (err: any) {
-      toast({ title: "Couldn't reset", description: err?.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      captureException(err, {
+        tags: {
+          route: "/admin/messaging-templates",
+          step: "reset",
+          companyId,
+          templateKey: template.key,
+        },
+      });
+      toast({ title: "Couldn't reset", description: e?.message, variant: "destructive" });
     } finally {
       setResetting(false);
     }
+  };
+
+  const handleClose = () => {
+    if (dirty) {
+      const ok = window.confirm("You have unsaved changes. Close anyway?");
+      if (!ok) return;
+    }
+    onClose();
   };
 
   return (
@@ -367,7 +474,12 @@ function EditorDrawer({
             : <MessageCircle className="w-5 h-5 text-emerald-600" />}
           {template.label}
         </SheetTitle>
-        <SheetDescription>{template.description}</SheetDescription>
+        <SheetDescription className="flex items-center gap-2">
+          <span>{template.description}</span>
+          <code className="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 bg-slate-100 rounded">
+            {template.key}
+          </code>
+        </SheetDescription>
       </SheetHeader>
 
       <div className="space-y-4 mt-4">
@@ -383,7 +495,7 @@ function EditorDrawer({
                   key={v.name}
                   type="button"
                   onClick={() => insertVar(v.name)}
-                  title={`${v.description} · example: ${v.example}`}
+                  title={`${v.description} - example: ${v.example}`}
                   className="text-[11px] font-mono bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-1 rounded border border-slate-200 transition-colors"
                 >
                   {`{{${v.name}}}`}
@@ -443,7 +555,7 @@ function EditorDrawer({
             className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
           >
             <Save className="w-4 h-4" />
-            {saving ? "Saving…" : "Save customisation"}
+            {saving ? "Saving..." : "Save customisation"}
           </Button>
           <Button
             type="button"
@@ -454,15 +566,21 @@ function EditorDrawer({
             title={template.isCustomised ? "Drop your customisation, fall back to system default" : "Already on default"}
           >
             <RotateCcw className="w-4 h-4" />
-            {resetting ? "Resetting…" : "Reset to default"}
+            {resetting ? "Resetting..." : "Reset to default"}
           </Button>
         </div>
+
+        {dirty && (
+          <p className="text-[11px] text-amber-700 text-center bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+            You have unsaved changes. Save before closing.
+          </p>
+        )}
 
         <p className="text-[10px] text-slate-500 text-center">
           Saved customisations are scoped to your company. Other tenants see their own templates (or the system default).
         </p>
 
-        <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>
+        <Button variant="ghost" onClick={handleClose} className="w-full">Close</Button>
       </div>
     </>
   );
@@ -470,7 +588,14 @@ function EditorDrawer({
 
 export default function ProtectedMessagingTemplatesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+        UserRole.OWNER,
+      ]}
+    >
       <MessagingTemplatesPage />
     </ProtectedRoute>
   );

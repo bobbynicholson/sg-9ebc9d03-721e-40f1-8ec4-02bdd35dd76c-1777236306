@@ -134,6 +134,23 @@ export async function notifyAdminOfEmbedLead(
     }
   }
 
+  // Shared variable bag for both the email + the WhatsApp ping. Keys
+  // match registry.ts EMBED_LEAD_VARS so what an operator edits in
+  // /admin/messaging-templates is what the lead-alert produces.
+  const embedLeadVars: Record<string, string> = {
+    client_name: String(clientName),
+    client_email: clientEmail ? String(clientEmail) : "",
+    client_phone: clientPhone ? String(clientPhone) : "",
+    event_type: String(leadInsert.event_type || ""),
+    event_date: eventDate !== "TBD" ? eventDate : "",
+    guest_count: guestCount ? String(guestCount) : "",
+    venue: String(leadInsert.venue_address || ""),
+    budget: leadInsert.budget ? `R${leadInsert.budget}` : "",
+    notes: String(leadInsert.notes || ""),
+    form_name: String(formName || "embed form"),
+    company_name: String(companyName),
+  };
+
   // ── 2. Admin email ───────────────────────────────────────────────
   // Per-form gate (notify_admin_email column) lets a tenant turn off
   // the email for noisy forms (newsletter signups etc.) while keeping
@@ -143,43 +160,51 @@ export async function notifyAdminOfEmbedLead(
       (company as any)?.notification_email || (ownerProfile as any)?.email || null;
     if (adminTo) {
       try {
-        // emailService is server-importable (no DOM). Pass the service
-        // client through `_client` so its email_settings lookup
-        // bypasses RLS.
         const { emailService } = await import("@/services/emailService");
+        const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
 
-        // Plain-text body: every interpolated value is user-supplied,
-        // so we keep it text-only. emailService sends html: by default
-        // (per the auditor finding) - we still escape just in case
-        // the configured provider auto-formats <br> from newlines.
+        // Inline fallback mirrors the registry default for
+        // embed_lead_admin_email so first send is identical until the
+        // operator customises.
+        const inlineSubject = `New enquiry from {{client_name}} - {{form_name}}`;
+        const inlineBody =
+          `New lead from your website form.\n\n` +
+          `Name: {{client_name}}\n` +
+          `Email: {{client_email}}\n` +
+          `Phone: {{client_phone}}\n` +
+          `Event: {{event_type}}\n` +
+          `Date: {{event_date}}\n` +
+          `Guests: {{guest_count}}\n` +
+          `Venue: {{venue}}\n` +
+          `Budget: {{budget}}\n\n` +
+          `Notes: {{notes}}\n\n` +
+          `Reply quickly while the enquiry is hot.\n\n` +
+          `Open the lead: ${leadLink}`;
+
+        const resolved = await resolveEmailTemplate({
+          companyId,
+          templateType: "embed_lead_admin_email",
+          variables: embedLeadVars,
+          fallback: { subject: inlineSubject, bodyHtml: inlineBody },
+          client: supabase,
+        });
+
+        // escapeHtml retained for downstream callers that read the
+        // variable bag for HTML rendering (unused by the resolver but
+        // shipped through emailService.variables for consistency).
         const safeName = escapeHtml(clientName);
         const safeCompany = escapeHtml(companyName);
         const safeForm = escapeHtml(formName || "embed form");
         const safeNotes = escapeHtml(leadInsert.notes || "");
 
-        const subjectRaw = `New enquiry from ${clientName} - ${companyName}`;
-        const bodyRaw =
-          `${clientName} just sent an enquiry through your website (${safeForm}).\n\n` +
-          `Name: ${clientName}\n` +
-          (clientEmail ? `Email: ${clientEmail}\n` : "") +
-          (clientPhone ? `Phone: ${clientPhone}\n` : "") +
-          (eventDate !== "TBD" ? `Event date: ${eventDate}\n` : "") +
-          (guestCount ? `Guests: ${guestCount}\n` : "") +
-          (leadInsert.event_type ? `Event type: ${leadInsert.event_type}\n` : "") +
-          (leadInsert.venue_address ? `Venue: ${leadInsert.venue_address}\n` : "") +
-          (leadInsert.budget ? `Budget: R${leadInsert.budget}\n` : "") +
-          (leadInsert.notes ? `\nNotes:\n${leadInsert.notes}\n` : "") +
-          `\nReply within the hour to win this booking. Open the lead:\n${leadLink}`;
-
-        // Subject + body are plain-text safe (no HTML interpolation
-        // primitives). escapeHtml uses are kept for any future HTML
-        // template that loads this payload via variables.
         await (emailService as any).sendEmail({
           companyId,
           to: adminTo,
-          subject: subjectRaw,
-          body: bodyRaw,
+          subject: resolved.subject,
+          body: resolved.bodyHtml,
           variables: {
+            ...embedLeadVars,
+            // Legacy keys retained for any downstream readers.
             clientName: safeName,
             companyName: safeCompany,
             formName: safeForm,
@@ -200,6 +225,9 @@ export async function notifyAdminOfEmbedLead(
   }
 
   // ── 3. WhatsApp to the owner (best-effort) ───────────────────────
+  // Resolved through whatsapp_templates so the body in
+  // /admin/messaging-templates -> embed_lead_admin_whatsapp wins
+  // over the inline fallback.
   const adminPhone =
     (ownerProfile as any)?.phone || (ownerProfile as any)?.phone_number;
   if (adminPhone) {
@@ -207,19 +235,40 @@ export async function notifyAdminOfEmbedLead(
       const { whatsappIntegrationService } = await import(
         "@/services/whatsappIntegrationService"
       );
+
+      // Pull the WhatsApp override row directly (the resolver in
+      // services/email/templateResolver.ts is email-only). Keep the
+      // failure soft - send the inline fallback if the lookup throws.
+      let resolvedBody =
+        `New lead from {{form_name}}.\n\n` +
+        `{{client_name}} - {{event_type}} on {{event_date}}, {{guest_count}} guests.\n` +
+        `Phone: {{client_phone}}\n` +
+        `Email: {{client_email}}\n\n` +
+        `Open the leads page to reply.`;
+      try {
+        const { data: waRow } = await supabase
+          .from("whatsapp_templates")
+          .select("template_content, is_enabled")
+          .eq("company_id", companyId)
+          .eq("template_key", "embed_lead_admin_whatsapp")
+          .eq("is_enabled", true)
+          .maybeSingle();
+        if (waRow && (waRow as any).template_content) {
+          resolvedBody = (waRow as any).template_content;
+        }
+      } catch (e) {
+        console.warn("[embed/lead-notify] whatsapp template lookup failed:", e);
+      }
+      // Mustache substitute with the same variable bag.
+      for (const [k, v] of Object.entries(embedLeadVars)) {
+        resolvedBody = resolvedBody.split(`{{${k}}}`).join(v ?? "");
+      }
+
       await (whatsappIntegrationService as any).sendWhatsAppMessage(
         {
           to: adminPhone,
           type: "text",
-          text: {
-            body:
-              `🎉 New lead from your website!\n\n` +
-              `Client: ${clientName}\n` +
-              (clientPhone ? `Phone: ${clientPhone}\n` : "") +
-              (eventDate !== "TBD" ? `Event: ${eventDate}\n` : "") +
-              (guestCount ? `Guests: ${guestCount}\n` : "") +
-              `\nView and respond quickly to win this booking.`,
-          },
+          text: { body: resolvedBody },
         },
         { companyId },
       );

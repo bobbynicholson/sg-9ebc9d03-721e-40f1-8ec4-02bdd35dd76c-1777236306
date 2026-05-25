@@ -2130,10 +2130,15 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   }
   const eventNameLabel = order.event_name || "your event";
 
-  const reminders = [
+  // Wave 50: each reminder now resolves through the central template
+  // resolver so what the tenant edits in /admin/messaging-templates
+  // is what their clients receive. Keys match registry.ts entries
+  // event_one_week_reminder / event_day_before_reminder.
+  const reminderDefaults = [
     {
       offsetMs: -7 * 24 * 3600 * 1000,
       key: "week_before",
+      templateType: "event_one_week_reminder",
       subject: `One week to go - ${eventNameLabel} on ${eventLabel}`,
       body:
         `Hi ${firstName},\n\n` +
@@ -2145,6 +2150,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
     {
       offsetMs: -1 * 24 * 3600 * 1000,
       key: "day_before",
+      templateType: "event_day_before_reminder",
       subject: `Tomorrow's the day - ${eventNameLabel}`,
       body:
         `Hi ${firstName},\n\n` +
@@ -2155,24 +2161,52 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
     },
   ];
 
+  const reminderVariables: Record<string, string> = {
+    first_name: firstName,
+    client_name: String(order.client_name || "there"),
+    event_name: eventNameLabel,
+    event_date: eventLabel,
+    guest_count: String(order.guest_count ?? ""),
+    venue: String(order.venue || ""),
+    tenant_name: tenantNameForReminders,
+    order_number: String(order.order_number || ""),
+  };
+
   const rows: any[] = [];
-  for (const r of reminders) {
+  for (const r of reminderDefaults) {
     const sendAt = new Date(eventDate.getTime() + r.offsetMs);
     // Skip if the reminder time is already in the past (e.g. event
     // is 3 days away when the order gets confirmed).
     if (sendAt.getTime() < Date.now()) continue;
+    // Resolve through the template editor (tenant override -> global
+    // default -> inline fallback). Never throws; on failure we still
+    // queue the inline default so the cron worker keeps shipping.
+    let resolvedSubject = r.subject;
+    let resolvedBody = r.body;
+    try {
+      const resolved = await resolveEmailTemplate({
+        companyId: order.company_id,
+        templateType: r.templateType,
+        variables: reminderVariables,
+        fallback: { subject: r.subject, bodyHtml: r.body },
+      });
+      resolvedSubject = resolved.subject;
+      resolvedBody = resolved.bodyHtml;
+    } catch (e) {
+      console.warn("[ensureScheduledPreEventReminders] resolve failed, using inline default:", e);
+    }
     rows.push({
       company_id: order.company_id,
       to_email: order.client_email,
       to_name: order.client_name || "there",
-      subject: r.subject,
-      body: r.body,
+      subject: resolvedSubject,
+      body: resolvedBody,
       trigger_event: "pre_event",
       trigger_ref_id: order.id,
       status: "pending",
       scheduled_for: sendAt.toISOString(),
-      template_type: `pre_event_${r.key}`,
-      variables: { clientName: firstName, eventDate: eventLabel },
+      template_type: r.templateType,
+      variables: reminderVariables,
     });
   }
 
