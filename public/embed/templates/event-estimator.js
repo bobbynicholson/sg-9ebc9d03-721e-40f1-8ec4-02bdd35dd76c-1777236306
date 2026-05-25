@@ -41,7 +41,26 @@
       { id: 'phone', type: 'phone', label: 'Phone', required: true },
       { id: 'event_date', type: 'date', label: 'Event date', required: true }
     ]).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-    var tiers = (config.tiers && config.tiers.length) ? config.tiers : DEFAULT_TIERS;
+    // LCF-H (task #229, 2026-05-25): normalise tier shape. The admin
+    // customiser persists tiers in the DB as
+    // {id,name,price_per_person_min,price_per_person_max,currency},
+    // but this template was authored against the older
+    // {id,name,icon,perPerson} shape. Without normalisation, DB-saved
+    // tiers render as "RNaN pp".
+    var rawTiers = (config.tiers && config.tiers.length) ? config.tiers : DEFAULT_TIERS;
+    var tiers = rawTiers.map(function (t) {
+      var pp = (typeof t.perPerson === 'number')
+        ? t.perPerson
+        : (typeof t.price_per_person_min === 'number'
+            ? Number(t.price_per_person_min)
+            : 0);
+      return {
+        id: t.id || ('tier_' + Math.random().toString(36).slice(2, 8)),
+        name: t.name || 'Tier',
+        icon: t.icon || '',
+        perPerson: pp,
+      };
+    });
 
     var form = h.el('form', { class: 'cms-form', novalidate: 'novalidate' });
     var alert = h.el('div', { class: 'cms-alert', hidden: 'hidden', role: 'alert' });
@@ -92,7 +111,7 @@
       // Optional remote refine.
       if (h.estimate && h.token) {
         h.estimate(n, selectedTier).then(function (data) {
-          if (data && data.low !== undefined) estDisp.textContent = h.formatCurrency(data.low, config.currency) + ' -- ' + h.formatCurrency(data.high, config.currency);
+          if (data && data.low !== undefined) estDisp.textContent = h.formatCurrency(data.low, config.currency) + ' - ' + h.formatCurrency(data.high, config.currency);
         }).catch(function () {});
       }
     }

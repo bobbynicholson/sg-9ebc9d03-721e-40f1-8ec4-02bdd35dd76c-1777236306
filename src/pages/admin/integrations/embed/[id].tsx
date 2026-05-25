@@ -48,8 +48,6 @@ import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
 import { getTemplateMeta } from "@/lib/embed/templateCatalog";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/app";
 import { captureException } from "@/lib/observability";
 import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT } from "@/lib/embed/setupChecks";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
@@ -282,8 +280,24 @@ export default function EmbedFormCustomiser() {
 
   const previewSrc = useMemo(() => {
     if (!form || !companyData?.embed_token) return "";
-    return `/embed/demo.html?token=${companyData.embed_token}&slug=${encodeURIComponent(form.slug)}&template=${encodeURIComponent(form.template_id)}&draft=1`;
-  }, [form?.slug, form?.template_id, companyData?.embed_token]);  // eslint-disable-line react-hooks/exhaustive-deps
+    // LCF-H (task #229, 2026-05-25): pass tenant brand through so the
+    // demo fallback shows real company name + colours when the API
+    // path can't be hit.
+    const qs = new URLSearchParams({
+      token: companyData.embed_token,
+      slug: form.slug,
+      template: form.template_id,
+      draft: "1",
+    });
+    if (companyData.company_name) qs.set("companyName", companyData.company_name);
+    if (form.theme?.primary_color) qs.set("primary", form.theme.primary_color);
+    else if (companyData.primary_color) qs.set("primary", companyData.primary_color);
+    if (form.theme?.secondary_color) qs.set("secondary", form.theme.secondary_color);
+    else if (companyData.secondary_color) qs.set("secondary", companyData.secondary_color);
+    if (companyData.logo_url) qs.set("logoUrl", companyData.logo_url);
+    if (companyData.currency) qs.set("currency", companyData.currency);
+    return `/embed/demo.html?${qs.toString()}`;
+  }, [form?.slug, form?.template_id, form?.theme?.primary_color, form?.theme?.secondary_color, companyData?.embed_token, companyData?.company_name, companyData?.primary_color, companyData?.secondary_color, companyData?.logo_url, companyData?.currency]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Force-reload key. The postMessage path below is the soft option,
   // but the demo page doesn't always re-render on draft messages

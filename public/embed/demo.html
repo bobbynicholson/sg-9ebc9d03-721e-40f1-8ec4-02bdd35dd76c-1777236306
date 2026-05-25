@@ -93,6 +93,24 @@
         div.setAttribute('data-slug', slug);
         div.setAttribute('data-template', template);
         div.setAttribute('data-demo', 'true');
+        // LCF-H (task #229, 2026-05-25): pass tenant brand through
+        // to the demo fallback so admin preview iframes show the
+        // real company name + colours instead of "Catering Co.".
+        // The admin pages pass companyName + secondary + logoUrl +
+        // currency via the URL query.
+        var brandKeys = ['companyName', 'secondary', 'logoUrl', 'currency'];
+        brandKeys.forEach(function (k) {
+          var v = params.get(k);
+          if (!v) return;
+          var attr = k === 'secondary'
+            ? 'data-secondary-color'
+            : 'data-' + k.replace(/([A-Z])/g, '-$1').toLowerCase();
+          div.setAttribute(attr, v);
+        });
+        // Primary colour also flows through as a data attr (in addition
+        // to the CSS var below) so the fallback brand block in
+        // loader.js can pick it up.
+        div.setAttribute('data-primary-color', primary);
         div.style.setProperty('--brand-primary', primary);
         stage.appendChild(div);
 

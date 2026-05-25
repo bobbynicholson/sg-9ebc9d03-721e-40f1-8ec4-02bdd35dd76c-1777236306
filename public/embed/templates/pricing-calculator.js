@@ -29,11 +29,42 @@
   function render(host, config, brand, h) {
     h.injectStyles(host, CSS);
     var fields = (config.fields || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-    var tiers = config.tiers || [
+    // LCF-H (task #229, 2026-05-25): two robustness fixes.
+    //
+    // 1. Empty-array crash. Pre-LCF-H this was `config.tiers || [...]`.
+    //    When the API returns tiers: [] (the `token=preview` fallback
+    //    path the admin gallery uses) the empty array is truthy, so
+    //    the hardcoded fallback never kicked in. Line ~62 then tried
+    //    tiers[0].id and threw "Cannot read properties of undefined
+    //    (reading 'id')". Now we explicitly check length.
+    //
+    // 2. Shape mismatch. The admin customiser persists tiers in the
+    //    DB with price_per_person_min + price_per_person_max +
+    //    currency, but this template was authored against an older
+    //    shape that used perPerson (a single number). Normalise both
+    //    shapes to {id,name,perPerson} so a tenant's saved tiers
+    //    don't render NaN.
+    var rawTiers = (config.tiers && config.tiers.length > 0) ? config.tiers : [
       { id: 'basic', name: 'Basic', perPerson: 250 },
       { id: 'standard', name: 'Standard', perPerson: 350 },
       { id: 'premium', name: 'Premium', perPerson: 450 }
     ];
+    var tiers = rawTiers.map(function (t) {
+      // Prefer perPerson; fall back to the min/max DB shape.
+      var pp = (typeof t.perPerson === 'number')
+        ? t.perPerson
+        : (typeof t.price_per_person_min === 'number'
+            ? Number(t.price_per_person_min)
+            : 0);
+      return {
+        id: t.id || ('tier_' + Math.random().toString(36).slice(2, 8)),
+        name: t.name || 'Tier',
+        perPerson: pp,
+        perPersonMax: typeof t.price_per_person_max === 'number'
+          ? Number(t.price_per_person_max)
+          : null,
+      };
+    });
     var minGuests = (config.guestsMin) || 10;
     var maxGuests = (config.guestsMax) || 500;
     var startGuests = config.guestsDefault || Math.max(minGuests, 50);
@@ -105,14 +136,16 @@
       if (!h.estimate) return;
       h.estimate(Number(slider.value), selectedTier).then(function (data) {
         if (data && data.low !== undefined && data.high !== undefined) {
-          estimate.textContent = h.formatCurrency(data.low, config.currency) + ' -- ' + h.formatCurrency(data.high, config.currency);
+          // LCF-H: single hyphen between low + high (Bobby's hard rule -
+          // no double dashes anywhere in user-facing copy).
+          estimate.textContent = h.formatCurrency(data.low, config.currency) + ' - ' + h.formatCurrency(data.high, config.currency);
         }
       }).catch(function () { /* keep local estimate */ });
     }, 300);
     function updateEstimate() {
       guestNum.textContent = slider.value;
       var est = localEstimate();
-      estimate.textContent = h.formatCurrency(est.lo, config.currency) + ' -- ' + h.formatCurrency(est.hi, config.currency);
+      estimate.textContent = h.formatCurrency(est.lo, config.currency) + ' - ' + h.formatCurrency(est.hi, config.currency);
       debouncedRemote();
     }
     slider.addEventListener('input', updateEstimate);

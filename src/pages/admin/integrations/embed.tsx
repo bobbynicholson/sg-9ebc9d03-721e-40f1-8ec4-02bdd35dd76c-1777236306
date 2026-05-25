@@ -55,8 +55,6 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { TemplateGalleryDialog } from "@/components/admin/embed/TemplateGalleryDialog";
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/app";
 import { captureException } from "@/lib/observability";
 
 interface EmbedFormRow {
@@ -359,6 +357,11 @@ export default function AdminEmbedFormsPage() {
                     key={form.id}
                     form={form}
                     embedToken={company?.embed_token}
+                    companyName={company?.company_name}
+                    primaryColor={company?.primary_color}
+                    secondaryColor={company?.secondary_color}
+                    logoUrl={company?.logo_url}
+                    currency={company?.currency}
                     onTogglePause={togglePause}
                     onDuplicate={duplicateForm}
                     onDelete={deleteForm}
@@ -377,6 +380,11 @@ export default function AdminEmbedFormsPage() {
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
         embedToken={company?.embed_token}
+        companyName={company?.company_name}
+        primaryColor={company?.primary_color}
+        secondaryColor={company?.secondary_color}
+        logoUrl={company?.logo_url}
+        currency={company?.currency}
         onCreated={(formId) => {
           setGalleryOpen(false);
           router.push(withSlug(`/admin/integrations/embed/${formId}`));
@@ -406,10 +414,16 @@ export default function AdminEmbedFormsPage() {
 }
 
 function FormCard({
-  form, embedToken, onTogglePause, onDuplicate, onDelete, onGetSnippet,
+  form, embedToken, companyName, primaryColor, secondaryColor, logoUrl, currency,
+  onTogglePause, onDuplicate, onDelete, onGetSnippet,
 }: {
   form: EmbedFormRow;
   embedToken?: string;
+  companyName?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  currency?: string;
   onTogglePause: (f: EmbedFormRow) => void;
   onDuplicate: (f: EmbedFormRow) => void;
   onDelete: (f: EmbedFormRow) => void;
@@ -420,8 +434,24 @@ function FormCard({
     ? +(form.submissions_count / form.views_count * 100).toFixed(1)
     : 0;
 
+  // LCF-H (task #229, 2026-05-25): preview iframe now passes the
+  // tenant's actual company name + brand colours through the URL so
+  // the demo fallback (token=preview path) shows "Spit Braai Delivery"
+  // + their real colours instead of the generic "Catering Co.".
   const previewSrc = embedToken
-    ? `/embed/demo.html?template=${encodeURIComponent(form.template_id)}&token=preview&slug=${encodeURIComponent(form.slug)}`
+    ? (() => {
+        const qs = new URLSearchParams({
+          template: form.template_id,
+          token: "preview",
+          slug: form.slug,
+        });
+        if (companyName) qs.set("companyName", companyName);
+        if (primaryColor) qs.set("primary", primaryColor);
+        if (secondaryColor) qs.set("secondary", secondaryColor);
+        if (logoUrl) qs.set("logoUrl", logoUrl);
+        if (currency) qs.set("currency", currency);
+        return `/embed/demo.html?${qs.toString()}`;
+      })()
     : "";
 
   return (

@@ -20,10 +20,19 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   embedToken?: string;
+  /** LCF-H (task #229, 2026-05-25): tenant brand for the preview
+   *  iframes. When supplied, the gallery thumbnails show the
+   *  tenant's actual company name + colours instead of the
+   *  platform-generic "Catering Co." placeholder. */
+  companyName?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  currency?: string;
   onCreated: (formId: string) => void;
 }
 
-export function TemplateGalleryDialog({ open, onOpenChange, embedToken, onCreated }: Props) {
+export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyName, primaryColor, secondaryColor, logoUrl, currency, onCreated }: Props) {
   const { toast } = useToast();
   const [creatingId, setCreatingId] = useState<string | null>(null);
 
@@ -77,7 +86,16 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, onCreate
             // placeholders when the auth context hadn't populated yet
             // (the gate was always-falsy on first render and never
             // recovered cleanly).
-            const previewSrc = `/embed/demo.html?template=${encodeURIComponent(meta.id)}&compact=1`;
+            // LCF-H: tenant brand threaded through so the gallery
+            // cards show the tenant's company name + colours.
+            const qs = new URLSearchParams({ template: meta.id, compact: "1" });
+            if (companyName) qs.set("companyName", companyName);
+            if (primaryColor) qs.set("primary", primaryColor);
+            if (secondaryColor) qs.set("secondary", secondaryColor);
+            if (logoUrl) qs.set("logoUrl", logoUrl);
+            if (currency) qs.set("currency", currency);
+            const previewSrc = `/embed/demo.html?${qs.toString()}`;
+            void embedToken; // keep the prop signature stable
             const isCreating = creatingId === meta.id;
             return (
               <Card key={meta.id} className="border-0 shadow-md hover:shadow-xl transition-all overflow-hidden">

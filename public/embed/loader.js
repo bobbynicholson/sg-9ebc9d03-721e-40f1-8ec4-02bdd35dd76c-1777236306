@@ -91,18 +91,25 @@
     });
   }
 
-  function fallbackConfig(slug, templateOverride) {
+  // LCF-H (task #229, 2026-05-25): companyName arg + brandPrimary +
+  // brandSecondary. The admin live-preview iframes pass the tenant's
+  // real company name + brand colours through the URL, so the
+  // fallback config used in demoMode (when the API config fetch is
+  // skipped) shows "Spit Braai Delivery" instead of the platform-
+  // generic "Catering Co." placeholder.
+  function fallbackConfig(slug, templateOverride, opts) {
+    opts = opts || {};
     return {
       slug: slug || 'default',
       template: templateOverride || 'quick-card',
       brand: {
-        companyName: 'Catering Co.',
-        primaryColor: '#0F172A',
-        secondaryColor: '#F59E0B',
-        logoUrl: null
+        companyName: opts.companyName || 'Your Company',
+        primaryColor: opts.primaryColor || '#0F172A',
+        secondaryColor: opts.secondaryColor || '#F59E0B',
+        logoUrl: opts.logoUrl || null
       },
       theme: {},
-      currency: 'ZAR',
+      currency: opts.currency || 'ZAR',
       successMessage: 'Thanks. We will be in touch shortly.',
       redirectUrl: null,
       tiers: [],
@@ -132,6 +139,16 @@
     var slug = hostEl.getAttribute('data-slug') || 'default';
     var templateOverride = hostEl.getAttribute('data-template') || null;
     var demoMode = hostEl.getAttribute('data-demo') === 'true';
+    // LCF-H (task #229, 2026-05-25): tenant-aware demo fallback.
+    // Admin preview iframes pass companyName + primaryColor +
+    // secondaryColor as data attrs so the fallback config used in
+    // demoMode shows the real tenant branding, not the platform
+    // placeholder. Read here; threaded into fallbackConfig below.
+    var demoCompanyName = hostEl.getAttribute('data-company-name') || null;
+    var demoPrimaryColor = hostEl.getAttribute('data-primary-color') || null;
+    var demoSecondaryColor = hostEl.getAttribute('data-secondary-color') || null;
+    var demoLogoUrl = hostEl.getAttribute('data-logo-url') || null;
+    var demoCurrency = hostEl.getAttribute('data-currency') || null;
 
     if (!token && !demoMode) {
       showError(hostEl, 'Embed form is missing data-token.');
@@ -147,11 +164,21 @@
     placeholder.textContent = 'Loading form...';
     shadow.appendChild(placeholder);
 
+    // LCF-H: tenant brand opts threaded through both the demoMode
+    // path (admin preview iframes) and the API-fetch failure path
+    // (third-party site loading with a stale token).
+    var demoOpts = {
+      companyName: demoCompanyName,
+      primaryColor: demoPrimaryColor,
+      secondaryColor: demoSecondaryColor,
+      logoUrl: demoLogoUrl,
+      currency: demoCurrency,
+    };
     var configReq = demoMode
-      ? Promise.resolve(fallbackConfig(slug, templateOverride))
+      ? Promise.resolve(fallbackConfig(slug, templateOverride, demoOpts))
       : fetchConfig(token, slug).catch(function () {
           // Graceful degradation: still render something usable in dev.
-          return fallbackConfig(slug, templateOverride);
+          return fallbackConfig(slug, templateOverride, demoOpts);
         });
 
     Promise.all([configReq, getHelpers()]).then(function (results) {
