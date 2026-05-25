@@ -85,6 +85,27 @@ interface OrderHead {
   assigned_chef_id: string | null;
   assigned_driver_id: string | null;
   collection_time: string | null;
+  // ODOC: full lifecycle timestamp spine. Denormalised on orders by
+  // various RPCs/triggers when the corresponding event fires. The
+  // timeline section reads these straight off the head row to avoid
+  // N+1 joins.
+  confirmed_at: string | null;
+  prep_started_at: string | null;
+  ready_at: string | null;
+  picked_up_at: string | null;
+  arrived_at_venue_at: string | null;
+  pod_captured_at: string | null;
+  delivered_at: string | null;
+  setup_started_at: string | null;
+  service_started_at: string | null;
+  departed_venue_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  postponed_at: string | null;
+  requires_waiter: boolean | null;
+  waiter_service_required: boolean | null;
+  equipment_return_method: string | null;
+  created_at: string | null;
 }
 
 export interface OrderDocumentProps {
@@ -120,7 +141,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, company_id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, client_id, client_name, client_email, client_phone, special_instructions, kitchen_instructions, assigned_chef_id, assigned_driver_id, collection_time",
+          "id, company_id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, client_id, client_name, client_email, client_phone, special_instructions, kitchen_instructions, assigned_chef_id, assigned_driver_id, collection_time, confirmed_at, prep_started_at, ready_at, picked_up_at, arrived_at_venue_at, pod_captured_at, delivered_at, setup_started_at, service_started_at, departed_venue_at, completed_at, cancelled_at, postponed_at, requires_waiter, waiter_service_required, equipment_return_method, created_at",
         )
         .eq("id", orderId)
         .is("deleted_at", null)
