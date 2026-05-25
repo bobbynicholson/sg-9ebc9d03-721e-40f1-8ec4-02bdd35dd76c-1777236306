@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,39 +13,104 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Search, AlertTriangle, Minus, Loader2, ChefHat } from "lucide-react";
+import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
+import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
+
+const ROUTE = "/team-portal/kitchen/stock";
+
+// KS-A: action types the kitchen can log on a stock item. Drives the
+// dialog's copy + math + transaction_type tag. Pre-audit the dialog
+// only supported "used" - kitchen literally had no way to log when
+// shopping dropped off a fresh delivery, or when something went off
+// before service. Both are core kitchen-floor signals.
+type StockAction = "used" | "received" | "wasted" | "count";
+
+type SortKey = "name" | "status" | "location";
 
 export default function KitchenStockPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [recipeLinkedIds, setRecipeLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  // KS-A: URL persistence on the filter chips so a chef can deep-link
+  // "Below par + Produce" or "In recipes + Fridge 1" from the kitchen
+  // notification banner / a saved tab.
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [storage, setStorage] = useState<string>("all");
   const [belowParOnly, setBelowParOnly] = useState(false);
   // Phase 6D: filter to "things our recipes actually use" - skips
   // generic warehouse items the kitchen doesn't touch.
   const [recipeLinkedOnly, setRecipeLinkedOnly] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const [usingItem, setUsingItem] = useState<Inventory | null>(null);
+  // KS-A: action-aware dialog state. `action` picks the verb (used /
+  // received / wasted / count) which in turn picks the math + the
+  // transaction_type tag we write into inventory_transactions. Keeps
+  // the audit trail truthful instead of mashing everything into
+  // "adjustment".
+  const [action, setAction] = useState<StockAction>("used");
   const [usedQty, setUsedQty] = useState<string>("");
   const [usedNotes, setUsedNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // KS-A: hydrate filters from URL on first mount. Writing back happens
+  // in the input handlers below so router state stays the source of
+  // truth for deep links.
+  const hydratedRef = useRef(false);
   useEffect(() => {
-    if (!user?.company_id) return;
-    load();
-  }, [user?.company_id]);
+    if (hydratedRef.current || !router.isReady) return;
+    hydratedRef.current = true;
+    const q = (router.query.q as string) || "";
+    const cat = (router.query.cat as string) || "all";
+    const stor = (router.query.storage as string) || "all";
+    const bp = router.query.below === "1";
+    const rec = router.query.recipes === "1";
+    const sort = (router.query.sort as SortKey) || "name";
+    if (q) setSearch(q);
+    if (cat !== "all") setCategory(cat);
+    if (stor !== "all") setStorage(stor);
+    if (bp) setBelowParOnly(true);
+    if (rec) setRecipeLinkedOnly(true);
+    if (sort === "status" || sort === "location") setSortKey(sort);
+  }, [router.isReady, router.query]);
 
-  const load = async () => {
+  // KS-A: write URL back when filters change. Replace not push - users
+  // don't want a back-button hit for every keystroke.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const q: Record<string, string> = {};
+    if (search) q.q = search;
+    if (category !== "all") q.cat = category;
+    if (storage !== "all") q.storage = storage;
+    if (belowParOnly) q.below = "1";
+    if (recipeLinkedOnly) q.recipes = "1";
+    if (sortKey !== "name") q.sort = sortKey;
+    router.replace({ pathname: router.pathname, query: { ...router.query, ...q,
+      // explicitly clear stale keys
+      ...(search ? {} : { q: undefined }),
+      ...(category !== "all" ? {} : { cat: undefined }),
+      ...(storage !== "all" ? {} : { storage: undefined }),
+      ...(belowParOnly ? {} : { below: undefined }),
+      ...(recipeLinkedOnly ? {} : { recipes: undefined }),
+      ...(sortKey !== "name" ? {} : { sort: undefined }),
+    } as any }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, category, storage, belowParOnly, recipeLinkedOnly, sortKey]);
+
+  const load = useCallback(async () => {
     if (!user?.company_id) return;
     setLoading(true);
     try {
@@ -56,12 +122,43 @@ export default function KitchenStockPage() {
       ]);
       setItems(data);
       setRecipeLinkedIds(linked);
+      setLastLoadedAt(new Date());
     } catch (e) {
+      captureException(e, { tags: { route: ROUTE, step: "loadStock", companyId: user.company_id } });
       toast({ title: "Could not load stock", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.company_id, toast]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    load();
+  }, [user?.company_id, load]);
+
+  // KS-A: realtime sub on inventory_items. Shopping team logging a
+  // receipt or admin tweaking a par level should reflect on the
+  // chef's screen immediately, not after the next manual refresh.
+  // Debounced 400ms in case a batch import fires N updates back-to-back.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const trigger = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => { load(); }, 400);
+    };
+    const channel = supabase
+      .channel(`kitchen-stock:${user.company_id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${user.company_id}` },
+        trigger,
+      )
+      .subscribe();
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.company_id, load]);
 
   const categories = useMemo(() => {
     const s = new Set<string>();
@@ -69,9 +166,19 @@ export default function KitchenStockPage() {
     return ["all", ...Array.from(s).sort()];
   }, [items]);
 
+  // KS-A: distinct storage locations for the new filter. Mirrors the
+  // category list but keyed on storage_location. Helps a chef ask
+  // "what's in Fridge 1 right now?" without scrolling 80 items.
+  const storageLocations = useMemo(() => {
+    const s = new Set<string>();
+    items.forEach((i) => { if (i.storage_location) s.add(i.storage_location); });
+    return ["all", ...Array.from(s).sort()];
+  }, [items]);
+
   const preFiltered = useMemo(() => {
     return items.filter((i) => {
       if (category !== "all" && i.category !== category) return false;
+      if (storage !== "all" && i.storage_location !== storage) return false;
       if (recipeLinkedOnly && !recipeLinkedIds.has(i.id)) return false;
       if (belowParOnly) {
         const stock = Number(i.current_stock || 0);
@@ -80,9 +187,9 @@ export default function KitchenStockPage() {
       }
       return true;
     });
-  }, [items, category, belowParOnly, recipeLinkedOnly, recipeLinkedIds]);
+  }, [items, category, storage, belowParOnly, recipeLinkedOnly, recipeLinkedIds]);
 
-  const filtered = useFuzzyItems(
+  const fuzzied = useFuzzyItems(
     preFiltered,
     search,
     [
@@ -94,6 +201,39 @@ export default function KitchenStockPage() {
     { limit: 0 },
   );
 
+  // KS-A: status-priority sort puts out-of-stock then below-par at the
+  // top so a chef glancing at the page sees what needs action without
+  // scrolling. Location sort groups by storage_location so an end-of-
+  // shift physical count can move through Fridge 1 -> Fridge 2 ->
+  // Freezer -> Storeroom in order.
+  const filtered = useMemo(() => {
+    if (sortKey === "name") return fuzzied;
+    const arr = [...fuzzied];
+    if (sortKey === "status") {
+      const rank = (i: Inventory) => {
+        const s = Number(i.current_stock || 0);
+        const m = Number(i.minimum_stock || 0);
+        if (s <= 0) return 0;        // out
+        if (s <= m) return 1;        // below par
+        return 2;                     // ok
+      };
+      arr.sort((a, b) => {
+        const r = rank(a) - rank(b);
+        if (r !== 0) return r;
+        return (a.item_name || "").localeCompare(b.item_name || "");
+      });
+    } else if (sortKey === "location") {
+      arr.sort((a, b) => {
+        const la = a.storage_location || "zzz";
+        const lb = b.storage_location || "zzz";
+        const r = la.localeCompare(lb);
+        if (r !== 0) return r;
+        return (a.item_name || "").localeCompare(b.item_name || "");
+      });
+    }
+    return arr;
+  }, [fuzzied, sortKey]);
+
   const stats = useMemo(() => {
     const total = items.length;
     const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
@@ -102,28 +242,95 @@ export default function KitchenStockPage() {
     return { total, below, out, inRecipes };
   }, [items, recipeLinkedIds]);
 
-  const openUse = (item: Inventory) => { setUsingItem(item); setUsedQty(""); setUsedNotes(""); };
+  const openUse = (item: Inventory) => {
+    setUsingItem(item);
+    setAction("used");
+    setUsedQty("");
+    setUsedNotes("");
+  };
   const closeUse = () => { setUsingItem(null); setUsedQty(""); setUsedNotes(""); };
+
+  // KS-A: dialog math + audit-trail mapping. Each action picks both
+  // the new stock value (relative or absolute) and the
+  // inventory_transactions.transaction_type. "received" is treated as
+  // "adjustment" since the enum has no dedicated "receipt" - shopping
+  // logs proper purchase_receipts, kitchen logs are inline corrections.
+  const resolveAction = (item: Inventory, act: StockAction, qty: number) => {
+    const current = Number(item.current_stock || 0);
+    if (act === "used") {
+      return {
+        newStock: Math.max(0, current - qty),
+        type: "usage" as const,
+        defaultNote: `Kitchen used ${qty} ${item.unit_of_measure}`,
+        delta: -qty,
+      };
+    }
+    if (act === "wasted") {
+      return {
+        newStock: Math.max(0, current - qty),
+        type: "waste" as const,
+        defaultNote: `Wasted ${qty} ${item.unit_of_measure}`,
+        delta: -qty,
+      };
+    }
+    if (act === "received") {
+      return {
+        newStock: current + qty,
+        type: "adjustment" as const,
+        defaultNote: `Received ${qty} ${item.unit_of_measure}`,
+        delta: qty,
+      };
+    }
+    // count = absolute set
+    return {
+      newStock: qty,
+      type: "adjustment" as const,
+      defaultNote: `Counted ${qty} ${item.unit_of_measure}`,
+      delta: qty - current,
+    };
+  };
 
   const saveUsage = async () => {
     if (!usingItem || !user?.id) return;
     const qty = Number(usedQty);
-    if (Number.isNaN(qty) || qty <= 0) {
-      toast({ title: "Enter a positive quantity used", variant: "destructive" });
+    if (Number.isNaN(qty) || qty < 0 || (action !== "count" && qty <= 0)) {
+      toast({
+        title: action === "count" ? "Enter the counted quantity" : "Enter a positive quantity",
+        variant: "destructive",
+      });
       return;
     }
     const current = Number(usingItem.current_stock || 0);
-    const newStock = Math.max(0, current - qty);
+    // Soft guard: warn but don't block - chef may know better. Negative
+    // stock is already clamped to 0 in resolveAction.
+    if ((action === "used" || action === "wasted") && qty > current) {
+      const proceed = window.confirm(
+        `You only have ${current} ${usingItem.unit_of_measure} on hand. Continue and clamp to 0?`,
+      );
+      if (!proceed) return;
+    }
+    const { newStock, type, defaultNote, delta } = resolveAction(usingItem, action, qty);
     setSaving(true);
     try {
       await inventoryService.adjustStock(
-        usingItem.id, newStock, user.id,
-        usedNotes || `Kitchen used ${qty} ${usingItem.unit_of_measure}`,
+        usingItem.id,
+        newStock,
+        user.id,
+        usedNotes || defaultNote,
+        type,
       );
-      toast({ title: "Stock updated", description: `${usingItem.item_name}: -${qty} ${usingItem.unit_of_measure}` });
+      const sign = delta > 0 ? "+" : "";
+      toast({
+        title: action === "received" ? "Stock received" : action === "wasted" ? "Waste logged" : action === "count" ? "Count saved" : "Usage logged",
+        description: `${usingItem.item_name}: ${sign}${delta} ${usingItem.unit_of_measure} (now ${newStock})`,
+      });
       closeUse();
+      // No need to call load() - realtime sub will pick it up. Keep
+      // the call anyway as a no-op safety net for any tenant where
+      // realtime is misconfigured.
       load();
     } catch (e: any) {
+      captureException(e, { tags: { route: ROUTE, step: "saveStockAction", companyId: user.company_id, action } });
       toast({ title: "Could not save", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -157,15 +364,33 @@ export default function KitchenStockPage() {
               menu, prep-list). Was a bare icon floating beside the
               text - felt like an afterthought next to the polished
               sibling pages. */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
-              <Package className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
+                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  Kitchen Stock
+                </h1>
+                <p className="text-sm text-slate-600 mt-0.5">What you have on hand right now, tap any item to log usage, a receipt or waste</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Kitchen Stock
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">What you have on hand right now, click any item to log what you used</p>
+            {/* KS-A: as-of chip + manual refresh. Realtime sub keeps the
+                page fresh on inventory_items writes, but the chef
+                doing a stocktake wants the explicit confirmation. */}
+            <div className="flex items-center gap-2">
+              {lastLoadedAt && (
+                <span
+                  className="text-[11px] text-slate-500 tabular-nums hidden sm:inline"
+                  title={lastLoadedAt.toLocaleString("en-ZA")}
+                >
+                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+              <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              </Button>
             </div>
           </div>
 
@@ -177,21 +402,71 @@ export default function KitchenStockPage() {
           </div>
 
           <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search by name, SKU, category..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input placeholder="Search by name, SKU, category..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full sm:w-[170px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
+                </Select>
+                {/* KS-A: storage location filter. Chef wants to count
+                    Fridge 1, this scopes the list. */}
+                <Select value={storage} onValueChange={setStorage}>
+                  <SelectTrigger className="w-full sm:w-[170px]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <SelectValue placeholder="Storage" />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>{storageLocations.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All locations" : c}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
-              </Select>
-              <Button variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-orange-500 hover:bg-orange-600" : ""}>
-                <ChefHat className="h-4 w-4 mr-2" />In recipes
-              </Button>
-              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
-                <AlertTriangle className="h-4 w-4 mr-2" />Below par
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                  <ChefHat className="h-4 w-4 mr-2" />In recipes
+                </Button>
+                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />Below par
+                </Button>
+                {/* KS-A: sort selector. Default is alphabetical
+                    (familiar). "Status" floats out-of-stock and
+                    below-par to the top, "Location" groups by
+                    storage for end-of-shift walkthroughs. */}
+                <div className="ml-auto inline-flex items-center gap-1.5">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                  <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                    <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">A-Z</SelectItem>
+                      <SelectItem value="status">Status (low first)</SelectItem>
+                      <SelectItem value="location">Storage location</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {/* KS-A: active-filter recap line. Shown only when at
+                  least one filter is on. One-tap clear-all. */}
+              {(search || category !== "all" || storage !== "all" || belowParOnly || recipeLinkedOnly || sortKey !== "name") && (
+                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 border-t pt-3">
+                  <span>
+                    Showing <strong className="text-slate-900 tabular-nums">{filtered.length}</strong> of {items.length} items
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSearch(""); setCategory("all"); setStorage("all");
+                      setBelowParOnly(false); setRecipeLinkedOnly(false); setSortKey("name");
+                    }}
+                    className="h-7 text-xs text-slate-600 hover:text-slate-900"
+                  >
+                    Clear all
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -206,33 +481,64 @@ export default function KitchenStockPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {filtered.map((i) => (
-                    <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-slate-900 truncate">{i.item_name}</span>
-                          {recipeLinkedIds.has(i.id) && (
-                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 inline-flex items-center gap-1">
-                              <ChefHat className="w-2.5 h-2.5" />in recipes
-                            </Badge>
+                  {filtered.map((i) => {
+                    const stock = Number(i.current_stock ?? 0);
+                    const min = Number(i.minimum_stock ?? 0);
+                    const max = Number(i.maximum_stock ?? 0);
+                    const reorderQty = Number(i.reorder_quantity ?? 0);
+                    // KS-A: suggested order qty when below par. Prefer
+                    // the configured reorder_quantity. Falls back to
+                    // (max - stock) if max is set, else (par - stock)
+                    // doubled to give the kitchen a little headroom.
+                    let suggestion = 0;
+                    if (stock <= min) {
+                      if (reorderQty > 0) suggestion = reorderQty;
+                      else if (max > 0) suggestion = Math.max(0, max - stock);
+                      else suggestion = Math.max(min, min * 2 - stock);
+                    }
+                    return (
+                      <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-slate-900 truncate">{i.item_name}</span>
+                            {recipeLinkedIds.has(i.id) && (
+                              <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 inline-flex items-center gap-1">
+                                <ChefHat className="w-2.5 h-2.5" />in recipes
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {i.category ?? "--"}
+                            {i.storage_location ? (
+                              <span className="inline-flex items-center gap-0.5 ml-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                {i.storage_location}
+                              </span>
+                            ) : ""}
+                          </div>
+                          {/* KS-A: suggestion line. Only renders when
+                              below par so the row stays quiet for OK
+                              items. Helps the chef call shopping with
+                              an exact ask instead of "we need more". */}
+                          {suggestion > 0 && (
+                            <div className="text-[11px] text-amber-700 mt-1 inline-flex items-center gap-1">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              Suggest ordering <strong>{suggestion} {i.unit_of_measure}</strong>
+                              {reorderQty > 0 ? " (preferred re-order qty)" : max > 0 ? " (to hit max)" : " (to clear par)"}
+                            </div>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {i.category ?? "--"}
-                          {i.storage_location ? `, ${i.storage_location}` : ""}
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
+                          <span className="text-right tabular-nums">
+                            <span className="font-semibold text-base">{stock}</span>
+                            <span className="text-xs text-slate-500"> {i.unit_of_measure}</span>
+                            <div className="text-[11px] text-slate-400">par {min}</div>
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
-                        <span className="text-right tabular-nums">
-                          <span className="font-semibold text-base">{Number(i.current_stock ?? 0)}</span>
-                          <span className="text-xs text-slate-500"> {i.unit_of_measure}</span>
-                          <div className="text-[11px] text-slate-400">par {Number(i.minimum_stock ?? 0)}</div>
-                        </span>
-                        <Minus className="h-4 w-4 text-slate-400" />
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -243,25 +549,127 @@ export default function KitchenStockPage() {
       <Dialog open={!!usingItem} onOpenChange={(o) => !o && closeUse()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log usage</DialogTitle>
+            <DialogTitle>
+              {action === "used" ? "Log usage" :
+               action === "received" ? "Log a receipt" :
+               action === "wasted" ? "Log waste" :
+                                     "Save count"}
+            </DialogTitle>
             <DialogDescription>
-              {usingItem && `${usingItem.item_name}, ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}
+              {usingItem && `${usingItem.item_name} - ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+
+          {/* KS-A: action picker. Replaces the old "log usage only"
+              flow that forced a chef to go to /admin/inventory to log
+              a delivery or waste. Four verbs, each picks math + audit
+              trail tag underneath. */}
+          <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setAction("used")}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "used" ? "bg-white shadow-sm text-rose-700" : "text-slate-600 hover:bg-white/50"}`}
+            >
+              <Minus className="w-4 h-4" />
+              Used
+            </button>
+            <button
+              type="button"
+              onClick={() => setAction("received")}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "received" ? "bg-white shadow-sm text-emerald-700" : "text-slate-600 hover:bg-white/50"}`}
+            >
+              <Plus className="w-4 h-4" />
+              Received
+            </button>
+            <button
+              type="button"
+              onClick={() => setAction("wasted")}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "wasted" ? "bg-white shadow-sm text-amber-700" : "text-slate-600 hover:bg-white/50"}`}
+            >
+              <Trash2 className="w-4 h-4" />
+              Wasted
+            </button>
+            <button
+              type="button"
+              onClick={() => setAction("count")}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "count" ? "bg-white shadow-sm text-slate-900" : "text-slate-600 hover:bg-white/50"}`}
+            >
+              <Package className="w-4 h-4" />
+              Count
+            </button>
+          </div>
+
+          <div className="space-y-3 mt-2">
             <div>
-              <Label htmlFor="qty">Used ({usingItem?.unit_of_measure})</Label>
-              <Input id="qty" type="number" min="0" step="any" value={usedQty} onChange={(e) => setUsedQty(e.target.value)} autoFocus placeholder="e.g. 2.5" />
+              <Label htmlFor="qty">
+                {action === "used" ? `Used (${usingItem?.unit_of_measure})` :
+                 action === "received" ? `Received (${usingItem?.unit_of_measure})` :
+                 action === "wasted" ? `Wasted (${usingItem?.unit_of_measure})` :
+                                       `Counted total (${usingItem?.unit_of_measure})`}
+              </Label>
+              <Input
+                id="qty"
+                type="number"
+                min="0"
+                step="any"
+                value={usedQty}
+                onChange={(e) => setUsedQty(e.target.value)}
+                autoFocus
+                placeholder={action === "count" ? "Total on hand" : "e.g. 2.5"}
+              />
+              {/* KS-A: live preview of new stock so the chef can see
+                  what the save will leave them with before tapping. */}
+              {usingItem && usedQty && !Number.isNaN(Number(usedQty)) && Number(usedQty) >= 0 && (() => {
+                const preview = resolveAction(usingItem, action, Number(usedQty));
+                return (
+                  <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
+                    New on-hand: <strong className="text-slate-900">{preview.newStock} {usingItem.unit_of_measure}</strong>
+                    {preview.delta !== 0 && (
+                      <span className={preview.delta > 0 ? "text-emerald-700" : "text-rose-700"}>
+                        {" "}({preview.delta > 0 ? "+" : ""}{preview.delta})
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
             <div>
               <Label htmlFor="notes">Reason (optional)</Label>
-              <Input id="notes" placeholder="e.g. lunch service, prep for tomorrow" value={usedNotes} onChange={(e) => setUsedNotes(e.target.value)} />
+              <Input
+                id="notes"
+                placeholder={
+                  action === "used" ? "e.g. lunch service, prep for tomorrow" :
+                  action === "received" ? "e.g. shopping just dropped off" :
+                  action === "wasted" ? "e.g. went off, spilled, freezer burn" :
+                                        "e.g. end-of-shift physical count"
+                }
+                value={usedNotes}
+                onChange={(e) => setUsedNotes(e.target.value)}
+              />
             </div>
+            {action === "wasted" && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                Waste shows up on the admin wastage tab so the office can spot trends - what's going off, what's over-prepped.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeUse} disabled={saving}>Cancel</Button>
-            <Button onClick={saveUsage} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
-              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> : "Log usage"}
+            <Button
+              onClick={saveUsage}
+              disabled={saving || !usedQty}
+              className={
+                action === "received" ? "bg-emerald-600 hover:bg-emerald-700" :
+                action === "wasted" ? "bg-amber-600 hover:bg-amber-700" :
+                action === "count" ? "bg-slate-700 hover:bg-slate-800" :
+                                     "bg-orange-600 hover:bg-orange-700"
+              }
+            >
+              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> :
+                action === "received" ? "Log receipt" :
+                action === "wasted" ? "Log waste" :
+                action === "count" ? "Save count" :
+                                     "Log usage"}
             </Button>
           </DialogFooter>
         </DialogContent>
