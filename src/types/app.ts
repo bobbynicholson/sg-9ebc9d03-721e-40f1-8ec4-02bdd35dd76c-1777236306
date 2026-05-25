@@ -270,6 +270,12 @@ export enum UserRole {
   SHOPPING_STAFF = "shopping_staff",
   CLEANING_STAFF = "cleaning_staff",
   DRIVER = "driver",
+  // WTR-A: waiter / on-site server role. Combined with driver in
+  // one portal at /team-portal/driver - widgets render based on
+  // role, so a driver-only staffer sees driver UI, a waiter-only
+  // staffer sees waiter UI, and a combined-role staffer sees both
+  // on one screen. Same login, contextual UI.
+  WAITER = "waiter",
   CLIENT = "client",
 }
 

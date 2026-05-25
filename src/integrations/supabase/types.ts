@@ -12409,6 +12409,7 @@ export type Database = {
         | "sales_admin"
         | "outsource"
         | "owner"
+        | "waiter"
       vehicle_owner_kind: "company" | "driver"
     }
     CompositeTypes: {

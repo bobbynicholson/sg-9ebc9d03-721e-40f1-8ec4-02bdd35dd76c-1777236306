@@ -31,6 +31,8 @@ import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { AvailableJobsCard } from "@/components/driver/AvailableJobsCard";
+import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
+import { UserRole } from "@/types/app";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
@@ -42,7 +44,6 @@ import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { DriverNav } from "@/components/navigation/DriverNav";
-import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
@@ -81,7 +82,13 @@ interface Job {
 }
 
 function DriverDashboardInner() {
-  const { user } = useAuth();
+  const { user, userRoles } = useAuth();
+  // WTR-A: combined field-staff portal. A staffer with the 'waiter'
+  // role (or both driver + waiter) sees service-phase widgets on top
+  // of the driver UI. Same URL, same login, role-aware widget mix.
+  const isWaiter = Array.isArray(userRoles)
+    ? userRoles.includes(UserRole.WAITER)
+    : (user as any)?.role === "waiter" || (user as any)?.active_role === "waiter";
   const { toast } = useToast();
   // Wave 24: tenant-currency aware so a UK / US driver doesn't see "R"
   // on the earnings tile. The earnings page already had this; the
@@ -704,6 +711,22 @@ function DriverDashboardInner() {
             <WidgetErrorBoundary label="Available jobs">
               <AvailableJobsCard onClaimed={loadDriverJobs} />
             </WidgetErrorBoundary>
+
+            {/* WTR-A (XSC Wave C, task #259): waiter / on-site
+                server panel. Renders only when the user has the
+                'waiter' role. The same person who drives can also
+                be a waiter at the same event - this surface
+                handles the service phases (arrived, setup, guests
+                arrived, service started/ended, event complete)
+                with a tap per phase, an equipment-back-to-kitchen
+                helper, and a notes capture for the office. */}
+            {isWaiter && (
+              <div className="mb-4 sm:mb-6">
+                <WidgetErrorBoundary label="Service today">
+                  <WaiterServicePanel />
+                </WidgetErrorBoundary>
+              </div>
+            )}
 
             {/* Phase 17 #4: recent shift history. Driver-side
              *  sanity-check for 'did I forget to clock out

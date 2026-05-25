@@ -119,6 +119,14 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/team-portal/driver/*",
     "/team-portal/general/*",
   ],
+  // WTR-A: waiter role mounts on the same driver-portal URL so a
+  // user with both roles has one place to work. Routing-wise this
+  // is identical to DRIVER; the page itself fans out widgets by
+  // role via canAccessWaiterWidgets / canAccessDriverWidgets.
+  [UserRole.WAITER]: [
+    "/team-portal/driver/*",
+    "/team-portal/general/*",
+  ],
   [UserRole.CLEANING_STAFF]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
@@ -197,7 +205,11 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.SALES_ADMIN]: "Sales Admin",
   [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
   [UserRole.SHOPPING_STAFF]: "Shopping Staff",
-  [UserRole.DRIVER]: "Driver/Waiter",
+  // WTR-A: split driver and waiter naming. The DRIVER role is now
+  // properly named (no longer "Driver/Waiter" overload) since
+  // WAITER is a first-class role.
+  [UserRole.DRIVER]: "Driver",
+  [UserRole.WAITER]: "Waiter / Server",
   [UserRole.CLEANING_STAFF]: "Cleaning Staff",
   [UserRole.CLIENT]: "Client",
 };
@@ -219,6 +231,9 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
   [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  // WTR-A: waiter lands on the same dashboard as driver - the page
+  // fans out widgets based on the user's role.
+  [UserRole.WAITER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
@@ -238,6 +253,8 @@ export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => str
   shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  // WTR-A: waiter alias in the string-keyed map for DB role strings.
+  waiter: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
   cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   client: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
@@ -423,7 +440,29 @@ export function isStaffRole(userRole: UserRole): boolean {
     UserRole.KITCHEN_STAFF,
     UserRole.SHOPPING_STAFF,
     UserRole.DRIVER,
+    UserRole.WAITER,
     UserRole.CLEANING_STAFF,
   ];
   return staffRoles.includes(userRole);
+}
+
+/**
+ * WTR-A: field-staff role helpers for the combined driver+waiter
+ * portal at /team-portal/driver/dashboard. A user can hold both
+ * roles via user_departments; the dashboard fans out widgets per
+ * role.
+ *
+ * `roles` arg comes from the auth context's userRoles array
+ * (which collapses profile.role + user_departments.department).
+ */
+export function canAccessDriverWidgets(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.DRIVER) ||
+    ADMIN_ROLES.includes(roles[0]) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
+}
+
+export function canAccessWaiterWidgets(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.WAITER) ||
+    ADMIN_ROLES.includes(roles[0]) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
 }

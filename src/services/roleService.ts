@@ -234,6 +234,7 @@ export const roleService = {
       [UserRole.SHOPPING_STAFF]: "Shopping Staff",
       [UserRole.CLEANING_STAFF]: "Cleaning Staff",
       [UserRole.DRIVER]: "Driver",
+      [UserRole.WAITER]: "Waiter / Server",
       [UserRole.CLIENT]: "Client",
     };
 
