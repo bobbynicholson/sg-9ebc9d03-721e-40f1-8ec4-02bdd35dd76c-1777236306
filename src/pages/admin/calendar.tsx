@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw, AlertCircle } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw, AlertCircle, ChefHat, Truck, Package, Droplets, PartyPopper } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -88,6 +88,38 @@ function AdminCalendar() {
   const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
+
+  // CAL-C (XSC Wave C, task #257): five more event producers can
+  // now layer onto the calendar grid. Default to orders + holidays
+  // visible (clean morning view) and the rest togglable via the
+  // layer pills above the grid. Toggle state persists in
+  // localStorage per user so an operator's setup survives reloads.
+  const [kitchenShifts, setKitchenShifts] = useState<Array<{ id: string; staff_id: string; shift_date: string; planned_start: string | null; planned_end: string | null; status: string }>>([]);
+  const [driverShiftRows, setDriverShiftRows] = useState<Array<{ id: string; driver_id: string; shift_date: string; planned_start: string | null; planned_end: string | null; status: string }>>([]);
+  const [equipmentBlocks, setEquipmentBlocks] = useState<Array<{ id: string; equipment_id: string; booked_from: string | null; booked_until: string | null; quantity: number | null; status: string }>>([]);
+  const [cleaningBlocks, setCleaningBlocks] = useState<Array<{ id: string; planned_start: string | null; planned_end: string | null; status: string }>>([]);
+  const [holidays, setHolidays] = useState<Array<{ id: string; date: string; name: string }>>([]);
+  const [layers, setLayers] = useState<{
+    orders: boolean; quotes: boolean; kitchen: boolean; drivers: boolean;
+    equipment: boolean; cleaning: boolean; holidays: boolean;
+  }>({ orders: true, quotes: true, kitchen: false, drivers: false, equipment: false, cleaning: false, holidays: true });
+
+  // CAL-C: hydrate layer toggles from localStorage on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem("calendar-layers-v1");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setLayers((cur) => ({ ...cur, ...parsed }));
+      }
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem("calendar-layers-v1", JSON.stringify(layers)); } catch { /* ignore quota */ }
+  }, [layers]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,6 +134,13 @@ function AdminCalendar() {
     if (user?.company_id) {
       loadOrders();
       loadOpenQuotes();
+      // CAL-C: load the 5 new producers in parallel. Each is
+      // self-contained + non-blocking.
+      loadKitchenShifts();
+      loadDriverShiftRows();
+      loadEquipmentBlocks();
+      loadCleaningBlocks();
+      loadHolidays();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, currentDate.getFullYear(), currentDate.getMonth()]);
@@ -134,6 +173,14 @@ function AdminCalendar() {
       .channel(`calendar-${user.company_id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${user.company_id}` }, () => refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${user.company_id}` }, () => refetch())
+      // CAL-C: 4 more realtime tables. holidays don't need realtime
+      // (rarely change). Each producer triggers its OWN refetch
+      // rather than the global refetch so we don't waste a full
+      // orders+quotes pull when only a kitchen shift moved.
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${user.company_id}` }, () => loadKitchenShifts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${user.company_id}` }, () => loadDriverShiftRows())
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_bookings", filter: `company_id=eq.${user.company_id}` }, () => loadEquipmentBlocks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${user.company_id}` }, () => loadCleaningBlocks())
       .subscribe();
     return () => {
       window.removeEventListener("focus", onFocus);
@@ -225,6 +272,90 @@ function AdminCalendar() {
     }
   };
 
+  // CAL-C: shared sliding-window helper for the 5 new producers. All
+  // queries scope to (company_id, deleted_at is null) + the ±6mo
+  // window we use for orders.
+  const _windowISO = () => {
+    const ws = new Date(currentDate.getFullYear(), currentDate.getMonth() - 6, 1);
+    const we = new Date(currentDate.getFullYear(), currentDate.getMonth() + 7, 0);
+    return { start: toLocalISO(ws), end: toLocalISO(we) };
+  };
+
+  const loadKitchenShifts = async () => {
+    if (!user?.company_id) return;
+    try {
+      const { start, end } = _windowISO();
+      const { data } = await (supabase as any)
+        .from("kitchen_shifts")
+        .select("id, staff_id, shift_date, planned_start, planned_end, status")
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .gte("shift_date", start)
+        .lte("shift_date", end)
+        .not("status", "eq", "cancelled");
+      setKitchenShifts(data || []);
+    } catch (e) { /* non-blocking */ }
+  };
+
+  const loadDriverShiftRows = async () => {
+    if (!user?.company_id) return;
+    try {
+      const { start, end } = _windowISO();
+      const { data } = await (supabase as any)
+        .from("driver_shifts")
+        .select("id, driver_id, shift_date, planned_start, planned_end, status")
+        .eq("company_id", user.company_id)
+        .gte("shift_date", start)
+        .lte("shift_date", end)
+        .not("status", "eq", "cancelled");
+      setDriverShiftRows(data || []);
+    } catch (e) { /* non-blocking */ }
+  };
+
+  const loadEquipmentBlocks = async () => {
+    if (!user?.company_id) return;
+    try {
+      const { start, end } = _windowISO();
+      const { data } = await (supabase as any)
+        .from("equipment_bookings")
+        .select("id, equipment_id, booked_from, booked_until, quantity, status")
+        .eq("company_id", user.company_id)
+        .gte("booked_until", start)
+        .lte("booked_from", end)
+        .in("status", ["booked", "confirmed", "in_use", "delivered", "out", "pending"]);
+      setEquipmentBlocks(data || []);
+    } catch (e) { /* non-blocking */ }
+  };
+
+  const loadCleaningBlocks = async () => {
+    if (!user?.company_id) return;
+    try {
+      const { start, end } = _windowISO();
+      const { data } = await (supabase as any)
+        .from("cleaning_jobs")
+        .select("id, planned_start, planned_end, status")
+        .eq("company_id", user.company_id)
+        .gte("planned_end", `${start}T00:00:00`)
+        .lte("planned_start", `${end}T23:59:59`)
+        .not("status", "eq", "cancelled");
+      setCleaningBlocks(data || []);
+    } catch (e) { /* non-blocking */ }
+  };
+
+  const loadHolidays = async () => {
+    if (!user?.company_id) return;
+    try {
+      const { start, end } = _windowISO();
+      const { data } = await (supabase as any)
+        .from("public_holidays")
+        .select("id, date, name")
+        .or(`company_id.eq.${user.company_id},company_id.is.null`)
+        .gte("date", start)
+        .lte("date", end);
+      setHolidays(data || []);
+    } catch (e) { /* non-blocking */ }
+  };
+
   const { year, month, calendarDays, daysInMonth, startingDayOfWeek } = useMemo(() => {
     const y = currentDate.getFullYear();
     const m = currentDate.getMonth();
@@ -286,6 +417,63 @@ function AdminCalendar() {
     });
     return map;
   }, [openQuotes]);
+
+  // CAL-C: per-day aggregation for each layer. Counts only - the
+  // icon strip on the cell is intentionally compact; click-through
+  // for detail is a separate concern. Each map is keyed on local
+  // YYYY-MM-DD to align with the rest of the calendar.
+  const kitchenShiftsByDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    kitchenShifts.forEach((s) => {
+      const k = String(s.shift_date).slice(0, 10);
+      if (!k) return;
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }, [kitchenShifts]);
+  const driverShiftsByDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    driverShiftRows.forEach((s) => {
+      const k = String(s.shift_date).slice(0, 10);
+      if (!k) return;
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }, [driverShiftRows]);
+  const equipmentBlocksByDay = useMemo(() => {
+    // Spreads a booking across every day in its [booked_from, booked_until] window.
+    const m: Record<string, number> = {};
+    equipmentBlocks.forEach((b) => {
+      if (!b.booked_from || !b.booked_until) return;
+      const start = new Date(String(b.booked_from).slice(0, 10) + "T12:00:00");
+      const end = new Date(String(b.booked_until).slice(0, 10) + "T12:00:00");
+      const dayMs = 86400000;
+      const span = Math.max(0, Math.round((end.getTime() - start.getTime()) / dayMs));
+      for (let i = 0; i <= span && i < 60; i++) {
+        const d = new Date(start.getTime() + i * dayMs);
+        const k = toLocalISO(d);
+        m[k] = (m[k] || 0) + 1;
+      }
+    });
+    return m;
+  }, [equipmentBlocks]);
+  const cleaningBlocksByDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    cleaningBlocks.forEach((c) => {
+      if (!c.planned_start) return;
+      const k = String(c.planned_start).slice(0, 10);
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }, [cleaningBlocks]);
+  const holidaysByDay = useMemo(() => {
+    const m: Record<string, string> = {};
+    holidays.forEach((h) => {
+      const k = String(h.date).slice(0, 10);
+      m[k] = h.name;
+    });
+    return m;
+  }, [holidays]);
 
   /** CAL-C (CAL-5): maxConcurrentEvents from operations settings.
    *  Canonical store is auth user_metadata.admin_settings (mirrored
@@ -947,6 +1135,53 @@ function AdminCalendar() {
                     })()}
                   </div>
 
+                  {/* CAL-C (XSC Wave C, task #257): layer toggles.
+                      Defaults to Orders + Holidays on, rest off, so
+                      the morning view stays clean. Operator flicks
+                      whatever they need for the task at hand. Toggle
+                      state persists in localStorage. Hidden on
+                      mobile (compact view doesn't render the icon
+                      strip on cells). */}
+                  <div className="hidden sm:flex flex-wrap items-center gap-1.5 mb-3 text-xs">
+                    <span className="text-slate-500 mr-1">Layers:</span>
+                    {[
+                      { key: "orders" as const,    label: "Orders",     Icon: CalendarIcon, tone: "blue" },
+                      { key: "quotes" as const,    label: "Quotes",     Icon: Sparkles,     tone: "amber" },
+                      { key: "kitchen" as const,   label: "Kitchen",    Icon: ChefHat,      tone: "orange" },
+                      { key: "drivers" as const,   label: "Drivers",    Icon: Truck,        tone: "indigo" },
+                      { key: "equipment" as const, label: "Equipment",  Icon: Package,      tone: "purple" },
+                      { key: "cleaning" as const,  label: "Cleaning",   Icon: Droplets,     tone: "cyan" },
+                      { key: "holidays" as const,  label: "Holidays",   Icon: PartyPopper,  tone: "rose" },
+                    ].map(({ key, label, Icon, tone }) => {
+                      const on = layers[key];
+                      const onClasses: Record<string, string> = {
+                        blue:   "bg-blue-100 text-blue-800 border-blue-300",
+                        amber:  "bg-amber-100 text-amber-800 border-amber-300",
+                        orange: "bg-orange-100 text-orange-800 border-orange-300",
+                        indigo: "bg-indigo-100 text-indigo-800 border-indigo-300",
+                        purple: "bg-purple-100 text-purple-800 border-purple-300",
+                        cyan:   "bg-cyan-100 text-cyan-800 border-cyan-300",
+                        rose:   "bg-rose-100 text-rose-800 border-rose-300",
+                      };
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setLayers((s) => ({ ...s, [key]: !s[key] }))}
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2 py-1 rounded-full border font-medium transition",
+                            on ? onClasses[tone] : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50",
+                          )}
+                          aria-pressed={on}
+                          title={`Toggle ${label} layer`}
+                        >
+                          <Icon className="w-3 h-3" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {/* Tablet + desktop: the full 7-col month grid. */}
                   <div className="hidden sm:grid grid-cols-7 gap-2">
                     {dayNames.map((d) => (
@@ -1108,6 +1343,51 @@ function AdminCalendar() {
                                 Conflict
                               </div>
                             )}
+                            {/* CAL-C: layered producer icon strip.
+                                One chip per toggled-on layer that has
+                                events on this day. Compact + greyscale-
+                                tinted so it doesn't fight the orders
+                                pills for attention. */}
+                            {(() => {
+                              const k = kitchenShiftsByDay[iso] || 0;
+                              const d = driverShiftsByDay[iso] || 0;
+                              const eq = equipmentBlocksByDay[iso] || 0;
+                              const cl = cleaningBlocksByDay[iso] || 0;
+                              const hol = holidaysByDay[iso];
+                              const chips: React.ReactNode[] = [];
+                              if (layers.kitchen && k > 0) chips.push(
+                                <span key="k" className="inline-flex items-center gap-0.5 text-[9px] text-orange-700 bg-orange-50 border border-orange-100 rounded px-1 py-px" title={`${k} kitchen shift${k === 1 ? "" : "s"} rostered`}>
+                                  <ChefHat className="w-2.5 h-2.5" />{k}
+                                </span>,
+                              );
+                              if (layers.drivers && d > 0) chips.push(
+                                <span key="d" className="inline-flex items-center gap-0.5 text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-1 py-px" title={`${d} driver shift${d === 1 ? "" : "s"} rostered`}>
+                                  <Truck className="w-2.5 h-2.5" />{d}
+                                </span>,
+                              );
+                              if (layers.equipment && eq > 0) chips.push(
+                                <span key="e" className="inline-flex items-center gap-0.5 text-[9px] text-purple-700 bg-purple-50 border border-purple-100 rounded px-1 py-px" title={`${eq} equipment booking${eq === 1 ? "" : "s"} active`}>
+                                  <Package className="w-2.5 h-2.5" />{eq}
+                                </span>,
+                              );
+                              if (layers.cleaning && cl > 0) chips.push(
+                                <span key="c" className="inline-flex items-center gap-0.5 text-[9px] text-cyan-700 bg-cyan-50 border border-cyan-100 rounded px-1 py-px" title={`${cl} cleaning block${cl === 1 ? "" : "s"}`}>
+                                  <Droplets className="w-2.5 h-2.5" />{cl}
+                                </span>,
+                              );
+                              if (layers.holidays && hol) chips.push(
+                                <span key="h" className="inline-flex items-center gap-0.5 text-[9px] text-rose-700 bg-rose-50 border border-rose-100 rounded px-1 py-px" title={hol}>
+                                  <PartyPopper className="w-2.5 h-2.5" />
+                                  <span className="truncate max-w-[3rem]">{hol.length > 6 ? hol.slice(0, 6) + "..." : hol}</span>
+                                </span>,
+                              );
+                              if (chips.length === 0) return null;
+                              return (
+                                <div className="flex flex-wrap items-center gap-0.5 pt-1 border-t border-slate-100 mt-1">
+                                  {chips}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </button>
                       );
