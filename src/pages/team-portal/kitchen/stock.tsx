@@ -13,15 +13,17 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2 } from "lucide-react";
+import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
+import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPrepService";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { toLocalISO } from "@/lib/localDate";
 
 const ROUTE = "/team-portal/kitchen/stock";
 
@@ -65,6 +67,83 @@ export default function KitchenStockPage() {
   const [usedQty, setUsedQty] = useState<string>("");
   const [usedNotes, setUsedNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // KS-B (XSC Wave B): push-to-shopping flow. The audit found
+  // kitchenPrepService.createShoppingListFromShortfall was a dead
+  // method - it existed but no UI ever called it. Below-par stock
+  // sat on the chef's screen forever unless they walked to the
+  // shopping page and manually typed a list. Now they can convert
+  // every below-par item into a shopping_lists row + line items
+  // with one tap, with a 14-day horizon stamp so the shopping team
+  // knows the timeframe.
+  const [pushOpen, setPushOpen] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{ listId: string; itemCount: number } | null>(null);
+
+  const belowParItems = useMemo(
+    () => items.filter((i) => {
+      const s = Number(i.current_stock || 0);
+      const m = Number(i.minimum_stock || 0);
+      return m > 0 && s <= m;
+    }),
+    [items],
+  );
+
+  const handlePushToShopping = async () => {
+    if (!user?.company_id || !user?.id || belowParItems.length === 0) return;
+    setPushing(true);
+    try {
+      // KS-B: adapt Inventory rows to the IngredientDemand shape the
+      // service expects. shortfall is the gap from par to current,
+      // clamped to >= 0. used_by is empty - this push is "fill the
+      // pantry to par", not "buy for a specific order".
+      const demand: IngredientDemand[] = belowParItems.map((i) => {
+        const stock = Number(i.current_stock || 0);
+        const min = Number(i.minimum_stock || 0);
+        const max = Number(i.maximum_stock || 0);
+        const reorderQty = Number(i.reorder_quantity || 0);
+        const target = reorderQty > 0
+          ? stock + reorderQty
+          : max > 0
+            ? max
+            : min * 2;
+        const need = Math.max(0, target - stock);
+        return {
+          name: i.item_name,
+          unit: i.unit_of_measure,
+          total_quantity: need,
+          on_hand: stock,
+          shortfall: need,
+          inventory_item_id: i.id,
+          used_by: [],
+        };
+      });
+      const today = new Date();
+      const horizon = new Date();
+      horizon.setDate(today.getDate() + 14);
+      const result = await kitchenPrepService.createShoppingListFromShortfall(
+        user.company_id,
+        user.id,
+        demand,
+        { from: toLocalISO(today), to: toLocalISO(horizon) },
+        `Kitchen restock ${toLocalISO(today)}`,
+      );
+      if (!result) {
+        toast({ title: "Nothing to push", description: "All below-par items already at or above par." });
+      } else {
+        setPushResult({ listId: result.id, itemCount: result.itemCount });
+        toast({
+          title: "Pushed to shopping",
+          description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} on the new list`,
+        });
+      }
+    } catch (e: any) {
+      captureException(e, { tags: { route: ROUTE, step: "pushToShopping", companyId: user.company_id } });
+      toast({ title: "Could not push to shopping", description: e?.message ?? "Unknown error", variant: "destructive" });
+    } finally {
+      setPushing(false);
+    }
+  };
 
   // KS-A: hydrate filters from URL on first mount. Writing back happens
   // in the input handlers below so router state stays the source of
@@ -394,6 +473,37 @@ export default function KitchenStockPage() {
             </div>
           </div>
 
+          {/* KS-B: push-to-shopping banner. Renders only when there's
+              something to push. Surfaces the gap + offers the
+              one-tap action to convert it into a shopping list. */}
+          {belowParItems.length > 0 && (
+            <Card className="mb-6 border-amber-300 bg-amber-50/70">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-200 flex items-center justify-center flex-shrink-0">
+                    <ShoppingCart className="h-5 w-5 text-amber-800" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-900">
+                      {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
+                    </p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Push the lot to shopping in one tap. Quantities default to your re-order amounts.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => { setPushResult(null); setPushOpen(true); }}
+                  className="bg-amber-600 hover:bg-amber-700"
+                  disabled={pushing}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Push to shopping
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></p><p className="text-2xl font-bold tabular-nums text-orange-600">{stats.inRecipes}</p></CardContent></Card>
@@ -672,6 +782,85 @@ export default function KitchenStockPage() {
                                      "Log usage"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* KS-B: push-to-shopping dialog. Shows the chef exactly what
+          they're about to create + a success state with deep-link
+          to the shopping list once it lands. */}
+      <Dialog open={pushOpen} onOpenChange={(o) => { if (!o) { setPushOpen(false); setPushResult(null); } }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-amber-700" />
+              {pushResult ? "Shopping list created" : "Push below-par items to shopping"}
+            </DialogTitle>
+            <DialogDescription>
+              {pushResult
+                ? "The shopping team will see this on their list page in real time."
+                : `Creates a new shopping list with ${belowParItems.length} item${belowParItems.length === 1 ? "" : "s"}. Quantity defaults to your re-order amount, or to maximum stock if no re-order qty is set.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {pushResult ? (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-emerald-700" />
+              </div>
+              <p className="text-sm text-slate-700 text-center">
+                <strong className="text-slate-900">{pushResult.itemCount}</strong> item{pushResult.itemCount === 1 ? "" : "s"} pushed.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setPushOpen(false); setPushResult(null); }}
+                >
+                  Done
+                </Button>
+                <a
+                  href={user?.company_slug ? `/${user.company_slug}/team-portal/shopping` : "/team-portal/shopping"}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Open shopping
+                </a>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="max-h-[40vh] overflow-y-auto border rounded-md divide-y divide-slate-100">
+                {belowParItems.map((i) => {
+                  const stock = Number(i.current_stock || 0);
+                  const min = Number(i.minimum_stock || 0);
+                  const max = Number(i.maximum_stock || 0);
+                  const reorderQty = Number(i.reorder_quantity || 0);
+                  const target = reorderQty > 0 ? stock + reorderQty : max > 0 ? max : min * 2;
+                  const need = Math.max(0, target - stock);
+                  return (
+                    <div key={i.id} className="p-2.5 flex items-center justify-between gap-2 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
+                        <div className="text-xs text-slate-500">have {stock} {i.unit_of_measure}, par {min}</div>
+                      </div>
+                      <div className="text-right tabular-nums flex-shrink-0">
+                        <div className="font-semibold text-amber-700">+{need} {i.unit_of_measure}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPushOpen(false)} disabled={pushing}>Cancel</Button>
+                <Button
+                  onClick={handlePushToShopping}
+                  disabled={pushing || belowParItems.length === 0}
+                  className="bg-amber-600 hover:bg-amber-700"
+                >
+                  {pushing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Pushing</> : <><ShoppingCart className="w-4 h-4 mr-2" />Push {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"}</>}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </>
