@@ -1073,6 +1073,35 @@ return (
         </div>
       )}
 
+      {/* ODOC H.3: edit-in-quote notice. Tells the operator that
+          field edits (menu, guest count, event date, venue, pricing)
+          live on the source quote, not here. The modal stays for
+          actions (status flip / record payment / amendments /
+          cancellations / messages). Read-only field display kept
+          for quick reference; the source of truth is the doc at
+          /order/[id]. */}
+      {selectedOrder && (selectedOrder as any).quote_id && (
+        <div className="mb-4 flex items-start gap-3 p-3 rounded-lg border-2 border-blue-300 bg-blue-50">
+          <div className="text-blue-700 flex-shrink-0 mt-0.5">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-wider text-blue-800 font-semibold">Editing this order</p>
+            <p className="text-sm font-medium text-blue-900 mt-0.5">
+              Field edits live on the source quote. This modal is for actions - status flip, record payment, review amendments, send messages. Open the quote to update menu / guest count / event date / venue / pricing.
+            </p>
+          </div>
+          <Link
+            href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
+            onClick={() => setIsModalOpen(false)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold flex-shrink-0"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Edit quote
+          </Link>
+        </div>
+      )}
+
       {/* Wave 54.3 - controlled Tabs that honour ?tab= query
           param. The readiness chip's "Fix it" deep-links append
           tab=menu / tab=equipment / etc; pre-Wave-54 the modal
