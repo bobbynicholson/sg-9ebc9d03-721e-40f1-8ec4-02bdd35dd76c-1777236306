@@ -4,7 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, Printer } from "lucide-react";
+import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { captureException } from "@/lib/observability";
+import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -44,6 +50,96 @@ function CleaningDashboardInner() {
   const [activeTab, setActiveTab] = useState("verification");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
+  const { toast } = useToast();
+
+  // CLN-B (XSC Wave B): Inspect button state. Pre-audit the Inspect
+  // button was a placeholder with no onClick - the cleaner's
+  // completion loop was broken at the actual completion step.
+  // The dialog opens a 5-item SOP checklist, an optional notes
+  // field, an optional photo (input field only - upload to storage
+  // is a follow-up), and either a Complete or Report damage action.
+  // Complete flips equipment.condition to 'good' and stamps
+  // available_quantity back to the full quantity. Damage opens
+  // the existing damage flow (equipmentTrackingService.reportDamage).
+  const [inspectItem, setInspectItem] = useState<EquipmentRow | null>(null);
+  const [sopChecks, setSopChecks] = useState({
+    debrisRemoved: false,
+    sanitised: false,
+    dried: false,
+    storedCorrectly: false,
+    noDamage: false,
+  });
+  const [inspectNotes, setInspectNotes] = useState("");
+  const [damageFound, setDamageFound] = useState(false);
+  const [inspectSaving, setInspectSaving] = useState(false);
+
+  const openInspect = (item: EquipmentRow) => {
+    setInspectItem(item);
+    setSopChecks({ debrisRemoved: false, sanitised: false, dried: false, storedCorrectly: false, noDamage: false });
+    setInspectNotes("");
+    setDamageFound(false);
+  };
+  const closeInspect = () => {
+    setInspectItem(null);
+    setInspectNotes("");
+    setDamageFound(false);
+  };
+
+  const allCleanChecks = sopChecks.debrisRemoved && sopChecks.sanitised && sopChecks.dried && sopChecks.storedCorrectly;
+  const canComplete = damageFound
+    ? true  // damage path doesn't require SOP checks
+    : allCleanChecks && sopChecks.noDamage;
+
+  const submitInspect = async () => {
+    if (!inspectItem || !user?.id || !user?.company_id) return;
+    setInspectSaving(true);
+    try {
+      if (damageFound) {
+        // CLN-B: route to the existing damage reporting service so
+        // every damages row carries the canonical (company_id,
+        // equipment_id, reporter, stage) shape and surfaces on the
+        // /admin damages tab automatically.
+        const { equipmentTrackingService } = await import("@/services/equipmentTrackingService");
+        await (equipmentTrackingService as any).reportDamage({
+          companyId: user.company_id,
+          equipmentId: inspectItem.id,
+          reportedBy: user.id,
+          stage: "cleaning_inspection",
+          severity: "moderate",
+          notes: inspectNotes || "Damage spotted during cleaning inspection",
+        });
+        await supabase
+          .from("equipment")
+          .update({ condition: "damaged" })
+          .eq("id", inspectItem.id)
+          .eq("company_id", user.company_id);
+        toast({ title: "Damage reported", description: `${inspectItem.name} flagged for repair` });
+      } else {
+        // CLN-B: clean completion. Flip equipment.condition to 'good'
+        // and lift available_quantity back to the full owned quantity.
+        // The realtime sub on the dashboard will refresh the list.
+        const { error } = await supabase
+          .from("equipment")
+          .update({
+            condition: "good",
+            available_quantity: inspectItem.quantity,
+            last_cleaned_at: new Date().toISOString(),
+            last_cleaned_by: user.id,
+          } as never)
+          .eq("id", inspectItem.id)
+          .eq("company_id", user.company_id);
+        if (error) throw error;
+        toast({ title: "Inspection complete", description: `${inspectItem.name} marked clean and available` });
+      }
+      closeInspect();
+      loadEquipment();
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/team-portal/cleaning/dashboard", step: "submitInspect", companyId: user.company_id, equipmentId: inspectItem.id } });
+      toast({ title: "Could not save inspection", description: e?.message ?? "Unknown error", variant: "destructive" });
+    } finally {
+      setInspectSaving(false);
+    }
+  };
 
   // Wave 70.28 - the new cleaning nav deep-links to #returns and
   // #washing on this page. Next.js handles hash navigation but the
@@ -357,7 +453,7 @@ function CleaningDashboardInner() {
                               </p>
                             </div>
                           </div>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => openInspect(item)}>
                             Inspect
                           </Button>
                         </div>
@@ -599,6 +695,96 @@ function CleaningDashboardInner() {
           .print-only { display: none !important; }
         }
       `}</style>
+
+      {/* CLN-B: Inspect / completion dialog. Two paths: clean
+          + mark-available (requires all SOP checks), or report
+          damage (routes through equipmentTrackingService.reportDamage
+          for the admin damages tab). */}
+      <Dialog open={!!inspectItem} onOpenChange={(o) => { if (!o) closeInspect(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-cyan-700" />
+              Inspect {inspectItem?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Walk through the checklist before marking this item clean and available.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {!damageFound && (
+              <div className="space-y-2 border rounded-md p-3 bg-slate-50/60">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Cleaning checklist</p>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sopChecks.debrisRemoved} onCheckedChange={(v) => setSopChecks((s) => ({ ...s, debrisRemoved: !!v }))} />
+                  <span>Visible debris removed</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sopChecks.sanitised} onCheckedChange={(v) => setSopChecks((s) => ({ ...s, sanitised: !!v }))} />
+                  <span>Sanitised with approved cleaner</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sopChecks.dried} onCheckedChange={(v) => setSopChecks((s) => ({ ...s, dried: !!v }))} />
+                  <span>Fully dried (no standing water)</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sopChecks.storedCorrectly} onCheckedChange={(v) => setSopChecks((s) => ({ ...s, storedCorrectly: !!v }))} />
+                  <span>Stored in correct location</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sopChecks.noDamage} onCheckedChange={(v) => setSopChecks((s) => ({ ...s, noDamage: !!v }))} />
+                  <span>No damage spotted</span>
+                </label>
+              </div>
+            )}
+
+            <label className="flex items-start gap-2 text-sm border rounded-md p-3 bg-amber-50/60 border-amber-200">
+              <Checkbox checked={damageFound} onCheckedChange={(v) => setDamageFound(!!v)} />
+              <div>
+                <span className="font-medium text-amber-900">Damage found</span>
+                <p className="text-xs text-amber-800 mt-0.5">Flag this item for repair and route to the admin damages tab.</p>
+              </div>
+            </label>
+
+            <div>
+              <Label htmlFor="inspect-notes" className="text-xs">Notes (optional)</Label>
+              <Textarea
+                id="inspect-notes"
+                value={inspectNotes}
+                onChange={(e) => setInspectNotes(e.target.value)}
+                rows={2}
+                placeholder={damageFound ? "Describe the damage" : "Anything the next shift should know"}
+              />
+            </div>
+
+            {/* CLN-B: photo capture input - file ref only for now.
+                Storage upload is a deliberate follow-up to keep this
+                fix surgical. The input still gives the cleaner the
+                muscle memory + signals where the photo will land. */}
+            <div className="flex items-center gap-2 text-xs text-slate-600 border-dashed border rounded-md p-2.5">
+              <Camera className="w-4 h-4 text-slate-400" />
+              <label className="cursor-pointer flex-1">
+                <input type="file" accept="image/*" capture="environment" className="hidden" />
+                <span className="text-slate-700">Take a photo (optional)</span>
+                <p className="text-[10px] text-slate-500 mt-0.5">Photo upload to storage coming in a follow-up.</p>
+              </label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeInspect} disabled={inspectSaving}>Cancel</Button>
+            <Button
+              onClick={submitInspect}
+              disabled={inspectSaving || !canComplete}
+              className={damageFound ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}
+            >
+              {inspectSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving</> :
+                damageFound ? "Report damage" : "Mark clean and available"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
