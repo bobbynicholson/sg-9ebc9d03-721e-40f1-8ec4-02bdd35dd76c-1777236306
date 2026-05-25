@@ -29,6 +29,7 @@ import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { canAccessDriverWidgets } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { RecipeDialog } from "./RecipeDialog";
 import {
   ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle, Play,
   Utensils, BookOpen, Box, Sparkles, ExternalLink,
@@ -118,6 +119,9 @@ export function KitchenSection({
   const [equipment, setEquipment] = useState<EquipmentBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
+  // ODOC: open inline recipe popover. Keeps the chef in the doc
+  // rather than punting them to /admin/menu and losing context.
+  const [recipeFor, setRecipeFor] = useState<{ menuItemId: string; itemName: string; quantity: number } | null>(null);
 
   // ODOC Phase 2: kitchen action gate. Kitchen staff + admins
   // can mark tasks. Other roles see read-only state.
@@ -370,18 +374,24 @@ export function KitchenSection({
                           </p>
                         )}
                       </div>
-                      {/* Recipe deep-link. Shown for items that have an
-                          actual recipe row stored (recipe_ingredients
-                          live behind it). Buy-and-sell items skip this. */}
-                      {hasRecipe && !isBuyAndSell && (
-                        <Link
-                          href={withSlug(`/admin/menu?q=${encodeURIComponent(it.item_name)}`)}
+                      {/* Recipe popover. Opens inline so the chef
+                          doesn't lose the order doc - shows scaled
+                          ingredient quantities and method without
+                          navigating away. */}
+                      {hasRecipe && !isBuyAndSell && it.menu_item_id && (
+                        <button
+                          type="button"
+                          onClick={() => setRecipeFor({
+                            menuItemId: it.menu_item_id!,
+                            itemName: it.item_name,
+                            quantity: it.quantity,
+                          })}
                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-orange-300 text-orange-800 hover:bg-orange-50 flex-shrink-0"
-                          title="Open recipe on the menu page"
+                          title="View recipe and ingredients scaled for this order"
                         >
                           <BookOpen className="w-3 h-3" />
                           Recipe
-                        </Link>
+                        </button>
                       )}
                     </li>
                   );
@@ -540,6 +550,16 @@ export function KitchenSection({
           </div>
         </div>
       )}
+
+      {/* ODOC: inline recipe viewer - opened from per-item Recipe
+          buttons in the menu list above. */}
+      <RecipeDialog
+        open={!!recipeFor}
+        onOpenChange={(open) => { if (!open) setRecipeFor(null); }}
+        menuItemId={recipeFor?.menuItemId || null}
+        itemName={recipeFor?.itemName || ""}
+        orderQuantity={recipeFor?.quantity || 1}
+      />
     </CollapsibleSection>
   );
 }
