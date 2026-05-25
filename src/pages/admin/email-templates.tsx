@@ -34,7 +34,14 @@ type TabKey = typeof TABS[number];
 
 export default function ProtectedLifecycleEmailsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+        UserRole.OWNER,
+      ]}
+    >
       <LifecycleEmailsPage />
     </ProtectedRoute>
   );

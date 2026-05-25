@@ -36,10 +36,13 @@ interface AuditRow {
 }
 
 export function AutomationDashboardPanel() {
-  const { user } = useAuth() as any;
+  const { user, profile } = useAuth();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  // Wave 50: prefer the canonical profile.company_id (authoritative)
+  // over the JWT user_metadata copy, which lags after role / company
+  // changes until the next token refresh.
+  const companyId = profile?.company_id ?? user?.company_id ?? null;
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [channelFilter, setChannelFilter] = useState<"all" | "email" | "whatsapp">("all");
