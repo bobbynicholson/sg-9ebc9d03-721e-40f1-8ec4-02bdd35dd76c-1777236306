@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar } from "lucide-react";
+import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -35,6 +35,7 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { captureException } from "@/lib/observability";
 
 /**
  * Phase 7 #9: zod-based pre-save validator. The original brief
@@ -124,6 +125,14 @@ interface CompanyRow {
    *  default. Capped at 720h (30 days). A daily-reconciliation
    *  kitchen sets ~36; a once-a-week back-office sets ~144. */
   cash_on_hand_stale_after_hours: number | null;
+  /** CP-B (task #218, 2026-05-25): added to the interface so the
+   *  field stops being read via `(row as any).pricing_includes_vat`.
+   *  Drives whether the menu / equipment / inventory price fields
+   *  are treated as gross (customer-facing) or net (ex-VAT). */
+  pricing_includes_vat: boolean | null;
+  /** CP-B: surfaced so the "Last saved Nh ago" chip beside the
+   *  Save button has a real timestamp to read. */
+  updated_at: string | null;
 }
 
 function CompanyProfilePage() {
@@ -137,6 +146,25 @@ function CompanyProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasMapsKey, setHasMapsKey] = useState<boolean | null>(null);
+
+  // CP-B (task #218, 2026-05-25): snapshot of the last loaded /
+  // last saved row, JSON-stringified. Used to derive the isDirty
+  // flag without keeping a parallel state tree.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+  const isDirty = row != null && JSON.stringify(row) !== savedSnapshot;
+
+  // CP-B: warn on unload when there are unsaved edits. Modern
+  // browsers ignore the message string and show their own copy,
+  // but the truthy returnValue still triggers the prompt.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   useEffect(() => {
     setHasMapsKey(Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY));
@@ -154,9 +182,15 @@ function CompanyProfilePage() {
         .maybeSingle();
       if (cancelled) return;
       if (error) {
+        captureException(error, {
+          tags: { route: "/admin/company-profile", step: "load", companyId },
+        });
         toast({ title: "Couldn't load profile", description: error.message, variant: "destructive" });
       } else {
-        setRow(data as CompanyRow);
+        const r = data as CompanyRow;
+        setRow(r);
+        // CP-B: snapshot for the dirty flag.
+        setSavedSnapshot(JSON.stringify(r));
       }
       setLoading(false);
     })();
@@ -276,7 +310,16 @@ function CompanyProfilePage() {
       if (error) throw error;
       toast({ title: "Saved", description: "Profile updated, nav, branded client pages and route planning all use this now." });
       refreshProfile?.();
+      // CP-B: refresh the snapshot so isDirty flips back to false
+      // and the beforeunload guard lifts. updated_at also bumps so
+      // the "Last saved" chip ticks to "just now".
+      const fresh: CompanyRow = { ...row, updated_at: payload.updated_at };
+      setRow(fresh);
+      setSavedSnapshot(JSON.stringify(fresh));
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/company-profile", step: "save", companyId: row.id },
+      });
       toast({ title: "Save failed", description: e?.message, variant: "destructive" });
     } finally {
       setSaving(false);
@@ -320,14 +363,86 @@ function CompanyProfilePage() {
                 </p>
               </div>
             </div>
-            <Button onClick={save} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save profile
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* CP-B: last-saved chip + unsaved-changes chip beside
+                  the primary Save button. The chip text reads from
+                  updated_at and re-formats every render (cheap; the
+                  page re-renders on any input edit anyway). */}
+              {isDirty ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  <AlertTriangle className="w-3 h-3" /> Unsaved changes
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">
+                  <Clock className="w-3 h-3" /> {formatRelativeSince(row.updated_at)}
+                </span>
+              )}
+              <Button onClick={save} disabled={saving || !isDirty} className="gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save profile
+              </Button>
+            </div>
           </div>
 
+          {/* CP-B: setup completeness banner. Each row links to the
+              anchor of the section that owns the field; clicking
+              scrolls + focuses so the operator can fix the gap in
+              one tap. Required items show red when missing; optional
+              items show slate. Hidden when 100% complete + no
+              optional gaps. */}
+          {(() => {
+            const items = deriveCompleteness(row);
+            const requiredDone = items.filter((i) => i.required && i.done).length;
+            const requiredTotal = items.filter((i) => i.required).length;
+            const optionalDone = items.filter((i) => !i.required && i.done).length;
+            const optionalTotal = items.filter((i) => !i.required).length;
+            const allDone = requiredDone === requiredTotal && optionalDone === optionalTotal;
+            if (allDone) return null;
+            return (
+              <Card className="border-0 shadow mb-6 bg-gradient-to-br from-amber-50 to-orange-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {requiredDone === requiredTotal ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                      )}
+                      <p className="font-semibold text-slate-900">
+                        Setup completeness
+                      </p>
+                    </div>
+                    <p className="text-xs tabular-nums text-slate-600">
+                      Required {requiredDone} / {requiredTotal} · Optional {optionalDone} / {optionalTotal}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {items.filter((i) => !i.done).map((i) => (
+                      <button
+                        key={i.key}
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById(i.anchor);
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                          i.required
+                            ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <AlertTriangle className="w-3 h-3" />
+                        {i.label}{i.required ? "" : " (optional)"}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Identity */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-identity" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-purple-600" />
@@ -382,7 +497,7 @@ function CompanyProfilePage() {
               invoices / payslips. Pre-populated to Africa/Johannesburg
               + ZAR by the DB migration so existing tenants don't see
               an empty value. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-region" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-blue-600" />
@@ -455,7 +570,7 @@ function CompanyProfilePage() {
               Empty values fall back to the SA wedding default (May-
               September) in aiFinancialService. End < start wraps
               year-end so US Q4 caterers can set 11..1. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-peak" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-amber-600" />
@@ -578,7 +693,7 @@ function CompanyProfilePage() {
               and invoices: VAT-registered businesses issue 'Tax
               Invoice' (with a VAT number on the document); everyone
               else issues a plain 'Invoice'. SARS rule. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-vat" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-emerald-600" />
@@ -662,7 +777,7 @@ function CompanyProfilePage() {
               invoice. The reference clients use is the invoice
               number, hard-coded in the EFT flow - the only
               reconciliation rule that needs to hold. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-banking" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-blue-600" />
@@ -749,7 +864,7 @@ function CompanyProfilePage() {
           </Card>
 
           {/* Address + map coords */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-address" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-600" />
@@ -832,7 +947,7 @@ function CompanyProfilePage() {
 
           {/* Brand colours - managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card id="section-brand" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-pink-600" />
@@ -859,9 +974,9 @@ function CompanyProfilePage() {
             </CardContent>
           </Card>
 
-          <Button onClick={save} disabled={saving} className="w-full gap-2">
+          <Button onClick={save} disabled={saving || !isDirty} className="w-full gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save profile
+            {isDirty ? "Save profile" : "Profile up to date"}
           </Button>
 
           <p className="text-[11px] text-slate-500 text-center mt-4">
@@ -874,6 +989,49 @@ function CompanyProfilePage() {
       </div>
     </>
   );
+}
+
+// CP-B (task #218, 2026-05-25): humanise updated_at into a short
+// "Saved 12m ago" / "Saved 2h ago" / "Saved on 19 May" string for
+// the chip beside the Save button.
+function formatRelativeSince(iso: string | null | undefined): string {
+  if (!iso) return "Never saved";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "Never saved";
+  const diffMs = Date.now() - t;
+  if (diffMs < 0) return "Just saved";
+  const s = Math.floor(diffMs / 1000);
+  if (s < 60) return "Just saved";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `Saved ${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Saved ${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `Saved ${d}d ago`;
+  return `Saved ${new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`;
+}
+
+// CP-B: setup-completeness checklist. Mirrors the onboarding
+// wizard's check; clicking a missing row scrolls the user to the
+// anchor of the section that owns the field. Banking + Peak season
+// are advisory (operators can intentionally leave them off) so
+// they're flagged "optional" in the row label, not red.
+interface CompletenessItem { key: string; label: string; anchor: string; required: boolean; done: boolean }
+function deriveCompleteness(r: CompanyRow): CompletenessItem[] {
+  return [
+    { key: "name",     label: "Business name",      anchor: "section-identity", required: true,  done: !!(r.company_name && r.company_name.trim()) },
+    { key: "email",    label: "Contact email",      anchor: "section-identity", required: true,  done: !!(r.email && r.email.trim()) },
+    { key: "phone",    label: "Phone",              anchor: "section-identity", required: true,  done: !!(r.phone && r.phone.trim()) },
+    { key: "reg",      label: "Registration / tax", anchor: "section-identity", required: false, done: !!(r.registration_number || r.tax_number) },
+    { key: "address",  label: "Kitchen address",    anchor: "section-address",  required: true,  done: !!(r.address_line1 && r.city) },
+    { key: "coords",   label: "HQ lat / lng",       anchor: "section-address",  required: true,  done: r.headquarters_lat != null && r.headquarters_lng != null },
+    { key: "vat",      label: "VAT status",         anchor: "section-vat",      required: true,  done: r.vat_registered != null && (!r.vat_registered || !!r.vat_number) },
+    { key: "bank",     label: "EFT bank details",   anchor: "section-banking",  required: false, done: !!(r.bank_name && r.bank_account_number) },
+    { key: "tz",       label: "Timezone + currency",anchor: "section-region",   required: true,  done: !!(r.timezone && r.currency) },
+    { key: "place",    label: "Google place_id",    anchor: "section-region",   required: false, done: !!(r.google_place_id && r.google_place_id.trim()) },
+    { key: "peak",     label: "Peak season",        anchor: "section-peak",     required: false, done: r.peak_season_start_month != null && r.peak_season_end_month != null },
+    { key: "brand",    label: "Brand + logo",       anchor: "section-brand",    required: false, done: !!(r.logo_url && r.primary_color) },
+  ];
 }
 
 function Field({ id, label, hint, children }: any) {
@@ -1183,8 +1341,18 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
 }
 
 export default function ProtectedCompanyProfile() {
+  // CP-B (task #218, 2026-05-25): admit OWNER. The page hardcoded
+  // SUPER_ADMIN + COMPANY_ADMIN + ADMIN, which 403'd the OWNER
+  // persona out of their own company profile. Same regression
+  // pattern we fixed on the team landings, driver settlement,
+  // onboarding wizard and HR hub.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <CompanyProfilePage />
     </ProtectedRoute>
   );
