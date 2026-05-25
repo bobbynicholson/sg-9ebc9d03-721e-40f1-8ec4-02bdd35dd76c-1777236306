@@ -28,10 +28,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
-  FileText, ShoppingBag, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History,
+  FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History,
 } from "lucide-react";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
-import { OrderItemsSection } from "./sections/OrderItemsSection";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -204,9 +203,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // The viewer's primary section is visually marked. Order matches
   // the document's render order so the strip reads top-to-bottom.
   const navItems = useMemo(() => {
-    const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "items" | "timeline" | "admin" | "history" }> = [
+    const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "timeline" | "admin" | "history" }> = [
       { id: "section-header", label: "Order", icon: FileText, key: "header" },
-      { id: "section-items", label: "Menu", icon: ShoppingBag, key: "items" },
       { id: "section-timeline", label: "Status", icon: Activity, key: "timeline" },
       { id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" },
       { id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" },
@@ -315,17 +313,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           forceOpen={forceAll}
           defaultOpen={true /* header is always open - it's the title block */}
         />
-        <OrderItemsSection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={true /* items are universal context */}
-        />
         <OrderTimelineSection
           order={order}
           forceOpen={forceAll}
           defaultOpen={true /* timeline is universal context */}
         />
+        {/* ODOC: Kitchen section is the canonical menu + equipment +
+            prep view for every role. Default open across the board
+            so the menu isn't hidden behind a tap. Kitchen role still
+            gets the highlight ring. */}
         <KitchenSection
           orderId={order.id}
           companyId={order.company_id}
@@ -333,7 +329,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           eventDate={order.event_date}
           eventTime={order.event_time}
           forceOpen={forceAll}
-          defaultOpen={primary === "kitchen"}
+          defaultOpen={true}
           highlight={primary === "kitchen"}
         />
         <ShoppingSection
