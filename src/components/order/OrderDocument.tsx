@@ -33,6 +33,7 @@ import {
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
 import { OrderSuggestedAction } from "./OrderSuggestedAction";
+import { OrderPresence } from "./OrderPresence";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -349,7 +350,10 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               {primary}
             </Badge>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            {/* ODOC Wave F: live presence pill - avatar stack of other
+                staff currently viewing this order. */}
+            <OrderPresence orderId={order.id} />
             <Button variant="outline" size="sm" onClick={() => load()} className="h-8" title="Refresh">
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
