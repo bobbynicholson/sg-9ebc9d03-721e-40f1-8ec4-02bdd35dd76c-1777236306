@@ -38,7 +38,7 @@ const PUBLIC_ROUTES = [
 // way as company_admin - RLS narrows their data, not the route.
 const ALL_AUTHENTICATED_ROLES = [
   "super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner",
-  "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client",
+  "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "client",
 ];
 
 const ADMIN_PORTAL_ROLES = ["super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner"];
@@ -65,6 +65,11 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   "/client": [...ADMIN_PORTAL_ROLES, "client"],
   "/subscription": ADMIN_PORTAL_ROLES,
   "/account": ALL_AUTHENTICATED_ROLES,
+  // ODOC: unified OrderDocument at /order/[id]. Every internal role
+  // can view (waiter included). Clients use the magic-link path
+  // /c/order/[token] which has its own auth and is not behind this
+  // guard.
+  "/order": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff"],
 };
 
 // Check if user role has access to a specific route.
@@ -239,10 +244,15 @@ export async function middleware(request: NextRequest) {
 
   // Extract company slug if present for dynamic tenant routing.
   // Matches /[slug]/admin/..., /[slug]/team-portal/..., /[slug]/client-portal/...,
-  // /[slug]/account/..., /[slug]/subscription/...
+  // /[slug]/account/..., /[slug]/subscription/..., /[slug]/order/...
+  //
+  // ODOC: 'order' added so the unified OrderDocument lives under the
+  // tenant slug path too. Without it, the middleware doesn't recognise
+  // /[slug]/order/[id] as a tenant-scoped route and treats the slug
+  // as part of the route name, which fails the access-route gate.
   let companySlug: string | null = null;
   const companySlugMatch = pathname.match(
-    /^\/([^\/]+)\/(admin|team-portal|client-portal|account|subscription)/,
+    /^\/([^\/]+)\/(admin|team-portal|client-portal|account|subscription|order)/,
   );
   if (companySlugMatch && companySlugMatch[1]) {
     companySlug = companySlugMatch[1];

@@ -14,12 +14,18 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.COMPANY_ADMIN]: [
     "/admin/*",
     "/team-portal/*",
+    // ODOC: unified OrderDocument lives at the top level so every
+    // internal role can deep-link to /order/[id] without /admin
+    // or /team-portal in the path. Client magic-link path stays
+    // on /c/order/[token] - different auth model.
+    "/order/*",
   ],
   // Owner is treated as company_admin for routing until the
   // owner-specific dashboard ships. Same access surface for now.
   [UserRole.OWNER]: [
     "/admin/*",
     "/team-portal/*",
+    "/order/*",
   ],
   [UserRole.REGION_ADMIN]: [
     "/admin/dashboard",
@@ -49,6 +55,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     // managers need to see their branch's ratings + chase open follow-ups.
     "/admin/reviews",
     "/team-portal/*",
+    "/order/*",
   ],
   [UserRole.SALES_ADMIN]: [
     // Cross-branch sales pool. Reads everything sales-related across
@@ -66,6 +73,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/calendar",
     "/admin/notifications",
     "/admin/regions",
+    "/order/*",
   ],
   [UserRole.ADMIN]: [
     "/admin/dashboard",
@@ -106,18 +114,22 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     // RVW-A: client reviews surface available to ADMIN role.
     "/admin/reviews",
     "/team-portal/*",
+    "/order/*",
   ],
   [UserRole.KITCHEN_STAFF]: [
     "/team-portal/kitchen/*",
     "/team-portal/general/*",
+    "/order/*",
   ],
   [UserRole.SHOPPING_STAFF]: [
     "/team-portal/shopping/*",
     "/team-portal/general/*",
+    "/order/*",
   ],
   [UserRole.DRIVER]: [
     "/team-portal/driver/*",
     "/team-portal/general/*",
+    "/order/*",
   ],
   // WTR-A: waiter role mounts on the same driver-portal URL so a
   // user with both roles has one place to work. Routing-wise this
@@ -126,10 +138,12 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.WAITER]: [
     "/team-portal/driver/*",
     "/team-portal/general/*",
+    "/order/*",
   ],
   [UserRole.CLEANING_STAFF]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
+    "/order/*",
   ],
   [UserRole.CLIENT]: [
     "/client-portal/*",
