@@ -7,6 +7,10 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { UserRole } from "@/types/app";
 import { Sparkles, Loader2, CheckCircle2, Clock, Package } from "lucide-react";
 
 interface Props {
@@ -39,10 +43,54 @@ const PHASES: Array<{ key: keyof Attendance; label: string }> = [
   { key: "service_ended_at", label: "Service ended" },
   { key: "event_complete_at", label: "Event complete" },
 ];
+const PHASE_LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
+  PHASES.map((p) => [p.key as string, p.label]),
+);
 
 export function WaiterSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
+  const { user, userRoles } = useAuth();
+  const { toast } = useToast();
   const [rows, setRows] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stamping, setStamping] = useState<string | null>(null);
+
+  // ODOC Phase 2: only the waiter themselves can stamp their own
+  // phases (RLS also enforces this server-side, but we hide the
+  // button for everyone else to avoid the dead-tap UX).
+  const isWaiter = Array.isArray(userRoles)
+    ? userRoles.includes(UserRole.WAITER)
+    : user?.role === UserRole.WAITER;
+
+  const stamp = async (attendanceId: string | null, phase: keyof Attendance) => {
+    if (!user?.id || !user?.company_id) return;
+    setStamping(`${attendanceId || "new"}-${phase as string}`);
+    try {
+      const nowIso = new Date().toISOString();
+      if (attendanceId) {
+        const { error } = await (supabase as any)
+          .from("event_attendance")
+          .update({ [phase]: nowIso })
+          .eq("id", attendanceId);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any)
+          .from("event_attendance")
+          .insert({
+            company_id: user.company_id,
+            order_id: orderId,
+            waiter_id: user.id,
+            [phase]: nowIso,
+          });
+        if (error) throw error;
+      }
+      toast({ title: PHASE_LABEL_BY_KEY[phase as string] || "Stamped", description: "Saved" });
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/order/[id]", step: "stampWaiterPhase", phase: phase as string, orderId, companyId } });
+      toast({ title: "Could not save", description: e?.message, variant: "destructive" });
+    } finally {
+      setStamping(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,12 +160,47 @@ export function WaiterSection({ orderId, companyId, defaultOpen, forceOpen, high
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading service team...
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-500 py-2">No on-site service phases recorded yet. Waiters tap phase buttons on their portal during the event.</p>
+        <div className="space-y-2">
+          <p className="text-sm text-slate-500">No on-site service phases recorded yet.</p>
+          {isWaiter && (
+            <Button
+              size="sm"
+              onClick={() => stamp(null, "arrived_at")}
+              disabled={stamping !== null}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {stamping ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+              I'm on site
+            </Button>
+          )}
+        </div>
       ) : (
         <ul className="space-y-4">
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const isMine = r.waiter_id === user?.id;
+            // Next unstamped phase in the chain
+            const nextPhase = PHASES.find((p) => !r[p.key]);
+            return (
             <li key={r.id} className="border-l-2 border-amber-300 pl-3">
-              <p className="text-sm font-semibold text-slate-900">{r.waiter?.full_name || "Waiter"}</p>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-slate-900">
+                  {r.waiter?.full_name || "Waiter"}
+                  {isMine && <span className="ml-1 text-[10px] uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-0.5">You</span>}
+                </p>
+                {isMine && isWaiter && nextPhase && (
+                  <Button
+                    size="sm"
+                    onClick={() => stamp(r.id, nextPhase.key)}
+                    disabled={stamping !== null}
+                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
+                  >
+                    {stamping === `${r.id}-${nextPhase.key as string}`
+                      ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                    {nextPhase.label}
+                  </Button>
+                )}
+              </div>
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {PHASES.map((p) => {
                   const stamped = r[p.key] as string | null;
@@ -153,7 +236,8 @@ export function WaiterSection({ orderId, companyId, defaultOpen, forceOpen, high
                 </p>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </CollapsibleSection>

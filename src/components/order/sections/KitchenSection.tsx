@@ -10,7 +10,13 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { canAccessDriverWidgets } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
+import { ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle, Play } from "lucide-react";
 
 interface Props {
   orderId: string;
@@ -48,8 +54,49 @@ export function KitchenSection({
   orderId, companyId, collectionTime, eventDate, eventTime,
   defaultOpen, forceOpen, highlight,
 }: Props) {
+  const { user, userRoles } = useAuth();
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<PrepTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState<string | null>(null);
+
+  // ODOC Phase 2: kitchen action gate. Kitchen staff + admins
+  // can mark tasks. Other roles see read-only state.
+  const canAct = (() => {
+    const roles = Array.isArray(userRoles) ? userRoles : [];
+    const role = user?.role as UserRole | undefined;
+    if (role === UserRole.KITCHEN_STAFF) return true;
+    if (roles.includes(UserRole.KITCHEN_STAFF)) return true;
+    return canAccessDriverWidgets(roles); // admin / owner / super_admin pass through
+  })();
+
+  const handleStart = async (taskId: string) => {
+    if (!user?.id) return;
+    setActing(taskId);
+    try {
+      await kitchenPrepService.startTask(taskId, user.id);
+      toast({ title: "Started", description: "Task in progress" });
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/order/[id]", step: "startPrepTask", taskId, orderId, companyId } });
+      toast({ title: "Could not start", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleComplete = async (taskId: string) => {
+    if (!user?.id) return;
+    setActing(taskId);
+    try {
+      await kitchenPrepService.completeTask(taskId, user.id);
+      toast({ title: "Done", description: "Task marked complete" });
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/order/[id]", step: "completePrepTask", taskId, orderId, companyId } });
+      toast({ title: "Could not complete", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +190,8 @@ export function KitchenSection({
           {tasks.map((t) => {
             const tone = TASK_STATUS_TONES[t.status?.toLowerCase()] || TASK_STATUS_TONES.pending;
             const doneish = t.status === "done" || t.status === "completed";
+            const inProgress = t.status === "in_progress";
+            const isActing = acting === t.id;
             return (
               <li key={t.id} className={`flex items-center gap-3 p-2.5 rounded-md border ${tone}`}>
                 {doneish ? (
@@ -163,7 +212,35 @@ export function KitchenSection({
                     {t.duration_minutes && <span> · {t.duration_minutes}min</span>}
                   </p>
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-slate-600">{t.status}</span>
+                {/* ODOC Phase 2: inline kitchen actions. Pending ->
+                    Start. In progress -> Mark done. Done -> no
+                    action (correctness lives on admin/orders). */}
+                {canAct && !doneish && (
+                  <div className="flex items-center gap-1">
+                    {!inProgress && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleStart(t.id)}
+                        disabled={isActing}
+                        className="h-7 text-xs"
+                      >
+                        {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Play className="w-3 h-3 mr-1" />Start</>}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleComplete(t.id)}
+                      disabled={isActing}
+                      className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle2 className="w-3 h-3 mr-1" />Done</>}
+                    </Button>
+                  </div>
+                )}
+                {(!canAct || doneish) && (
+                  <span className="text-[10px] uppercase tracking-wider text-slate-600">{t.status}</span>
+                )}
               </li>
             );
           })}
