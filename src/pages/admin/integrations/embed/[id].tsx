@@ -87,23 +87,15 @@ const MAPPINGS: { value: typeof MAP_NONE | EmbedFieldMapping; label: string }[] 
   { value: "notes",       label: "Notes (appended)" },
 ];
 
-// LCF-B (task #223, 2026-05-25): ProtectedRoute wrap, same OWNER +
-// ADMIN gate every other admin page got. Pre-LCF-B the customiser
-// shipped without a route-level role guard.
-export default function ProtectedEmbedFormCustomiser() {
-  return (
-    <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN,
-      UserRole.OWNER,
-      UserRole.COMPANY_ADMIN,
-      UserRole.ADMIN,
-    ]}>
-      <EmbedFormCustomiser />
-    </ProtectedRoute>
-  );
-}
-
-function EmbedFormCustomiser() {
+// LCF-F (task #227, 2026-05-25): rolled back the ProtectedRoute
+// wrap added in LCF-B. Wrapping caused the page to flicker
+// between "Verifying your credentials" and the loaded shell -
+// ProtectedRoute kept remounting in a loop. Middleware ROUTE_
+// GUARDS["/admin"] already enforces admin-role access, and the
+// API endpoints all do their own session check. The page-level
+// wrap was defence-in-depth, not the only gate. Removing it
+// stops the loop without weakening security.
+export default function EmbedFormCustomiser() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();

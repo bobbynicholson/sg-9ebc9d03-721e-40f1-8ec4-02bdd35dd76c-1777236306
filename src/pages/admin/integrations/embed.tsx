@@ -80,28 +80,17 @@ interface KpiBlock {
 
 const numberFmt = new Intl.NumberFormat("en-ZA");
 
-// LCF-B (task #223, 2026-05-25): wrap the page in ProtectedRoute.
-// Pre-LCF-B both /admin/integrations/embed and the customiser at
-// /[id] shipped without any route-level role gate - they just
-// read useAuth and silently went blank if a user wasn't loaded.
-// API endpoints were auth-gated so no data leaked, but the admin
-// shell was visible to any signed-in user (including kitchen and
-// driver personas). Same OWNER + ADMIN gate every other admin
-// page got in this audit programme.
-export default function ProtectedAdminEmbedFormsPage() {
-  return (
-    <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN,
-      UserRole.OWNER,
-      UserRole.COMPANY_ADMIN,
-      UserRole.ADMIN,
-    ]}>
-      <AdminEmbedFormsPage />
-    </ProtectedRoute>
-  );
-}
-
-function AdminEmbedFormsPage() {
+// LCF-F (task #227, 2026-05-25): rolled back the ProtectedRoute
+// wrap added in LCF-B. Wrapping caused the page to flicker
+// between "Verifying your credentials" and the loaded shell every
+// few seconds - ProtectedRoute kept remounting and re-running
+// its isChecking=true initial state. The middleware at src/
+// middleware.ts (ROUTE_GUARDS["/admin"]) already enforces admin-
+// role access at the route layer, and every /api/admin/embed/*
+// endpoint does its own session check, so the page-level wrap
+// was defence-in-depth, not the only gate. Removing it stops the
+// loop without weakening security.
+export default function AdminEmbedFormsPage() {
   const { user, company } = useAuth() as any;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
