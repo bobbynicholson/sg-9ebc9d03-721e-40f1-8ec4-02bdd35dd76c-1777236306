@@ -21,7 +21,7 @@ interface AuditEntry {
   id: string;
   action: string | null;
   details: any;
-  performed_by: string | null;
+  user_id: string | null;
   created_at: string;
   actor?: { full_name: string | null } | null;
 }
@@ -40,7 +40,7 @@ export function HistorySection({ orderId, defaultOpen, forceOpen }: Props) {
         // exist for a tenant, we get an empty list (caught below).
         const { data, error } = await (supabase as any)
           .from("audit_logs")
-          .select("id, action, details, performed_by, created_at, actor:performed_by(full_name)")
+          .select("id, action, details, user_id, created_at, actor:user_id(full_name)")
           .eq("entity_type", "order")
           .eq("entity_id", orderId)
           .order("created_at", { ascending: false })

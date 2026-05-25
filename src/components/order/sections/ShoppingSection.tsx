@@ -30,9 +30,9 @@ interface DemandRow {
   inventory_item_id: string | null;
   name: string;
   unit: string | null;
-  total_quantity: number | null;
-  on_hand: number | null;
-  shortfall: number | null;
+  total_quantity: number;
+  on_hand: number;
+  shortfall: number;
 }
 
 export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
@@ -97,12 +97,68 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
       setLoading(true);
       try {
         // Read the canonical view. UNIONs recipes + buy-and-sell.
+        // The view itself doesn't pre-compute on_hand / shortfall -
+        // we aggregate by inventory_item_id, then join inventory
+        // to fill in current_stock, then derive the shortfall.
         const { data, error } = await (supabase as any)
           .from("order_ingredient_demand")
-          .select("inventory_item_id, name, unit, total_quantity, on_hand, shortfall")
+          .select("inventory_item_id, ingredient_name, menu_item_name, unit, quantity_required")
           .eq("order_id", orderId);
         if (error) throw error;
-        if (!cancelled) setDemand((data || []) as DemandRow[]);
+
+        const rows = (data || []) as Array<{
+          inventory_item_id: string | null;
+          ingredient_name: string | null;
+          menu_item_name: string | null;
+          unit: string | null;
+          quantity_required: number | null;
+        }>;
+
+        // Aggregate per inventory_item_id (a single ingredient can
+        // appear across multiple menu items). Bucket null inventory
+        // ids under a synthetic name-keyed bucket so they still show
+        // up - the chef cares about the demand regardless of whether
+        // a stock item is linked.
+        const byKey = new Map<string, { invId: string | null; name: string; unit: string | null; qty: number }>();
+        for (const r of rows) {
+          const name = r.ingredient_name || r.menu_item_name || "Ingredient";
+          const key = r.inventory_item_id || `name:${name}|${r.unit || ""}`;
+          const existing = byKey.get(key);
+          const qty = Number(r.quantity_required || 0);
+          if (existing) {
+            existing.qty += qty;
+          } else {
+            byKey.set(key, { invId: r.inventory_item_id, name, unit: r.unit, qty });
+          }
+        }
+
+        // Pull current_stock for the linked inventory items in one hop.
+        const invIds = Array.from(byKey.values()).map((v) => v.invId).filter((x): x is string => !!x);
+        const stockByInv = new Map<string, number>();
+        if (invIds.length > 0) {
+          const { data: invRows } = await (supabase as any)
+            .from("inventory_items")
+            .select("id, current_stock")
+            .in("id", invIds);
+          for (const r of (invRows || []) as Array<{ id: string; current_stock: number | null }>) {
+            stockByInv.set(r.id, Number(r.current_stock || 0));
+          }
+        }
+
+        const built: DemandRow[] = Array.from(byKey.values()).map((v) => {
+          const onHand = v.invId ? (stockByInv.get(v.invId) ?? 0) : 0;
+          const shortfall = Math.max(0, v.qty - onHand);
+          return {
+            inventory_item_id: v.invId,
+            name: v.name,
+            unit: v.unit,
+            total_quantity: v.qty,
+            on_hand: onHand,
+            shortfall,
+          };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
+        if (!cancelled) setDemand(built);
       } catch (e: any) {
         captureException(e, { tags: { route: "/order/[id]", step: "loadShoppingSection", orderId, companyId } });
       } finally {

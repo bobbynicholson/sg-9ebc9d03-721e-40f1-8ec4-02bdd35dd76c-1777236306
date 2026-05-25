@@ -24,8 +24,9 @@ interface Item {
   menu_item_id: string | null;
   item_name: string | null;
   quantity: number | null;
-  notes: string | null;
-  menu_item?: { name: string | null; description: string | null } | null;
+  special_instructions: string | null;
+  description: string | null;
+  menu_item?: { item_name: string | null; description: string | null; category: string | null } | null;
 }
 
 export function OrderItemsSection({ orderId, companyId, defaultOpen, forceOpen }: Props) {
@@ -37,12 +38,14 @@ export function OrderItemsSection({ orderId, companyId, defaultOpen, forceOpen }
     (async () => {
       setLoading(true);
       try {
-        // ODOC: cost-stripped select. No unit_price / total_price /
-        // anything that resolves to a rand value. Staff-facing
-        // surface must never carry money in the network response.
+        // ODOC: cost-stripped select. No unit_price / line_total /
+        // unit_cost - staff-facing surface must never carry money
+        // in the network response. Column names match the actual
+        // order_items + menu_items schema (special_instructions,
+        // not notes; menu_items.item_name, not name).
         const { data, error } = await (supabase as any)
           .from("order_items")
-          .select("id, menu_item_id, item_name, quantity, notes, menu_item:menu_item_id(name, description)")
+          .select("id, menu_item_id, item_name, quantity, special_instructions, description, menu_item:menu_item_id(item_name, description, category)")
           .eq("order_id", orderId)
           .order("created_at", { ascending: true });
         if (error) throw error;
@@ -76,17 +79,28 @@ export function OrderItemsSection({ orderId, companyId, defaultOpen, forceOpen }
       ) : (
         <ul className="divide-y divide-slate-100">
           {items.map((it) => {
-            const name = it.menu_item?.name || it.item_name || "Item";
-            const desc = it.menu_item?.description;
+            const name = it.menu_item?.item_name || it.item_name || "Item";
+            const desc = it.menu_item?.description || it.description;
             return (
               <li key={it.id} className="py-3 flex items-start gap-3">
                 <span className="text-sm font-semibold tabular-nums text-slate-700 min-w-[3rem]">
                   {Number(it.quantity || 0)}×
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900">{name}</p>
+                  <p className="text-sm font-medium text-slate-900">
+                    {name}
+                    {it.menu_item?.category && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 align-middle">
+                        {it.menu_item.category}
+                      </span>
+                    )}
+                  </p>
                   {desc && <p className="text-xs text-slate-500 mt-0.5">{desc}</p>}
-                  {it.notes && <p className="text-xs text-amber-700 mt-1">Note: {it.notes}</p>}
+                  {it.special_instructions && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-1.5 mt-1.5">
+                      <span className="font-semibold">Note: </span>{it.special_instructions}
+                    </p>
+                  )}
                 </div>
               </li>
             );

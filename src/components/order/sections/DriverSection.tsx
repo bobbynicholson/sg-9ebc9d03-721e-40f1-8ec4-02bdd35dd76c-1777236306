@@ -24,6 +24,15 @@ interface Props {
     venue_address: string | null;
     assigned_driver_id: string | null;
     status: string;
+    // ODOC: POD + venue timestamps live denormalised on orders -
+    // pulled from the head row in OrderDocument so this section
+    // doesn't have to refetch them.
+    pod_captured_at: string | null;
+    pod_photo_url: string | null;
+    pod_signature_url: string | null;
+    arrived_at_venue_at: string | null;
+    delivered_at: string | null;
+    picked_up_at: string | null;
   };
   defaultOpen?: boolean;
   forceOpen?: boolean;
@@ -33,12 +42,11 @@ interface Props {
 interface Assignment {
   id: string;
   driver_id: string;
-  status: string;
-  pod_captured_at: string | null;
-  pod_photo_url: string | null;
-  pod_signature_url: string | null;
-  arrived_at: string | null;
+  status: string | null;
+  arrived_at_venue_at: string | null;
   delivered_at: string | null;
+  picked_up_at: string | null;
+  en_route_at: string | null;
   driver?: { full_name: string | null; phone: string | null } | null;
 }
 
@@ -70,10 +78,12 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
     (async () => {
       setLoading(true);
       try {
-        // Pull the latest assignment (there's usually one)
+        // Pull the latest assignment (there's usually one). POD
+        // fields live on orders, not driver_assignments - we read
+        // them off the order prop instead.
         const { data: aData } = await (supabase as any)
           .from("driver_assignments")
-          .select("id, driver_id, status, pod_captured_at, pod_photo_url, pod_signature_url, arrived_at, delivered_at, driver:driver_id(full_name, phone)")
+          .select("id, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, driver:driver_id(full_name, phone)")
           .eq("order_id", order.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -100,8 +110,12 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
   }, [order.id, order.company_id, order.assigned_driver_id]);
 
   const driver = assignment?.driver || driverProfile;
-  const podCaptured = !!assignment?.pod_captured_at;
-  const delivered = order.status === "delivered" || order.status === "completed" || !!assignment?.delivered_at;
+  // POD lives on orders. Pull from the order prop, not the
+  // assignment row.
+  const podCaptured = !!order.pod_captured_at;
+  const delivered = order.status === "delivered" || order.status === "completed" || !!order.delivered_at || !!assignment?.delivered_at;
+  const arrivedAt = order.arrived_at_venue_at || assignment?.arrived_at_venue_at || null;
+  const deliveredAt = order.delivered_at || assignment?.delivered_at || null;
 
   const summary = loading
     ? "Loading..."
@@ -198,16 +212,16 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               <div className="text-xs">
                 <p className="text-slate-500 uppercase tracking-wider">Arrived</p>
                 <p className="text-slate-900 mt-0.5">
-                  {assignment.arrived_at
-                    ? new Date(assignment.arrived_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+                  {arrivedAt
+                    ? new Date(arrivedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
                     : "—"}
                 </p>
               </div>
               <div className="text-xs">
                 <p className="text-slate-500 uppercase tracking-wider">Delivered</p>
                 <p className="text-slate-900 mt-0.5">
-                  {assignment.delivered_at
-                    ? new Date(assignment.delivered_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+                  {deliveredAt
+                    ? new Date(deliveredAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
                     : "—"}
                 </p>
               </div>
@@ -218,8 +232,8 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
             <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span className="font-medium">POD captured</span>
-              {assignment?.pod_photo_url && (
-                <a href={assignment.pod_photo_url} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
+              {order.pod_photo_url && (
+                <a href={order.pod_photo_url} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
                   <Camera className="w-3 h-3" />View photo
                 </a>
               )}
