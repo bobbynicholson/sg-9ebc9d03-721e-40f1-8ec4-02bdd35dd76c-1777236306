@@ -20,7 +20,117 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { getServiceSupabase } from "@/lib/supabase/service";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { emailService } from "@/services/emailService";
+
+/**
+ * LCF-T (task #242): client-facing email when an amendment outcome
+ * lands. The handler used to only push an in-portal notification, so
+ * a client who didn't log in had no idea their event change was
+ * applied or declined. Best-effort: every failure path is non-blocking
+ * (the review itself has already happened).
+ */
+async function sendAmendmentEmail(opts: {
+  templateType: "order_changed" | "order_change_rejected";
+  companyId: string;
+  orderId: string;
+  changeSummary: string;
+  partial: boolean;
+  reviewNotes: string | null;
+}): Promise<void> {
+  try {
+    const admin = getServiceSupabase();
+    const { data: orderRow } = await (admin as any)
+      .from("orders")
+      .select("client_email, client_name, order_number, event_name, event_date, venue_address")
+      .eq("id", opts.orderId)
+      .maybeSingle();
+    if (!orderRow || !(orderRow as any).client_email) return;
+
+    const { data: companyRow } = await (admin as any)
+      .from("companies")
+      .select("company_name, slug")
+      .eq("id", opts.companyId)
+      .maybeSingle();
+    const tenantName = (companyRow as any)?.company_name || "your caterer";
+    const slug = (companyRow as any)?.slug || "";
+
+    const firstName = String((orderRow as any).client_name || "there").trim().split(" ")[0] || "there";
+    const orderNumber = (orderRow as any).order_number || "your order";
+    const eventName = (orderRow as any).event_name || orderNumber;
+    const eventDate = (orderRow as any).event_date as string | null;
+    const eventDateLabel = eventDate
+      ? new Date(eventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+      : "";
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
+    const orderLink = slug
+      ? `${baseUrl}/${slug}/c/order/${opts.orderId}`
+      : `${baseUrl}/c/order/${opts.orderId}`;
+
+    const reviewNotesParagraph = opts.reviewNotes && opts.reviewNotes.trim()
+      ? `Reason from the team: ${opts.reviewNotes.trim()}\n\n`
+      : "";
+
+    const variables: Record<string, string> = {
+      first_name: firstName,
+      client_first_name: firstName,
+      order_number: String(orderNumber),
+      event_name: String(eventName),
+      tenant_name: tenantName,
+      event_date_label: eventDateLabel ? ` for ${eventDateLabel}` : "",
+      event_date_phrase: eventDateLabel ? ` for ${eventDateLabel}` : "",
+      venue_phrase: (orderRow as any).venue_address ? ` to ${(orderRow as any).venue_address}` : "",
+      eta_sentence: "",
+      change_summary: opts.changeSummary,
+      order_link: orderLink,
+      partial: opts.partial ? "1" : "",
+      review_notes_paragraph: reviewNotesParagraph,
+      review_notes: opts.reviewNotes || "",
+    };
+
+    const fallback = opts.templateType === "order_changed"
+      ? {
+          subject: `Update on your order ${orderNumber}`,
+          bodyHtml:
+            `Hi ${firstName},\n\n` +
+            `We've updated your order ${orderNumber}${eventDateLabel ? ` for ${eventDateLabel}` : ""}.\n\n` +
+            `What changed: ${opts.changeSummary}\n\n` +
+            `Open your order to see the latest details: ${orderLink}\n\n` +
+            `Reply to this email if anything looks off.\n\n` +
+            `Thanks,\n${tenantName}`,
+        }
+      : {
+          subject: `Couldn't apply your change to ${orderNumber}`,
+          bodyHtml:
+            `Hi ${firstName},\n\n` +
+            `We couldn't apply the change you requested on order ${orderNumber}.\n\n` +
+            reviewNotesParagraph +
+            `Reply to this email and we'll work it out together.\n\n` +
+            `Thanks,\n${tenantName}`,
+        };
+
+    const resolved = await resolveEmailTemplate({
+      companyId: opts.companyId,
+      templateType: opts.templateType,
+      variables,
+      fallback,
+      client: admin,
+    });
+
+    await (emailService as any).sendEmail({
+      companyId: opts.companyId,
+      to: (orderRow as any).client_email,
+      subject: resolved.subject,
+      body: resolved.bodyHtml,
+      _client: admin,
+    });
+  } catch (e) {
+    console.warn("[amendment-review] email send failed (non-blocking):", e);
+  }
+}
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const ALLOWED_FIELDS = new Set([
@@ -149,6 +259,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (e) {
         console.warn("[amendment-review] reject notify failed:", e);
       }
+
+      // LCF-T: client email so a client who isn't watching the portal
+      // still hears that the change was declined.
+      await sendAmendmentEmail({
+        templateType: "order_change_rejected",
+        companyId: (request as any).company_id,
+        orderId: (request as any).order_id,
+        changeSummary: "",
+        partial: false,
+        reviewNotes: review_notes || null,
+      });
 
       return res.status(200).json({ ok: true, applied: 0 });
     }
@@ -404,6 +525,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } catch (e) {
       console.warn("[amendment-review] approve notify failed:", e);
+    }
+
+    // LCF-T: client email so the change lands even for clients who
+    // don't live in the portal. Uses the order_changed template (with
+    // a partial flag when only some keys applied) so an operator can
+    // edit the wording in /admin/email-templates.
+    {
+      const appliedHuman = Object.keys(toApply)
+        .map((k) => k.replace(/_/g, " "))
+        .join(", ") || "the requested change";
+      await sendAmendmentEmail({
+        templateType: "order_changed",
+        companyId: (request as any).company_id,
+        orderId: (request as any).order_id,
+        changeSummary: appliedHuman,
+        partial: action === "approve_partial",
+        reviewNotes: review_notes || null,
+      });
     }
 
     // Wave 24: audit_logs entry for the approve path. Captures WHO

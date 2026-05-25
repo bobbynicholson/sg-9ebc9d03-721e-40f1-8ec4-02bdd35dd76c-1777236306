@@ -936,6 +936,48 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `If anything wasn't quite right, please reply, we read every email and we'd rather hear it.`,
     variables: ORDER_LIFECYCLE_VARS,
   },
+  {
+    key: "order_changed",
+    channel: "email",
+    category: "client",
+    group: "Order lifecycle",
+    label: "Order changed",
+    description: "Sent when an amendment to a confirmed order is applied (guest count, menu, time, venue, etc.).",
+    defaultSubject: "Update on your order {{order_number}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `We've updated your order {{order_number}}{{event_date_phrase}}.\n\n` +
+      `What changed: {{change_summary}}\n\n` +
+      `Open your order to see the latest details: {{order_link}}\n\n` +
+      `Reply to this email if anything looks off.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: [
+      ...ORDER_LIFECYCLE_VARS,
+      { name: "change_summary",     description: "Comma-separated list of what changed",   example: "guest count, menu items" },
+      { name: "order_link",         description: "Client portal link to the order",        example: "https://app.example.com/c/order/..." },
+      { name: "partial",            description: "1 when only some changes applied, blank otherwise", example: "" },
+    ],
+  },
+  {
+    key: "order_change_rejected",
+    channel: "email",
+    category: "client",
+    group: "Order lifecycle",
+    label: "Change request declined",
+    description: "Sent when the client requested a change and the operator couldn't apply it.",
+    defaultSubject: "Couldn't apply your change to {{order_number}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `We couldn't apply the change you requested on order {{order_number}}.\n\n` +
+      `{{review_notes_paragraph}}` +
+      `Reply to this email and we'll work it out together.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: [
+      ...ORDER_LIFECYCLE_VARS,
+      { name: "review_notes_paragraph", description: "Reason from the team (auto-built, blank when none)", example: "Reason from the team: kitchen prep is locked 48 hours out.\n\n" },
+      { name: "review_notes",           description: "Raw reason text",                                   example: "Kitchen prep is locked 48 hours out." },
+    ],
+  },
 
   // --- PRE-EVENT REMINDERS ---
   {
@@ -1563,6 +1605,8 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   order_ready:        { delivery: "automated", trigger: "Fires when the kitchen marks prep complete." },
   order_in_transit:   { delivery: "automated", trigger: "Fires the moment the driver leaves the kitchen." },
   order_delivered:    { delivery: "automated", trigger: "Fires the moment the driver marks delivery." },
+  order_changed:           { delivery: "automated", trigger: "Fires the moment an order amendment is applied (admin approves a client change request OR edits the order directly)." },
+  order_change_rejected:   { delivery: "automated", trigger: "Fires the moment an operator declines a client's change request." },
 
   // --- AUTOMATED: pre-event cron (ensureScheduledPreEventReminders) ---
   event_one_week_reminder:  { delivery: "automated", trigger: "Cron-scheduled 7 days before the event date." },
