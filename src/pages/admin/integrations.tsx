@@ -33,7 +33,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight, Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash, MessageSquare, ChefHat, Mail, Link2, Send, Receipt } from "lucide-react";
+import { Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight, Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash, MessageSquare, ChefHat, Mail, Link2, Send, Receipt, Banknote, Users, XCircle, Clock } from "lucide-react";
+import { captureException } from "@/lib/observability";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -88,6 +89,44 @@ interface Recipe {
 }
 
 const RECIPES: Recipe[] = [
+  // INT-B (task #222, 2026-05-25): four top-quality catering-shaped
+  // recipes Bobby asked for. Each one ties to a real day-to-day
+  // pain point the team has flagged + uses event triggers we
+  // already dispatch on (with a Zapier-side filter for the
+  // variants). Slotted above the existing 11 so they get top
+  // placement.
+  {
+    title: "Quote going cold -> chase by SMS",
+    description: "Quote was sent 3 days ago and the client hasn't replied? Auto-SMS via Twilio with a friendly 'still keen?' nudge and a deep-link back to their quote. Conversion lift on the leads that ghost.",
+    trigger: "quote.sent",
+    action: "Zapier Delay (3 days) -> Twilio - Send SMS (filter: order_id IS NULL)",
+    icon: Clock,
+    badge: "Catering gold",
+  },
+  {
+    title: "Final headcount due -> WhatsApp the client",
+    description: "48 hours before the event, auto-WhatsApp the client to confirm the final headcount. Cuts the day-of 'how many are we cooking for' phone tag in half and locks the kitchen number in.",
+    trigger: "order.created",
+    action: "Zapier Schedule (event_date - 2 days) -> WhatsApp - Send template",
+    icon: Users,
+    badge: "Catering gold",
+  },
+  {
+    title: "Payment received -> Slack #money",
+    description: "EFT confirmed, deposit lands, balance paid - whichever fires, your finance channel pops. Includes amount, client name and the invoice link. Team morale + cashflow awareness in one beat.",
+    trigger: "order.status_changed",
+    action: "Slack - Post #money (filter: payment_status IN paid,partial)",
+    icon: Banknote,
+    badge: "Catering gold",
+  },
+  {
+    title: "Order cancelled -> free the kitchen + driver",
+    description: "Cancellation lands; kitchen and driver WhatsApp groups get an instant heads-up so they can free up the cooker, the vehicle and the prep slots. Stops the silent waste of holding a 50-portion slot for a no-show.",
+    trigger: "order.status_changed",
+    action: "WhatsApp - Two group messages (filter: status = cancelled)",
+    icon: XCircle,
+    badge: "Catering gold",
+  },
   {
     title: "Quote in here -> Quote in Xero",
     description: "Every quote you build in CateringMS auto-creates the matching Xero quote so accounting stays in sync. No more double entry.",
@@ -230,6 +269,9 @@ function IntegrationsPage() {
       created_by: user?.id,
     });
     if (error) {
+      captureException(error, {
+        tags: { route: "/admin/integrations", step: "create-api-key", companyId },
+      });
       toast({ title: "Couldn't create key", description: error.message, variant: "destructive" });
       return;
     }
@@ -255,6 +297,9 @@ function IntegrationsPage() {
       signing_secret: secret,
     });
     if (error) {
+      captureException(error, {
+        tags: { route: "/admin/integrations", step: "create-webhook", companyId },
+      });
       toast({ title: "Couldn't save webhook", description: error.message, variant: "destructive" });
       return;
     }
@@ -286,9 +331,15 @@ function IntegrationsPage() {
       if (r.ok) {
         toast({ title: "Test fired", description: `Status ${data.status_code} from your endpoint.` });
       } else {
+        captureException(new Error(data.error || `HTTP ${r.status}`), {
+          tags: { route: "/admin/integrations", step: "fire-test-webhook", companyId, subId: sub.id },
+        });
         toast({ title: "Test failed", description: data.error || "Endpoint didn't accept the test.", variant: "destructive" });
       }
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/integrations", step: "fire-test-network", companyId, subId: sub.id },
+      });
       toast({ title: "Test failed", description: e?.message, variant: "destructive" });
     } finally {
       setFiringId(null);
@@ -705,6 +756,28 @@ function IntegrationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* INT-B (task #222, 2026-05-25): event-coverage primer.
+                  The "Catering gold" four use a Zapier-side Delay /
+                  Schedule / Filter on top of an existing trigger
+                  (quote.sent + order.status_changed) - so they work
+                  today, just with a one-step Zap detour. Spelling it
+                  out here saves a debug round when a recipe doesn't
+                  fire the way the title implies. */}
+              <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50/60 px-3 py-2 text-xs text-purple-900 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-purple-700" />
+                <p>
+                  <strong>How the triggers map.</strong> The events we fire today are
+                  <code className="mx-1 bg-white px-1 rounded">lead.created</code>,
+                  <code className="mx-1 bg-white px-1 rounded">lead.status_changed</code>,
+                  <code className="mx-1 bg-white px-1 rounded">quote.created</code>,
+                  <code className="mx-1 bg-white px-1 rounded">quote.sent</code>,
+                  <code className="mx-1 bg-white px-1 rounded">quote.accepted</code>,
+                  <code className="mx-1 bg-white px-1 rounded">order.created</code>,
+                  <code className="mx-1 bg-white px-1 rounded">order.status_changed</code>,
+                  <code className="mx-1 bg-white px-1 rounded">inventory.low_stock</code>.
+                  Recipes that need a variant ("payment received", "cancellation", "X days after quote") use those same events plus a one-step Zapier Filter or Delay - the recipe copy tells you which. Nothing's mocked.
+                </p>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {RECIPES.map((r) => {
                   const Icon = r.icon;
@@ -996,8 +1069,18 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
 }
 
 export default function ProtectedIntegrationsPage() {
+  // INT-B (task #222, 2026-05-25): admit OWNER. Pre-INT-B the
+  // page hardcoded SUPER_ADMIN + COMPANY_ADMIN + ADMIN, so the
+  // OWNER persona was 403'd off their own integrations page even
+  // though OWNER is in FULL_COMPANY_ACCESS_ROLES. Same regression
+  // pattern as the rest of /admin.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <IntegrationsPage />
     </ProtectedRoute>
   );
