@@ -18,8 +18,18 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Sparkles } from "lucide-react";
 
-const POLL_MS = 60_000;
-const COUNTDOWN_S = 8;
+// LCF-E (task #226, 2026-05-25): poll less aggressively + don't
+// auto-reload. The previous setup (60s polls + 8s countdown +
+// hard reload) created a feedback loop during Vercel's rolling
+// deploys when edge nodes split-brain between old/new bundles:
+//   poll lands on new node -> banner -> auto reload
+//   page reloads onto old node -> initial captured as old
+//   next poll lands on new node -> banner -> auto reload
+//   ... repeat forever
+// We now poll every 5 minutes and only ever SHOW the banner -
+// the user clicks "Refresh now" if they want to pick up the new
+// bundle. Worst case the user dismisses a banner; no loops.
+const POLL_MS = 5 * 60_000;
 
 async function fetchBuildId(): Promise<string | null> {
   try {
@@ -35,7 +45,6 @@ async function fetchBuildId(): Promise<string | null> {
 export function VersionWatcher() {
   const [initial, setInitial] = useState<string | null>(null);
   const [latest, setLatest] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(COUNTDOWN_S);
 
   // Capture the build we loaded with
   useEffect(() => {
@@ -92,25 +101,10 @@ export function VersionWatcher() {
     };
   }, [initial]);
 
-  // Auto-reload countdown once we know there's a new build
-  useEffect(() => {
-    if (!latest) return;
-    setCountdown(COUNTDOWN_S);
-    const t = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          // Hard reload so the new HTML + bundles come down
-          if (typeof window !== "undefined") {
-            window.location.reload();
-          }
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [latest]);
+  // LCF-E: no auto-reload effect. The banner stays until the user
+  // clicks Refresh now or dismisses with a hard refresh. Removed
+  // because the countdown + auto-reload was looping during rolling
+  // deploys when edge nodes served inconsistent build ids.
 
   if (!latest) return null;
 
@@ -123,7 +117,7 @@ export function VersionWatcher() {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm">A new version is available</p>
           <p className="text-xs text-slate-400">
-            Refreshing in {countdown}s to pick up the latest changes...
+            Tap Refresh now when it's convenient to pick up the latest changes.
           </p>
         </div>
         <Button
@@ -134,6 +128,14 @@ export function VersionWatcher() {
           <RefreshCw className="w-3.5 h-3.5" />
           Refresh now
         </Button>
+        <button
+          type="button"
+          onClick={() => setLatest(null)}
+          className="text-slate-400 hover:text-white text-xs flex-shrink-0"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
