@@ -153,6 +153,34 @@ export default function KitchenDashboard() {
   const [lastRealtimeAt, setLastRealtimeAt] = useState<number>(Date.now());
   const [realtimeStale, setRealtimeStale] = useState(false);
 
+  // KIT3-B (task #245): four pieces of deferred intel land here.
+  //   1. Per-shift staffing flag - kitchen_duty_shifts where
+  //      is_active=true counts as "on duty now". Compared to a
+  //      simple workload rule (1 cook per 30 guests today) to flag
+  //      understaffing.
+  //   2. Ingredient-stockout cascade - low-stock inventory items
+  //      cross-referenced through menu_items.linked_inventory_item_id
+  //      against order_items.menu_item_id to surface "low stock
+  //      blocks N active orders".
+  //   3. Critical-path bottleneck - the oldest in-progress prep
+  //      task whose started_at is more than 90 min ago and which
+  //      still has no completed_at.
+  //   4. Region scoping - if the kitchen_staff user has a region_id
+  //      set, every query filters to that branch's orders + tasks.
+  const [onDutyCount, setOnDutyCount] = useState<number>(0);
+  const [blockedOrdersByItem, setBlockedOrdersByItem] = useState<
+    Array<{ inventoryItemId: string; itemName: string; orderCount: number; orderLabels: string[] }>
+  >([]);
+  const [bottleneckTask, setBottleneckTask] = useState<{
+    taskId: string;
+    orderId: string;
+    menuItemName: string;
+    startedAt: string;
+    minsRunning: number;
+    orderLabel: string;
+  } | null>(null);
+  const regionId = (user as { region_id?: string | null } | null)?.region_id ?? null;
+
   // KIT2-R (kitchen deep audit, KIT2-34 / KIT2-85): ingredient delta
   // banner. When the shopper ticks items on /team-portal/shopping
   // (SHP2-B bumps inventory_items.current_stock), we want the kitchen
@@ -359,7 +387,11 @@ export default function KitchenDashboard() {
       threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 2);
       const horizonIso = `${threeDaysFromNow.getFullYear()}-${String(threeDaysFromNow.getMonth() + 1).padStart(2, "0")}-${String(threeDaysFromNow.getDate()).padStart(2, "0")}`;
 
-      const { data: ordersData, error: ordersError } = await supabase
+      // KIT3-B: region scoping. A kitchen_staff user with a
+      // region_id set only sees orders for their branch. Single-
+      // region tenants leave region_id null on the profile and the
+      // .eq is skipped, so the existing behaviour stays intact.
+      let ordersQuery = supabase
         .from("orders")
         .select("*")
         .eq("company_id", user.company_id)
@@ -370,6 +402,10 @@ export default function KitchenDashboard() {
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true })
         .limit(50);
+      if (regionId) {
+        ordersQuery = ordersQuery.eq("region_id", regionId);
+      }
+      const { data: ordersData, error: ordersError } = await ordersQuery;
 
       if (ordersError) {
         captureException(ordersError, {
@@ -380,13 +416,21 @@ export default function KitchenDashboard() {
       }
 
       // Load low stock items - compare current_stock to minimum_stock directly
-      const { data: inventoryData, error: inventoryError } = await supabase
+      // KIT3-B: region scoping. inventory_items has region_id on
+      // multi-branch tenants; null on single-region. Same conditional
+      // pattern as the orders query above.
+      let invQuery = supabase
         .from("inventory_items")
         .select("*")
         .eq("company_id", user.company_id)
         .filter("current_stock", "lt", "minimum_stock")
         .order("current_stock", { ascending: true })
         .limit(5);
+      if (regionId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        invQuery = (invQuery as any).eq("region_id", regionId);
+      }
+      const { data: inventoryData, error: inventoryError } = await invQuery;
 
       if (inventoryError) {
         captureException(inventoryError, {
@@ -403,6 +447,128 @@ export default function KitchenDashboard() {
         setProgressByOrder(prog);
       } else {
         setProgressByOrder({});
+      }
+
+      // KIT3-B (1): on-duty count. kitchen_duty_shifts rows where
+      // is_active=true count as "currently on the clock". Used by
+      // the staffing-flag chip below.
+      try {
+        const { count: dutyCount } = await (supabase as any)
+          .from("kitchen_duty_shifts")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", user.company_id)
+          .eq("is_active", true)
+          .is("shift_end", null);
+        setOnDutyCount(dutyCount ?? 0);
+      } catch (dutyErr) {
+        captureException(dutyErr, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-on-duty", companyId: user.company_id },
+        });
+      }
+
+      // KIT3-B (3): critical-path bottleneck. The oldest in-progress
+      // prep task with started_at > 90 min ago and completed_at NULL.
+      // One query, no per-order N+1. Region-scoped when applicable.
+      try {
+        const ninetyMinAgo = new Date(Date.now() - 90 * 60_000).toISOString();
+        let btQuery = (supabase as any)
+          .from("kitchen_prep_tasks")
+          .select("id, order_id, menu_item_name, started_at")
+          .eq("company_id", user.company_id)
+          .is("completed_at", null)
+          .not("started_at", "is", null)
+          .lt("started_at", ninetyMinAgo)
+          .order("started_at", { ascending: true })
+          .limit(1);
+        if (regionId) btQuery = btQuery.eq("region_id", regionId);
+        const { data: btRows } = await btQuery;
+        const btRow = (btRows && btRows[0]) || null;
+        if (btRow) {
+          const order = (ordersData || []).find((o: any) => o.id === btRow.order_id);
+          const orderLabel = order
+            ? (order.event_name || order.client_name || order.order_number || "Order")
+            : "Order";
+          const startedAt = new Date(btRow.started_at);
+          const minsRunning = Math.floor((Date.now() - startedAt.getTime()) / 60_000);
+          setBottleneckTask({
+            taskId: btRow.id,
+            orderId: btRow.order_id,
+            menuItemName: btRow.menu_item_name || "Prep task",
+            startedAt: btRow.started_at,
+            minsRunning,
+            orderLabel,
+          });
+        } else {
+          setBottleneckTask(null);
+        }
+      } catch (btErr) {
+        captureException(btErr, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-bottleneck", companyId: user.company_id },
+        });
+      }
+
+      // KIT3-B (2): ingredient-stockout cascade. Low-stock inventory
+      // items -> menu_items.linked_inventory_item_id -> order_items
+      // -> active orders. Surfaces "low stock blocks N orders" with
+      // the order labels so the chef can act on the cascade not just
+      // the symptom.
+      try {
+        const lowIds = (inventoryData || []).map((it: any) => it.id);
+        if (lowIds.length > 0 && orderIds.length > 0) {
+          const { data: blockedMenuItems } = await (supabase as any)
+            .from("menu_items")
+            .select("id, item_name, linked_inventory_item_id")
+            .eq("company_id", user.company_id)
+            .in("linked_inventory_item_id", lowIds);
+          const blockedMenuIds = (blockedMenuItems || []).map((m: any) => m.id);
+
+          if (blockedMenuIds.length > 0) {
+            const { data: blockedOrderItems } = await (supabase as any)
+              .from("order_items")
+              .select("menu_item_id, order_id")
+              .in("menu_item_id", blockedMenuIds)
+              .in("order_id", orderIds);
+
+            // Roll up by inventory item id so the operator sees one
+            // row per ingredient, not one per order_item.
+            const ordersByInvItem = new Map<string, Set<string>>();
+            for (const oi of (blockedOrderItems || []) as any[]) {
+              const mi = (blockedMenuItems || []).find((m: any) => m.id === oi.menu_item_id);
+              if (!mi) continue;
+              const invId = mi.linked_inventory_item_id;
+              if (!invId) continue;
+              if (!ordersByInvItem.has(invId)) ordersByInvItem.set(invId, new Set());
+              ordersByInvItem.get(invId)!.add(oi.order_id);
+            }
+
+            const orderLabelById = new Map<string, string>();
+            for (const o of (ordersData || []) as any[]) {
+              orderLabelById.set(o.id, o.event_name || o.client_name || o.order_number || "Order");
+            }
+
+            const blocked: Array<{ inventoryItemId: string; itemName: string; orderCount: number; orderLabels: string[] }> = [];
+            for (const inv of (inventoryData || []) as any[]) {
+              const set = ordersByInvItem.get(inv.id);
+              if (!set || set.size === 0) continue;
+              blocked.push({
+                inventoryItemId: inv.id,
+                itemName: inv.item_name || "Ingredient",
+                orderCount: set.size,
+                orderLabels: Array.from(set).map((oid) => orderLabelById.get(oid) || "Order"),
+              });
+            }
+            blocked.sort((a, b) => b.orderCount - a.orderCount);
+            setBlockedOrdersByItem(blocked);
+          } else {
+            setBlockedOrdersByItem([]);
+          }
+        } else {
+          setBlockedOrdersByItem([]);
+        }
+      } catch (cascadeErr) {
+        captureException(cascadeErr, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-stockout-cascade", companyId: user.company_id },
+        });
       }
 
       // Phase 4: tomorrow + day-after preview and hot-hold threshold
@@ -1091,33 +1257,121 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
+          {/* KIT3-B (task #245): per-shift staffing flag. Surfaces
+              when today has orders + the on-duty count looks light
+              vs total guests. Rule: 1 cook per 30 guests. Tunable
+              later via companies.kitchen_settings.cooks_per_guest. */}
+          {(() => {
+            const totalGuests = todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0);
+            const recommended = Math.max(1, Math.ceil(totalGuests / 30));
+            if (totalGuests === 0) return null;
+            const understaffed = onDutyCount > 0 && onDutyCount < recommended;
+            const noStaff = onDutyCount === 0 && todayOrders.length > 0;
+            if (!understaffed && !noStaff) return null;
+            return (
+              <Card className="border-0 shadow-sm mb-4 border-l-4 border-l-rose-500 bg-rose-50/60">
+                <CardContent className="px-4 py-3 flex items-start gap-3">
+                  <Users className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-semibold text-rose-900">
+                      {noStaff
+                        ? "No-one is clocked in for the kitchen yet"
+                        : `Looks light: ${onDutyCount} on duty for ${totalGuests} guests today`}
+                    </p>
+                    <p className="text-xs text-rose-800 mt-0.5">
+                      Rough guide is one cook per 30 guests. Today's recommended is {recommended} based on {todayOrders.length} order{todayOrders.length === 1 ? "" : "s"}. Check the staff tiles above and clock the team in.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* KIT3-B: critical-path bottleneck. The oldest in-progress
+              prep task whose started_at is more than 90 min ago and
+              still incomplete. Tells the chef "this is what's
+              holding us up". One task at a time so it stays a
+              decision-prompt not a backlog dump. */}
+          {bottleneckTask && (
+            <Card className="border-0 shadow-sm mb-4 border-l-4 border-l-orange-500 bg-orange-50/60">
+              <CardContent className="px-4 py-3 flex items-start gap-3">
+                <Clock className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+                <div className="flex-1 text-sm">
+                  <p className="font-semibold text-orange-900">
+                    Bottleneck: {bottleneckTask.menuItemName}
+                  </p>
+                  <p className="text-xs text-orange-800 mt-0.5">
+                    Started {Math.floor(bottleneckTask.minsRunning / 60) > 0
+                      ? `${Math.floor(bottleneckTask.minsRunning / 60)}h ${bottleneckTask.minsRunning % 60}m`
+                      : `${bottleneckTask.minsRunning}m`} ago on {bottleneckTask.orderLabel} and still in progress. Check if the prep needs a second pair of hands or got skipped.
+                  </p>
+                </div>
+                {canSeeAdminOrderDetail && (
+                  <Link
+                    href={withSlug(`/admin/orders?orderId=${bottleneckTask.orderId}`)}
+                    className="inline-flex items-center gap-1 text-xs text-orange-700 underline hover:text-orange-900 shrink-0"
+                  >
+                    Open order
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
             <Card className="border-0 shadow-lg mb-6 sm:mb-8 border-l-4 border-l-amber-500">
               <CardHeader className="px-3 sm:px-4 md:px-6 pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="w-5 h-5" />
-                  Low Stock Alerts
+                  Low stock alerts
+                  {/* KIT3-B: aggregate "blocks N orders" badge so the
+                      chef sees the cascade impact at the header level
+                      not just per-row. */}
+                  {blockedOrdersByItem.length > 0 && (
+                    <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] ml-1">
+                      Blocks {new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size} active order{new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size === 1 ? "" : "s"}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6">
                 <div className="space-y-2">
-                  {lowStockItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                        <div>
-                          <p className="font-medium text-sm text-slate-900 dark:text-white">{item.item_name}</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Current: {item.current_stock} {item.unit_of_measure} | Minimum: {item.minimum_stock}
-                          </p>
+                  {lowStockItems.map((item) => {
+                    // KIT3-B: per-row cascade chip. Pulled from the
+                    // blockedOrdersByItem rollup so each low-stock
+                    // ingredient surfaces the specific orders it
+                    // blocks.
+                    const blocked = blockedOrdersByItem.find((b) => b.inventoryItemId === item.id);
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg flex-wrap">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Current: {item.current_stock} {item.unit_of_measure} &middot; Minimum: {item.minimum_stock}
+                            </p>
+                            {blocked && (
+                              <p className="text-[11px] text-rose-700 mt-0.5" title={blocked.orderLabels.join(", ")}>
+                                Blocks {blocked.orderCount} active order{blocked.orderCount === 1 ? "" : "s"}: {blocked.orderLabels.slice(0, 2).join(", ")}{blocked.orderLabels.length > 2 ? ` + ${blocked.orderLabels.length - 2}` : ""}
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        <Badge
+                          variant="outline"
+                          className={`shrink-0 ${
+                            blocked
+                              ? "bg-rose-100 text-rose-800 border-rose-300"
+                              : "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                          }`}
+                        >
+                          {blocked ? "Blocking prep" : "Low stock"}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700">
-                        Low Stock
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
