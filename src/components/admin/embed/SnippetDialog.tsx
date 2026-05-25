@@ -55,15 +55,36 @@ function resolveLoaderHost(loaderHost: string | undefined): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
 }
 
+// LCF-I (task #230, 2026-05-25): HTML-safe interpolation for the
+// snippet output. The customiser's slug onChange only filters
+// non-[a-z0-9-] characters, which still allows consecutive hyphens
+// like "quick-card--test". Two hyphens close an HTML comment
+// early, so `<!-- quick-card--test, powered by CateringMS -->`
+// renders as broken markup on the tenant's site. Token comes from
+// companies.embed_token (UUID-only) so it's safe today, but escape
+// defensively so a future column shape can't be the weak link.
+const HTML_ESCAPE: Record<string, string> = {
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+};
+function htmlEscape(s: string): string {
+  return String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPE[c] || c);
+}
+function safeCommentText(s: string): string {
+  // HTML comments cannot contain "--". Collapse runs of hyphens
+  // down to one in the comment line only (the data-slug attr keeps
+  // the original value, since that's what the API matches against).
+  return htmlEscape(s).replace(/-{2,}/g, "-");
+}
+
 function buildSnippet(token: string, slug: string, host: string, integrity: string | null) {
   // SRI attribute locks the loaded script to a specific hash. If the
   // CDN ever serves a tampered loader.js, the host browser refuses to
   // execute it. crossorigin="anonymous" is required for the integrity
   // check to apply to a same-origin response.
-  const sriAttrs = integrity ? ` integrity="${integrity}" crossorigin="anonymous"` : "";
-  return `<!-- ${slug}, powered by CateringMS -->
-<div data-embed-form data-token="${token}" data-slug="${slug}"></div>
-<script async src="${host}/embed/loader.js"${sriAttrs}></script>`;
+  const sriAttrs = integrity ? ` integrity="${htmlEscape(integrity)}" crossorigin="anonymous"` : "";
+  return `<!-- ${safeCommentText(slug)} form, powered by CateringMS -->
+<div data-embed-form data-token="${htmlEscape(token)}" data-slug="${htmlEscape(slug)}"></div>
+<script async src="${htmlEscape(host)}/embed/loader.js"${sriAttrs}></script>`;
 }
 
 export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, loaderHost, onTokenRotated }: Props) {
