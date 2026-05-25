@@ -209,13 +209,26 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
+    // LCF-G (task #228, 2026-05-25): public embed assets bypass the
+    // auth gate. /embed/loader.js, /embed/helpers.js, /embed/demo.html
+    // and the per-template files in /embed/templates/ are all meant
+    // to load from any third-party site (the tenant's marketing
+    // page) and from our own admin live-preview iframes. Without
+    // this bypass, /embed/demo.html (no recognised extension) fell
+    // through to the route-guard which has no entry for /embed/ and
+    // bounced every iframe load to the dashboard with
+    // ?error=unauthorized - so every form thumbnail rendered the
+    // admin dashboard inside it instead of the actual form.
+    pathname.startsWith("/embed/") ||
     // Tightened from pathname.includes(".") - that crude check matched
     // /api/foo.bar style paths too. Only skip the session check for the
     // last segment carrying a static-file extension (ico/png/jpg/webp/
-    // svg/gif/woff/woff2/css/js/map/txt/xml/json/pdf). The check is
-    // anchored to the trailing segment so a route like /clients/john.doe
-    // wouldn't be misclassified as a file.
-    /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf)$/i.test(pathname)
+    // svg/gif/woff/woff2/css/js/map/txt/xml/json/pdf/html). The check
+    // is anchored to the trailing segment so a route like
+    // /clients/john.doe wouldn't be misclassified as a file. LCF-G
+    // added html to the list because /embed/demo.html is a static
+    // asset and the per-tenant embed loader serves it raw.
+    /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf|html)$/i.test(pathname)
   ) {
     return response;
   }
