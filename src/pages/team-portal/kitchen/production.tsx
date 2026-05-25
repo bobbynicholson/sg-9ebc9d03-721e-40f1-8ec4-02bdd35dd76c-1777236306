@@ -20,6 +20,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type KitchenStation } from "@/services/kitchenPrepService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { captureException } from "@/lib/observability";
+import { onOrderUpdated } from "@/lib/events/orderEvents";
 
 interface Order {
   id: string;
@@ -86,9 +88,14 @@ function fmtTime(t?: string | null) {
 type ViewMode = "day" | "week";
 
 export default function KitchenProductionPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
+  // KIT3-C (task #246): region scoping. If the kitchen_staff user
+  // has a region_id on their profile, every orders + tasks query
+  // narrows to that branch. Single-region tenants leave region_id
+  // null so the .eq is skipped and behaviour is unchanged.
+  const regionId = profile?.region_id ?? null;
 
   const [view, setView] = useState<ViewMode>("day");
   const [anchor, setAnchor] = useState<Date>(startOfDay(new Date())); // pivots both views
@@ -97,6 +104,15 @@ export default function KitchenProductionPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
+  // KIT3-C: "next event" lookahead for the quiet-day empty state.
+  // Single-row pull beyond the on-screen window so the chef knows
+  // when prep actually picks up again instead of staring at a blank.
+  const [nextUpcoming, setNextUpcoming] = useState<{
+    eventDate: string;
+    eventName: string | null;
+    eventTime: string | null;
+    guestCount: number | null;
+  } | null>(null);
 
   // Kitchen persona follow-up (docs/personas/kitchen.md section 5.3).
   // The "Start cooking next" widget renders countdowns derived from
@@ -141,16 +157,23 @@ export default function KitchenProductionPage() {
       const fromISO = from.toISOString();
       const toISO = to.toISOString();
 
+      // KIT3-C: region-scoped queries. Build the ordersQuery with
+      // a conditional .eq("region_id", ...) so the same code path
+      // works for single-region tenants (no-op) and multi-branch
+      // tenants (kitchen_staff sees only their branch's prep).
+      let ordersQuery = supabase
+        .from("orders")
+        .select("id, order_number, event_name, event_date, event_time, guest_count, status, special_instructions")
+        .eq("company_id", user.company_id)
+        .gte("event_date", isoDate(from))
+        .lt("event_date", isoDate(to))
+        .neq("status", "cancelled")
+        .order("event_date", { ascending: true })
+        .order("event_time", { ascending: true });
+      if (regionId) ordersQuery = ordersQuery.eq("region_id", regionId);
+
       const [ordsRes, stationsRes, tasksRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("id, order_number, event_name, event_date, event_time, guest_count, status, special_instructions")
-          .eq("company_id", user.company_id)
-          .gte("event_date", isoDate(from))
-          .lt("event_date", isoDate(to))
-          .neq("status", "cancelled")
-          .order("event_date", { ascending: true })
-          .order("event_time", { ascending: true }),
+        ordersQuery,
         kitchenPrepService.getStationsForCompany(user.company_id),
         kitchenPrepService.getTasksForDateRange(user.company_id, fromISO, toISO),
       ]);
@@ -180,16 +203,92 @@ export default function KitchenProductionPage() {
         const accuracy = await kitchenPrepService.getRecipeAccuracy(user.company_id, accFrom, accTo);
         setRecipeAccuracy(accuracy);
       } catch (accErr) {
-        console.warn("Recipe accuracy query failed:", accErr);
+        captureException(accErr, {
+          tags: { route: "/team-portal/kitchen/production", step: "load-recipe-accuracy", companyId: user.company_id },
+        });
+      }
+
+      // KIT3-C: next event after the current window. Powers the
+      // empty-state "Next event: Wed 27 May - 80 guests" so a quiet
+      // day still tells the chef when to plan ahead from.
+      try {
+        let nextQuery = supabase
+          .from("orders")
+          .select("event_date, event_time, event_name, guest_count")
+          .eq("company_id", user.company_id)
+          .gte("event_date", isoDate(to))
+          .neq("status", "cancelled")
+          .order("event_date", { ascending: true })
+          .order("event_time", { ascending: true })
+          .limit(1);
+        if (regionId) nextQuery = nextQuery.eq("region_id", regionId);
+        const { data: nextRow } = await nextQuery.maybeSingle();
+        if (nextRow) {
+          setNextUpcoming({
+            eventDate: nextRow.event_date as string,
+            eventName: (nextRow as any).event_name,
+            eventTime: (nextRow as any).event_time,
+            guestCount: (nextRow as any).guest_count,
+          });
+        } else {
+          setNextUpcoming(null);
+        }
+      } catch (nextErr) {
+        captureException(nextErr, {
+          tags: { route: "/team-portal/kitchen/production", step: "load-next-upcoming", companyId: user.company_id },
+        });
       }
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/team-portal/kitchen/production", step: "load", companyId: user?.company_id },
+      });
       toast({ title: "Could not load production", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [user?.company_id, windowDays, toast]);
+  }, [user?.company_id, windowDays, regionId, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // KIT3-C: realtime subscriptions for orders + kitchen_prep_tasks.
+  // The kitchen dashboard already subscribes to these; this page
+  // shows the SAME data shaped as a timeline. Without realtime,
+  // changes from the dashboard / admin tab don't reflect until the
+  // chef manually re-navigates. Debounced through a 400ms timer so
+  // a chatty tenant doesn't burn CPU.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (document.hidden) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        load();
+      }, 400);
+    };
+    const sub = supabase
+      .channel(`kitchen-production-${user.company_id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "orders",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "*", schema: "public", table: "kitchen_prep_tasks",
+        filter: `company_id=eq.${user.company_id}`,
+      }, refresh)
+      .subscribe();
+    // Cross-tab event bus for the same-browser case.
+    const offBus = onOrderUpdated(() => { refresh(); });
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      offBus();
+      void sub.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   // ── Derived state ──────────────────────────────────────────────────────
   const itemsByOrder = useMemo(() => {
@@ -358,6 +457,28 @@ export default function KitchenProductionPage() {
                 {view === "day" ? "Tomorrow" : "Next"}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
+              {/* KIT3-C: print button. Matches the Kitchen Dashboard
+                  print run-sheet pattern - chef wants paper backup
+                  on prep mornings. Uses the browser's native print
+                  flow against the on-screen layout. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (loading) {
+                    toast({ title: "Still loading", description: "Give it a second, the timeline is being prepared." });
+                    return;
+                  }
+                  if (orders.length === 0 && tasks.length === 0) {
+                    toast({ title: "Nothing to print", description: "No prep or events in this window." });
+                    return;
+                  }
+                  setTimeout(() => window.print(), 100);
+                }}
+                disabled={loading}
+              >
+                Print
+              </Button>
             </div>
           </div>
 
@@ -388,6 +509,31 @@ export default function KitchenProductionPage() {
               <p className="text-2xl font-bold tabular-nums">{totals.cookHours}h</p>
             </CardContent></Card>
           </div>
+
+          {/* KIT3-C: worst-recipe surface. The recipe accuracy panel
+              at the bottom of the page sorts by variance, but a
+              recipe drifting >15% is worth seeing BEFORE the chef
+              scrolls. Single inline chip pointing at the table. */}
+          {!loading && recipeAccuracy.length > 0 && (() => {
+            const worst = recipeAccuracy
+              .filter((r) => Math.abs(r.avg_variance_pct) >= 15 && r.samples >= 3)
+              .sort((a, b) => Math.abs(b.avg_variance_pct) - Math.abs(a.avg_variance_pct))[0];
+            if (!worst) return null;
+            const ArrowIcon = worst.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;
+            return (
+              <div className="mb-3 inline-flex items-center gap-2 text-xs bg-rose-50 border border-rose-200 rounded-full px-3 py-1.5 text-rose-900">
+                <ArrowIcon className="w-3.5 h-3.5 text-rose-700" />
+                <span>
+                  Watch out: <strong>{worst.recipe_name}</strong> averaging{" "}
+                  <span className="tabular-nums font-semibold">{worst.avg_variance_pct > 0 ? "+" : ""}{worst.avg_variance_pct}%</span>{" "}
+                  yield variance over {worst.samples} cooks. Recipe needs a recalibration.
+                </span>
+                <a href="#recipe-accuracy" className="ml-1 underline text-rose-700 hover:text-rose-900">
+                  See all
+                </a>
+              </div>
+            );
+          })()}
 
           {/* Wave 66.9 Phase 2 - "What to start next" priority queue.
               The day-view grid answers "what's the kitchen on right
@@ -483,11 +629,69 @@ export default function KitchenProductionPage() {
                 <p className="text-xs text-slate-500 mt-1">
                   No prep scheduled. Use the breather to deep-clean or restock.
                 </p>
+                {/* KIT3-C: next-event lookahead so the empty state
+                    points the chef at when to plan ahead from. */}
+                {nextUpcoming && (() => {
+                  const nextDate = new Date(`${nextUpcoming.eventDate}T00:00:00`);
+                  const todayMs = startOfDay(new Date()).getTime();
+                  const dayDiff = Math.round((nextDate.getTime() - todayMs) / 86400000);
+                  const whenLabel =
+                    dayDiff <= 0 ? fmtDay(nextDate) :
+                    dayDiff === 1 ? "Tomorrow" :
+                    dayDiff < 7 ? nextDate.toLocaleDateString("en-ZA", { weekday: "long" }) :
+                                  fmtDay(nextDate);
+                  return (
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-700 bg-orange-50 border border-orange-200 rounded-full px-3 py-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-orange-600" />
+                      <span>
+                        Next event: <strong>{whenLabel}</strong>
+                        {nextUpcoming.eventTime ? ` at ${fmtTime(nextUpcoming.eventTime)}` : ""}
+                        {nextUpcoming.guestCount ? ` for ${nextUpcoming.guestCount} guests` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAnchor(startOfDay(nextDate))}
+                        className="ml-1 underline text-orange-700 hover:text-orange-900"
+                      >
+                        Jump to it
+                      </button>
+                    </div>
+                  );
+                })()}
               </CardContent></Card>
             ) : (
               <Card>
                 <CardContent className="p-0 overflow-x-auto">
-                  <div className="min-w-[900px]">
+                  <div className="min-w-[900px] relative">
+                    {/* KIT3-C: "now" line. Vertical red marker at the
+                        current clock position when looking at today.
+                        Hidden when the anchor isn't today.
+                        Positioned relative to the inner container with
+                        an 8rem (w-32) gutter for the station label
+                        column so the line sits over the actual hour
+                        track. */}
+                    {(() => {
+                      const isViewingToday = isoDate(anchor) === isoDate(new Date());
+                      if (!isViewingToday) return null;
+                      const nowDate = new Date(nowMs);
+                      const minsFromStart =
+                        nowDate.getHours() * 60 + nowDate.getMinutes() - DAY_START_HOUR * 60;
+                      if (minsFromStart < 0 || minsFromStart > DAY_TOTAL_MIN) return null;
+                      const leftPct = (minsFromStart / DAY_TOTAL_MIN) * 100;
+                      const clock = nowDate.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+                      return (
+                        <div
+                          className="absolute top-0 bottom-0 z-20 pointer-events-none"
+                          style={{ left: `calc(8rem + (100% - 8rem) * ${leftPct / 100})` }}
+                          aria-hidden="true"
+                        >
+                          <div className="w-px h-full bg-red-500/70" />
+                          <div className="absolute top-1 -translate-x-1/2 text-[9px] font-semibold text-white bg-red-500 rounded px-1 py-0.5 tabular-nums whitespace-nowrap shadow-sm">
+                            Now {clock}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {/* Hour ruler */}
                     <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
                       <div className="w-32 shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-r border-slate-200">
@@ -538,30 +742,36 @@ export default function KitchenProductionPage() {
                               );
                             })}
 
-                            {/* Task blocks */}
+                            {/* Task blocks. KIT3-C: each block links
+                                through to the kitchen ticket for the
+                                order so the chef can tap a block on
+                                the timeline and land on the printable
+                                prep sheet. The block was already
+                                cursor-pointer but did nothing on click. */}
                             {stationTasks.map((t: any) => {
                               const pos = taskPosition(t);
                               if (!pos) return null;
                               const tone = TASK_TONES[t.status] || TASK_TONES.pending;
                               const eventName = t.order?.event_name || t.order?.client_name || "Order";
                               return (
-                                <div
+                                <Link
                                   key={t.id}
-                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors ${tone}`}
+                                  href={withSlug(`/team-portal/kitchen/orders/${t.order_id}/ticket`)}
+                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-orange-300 ${tone}`}
                                   style={{
                                     left: `${pos.leftPct}%`,
                                     width: `${pos.widthPct}%`,
                                     minWidth: "60px",
                                   }}
-                                  title={`${TASK_TYPE_LABEL[t.task_type] || t.task_type} · ${t.menu_item_name} · ${eventName} · ${t.duration_min}m`}
+                                  title={`Open kitchen ticket - ${TASK_TYPE_LABEL[t.task_type] || t.task_type} · ${t.menu_item_name} · ${eventName} · ${t.duration_min}m`}
                                 >
                                   <p className="font-semibold truncate leading-tight">
                                     {t.menu_item_name}
                                   </p>
                                   <p className="truncate text-[10px] opacity-80 leading-tight">
-                                    {TASK_TYPE_LABEL[t.task_type] || t.task_type} · {t.duration_min}m · {eventName}
+                                    {TASK_TYPE_LABEL[t.task_type] || t.task_type} &middot; {t.duration_min}m &middot; {eventName}
                                   </p>
-                                </div>
+                                </Link>
                               );
                             })}
 
@@ -695,7 +905,7 @@ export default function KitchenProductionPage() {
               recipes by absolute variance so the worst offenders surface
               first. Sample size on each row keeps confidence honest. */}
           {recipeAccuracy.length > 0 && (
-            <Card className="mt-6 border-0 shadow-md">
+            <Card id="recipe-accuracy" className="mt-6 border-0 shadow-md scroll-mt-24">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
