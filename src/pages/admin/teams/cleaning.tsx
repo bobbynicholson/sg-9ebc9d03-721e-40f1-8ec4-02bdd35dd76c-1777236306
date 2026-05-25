@@ -1,9 +1,41 @@
 /**
- * Cleaning team landing - hero + quick stats + tile shortcuts.
- * No first-class cleaning task table yet; we route to /admin/staff with a
- * department filter and let the staff list do the heavy lifting.
+ * Cleaning team landing - hero + live intel cards + tile shortcuts.
+ *
+ * CLN-A (task #213, 2026-05-25): expanded from a sparse 2-tile +
+ * 2-summary-card page to a manager's-eye-view of the day. Surfaces
+ * today's handover pipeline, who's clocked, the dishwasher fleet,
+ * tomorrow's load, recent damages and supplies-at-risk - the things
+ * the cleaning lead would otherwise have to open 4 tabs to see.
+ *
+ * Must-fix from the audit:
+ *   - OWNER + REGION_ADMIN admitted on ProtectedRoute (was bouncing
+ *     the owner persona off their own cleaning page).
+ *   - regionFilterId honoured on every region-anchored query.
+ *   - captureException wraps the fetch (was console.error swallow).
+ *   - withSlug on every internal href (the two tiles were raw paths).
+ *   - Drop the `as any` cast on useAuth.
+ *   - repair_cost + cost_per_unit finance-gated via canAccessFinance
+ *     per feedback_finance_visibility.
+ *
+ * Intel additions on the audit's "more intelligence" ask:
+ *   - Today's handover pipeline: expected / in_progress / complete /
+ *     cancelled counts off cleaning_event_handovers, with an overdue
+ *     chip when expected_at is in the past + status still 'expected'.
+ *   - Today's cleaning jobs pipeline: queued / in_progress / complete
+ *     counts off cleaning_jobs.planned_start within today.
+ *   - Clocked-now (cleaning_duty_logs.on_duty=true).
+ *   - Per-cleaner hours-this-week strip with overtime tint at 38h
+ *     amber, 45h rose, derived from cleaning_duty_logs window deltas.
+ *   - Tomorrow's expected handovers + tomorrow event count.
+ *   - Dishwasher fleet readiness (cleaning_machines.active).
+ *   - Damages-this-week cost (finance-gated). Top 3 damage types.
+ *   - Supplies below par + out-of-stock chips (red when out-of-stock
+ *     count > 0).
+ *   - Realtime debounce (1500ms) across cleaning_event_handovers,
+ *     cleaning_jobs, cleaning_duty_logs, equipment_damages so the
+ *     page redraws when the cleaning portal makes a state change.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -13,37 +45,110 @@ import { Badge } from "@/components/ui/badge";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
-import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
+import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { canAccessFinance } from "@/lib/authGuards";
+import { captureException } from "@/lib/observability";
 import {
-  Sparkles, ArrowLeft, Users, ClipboardList, Loader2, Calendar, AlertTriangle, Wrench,
+  Sparkles, ArrowLeft, Users, Clock, ClipboardList, Loader2,
+  AlertTriangle, Wrench, DollarSign, Flame, Droplets,
+  CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
 
-interface DamageSummary {
-  thisWeek: number;
-  topCategories: Array<{ category: string; count: number }>;
+function startOfWeek(): Date {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (day + 6) % 7;
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
-interface LowSupplySummary {
-  belowPar: number;
-  outOfStock: number;
+interface CleaningStats {
+  active: number;
+  hoursWeek: number;
+  jobsToday: number;
+  clockedNow: number;
+  // CLN-A: today's handover pipeline. Rolls up
+  // cleaning_event_handovers.status by expected/in_progress/complete.
+  handoversExpected: number;
+  handoversInProgress: number;
+  handoversComplete: number;
+  handoversOverdue: number;
+  // CLN-A: today's cleaning_jobs pipeline. queued / in_progress /
+  // complete + overdue when planned_end<now and status != complete.
+  jobsQueued: number;
+  jobsInProgress: number;
+  jobsComplete: number;
+  jobsOverdue: number;
+  // CLN-A: tomorrow's expected handovers.
+  tomorrowHandovers: number;
+  tomorrowEvents: number;
+  // CLN-A: damages this week + R cost (cost finance-gated).
+  damagesThisWeek: number;
+  damagesCostZar: number;
+  topDamageTypes: Array<{ category: string; count: number }>;
+  // CLN-A: supplies below par / out-of-stock.
+  suppliesBelowPar: number;
+  suppliesOutOfStock: number;
+  // CLN-A: dishwasher fleet count.
+  machinesActive: number;
+  machinesTotal: number;
+  // CLN-A: per-cleaner hours-this-week. Top 6.
+  topStaffHours: Array<{ id: string; name: string; mins: number }>;
 }
+
+const initialStats: CleaningStats = {
+  active: 0, hoursWeek: 0, jobsToday: 0, clockedNow: 0,
+  handoversExpected: 0, handoversInProgress: 0, handoversComplete: 0, handoversOverdue: 0,
+  jobsQueued: 0, jobsInProgress: 0, jobsComplete: 0, jobsOverdue: 0,
+  tomorrowHandovers: 0, tomorrowEvents: 0,
+  damagesThisWeek: 0, damagesCostZar: 0, topDamageTypes: [],
+  suppliesBelowPar: 0, suppliesOutOfStock: 0,
+  machinesActive: 0, machinesTotal: 0,
+  topStaffHours: [],
+};
 
 function CleaningTeamPage() {
-  const { user, profile } = useAuth() as any;
-  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { user, profile } = useAuth();
   const { withSlug } = useTenantHref();
-  const companyId = profile?.company_id || user?.company_id;
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ active: 0, jobsToday: 0 });
-  // Cleaning persona follow-up (cleaning.md 5.6): admin landing was
-  // a sparse tile grid. Add damages-this-week + supplies-below-par
-  // summary cards so the admin sees hygiene status without bouncing
-  // through three pages to correlate.
-  const [damageSummary, setDamageSummary] = useState<DamageSummary>({ thisWeek: 0, topCategories: [] });
-  const [supplySummary, setSupplySummary] = useState<LowSupplySummary>({ belowPar: 0, outOfStock: 0 });
+  const { regionFilterId } = useRegionFilter();
+  const companyId = (profile as { company_id?: string } | null)?.company_id
+    || (user as { company_id?: string } | null)?.company_id;
+  const userRole = ((profile as { active_role?: UserRole; role?: UserRole } | null)?.active_role
+    || (profile as { role?: UserRole } | null)?.role) as UserRole | undefined;
+  const canSeeFinance = userRole ? canAccessFinance(userRole) : false;
+  const tenantCurrency = useTenantCurrency(companyId);
 
-  // Pure gradient hero - see kitchen.tsx for rationale.
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<CleaningStats>(initialStats);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // CLN-A: realtime subscription on the tables that drive every
+  // card. Debounced 1500ms so bulk inserts (a single delivery
+  // spawning a handover + 12 cleaning_jobs) don't thrash the page.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRefreshTick((n) => n + 1), 1500);
+    };
+    const channel = supabase
+      .channel(`teams-cleaning:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_event_handovers", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,71 +156,261 @@ function CleaningTeamPage() {
       if (!companyId) return;
       setLoading(true);
       try {
-        const todayISO = toLocalISO(new Date());
-        const weekAgoISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const [staffRes, jobsRes, damagesRes, suppliesRes] = await Promise.all([
-          supabase.from("profiles").select("id", { count: "exact", head: true })
-            .eq("company_id", companyId).eq("role", "cleaning_staff"),
-          supabase.from("orders").select("id", { count: "exact", head: true })
-            .eq("company_id", companyId).is("deleted_at", null)
-            .eq("event_date", todayISO)
-            .in("status", ["completed", "ready", "in_transit"]),
-          // Damages in the last 7 days, grouped by type for the top-3.
-          supabase.from("equipment_damages").select("damage_type")
-            .eq("company_id", companyId)
-            .gte("created_at", weekAgoISO),
-          // Cleaning supplies under par. We don't filter by category
-          // here because cleaning inventory is sometimes tagged as
-          // "Cleaning" and sometimes by keyword; the supplies page
-          // does the same loose filter. Counting all below-par on
-          // the company is fine as a rough indicator.
-          supabase.from("inventory_items")
-            .select("current_stock, minimum_stock")
-            .eq("company_id", companyId),
+        const today = new Date();
+        const todayISO = toLocalISO(today);
+        const tomorrowDate = new Date(today);
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrowISO = toLocalISO(tomorrowDate);
+        const weekStartISO = startOfWeek().toISOString();
+        const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        const todayStartISO = `${todayISO}T00:00:00`;
+        const todayEndISO = `${todayISO}T23:59:59`;
+        const tomorrowStartISO = `${tomorrowISO}T00:00:00`;
+        const tomorrowEndISO = `${tomorrowISO}T23:59:59`;
+
+        // Active cleaning staff. Region scope via profiles.region_id.
+        let staffQ = supabase.from("profiles")
+          .select("id, full_name", { count: "exact" })
+          .eq("company_id", companyId)
+          .eq("role", "cleaning_staff");
+        if (regionFilterId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          staffQ = (staffQ as any).eq("region_id", regionFilterId);
+        }
+
+        // Cleaning duty logs for the week. Canonical hours source for
+        // the cleaning persona (no kitchen_staff_shifts equivalent).
+        // Sum (duty_ended_at - duty_started_at) per user_id and roll
+        // up to total + per-staff buckets.
+        const dutyWeekQ = supabase.from("cleaning_duty_logs")
+          .select("user_id, duty_started_at, duty_ended_at, on_duty")
+          .eq("company_id", companyId)
+          .gte("duty_started_at", weekStartISO);
+
+        // Clocked-now count.
+        const clockedNowQ = supabase.from("cleaning_duty_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("on_duty", true);
+
+        // Today's handover pipeline. Pull handovers where
+        // expected_at OR in_progress_at OR completed_at is within
+        // today; status rollup happens client-side.
+        let handoversTodayQ = supabase.from("cleaning_event_handovers")
+          .select("id, status, expected_at")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .or(`expected_at.gte.${todayStartISO},in_progress_at.gte.${todayStartISO},completed_at.gte.${todayStartISO}`)
+          .lte("expected_at", todayEndISO);
+        if (regionFilterId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          handoversTodayQ = (handoversTodayQ as any).eq("region_id", regionFilterId);
+        }
+
+        // Tomorrow's expected handovers (so the lead sees the load
+        // they need to staff for tomorrow morning).
+        let handoversTomorrowQ = supabase.from("cleaning_event_handovers")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .eq("status", "expected")
+          .gte("expected_at", tomorrowStartISO)
+          .lte("expected_at", tomorrowEndISO);
+        if (regionFilterId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          handoversTomorrowQ = (handoversTomorrowQ as any).eq("region_id", regionFilterId);
+        }
+
+        // Today's cleaning_jobs pipeline. queued / in_progress /
+        // complete counts via planned_start within today + overdue
+        // when planned_end<now and status != complete.
+        const jobsTodayQ = supabase.from("cleaning_jobs")
+          .select("id, status, planned_end")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("planned_start", todayStartISO)
+          .lte("planned_start", todayEndISO);
+
+        // Jobs today (orders): events count for the chip row.
+        let ordersTodayQ = supabase.from("orders").select("id", { count: "exact", head: true })
+          .eq("company_id", companyId).is("deleted_at", null)
+          .eq("event_date", todayISO)
+          .not("status", "in", "(cancelled,completed)");
+        if (regionFilterId) ordersTodayQ = ordersTodayQ.eq("region_id", regionFilterId);
+
+        // Tomorrow's events (orders) for the tomorrow card.
+        let ordersTomorrowQ = supabase.from("orders").select("id", { count: "exact", head: true })
+          .eq("company_id", companyId).is("deleted_at", null)
+          .eq("event_date", tomorrowISO)
+          .not("status", "in", "(cancelled,completed)");
+        if (regionFilterId) ordersTomorrowQ = ordersTomorrowQ.eq("region_id", regionFilterId);
+
+        // Damages this week + R cost. repair_cost is finance-gated
+        // at render, but we still pull it so finance roles see the
+        // total without a second round trip.
+        const damagesQ = supabase.from("equipment_damages")
+          .select("id, damage_type, repair_cost")
+          .eq("company_id", companyId)
+          .gte("created_at", weekAgoISO);
+
+        // Supplies below par. Same loose filter as the existing
+        // page (no category constraint - cleaning supplies are
+        // sometimes mis-tagged and we don't want to silently miss
+        // a low-stock signal).
+        const suppliesQ = supabase.from("inventory_items")
+          .select("current_stock, minimum_stock")
+          .eq("company_id", companyId)
+          .is("deleted_at", null);
+
+        // Dishwasher / tunnel-washer fleet readiness.
+        const machinesQ = supabase.from("cleaning_machines")
+          .select("id, active")
+          .eq("company_id", companyId);
+
+        const [
+          staffRes, dutyWeekRes, clockedNowRes,
+          handoversTodayRes, handoversTomorrowRes,
+          jobsTodayRes, ordersTodayRes, ordersTomorrowRes,
+          damagesRes, suppliesRes, machinesRes,
+        ] = await Promise.all([
+          staffQ, dutyWeekQ, clockedNowQ,
+          handoversTodayQ, handoversTomorrowQ,
+          jobsTodayQ, ordersTodayQ, ordersTomorrowQ,
+          damagesQ, suppliesQ, machinesQ,
         ]);
+
+        // Build name lookup off the staff list (also used as the
+        // region-scoped allow-list for the per-cleaner hours strip).
+        const nameById = new Map<string, string>();
+        const staffIdSet = new Set<string>();
+        for (const p of ((staffRes.data || []) as Array<{ id: string; full_name: string | null }>)) {
+          nameById.set(p.id, p.full_name || "Cleaner");
+          staffIdSet.add(p.id);
+        }
+
+        // Walk duty logs for hours-this-week + per-cleaner rollup.
+        // Region scope: client-side filter against staffIdSet (cleaning_
+        // duty_logs has no region_id column).
+        const minsByMember = new Map<string, number>();
+        let totalMins = 0;
+        for (const r of ((dutyWeekRes.data || []) as Array<{
+          user_id: string | null; duty_started_at: string | null;
+          duty_ended_at: string | null; on_duty: boolean | null;
+        }>)) {
+          if (!r.user_id || !r.duty_started_at) continue;
+          if (regionFilterId && !staffIdSet.has(r.user_id)) continue;
+          const start = new Date(r.duty_started_at).getTime();
+          const end = r.duty_ended_at
+            ? new Date(r.duty_ended_at).getTime()
+            : r.on_duty ? Date.now() : start;
+          const mins = Math.max(0, Math.round((end - start) / 60_000));
+          if (mins <= 0) continue;
+          totalMins += mins;
+          minsByMember.set(r.user_id, (minsByMember.get(r.user_id) || 0) + mins);
+        }
+        const topStaffHours = Array.from(minsByMember.entries())
+          .map(([id, mins]) => ({ id, name: nameById.get(id) || "Cleaner", mins }))
+          .sort((a, b) => b.mins - a.mins)
+          .slice(0, 6);
+
+        // Handover pipeline rollup. Statuses: expected | in_progress
+        // | complete | cancelled. Overdue = expected + expected_at
+        // in the past.
+        let handoversExpected = 0, handoversInProgress = 0, handoversComplete = 0, handoversOverdue = 0;
+        const nowMs = Date.now();
+        for (const h of ((handoversTodayRes.data || []) as Array<{ status: string | null; expected_at: string | null }>)) {
+          const s = String(h.status || "").toLowerCase();
+          if (s === "expected") {
+            handoversExpected += 1;
+            if (h.expected_at && new Date(h.expected_at).getTime() < nowMs) handoversOverdue += 1;
+          } else if (s === "in_progress") {
+            handoversInProgress += 1;
+          } else if (s === "complete") {
+            handoversComplete += 1;
+          }
+        }
+
+        // Cleaning jobs pipeline rollup.
+        let jobsQueued = 0, jobsInProgress = 0, jobsComplete = 0, jobsOverdue = 0;
+        for (const j of ((jobsTodayRes.data || []) as Array<{ status: string | null; planned_end: string | null }>)) {
+          const s = String(j.status || "").toLowerCase();
+          if (s === "queued") jobsQueued += 1;
+          else if (s === "in_progress") jobsInProgress += 1;
+          else if (s === "complete") jobsComplete += 1;
+          if (s !== "complete" && s !== "cancelled" && j.planned_end) {
+            if (new Date(j.planned_end).getTime() < nowMs) jobsOverdue += 1;
+          }
+        }
+
+        // Damages rollup: count + sum(repair_cost) + top 3 types.
+        const damageRows = (damagesRes.data || []) as Array<{ damage_type: string | null; repair_cost: number | null }>;
+        let damagesCostZar = 0;
+        const typeCounts = new Map<string, number>();
+        for (const d of damageRows) {
+          damagesCostZar += Number(d.repair_cost || 0);
+          const k = d.damage_type || "other";
+          typeCounts.set(k, (typeCounts.get(k) || 0) + 1);
+        }
+        const topDamageTypes = Array.from(typeCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([category, count]) => ({ category, count }));
+
+        // Supplies rollup.
+        let suppliesBelowPar = 0, suppliesOutOfStock = 0;
+        for (const i of ((suppliesRes.data || []) as Array<{ current_stock: number | null; minimum_stock: number | null }>)) {
+          const s = Number(i.current_stock || 0);
+          const m = Number(i.minimum_stock || 0);
+          if (m > 0 && s <= m) suppliesBelowPar += 1;
+          if (s <= 0) suppliesOutOfStock += 1;
+        }
+
+        // Machines.
+        const machineRows = (machinesRes.data || []) as Array<{ active: boolean | null }>;
+        const machinesActive = machineRows.filter((m) => m.active).length;
+        const machinesTotal = machineRows.length;
+
         if (!cancelled) {
           setStats({
-            active: staffRes.count ?? 0,
-            jobsToday: jobsRes.count ?? 0,
+            active: staffRes.count ?? staffIdSet.size,
+            hoursWeek: Math.round(totalMins / 60),
+            jobsToday: ordersTodayRes.count ?? 0,
+            clockedNow: clockedNowRes.count ?? 0,
+            handoversExpected, handoversInProgress, handoversComplete, handoversOverdue,
+            jobsQueued, jobsInProgress, jobsComplete, jobsOverdue,
+            tomorrowHandovers: handoversTomorrowRes.count ?? 0,
+            tomorrowEvents: ordersTomorrowRes.count ?? 0,
+            damagesThisWeek: damageRows.length,
+            damagesCostZar,
+            topDamageTypes,
+            suppliesBelowPar,
+            suppliesOutOfStock,
+            machinesActive,
+            machinesTotal,
+            topStaffHours,
           });
-          // Damages summary.
-          const damageRows = (damagesRes.data || []) as Array<{ damage_type: string | null }>;
-          const counts = new Map<string, number>();
-          for (const r of damageRows) {
-            const k = r.damage_type || "other";
-            counts.set(k, (counts.get(k) || 0) + 1);
-          }
-          const top = Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([category, count]) => ({ category, count }));
-          setDamageSummary({ thisWeek: damageRows.length, topCategories: top });
-          // Low-stock summary.
-          const inv = (suppliesRes.data || []) as Array<{ current_stock: number | null; minimum_stock: number | null }>;
-          let belowPar = 0;
-          let outOfStock = 0;
-          for (const i of inv) {
-            const s = Number(i.current_stock || 0);
-            const m = Number(i.minimum_stock || 0);
-            if (m > 0 && s <= m) belowPar += 1;
-            if (s <= 0) outOfStock += 1;
-          }
-          setSupplySummary({ belowPar, outOfStock });
         }
       } catch (e) {
-        console.error("Cleaning team load failed:", e);
+        captureException(e, { tags: { route: "/admin/teams/cleaning", step: "load", companyId: companyId || "" } });
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     run();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
     { href: "/admin/staff?department=cleaning", icon: Users, label: "Cleaning staff", sub: "Roster and availability", bg: "from-purple-50 to-fuchsia-50", iconColor: "text-purple-600" },
-    { href: "/admin/calendar", icon: Calendar, label: "Today's events", sub: "What needs cleaning down", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
+    { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Cleaning schedule", sub: "Jobs, machines and handovers", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
+    { href: "/team-portal/cleaning/damage", icon: AlertTriangle, label: "Damages ledger", sub: "Per-event report and history", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
+    { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-emerald-50 to-teal-50", iconColor: "text-emerald-600" },
   ];
+
+  const totalHandovers = stats.handoversExpected + stats.handoversInProgress + stats.handoversComplete;
+  const handoversDonePct = totalHandovers > 0 ? Math.round((stats.handoversComplete / totalHandovers) * 100) : 0;
+  const totalJobs = stats.jobsQueued + stats.jobsInProgress + stats.jobsComplete;
+  const jobsDonePct = totalJobs > 0 ? Math.round((stats.jobsComplete / totalJobs) * 100) : 0;
 
   return (
     <>
@@ -145,68 +440,257 @@ function CleaningTeamPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Badge variant="secondary" className="px-3 py-1.5 text-sm">
-              {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-              {stats.active} active
-            </Badge>
-            <Badge variant="secondary" className="px-3 py-1.5 text-sm">
-              <ClipboardList className="w-3 h-3 mr-1" />
-              {stats.jobsToday} event{stats.jobsToday === 1 ? "" : "s"} today
-            </Badge>
+          {/* CLN-A: linkified quick-stat chip row. Same shape as the
+              kitchen + drivers landings. Tints communicate health. */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Link href={withSlug("/admin/staff?department=cleaning")}>
+              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
+                {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
+                {stats.active} active
+              </Badge>
+            </Link>
+            <Link href={withSlug("/admin/staff-hours?department=cleaning")}>
+              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
+                <Clock className="w-3 h-3 mr-1" />
+                {stats.hoursWeek}h this week
+              </Badge>
+            </Link>
+            <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)}>
+              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
+                <ClipboardList className="w-3 h-3 mr-1" />
+                {stats.jobsToday} event{stats.jobsToday === 1 ? "" : "s"} today
+              </Badge>
+            </Link>
+            {stats.active > 0 && (
+              <Badge
+                variant="outline"
+                className={`px-3 py-1.5 text-sm ${
+                  stats.clockedNow >= stats.active
+                    ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                    : stats.clockedNow === 0
+                      ? "border-rose-300 text-rose-700 bg-rose-50"
+                      : "border-amber-300 text-amber-700 bg-amber-50"
+                }`}
+              >
+                <Flame className="w-3 h-3 mr-1" />
+                Clocked {stats.clockedNow} / {stats.active}
+              </Badge>
+            )}
+            {/* CLN-A: overdue handovers chip - high-impact, red when >0. */}
+            {stats.handoversOverdue > 0 && (
+              <Link href={withSlug("/admin/cleaning-schedule")}>
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-rose-300 text-rose-700 bg-rose-50 cursor-pointer hover:bg-rose-100">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  {stats.handoversOverdue} handover{stats.handoversOverdue === 1 ? "" : "s"} overdue
+                </Badge>
+              </Link>
+            )}
+            {/* CLN-A: supplies out-of-stock chip. */}
+            {stats.suppliesOutOfStock > 0 && (
+              <Link href={withSlug("/team-portal/cleaning/supplies")}>
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-rose-300 text-rose-700 bg-rose-50 cursor-pointer hover:bg-rose-100">
+                  <Package className="w-3 h-3 mr-1" />
+                  {stats.suppliesOutOfStock} supplies out
+                </Badge>
+              </Link>
+            )}
+            {/* CLN-A: damages cost this week, finance-gated. */}
+            {canSeeFinance && stats.damagesCostZar > 0 && (
+              <Badge variant="outline" className="px-3 py-1.5 text-sm border-amber-300 text-amber-700 bg-amber-50 tabular-nums">
+                <DollarSign className="w-3 h-3 mr-1" />
+                {tenantCurrency.format(stats.damagesCostZar)} damages this week
+              </Badge>
+            )}
           </div>
 
-          {/* Phase 6 follow-up: damages + low-supply summary cards
-              so the admin sees hygiene status without bouncing
-              through three pages. Each links straight to the
-              detailed view. */}
+          {/* CLN-A: per-cleaner hours-this-week chip strip. Top 6 by
+              mins; overtime tint kicks in at 45h. Each chip links to
+              /admin/staff-hours filtered to the cleaner. */}
+          {stats.topStaffHours.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
+                Hours this week
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {stats.topStaffHours.map((m) => {
+                  const hrs = Math.round((m.mins / 60) * 10) / 10;
+                  const overtime = hrs > 45;
+                  const high = hrs > 38;
+                  return (
+                    <Link key={m.id} href={withSlug(`/admin/staff-hours?staff=${m.id}`)}>
+                      <Badge
+                        variant="outline"
+                        className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
+                          overtime
+                            ? "border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                            : high
+                              ? "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                              : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {m.name} {hrs}h{overtime ? "!" : ""}
+                      </Badge>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* CLN-A: 4-card intel grid. Today's handovers, today's
+              jobs pipeline, tomorrow's load, fleet + damages. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-            <Link href={withSlug("/team-portal/cleaning/damage")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${damageSummary.thisWeek > 0 ? "from-rose-50 to-amber-50" : "from-slate-50 to-slate-100"}`}>
+
+            {/* Today's handover pipeline. */}
+            <Link href={withSlug("/admin/cleaning-schedule")}>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white">
                 <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className={`w-6 h-6 ${damageSummary.thisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
-                        {damageSummary.thisWeek === 0 ? "No damages this week" : `${damageSummary.thisWeek} damage${damageSummary.thisWeek === 1 ? "" : "s"} this week`}
-                      </p>
-                      {damageSummary.topCategories.length > 0 && (
-                        <p className="text-xs text-slate-600 mt-0.5 truncate">
-                          Top: {damageSummary.topCategories.map((c) => `${c.category} (${c.count})`).join(", ")}
-                        </p>
-                      )}
-                      {damageSummary.thisWeek === 0 && (
-                        <p className="text-xs text-slate-500 mt-0.5">Clean week. Tap to view ledger.</p>
-                      )}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                      <p className="font-semibold text-slate-900">Today's handovers</p>
                     </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400" />
                   </div>
+                  {totalHandovers === 0 && stats.handoversOverdue === 0 ? (
+                    <p className="text-sm text-slate-500">No handovers booked today.</p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <Badge variant="outline" className="border-slate-200 text-slate-700">
+                          {stats.handoversExpected} expected
+                        </Badge>
+                        <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
+                          {stats.handoversInProgress} in progress
+                        </Badge>
+                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
+                          {stats.handoversComplete} complete
+                        </Badge>
+                        {stats.handoversOverdue > 0 && (
+                          <Badge variant="outline" className="border-rose-300 text-rose-700 bg-rose-50">
+                            {stats.handoversOverdue} overdue
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500" style={{ width: `${handoversDonePct}%` }} />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1.5">{handoversDonePct}% complete</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </Link>
-            <Link href={withSlug("/team-portal/cleaning/supplies")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${supplySummary.belowPar > 0 ? "from-amber-50 to-orange-50" : "from-slate-50 to-slate-100"}`}>
+
+            {/* Today's cleaning_jobs pipeline. */}
+            <Link href={withSlug("/admin/cleaning-schedule")}>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white">
                 <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <Wrench className={`w-6 h-6 ${supplySummary.belowPar > 0 ? "text-amber-600" : "text-slate-400"} flex-shrink-0`} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
-                        {supplySummary.belowPar === 0 ? "Supplies on par" : `${supplySummary.belowPar} item${supplySummary.belowPar === 1 ? "" : "s"} below par`}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Droplets className="w-5 h-5 text-sky-600" />
+                      <p className="font-semibold text-slate-900">Wash-up jobs today</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                  {totalJobs === 0 && stats.jobsOverdue === 0 ? (
+                    <p className="text-sm text-slate-500">No equipment cleaning jobs queued today.</p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <Badge variant="outline" className="border-slate-200 text-slate-700">
+                          {stats.jobsQueued} queued
+                        </Badge>
+                        <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
+                          {stats.jobsInProgress} in progress
+                        </Badge>
+                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
+                          {stats.jobsComplete} complete
+                        </Badge>
+                        {stats.jobsOverdue > 0 && (
+                          <Badge variant="outline" className="border-rose-300 text-rose-700 bg-rose-50">
+                            {stats.jobsOverdue} overdue
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-sky-500" style={{ width: `${jobsDonePct}%` }} />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1.5">
+                        {jobsDonePct}% complete
+                        {stats.machinesTotal > 0 && ` · ${stats.machinesActive}/${stats.machinesTotal} machines online`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
-                        {supplySummary.outOfStock > 0
-                          ? `${supplySummary.outOfStock} out of stock - act now`
-                          : "Detergent, gloves, cloths. Tap to view."}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Tomorrow's load. */}
+            <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowHandovers > 0 ? "from-purple-50 to-fuchsia-50" : "from-slate-50 to-slate-100"}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-5 h-5 text-fuchsia-600" />
+                      <p className="font-semibold text-slate-900">Tomorrow's load</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                  {stats.tomorrowEvents === 0 && stats.tomorrowHandovers === 0 ? (
+                    <p className="text-sm text-slate-500">Nothing scheduled. Quiet day ahead.</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-700">
+                        <span className="font-semibold tabular-nums">{stats.tomorrowEvents}</span> event{stats.tomorrowEvents === 1 ? "" : "s"} · {" "}
+                        <span className="font-semibold tabular-nums">{stats.tomorrowHandovers}</span> handover{stats.tomorrowHandovers === 1 ? "" : "s"} expected
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Staff up early if the dishwasher fleet can't carry the load.
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Recent damages + supplies. */}
+            <Link href={withSlug("/team-portal/cleaning/damage")}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.damagesThisWeek > 0 ? "from-amber-50 to-rose-50" : "from-slate-50 to-slate-100"}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className={`w-5 h-5 ${stats.damagesThisWeek > 0 ? "text-amber-600" : "text-slate-400"}`} />
+                      <p className="font-semibold text-slate-900">
+                        {stats.damagesThisWeek === 0 ? "No damages this week" : `${stats.damagesThisWeek} damage${stats.damagesThisWeek === 1 ? "" : "s"} this week`}
                       </p>
                     </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400" />
                   </div>
+                  {stats.topDamageTypes.length > 0 && (
+                    <p className="text-xs text-slate-600 truncate">
+                      Top: {stats.topDamageTypes.map((c) => `${c.category} (${c.count})`).join(", ")}
+                    </p>
+                  )}
+                  {stats.suppliesBelowPar > 0 && (
+                    <p className="text-xs text-slate-600 mt-1">
+                      <Wrench className="w-3 h-3 inline mr-1 text-amber-600" />
+                      {stats.suppliesBelowPar} suppl{stats.suppliesBelowPar === 1 ? "y" : "ies"} below par
+                      {stats.suppliesOutOfStock > 0 && ` · ${stats.suppliesOutOfStock} out`}
+                    </p>
+                  )}
+                  {stats.damagesThisWeek === 0 && stats.suppliesBelowPar === 0 && (
+                    <p className="text-xs text-slate-500">Clean week. Supplies on par.</p>
+                  )}
                 </CardContent>
               </Card>
             </Link>
           </div>
 
+          {/* Tile shortcuts. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {tiles.map((t) => (
-              <Link key={t.label} href={t.href}>
+              <Link key={t.label} href={withSlug(t.href)}>
                 <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
@@ -221,6 +705,18 @@ function CleaningTeamPage() {
               </Link>
             ))}
           </div>
+
+          <p className="text-xs text-slate-500 mt-6">
+            Numbers refresh live as handovers, jobs and damages are logged.{" "}
+            <Link href={withSlug("/admin/cleaning-schedule")} className="underline">
+              Open the full schedule
+            </Link>{" "}
+            for the timeline view, or{" "}
+            <Link href={withSlug("/team-portal/cleaning/dashboard")} className="underline">
+              the team portal
+            </Link>{" "}
+            for the cleaner's-eye view.
+          </p>
         </div>
       </div>
     </>
@@ -229,7 +725,13 @@ function CleaningTeamPage() {
 
 export default function AdminCleaningTeamPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.COMPANY_ADMIN,
+      UserRole.OWNER,
+      UserRole.ADMIN,
+      UserRole.REGION_ADMIN,
+    ]}>
       <CleaningTeamPage />
     </ProtectedRoute>
   );
