@@ -69,10 +69,22 @@ export async function getEquipmentAvailability(
   companyId: string,
   equipmentId: string,
   eventDate: string,
-  opts: { windowDays?: number; excludeOrderId?: string | null } = {},
+  opts: {
+    windowDays?: number;
+    excludeOrderId?: string | null;
+    // EQP-B (XSC Wave C): optional event-time window. When set, the
+    // overlap check uses TIME-OF-DAY overlap, not just date overlap.
+    // Two events on the same calendar date (lunch 12-16 + dinner
+    // 19-23) no longer conflict on the same chair. When unset, we
+    // fall back to date-only overlap (legacy behaviour, safe default).
+    eventStartIso?: string | null;
+    eventEndIso?: string | null;
+  } = {},
 ): Promise<EquipmentAvailability> {
   const windowDays = opts.windowDays ?? 1;
   const exclude = opts.excludeOrderId ?? null;
+  const eventStartIso = opts.eventStartIso ?? null;
+  const eventEndIso = opts.eventEndIso ?? null;
 
   const empty: EquipmentAvailability = { owned: 0, reserved: 0, available: 0, conflicts: [] };
   if (!companyId || !equipmentId || !eventDate) return empty;
@@ -137,6 +149,17 @@ export async function getEquipmentAvailability(
 
   const targetTs = target.getTime();
   const cleaningPadMs = cleaningHours * 60 * 60 * 1000;
+  // EQP-B (XSC Wave C): if the caller passed a time-of-day window,
+  // use it for proper interval overlap. Otherwise fall back to the
+  // calendar-day-centred 24h window (legacy behaviour).
+  const targetStartTs = eventStartIso ? new Date(eventStartIso).getTime() : targetTs;
+  const targetEndTs = eventEndIso
+    ? new Date(eventEndIso).getTime()
+    : targetTs + 24 * 60 * 60 * 1000;
+  const hasTimeWindow = !!(eventStartIso && eventEndIso) &&
+    Number.isFinite(targetStartTs) && Number.isFinite(targetEndTs) &&
+    targetEndTs > targetStartTs;
+
   let reserved = 0;
   const conflicts: EquipmentAvailability["conflicts"] = [];
   for (const b of (bookings || []) as any[]) {
@@ -147,10 +170,37 @@ export async function getEquipmentAvailability(
     const orderStatus = String(b.orders?.status || "").toLowerCase();
     if (orderStatus === "cancelled" || orderStatus === "completed") continue;
 
-    // Apply the cleaning-time pad: extend the booking's effective
-    // unavailable window by cleaning_time_hours past booked_until.
-    // A booking whose padded window doesn't reach the target date is
-    // safe to release back into available stock.
+    // EQP-B (XSC Wave C): proper interval overlap. Pre-fix the only
+    // gate here was the cleaning-pad date comparison, which silently
+    // collapsed lunch + dinner same date into the same conflict
+    // bucket because both bookings had paddedUntil >= midnight of
+    // the target date. The fix: compute each booking's effective
+    // [start, end + cleaning] interval and treat as a conflict only
+    // if it actually OVERLAPS the target's interval. Two intervals
+    // [aStart, aEnd] and [bStart, bEnd] overlap iff aStart < bEnd
+    // AND bStart < aEnd.
+    if (hasTimeWindow && b.booked_from && b.booked_until) {
+      const bStart = new Date(b.booked_from).getTime();
+      const bEnd = new Date(b.booked_until).getTime() + cleaningPadMs;
+      if (!Number.isFinite(bStart) || !Number.isFinite(bEnd)) {
+        // Fall through to legacy date check below.
+      } else {
+        const overlaps = bStart < targetEndTs && targetStartTs < bEnd;
+        if (!overlaps) continue;
+        reserved += qty;
+        conflicts.push({
+          order_id: b.order_id,
+          client_name: b.orders?.client_name || null,
+          event_date: b.orders?.event_date || (b.booked_from || "").slice(0, 10),
+          quantity: qty,
+        });
+        continue;
+      }
+    }
+
+    // Legacy date-level check (kept as the fallback when no time
+    // window is supplied). A booking's padded end before the target
+    // date means it's already done + cleaned.
     if (cleaningPadMs > 0 && b.booked_until) {
       const paddedUntil = new Date(b.booked_until).getTime() + cleaningPadMs;
       if (paddedUntil < targetTs) {
