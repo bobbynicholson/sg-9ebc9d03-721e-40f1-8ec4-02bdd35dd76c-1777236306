@@ -14,7 +14,7 @@
  *
  * Skips on dev (build ID is "dev"). Won't double-prompt.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Sparkles } from "lucide-react";
 
@@ -45,14 +45,39 @@ export function VersionWatcher() {
     })();
   }, []);
 
-  // Poll for new deploys
+  // Poll for new deploys.
+  //
+  // LCF-D (task #225, 2026-05-25): require TWO consecutive polls to
+  // return the same new build id before triggering the reload
+  // countdown. Vercel's rolling deploys put edge nodes into a split-
+  // brain state for a minute or two - poll lands on node A (new
+  // build), next poll lands on node B (old build), then back to A...
+  // Without the consecutive-match gate the watcher fired the reload
+  // countdown, the page reloaded onto a different node, mounted with
+  // a now-stale `initial`, polled, saw a mismatch again, reload
+  // countdown, and so on. End result: tab stuck in a reload loop
+  // until propagation finished. The two-strike gate kills the
+  // oscillation - a transient flip can't trigger reload, only a
+  // stable rollover does.
+  const candidateRef = useRef<string | null>(null);
   useEffect(() => {
     if (!initial || initial === "dev") return;
     let cancelled = false;
     const tick = async () => {
       const id = await fetchBuildId();
       if (cancelled) return;
-      if (id && id !== initial) setLatest(id);
+      if (!id || id === initial) {
+        // Match initial - reset the candidate so a future flicker
+        // back to "different" has to start the streak over.
+        candidateRef.current = null;
+        return;
+      }
+      if (candidateRef.current === id) {
+        // Same new id twice in a row - rollover is stable, commit.
+        setLatest(id);
+        return;
+      }
+      candidateRef.current = id;
     };
     const interval = setInterval(tick, POLL_MS);
     const onFocus = () => tick();
