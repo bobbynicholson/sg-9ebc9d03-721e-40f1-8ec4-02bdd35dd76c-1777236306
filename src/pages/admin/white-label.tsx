@@ -10,13 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Palette,
-  Upload,
   Eye,
   RotateCcw,
   Save,
   Sparkles,
   Image as ImageIcon,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
+import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Footer } from "@/components/Footer";
@@ -44,6 +46,59 @@ const ALLOWED_LOGO_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 
+// WL-B (task #219, 2026-05-25): WCAG-AA contrast helper. Returns
+// the contrast ratio between two hex colours per the WCAG 2.1
+// formula. 4.5 is the AA bar for body text; 3.0 is the AA bar for
+// large text + UI components. We use these to flag colour pairs
+// that would render illegible white-on-colour buttons.
+function hexToRgb(hex: string): [number, number, number] | null {
+  if (!hex) return null;
+  const m = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(m)) return null;
+  const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
+function relLuminance([r, g, b]: [number, number, number]): number {
+  const a = [r, g, b].map((v) => {
+    const x = v / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+}
+function contrastRatio(hexA: string, hexB: string): number | null {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  if (!a || !b) return null;
+  const la = relLuminance(a);
+  const lb = relLuminance(b);
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// WL-B: hand-curated palette presets. Each one is internally
+// consistent (matched hue + saturation) and passes the white-text
+// WCAG check on the primary so the click-to-apply CTA can't drop
+// the operator into an illegible buttons-on-white scenario.
+const PALETTE_PRESETS: Array<{
+  id: string;
+  label: string;
+  description: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+}> = [
+  { id: "platform",    label: "CateringMS",     description: "The platform default.",                primary: "#2563eb", secondary: "#7c3aed", accent: "#f59e0b" },
+  { id: "sa-flag",     label: "SA flag",        description: "Springbok green, gold, navy.",         primary: "#007749", secondary: "#FFB81C", accent: "#001489" },
+  { id: "wedding",     label: "Wedding",        description: "Rose gold, blush, deep burgundy.",     primary: "#b76e79", secondary: "#e8b4b8", accent: "#7a1f2b" },
+  { id: "earth",       label: "Earth tones",    description: "Olive, terracotta, ochre.",            primary: "#6b8e23", secondary: "#cc7351", accent: "#d4a017" },
+  { id: "monochrome",  label: "Monochrome",     description: "Charcoal + slate. Looks corporate.",   primary: "#1f2937", secondary: "#475569", accent: "#0ea5e9" },
+];
+
 // Strip a public URL down to the storage object path so we can delete it.
 const objectPathFromPublicUrl = (url: string | undefined): string | null => {
   if (!url) return null;
@@ -58,8 +113,19 @@ const objectPathFromPublicUrl = (url: string | undefined): string | null => {
 };
 
 export default function ProtectedWhiteLabelPage() {
+  // WL-B (task #219, 2026-05-25):
+  //   - deduped the COMPANY_ADMIN copy-paste typo in allowedRoles
+  //     (was listed twice, same pattern as HRS-1 / CS-1 / STH-3).
+  //   - admitted OWNER. Pre-WL-B the OWNER persona was 403'd off
+  //     their own branding page even though OWNER is in
+  //     FULL_COMPANY_ACCESS_ROLES.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <WhiteLabelPage />
     </ProtectedRoute>
   );
@@ -82,6 +148,29 @@ function WhiteLabelPage() {
   const [accentColor, setAccentColor] = useState(DEFAULT_PALETTE.accent);
   const [logoUrl, setLogoUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // WL-B (task #219, 2026-05-25): savedSnapshot is the canonical
+  // "last persisted" string for the four-field set the Save button
+  // writes. isDirty derives from comparing the live inputs against
+  // it. lastSavedAt drives the "Saved Xm ago" chip.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const currentSnapshot = JSON.stringify({
+    organizationName, primaryColor, secondaryColor, accentColor, logoUrl,
+  });
+  const isDirty = savedSnapshot !== "" && currentSnapshot !== savedSnapshot;
+
+  // WL-B: beforeunload guard while dirty. Mirrors the company-
+  // profile pattern - browser shows its own "Leave site?" prompt.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
@@ -115,11 +204,24 @@ function WhiteLabelPage() {
         accentColor: r.accent_color ?? null,
       };
       setBranding(row);
-      setOrganizationName(row.companyName || "");
-      setPrimaryColor(row.primaryColor || DEFAULT_PALETTE.primary);
-      setSecondaryColor(row.secondaryColor || DEFAULT_PALETTE.secondary);
-      setAccentColor(row.accentColor || DEFAULT_PALETTE.accent);
-      setLogoUrl(row.logoUrl || "");
+      const initialOrg = row.companyName || "";
+      const initialPrim = row.primaryColor || DEFAULT_PALETTE.primary;
+      const initialSec = row.secondaryColor || DEFAULT_PALETTE.secondary;
+      const initialAcc = row.accentColor || DEFAULT_PALETTE.accent;
+      const initialLogo = row.logoUrl || "";
+      setOrganizationName(initialOrg);
+      setPrimaryColor(initialPrim);
+      setSecondaryColor(initialSec);
+      setAccentColor(initialAcc);
+      setLogoUrl(initialLogo);
+      // WL-B: seed snapshot so isDirty starts at false.
+      setSavedSnapshot(JSON.stringify({
+        organizationName: initialOrg,
+        primaryColor: initialPrim,
+        secondaryColor: initialSec,
+        accentColor: initialAcc,
+        logoUrl: initialLogo,
+      }));
       setLoading(false);
     })();
     return () => {
@@ -171,11 +273,20 @@ function WhiteLabelPage() {
         secondary_color: secondaryColor || null,
         accent_color: accentColor || null,
       });
+      // WL-B: refresh snapshot + chip so isDirty flips back to
+      // false + the chip reads "Just saved".
+      setSavedSnapshot(JSON.stringify({
+        organizationName, primaryColor, secondaryColor, accentColor, logoUrl,
+      }));
+      setLastSavedAt(new Date());
       toast({
         title: "Branding saved",
         description: "Your colours, logo, and organisation name are now live for this tenant.",
       });
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/white-label", step: "save", companyId: companyId || "" },
+      });
       toast({
         title: "Save failed",
         description: e?.message || "Could not write branding to your account. Try again.",
@@ -205,11 +316,23 @@ function WhiteLabelPage() {
       setLogoUrl("");
       // Dispatch null so the applier reverts the DOM to defaults.
       dispatchBrandingUpdated(null);
+      // WL-B: snapshot the new defaults so isDirty stays false.
+      setSavedSnapshot(JSON.stringify({
+        organizationName: DEFAULT_ORG_NAME,
+        primaryColor: DEFAULT_PALETTE.primary,
+        secondaryColor: DEFAULT_PALETTE.secondary,
+        accentColor: DEFAULT_PALETTE.accent,
+        logoUrl: "",
+      }));
+      setLastSavedAt(new Date());
       toast({
         title: "Branding reset",
         description: "Defaults are back.",
       });
     } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/white-label", step: "reset", companyId: companyId || "" },
+      });
       toast({
         title: "Reset failed",
         description: e?.message || "Could not clear branding. Try again.",
@@ -218,6 +341,16 @@ function WhiteLabelPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // WL-B: click-to-apply preset. Updates the four colour-bearing
+  // inputs in one shot; the operator still has to hit Save to
+  // persist. Doesn't touch logoUrl or organizationName because
+  // those aren't part of the palette.
+  const applyPreset = (preset: typeof PALETTE_PRESETS[number]) => {
+    setPrimaryColor(preset.primary);
+    setSecondaryColor(preset.secondary);
+    setAccentColor(preset.accent);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,6 +410,9 @@ function WhiteLabelPage() {
         description: "Your new logo is live for this tenant.",
       });
     } catch (err: any) {
+      captureException(err, {
+        tags: { route: "/admin/white-label", step: "upload-logo", companyId: companyId || "" },
+      });
       toast({
         title: "Upload failed",
         description: err?.message || "Could not upload the logo. Try again.",
@@ -338,12 +474,25 @@ function WhiteLabelPage() {
                   <p className="text-slate-600 mt-1">Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails.</p>
                 </div>
               </div>
-              {isWhiteLabeled && (
-                <Badge className="bg-green-100 text-green-700 border-green-200">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  Custom Branding Active
-                </Badge>
-              )}
+              <div className="flex flex-col items-end gap-2">
+                {isWhiteLabeled && (
+                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Custom Branding Active
+                  </Badge>
+                )}
+                {/* WL-B: unsaved / last-saved chip mirroring the
+                    company-profile pattern. Hidden while loading. */}
+                {!loading && (isDirty ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                    <AlertTriangle className="w-3 h-3" /> Unsaved changes
+                  </span>
+                ) : lastSavedAt ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">
+                    <Clock className="w-3 h-3" /> Just saved
+                  </span>
+                ) : null)}
+              </div>
             </div>
           </div>
 
@@ -421,6 +570,60 @@ function WhiteLabelPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* WL-B: click-to-apply palette presets. Each
+                      one updates the three colour inputs in a
+                      single tap. The operator still has to hit
+                      Save to persist. */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                      Start from a preset
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {PALETTE_PRESETS.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => applyPreset(p)}
+                          className="group flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-slate-200 bg-white hover:border-slate-400 hover:shadow-sm transition-all"
+                          title={p.description}
+                        >
+                          <span className="flex -space-x-1">
+                            <span className="w-4 h-4 rounded-full border border-white" style={{ background: p.primary }} />
+                            <span className="w-4 h-4 rounded-full border border-white" style={{ background: p.secondary }} />
+                            <span className="w-4 h-4 rounded-full border border-white" style={{ background: p.accent }} />
+                          </span>
+                          <span className="text-xs font-medium text-slate-700 group-hover:text-slate-900">
+                            {p.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* WL-B: WCAG-AA contrast warning. White text on
+                      the primary button needs a 4.5+ ratio to be
+                      legible at body size; we soft-warn anyone
+                      below the bar so a pastel primary doesn't
+                      ship invisible buttons to clients. */}
+                  {(() => {
+                    const ratio = contrastRatio(primaryColor, "#ffffff");
+                    if (ratio == null) return null;
+                    if (ratio >= 4.5) return null;
+                    return (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold">Low contrast on primary buttons</p>
+                          <p className="leading-relaxed">
+                            White text on your primary colour has a contrast ratio of <strong>{ratio.toFixed(2)}:1</strong>.
+                            WCAG-AA needs 4.5:1 for body text. Pick a darker primary, or expect
+                            "Save" / "Confirm" / "Pay" buttons to be hard to read on the client portal.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div>
                     <Label htmlFor="primaryColor">Primary Color</Label>
                     <div className="flex gap-3 mt-1.5">
@@ -497,11 +700,12 @@ function WhiteLabelPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleSave}
-                  disabled={saving || loading}
+                  disabled={saving || loading || !isDirty}
                   className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
+                  title={isDirty ? "Save your branding changes" : "Nothing to save yet"}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Saving..." : "Save Branding"}
+                  {saving ? "Saving..." : isDirty ? "Save Branding" : "Branding up to date"}
                 </Button>
                 <Button
                   onClick={handleReset}
