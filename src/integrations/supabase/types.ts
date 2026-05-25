@@ -12360,6 +12360,7 @@ export type Database = {
         | "domain_verified"
         | "new_job_available"
         | "quote_rejected"
+        | "payment_rejected"
       order_status:
         | "pending"
         | "confirmed"
@@ -12636,6 +12637,7 @@ export const Constants = {
         "domain_verified",
         "new_job_available",
         "quote_rejected",
+        "payment_rejected",
       ],
       order_status: [
         "pending",

@@ -45,6 +45,7 @@ import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
@@ -163,6 +164,13 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 
 function ClientsCRM() {
   const { user, profile } = useAuth() as any;
+  // XSC-A: contacts CRM was leaking cross-branch data on multi-region
+  // tenants. The cross-system audit (task #252) flagged that this page
+  // never imported the region filter, so a region_admin in JHB saw
+  // every branch's clients/leads/orders/quotes. Apply the same
+  // pattern other pages use: read regionFilterId from context, scope
+  // each fetch when set.
+  const { regionFilterId } = useRegionFilter();
   // Resilient companyId resolution. Different auth paths populate
   // different fields - profile.company_id is the canonical one but
   // user.user_metadata.company_id and user.company_id are both used
@@ -385,12 +393,15 @@ function ClientsCRM() {
       const PAGE = 1000;
       for (let from = 0; ; from += PAGE) {
         const to = from + PAGE - 1;
-        const { data, error } = await supabase
+        let q: any = supabase
           .from("clients")
           .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags")
           .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .range(from, to);
+          .is("deleted_at", null);
+        // XSC-A: scope to picked region for branch managers.
+        if (regionFilterId) q = q.eq("region_id", regionFilterId);
+        q = q.range(from, to);
+        const { data, error } = await q;
         if (error) return { data: out, error };
         const rows = data || [];
         out.push(...rows);
@@ -428,6 +439,11 @@ function ClientsCRM() {
           .select(select)
           .eq("company_id", companyId)
           .is("deleted_at", null);
+        // XSC-A: every paged supplementary table (leads, orders, quotes,
+        // invoices) has a region_id column. Scope here so a branch
+        // manager's CRM doesn't merge other branches' history into
+        // their contact rollups.
+        if (regionFilterId) q = q.eq("region_id", regionFilterId);
         if (orderClause) q = q.order(orderClause.column, { ascending: orderClause.ascending });
         q = q.range(from, to);
         const { data, error } = await q;
@@ -829,7 +845,9 @@ function ClientsCRM() {
         return order[a.suggestion.tone] - order[b.suggestion.tone];
       }));
       setLoading(false);
-  }, [companyId]);
+    // XSC-A: include regionFilterId so flipping the global region
+    // picker triggers a reload through the page's useEffect chain.
+  }, [companyId, regionFilterId]);
 
   useEffect(() => {
     loadContacts();

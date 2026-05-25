@@ -219,6 +219,12 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   // Broadcast to drivers when a confirmed order is still unassigned
   // and so eligible for self-claim via /team-portal/driver/dashboard.
   "new_job_available",
+  // XSC-A: payment_rejected is emitted by /api/payments/verify-claim
+  // when a client EFT claim can't be matched against an invoice.
+  // Pre-fix it was missing from both this Set and the DB enum, so
+  // direct inserts kept the type column NULL and group-by reports
+  // dropped the row.
+  "payment_rejected",
 ]);
 
 export const notificationService = {
