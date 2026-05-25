@@ -1747,6 +1747,40 @@ function HeroCard({
       </div>
 
       <CardContent className="p-5 sm:p-6 space-y-5">
+        {/* CLI-B (XSC Wave B): driver-assignment gap fallback. When
+            the kitchen has flipped status to 'ready' on event day
+            but dispatch hasn't yet assigned a driver, the customer
+            previously got an empty card with no signal that anything
+            was happening. Now a clear chip surfaces the state with
+            an honest message + the option to nudge the catering co. */}
+        {(order.status === "ready" || order.status === "confirmed") && !order.driver_id && (() => {
+          const todayISO = toLocalISO(new Date());
+          if (order.event_date !== todayISO) return null;
+          return (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Truck className="w-4 h-4 text-amber-700" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-900">Driver being assigned</p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  {order.status === "ready"
+                    ? "Your order is ready and dispatch is sorting a driver. You'll see the live map here the moment they're on the way."
+                    : "Your order is confirmed for today. Dispatch will assign a driver closer to your start time."}
+                </p>
+                <button
+                  type="button"
+                  onClick={onMessage}
+                  className="text-xs font-medium text-amber-900 hover:text-amber-700 hover:underline mt-1.5 inline-flex items-center gap-1"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  Ping {companyName} for an update
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Smart copy + countdown */}
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between">
           <div className="min-w-0 flex-1">
