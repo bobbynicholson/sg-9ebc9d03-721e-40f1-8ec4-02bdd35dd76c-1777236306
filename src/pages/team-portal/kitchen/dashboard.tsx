@@ -49,6 +49,7 @@ import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
 import { onCleaningReady } from "@/lib/events/cleaningEvents";
 import { useToast } from "@/hooks/use-toast";
+import { captureException } from "@/lib/observability";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
@@ -134,6 +135,24 @@ export default function KitchenDashboard() {
   // cleaning state without leaving the kitchen portal.
   const [cleaningDialogOpen, setCleaningDialogOpen] = useState(false);
 
+  // KIT3-A (kitchen second-pass audit, task #244): force-close
+  // confirmation now goes through AlertDialog instead of window.confirm.
+  // Native confirm() can be unreliable on Android tablets in fullscreen
+  // kiosk mode and breaks the visual rhythm of the rest of the page
+  // (the allergen gate below already uses AlertDialog).
+  const [forceCloseConfirm, setForceCloseConfirm] = useState<{
+    orderId: string;
+    orderLabel: string;
+  } | null>(null);
+
+  // KIT3-A: realtime heartbeat tracker. The dashboard subscribes to
+  // 5 postgres_changes events but if the channel drops (kitchen WiFi
+  // is notoriously flaky), data goes stale silently. We stamp the
+  // last realtime event and surface a quiet "Reconnecting..." chip
+  // when it's been more than 2 minutes without any signal.
+  const [lastRealtimeAt, setLastRealtimeAt] = useState<number>(Date.now());
+  const [realtimeStale, setRealtimeStale] = useState(false);
+
   // KIT2-R (kitchen deep audit, KIT2-34 / KIT2-85): ingredient delta
   // banner. When the shopper ticks items on /team-portal/shopping
   // (SHP2-B bumps inventory_items.current_stock), we want the kitchen
@@ -170,12 +189,23 @@ export default function KitchenDashboard() {
   useEffect(() => {
     if (!user?.company_id) return;
     let pendingWhileHidden = false;
+    // KIT3-A (task #244): debounce realtime refreshes. 5 channels x
+    // postgres_changes can fire dozens of times per minute on a busy
+    // tenant. Coalesce into one refresh per 400ms so the chef's
+    // tablet isn't burning the network on every prep-task tick from
+    // the kanban itself.
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const refresh = () => {
       if (document.hidden) {
         pendingWhileHidden = true;
         return;
       }
-      loadDashboardData();
+      setLastRealtimeAt(Date.now());
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        loadDashboardData();
+      }, 400);
     };
     const onVisibility = () => {
       if (!document.hidden && pendingWhileHidden) {
@@ -280,6 +310,7 @@ export default function KitchenDashboard() {
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
+      if (debounceTimer) clearTimeout(debounceTimer);
       offBus();
       offDamage();
       offCleaning();
@@ -287,6 +318,17 @@ export default function KitchenDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
+
+  // KIT3-A: tick the stale watcher. Anything older than 2 minutes
+  // since the last realtime event when the tab is visible flips the
+  // chip; the next event clears it.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      setRealtimeStale(Date.now() - lastRealtimeAt > 120_000);
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [lastRealtimeAt]);
 
   const loadDashboardData = async () => {
     if (!user?.company_id) return;
@@ -330,7 +372,9 @@ export default function KitchenDashboard() {
         .limit(50);
 
       if (ordersError) {
-        console.error("Error loading orders:", ordersError);
+        captureException(ordersError, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-orders", companyId: user.company_id },
+        });
       } else {
         setOrders(ordersData || []);
       }
@@ -345,7 +389,9 @@ export default function KitchenDashboard() {
         .limit(5);
 
       if (inventoryError) {
-        console.error("Error loading inventory:", inventoryError);
+        captureException(inventoryError, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-low-stock", companyId: user.company_id },
+        });
       } else {
         setLowStockItems(inventoryData || []);
       }
@@ -364,7 +410,9 @@ export default function KitchenDashboard() {
         const preview = await kitchenPrepService.getUpcomingPreview(user.company_id, 2);
         setUpcoming(preview);
       } catch (pErr) {
-        console.warn("Upcoming preview failed:", pErr);
+        captureException(pErr, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-upcoming", companyId: user.company_id },
+        });
       }
       try {
         const { data: company, error: companyError } = await supabase
@@ -373,12 +421,16 @@ export default function KitchenDashboard() {
           .eq("id", user.company_id)
           .single();
         if (companyError) {
-          console.error("[team-portal/kitchen/dashboard] companies fetch failed:", companyError);
+          captureException(companyError, {
+            tags: { route: "/team-portal/kitchen/dashboard", step: "load-kitchen-settings", companyId: user.company_id },
+          });
         }
         const ks: any = company?.kitchen_settings || {};
         if (ks.maxHotHoldMin) setMaxHotHoldMin(Number(ks.maxHotHoldMin));
       } catch (sErr) {
-        console.warn("Settings load failed:", sErr);
+        captureException(sErr, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-kitchen-settings-catch", companyId: user.company_id },
+        });
       }
 
       // KIT2-O + CLN2-F: cleaning readiness for tomorrow's events.
@@ -453,7 +505,9 @@ export default function KitchenDashboard() {
         setCleaningReadiness(null);
       }
     } catch (error) {
-      console.error("Dashboard load error:", error);
+      captureException(error, {
+        tags: { route: "/team-portal/kitchen/dashboard", step: "load-dashboard", companyId: user?.company_id },
+      });
     } finally {
       setLoading(false);
     }
@@ -591,11 +645,21 @@ export default function KitchenDashboard() {
 
   // Wave 70.21 - force-close handler. Hits the API, refreshes the
   // dashboard on success so the closed order disappears.
+  // KIT3-A (task #244): opens an AlertDialog instead of native
+  // confirm() so the prompt stays inline with the page's UI rhythm
+  // and works reliably in tablet kiosk mode.
   const [forceClosingId, setForceClosingId] = useState<string | null>(null);
   const handleForceClose = async (orderId: string, orderLabel: string) => {
     if (forceClosingId) return;
-    if (!confirm(`Close out ${orderLabel}? This marks all prep tasks as done and flips the order to delivered. It can't be undone.`)) return;
+    setForceCloseConfirm({ orderId, orderLabel });
+  };
+
+  const confirmForceClose = async () => {
+    if (!forceCloseConfirm) return;
+    const { orderId, orderLabel } = forceCloseConfirm;
+    setForceCloseConfirm(null);
     setForceClosingId(orderId);
+    void orderLabel; // surfaced in the dialog body, not needed here
     try {
       const r = await fetch(`/api/orders/${orderId}/force-close`, {
         method: "POST",
@@ -780,12 +844,20 @@ export default function KitchenDashboard() {
             <Button
               variant="outline"
               onClick={() => {
+                // KIT3-A (task #244): guard against the first-mount
+                // race where the toast fired "Nothing to print" before
+                // loadDashboardData had a chance to populate state.
+                if (loading) {
+                  toast({ title: "Still loading", description: "Give it a second, the print sheet is being prepared." });
+                  return;
+                }
                 if (orders.length === 0 && upcoming.length === 0) {
                   toast({ title: "Nothing to print", description: "No orders today or in the next 2 days." });
                   return;
                 }
                 setTimeout(() => window.print(), 100);
               }}
+              disabled={loading}
               className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
             >
               <Printer className="w-4 h-4" />
@@ -913,36 +985,74 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            <MetricCard
-              icon={Calendar}
-              iconColor="text-orange-600"
-              label="Today's Orders"
-              value={todayOrders.length}
-              tooltip="Orders happening today that the kitchen is actively working on.\n\nIncludes anything confirmed, in prep, or ready to go."
-            />
-            <MetricCard
-              icon={Users}
-              iconColor="text-blue-600"
-              label="Total Guests"
-              value={todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
-              tooltip="How many people you're cooking for today across all events.\n\nUse this to size your portions and prep list."
-            />
-            <MetricCard
-              icon={Clock}
-              iconColor="text-orange-600"
-              label="In Prep"
-              value={orders.filter(o => o.status === "preparing").length}
-              tooltip="Orders the kitchen is busy prepping right now.\n\nUpdates the moment someone ticks a task off."
-            />
-            <MetricCard
-              icon={CheckCircle}
-              iconColor="text-green-600"
-              label="Ready"
-              value={orders.filter(o => o.status === "ready").length}
-              tooltip="Orders packed and waiting for the driver to collect.\n\nDrivers see these the moment you mark them ready."
-            />
+          {/* Stats Grid - KIT3-A (task #244): rolling readiness +
+              skeleton during load so the chef doesn't read "0 / 0 /
+              0 / 0" as genuine zeros before data arrives. */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
+            {loading ? (
+              [0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 rounded-xl bg-white/60 border border-slate-200 animate-pulse" />
+              ))
+            ) : (
+              <>
+                <MetricCard
+                  icon={Calendar}
+                  iconColor="text-orange-600"
+                  label="Today's orders"
+                  value={todayOrders.length}
+                  tooltip={"Orders happening today that the kitchen is actively working on.\nIncludes anything confirmed, in prep, or ready to go."}
+                />
+                <MetricCard
+                  icon={Users}
+                  iconColor="text-blue-600"
+                  label="Total guests"
+                  value={todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
+                  tooltip={"How many people you're cooking for today across all events.\nUse this to size your portions and prep list."}
+                />
+                <MetricCard
+                  icon={Clock}
+                  iconColor="text-orange-600"
+                  label="In prep"
+                  value={orders.filter(o => o.status === "preparing").length}
+                  tooltip={"Orders the kitchen is busy prepping right now.\nUpdates the moment someone ticks a task off."}
+                />
+                <MetricCard
+                  icon={CheckCircle}
+                  iconColor="text-green-600"
+                  label="Ready"
+                  value={orders.filter(o => o.status === "ready").length}
+                  tooltip={"Orders packed and waiting for the driver to collect.\nDrivers see these the moment you mark them ready."}
+                />
+                {/* KIT3-A new tile: rolling prep readiness across
+                    every active order. Sum of completed prep tasks
+                    over total, formatted as a percentage. Empty when
+                    there are no tasks at all. */}
+                {(() => {
+                  let total = 0;
+                  let done = 0;
+                  for (const o of orders) {
+                    const p = progressByOrder[o.id];
+                    if (!p) continue;
+                    total += p.total;
+                    done += p.done;
+                  }
+                  const pct = total > 0 ? Math.round((done / total) * 100) : null;
+                  return (
+                    <MetricCard
+                      icon={Sparkles}
+                      iconColor={pct == null ? "text-slate-400" : pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-rose-600"}
+                      label="Prep readiness"
+                      value={pct == null ? "—" : `${pct}%`}
+                      tooltip={
+                        pct == null
+                          ? "No prep tasks recorded yet for the active orders. Once the kitchen ticks anything off this rolls up automatically."
+                          : `${done} of ${total} prep tasks done across every active order.\nUnder 40% in amber, under 75% still warming up, 75%+ on track.`
+                      }
+                    />
+                  );
+                })()}
+              </>
+            )}
           </div>
 
           {/* KIT2-R: ingredient delta banner. Sits ABOVE Low Stock so
@@ -1011,6 +1121,39 @@ export default function KitchenDashboard() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* KIT3-A: calm "All quiet" card when there's no next
+              pickup but the page IS loaded. Previously the next-
+              pickup card vanished silently and the chef saw blank
+              space where the headline used to be - "did it crash?".
+              Now they see a clear "no live pickups" reassurance. */}
+          {!loading && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
+            <Card className="border-0 shadow-sm mb-4 sm:mb-6 border-l-4 border-l-slate-300 bg-slate-50/60">
+              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Next pickup</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-700 leading-tight mt-1">
+                    All quiet
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    No live orders right now. Use the breather to prep ahead, deep-clean, or restock.
+                  </p>
+                </div>
+                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 text-slate-400" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* KIT3-A: realtime stale indicator. The 5 channel
+              subscriptions silently drop on flaky kitchen WiFi. This
+              chip surfaces when no realtime event has landed in 2+
+              min so the chef knows to thumb-refresh. */}
+          {realtimeStale && (
+            <div className="mb-3 inline-flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Reconnecting to live updates. Tap refresh if numbers look stuck.
+            </div>
           )}
 
           {/* Next pickup, plain English, no T-minus codes. Tells the chef:
@@ -1203,9 +1346,13 @@ export default function KitchenDashboard() {
                   empty: string;
                   tone: string;
                 }> = [
-                  { key: "confirmed", label: "Confirmed",  empty: "Nothing confirmed yet",     tone: "border-l-blue-400 bg-blue-50/50" },
-                  { key: "preparing", label: "In prep",    empty: "No prep in flight",         tone: "border-l-amber-400 bg-amber-50/50" },
-                  { key: "ready",     label: "Ready",      empty: "Nothing ready yet",         tone: "border-l-emerald-400 bg-emerald-50/50" },
+                  // KIT3-A: standardised empty-state copy across the
+                  // three lanes. Was three different voices ("Nothing
+                  // confirmed yet" / "No prep in flight" / "Nothing
+                  // ready yet").
+                  { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-l-blue-400 bg-blue-50/50" },
+                  { key: "preparing", label: "In prep",    empty: "No orders in prep right now",  tone: "border-l-amber-400 bg-amber-50/50" },
+                  { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-l-emerald-400 bg-emerald-50/50" },
                 ];
 
                 return (
@@ -1555,6 +1702,45 @@ export default function KitchenDashboard() {
               }}
             >
               I have checked, mark ready anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* KIT3-A (task #244): force-close confirmation now matches
+          the allergen gate's UI rhythm and works reliably in tablet
+          kiosk mode where native window.confirm can be flaky. */}
+      <AlertDialog
+        open={!!forceCloseConfirm}
+        onOpenChange={(open) => { if (!open) setForceCloseConfirm(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5" />
+              Force-close this order?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  <span className="font-semibold text-slate-900">{forceCloseConfirm?.orderLabel}</span> will be force-closed.
+                </p>
+                <p className="text-slate-700">
+                  All prep tasks will be marked complete and the order will move to delivered. This action cannot be reversed and goes into the audit log.
+                </p>
+                <p className="text-xs text-slate-500">
+                  Use this only when the team forgot to tick a real-world event through.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={confirmForceClose}
+            >
+              Force-close + mark delivered
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
