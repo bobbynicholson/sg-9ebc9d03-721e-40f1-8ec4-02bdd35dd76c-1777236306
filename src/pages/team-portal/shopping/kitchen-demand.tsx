@@ -13,6 +13,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalISO } from "@/lib/localDate";
@@ -37,6 +38,7 @@ const HORIZONS = [
 
 export default function ShoppingKitchenDemandPage() {
   const { user, profile } = useAuth();
+  const { withSlug } = useTenantHref();
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || user?.company_id;
@@ -294,11 +296,19 @@ export default function ShoppingKitchenDemandPage() {
                                 why we need it. */}
                             {d.used_by && d.used_by.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1.5">
+                                {/* ODOC G.5: each source-order chip
+                                    deep-links into the doc with the
+                                    shopping section auto-expanded. */}
                                 {d.used_by.slice(0, 3).map((u, ui) => (
-                                  <span key={`${u.order_id}-${ui}`} className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 inline-flex items-center gap-1">
+                                  <Link
+                                    key={`${u.order_id}-${ui}`}
+                                    href={withSlug(`/order/${u.order_id}?role=shopping_staff`)}
+                                    className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-900 inline-flex items-center gap-1"
+                                    title="Open this order's shopping shortfalls"
+                                  >
                                     <Calendar className="w-2.5 h-2.5" />
                                     {u.event_date}, {u.client_name || "client"} ({u.qty} {d.unit})
-                                  </span>
+                                  </Link>
                                 ))}
                                 {d.used_by.length > 3 && (
                                   <span className="text-[10px] text-slate-500">+{d.used_by.length - 3} more</span>

@@ -7,7 +7,9 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X } from "lucide-react";
+import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -63,6 +65,7 @@ const orderStatusTone: Record<string, string> = {
 
 export default function ShoppingOrdersPage() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
@@ -347,11 +350,21 @@ export default function ShoppingOrdersPage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {upcomingOrders.map((o) => (
-                  <Card key={o.id}>
+                  <Card key={o.id} className="hover:border-amber-300 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-slate-900 truncate">{o.event_name ?? o.order_number ?? "Event"}</div>
+                          {/* ODOC G.5: tap event title to open the
+                              full order doc with shopping section
+                              auto-expanded - shortfalls + push-to-
+                              shopping CTA all live there. */}
+                          <Link
+                            href={withSlug(`/order/${o.id}?role=shopping_staff`)}
+                            className="font-medium text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
+                          >
+                            {o.event_name ?? o.order_number ?? "Event"}
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </Link>
                           {o.client_name && (
                             <div className="text-xs text-slate-600 truncate">{o.client_name}</div>
                           )}

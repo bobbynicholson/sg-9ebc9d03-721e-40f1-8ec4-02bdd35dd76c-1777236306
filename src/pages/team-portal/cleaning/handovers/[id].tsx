@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CheckCircle2, Package, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Package, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -215,10 +215,26 @@ function HandoverDetailInner() {
                   status: handover.status ?? null,
                 }}
                 rightSlot={
-                  <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[11px] gap-1">
-                    <Package className="w-3 h-3" />
-                    {handover.total_items_expected} item{handover.total_items_expected === 1 ? "" : "s"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {/* ODOC G.5: jump from a cleaning handover into
+                        the source order doc - cleaner sees what was
+                        served + when service finished + return
+                        method etc. */}
+                    {handover.order_id && (
+                      <Link
+                        href={withSlug(`/order/${handover.order_id}?role=cleaning_staff`)}
+                        className="inline-flex items-center gap-1 text-[11px] text-cyan-700 hover:text-cyan-900 hover:underline bg-cyan-50 border border-cyan-200 rounded px-2 py-0.5"
+                        title="Open the source order"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View order
+                      </Link>
+                    )}
+                    <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[11px] gap-1">
+                      <Package className="w-3 h-3" />
+                      {handover.total_items_expected} item{handover.total_items_expected === 1 ? "" : "s"}
+                    </Badge>
+                  </div>
                 }
               />
 

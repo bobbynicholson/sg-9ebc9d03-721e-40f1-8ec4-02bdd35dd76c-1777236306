@@ -26,11 +26,14 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChefHat, Users, MapPin, Clock, CheckCircle2, Sparkles, Truck,
   Loader2, PartyPopper, Package, MessageSquareText, Calendar as CalendarIcon,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
 
 const ROUTE = "/team-portal/driver/dashboard";
@@ -72,6 +75,7 @@ interface Attendance {
 
 export function WaiterServicePanel() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
@@ -256,7 +260,17 @@ export function WaiterServicePanel() {
               <CardContent className="p-3 sm:p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{o.event_name || o.client_name || "Event"}</p>
+                    {/* ODOC G.5: tap event title to open the full
+                        order doc with service team section auto-
+                        expanded - venue contact, allergens,
+                        dietary, briefing live there. */}
+                    <Link
+                      href={withSlug(`/order/${o.id}?role=waiter`)}
+                      className="text-sm font-semibold text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
+                    >
+                      {o.event_name || o.client_name || "Event"}
+                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                    </Link>
                     <div className="text-xs text-slate-600 mt-0.5 space-y-0.5">
                       <p className="flex items-center gap-1">
                         <CalendarIcon className="w-3 h-3 text-slate-400" />
