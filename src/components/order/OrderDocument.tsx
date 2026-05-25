@@ -37,6 +37,7 @@ import { OrderSuggestedAction } from "./OrderSuggestedAction";
 import { OrderPresence } from "./OrderPresence";
 import { OrderAmendmentBanner } from "./OrderAmendmentBanner";
 import { OrderCODBanner } from "./OrderCODBanner";
+import { OrderEditNotice } from "./OrderEditNotice";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -431,6 +432,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </div>
         </nav>
       )}
+
+      {/* ODOC H.1: admin-tier 'edits live in the quote' notice.
+          Tells admins explicitly that the order doc is read-only,
+          edits route through the source quote. Staff don't see it. */}
+      <OrderEditNotice
+        orderId={order.id}
+        quoteId={order.quote_id}
+        status={order.status}
+      />
 
       {/* ODOC Wave F: cash-on-delivery banner - shows amount owed
           to the assigned driver + admin tier when payment_method=cash

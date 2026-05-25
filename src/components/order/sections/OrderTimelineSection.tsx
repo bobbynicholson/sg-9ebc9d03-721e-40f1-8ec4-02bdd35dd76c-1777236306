@@ -228,6 +228,31 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     }
   };
 
+  // ODOC H.1: who owns each step. Drives the "Whose turn" badge.
+  // System = auto-fires from a trigger or admin action (created,
+  // confirmed). Cleaning closes out equipment when waiters aren't
+  // involved.
+  const stepOwner = (key: string): { role: string; tone: string } => {
+    switch (key) {
+      case "created":       return { role: "System",   tone: "bg-slate-100 text-slate-700 border-slate-200" };
+      case "confirmed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
+      case "prep":          return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
+      case "ready":         return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
+      case "picked_up":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "arrived":       return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "pod":           return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "delivered":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "setup":         return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
+      case "service_start": return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
+      case "service_end":   return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
+      case "event_done":    return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
+      case "departed":      return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "equipment":     return { role: "Cleaning", tone: "bg-cyan-50 text-cyan-800 border-cyan-200" };
+      case "completed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
+      default:              return { role: "—",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
+    }
+  };
+
   return (
     <CollapsibleSection
       id="section-timeline"
@@ -277,11 +302,16 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         {/* Vertical stepper. Each row is icon-dot + connector line +
             label + timestamp. Dots colour-match the responsible team. */}
         <ol className="relative">
+          {/* ODOC H.1: identify the "next" step (first pending) so
+              we can highlight the owner whose turn it is. */}
+          {(() => null)()}
           {steps.map((step, i) => {
             const reached = !!step.at;
             const isCurrent = i === lastDoneIdx;
+            const isNextPending = !reached && i === lastDoneIdx + 1;
             const Icon = step.Icon;
             const isLast = i === steps.length - 1;
+            const owner = stepOwner(step.key);
             return (
               <li key={step.key} className="relative flex items-start gap-3 pb-3 last:pb-0">
                 {/* Connector line drops from this dot to the next.
@@ -295,7 +325,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                   />
                 )}
                 <div
-                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, reached)} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""}`}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, reached)} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""} ${isNextPending && !cancelled && !postponed ? "ring-2 ring-offset-2 ring-amber-300" : ""}`}
                 >
                   {reached ? <Icon className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
                 </div>
@@ -303,6 +333,17 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
                     <p className={`text-sm ${reached ? "font-semibold text-slate-900" : "text-slate-500"}`}>
                       {step.label}
+                      {/* ODOC H.1: whose turn badge. Always shown -
+                          informational for past steps, action-cue
+                          for the next pending step (with 'Up next'). */}
+                      <span className={`ml-2 text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 border ${owner.tone}`}>
+                        {owner.role}
+                      </span>
+                      {isNextPending && !cancelled && !postponed && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5 font-semibold">
+                          Up next
+                        </span>
+                      )}
                       {isCurrent && !cancelled && !isStuck && (
                         <span className="ml-2 text-[10px] uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">Now</span>
                       )}
