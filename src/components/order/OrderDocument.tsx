@@ -26,7 +26,10 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Printer, ArrowLeft, RefreshCw } from "lucide-react";
+import {
+  Loader2, Printer, ArrowLeft, RefreshCw,
+  FileText, ShoppingBag, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History,
+} from "lucide-react";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderItemsSection } from "./sections/OrderItemsSection";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
@@ -157,17 +160,41 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     };
   }, [orderId, load]);
 
+  // ODOC: scroll to a section by id, accounting for the sticky nav
+  // strip (about 56px high). Used by both auto-scroll on mount and the
+  // anchor menu taps.
+  const scrollToSection = useCallback((sectionId: string) => {
+    const el = document.getElementById(sectionId);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 64;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, []);
+
   // ODOC: scroll to primary section on first render.
   useEffect(() => {
     if (loading || !order || mode === "print") return;
-    const id = `section-${primary}`;
-    const el = document.getElementById(id);
-    if (el && typeof el.scrollIntoView === "function") {
-      // Slight delay so initial layout settles before scrolling.
-      const t = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
-      return () => clearTimeout(t);
-    }
-  }, [loading, order, primary, mode]);
+    const t = setTimeout(() => scrollToSection(`section-${primary}`), 300);
+    return () => clearTimeout(t);
+  }, [loading, order, primary, mode, scrollToSection]);
+
+  // ODOC: anchor nav strip - one chip per section. Tap to scroll.
+  // The viewer's primary section is visually marked. Order matches
+  // the document's render order so the strip reads top-to-bottom.
+  const navItems = useMemo(() => {
+    const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "items" | "timeline" | "admin" | "history" }> = [
+      { id: "section-header", label: "Order", icon: FileText, key: "header" },
+      { id: "section-items", label: "Menu", icon: ShoppingBag, key: "items" },
+      { id: "section-timeline", label: "Status", icon: Activity, key: "timeline" },
+      { id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" },
+      { id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" },
+      { id: "section-driver", label: "Driver", icon: Truck, key: "driver" },
+      { id: "section-waiter", label: "Service", icon: Sparkles, key: "waiter" },
+      { id: "section-cleaning", label: "Cleaning", icon: Droplets, key: "cleaning" },
+    ];
+    if (canSeeFinance) items.push({ id: "section-admin", label: "Finance", icon: Wallet, key: "admin" });
+    items.push({ id: "section-history", label: "History", icon: History, key: "history" });
+    return items;
+  }, [canSeeFinance]);
 
   if (loading) {
     return (
@@ -222,6 +249,41 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             </Link>
           </div>
         </div>
+      )}
+
+      {/* ODOC: sticky anchor nav. One chip per section. Tap to scroll.
+          The viewer's primary section gets an accent ring so they can
+          see at a glance where "their" part of the doc lives. Hidden
+          in print mode - print is one continuous document. */}
+      {mode !== "print" && (
+        <nav
+          aria-label="Jump to section"
+          className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 py-2 mb-3 sm:mb-4 bg-white/90 backdrop-blur border-b border-slate-200 print:hidden"
+        >
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isPrimary = `section-${primary}` === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => scrollToSection(item.id)}
+                  className={
+                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 " +
+                    (isPrimary
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200")
+                  }
+                  title={`Jump to ${item.label}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       )}
 
       <div className="space-y-3 sm:space-y-4">
