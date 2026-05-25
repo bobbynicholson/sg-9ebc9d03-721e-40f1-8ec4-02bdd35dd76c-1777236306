@@ -28,6 +28,22 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
+// STH-D (task #215, 2026-05-25): pull a useful message out of
+// whatever was thrown. PostgrestError isn't an instanceof Error
+// (it's a plain object), so the previous `error instanceof Error
+// ? error.message : "Try again"` always rendered "Try again" for
+// schema / RLS failures - the most useful errors to surface.
+function friendlyError(err: unknown): string {
+  if (!err) return "Try again";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message || "Try again";
+  if (typeof err === "object") {
+    const e = err as { message?: string; details?: string; hint?: string; code?: string };
+    return e.message || e.details || e.hint || e.code || "Try again";
+  }
+  return "Try again";
+}
+
 export default function ProtectedStaffHoursPage() {
   return (
     // STH-B (staff-hours audit, 2026-05-23): tightened to OWNER /
@@ -181,39 +197,73 @@ function StaffHoursPage() {
 
   const loadData = async () => {
     setLoading(true);
-    try {
-      const { start: startDate, end: now } = resolveRange();
+    const { start: startDate, end: now } = resolveRange();
 
-      const [sessionsData, ledgerData, reconData] = await Promise.all([
-        timeClockService.getAllStaffWorkSessions(startDate, now, user?.company_id),
-        paymentLedgerService.getAllPayments(startDate, now, user?.company_id),
-        // STH-C: reconciliation tile data. Fetched in the same
-        // wave so the tile is always in sync with the period
-        // selector. Skipped on missing company_id.
-        user?.company_id
-          ? timeClockService.getReconciliation(user.company_id, startDate.toISOString(), now.toISOString())
-          : Promise.resolve(null),
-      ]);
+    // STH-D (task #215, 2026-05-25): switched from Promise.all to
+    // independent fetches. The page is three orthogonal sub-loads
+    // (sessions / ledger / reconciliation) - if one 400s (e.g.
+    // staff_payment_ledger missing columns pre-migration) the
+    // page used to show "Couldn't load time clock data" and
+    // render nothing, even though the other two queries succeeded.
+    // Now each leg fails independently with its own toast + Sentry
+    // breadcrumb, and the page keeps whatever it could load.
+    const tasks: Array<Promise<void>> = [];
 
-      // Cast through unknown because the supabase typegen widens
-      // the joined `staff` relation to SelectQueryError; the
-      // runtime shape matches StaffSession / StaffPayment.
-      setSessions(sessionsData as unknown as StaffSession[]);
-      setLedger(ledgerData as unknown as StaffPayment[]);
-      setRecon(reconData);
-    } catch (error) {
-      captureException(error, {
-        level: "error",
-        tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load" },
-      });
-      toast({
-        title: "Couldn't load time clock data",
-        description: error instanceof Error ? error.message : "Try again",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    tasks.push((async () => {
+      try {
+        const sessionsData = await timeClockService.getAllStaffWorkSessions(startDate, now, user?.company_id);
+        setSessions(sessionsData as unknown as StaffSession[]);
+      } catch (error) {
+        captureException(error, {
+          level: "error",
+          tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_sessions" },
+        });
+        toast({
+          title: "Couldn't load clock-ins",
+          description: friendlyError(error),
+          variant: "destructive",
+        });
+      }
+    })());
+
+    tasks.push((async () => {
+      try {
+        const ledgerData = await paymentLedgerService.getAllPayments(startDate, now, user?.company_id);
+        setLedger(ledgerData as unknown as StaffPayment[]);
+      } catch (error) {
+        captureException(error, {
+          level: "error",
+          tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_ledger" },
+        });
+        toast({
+          title: "Couldn't load payment ledger",
+          description: friendlyError(error),
+          variant: "destructive",
+        });
+      }
+    })());
+
+    if (user?.company_id) {
+      tasks.push((async () => {
+        try {
+          const reconData = await timeClockService.getReconciliation(
+            user.company_id as string,
+            startDate.toISOString(),
+            now.toISOString(),
+          );
+          setRecon(reconData);
+        } catch (error) {
+          captureException(error, {
+            level: "error",
+            tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_recon" },
+          });
+          // Recon is intel - silent fail. The card just stays empty.
+        }
+      })());
     }
+
+    await Promise.all(tasks);
+    setLoading(false);
   };
 
   const groupedSessions = sessions.reduce<Record<string, StaffGroup>>((acc, session) => {
