@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User } from "lucide-react";
+import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User, Activity, Clock, AlertTriangle } from "lucide-react";
+import { loginActivityBucket } from "@/lib/loginActivity";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { userManagementService } from "@/services/userManagementService";
@@ -22,8 +23,14 @@ interface StaffMember {
   full_name: string;
   active_role: string;
   created_at: string;
-  last_sign_in?: string;
+  // USR2-A: mirrored from auth.users via the
+  // auth_users_last_sign_in_mirror trigger on every login. Lets the
+  // page render activity chips per row without service-role access.
+  last_sign_in_at?: string | null;
 }
+
+// USR2-A: loginActivityBucket lives in @/lib/loginActivity so the
+// same chip renders on /admin/users (full team management) and here.
 
 const ROLE_OPTIONS = [
   { value: "company_admin", label: "Company Admin (all branches)", icon: Shield, color: "bg-indigo-100 text-indigo-700" },
@@ -445,37 +452,62 @@ export default function StaffManagementPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {staff.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                        <User className="w-6 h-6 text-white" />
+                {staff.map((member) => {
+                  // USR2-A: per-row activity chip. Helps the admin
+                  // notice ghost accounts (created but never used) and
+                  // staff who've gone quiet. Tooltip carries the exact
+                  // timestamp for the curious.
+                  const activity = loginActivityBucket(member.last_sign_in_at);
+                  const ActivityIcon =
+                    activity.kind === "active" ? Activity :
+                    activity.kind === "stale" ? Clock :
+                    activity.kind === "ghost" ? AlertTriangle :
+                                                 User;
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-3"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                          <User className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-slate-900 truncate">{member.full_name}</h3>
+                          <p className="text-sm text-slate-600 truncate">{member.email}</p>
+                          <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${activity.tone}`}
+                              title={
+                                member.last_sign_in_at
+                                  ? `Last sign-in: ${new Date(member.last_sign_in_at).toLocaleString("en-ZA")}`
+                                  : "No login recorded yet - this account has never signed in"
+                              }
+                            >
+                              <ActivityIcon className="w-3 h-3" />
+                              {activity.label}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{member.full_name}</h3>
-                        <p className="text-sm text-slate-600">{member.email}</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      {getRoleBadge(member.active_role)}
-                      
-                      {member.id !== user?.id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteStaff(member.id, member.full_name)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {getRoleBadge(member.active_role)}
+
+                        {member.id !== user?.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteStaff(member.id, member.full_name)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

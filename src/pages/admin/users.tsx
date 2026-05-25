@@ -56,6 +56,8 @@ import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
+import { formatDistanceToNow } from "date-fns";
+import { loginActivityBucket } from "@/lib/loginActivity";
 import { toLocalISO } from "@/lib/localDate";
 
 // USR-C (task #208, 2026-05-24): pending-invite shape used by the
@@ -869,6 +871,25 @@ function AdminUsersPage() {
                             <Badge className={targetUser.is_active ? "bg-green-100 text-green-700 border-green-200 text-xs" : "bg-slate-100 text-slate-700 border-slate-200 text-xs"}>
                               {targetUser.is_active ? "Active" : "Inactive"}
                             </Badge>
+                            {/* USR2-A: activity chip mirrors the
+                                /[slug]/admin/users surface. Tones:
+                                emerald = within 7d, amber = 8-30d,
+                                rose = 30d+, slate = never logged in. */}
+                            {(() => {
+                              const a = loginActivityBucket(targetUser.last_sign_in_at);
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${a.tone}`}
+                                  title={
+                                    targetUser.last_sign_in_at
+                                      ? `Last sign-in: ${new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA")}`
+                                      : "No login recorded yet - this account has never signed in"
+                                  }
+                                >
+                                  {a.label}
+                                </span>
+                              );
+                            })()}
                           </div>
                           
                           <div className="space-y-1 mb-3 text-xs md:text-sm text-slate-600">
@@ -919,6 +940,17 @@ function AdminUsersPage() {
                             )}
                             {targetUser.company_name && <p>Company: {targetUser.company_name}</p>}
                             <p>Joined: {formatLocalDate(targetUser.created_at || Date.now())}</p>
+                            {/* USR2-A: last sign-in line. Mirrored
+                                from auth.users via the
+                                auth_users_last_sign_in_mirror
+                                trigger. Helps admins notice ghost
+                                accounts and inactive staff. */}
+                            <p title={targetUser.last_sign_in_at ? new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA") : "No login recorded yet"}>
+                              Last sign-in:{" "}
+                              {targetUser.last_sign_in_at
+                                ? formatDistanceToNow(new Date(targetUser.last_sign_in_at), { addSuffix: true })
+                                : <span className="italic text-slate-400">never</span>}
+                            </p>
                           </div>
 
                           {editingUser !== targetUser.id && (

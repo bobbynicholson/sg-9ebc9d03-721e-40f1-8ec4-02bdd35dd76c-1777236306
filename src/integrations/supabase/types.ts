@@ -7871,6 +7871,7 @@ export type Database = {
           id: string
           id_number: string | null
           is_active: boolean | null
+          last_sign_in_at: string | null
           max_jobs_per_shift: number | null
           mobile_number: string | null
           notification_preferences: Json | null
@@ -7911,6 +7912,7 @@ export type Database = {
           id: string
           id_number?: string | null
           is_active?: boolean | null
+          last_sign_in_at?: string | null
           max_jobs_per_shift?: number | null
           mobile_number?: string | null
           notification_preferences?: Json | null
@@ -7951,6 +7953,7 @@ export type Database = {
           id?: string
           id_number?: string | null
           is_active?: boolean | null
+          last_sign_in_at?: string | null
           max_jobs_per_shift?: number | null
           mobile_number?: string | null
           notification_preferences?: Json | null
