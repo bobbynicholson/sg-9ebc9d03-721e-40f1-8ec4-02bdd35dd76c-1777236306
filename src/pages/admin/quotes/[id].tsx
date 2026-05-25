@@ -982,79 +982,103 @@ function AdminQuoteDetailInner() {
                   (paste into email / WhatsApp), PDF (browser-native
                   print of the public quote page). */}
               {!isDraft && quote.status !== "accepted" && quote.status !== "rejected" && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      const isAlreadySent = !!(quote as any).sent_at;
-                      const ok = isAlreadySent
-                        ? typeof window !== "undefined" && window.confirm(
-                            `Reset the 'sent' timestamp for this quote? Follow-up timing restarts from now.`,
-                          )
-                        : true;
-                      if (!ok) return;
-                      const nowIso = new Date().toISOString();
-                      const nextStatus = quote.status === "draft" ? "sent" : quote.status;
-                      try {
-                        const { error } = await (supabase as any)
-                          .from("quotes")
-                          .update({ sent_at: nowIso, status: nextStatus })
-                          .eq("id", quote.id);
-                        if (error) throw error;
-                        const refreshed = await quoteService.getQuote(quote.id);
-                        setQuote(refreshed);
-                        toast({
-                          title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
-                          description: isAlreadySent
-                            ? "Follow-up timing restarts from now."
-                            : "Follow-up timing now anchored to this moment.",
-                        });
-                      } catch (err: any) {
-                        toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
-                      }
-                    }}
-                    title="Anchor follow-up timing. Mark as sent without firing an email"
-                    className="gap-1.5"
-                  >
-                    {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}
-                  </Button>
-                  {(quote as any).public_token && (
-                    <>
+                <>
+                  {/* QTE-B (XSC Wave B): re-send email is the
+                      primary CTA when a quote is sitting at status='sent'.
+                      Pre-audit, sales reps saw only Mark/Copy/Download
+                      here and defaulted to copy-link-paste-into-whatsapp
+                      because nothing in front of them said "email".
+                      Email send tracks open rate + auto-flips status
+                      via the dialog. */}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <Send className="w-3 h-3" />
+                      Email send tracks open rate + auto-flips the quote status. Copy-link skips both.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSend}
+                        disabled={sending || saving}
+                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 gap-1.5"
+                      >
+                        <Send className="w-4 h-4" />
+                        {(quote as any).sent_at ? "Re-send by email" : "Send by email"}
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const url = `${window.location.origin}/q/${(quote as any).public_token}`;
+                          const isAlreadySent = !!(quote as any).sent_at;
+                          const ok = isAlreadySent
+                            ? typeof window !== "undefined" && window.confirm(
+                                `Reset the 'sent' timestamp for this quote? Follow-up timing restarts from now.`,
+                              )
+                            : true;
+                          if (!ok) return;
+                          const nowIso = new Date().toISOString();
+                          const nextStatus = quote.status === "draft" ? "sent" : quote.status;
                           try {
-                            await navigator.clipboard.writeText(url);
-                            toast({ title: "Link copied", description: "Paste into email or WhatsApp." });
-                          } catch {
-                            toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                            const { error } = await (supabase as any)
+                              .from("quotes")
+                              .update({ sent_at: nowIso, status: nextStatus })
+                              .eq("id", quote.id);
+                            if (error) throw error;
+                            const refreshed = await quoteService.getQuote(quote.id);
+                            setQuote(refreshed);
+                            toast({
+                              title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
+                              description: isAlreadySent
+                                ? "Follow-up timing restarts from now."
+                                : "Follow-up timing now anchored to this moment.",
+                            });
+                          } catch (err: any) {
+                            toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
                           }
                         }}
+                        title="Already emailed outside the system? This anchors the follow-up timer without firing another email."
                         className="gap-1.5"
                       >
-                        Copy public link
+                        {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          window.open(`${window.location.origin}/q/${(quote as any).public_token}?print=1`, "_blank", "noopener");
-                        }}
-                        className="gap-1.5"
-                      >
-                        Download PDF
-                      </Button>
-                    </>
-                  )}
-                  {(quote as any).sent_at && (
-                    <span className="text-[11px] text-slate-500 self-center ml-auto">
-                      Sent {new Date((quote as any).sent_at).toLocaleString("en-ZA")}
-                    </span>
-                  )}
-                </div>
+                      {(quote as any).public_token && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const url = `${window.location.origin}/q/${(quote as any).public_token}`;
+                              try {
+                                await navigator.clipboard.writeText(url);
+                                toast({ title: "Link copied", description: "Paste into email or WhatsApp." });
+                              } catch {
+                                toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                              }
+                            }}
+                            className="gap-1.5"
+                          >
+                            Copy public link
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              window.open(`${window.location.origin}/q/${(quote as any).public_token}?print=1`, "_blank", "noopener");
+                            }}
+                            className="gap-1.5 text-slate-600"
+                          >
+                            Download PDF
+                          </Button>
+                        </>
+                      )}
+                      {(quote as any).sent_at && (
+                        <span className="text-[11px] text-slate-500 self-center ml-auto">
+                          Sent {new Date((quote as any).sent_at).toLocaleString("en-ZA")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
 
               {!isDraft && quote.status !== "accepted" && (
