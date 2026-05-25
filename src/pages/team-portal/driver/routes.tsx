@@ -675,6 +675,24 @@ export default function DriverRoutes() {
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 {stopIsRolling ? "Mark Complete" : "Start delivery first"}
                               </Button>
+                              {/* ODOC H.10: easy-reference link to the
+                                  full order brief from inside the Next
+                                  Stop hero card. Bobby's brief - the
+                                  driver wants to glance at the venue
+                                  contact / equipment / special notes
+                                  without leaving the routes page. White
+                                  styling so it reads on the blue
+                                  gradient background. */}
+                              {(currentStop as any).id && (
+                                <Link
+                                  href={withSlug(`/order/${(currentStop as any).id}?role=driver`)}
+                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-white/40 bg-white/10 text-white text-sm font-semibold hover:bg-white/20 transition"
+                                  title="Open the full driver brief for this order"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  See order
+                                </Link>
+                              )}
                             </div>
                           </>
                         );
