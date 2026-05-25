@@ -1121,25 +1121,26 @@ export default function KitchenDashboard() {
                           {/* KIT2-K (KIT2-39): Production Priority row
                               buttons up to min-h-11 (44px). */}
                           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
+                            {/* ODOC G.3: primary CTA is now the unified
+                                order doc (kitchen section auto-expanded).
+                                Ticket lives as a print-only sibling
+                                reachable via the small printer icon. */}
                             <Link
-                              href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                              href={withSlug(`/order/${order.id}?role=kitchen_staff`)}
                               className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
-                              title="Open the printable kitchen ticket"
+                              title="Open the full order document"
                             >
                               <ChefHat className="w-4 h-4" />
-                              <span className="hidden xs:inline sm:inline">Kitchen ticket</span>
-                              <span className="xs:hidden sm:hidden">Ticket</span>
+                              <span className="hidden xs:inline sm:inline">Open order</span>
+                              <span className="xs:hidden sm:hidden">Open</span>
                             </Link>
-                            {canSeeAdminOrderDetail && (
-                              <Link
-                                href={withSlug(`/admin/orders?orderId=${order.id}`)}
-                                className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
-                                title="Open the order detail in admin"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                                <span className="hidden xs:inline sm:inline">Order</span>
-                              </Link>
-                            )}
+                            <Link
+                              href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                              className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                              title="Print kitchen ticket"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Link>
                             <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
                           </div>
                         </div>
@@ -1306,14 +1307,12 @@ export default function KitchenDashboard() {
                       : `${bottleneckTask.minsRunning}m`} ago on {bottleneckTask.orderLabel} and still in progress. Check if the prep needs a second pair of hands or got skipped.
                   </p>
                 </div>
-                {canSeeAdminOrderDetail && (
-                  <Link
-                    href={withSlug(`/admin/orders?orderId=${bottleneckTask.orderId}`)}
-                    className="inline-flex items-center gap-1 text-xs text-orange-700 underline hover:text-orange-900 shrink-0"
-                  >
-                    Open order
-                  </Link>
-                )}
+                <Link
+                  href={withSlug(`/order/${bottleneckTask.orderId}?role=kitchen_staff`)}
+                  className="inline-flex items-center gap-1 text-xs text-orange-700 underline hover:text-orange-900 shrink-0"
+                >
+                  Open order
+                </Link>
               </CardContent>
             </Card>
           )}
@@ -1758,25 +1757,24 @@ export default function KitchenDashboard() {
                                 {/* KIT2-K (KIT2-39): tap targets bumped
                                     from h-8 (32px) to min-h-11 (44px).
                                     Floured-hands tap landing. */}
-                                <div className={`mt-2 grid gap-1.5 ${canSeeAdminOrderDetail ? "grid-cols-2" : "grid-cols-1"}`}>
+                                {/* ODOC G.3: primary = doc, secondary
+                                    = print-only ticket. */}
+                                <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
                                   <Link
-                                    href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-orange-50 border border-orange-200 text-orange-800 hover:bg-orange-100 hover:border-orange-300 transition"
-                                    title="Open the printable kitchen ticket"
+                                    href={withSlug(`/order/${order.id}?role=kitchen_staff`)}
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
+                                    title="Open the full order document"
                                   >
                                     <ChefHat className="w-4 h-4" />
-                                    Kitchen ticket
+                                    Open order
                                   </Link>
-                                  {canSeeAdminOrderDetail && (
-                                    <Link
-                                      href={withSlug(`/admin/orders?orderId=${order.id}`)}
-                                      className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
-                                      title="Open the order detail in admin"
-                                    >
-                                      <ExternalLink className="w-4 h-4" />
-                                      Order detail
-                                    </Link>
-                                  )}
+                                  <Link
+                                    href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                                    className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                                    title="Print kitchen ticket"
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                  </Link>
                                 </div>
 
                                 {/* KIT2-K (kitchen deep audit, KIT2-39 /

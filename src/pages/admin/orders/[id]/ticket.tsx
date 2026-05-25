@@ -35,7 +35,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Printer, ArrowLeft, Loader2, AlertCircle, ChefHat, Truck, Package, Clock, Edit3, ExternalLink } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, AlertCircle, ChefHat, Truck, Package, Clock, Edit3, ExternalLink, FileText } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -445,9 +445,20 @@ function KitchenTicketPage() {
       `}</style>
       <div className="min-h-screen bg-slate-50 print:bg-white">
         <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back
+            </Button>
+            {/* ODOC G.3: ticket complements the doc - this CTA hops
+                back to the interactive operational surface. */}
+            <Link
+              href={withSlug(`/order/${orderId}?role=kitchen_staff`)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-semibold text-orange-700 hover:bg-orange-50 border border-orange-200"
+            >
+              <FileText className="w-4 h-4" />
+              Open full order document
+            </Link>
+          </div>
           <Button onClick={() => window.print()} size="sm">
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>

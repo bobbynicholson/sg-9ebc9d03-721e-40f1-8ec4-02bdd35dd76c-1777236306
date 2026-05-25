@@ -988,7 +988,7 @@ export default function KitchenProductionPage() {
                               return (
                                 <Link
                                   key={t.id}
-                                  href={withSlug(`/team-portal/kitchen/orders/${t.order_id}/ticket`)}
+                                  href={withSlug(`/order/${t.order_id}?role=kitchen_staff#section-kitchen`)}
                                   className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-orange-300 ${tone}`}
                                   style={{
                                     left: `${pos.leftPct}%`,
@@ -1084,9 +1084,9 @@ export default function KitchenProductionPage() {
                           return (
                             <Link
                               key={o.id}
-                              href={withSlug(`/team-portal/kitchen/orders/${o.id}/ticket`)}
+                              href={withSlug(`/order/${o.id}?role=kitchen_staff`)}
                               className="block group"
-                              title="Open kitchen ticket"
+                              title="Open the full order document"
                             >
                             <Card className={`${isToday ? "border-orange-200" : ""} group-hover:border-orange-400 group-hover:shadow-md transition-all cursor-pointer`}>
                               <CardContent className="p-4">
