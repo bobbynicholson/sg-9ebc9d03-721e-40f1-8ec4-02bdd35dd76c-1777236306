@@ -32,6 +32,7 @@ import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog"
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { canAccessFinance } from "@/lib/authGuards";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -103,11 +104,13 @@ function FinancialDashboardInner() {
   const [loadedAt, setLoadedAt] = useState<number>(0);
 
   // Cashflow Forecast Card is gated to operator / director roles per
-  // the finance-visibility rule. Read off the auth user's active
-  // role; super_admin always sees the card (cross-tenant support).
-  const role = String(user?.active_role || user?.role || "").toLowerCase();
-  const canSeeFinanceForecast =
-    role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
+  // the finance-visibility rule. TIGHTEN I.7 (2026-05-26): the
+  // previous inline check granted UserRole.ADMIN, which canAccessRoute
+  // already refuses on this entire route - dead branch in practice
+  // but the wrong shape. Going through canAccessFinance keeps the
+  // gate in step with the canonical helper everywhere.
+  const activeRole = String(user?.active_role || user?.role || "").toLowerCase() as UserRole;
+  const canSeeFinanceForecast = canAccessFinance(activeRole);
 
   // Per-branch P&L sources from useCompanyKitchens. Cross-branch
   // operators see a "Branches" tab; single-branch tenants don't get
@@ -551,7 +554,7 @@ function FinancialDashboardInner() {
         <Head><title>Financial Dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:ml-64 xl:ml-72">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load financial data</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
@@ -582,7 +585,7 @@ function FinancialDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:ml-64 xl:ml-72">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80">
         <div className="max-w-full">
           <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
