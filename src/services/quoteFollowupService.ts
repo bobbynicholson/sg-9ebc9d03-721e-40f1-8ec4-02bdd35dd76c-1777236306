@@ -97,7 +97,12 @@ export function computeFollowupState(
   if (status === "accepted" || status === "rejected" || status === "expired") {
     return {
       light: "slate",
-      label: "—",
+      // TIGHTEN I.11: was "—" (em dash, banned). Plain hyphen is
+      // the canonical missing-value placeholder across the admin
+      // pages. The /admin/quotes consumer keeps its `label !== "-"`
+      // suppression so closed quotes still render without the
+      // badge.
+      label: "-",
       reason: `Quote is ${status}; no further follow-ups needed.`,
       nextPosition: null,
       lastSentPosition: 0,

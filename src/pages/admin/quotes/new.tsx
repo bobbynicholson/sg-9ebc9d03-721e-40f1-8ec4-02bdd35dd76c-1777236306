@@ -1412,7 +1412,7 @@ function NewQuotePage() {
   };
 
   // Phase 3 #1: allergen gate. Sending a quote with menu items whose
-  // allergens have never been reviewed sends the kitchen blind --
+  // allergens have never been reviewed sends the kitchen blind;
   // there's no signed-off statement of what's in each dish. We block
   // the send until either the staffer goes back and reviews the
   // flagged items, or explicitly accepts the risk. The detection
@@ -1470,13 +1470,13 @@ function NewQuotePage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>{quoteNumber ? `${quoteNumber} | Quote` : "New Quote"} | CateringMS Admin</title>
+        <title>{quoteNumber ? `${quoteNumber} - Quote` : "New quote"} - CateringMS</title>
       </Head>
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
+        <div className="px-4 py-8 max-w-full">
           <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" className="mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -2121,7 +2121,7 @@ function NewQuotePage() {
                                     </span>
                                   </div>
                                   {/* Split display when we have a quantity.
-                                      Wave 16 audit: Bobby's brief --
+                                      Wave 16 audit: Bobby's brief,
                                       "if I have 200 and need 8 it should
                                       say 'you have enough', not push
                                       hire-in messaging". When the requested
@@ -2134,7 +2134,7 @@ function NewQuotePage() {
                                       {split.fromHire === 0 && split.fromStock > 0 ? (
                                         <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
                                           <span aria-hidden>✓</span>
-                                          You have enough — {split.fromStock} from stock ({av.available - split.fromStock} still free after this run)
+                                          You have enough: {split.fromStock} from stock ({av.available - split.fromStock} still free after this run)
                                         </span>
                                       ) : (
                                         <>
@@ -2366,7 +2366,7 @@ function NewQuotePage() {
                           {quoteNumber && <span className="text-[11px] text-slate-500">{quoteNumber}</span>}
                         </div>
                         <p className="text-xs text-slate-500 mb-3">
-                          {eventDate ? new Date(eventDate).toLocaleDateString("en-ZA") : "—"}
+                          {eventDate ? new Date(eventDate).toLocaleDateString("en-ZA") : "-"}
                           {guestCount ? ` • ${guestCount} guests` : ""}
                         </p>
                         <ul className="space-y-1 mb-3">

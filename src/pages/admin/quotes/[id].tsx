@@ -525,7 +525,7 @@ function AdminQuoteDetailInner() {
   return (
     <>
       <Head>
-        <title>Quote Details | CateringMS</title>
+        <title>Quote details - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
@@ -537,7 +537,7 @@ function AdminQuoteDetailInner() {
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
 
-        <div className="max-w-7xl mx-auto px-4 pt-20 lg:pt-6 pb-12">
+        <div className="max-w-full px-4 pt-20 lg:pt-6 pb-12">
           <div className="mb-6">
             <Link href={withSlug("/admin/quotes")}>
               <Button variant="ghost" size="sm">
@@ -638,7 +638,7 @@ function AdminQuoteDetailInner() {
                       <Mail className="w-5 h-5 text-slate-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Client Email</p>
-                        <p className="text-slate-900 font-medium">{quote.client_email || "—"}</p>
+                        <p className="text-slate-900 font-medium">{quote.client_email || "-"}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -646,7 +646,7 @@ function AdminQuoteDetailInner() {
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Event Date</p>
                         <p className="text-slate-900 font-medium">
-                          {formatLocalDate(quote.event_date, "—")}
+                          {formatLocalDate(quote.event_date, "-")}
                           {(quote as any).event_time
                             ? ` · ${String((quote as any).event_time).slice(0, 5)} start`
                             : ""}
@@ -663,7 +663,7 @@ function AdminQuoteDetailInner() {
                       <Users className="w-5 h-5 text-slate-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Guests</p>
-                        <p className="text-slate-900 font-medium">{quote.guest_count ?? "—"}</p>
+                        <p className="text-slate-900 font-medium">{quote.guest_count ?? "-"}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -671,7 +671,7 @@ function AdminQuoteDetailInner() {
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Venue</p>
                         <p className="text-slate-900 font-medium">
-                          {(quote as any).venue_address || "—"}
+                          {(quote as any).venue_address || "-"}
                         </p>
                       </div>
                     </div>

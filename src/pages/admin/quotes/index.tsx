@@ -1357,7 +1357,7 @@ function AdminQuotesInner() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Quote Management - CateringMS Admin</title>
+        <title>Quotes - CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -1634,7 +1634,7 @@ function AdminQuotesInner() {
             Bulk nudge bar. Only shown when a follow-up-eligible bucket
             is active AND there are quotes with client emails to nudge.
             Hard-capped at 10 to avoid the browser blocking pop-ups
-            and to keep the "personal mail, not bulk" feel intact --
+            and to keep the "personal mail, not bulk" feel intact;
             10 individually-tailored Gmail drafts beats one generic
             blast every time.
           */}
@@ -1969,7 +1969,7 @@ function AdminQuotesInner() {
                             <span className="font-normal text-xs text-slate-500">
                              , {intel.reason}
                             </span>
-                            {followup && followup.label !== "—" && (
+                            {followup && followup.label !== "-" && (
                               <span
                                 title={followup.reason}
                                 className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${TRAFFIC_LIGHT_CLASS[followup.light]}`}
@@ -2018,11 +2018,11 @@ function AdminQuotesInner() {
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Calendar className="w-4 h-4" />
-                              <span className="text-sm">{formatLocalDate(displayEventDate, "—")}</span>
+                              <span className="text-sm">{formatLocalDate(displayEventDate, "-")}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Users className="w-4 h-4" />
-                              <span className="text-sm">{displayGuestCount ?? "—"} guests</span>
+                              <span className="text-sm">{displayGuestCount ?? "-"} guests</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <DollarSign className="w-4 h-4" />
@@ -2907,7 +2907,7 @@ function QuoteComposeDrawer({
     currencyCode: currencyCode ?? null,
   };
 
-  // Sweetener controls. Default to a 10% nudge with a 7-day expiry --
+  // Sweetener controls. Default to a 10% nudge with a 7-day expiry;
   // most catering teams will tune from there.
   const [discountKind, setDiscountKind] = useState<"percent" | "amount" | "perk">("percent");
   const [discountPercent, setDiscountPercent] = useState<number>(10);
