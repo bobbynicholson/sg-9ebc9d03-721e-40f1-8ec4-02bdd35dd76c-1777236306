@@ -341,15 +341,16 @@ function PayablesPage() {
   return (
     <>
       <Head>
-        <title>Payables - Admin</title>
+        <title>Payables - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      {/* Match the standard admin layout (AdminNav is a fixed sidebar
-          at lg+). Without lg:ml-64 xl:ml-72 the page contents render
-          under the sidebar and the cards sit behind the menu. */}
-      <div className="min-h-screen bg-slate-50 lg:ml-64 xl:ml-72">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      {/* TIGHTEN I.12: persona-standard wrapper (was lg:ml-64
+          xl:ml-72 + max-w-6xl mx-auto, which kept the page narrow
+          even on wide monitors and sat flush against the sidebar
+          with no breathing room). */}
+      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+        <div className="max-w-full px-4 md:px-6 py-8">
           <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
           <div className="flex items-start justify-between mb-6 gap-3">
             <div>

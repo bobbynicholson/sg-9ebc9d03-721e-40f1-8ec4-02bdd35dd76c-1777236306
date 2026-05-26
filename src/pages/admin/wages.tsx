@@ -710,11 +710,11 @@ function WageDashboardPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
       <NoIndexMeta />
-      <Head><title>Wage dashboard | CateringMS Admin</title></Head>
+      <Head><title>Wages - CateringMS</title></Head>
       <AdminNav />
 
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -920,7 +920,7 @@ function WageDashboardPage() {
                     <Wallet className="w-3 h-3" />Owed to staff
                   </div>
                   <div className="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">
-                    {owedToStaff == null ? <span className="text-slate-300">—</span> : fmtZAR(owedToStaff)}
+                    {owedToStaff == null ? <span className="text-slate-300">-</span> : fmtZAR(owedToStaff)}
                   </div>
                   <div className="text-[10px] text-amber-800/80 mt-1">
                     Unpaid clock-in sessions across every department
@@ -949,7 +949,7 @@ function WageDashboardPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="text-sm text-slate-400">—</div>
+                    <div className="text-sm text-slate-400">-</div>
                   )}
                 </CardContent>
               </Card>
@@ -959,7 +959,7 @@ function WageDashboardPage() {
                     <ClockIcon className="w-3 h-3" />Cost per event
                   </div>
                   {eventCount == null || eventCount === 0 ? (
-                    <div className="text-2xl font-bold text-slate-300 tabular-nums">—</div>
+                    <div className="text-2xl font-bold text-slate-300 tabular-nums">-</div>
                   ) : (
                     <>
                       <div className="text-2xl font-bold text-slate-900 tabular-nums">
@@ -998,7 +998,7 @@ function WageDashboardPage() {
                       </div>
                       {wagePct == null ? (
                         <>
-                          <div className="text-2xl font-bold text-slate-300 tabular-nums">—</div>
+                          <div className="text-2xl font-bold text-slate-300 tabular-nums">-</div>
                           <div className="text-[10px] text-slate-500 mt-1">No invoiced events in range</div>
                         </>
                       ) : (
@@ -1320,7 +1320,7 @@ function DriverSummaryView({ rows, totals }: { rows: DriverPayRow[]; totals: { h
 // over the last month. SVG sized to fit a narrow table column.
 function HoursSparkline({ values, title }: { values: number[]; title: string }) {
   if (!values || values.length === 0 || values.every((v) => v === 0)) {
-    return <span className="text-slate-300 text-[10px]">—</span>;
+    return <span className="text-slate-300 text-[10px]">-</span>;
   }
   const max = Math.max(1, ...values);
   const width = 56;
