@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import Head from "next/head";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -57,6 +60,7 @@ function InvoicesPageInner() {
   const router = useRouter();
   const { user, activeRole, loading: authLoading } = useAuth() as any;
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   
   // INV-B: raw fetched list (company-wide, RLS-scoped). Realtime
   // mutations land here, then the regionScoped view below filters
@@ -1229,6 +1233,8 @@ function InvoicesPageInner() {
   }
 
   return (
+    <>
+    <Head><title>Invoices - CateringMS</title></Head>
     <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 print:pl-0 print:bg-white">
       {/* Wave 66 - print stylesheet for paper invoices. SA municipal
           + government clients still ask for posted PDFs; bookkeepers
@@ -2222,13 +2228,13 @@ function InvoicesPageInner() {
                             the order number then navigate to /admin/orders. */}
                         {invoice.order_id && (
                           <a
-                            href={`/order/${invoice.order_id}`}
+                            href={withSlug(staffOrderHref(invoice.order_id, "admin"))}
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
                             title="Open the order this invoice belongs to"
                           >
                             <ExternalLink className="w-2.5 h-2.5" />
-                            Open order
+                            Open brief
                           </a>
                         )}
                       </div>
@@ -2475,6 +2481,7 @@ function InvoicesPageInner() {
         initialScope="overdue"
       />
     </div>
+    </>
   );
 }
 
