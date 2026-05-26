@@ -578,7 +578,7 @@ function DriverManagementPage() {
             ? ` Vehicle ${attachedPlate} attached.`
             : " Vehicle attached.";
         } catch (vehErr: any) {
-          // Driver landed, vehicle didn't. Don't roll back the driver --
+          // Driver landed, vehicle didn't. Don't roll back the driver;
           // the password is gone after a rollback and the operator would
           // have to re-type everything.
           console.error("Vehicle attach failed:", vehErr);
@@ -631,7 +631,7 @@ function DriverManagementPage() {
   };
 
   /**
-   * Remove a driver. Server-side soft-delete via /api/admin/delete-user --
+   * Remove a driver. Server-side soft-delete via /api/admin/delete-user;
    * stamps profiles.deleted_at + bans the auth user so the row stops
    * appearing in queries and the user can no longer log in. Order history
    * stays intact (we never hard-delete because that would cascade through
@@ -1060,7 +1060,7 @@ function DriverManagementPage() {
                                   onChange={(e) => setNewDriver({ ...newDriver, existing_vehicle_id: e.target.value })}
                                   className="mt-1 w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                                 >
-                                  <option value="">— Select a vehicle —</option>
+                                  <option value="">- Select a vehicle -</option>
                                   {vehicles
                                     .filter(v => v.owner_kind === "company")
                                     .map(v => (
@@ -1482,7 +1482,7 @@ function DriverManagementPage() {
                                       perf.onTimeRate >= 0.85 ? "text-amber-700" :
                                                                 "text-red-700"
                                     }`}>
-                                      {perf.onTimeRate == null ? "—" : `${Math.round(perf.onTimeRate * 100)}%`}
+                                      {perf.onTimeRate == null ? "-" : `${Math.round(perf.onTimeRate * 100)}%`}
                                     </p>
                                     <p className="text-[10px] uppercase tracking-wide text-slate-500">on-time 30d</p>
                                   </div>
@@ -1494,7 +1494,7 @@ function DriverManagementPage() {
                                   </div>
                                   <div className="text-center hidden lg:block">
                                     <p className="text-sm font-semibold text-slate-700 tabular-nums">
-                                      {perf.totalKm > 0 ? `${perf.totalKm} km` : "—"}
+                                      {perf.totalKm > 0 ? `${perf.totalKm} km` : "-"}
                                     </p>
                                     <p className="text-[10px] uppercase tracking-wide text-slate-500">distance 30d</p>
                                   </div>
@@ -1503,7 +1503,7 @@ function DriverManagementPage() {
                             })()}
                             <div className="text-center">
                               <p className="text-sm font-medium text-slate-700">
-                                {lastPing ? relativeTime(lastPing) : "—"}
+                                {lastPing ? relativeTime(lastPing) : "-"}
                               </p>
                               <p className="text-[10px] uppercase tracking-wide text-slate-500">last ping</p>
                             </div>
@@ -1831,14 +1831,12 @@ function DriverManagementPage() {
   );
 }
 
-// -----------------------------------------------------------------------------
 // CompanyPayDefaultsCard
 //
 // Company-level fallback rates for driver pay. Editable inline. When a
 // driver's per-profile rate is NULL the calculator uses these. Sits at
 // the top of the driver-management page so the operator sees the
 // fallbacks before drilling into individual drivers.
-// -----------------------------------------------------------------------------
 function CompanyPayDefaultsCard({
   companyId,
   defaults,

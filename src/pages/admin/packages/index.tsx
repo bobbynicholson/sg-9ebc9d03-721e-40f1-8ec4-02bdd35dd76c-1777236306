@@ -348,7 +348,7 @@ function PackagesPage() {
                         <div className="flex items-center gap-1.5">
                           <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
                           <span>
-                            {pkg.starts_at ? formatDate(pkg.starts_at) : "—"}
+                            {pkg.starts_at ? formatDate(pkg.starts_at) : "-"}
                             {pkg.ends_at && pkg.ends_at !== pkg.starts_at && (
                               <> &nbsp;→&nbsp; {formatDate(pkg.ends_at)}</>
                             )}

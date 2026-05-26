@@ -918,7 +918,7 @@ function MenuPage() {
         outsource_lead_hours: itemDraft.fulfilment_type === "in_house"
           ? null
           : (itemDraft.outsource_lead_hours.trim() ? parseInt(itemDraft.outsource_lead_hours, 10) : null),
-        // Phase 2 #7: saving the menu item IS the allergen review --
+        // Phase 2 #7: saving the menu item IS the allergen review;
         // the staffer just confirmed the codes, dietary tags, etc.
         // Stamp the review state so AllergenReviewBadge stops nagging.
         // allergens_reviewed_by is set to the logged-in user.
@@ -1214,7 +1214,7 @@ function MenuPage() {
                   stats.medianMarginPct < 50 ? "text-amber-700" :
                                                "text-emerald-700"
                 }`}>
-                  {stats.medianMarginPct == null ? "--" : `${stats.medianMarginPct.toFixed(0)}%`}
+                  {stats.medianMarginPct == null ? "-" : `${stats.medianMarginPct.toFixed(0)}%`}
                 </p>
                 {stats.medianMarginPct == null && <p className="text-[11px] text-slate-500 mt-1">Need recipes + costs</p>}
                 {stats.highMarginCount > 0 && (
@@ -1559,7 +1559,7 @@ function MenuPage() {
                                     )}
                                   </>
                                 ) : (
-                                  <div className="text-xs text-slate-400">--</div>
+                                  <div className="text-xs text-slate-400">-</div>
                                 )}
                               </div>
                               <div className="text-right hidden sm:block">
@@ -2311,7 +2311,7 @@ function MenuPage() {
       {/* Allergen / dietary cross-check confirm. Fires when ingredient
           inventory carries an allergen the menu item either contradicts
           (e.g. tagged "gluten free" but contains gluten) or hasn't
-          declared on its allergen_codes. Operator can still proceed --
+          declared on its allergen_codes. Operator can still proceed;
           some flags are intentional ("may contain") - but they see the
           warnings first. */}
       <AlertDialog open={allergenConfirmOpen} onOpenChange={setAllergenConfirmOpen}>

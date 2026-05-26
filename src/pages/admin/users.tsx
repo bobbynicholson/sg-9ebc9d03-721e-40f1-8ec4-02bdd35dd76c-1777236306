@@ -1349,7 +1349,7 @@ function PendingInvitationsList({
                 </div>
                 <p className="text-xs text-slate-600 mt-0.5 truncate">{inv.email || "(no email captured)"}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Invited {inv.created_at ? formatLocalDate(inv.created_at) : "—"}
+                  Invited {inv.created_at ? formatLocalDate(inv.created_at) : "-"}
                   {inv.expires_at && (
                     <span className="ml-2">
                       · Expires {formatLocalDate(inv.expires_at)}

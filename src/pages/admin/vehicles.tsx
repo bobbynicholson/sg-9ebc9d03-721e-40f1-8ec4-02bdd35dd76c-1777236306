@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/vehicles - the catering company's fleet.
  *
@@ -798,7 +798,7 @@ function VehiclesPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-slate-900">
                             {v.nickname ? `${v.nickname} ` : ""}
-                            <span className="font-mono text-sm text-slate-500">{v.plate || "—"}</span>
+                            <span className="font-mono text-sm text-slate-500">{v.plate || "-"}</span>
                           </p>
                           {v.owner_kind === "driver" ? (
                             <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1">
@@ -1421,10 +1421,10 @@ function UtilisationView({
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
-                      {r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)}km` : "—"}
+                      {r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)}km` : "-"}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
-                      {r.revenueCarried > 0 ? `R ${Math.round(r.revenueCarried).toLocaleString("en-ZA")}` : "—"}
+                      {r.revenueCarried > 0 ? `R ${Math.round(r.revenueCarried).toLocaleString("en-ZA")}` : "-"}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">
                       {r.cancelledRuns > 0 ? (

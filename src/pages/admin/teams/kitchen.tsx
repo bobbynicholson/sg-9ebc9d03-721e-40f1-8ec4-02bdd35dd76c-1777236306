@@ -793,11 +793,11 @@ function KitchenTeamPage() {
                       <td className="py-2 pr-3 tabular-nums">
                         {r.start_at
                           ? new Date(r.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })
-                          : "—"}
+                          : "-"}
                       </td>
                       <td className="py-2 pr-3 capitalize">{r.task_type || "prep"}</td>
                       <td className="py-2 pr-3 font-medium">{r.menu_item_name || "Unnamed"}</td>
-                      <td className="py-2 pr-3 tabular-nums">{r.duration_min || "—"}</td>
+                      <td className="py-2 pr-3 tabular-nums">{r.duration_min || "-"}</td>
                       <td className="py-2 pr-3 capitalize">{(r.status || "pending").replace("_", " ")}</td>
                       <td className="py-2 text-xs">{r.notes || ""}</td>
                     </tr>
@@ -868,7 +868,7 @@ function PrepBroadcastDialog({
     // sees what's expected of them. Operator can edit before send.
     const today = new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "short" });
     const lines = prepRows.slice(0, 8).map((r) => {
-      const t = r.start_at ? new Date(r.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—";
+      const t = r.start_at ? new Date(r.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-";
       return `- ${t}  ${r.menu_item_name || "Unnamed"} (${r.duration_min || "?"}m)`;
     });
     const more = prepRows.length > 8 ? `\n+ ${prepRows.length - 8} more on the full sheet` : "";

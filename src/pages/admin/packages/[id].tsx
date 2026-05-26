@@ -370,7 +370,7 @@ function PackageDetailPage() {
                           <p className="text-[10px] uppercase tracking-wider text-slate-500">Dates</p>
                           <p className="font-medium text-slate-900 mt-0.5 flex items-center gap-1">
                             <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
-                            {pkg.starts_at ? formatDate(pkg.starts_at) : "—"}
+                            {pkg.starts_at ? formatDate(pkg.starts_at) : "-"}
                             {pkg.ends_at && pkg.ends_at !== pkg.starts_at && <> → {formatDate(pkg.ends_at)}</>}
                           </p>
                         </div>
@@ -378,7 +378,7 @@ function PackageDetailPage() {
                           <p className="text-[10px] uppercase tracking-wider text-slate-500">Venue</p>
                           <p className="font-medium text-slate-900 mt-0.5 flex items-center gap-1 truncate">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            <span className="truncate">{pkg.venue_summary || "—"}</span>
+                            <span className="truncate">{pkg.venue_summary || "-"}</span>
                           </p>
                         </div>
                         <div>

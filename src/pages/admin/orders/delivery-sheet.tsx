@@ -163,14 +163,14 @@ function DeliverySheet() {
                         </span>
                         <div className="flex-1">
                           <p className="text-base font-semibold text-slate-900">
-                            {o.client_name || "—"}
+                            {o.client_name || "-"}
                             <span className="text-xs font-normal text-slate-500 ml-2 tabular-nums">
                               {o.order_number || ""}
                             </span>
                           </p>
-                          <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "—"}</p>
+                          <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "-"}</p>
                           <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
-                            <span className="tabular-nums">{o.guest_count ?? "—"} guests</span>
+                            <span className="tabular-nums">{o.guest_count ?? "-"} guests</span>
                             {o.setup_time && <span>setup {fmtTime(o.setup_time)}</span>}
                             {o.pickup_time && <span>pickup {fmtTime(o.pickup_time)}</span>}
                             <span className="capitalize bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{o.status?.replace(/_/g, " ")}</span>

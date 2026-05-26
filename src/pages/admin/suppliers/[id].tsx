@@ -40,10 +40,10 @@ import {
 } from "@/services/supplierService";
 
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const fmtDate = (iso: string | null) =>
-  !iso ? "—" : new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  !iso ? "-" : new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
 
 type RangeKey = "30d" | "90d" | "365d" | "custom";
 
@@ -397,10 +397,10 @@ function SupplierDetail() {
                                   <p className="text-[11px] text-slate-500">{p.inventory_items.category}</p>
                                 )}
                               </td>
-                              <td className="py-2 px-3 text-xs text-slate-600">{p.pack_size || "—"}</td>
-                              <td className="py-2 px-3 text-right tabular-nums">{p.unit_price ? fmtR(p.unit_price) : "—"}</td>
+                              <td className="py-2 px-3 text-xs text-slate-600">{p.pack_size || "-"}</td>
+                              <td className="py-2 px-3 text-right tabular-nums">{p.unit_price ? fmtR(p.unit_price) : "-"}</td>
                               <td className="py-2 px-3 text-right text-xs text-slate-600">
-                                {p.lead_time_days != null ? `${p.lead_time_days}d` : "—"}
+                                {p.lead_time_days != null ? `${p.lead_time_days}d` : "-"}
                               </td>
                               <td className="py-2 px-3 text-xs text-slate-600">{fmtDate(p.last_purchased_at)}</td>
                               <td className="py-2 px-3 text-right">

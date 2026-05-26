@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
+﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
  * Company profile - the source of truth for the catering company's
@@ -516,7 +516,7 @@ function CompanyProfilePage() {
                   onChange={(e) => setRow({ ...row, timezone: e.target.value || null })}
                   className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
                 >
-                  <option value="">— pick a timezone —</option>
+                  <option value="">- pick a timezone -</option>
                   {TENANT_TIMEZONE_CHOICES.map((tz) => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                   ))}
@@ -529,11 +529,11 @@ function CompanyProfilePage() {
                   onChange={(e) => setRow({ ...row, currency: e.target.value })}
                   className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
                 >
-                  <option value="ZAR">ZAR — South African Rand</option>
-                  <option value="GBP">GBP — British Pound</option>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="AUD">AUD — Australian Dollar</option>
+                  <option value="ZAR">ZAR - South African Rand</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="AUD">AUD - Australian Dollar</option>
                 </select>
               </Field>
               {/* Phase 5 #3: Google Business Profile place_id. When
@@ -592,7 +592,7 @@ function CompanyProfilePage() {
                   }}
                   className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
                 >
-                  <option value="">— inherit default —</option>
+                  <option value="">- inherit default -</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
                       {new Date(2000, m - 1, 1).toLocaleString("en-ZA", { month: "long" })}
@@ -610,7 +610,7 @@ function CompanyProfilePage() {
                   }}
                   className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
                 >
-                  <option value="">— inherit default —</option>
+                  <option value="">- inherit default -</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
                       {new Date(2000, m - 1, 1).toLocaleString("en-ZA", { month: "long" })}

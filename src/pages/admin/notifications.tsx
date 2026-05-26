@@ -686,7 +686,7 @@ function NotificationsPage() {
                                     </div>
 
                                     {/* Accordion intentionally does NOT
-                                        repeat the message or the type --
+                                        repeat the message or the type;
                                         both are already visible above.
                                         It only surfaces the precise
                                         meta the inline header omits:
