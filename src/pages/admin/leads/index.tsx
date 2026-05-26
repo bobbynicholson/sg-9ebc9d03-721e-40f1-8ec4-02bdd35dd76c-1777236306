@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -54,7 +55,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
  * Slimmed-down quote shape we keep in memory for each lead. We only
  * need enough to label the picker (number, name, status, total, date)
  * and to route on click (id). Caterers routinely send 2+ alternate
- * quotes to the same lead - "buffet vs plated", "100 vs 150 guests" --
+ * quotes to the same lead - "buffet vs plated", "100 vs 150 guests" -
  * so the multi-quote picker is the standard case, not the edge case.
  */
 interface LeadQuoteSummary {
@@ -69,7 +70,7 @@ interface LeadQuoteSummary {
 /**
  * Format a quote summary into the picker label. We lead with the
  * quote_number when we have one (operators recognise "Q-0042" faster
- * than a name), then a status pill and the rand total. Nothing fancy --
+ * than a name), then a status pill and the rand total. Nothing fancy,
  * just enough to pick the right one when there are 2 or 3 alternates.
  */
 function formatQuoteLabel(q: LeadQuoteSummary): string {
@@ -546,7 +547,7 @@ function AdminLeadsInner() {
 
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
     if (kind === "view_order" && links.orderId) {
-      router.push(withSlug(`/order/${links.orderId}`));
+      router.push(withSlug(staffOrderHref(links.orderId, "admin")));
       return;
     }
     if (kind === "convert_to_order") {
@@ -1030,7 +1031,7 @@ function AdminLeadsInner() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Leads - CateringMS Admin</title>
+        <title>Leads - CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -1479,7 +1480,7 @@ function AdminLeadsInner() {
                                 : "hover:bg-slate-100";
                               return (
                                 <Link
-                                  href={withSlug(`/order/${links.orderId}`)}
+                                  href={withSlug(staffOrderHref(links.orderId, "admin"))}
                                   className={`inline-flex items-center gap-1 text-[11px] font-medium border rounded px-1.5 py-0.5 ${classes} ${hoverClasses}`}
                                   title={`Linked order is ${label.toLowerCase()}. Click to open.`}
                                 >
@@ -1576,7 +1577,7 @@ function AdminLeadsInner() {
                             </Button>
                             {/* Secondary "open / start a quote" button.
                                 Only rendered when the primary CTA isn't
-                                already routing to the same quote --
+                                already routing to the same quote;
                                 otherwise we end up with two buttons that
                                 navigate to the same URL (Bobby flagged
                                 this). */}
@@ -1814,7 +1815,7 @@ function AdminLeadsInner() {
                               <p className="text-[11px] text-slate-500">
                                 Rebooked from past order
                                 <Link
-                                  href={withSlug(`/order/${lead.source_order_id}`)}
+                                  href={withSlug(staffOrderHref(lead.source_order_id, "admin"))}
                                   className="ml-1.5 text-purple-600 hover:underline font-medium"
                                 >
                                   view original
@@ -1950,7 +1951,7 @@ function AdminLeadsInner() {
           // up the new "booked" pill on return, and deep-link straight
           // into the new orders dashboard with the order pre-selected.
           void loadLeads();
-          router.push(withSlug(`/order/${orderId}`));
+          router.push(withSlug(staffOrderHref(orderId, "admin")));
         }}
       />
     </>
@@ -2013,7 +2014,7 @@ function LeadComposeDrawer({
       contextLabel="This lead"
       contextRows={[
         { label: "Email",       value: lead.client_email || lead.email || "(none)", title: lead.client_email || lead.email || "(none)" },
-        { label: "Phone",       value: lead.client_phone || lead.phone || "—" },
+        { label: "Phone",       value: lead.client_phone || lead.phone || "-" },
         { label: "Status",      value: lead.status || "new" },
         { label: "Source",      value: lead.source ? lead.source.replace(/_/g, " ") : "manual" },
         ...(lead.event_type ? [{ label: "Event type", value: lead.event_type as string }] : []),
