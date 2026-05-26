@@ -38,6 +38,7 @@ import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 
 interface OrderRow {
@@ -237,7 +238,7 @@ function DispatchQueuePage() {
         client_name: r.client_name ?? "Unnamed",
         event_date: r.event_date,
         event_time: r.event_time ?? null,
-        venue: r.venue_name ?? r.venue_address ?? "—",
+        venue: r.venue_name ?? r.venue_address ?? "-",
         status: r.status ?? "confirmed",
         total_amount: Number(r.total_amount ?? 0),
         venue_lat: r.venue_lat ?? null,
@@ -665,11 +666,11 @@ function DispatchQueuePage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Dispatch Queue - CateringMS Admin</title></Head>
+      <Head><title>Dispatch queue - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header */}
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
@@ -814,10 +815,10 @@ function DispatchQueuePage() {
                 <AlertTriangle className={`w-4 h-4 ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-red-500" : "text-slate-300"}`} />
               </div>
               <p className={`text-2xl font-semibold ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-red-700" : "text-slate-900"}`}>
-                {kpis?.unassignedAtRisk ?? "—"}
+                {kpis?.unassignedAtRisk ?? "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                {settings ? `event in < ${(settings.slaAssignMinutes / 60).toFixed(0)}h` : "—"}
+                {settings ? `event in < ${(settings.slaAssignMinutes / 60).toFixed(0)}h` : "-"}
               </p>
             </button>
 
@@ -833,7 +834,7 @@ function DispatchQueuePage() {
                 </p>
                 <Truck className="w-4 h-4 text-amber-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{kpis?.unassignedTotal ?? "—"}</p>
+              <p className="text-2xl font-semibold text-slate-900">{kpis?.unassignedTotal ?? "-"}</p>
               <p className="text-xs text-slate-500 mt-1">click to filter</p>
             </button>
 
@@ -854,7 +855,7 @@ function DispatchQueuePage() {
                   // silently turning -5m into 5m. Math.max keeps
                   // the formatter honest.
                   ? formatMinutesAsCountdown(Math.max(0, kpis.medianTimeToAssignMinutes))
-                  : "—"}
+                  : "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1">last 14 days</p>
             </div>
@@ -867,7 +868,7 @@ function DispatchQueuePage() {
                 </p>
                 <Users className="w-4 h-4 text-emerald-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{kpis?.onShiftDrivers ?? "—"}</p>
+              <p className="text-2xl font-semibold text-slate-900">{kpis?.onShiftDrivers ?? "-"}</p>
               <p className="text-xs text-slate-500 mt-1">last hour</p>
             </div>
           </div>
@@ -1088,7 +1089,7 @@ function DispatchQueuePage() {
                             or client without leaving the queue. */}
                         <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
                           <Link
-                            href={withSlug(`/order/${order.id}?role=driver`)}
+                            href={withSlug(staffOrderHref(order.id, "driver"))}
                             className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
                           >
                             <ExternalLink className="w-3 h-3" />
@@ -1127,7 +1128,7 @@ function DispatchQueuePage() {
                             {order.venue.split(",")[0]}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-slate-400">-</span>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -1270,7 +1271,7 @@ function DispatchQueuePage() {
                           </p>
                           <div className="flex items-center gap-3 mt-1" onClick={(e) => e.stopPropagation()}>
                             <Link
-                              href={withSlug(`/order/${order.id}?role=driver`)}
+                              href={withSlug(staffOrderHref(order.id, "driver"))}
                               className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
                             >
                               <ExternalLink className="w-3 h-3" />
