@@ -31,7 +31,7 @@ function shiftYear(d: Date, years: number): Date {
 }
 
 const fmtPct = (now: number, prior: number): { delta: number; label: string } => {
-  if (prior <= 0) return { delta: 0, label: "—" };
+  if (prior <= 0) return { delta: 0, label: "-" };
   const delta = ((now - prior) / prior) * 100;
   return { delta, label: `${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%` };
 };
@@ -94,8 +94,8 @@ export function YearOverYearCard({
   if (!companyId) return null;
   if (!loading && (!prior || (prior.revenue === 0 && prior.count === 0))) return null;
 
-  const revenueDelta = prior ? fmtPct(thisYearRevenue, prior.revenue) : { delta: 0, label: "—" };
-  const orderDelta = prior ? fmtPct(thisYearOrders, prior.count) : { delta: 0, label: "—" };
+  const revenueDelta = prior ? fmtPct(thisYearRevenue, prior.revenue) : { delta: 0, label: "-" };
+  const orderDelta = prior ? fmtPct(thisYearOrders, prior.count) : { delta: 0, label: "-" };
 
   const tone = (delta: number) =>
     delta > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200"
