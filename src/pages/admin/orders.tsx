@@ -146,10 +146,10 @@ function OrderProcessDashboard() {
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        // Wave 70.94 - new orders originate from accepted quotes;
-        // /admin/order-assignments is the dispatch queue, not a new-
-        // order form. Route to the quote builder instead so the
-        // shortcut matches the button label.
+        // Wave 70.94 routed this to the quote builder because every
+        // order is born from an accepted quote. TIGHTEN I.2 also
+        // relabelled the button to "New Quote" so the n-shortcut
+        // and the button now agree on both destination and intent.
         router.push(withSlug("/admin/quotes/new"));
       }
     };
@@ -308,8 +308,18 @@ function OrderProcessDashboard() {
   // Surfaces as inline badges in the page header so the dispatch
   // lead sees how much client-driven work is queued without
   // opening each order.
+  //
+  // TIGHTEN I.2 (2026-05-26): the badges also act as filter chips
+  // that link to ?status=pending-amendments / pending-cancellations.
+  // Pre-fix those URL params didn't match any real order status -
+  // the chip emptied the timeline. We now project order_id off the
+  // request tables and keep a Set per chip so the filter at
+  // getFilteredOrders() can resolve the synthetic status against
+  // the set of orders with an open request.
   const [pendingAmendmentCount, setPendingAmendmentCount] = useState(0);
   const [pendingCancellationCount, setPendingCancellationCount] = useState(0);
+  const [pendingAmendmentOrderIds, setPendingAmendmentOrderIds] = useState<Set<string>>(new Set());
+  const [pendingCancellationOrderIds, setPendingCancellationOrderIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     const companyId = (user as any)?.company_id;
     if (!companyId) return;
@@ -319,18 +329,24 @@ function OrderProcessDashboard() {
         const [aRes, cRes] = await Promise.all([
           (supabase as any)
             .from("order_amendment_requests")
-            .select("id", { count: "exact", head: true })
+            .select("order_id")
             .eq("company_id", companyId)
             .eq("status", "pending"),
           (supabase as any)
             .from("cancellation_requests")
-            .select("id", { count: "exact", head: true })
+            .select("order_id")
             .eq("company_id", companyId)
             .eq("status", "pending"),
         ]);
         if (cancelled) return;
-        setPendingAmendmentCount(aRes?.count ?? 0);
-        setPendingCancellationCount(cRes?.count ?? 0);
+        const aRows = (aRes?.data || []) as Array<{ order_id: string | null }>;
+        const cRows = (cRes?.data || []) as Array<{ order_id: string | null }>;
+        const aIds = new Set(aRows.map((r) => r.order_id).filter((x): x is string => !!x));
+        const cIds = new Set(cRows.map((r) => r.order_id).filter((x): x is string => !!x));
+        setPendingAmendmentCount(aRows.length);
+        setPendingCancellationCount(cRows.length);
+        setPendingAmendmentOrderIds(aIds);
+        setPendingCancellationOrderIds(cIds);
       } catch {
         /* non-blocking */
       }
@@ -549,7 +565,7 @@ function OrderProcessDashboard() {
 
   // Wave 28.8: when the URL carries a bare ?orderId=... (no amendment
   // / cancellation params), open the order detail drawer for that
-  // order. Used by the timeline "Open →" links in the row banner --
+  // order. Used by the timeline "Open" links in the row banner;
   // they navigate to ?orderId so a refresh / direct paste lands on
   // the same drawer state. Waits for the orders list to load before
   // it can match by id; otherwise the click would race the fetch.
@@ -1031,7 +1047,7 @@ function OrderProcessDashboard() {
     // past pending / draft. The earlier gate required deposit_paid OR
     // confirmed_at to be set, but the status column got pushed to
     // 'confirmed' by several code paths (quote accept, manual status
-    // change) without those auxiliary columns being stamped --
+    // change) without those auxiliary columns being stamped,
     // resulting in an order that the UI shows as 'Confirmed' but the
     // revenue tile counted as zero. Status is the visible truth here,
     // so it's the gate. The auxiliary columns still flip independently
@@ -1107,12 +1123,24 @@ function OrderProcessDashboard() {
         const isMine = (order as any).assigned_chef_id === me || (order as any).assigned_driver_id === me;
         if (!isMine) return false;
       }
+      // TIGHTEN I.2: synthetic status filters used by the header
+      // chips. Match against the per-order Set, not against
+      // order.status (these values aren't real lifecycle statuses).
+      if (statusFilter === "pending-amendments") {
+        if (!pendingAmendmentOrderIds.has(order.id)) return false;
+      } else if (statusFilter === "pending-cancellations") {
+        if (!pendingCancellationOrderIds.has(order.id)) return false;
+      }
       // Hide cancelled by default ("All Statuses" excludes them).
       // Only surface cancelled when the operator explicitly picks
       // "cancelled" in the status dropdown - otherwise they'd
       // clutter the kanban + timeline forever.
       if (statusFilter === "all" && order.status === "cancelled") return false;
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all"
+        || statusFilter === "pending-amendments"
+        || statusFilter === "pending-cancellations"
+        || order.status === statusFilter;
 
       // Date filter - preset windows on the order's event_date
       let matchesDate = true;
@@ -1166,7 +1194,7 @@ function OrderProcessDashboard() {
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, (user as any)?.id]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, pendingAmendmentOrderIds, pendingCancellationOrderIds, (user as any)?.id]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -1304,7 +1332,7 @@ function OrderProcessDashboard() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Order Process Dashboard - CateringMS</title>
+        <title>Orders - CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -1506,26 +1534,54 @@ function OrderProcessDashboard() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {/* Primary CTA - always last so the right edge stays
-                    consistent. Wave 70.94 - points to /admin/quotes/new
-                    (the quote builder, which becomes an order on
-                    accept). Pre-fix this routed to /admin/order-
-                    assignments (the dispatch queue) which shared a
-                    destination with the "no driver assigned" Fix-it
-                    link on the readiness chip - two different CTAs
-                    going to the same page made both feel broken. */}
+                    consistent. Wave 70.94 routed this to /admin/
+                    quotes/new (the quote builder, which becomes an
+                    order on accept). TIGHTEN I.2 (2026-05-26)
+                    follows through on the label: every order
+                    originates from an accepted quote, so the button
+                    is now "New Quote" - matches what the click
+                    actually does and reinforces the lifecycle for
+                    new operators. */}
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                   >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    New Order
+                    <FileText className="w-4 h-4 mr-2" />
+                    New Quote
                   </Button>
                 </Link>
               </div>
             </div>
 
             <OrderKpiPills stats={stats} />
+
+            {/* TIGHTEN I.2: synthetic-status filter pill. When the
+                operator lands here via the header chips with
+                ?status=pending-amendments / pending-cancellations,
+                the OrderFiltersBar dropdown shows the placeholder
+                (no matching SelectItem), so the operator has no
+                obvious way to escape the filtered view. The pill
+                makes the filter visible and clearable. */}
+            {(statusFilter === "pending-amendments" || statusFilter === "pending-cancellations") && (
+              <div className="mb-4 flex items-center gap-2">
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-200 gap-1.5 py-1.5 px-3 text-sm">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {statusFilter === "pending-amendments"
+                    ? `Showing ${pendingAmendmentCount} order${pendingAmendmentCount === 1 ? "" : "s"} with a pending amendment`
+                    : `Showing ${pendingCancellationCount} order${pendingCancellationCount === 1 ? "" : "s"} with a pending cancellation`}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("all")}
+                    className="ml-1 rounded-full hover:bg-amber-200 p-0.5"
+                    aria-label="Clear pending-request filter"
+                    title="Clear filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </Badge>
+              </div>
+            )}
 
             {/* Client filter pill - shows when /admin/orders was opened
                 with ?clientId. Click X to clear back to the unfiltered
