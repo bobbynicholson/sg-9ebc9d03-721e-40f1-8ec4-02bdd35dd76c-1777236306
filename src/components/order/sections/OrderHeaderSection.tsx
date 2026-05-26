@@ -129,10 +129,14 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
             .maybeSingle();
           if (!cancelled && q) setQuote(q as QuoteLink);
         }
-        // Linked package
+        // Linked package. ODOC H.13: fix silent SELECT failure -
+        // the real table is `booking_packages` (Wave 70.45). The
+        // old `packages` literal compiled because of the
+        // `(supabase as any)` cast and silently returned nothing,
+        // so the "from package" chip never lit up on any order.
         if (order.package_id) {
           const { data: p } = await (supabase as any)
-            .from("packages")
+            .from("booking_packages")
             .select("id, name")
             .eq("id", order.package_id)
             .maybeSingle();

@@ -196,6 +196,19 @@ const KNOWN_TABLES = new Set([
   "embed_rate_limits","equipment","equipment_bookings","equipment_damages",
   "equipment_handovers","equipment_hire_orders","equipment_kit_items","equipment_kits",
   "equipment_maintenance","equipment_maintenance_log","equipment_shortage_flags",
+  // ODOC H.13: real public.* tables the prior vocab snapshot missed.
+  // equipment_shortages = order-level shortage flag (the table the
+  // ODOC timeline reads to surface "do we need to hire in?"). Not
+  // to be confused with equipment_shortage_flags (notification fan-
+  // out table) which was already in the vocab.
+  "equipment_shortages",
+  // event_attendance = waiter check-in / phase stamps written by
+  // /team-portal/waiter chips. The ODOC timeline reads its
+  // service_started_at / service_ended_at / equipment_returned_at
+  // columns to fire the service-lane steps.
+  "event_attendance",
+  // order_attachments = per-order file uploads added in H.x.
+  "order_attachments",
   "exchange_rates","financial_depreciation","financial_predictions","fixed_costs",
   "floor_safety_inspections","fuel_stockpile","gamification_achievements",
   "gamification_points","gps_tracking","health_certificates","import_events",
