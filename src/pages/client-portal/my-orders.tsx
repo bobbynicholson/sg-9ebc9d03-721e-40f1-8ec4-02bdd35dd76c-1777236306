@@ -26,6 +26,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarButton";
 import { toLocalISO } from "@/lib/localDate";
+import { clientOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
@@ -430,9 +431,9 @@ export default function MyOrders() {
                               token - that fell through to magic-link
                               'request a new link' for portal-auth
                               users, which is wrong. */}
-                          <Link href={`/order/${order.id}?role=client`}>
+                          <Link href={clientOrderHref(order.id, { inPortal: true })}>
                             <Button size="sm" variant="outline" className="w-full sm:w-auto">
-                              View Details
+                              View details
                             </Button>
                           </Link>
                           {/* Book again - only on completed orders. Opens
