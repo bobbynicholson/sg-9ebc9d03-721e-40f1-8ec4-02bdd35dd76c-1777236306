@@ -12,9 +12,10 @@
  * Drills to /admin/financial-dashboard for the full chart, the
  * day-by-day detail drawer, and the CSV export.
  *
- * Owner / company_admin / admin / super_admin only - same
- * Skylight finance-visibility rule as the full Cashflow Forecast
- * Card on /admin/financial-dashboard.
+ * Owner / company_admin / super_admin only (canAccessFinance) -
+ * same Skylight finance-visibility rule as the full Cashflow
+ * Forecast Card on /admin/financial-dashboard. Gating is enforced
+ * at the mount site on /admin/dashboard.
  *
  * AD-6 of the admin-dashboard audit (docs/audits/
  * admin-dashboard-audit-2026-05-19.md).

@@ -12,6 +12,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { canAccessFinance } from "@/lib/authGuards";
 import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
@@ -119,14 +120,17 @@ const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
-  // AD-6 (admin-dashboard audit): role gate for the Cashflow
-  // Snapshot widget. Same Skylight finance-visibility rule as the
-  // full forecast on /admin/financial-dashboard.
-  const role = String(
+  // AD-6 audit follow-up (2026-05-26): route gating for the Cashflow
+  // Snapshot + the Financial Reports Quick Action goes through
+  // canAccessFinance so this page can't surface a tile that the
+  // downstream route blocks. The previous inline check incorrectly
+  // allowed UserRole.ADMIN which canAccessRoute / FINANCE_ROUTES
+  // refuses on /admin/financial-dashboard - admin would see the
+  // snapshot, click the CTA, and land on a 403.
+  const activeRole = String(
     (user as any)?.active_role || (profile as any)?.role || "",
-  ).toLowerCase();
-  const canSeeFinanceSnapshot =
-    role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
+  ).toLowerCase() as UserRole;
+  const canSeeFinance = canAccessFinance(activeRole);
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
 
@@ -308,7 +312,7 @@ function AdminDashboardPage() {
 
       const orders = ordersRes.data || [];
 
-      // - Revenue maths --------------------------------------------------
+      // Revenue maths
       // BOOKED: order is locked in (not cancelled, not draft) - the catering
       //   business has committed kitchen time. Counts for total_amount.
       // COLLECTED: money actually received so far. Sum of:
@@ -537,7 +541,7 @@ function AdminDashboardPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header + date range, date controls every metric below */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -836,7 +840,7 @@ function AdminDashboardPage() {
               question owners ask first ("can I make payroll Friday?")
               lives here, immediately under TodaysPulse. Role-gated;
               drills to /admin/financial-dashboard for the full chart. */}
-          {canSeeFinanceSnapshot && companyId ? (
+          {canSeeFinance && companyId ? (
             <WidgetErrorBoundary label="Cashflow snapshot">
               <CashflowSnapshotWidget companyId={companyId} currency={tenantCurrency.code} />
             </WidgetErrorBoundary>
@@ -1192,16 +1196,18 @@ function AdminDashboardPage() {
                     <div className="text-xs text-slate-600">{stats.activeUsers} members</div>
                   </div>
                 </Link>
-                <Link
-                  href={withSlug("/admin/financial-dashboard")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg hover:shadow-md transition-all"
-                >
-                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-sm sm:text-base text-slate-900">Financial Reports</div>
-                    <div className="text-xs text-slate-600">Deeper analytics</div>
-                  </div>
-                </Link>
+                {canSeeFinance ? (
+                  <Link
+                    href={withSlug("/admin/financial-dashboard")}
+                    className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg hover:shadow-md transition-all"
+                  >
+                    <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold text-sm sm:text-base text-slate-900">Financial Reports</div>
+                      <div className="text-xs text-slate-600">Deeper analytics</div>
+                    </div>
+                  </Link>
+                ) : null}
                 <Link
                   href={withSlug("/admin/inventory")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg hover:shadow-md transition-all"
