@@ -290,7 +290,7 @@ export default function ShoppingBuyListPage() {
       <ShoppingNav />
 
       <main className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl mx-auto pb-24">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full pb-24">
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -482,7 +482,7 @@ export default function ShoppingBuyListPage() {
             className="fixed bottom-12 left-0 right-0 lg:left-64 xl:left-72 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-lg"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
-            <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
+            <div className="max-w-full mx-auto px-4 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-900">
                   {selectedTotals.count} selected

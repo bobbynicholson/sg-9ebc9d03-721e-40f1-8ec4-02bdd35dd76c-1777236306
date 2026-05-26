@@ -105,7 +105,7 @@ export default function ShoppingNotificationsPage() {
 
   return (
     <>
-      <Head><title>Shopping Notifications - CateringMS</title></Head>
+      <Head><title>Shopping notifications - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">

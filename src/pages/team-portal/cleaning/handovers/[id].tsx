@@ -30,6 +30,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getHandoverDetail,
@@ -174,7 +175,7 @@ function HandoverDetailInner() {
       <CleaningNav />
 
       <main className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="pt-20 lg:pt-6 px-3 sm:px-4 md:px-6 pb-6 max-w-4xl mx-auto">
+        <div className="pt-20 lg:pt-6 px-3 sm:px-4 md:px-6 pb-6 max-w-full">
           <Link
             href={withSlug("/team-portal/cleaning/dashboard")}
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
@@ -222,7 +223,7 @@ function HandoverDetailInner() {
                         method etc. */}
                     {handover.order_id && (
                       <Link
-                        href={withSlug(`/order/${handover.order_id}?role=cleaning_staff`)}
+                        href={withSlug(staffOrderHref(handover.order_id, "cleaning_staff"))}
                         className="inline-flex items-center gap-1 text-[11px] text-cyan-700 hover:text-cyan-900 hover:underline bg-cyan-50 border border-cyan-200 rounded px-2 py-0.5"
                         title="Open the source order"
                       >

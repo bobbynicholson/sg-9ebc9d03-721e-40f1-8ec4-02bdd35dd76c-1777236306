@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -247,7 +248,7 @@ export default function ShoppingOrdersPage() {
 
   return (
     <>
-      <Head><title>Shopping Orders - CateringMS</title></Head>
+      <Head><title>Shopping orders - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -359,7 +360,7 @@ export default function ShoppingOrdersPage() {
                               auto-expanded - shortfalls + push-to-
                               shopping CTA all live there. */}
                           <Link
-                            href={withSlug(`/order/${o.id}?role=shopping_staff`)}
+                            href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
                             className="font-medium text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
                           >
                             {o.event_name ?? o.order_number ?? "Event"}

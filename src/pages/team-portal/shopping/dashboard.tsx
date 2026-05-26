@@ -253,14 +253,14 @@ function ShoppingDashboardInner() {
   return (
     <>
       <Head>
-        <title>Shopping Dashboard - CateringMS</title>
+        <title>Shopping dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
           {/* Header */}
           <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
             <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
