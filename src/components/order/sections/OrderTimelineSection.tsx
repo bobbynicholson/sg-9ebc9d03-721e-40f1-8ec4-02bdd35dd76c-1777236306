@@ -21,6 +21,7 @@ import { captureException } from "@/lib/observability";
 import {
   CheckCircle2, Circle, Clock, ChefHat, PackageCheck, Truck, MapPin,
   Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature, Droplets,
+  ShoppingCart, Wrench,
 } from "lucide-react";
 
 interface OrderForTimeline {
@@ -83,6 +84,31 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const [cleaningStarted, setCleaningStarted] = useState<string | null>(null);
   const [cleaningAllDone, setCleaningAllDone] = useState<string | null>(null);
   const [hasCleaningJobs, setHasCleaningJobs] = useState(false);
+  // ODOC H.12: prereq readiness gates.
+  //
+  // shopping = shopping_list_items linked to the order via
+  // source_order_id. Reached when every non-removed item is
+  // purchased=true. Hidden when there's nothing to shop for (kitchen
+  // already has stock, the order didn't generate a shopping list).
+  //
+  // equipment = the union of three concerns -- bookings exist and
+  // they're not in a blocking state, no open equipment_shortages,
+  // and every hire-in row is confirmed (not stuck at 'draft').
+  // Hidden when the order has none of those signals (no equipment
+  // tracked at all). This is the "do we have the gear or do we need
+  // to hire in" question Bobby asked for, surfaced inline.
+  const [shoppingTotal, setShoppingTotal] = useState(0);
+  const [shoppingPurchased, setShoppingPurchased] = useState(0);
+  const [shoppingReadyAt, setShoppingReadyAt] = useState<string | null>(null);
+  const [shoppingBlockedReason, setShoppingBlockedReason] = useState<string | null>(null);
+  const [equipmentSignals, setEquipmentSignals] = useState({
+    bookings: 0,
+    openShortages: 0,
+    hireOrdersTotal: 0,
+    hireOrdersConfirmed: 0,
+  });
+  const [equipmentReadyAt, setEquipmentReadyAt] = useState<string | null>(null);
+  const [equipmentBlockedReason, setEquipmentBlockedReason] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +197,136 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, [order.id]);
 
+  // ODOC H.12: shopping readiness signal. shopping_list_items
+  // carries source_order_id pointing back at the catering order that
+  // generated the buy line. Reached when every non-removed item has
+  // purchased=true. Loads + realtime so the timeline ticks live as
+  // the shopping team checks items off.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("shopping_list_items")
+          .select("purchased, updated_at, item_name")
+          .eq("source_order_id", order.id)
+          .is("removed_at", null);
+        if (cancelled) return;
+        const rows = (data || []) as Array<{ purchased: boolean | null; updated_at: string | null; item_name: string | null }>;
+        const total = rows.length;
+        const purchased = rows.filter((r) => r.purchased === true).length;
+        setShoppingTotal(total);
+        setShoppingPurchased(purchased);
+        if (total > 0 && purchased === total) {
+          const stamps = rows.map((r) => r.updated_at).filter((s): s is string => !!s).sort();
+          setShoppingReadyAt(stamps.length > 0 ? stamps[stamps.length - 1] : null);
+          setShoppingBlockedReason(null);
+        } else {
+          setShoppingReadyAt(null);
+          setShoppingBlockedReason(
+            total === 0 ? null : `${total - purchased} of ${total} item${total === 1 ? "" : "s"} still to buy`,
+          );
+        }
+      } catch (e: any) {
+        captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineShopping", orderId: order.id } });
+      }
+    };
+    void load();
+    const ch = supabase
+      .channel(`order-timeline-shopping:${order.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "shopping_list_items", filter: `source_order_id=eq.${order.id}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [order.id]);
+
+  // ODOC H.12: equipment readiness signal. Triple-source - bookings
+  // exist and aren't blocking, no open shortages, and every hire-in
+  // row is in a confirmed / picked-up / returned state (not draft or
+  // cancelled). Reached when ALL of those conditions hold AND the
+  // order has at least one equipment signal (otherwise we'd light up
+  // a "ready" step for orders that don't track equipment at all).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [bookingsRes, shortagesRes, hiresRes] = await Promise.all([
+          (supabase as any)
+            .from("equipment_bookings")
+            .select("status, updated_at")
+            .eq("order_id", order.id),
+          (supabase as any)
+            .from("equipment_shortages")
+            .select("status, priority, updated_at")
+            .eq("order_id", order.id),
+          (supabase as any)
+            .from("equipment_hire_orders")
+            .select("status, updated_at, supplier_name")
+            .eq("order_id", order.id),
+        ]);
+        if (cancelled) return;
+        const bookings = (bookingsRes.data || []) as Array<{ status: string | null; updated_at: string | null }>;
+        const shortages = (shortagesRes.data || []) as Array<{ status: string | null; priority: string | null; updated_at: string | null }>;
+        const hires = (hiresRes.data || []) as Array<{ status: string | null; updated_at: string | null; supplier_name: string | null }>;
+        const openShortages = shortages.filter((s) => {
+          const st = String(s.status || "").toLowerCase();
+          return st !== "resolved" && st !== "cancelled" && st !== "closed";
+        }).length;
+        const hireOrdersTotal = hires.length;
+        const hireOrdersConfirmed = hires.filter((h) => {
+          const st = String(h.status || "").toLowerCase();
+          return st === "confirmed" || st === "picked_up" || st === "returned";
+        }).length;
+        setEquipmentSignals({
+          bookings: bookings.length,
+          openShortages,
+          hireOrdersTotal,
+          hireOrdersConfirmed,
+        });
+        const allHiresConfirmed = hireOrdersTotal === 0 || hireOrdersConfirmed === hireOrdersTotal;
+        const isReady = openShortages === 0 && allHiresConfirmed;
+        if (isReady && (bookings.length > 0 || hireOrdersTotal > 0)) {
+          const stamps = [
+            ...bookings.map((b) => b.updated_at),
+            ...hires.map((h) => h.updated_at),
+            ...shortages.map((s) => s.updated_at),
+          ].filter((s): s is string => !!s).sort();
+          setEquipmentReadyAt(stamps.length > 0 ? stamps[stamps.length - 1] : null);
+          setEquipmentBlockedReason(null);
+        } else {
+          setEquipmentReadyAt(null);
+          const reasons: string[] = [];
+          if (openShortages > 0) reasons.push(`${openShortages} open shortage${openShortages === 1 ? "" : "s"}`);
+          if (hireOrdersTotal > 0 && hireOrdersConfirmed < hireOrdersTotal) {
+            reasons.push(`${hireOrdersTotal - hireOrdersConfirmed} hire-in${hireOrdersTotal - hireOrdersConfirmed === 1 ? "" : "s"} unconfirmed`);
+          }
+          setEquipmentBlockedReason(reasons.length > 0 ? reasons.join(" · ") : null);
+        }
+      } catch (e: any) {
+        captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineEquipmentReady", orderId: order.id } });
+      }
+    };
+    void load();
+    const ch = supabase
+      .channel(`order-timeline-equip:${order.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "equipment_bookings", filter: `order_id=eq.${order.id}` },
+        () => { void load(); },
+      )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "equipment_shortages", filter: `order_id=eq.${order.id}` },
+        () => { void load(); },
+      )
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "equipment_hire_orders", filter: `order_id=eq.${order.id}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [order.id]);
+
   // ODOC H.11: realtime sub on cleaning_jobs so the cleaning step
   // ticks live as the cleaning team flips jobs queued -> in_progress
   // -> complete. Same cheap re-pull pattern as the attendance sub.
@@ -231,9 +387,39 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     lane: "open" | "kitchen" | "driver" | "service" | "closeout";
   };
 
+  // ODOC H.12: prereq gates - only render when there's something to
+  // gate on. A simple catering job with stock in hand and no
+  // equipment shows neither step; a complex one with shopping +
+  // hire-in surfaces both with a live count.
+  const showShoppingStep = shoppingTotal > 0;
+  const showEquipmentStep = equipmentSignals.bookings > 0
+    || equipmentSignals.openShortages > 0
+    || equipmentSignals.hireOrdersTotal > 0;
+
+  const shoppingLabel = shoppingTotal === 0
+    ? "Stock & shopping"
+    : shoppingReadyAt
+      ? `Shopping complete (${shoppingPurchased}/${shoppingTotal})`
+      : `Shopping (${shoppingPurchased}/${shoppingTotal})`;
+  const equipmentLabel = !showEquipmentStep
+    ? "Equipment ready"
+    : equipmentReadyAt
+      ? equipmentSignals.hireOrdersTotal > 0
+        ? `Equipment ready (incl ${equipmentSignals.hireOrdersTotal} hire-in)`
+        : "Equipment ready"
+      : equipmentBlockedReason
+        ? `Equipment: ${equipmentBlockedReason}`
+        : "Equipment ready";
+
   const allSteps: Step[] = ([
     { key: "created",       label: "Order created",        Icon: Flag,           at: order.created_at,          lane: "open" },
     { key: "confirmed",     label: "Confirmed",            Icon: CheckCircle2,   at: order.confirmed_at,        lane: "open" },
+    // ODOC H.12: stock & equipment prereqs sit between confirmation
+    // and the kitchen starting prep, because the kitchen physically
+    // cannot start without ingredients and gear. They show only when
+    // there's a signal worth surfacing.
+    { key: "shopping",      label: shoppingLabel,          Icon: ShoppingCart,   at: shoppingReadyAt,           show: showShoppingStep, lane: "open" },
+    { key: "equipment_ready", label: equipmentLabel,       Icon: Wrench,         at: equipmentReadyAt,          show: showEquipmentStep, lane: "open" },
     { key: "prep",          label: "Prep started",         Icon: ChefHat,        at: order.prep_started_at,     lane: "kitchen" },
     { key: "ready",         label: "Ready for collection", Icon: PackageCheck,   at: order.ready_at,            lane: "kitchen" },
     { key: "picked_up",     label: "Collected by driver",  Icon: Truck,          at: order.picked_up_at,        lane: "driver" },
@@ -280,6 +466,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const STUCK_THRESHOLDS_HOURS: Record<string, number> = {
     created: 48,        // 2 days to get confirmed
     confirmed: 0,       // no fixed SLA before prep starts - drives via event_date
+    shopping: 48,       // shopping should clear within 2 days of confirmation
+    equipment_ready: 72, // bookings + hire-ins confirmed within 3 days
     prep: 24,           // prep should land in ready within a day
     ready: 12,          // ready -> picked_up
     picked_up: 4,       // collected -> at venue
@@ -331,6 +519,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     switch (key) {
       case "created":       return { role: "System",   tone: "bg-slate-100 text-slate-700 border-slate-200" };
       case "confirmed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
+      case "shopping":      return { role: "Shopping", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" };
+      case "equipment_ready": return { role: "Admin",  tone: "bg-violet-50 text-violet-800 border-violet-200" };
       case "prep":          return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
       case "ready":         return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
       case "picked_up":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
