@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink } from "lucide-react";
 import Head from "next/head";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { staffOrderHref } from "@/lib/orderUrls";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +80,7 @@ const AdminTrackingMap = dynamic(
 function AdminTrackingInner() {
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<any[]>([]);
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -519,14 +523,14 @@ function AdminTrackingInner() {
   return (
     <>
       <Head>
-        <title>Live Tracking - CateringMS</title>
+        <title>Live operations - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 pb-20 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8">
+        <div className="px-4 py-8 max-w-full">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -751,7 +755,7 @@ function AdminTrackingInner() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <MapPin className="w-5 h-5" />
-                      {selectedOrder ? "Order Details" : "Active Orders"}
+                      {selectedOrder ? "Order details" : "Active orders"}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="max-h-[700px] overflow-y-auto">
@@ -915,19 +919,37 @@ function AdminTrackingInner() {
                               </div>
                             </div>
 
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                // LO-A (LO-13): previously only set
-                                // selectedOrder, leaving the user on
-                                // the list tab. Now switches to map.
-                                setSelectedOrder(order);
-                                setActiveTab("map");
-                              }}
-                            >
-                              View on Map
-                            </Button>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* TIGHTEN I.4: every per-order row
+                                  carries an Open brief link to the
+                                  unified order doc per the ODOC
+                                  pattern. The View on map button
+                                  stays alongside because the live
+                                  operations page is also a quick
+                                  pivot to the GPS pin without
+                                  leaving the page. */}
+                              <Link
+                                href={withSlug(staffOrderHref(order.id, "admin"))}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                                title="Open the unified order brief"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Open brief
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  // LO-A (LO-13): previously only set
+                                  // selectedOrder, leaving the user on
+                                  // the list tab. Now switches to map.
+                                  setSelectedOrder(order);
+                                  setActiveTab("map");
+                                }}
+                              >
+                                View on map
+                              </Button>
+                            </div>
                           </div>
 
                           {order.last_updated && (
