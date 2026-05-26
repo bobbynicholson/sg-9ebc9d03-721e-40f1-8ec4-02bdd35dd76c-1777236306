@@ -679,7 +679,7 @@ function EmailSettingsPage() {
                       Password
                       <InfoTooltip content={"Stored encrypted on our side.\n\nLeave this blank to keep the password you already saved."} />
                     </Label>
-                    <Input id="smtp_pass" type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="-- unchanged --" />
+                    <Input id="smtp_pass" type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="unchanged" />
                   </div>
                   <label className="flex items-center gap-2 text-sm md:col-span-2 cursor-pointer">
                     <input type="checkbox" checked={!!row.smtp_secure} onChange={(e) => setRow({ ...row, smtp_secure: e.target.checked })} />
@@ -873,7 +873,7 @@ function EmailSettingsPage() {
                 <Label htmlFor="mc_api">API key
                   <InfoTooltip content={"In Mailchimp, head to Account > Extras > API keys to grab one.\n\nStored encrypted on our side."} />
                 </Label>
-                <Input id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder={mailchimpAudienceId ? "-- unchanged --" : "Enter Mailchimp API key"} />
+                <Input id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder={mailchimpAudienceId ? "unchanged" : "Enter Mailchimp API key"} />
               </div>
               <div>
                 <Label htmlFor="mc_aud">Audience ID</Label>

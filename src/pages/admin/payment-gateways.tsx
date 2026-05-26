@@ -162,7 +162,7 @@ function PaymentGatewaysPage() {
     setEditSuccessUrl(existing?.success_url || "");
     setEditCancelUrl(existing?.cancel_url || "");
     setEditNotifyUrl(existing?.notify_url || "");
-    // Always start with blank credential inputs. Write-once policy --
+    // Always start with blank credential inputs. Write-once policy;
     // operator types the full set every time they update.
     const blank: Record<string, string> = {};
     for (const f of entry.fields) blank[f.key] = "";
@@ -295,7 +295,7 @@ function PaymentGatewaysPage() {
             <p className="text-muted-foreground">Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT.</p>
           </div>
 
-          {/* Super_admin tenant picker. Tenant admins never see this --
+          {/* Super_admin tenant picker. Tenant admins never see this;
               their company comes from profile.company_id. */}
           {isSuperAdmin && (
             <Card className="border-purple-200 bg-purple-50">

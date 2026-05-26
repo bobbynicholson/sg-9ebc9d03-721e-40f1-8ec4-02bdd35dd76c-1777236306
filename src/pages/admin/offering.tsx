@@ -645,7 +645,7 @@ function OfferingPage() {
                     <Link href={withSlug("/admin/menu")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
                         <span className="text-4xl font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
-                          {loading ? "--" : menuTile.active}
+                          {loading ? "-" : menuTile.active}
                         </span>
                         <span className="text-sm text-slate-600">active item{menuTile.active === 1 ? "" : "s"}</span>
                       </div>
@@ -807,7 +807,7 @@ function OfferingPage() {
                     <Link href={withSlug("/admin/equipment")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
                         <span className="text-4xl font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
-                          {loading ? "--" : equipTile.total}
+                          {loading ? "-" : equipTile.total}
                         </span>
                         <span className="text-sm text-slate-600">item{equipTile.total === 1 ? "" : "s"} on the books</span>
                       </div>
@@ -911,7 +911,7 @@ function OfferingPage() {
                     <Link href={withSlug("/admin/packages")} className="block group">
                       <div className="flex items-baseline gap-3 mb-3">
                         <span className="text-4xl font-bold text-slate-900 group-hover:text-violet-700 transition-colors">
-                          {loading ? "--" : packagesTile.total}
+                          {loading ? "-" : packagesTile.total}
                         </span>
                         <span className="text-sm text-slate-600">active package{packagesTile.total === 1 ? "" : "s"}</span>
                       </div>

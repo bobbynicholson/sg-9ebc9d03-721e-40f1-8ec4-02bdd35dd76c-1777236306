@@ -969,12 +969,12 @@ function RegionsPage() {
                             <>
                               <span className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${currencyDiff ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                                 <span className="font-medium">Currency:</span>
-                                <span className="font-mono">{region.currency || "—"}</span>
+                                <span className="font-mono">{region.currency || "-"}</span>
                                 {currencyDiff && <span className="text-amber-700 font-semibold">≠ HQ</span>}
                               </span>
                               <span className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${tzDiff ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                                 <span className="font-medium">Timezone:</span>
-                                <span className="font-mono">{region.timezone || "—"}</span>
+                                <span className="font-mono">{region.timezone || "-"}</span>
                                 {tzDiff && <span className="text-amber-700 font-semibold">≠ HQ</span>}
                               </span>
                             </>

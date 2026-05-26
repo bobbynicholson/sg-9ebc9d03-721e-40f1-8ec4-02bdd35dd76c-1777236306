@@ -9,7 +9,7 @@
  *   - OWNER admitted to allowedRoles (per memo)
  *   - Cleaning anomalies + jobs use cleaning_jobs (live data), no
  *     more hard-coded zero on the cleaning tile
- *   - Shopping + Cleaning "Hours wk" render `—` (we don't track
+ *   - Shopping + Cleaning "Hours wk" render `-` (we don't track
  *     shift hours for those teams) instead of misleading 0
  *   - Driver hours-this-week filtered by region when active so the
  *     regional admin's number matches the rest of the page
@@ -68,7 +68,7 @@ interface TeamRow {
   href: string;
   headCount: number;
   // null = we don't track shift hours for this team. Renders as
-  // "—" instead of a misleading 0.
+  // "-" instead of a misleading 0.
   hoursThisWeek: number | null;
   jobsToday: number;
   // TMS-B: comparison vs same day last week. null when unknown.
@@ -674,7 +674,7 @@ function TeamsIndexPage() {
           href: "/admin/teams/shopping",
           headCount: staffByRole["shopping_staff"] || 0,
           // null = honest "we don't track shift hours for this team"
-          // - the tile renders "—" instead of a misleading 0.
+          // - the tile renders "-" instead of a misleading 0.
           hoursThisWeek: null,
           jobsToday: shoppingJobs,
           jobsSameDayLastWeek: shoppingLastWeek ?? null,
@@ -713,7 +713,7 @@ function TeamsIndexPage() {
         // TMS-D (task #206, 2026-05-24): Sales tile. sales_admin
         // role is real (per enum). Activity = leads created today +
         // quotes sent today. No shift table for the sales persona,
-        // so hours wk renders "—". Routes to /admin/leads as the
+        // so hours wk renders "-". Routes to /admin/leads as the
         // natural daily landing for that team.
         {
           key: "sales" as TeamRow["key"],
@@ -995,17 +995,17 @@ function TeamsIndexPage() {
                         </div>
                       </Link>
                       <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
-                        <Stat label="Active" value={loading ? "—" : String(r.headCount)} />
+                        <Stat label="Active" value={loading ? "-" : String(r.headCount)} />
                         <Stat
                           label="Hours wk"
-                          value={loading ? "—" : r.hoursThisWeek == null ? "—" : String(r.hoursThisWeek)}
+                          value={loading ? "-" : r.hoursThisWeek == null ? "-" : String(r.hoursThisWeek)}
                           title={r.hoursThisWeek == null
                             ? "No shift table for this team yet - showing the head-count and job activity instead."
                             : "Hours logged Mon 00:00 to now (local time). Matches the Wages report for the same window."}
                         />
                         <Stat
                           label="Jobs today"
-                          value={loading ? "—" : String(r.jobsToday)}
+                          value={loading ? "-" : String(r.jobsToday)}
                           delta={deltaVs}
                           deltaTooltip={r.jobsSameDayLastWeek != null ? `vs ${r.jobsSameDayLastWeek} on same day last week` : undefined}
                         />

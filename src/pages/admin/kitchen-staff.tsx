@@ -1060,7 +1060,7 @@ function KitchenStaffPage() {
                               <div className="text-right">
                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Overtime</div>
                                 <div className="font-semibold text-slate-900 tabular-nums">
-                                  {otRate != null ? `R ${otRate.toFixed(2)}/h` : "--"}
+                                  {otRate != null ? `R ${otRate.toFixed(2)}/h` : "-"}
                                 </div>
                               </div>
                               <div className="text-right hidden sm:block">

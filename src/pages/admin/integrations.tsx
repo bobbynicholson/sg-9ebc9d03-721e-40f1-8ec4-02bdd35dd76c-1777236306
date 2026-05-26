@@ -980,7 +980,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
                     onChange={(e) => setMetadata({ ...metadata, default_ledger_account_id: e.target.value })}
                     className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
                   >
-                    <option value="">-- Pick a sales account --</option>
+                    <option value="">Pick a sales account</option>
                     {options.ledger_accounts.map((o) => (
                       <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
@@ -994,7 +994,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
                     onChange={(e) => setMetadata({ ...metadata, default_tax_rate_id: e.target.value })}
                     className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
                   >
-                    <option value="">-- Pick a tax rate (VAT 15% etc) --</option>
+                    <option value="">Pick a tax rate (VAT 15% etc)</option>
                     {options.tax_rates.map((o) => (
                       <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
@@ -1008,7 +1008,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
                     onChange={(e) => setMetadata({ ...metadata, default_bank_account_id: e.target.value })}
                     className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
                   >
-                    <option value="">-- Pick a bank account --</option>
+                    <option value="">Pick a bank account</option>
                     {options.bank_accounts.map((o) => (
                       <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
@@ -1022,7 +1022,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
                     onChange={(e) => setMetadata({ ...metadata, default_payment_method_id: e.target.value })}
                     className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
                   >
-                    <option value="">-- Optional, Sage picks default --</option>
+                    <option value="">Optional, Sage picks default</option>
                     {options.payment_methods.map((o) => (
                       <option key={o.id} value={o.id}>{o.label}</option>
                     ))}

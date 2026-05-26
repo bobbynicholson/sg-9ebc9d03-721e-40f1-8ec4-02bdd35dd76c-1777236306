@@ -548,7 +548,7 @@ function ImportPage() {
                             <div key={h} className="px-3 py-2.5 flex flex-wrap items-center gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-slate-900 truncate">{h}</div>
-                                <div className="text-[11px] text-slate-500 truncate">{dec.rationale || "—"}</div>
+                                <div className="text-[11px] text-slate-500 truncate">{dec.rationale || "-"}</div>
                               </div>
                               <Input
                                 value={dec.target || "skip"}
@@ -815,7 +815,7 @@ function ImportPage() {
                                   return (
                                   <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
                                     <td className="py-1.5 px-3 text-slate-500 font-mono">
-                                      {r.source_row_index ?? "—"}
+                                      {r.source_row_index ?? "-"}
                                     </td>
                                     <td className="py-1.5 px-3 text-slate-700">{r.sheet}</td>
                                     <td className="py-1.5 px-3">
@@ -843,7 +843,7 @@ function ImportPage() {
                                         )}
                                       </div>
                                     </td>
-                                    <td className="py-1.5 px-3 text-slate-600">{r.target_table || "—"}</td>
+                                    <td className="py-1.5 px-3 text-slate-600">{r.target_table || "-"}</td>
                                     <td className="py-1.5 px-3 text-slate-600">
                                       {(() => {
                                         const ws = warningsList(r);
@@ -858,7 +858,7 @@ function ImportPage() {
                                         <span className="text-slate-500">
                                           {Object.entries(r.mapped_data).slice(0, 3).map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(" · ")}
                                         </span>
-                                      ) : "—";
+                                      ) : "-";
                                       })()}
                                       {r.dedup_match_id && (
                                         <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
@@ -902,7 +902,7 @@ function ImportPage() {
                                           {repairing ? "Repairing" : "AI repair"}
                                         </Button>
                                       ) : (
-                                        <span className="text-[11px] text-slate-400">—</span>
+                                        <span className="text-[11px] text-slate-400">-</span>
                                       )}
                                     </td>
                                   </tr>

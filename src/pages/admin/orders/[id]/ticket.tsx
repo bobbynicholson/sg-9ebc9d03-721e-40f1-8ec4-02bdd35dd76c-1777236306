@@ -109,7 +109,7 @@ const PARALLELISM_CAP = 3;
 const SAFETY_BUFFER_MIN = 30;
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleDateString("en-ZA", {
       weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -123,17 +123,17 @@ function fmtTime(t: string | null | undefined): string {
 }
 
 function fmtDateTime(d: Date | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   try {
     return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  } catch { return "—"; }
+  } catch { return "-"; }
 }
 
 function fmtClock(d: Date | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   try {
     return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
-  } catch { return "—"; }
+  } catch { return "-"; }
 }
 
 function combineDateTime(date: string | null, time: string | null): Date | null {

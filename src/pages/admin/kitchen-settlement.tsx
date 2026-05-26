@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /admin/kitchen-settlement - per-period kitchen pay summary.
  *
  * Wave 36.3. Mirrors /admin/driver-settlement.tsx in spirit but
@@ -428,10 +428,10 @@ function KitchenSettlementPage() {
                                 {sum?.hourlyRate ? fmtCurrency(sum.hourlyRate, sum.currency) : <span className="text-rose-600 text-[11px]">No rate</span>}
                               </td>
                               <td className="px-3 py-3 text-right tabular-nums text-slate-900 font-medium">{sum?.totalHours.toFixed(1) || "0.0"}h</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-slate-700">{sum ? fmtCurrency(sum.basePay, sum.currency) : "—"}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.overtimePay > 0 ? fmtCurrency(sum.overtimePay, sum.currency) : "—"}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.multiplierPay > 0 ? fmtCurrency(sum.multiplierPay, sum.currency) : "—"}</td>
-                              <td className="px-3 py-3 text-right tabular-nums font-bold text-orange-700">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "—"}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-slate-700">{sum ? fmtCurrency(sum.basePay, sum.currency) : "-"}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.overtimePay > 0 ? fmtCurrency(sum.overtimePay, sum.currency) : "-"}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.multiplierPay > 0 ? fmtCurrency(sum.multiplierPay, sum.currency) : "-"}</td>
+                              <td className="px-3 py-3 text-right tabular-nums font-bold text-orange-700">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</td>
                               <td className="px-3 py-3 text-right">
                                 {ps ? (
                                   <Badge className={
@@ -442,7 +442,7 @@ function KitchenSettlementPage() {
                                     {ps.status}
                                   </Badge>
                                 ) : (
-                                  <span className="text-xs text-slate-400">—</span>
+                                  <span className="text-xs text-slate-400">-</span>
                                 )}
                               </td>
                               <td className="px-3 py-3 text-right">

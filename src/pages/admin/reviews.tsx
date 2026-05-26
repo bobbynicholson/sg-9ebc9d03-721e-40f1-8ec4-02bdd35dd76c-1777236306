@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * RVW-A: Client reviews surface.
  *
@@ -227,7 +227,7 @@ export default function AdminReviewsPage() {
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Average rating</p>
-              <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.avg || "—"}<span className="text-sm text-slate-500 ml-1">/5</span></p>
+              <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.avg || "-"}<span className="text-sm text-slate-500 ml-1">/5</span></p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Promoters (4-5)</p>

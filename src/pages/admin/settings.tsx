@@ -312,7 +312,7 @@ function SettingsPage() {
       dbErrorMessage = e?.message || "DB save failed.";
     }
 
-    // Update the snapshot so the dirty-tracker shows clean again --
+    // Update the snapshot so the dirty-tracker shows clean again,
     // but only when the DB write actually succeeded. Audit (May 2026,
     // Wave 8): previous code fired the green "Settings saved" toast
     // unconditionally, even when the companies update was rejected
@@ -330,7 +330,7 @@ function SettingsPage() {
   };
 
   // Beforeunload guard: warn the operator if they try to leave the page
-  // while there are unsaved edits. Standard browser confirm dialog --
+  // while there are unsaved edits. Standard browser confirm dialog;
   // text is browser-controlled, the actual prompt just relies on us
   // calling preventDefault.
   useEffect(() => {

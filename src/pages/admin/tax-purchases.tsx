@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/tax-purchases - read-only accountant overview.
  *
@@ -56,7 +56,7 @@ import {
 } from "@/services/taxPurchaseService";
 
 const fmtR = (v?: number | null) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 type WindowKind = "this_month" | "this_quarter" | "this_year" | "tax_year" | "all";
 
@@ -885,7 +885,7 @@ function LineRow({
         )}
       </td>
       <td className="py-1.5 px-2 text-slate-600 hidden sm:table-cell">
-        {it.category || "—"}
+        {it.category || "-"}
       </td>
       <td className="py-1.5 px-2 text-right tabular-nums">{fmtR(it.amount)}</td>
       <td className="py-1.5 px-2 text-center">
@@ -896,7 +896,7 @@ function LineRow({
         )}
       </td>
       <td className="py-1.5 px-2 text-right tabular-nums text-blue-700 hidden sm:table-cell">
-        {vatClaim > 0 ? fmtR(vatClaim) : <span className="text-slate-300">—</span>}
+        {vatClaim > 0 ? fmtR(vatClaim) : <span className="text-slate-300">-</span>}
       </td>
       <td className="py-1.5 pl-2 text-right">
         {/* TAX-B: per-line "Fix on Shopping" deep-link. Lands the

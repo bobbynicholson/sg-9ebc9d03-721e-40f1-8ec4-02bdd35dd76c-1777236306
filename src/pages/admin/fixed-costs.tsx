@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /admin/fixed-costs - recurring tenant costs (rent, software,
  * vehicles).
  *
@@ -913,11 +913,11 @@ function FixedCostsPage() {
                       className={`px-3 py-2 grid grid-cols-12 gap-2 ${r.error ? "bg-rose-50" : "bg-white"}`}
                     >
                       <div className="col-span-1 text-slate-500">{r.line}</div>
-                      <div className="col-span-3 truncate" title={r.label}>{r.label || <span className="text-slate-400">—</span>}</div>
-                      <div className="col-span-2 tabular-nums">{r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-slate-400">—</span>}</div>
+                      <div className="col-span-3 truncate" title={r.label}>{r.label || <span className="text-slate-400">-</span>}</div>
+                      <div className="col-span-2 tabular-nums">{r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-slate-400">-</span>}</div>
                       <div className="col-span-2">{r.cadence}</div>
-                      <div className="col-span-2 tabular-nums">{r.next_due_date || <span className="text-slate-400">—</span>}</div>
-                      <div className="col-span-2 text-slate-600">{r.category ? categoryLabel(r.category) : <span className="text-slate-400">—</span>}</div>
+                      <div className="col-span-2 tabular-nums">{r.next_due_date || <span className="text-slate-400">-</span>}</div>
+                      <div className="col-span-2 text-slate-600">{r.category ? categoryLabel(r.category) : <span className="text-slate-400">-</span>}</div>
                       {r.error && (
                         <div className="col-span-12 text-rose-700 mt-1">
                           <AlertCircle className="w-3 h-3 inline mr-1" />

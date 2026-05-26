@@ -70,14 +70,14 @@ interface AssignmentRow {
 }
 
 function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
   } catch { return iso; }
 }
 
 function fmtDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch { return iso; }
@@ -335,7 +335,7 @@ function ProviderDetail() {
                   <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Accept rate</p>
                     <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-emerald-700" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
-                      {stats.acceptRate == null ? "—" : `${stats.acceptRate}%`}
+                      {stats.acceptRate == null ? "-" : `${stats.acceptRate}%`}
                     </p>
                     <p className="text-[10px] text-slate-500 mt-1">
                       {stats.accepted} accepted / {stats.declined} declined
@@ -347,7 +347,7 @@ function ProviderDetail() {
                     <p className="text-xs text-slate-600 mb-1">Avg response</p>
                     <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">
                       {stats.avgResponseMinutes == null
-                        ? "—"
+                        ? "-"
                         : stats.avgResponseMinutes < 60
                           ? `${stats.avgResponseMinutes}m`
                           : stats.avgResponseMinutes < 1440
