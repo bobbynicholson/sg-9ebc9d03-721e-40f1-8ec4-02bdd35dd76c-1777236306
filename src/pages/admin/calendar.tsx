@@ -27,6 +27,7 @@ import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useToast } from "@/hooks/use-toast";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 
@@ -511,7 +512,7 @@ function AdminCalendar() {
     setSelectedDate(t);
   };
 
-  // - Keyboard navigation: arrows, T for today, [ ] for months ----------
+  // Keyboard navigation: arrows, T for today, [ ] for months
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -774,11 +775,11 @@ function AdminCalendar() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Event Calendar - CateringMS Admin</title></Head>
+      <Head><title>Event calendar - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -1434,7 +1435,7 @@ function AdminCalendar() {
                       {upcoming.map((e: any) => (
                         <Link
                           key={e.id}
-                          href={withSlug(`/order/${e.id}`)}
+                          href={withSlug(staffOrderHref(e.id, "admin"))}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex flex-col items-center justify-center flex-shrink-0">
@@ -1579,7 +1580,7 @@ function AdminCalendar() {
                                 >
                                   <span className="truncate">{q.client_name || "Quote"}</span>
                                   <span className="text-[11px] text-slate-500 tabular-nums shrink-0">
-                                    {q.total ? fmtMoney.format(Number(q.total)) : "—"}
+                                    {q.total ? fmtMoney.format(Number(q.total)) : "-"}
                                   </span>
                                 </Link>
                               ))}
@@ -1770,7 +1771,7 @@ function AdminCalendar() {
                               </div>
                               <div className="text-right shrink-0">
                                 <p className="text-sm font-bold text-slate-900 tabular-nums">
-                                  {q.total ? fmtMoney.format(Number(q.total)) : "—"}
+                                  {q.total ? fmtMoney.format(Number(q.total)) : "-"}
                                 </p>
                                 <p className="text-[10px] text-amber-700 font-medium flex items-center justify-end gap-0.5">
                                   Chase <ArrowRight className="w-3 h-3" />
@@ -1806,7 +1807,7 @@ function AdminCalendar() {
                     return (
                       <Link
                         key={e.id}
-                        href={withSlug(`/order/${e.id}`)}
+                        href={withSlug(staffOrderHref(e.id, "admin"))}
                         className="block"
                       >
                         <Card className={cn(
