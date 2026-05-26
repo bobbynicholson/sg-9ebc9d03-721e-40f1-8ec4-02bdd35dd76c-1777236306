@@ -38,14 +38,14 @@ export default function ShoppingReceipts() {
   return (
     <>
       <Head>
-        <title>Receipt scanner | Shopping</title>
+        <title>Receipt scanner - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
 
           <div className="mb-4">
             <Link href={`${slugPrefix}/team-portal/shopping/dashboard`}>

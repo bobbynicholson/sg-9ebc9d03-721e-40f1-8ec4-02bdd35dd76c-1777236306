@@ -14,6 +14,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalISO } from "@/lib/localDate";
@@ -121,11 +122,11 @@ export default function ShoppingKitchenDemandPage() {
 
   return (
     <>
-      <Head><title>Kitchen Demand, Shopping</title></Head>
+      <Head><title>Kitchen demand - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -302,7 +303,7 @@ export default function ShoppingKitchenDemandPage() {
                                 {d.used_by.slice(0, 3).map((u, ui) => (
                                   <Link
                                     key={`${u.order_id}-${ui}`}
-                                    href={withSlug(`/order/${u.order_id}?role=shopping_staff`)}
+                                    href={withSlug(staffOrderHref(u.order_id, "shopping_staff"))}
                                     className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-900 inline-flex items-center gap-1"
                                     title="Open this order's shopping shortfalls"
                                   >

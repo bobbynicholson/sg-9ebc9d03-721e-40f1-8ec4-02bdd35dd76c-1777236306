@@ -129,7 +129,7 @@ export default function CleaningTasksPage() {
 
   return (
     <>
-      <Head><title>Cleaning Tasks - CateringMS</title></Head>
+      <Head><title>Cleaning tasks - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">

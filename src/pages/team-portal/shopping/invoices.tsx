@@ -94,7 +94,7 @@ export default function ShoppingInvoicesPage() {
 
   return (
     <>
-      <Head><title>Shopping Receipts - CateringMS</title></Head>
+      <Head><title>Shopping receipts - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">

@@ -269,7 +269,7 @@ function CleaningDashboardInner() {
   return (
     <>
       <Head>
-        <title>Cleaning Dashboard - CateringMS</title>
+        <title>Cleaning dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
